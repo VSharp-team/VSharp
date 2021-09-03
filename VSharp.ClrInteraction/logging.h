@@ -27,6 +27,7 @@ static inline void close_log() {}
 //#define LOG(CODE) LOG_CODE(tout << "---------------- " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush();)
 //#define SLOG(CODE) LOG_CODE(CODE ; tout.flush();)
 //#define CLOG(COND, CODE) LOG_CODE(if (COND) { tout << "---------------- " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush(); })
+#define CLOG(COND, CODE) LOG_CODE(if (COND) { CODE ; tout << "\n"; tout.flush(); })
 #define ERROR(CODE) LOG_CODE(tout << "-------- [ERROR] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush();)
 #define FAIL_LOUD(x) {ERROR(tout << x); throw std::logic_error(x);}
 

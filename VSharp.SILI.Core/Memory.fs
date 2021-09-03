@@ -43,6 +43,7 @@ module internal Memory =
         delegates = PersistentDict.empty
         currentTime = [1u]
         startingTime = VectorTime.zero
+        model = None
     }
 
     let mkEmpty() = { empty with pc = PC.empty }
@@ -631,6 +632,7 @@ module internal Memory =
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat model ->
                 conditionState.pc <- elsePc
+                conditionState.model <- Some model.mdl
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
@@ -639,6 +641,7 @@ module internal Memory =
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
+                    elseState.model <- Some model.mdl
                     thenState.pc <- thenPc
                     execution thenState elseState condition k)
 
@@ -1135,6 +1138,7 @@ module internal Memory =
                     delegates = delegates
                     currentTime = currentTime
                     startingTime = state.startingTime
+                    model = state.model // TODO: compose models?
                 }
         }
 

@@ -18,6 +18,87 @@ void setProtocol(Protocol *p) {
     protocol = p;
 }
 
+
+enum EvalStackArgType {
+    OpSymbolic = 1,
+    OpI4 = 2,
+    OpI8 = 3,
+    OpR4 = 4,
+    OpR8 = 5,
+    OpRef = 6
+};
+
+struct  EvalStackOperand {
+    EvalStackArgType typ;
+    union {
+        long long number;
+        VirtualAddress address;
+    } content;
+
+    size_t size() const {
+        if (typ == OpRef)
+            return sizeof(EvalStackArgType) + sizeof(VirtualAddress);
+        return sizeof(EvalStackArgType) + sizeof(long long);
+    }
+
+    void serialize(char *&buffer) const {
+        *(EvalStackArgType *)buffer = typ;
+        buffer += sizeof(EvalStackArgType);
+        if (typ == OpRef) {
+            *(long long *)buffer = content.number;
+            buffer += sizeof(long long);
+        } else {
+            *(VirtualAddress *)buffer = content.address;
+            buffer += sizeof(VirtualAddress);
+        }
+    }
+
+    void deserialize(char *&buffer) {
+        typ = *(EvalStackArgType *)buffer;
+        buffer += sizeof(EvalStackArgType);
+        if (typ == OpRef) {
+            content.number = *(long long *)buffer;
+            buffer += sizeof(long long);
+        } else {
+            content.address = *(VirtualAddress *)buffer;
+            buffer += sizeof(VirtualAddress);
+        }
+    }
+};
+
+struct ExecCommand {
+    unsigned offset;
+    unsigned isBranch;
+    unsigned newCallStackFramesCount;
+    unsigned callStackFramesPops;
+    unsigned evaluationStackPushesCount;
+    unsigned evaluationStackPops;
+    unsigned *newCallStackFrames;
+    EvalStackOperand *evaluationStackPushes;
+    // TODO: 2misha: put here allocated and moved objects
+
+    void serialize(char *&bytes, unsigned &count) const {
+        count = 6 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount;
+        for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
+            count += evaluationStackPushes[i].size();
+        bytes = new char[count];
+        char *buffer = bytes;
+        unsigned size = sizeof(unsigned);
+        *(unsigned *)buffer = offset; buffer += size;
+        *(unsigned *)buffer = isBranch; buffer += size;
+        *(unsigned *)buffer = newCallStackFramesCount; buffer += size;
+        *(unsigned *)buffer = callStackFramesPops; buffer += size;
+        *(unsigned *)buffer = evaluationStackPushesCount; buffer += size;
+        *(unsigned *)buffer = evaluationStackPops;
+        buffer += size; size = newCallStackFramesCount * sizeof(unsigned);
+        memcpy(buffer, (char*)newCallStackFrames, size);
+        buffer += size;
+        for (unsigned i = 0; i < evaluationStackPushesCount; ++i) {
+            evaluationStackPushes->serialize(buffer);
+        }
+    }
+};
+
 void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOperand *ops, ExecCommand &command) {
     Stack &stack = icsharp::stack();
     StackFrame &top = stack.topFrame();
@@ -41,7 +122,7 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
         unsigned idx = pair.second;
         assert(idx < opsCount);
         ops[idx].typ = OpSymbolic;
-        ops[idx].content = (long long)(currentSymbs - pair.first);
+        ops[idx].content.number = (long long)(currentSymbs - pair.first);
     }
     command.evaluationStackPushesCount = opsCount;
     command.evaluationStackPops = top.evaluationStackPops();
@@ -49,30 +130,75 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     stack.resetPopsTracking();
 }
 
+bool readConcretizedSymbolics(EvalStackOperand *&ops, unsigned count) {
+    char *bytes; int messageLength;
+    if (!protocol->waitExecResult(bytes, messageLength)) {
+        return false;
+    }
+    assert(messageLength >= 4);
+    count = *((unsigned *)bytes);
+    bytes += sizeof(unsigned);
+    for (unsigned i = 0; i < count; ++i) {
+        EvalStackArgType typ = *((EvalStackArgType *)bytes);
+        bytes += sizeof(EvalStackArgType);
+        switch (typ) {
+        case OpI4:
+        case OpI8:
+        case OpR4:
+        case OpR8:
+            ops[i].content.number = *((long long *)bytes);
+            bytes += sizeof(long long);
+        case OpRef:
+            ops[i].content.address.obj = *((OBJID *)bytes);
+            bytes += sizeof(OBJID);
+            ops[i].content.address.offset = *((SIZE *)bytes);
+            bytes += sizeof(SIZE);
+        }
+    }
+    return true;
+}
+
 void freeCommand(ExecCommand &command) {
     delete[] command.newCallStackFrames;
     delete[] command.evaluationStackPushes;
 }
 
-void sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
+bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     ExecCommand command;
     initCommand(offset, false, opsCount, ops, command);
-    protocol->sendExecCommand(command);
+    protocol->sendSerializable(ExecuteCommand, command);
     freeCommand(command);
-    protocol->waitExecResult();
+    bool allConcrete = readConcretizedSymbolics(ops, opsCount);
+    if (allConcrete) {
+        StackFrame &top = icsharp::topFrame();
+        const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
+        for (unsigned i = 0; i < poppedSymbs.size(); ++i) {
+            unsigned idx = opsCount - poppedSymbs[i].second - 1;
+            assert(idx < opsCount);
+            EvalStackOperand op = ops[idx];
+            switch (op.typ) {
+            case OpI4:
+                update_i4((INT32) op.content.number, (INT8) idx);
+            case OpI8:
+                update_i8((INT64) op.content.number, (INT8) idx);
+            case OpR4:
+                update_f4((FLOAT) (INT32) op.content.number, (INT8) idx);
+            case OpR8:
+                update_f8((DOUBLE) op.content.number, (INT8) idx);
+            case OpRef:
+                // TODO: not implemented
+                INT_PTR addr = 0;
+                update_p(addr, (INT8) idx);
+            }
+        }
+    }
+    return allConcrete;
 }
 
-void sendCommand0(OFFSET offset) { sendCommand(offset, 0, nullptr); }
-void sendCommand1(OFFSET offset) { sendCommand(offset, 1, new EvalStackOperand[1]); }
+bool sendCommand0(OFFSET offset) { return sendCommand(offset, 0, nullptr); }
+bool sendCommand1(OFFSET offset) { return sendCommand(offset, 1, new EvalStackOperand[1]); }
 
-bool sendBranchCommand(OFFSET offset) {
-    ExecCommand command;
-    initCommand(offset, true, 1, new EvalStackOperand[1], command);
-    protocol->sendExecCommand(command);
-    freeCommand(command);
-    return protocol->waitExecBranchResult();
-}
-
+// TODO:
 EvalStackOperand mkop_4(INT32 op) { return {OpI4, (long long)op}; }
 EvalStackOperand mkop_8(INT64 op) { return {OpI8, (long long)op}; }
 EvalStackOperand mkop_f4(FLOAT op) { return {OpR4, (long long)op}; }
@@ -152,7 +278,7 @@ PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
 
 inline bool branch(OFFSET offset) {
     if (!topFrame().pop1())
-        return sendBranchCommand(offset);
+        return sendCommand1(offset);
     // TODO
     return true;
 }

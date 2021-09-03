@@ -16,7 +16,6 @@ type cilState =
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
-      mutable model : SolverInteraction.model option
       mutable ownedByConcolic : bool
     }
 
@@ -31,7 +30,6 @@ module internal CilStateOperations =
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
-          model = None
           ownedByConcolic = false
         }
 

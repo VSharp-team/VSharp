@@ -82,6 +82,10 @@ void mem(char *value, size_t size) {
     memcpy(data.data() + data_ptr - size, value, size);
 }
 
+void update(char *value, size_t size, INT8 idx) {
+    memcpy(data.data() + dataPtrs[idx], value, size);
+}
+
 void icsharp::mem_i1(INT8 value) {
     LOG(tout << "mem_i1 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT8));
@@ -115,6 +119,41 @@ void icsharp::mem_f8(DOUBLE value) {
 void icsharp::mem_p(INT_PTR value) {
     LOG(tout << "mem_p " << value << std::endl);
     mem((char *) &value, sizeof(INT_PTR));
+}
+
+void icsharp::update_i1(INT8 value, INT8 idx) {
+    LOG(tout << "update_i1 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(INT8), idx);
+}
+
+void icsharp::update_i2(INT16 value, INT8 idx) {
+    LOG(tout << "update_i1 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(INT16), idx);
+}
+
+void icsharp::update_i4(INT32 value, INT8 idx) {
+    LOG(tout << "update_i4 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(INT32), idx);
+}
+
+void icsharp::update_i8(INT64 value, INT8 idx) {
+    LOG(tout << "update_i8 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(INT64), idx);
+}
+
+void icsharp::update_f4(FLOAT value, INT8 idx) {
+    LOG(tout << "update_f4 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(FLOAT), idx);
+}
+
+void icsharp::update_f8(DOUBLE value, INT8 idx) {
+    LOG(tout << "update_f8 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(DOUBLE), idx);
+}
+
+void icsharp::update_p(INT_PTR value, INT8 idx) {
+    LOG(tout << "update_p " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    update((char *) &value, sizeof(INT_PTR), idx);
 }
 
 INT8 icsharp::unmem_i1(INT8 idx) {

@@ -2,6 +2,7 @@
 #define INTERVALTREE_H_
 
 #include "logging.h"
+#include <cassert>
 
 template<typename Interval, typename Shift, typename Point>
 class IntervalTree {

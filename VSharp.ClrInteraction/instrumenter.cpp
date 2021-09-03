@@ -22,6 +22,44 @@ using namespace icsharp;
 #define ELEMENT_TYPE_TOKEN ELEMENT_TYPE_U4
 #define ELEMENT_TYPE_OFFSET ELEMENT_TYPE_I4
 
+struct MethodBodyInfo {
+    unsigned token;
+    unsigned codeLength;
+    unsigned assemblyNameLength;
+    unsigned moduleNameLength;
+    unsigned maxStackSize;
+    unsigned ehsLength;
+    unsigned signatureTokensLength;
+    char *signatureTokens;
+    char16_t *assemblyName;
+    char16_t *moduleName;
+    char *bytecode;
+    char *ehs;
+
+    void serialize(char *&bytes, unsigned &count) const {
+        count = codeLength + 6 * sizeof(unsigned) + ehsLength + assemblyNameLength + moduleNameLength + signatureTokensLength;
+        bytes = new char[count];
+        char *buffer = bytes;
+        unsigned size = sizeof(unsigned);
+        *(unsigned *)buffer = token; buffer += size;
+        *(unsigned *)buffer = codeLength; buffer += size;
+        *(unsigned *)buffer = assemblyNameLength; buffer += size;
+        *(unsigned *)buffer = moduleNameLength; buffer += size;
+        *(unsigned *)buffer = maxStackSize; buffer += size;
+        *(unsigned *)buffer = signatureTokensLength;
+        buffer += size; size = signatureTokensLength;
+        memcpy(buffer, signatureTokens, size);
+        buffer += size; size = assemblyNameLength;
+        memcpy(buffer, (char*)assemblyName, size);
+        buffer += size; size = moduleNameLength;
+        memcpy(buffer, (char*)moduleName, size);
+        buffer += size; size = codeLength;
+        memcpy(buffer, bytecode, size);
+        buffer += size; size = ehsLength;
+        memcpy(buffer, ehs, size);
+    }
+};
+
 HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSignature> &tokens) {
     HRESULT hr;
     mdSignature signatureToken;
@@ -316,7 +354,7 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
         code(),
         (char*)ehs()
     };
-    if (!protocol.sendMethodBody(info)) return false;
+    if (!protocol.sendSerializable(InstrumentCommand, info)) return false;
     LOG(tout << "Successfully sent method body!");
     char *bytecode; int length; unsigned maxStackSize; char *ehs; unsigned ehsLength;
 #ifdef _DEBUG

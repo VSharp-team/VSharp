@@ -6,6 +6,7 @@ open System.IO.Pipes
 open System.Text
 open System.Runtime.InteropServices
 open VSharp
+open VSharp.Core.API
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type probes = {
@@ -316,11 +317,9 @@ type evalStackArgType =
     | OpR8 = 5
     | OpRef = 6
 
-[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
-type evalStackOperand = {
-    typ : evalStackArgType
-    content : int64 // TODO: struct?
-}
+type evalStackOperand =
+    | NumericOp of evalStackArgType * int64
+    | PointerOp of int64 * int64
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type private execCommandStatic = {
@@ -514,15 +513,33 @@ type Communicator() =
     member x.ReadExecuteCommand() =
         match readBuffer() with
         | Some bytes ->
-            let boolSize = Marshal.SizeOf typeof<bool>
             let staticSize = Marshal.SizeOf typeof<execCommandStatic>
             let staticBytes, dynamicBytes = Array.splitAt staticSize bytes
             let staticPart = x.Deserialize<execCommandStatic> staticBytes
-            let evaluationStackEntrySize = Marshal.SizeOf typeof<evalStackOperand>
             let callStackEntrySize = Marshal.SizeOf typeof<int32>
             let callStackOffset = (int staticPart.newCallStackFramesCount) * callStackEntrySize
             let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i -> BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
-            let evaluationStackPushes = Array.init (int staticPart.evaluationStackPushesCount) (fun i -> x.Deserialize<evalStackOperand>(dynamicBytes, callStackOffset + i * evaluationStackEntrySize))
+            let mutable i = callStackOffset
+            let evaluationStackPushes = Array.init (int staticPart.evaluationStackPushesCount) (fun _ ->
+                let evalStackArgTypeNum = BitConverter.ToInt32(dynamicBytes, i)
+                i <- i + sizeof<int32>
+                let evalStackArgType = LanguagePrimitives.EnumOfValue evalStackArgTypeNum
+                match evalStackArgType with
+                | evalStackArgType.OpRef ->
+                    let baseAddr = BitConverter.ToInt64(dynamicBytes, i)
+                    i <- i + sizeof<int64>
+                    let offset = BitConverter.ToInt64(dynamicBytes, i)
+                    i <- i + sizeof<int64>
+                    PointerOp(baseAddr, offset)
+                | evalStackArgType.OpSymbolic
+                | evalStackArgType.OpI4
+                | evalStackArgType.OpI8
+                | evalStackArgType.OpR4
+                | evalStackArgType.OpR8 ->
+                    let content = BitConverter.ToInt64(dynamicBytes, i)
+                    i <- i + sizeof<int64>
+                    NumericOp(evalStackArgType, content)
+                | _ -> __unreachable__())
             { offset = staticPart.offset
               isBranch = staticPart.isBranch
               callStackFramesPops = staticPart.callStackFramesPops
@@ -531,11 +548,35 @@ type Communicator() =
               evaluationStackPushes =  evaluationStackPushes }
         | None -> unexpectedlyTerminated()
 
-    member x.SendExecConfirmation() =
-        writeBuffer [|1uy|]
-
-    member x.SendBranch (branch : bool) =
-        writeBuffer [|if branch then 1uy else 0uy|]
+    member x.SendExecResponse = function
+        | Some ops ->
+            let count = ops |> List.sumBy (fun (_, typ) ->
+                if Types.IsValueType typ then sizeof<int> + sizeof<int64>
+                else sizeof<int> + 2 * sizeof<int64>)
+            let bytes = Array.zeroCreate (count + sizeof<int>)
+            let success = BitConverter.TryWriteBytes(Span(bytes, 0, sizeof<int>), ops.Length) in assert success
+            let mutable index = sizeof<int>
+            ops |> List.iter (fun (obj, typ) ->
+                if Types.IsValueType typ then
+                    let opType, (content : int64) =
+                        if Types.IsInteger typ then
+                            if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8, unbox obj
+                            else evalStackArgType.OpI4, (unbox obj |> int64)
+                        elif Types.IsReal typ then
+                            if Types.SizeOf typ = sizeof<double> then evalStackArgType.OpR8, (unbox obj |> int64)
+                            else evalStackArgType.OpR4, (unbox obj |> int64)
+                        else
+                            // TODO: support structs
+                            __notImplemented__()
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue opType) in assert success
+                    index <- index + sizeof<int>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), content) in assert success
+                    index <- index + sizeof<int64>
+                else
+                    __notImplemented__())
+            writeBuffer bytes
+        | None ->
+            writeBuffer [|0uy|]
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
         x.SendCommand ReadMethodBody

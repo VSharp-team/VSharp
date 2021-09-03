@@ -96,28 +96,30 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
         Array.iter (initFrame state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) state.evaluationStack |> snd
         let mutable maxIndex = 0
-        let newEntries = c.evaluationStackPushes |> Array.map (fun op ->
-            match op.typ with
-            | evalStackArgType.OpSymbolic ->
-                let idx = int op.content
-                maxIndex <- max maxIndex idx
-                EvaluationStack.GetItem (idx - 1) state.evaluationStack
-            | evalStackArgType.OpI4 ->
-                Concrete (int op.content) TypeUtils.int32Type
-            | evalStackArgType.OpI8 ->
-                Concrete op.content TypeUtils.int32Type
-            | evalStackArgType.OpR4 ->
-                Concrete (BitConverter.Int32BitsToSingle (int op.content)) TypeUtils.float32Type
-            | evalStackArgType.OpR8 ->
-                Concrete (BitConverter.Int64BitsToDouble op.content) TypeUtils.float64Type
-            | evalStackArgType.OpRef ->
-                // TODO: 2misha: parse object ref here
-                __notImplemented__()
-            | _ -> __unreachable__())
-        let evalStack = EvaluationStack.PopMany maxIndex evalStack |> snd
+        let newEntries = c.evaluationStackPushes |> Array.map (function
+            | NumericOp(evalStackArgType, content) ->
+                match evalStackArgType with
+                | evalStackArgType.OpSymbolic ->
+                    let idx = int content
+                    maxIndex <- max maxIndex idx
+                    EvaluationStack.GetItem (idx - 1) state.evaluationStack
+                | evalStackArgType.OpI4 ->
+                    Concrete (int content) TypeUtils.int32Type
+                | evalStackArgType.OpI8 ->
+                    Concrete content TypeUtils.int32Type
+                | evalStackArgType.OpR4 ->
+                    Concrete (BitConverter.Int32BitsToSingle (int content)) TypeUtils.float32Type
+                | evalStackArgType.OpR8 ->
+                    Concrete (BitConverter.Int64BitsToDouble content) TypeUtils.float64Type
+                | _ -> __unreachable__()
+            | PointerOp(baseAddress, offset) ->
+                    // TODO: 2misha: parse object ref here
+                    __notImplemented__())
+        let poppedSymbolics, evalStack = EvaluationStack.PopMany maxIndex evalStack
         let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
         state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]
+        poppedSymbolics
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
@@ -134,14 +136,20 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             true
         | ExecuteInstruction c ->
             Logger.trace "Got execute instruction command!"
-            x.SynchronizeStates c
-            let steppedStates = interpreter.StepInstruction cilState
-//            if c.isBranch = 0u then
-//                x.communicator.SendExecConfirmation()
-//                x.communicator.SendBranch b
-
-            __notImplemented__()
+            let poppedSymbolics = x.SynchronizeStates c
             // TODO: schedule it into interpreter, send back response
+            let steppedStates = interpreter.StepInstruction cilState
+            let concretizedOps = steppedStates |> List.tryPick (fun cilState ->
+                match cilState.state.model with
+                | None -> None
+                | Some model ->
+                    let mutable allConcrete = true
+                    let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
+                        match model.Eval term with
+                        | {term = Concrete(obj, typ)} -> (obj, typ)
+                        | _ -> allConcrete <- false; (null, Null))
+                    if allConcrete then Some concretizedSymbolics else None)
+            x.communicator.SendExecResponse concretizedOps
             true
         | Terminate ->
             Logger.trace "Got terminate command!"

@@ -86,7 +86,20 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
-and
+type model =
+    internal { subst : System.Collections.Generic.IDictionary<ISymbolicConstantSource, term> }
+with
+    static member ofDict d = { subst = d }
+    member x.Eval term =
+        Substitution.substitute (fun term ->
+            match term with
+            | { term = Constant(_, source, _) } ->
+                let value = ref Nop
+                if x.subst.TryGetValue(source, value) then !value
+                else term
+            | _ -> term) id id term
+
+type
     [<ReferenceEquality>]
     state = {
     mutable pc : pathCondition
@@ -108,4 +121,5 @@ and
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
     mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+    mutable model : model option
 }
