@@ -6,7 +6,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class ExceptionsControlFlow
     {
-        [TestSvm(new []{0x8, 0x11, 0x13, 0x19, 0x1B, 0x1D, 0x1F, 0x28, 0x2A, 0x30})]
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static int TestWithHandlers(int x, int y) {
             //A[] array = new A[15];
             int addition = 1;

@@ -84,6 +84,11 @@ module internal Pointers =
                 | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
                     let addressEq = comparePointerBase address1 address2
                     addressEq &&& simplifyEqual shift1 shift2 id |> k
+                | Concrete(:? int as i, _), Ptr(HeapLocation address, _, shift)
+                | Ptr(HeapLocation address, _, shift), Concrete(:? int as i, _) when i = 0 ->
+                    simplifyEqual address zeroAddress id &&& simplifyEqual shift (makeNumber 0) id |> k
+                | Concrete(:? int as i, _), HeapRef(address, _)
+                | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address zeroAddress k
                 | Ref _, Ptr _
                 | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
                 | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
@@ -95,20 +100,15 @@ module internal Pointers =
 
 // -------------------------- Address arithmetic --------------------------
 
-    let private addNumberToPtr ptr number k =
-        let bytesToShift ptr =
-            (assert isPtr ptr)
-            sizeOfUnderlyingPointerType ptr |> mul number
+    // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
+    let private addNumberToPtr ptr bytesToShift k =
         match ptr.term with
-        | _ when number = makeNumber 0 -> k ptr
-        // TODO: transform ptr to safe ref after shift if it's possible #do
-        // TODO: mb move pointer arithmetic over memory? #do
-        | Ptr _ -> shift ptr (bytesToShift ptr) |> k
-        // TODO: tying to use ref instead of ptr if it's possible (if shift moved ref to managed element) #do
+        | _ when bytesToShift = makeNumber 0 -> k ptr
+        | Ptr _ -> shift ptr bytesToShift |> k
         | Ref address ->
             let typ = typeOfAddress address
             let ptr = makePointerFromAddress address typ
-            shift ptr (bytesToShift ptr) |> k
+            shift ptr bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
 
     let rec private commonPointerAddition ptr number k = // y must be normalized by Arithmetics!

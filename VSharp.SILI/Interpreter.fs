@@ -44,6 +44,7 @@ type public MethodInterpreter(maxBound, forwardSearcher : IForwardSearcher (*ilI
         | _ -> validStates
 
     member x.Interpret (main : MethodBase) (initialState : cilState) =
+        // TODO: we have already initialized state before, second initialization in forwardSearcher.Init #do
         forwardSearcher.Init main Seq.empty
         while forwardSearcher.ShouldWork() do
             let s = forwardSearcher.Pick()
@@ -1264,6 +1265,8 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
                 let newErrors, restStates = List.partition isError allStates
                 let errors = errors @ newErrors // TODO: check it
                 let newIieStates, goodStates = List.partition isIIEState restStates
+                // TODO: do better #do #Dima
+//                let finishedStates, goodStates = List.partition (fun cilState -> List.isEmpty cilState.ipStack) goodStates
                 let incompleteStates = newIieStates @ incompleteStates
                 match goodStates with
                 | _ when List.forall (currentIp >> condition) goodStates ->
@@ -1291,14 +1294,16 @@ and public ILInterpreter(methodInterpreter : ExplorerBase) as this =
 
     member x.MakeStep (cilState : cilState) =
         cilState.stepsNumber <- cilState.stepsNumber + 1u
+        let oneState k = k List.empty
         let exit m =
             x.DecrementMethodLevel cilState m
             Logger.printLogLazy Logger.Info "Done with method %s" (lazy Reflection.getFullMethodName m)
             match cilState.ipStack with
             // the whole method is executed
-            | [ Exit _ ] when startsFromMethodBeginning cilState ->
-                setCurrentTime [] cilState
-                popFrameOf cilState
+            // TODO: [uncommet this and change isExecutable = when [] -> false] or [chill] #do #Dima
+//            | [ Exit _ ] when startsFromMethodBeginning cilState ->
+//                setCurrentTime [] cilState
+//                popFrameOf cilState
             // some part of method is executed
             | [ Exit _ ] -> ()
             | Exit m :: ips' when Reflection.isStaticConstructor m ->

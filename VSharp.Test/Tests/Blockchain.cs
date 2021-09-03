@@ -83,7 +83,7 @@ namespace VSharp.Test.Tests
     public class Blockchain
     {
         // TODO: add this test after concolic will be implemented
-        [Ignore("need deep copy or concolic")]
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static long test(long time)
         {
             var miner = new BlockMiner();

@@ -189,24 +189,31 @@ namespace VSharp.Test
                 _unreachableLocations = unreachableLocations;
             }
 
+            private TestExecutionContext HandleResult(MethodInfo methodInfo, TestExecutionContext context, string testResult)
+            {
+                var idealValue = new IdealValuesHandler(methodInfo);
+
+                if (string.Equals(idealValue.ExpectedValue, testResult))
+                {
+                    context.CurrentResult.SetResult(ResultState.Success);
+                }
+                else
+                {
+                    idealValue.CreateTemporaryIdealFile(testResult);
+                    var diff = idealValue.DiffOfGotAndIdealValues(testResult);
+                    context.CurrentResult.SetResult(ResultState.Failure, diff);
+                }
+
+                return context;
+            }
+
             private TestResult Explore(TestExecutionContext context)
             {
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
-                var idealValue = new IdealValuesHandler(methodInfo);
                 try
                 {
                     var gotValue = _svm.ExploreOne(methodInfo).Trim();
-
-                    if (string.Equals(idealValue.ExpectedValue, gotValue))
-                    {
-                        context.CurrentResult.SetResult(ResultState.Success);
-                    }
-                    else
-                    {
-                        idealValue.CreateTemporaryIdealFile(gotValue);
-                        var diff = idealValue.DiffOfGotAndIdealValues(gotValue);
-                        context.CurrentResult.SetResult(ResultState.Failure, diff);
-                    }
+                    context = HandleResult(methodInfo, context, gotValue);
                 }
                 catch (Exception e)
                 {
@@ -217,14 +224,14 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private bool AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
+            private (bool, string) AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
                 , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
             {
                 var stopWatch = new Stopwatch();
                 stopWatch.Start();
                 var svm = new SVM(new PobsInterpreter(searcher));
                 var list = expectedResults.Keys.ToList();
-                var dict = svm.AnswerPobs(entryMethod, list);
+                var (dict, testResult) = svm.AnswerPobs(entryMethod, list);
                 stopWatch.Stop();
 
                 Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
@@ -252,13 +259,13 @@ namespace VSharp.Test
                     res &= matches;
                 }
 
-                return res;
+                return (res, testResult);
                 // return context.CurrentResult;
             }
 
             public override TestResult Execute(TestExecutionContext context)
             {
-                // return Explore(context);
+                return Explore(context);
                 var entryMethod = innerCommand.Test.Method.MethodInfo;
                 var cfg = CFG.findCfg(entryMethod);
                 var codeLocations = new Dictionary<codeLocation, PobsSetup.DesiredStatus>();
@@ -282,18 +289,22 @@ namespace VSharp.Test
 
                 // var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
                 _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
-                bool res = true;
+                // bool res = true;
 
                 try
                 {
-
-                    foreach (var s in _searchers)
-                    {
-                        res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
-                    }
+                    Debug.Assert(_searchers.Length == 1);
+                    var searcher = _searchers[0];
+                    var (res, testResult) = AnswerPobs(entryMethod, searcher, codeLocations, _maxBound);
+                    // foreach (var s in _searchers)
+                    // {
+                    //     res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
+                    // }
                     // PrintStats();
 
-                    context.CurrentResult.SetResult(res ? ResultState.Success : ResultState.Failure);
+                    if (res)
+                        context = HandleResult(entryMethod, context, testResult);
+                    else context.CurrentResult.SetResult(ResultState.Failure);
                     return context.CurrentResult;
                 }
                 catch (Exception e)

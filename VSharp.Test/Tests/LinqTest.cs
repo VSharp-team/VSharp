@@ -144,7 +144,7 @@ namespace VSharp.Test.Tests
         }
 
         // TODO: add this test after concolic will be implemented
-        [Ignore("need deep copy or concolic")]
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static string HardSymbolicLinqTest(int x, int y, int z, int f, int g)
         {
             var customers = new List<Customer>

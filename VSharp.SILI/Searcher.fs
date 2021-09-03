@@ -78,15 +78,21 @@ type ForwardSearcher(maxBound) =
     let finished = List<cilState>()
     let violatesLevel (s : cilState) =
         levelToUnsignedInt s.level > maxBound
+    let isStopped s = isIIEState s || isError s || not(isExecutable(s)) || violatesLevel s
     let add (s : cilState) =
-        if isIIEState s || isError s || not(isExecutable(s)) || violatesLevel s then finished.Add(s)
-        else forPropagation.Add(s)
+        if isStopped s then
+            if finished.Contains(s) |> not then
+                finished.Add(s)
+        else
+            if forPropagation.Contains(s) |> not then
+                forPropagation.Add(s)
     interface IResettableSearcher with
         override x.ShouldWork () = forPropagation.Count > 0
         override x.Init m _ =
             let initial = ExplorerBase.FormInitialStateWithoutStatics m
             let initial = makeInitialState m initial
-            forPropagation.Add initial
+            if forPropagation.Contains(initial) |> not then
+                forPropagation.Add initial
         override x.Reset() =
             forPropagation.Clear()
             finished.Clear()
@@ -96,9 +102,10 @@ type ForwardSearcher(maxBound) =
         override x.FinishedStates () = seq finished
         override x.Pick() = x.Choose(forPropagation)
         override x.Update parent newStates =
-            if isIIEState parent || isError parent || not(isExecutable(parent)) || violatesLevel parent then
+            if isStopped parent then
                 forPropagation.Remove(parent) |> ignore
-                finished.Add(parent)
+                if finished.Contains(parent) |> not then
+                    finished.Add(parent)
             Seq.iter add newStates
 //            match bq with
 //            | Seq.Cons(ps, _) -> GoBackward ps

@@ -23,7 +23,7 @@ module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
 
-    let private empty = {
+    let makeEmpty() = {
         pc = PC.empty
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException
@@ -45,8 +45,6 @@ module internal Memory =
         startingTime = VectorTime.zero
         model = None
     }
-
-    let mkEmpty() = { empty with pc = PC.empty }
 
     let copy state newPc =
         { state with pc = newPc }
@@ -606,14 +604,17 @@ module internal Memory =
 
     let private readArrayUnsafe state address arrayType offset sightType =
         let window = sizeOf sightType
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
         let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
         let concreteElementSize = sizeOf elementType
-        // NOTE: if offset > 0 then one more element is needed
-        // TODO: if it's last element? #do
-        let countToRead = (window / concreteElementSize) + 1
         let elementSize = makeNumber concreteElementSize
         let firstElement = div offset elementSize
         let elementOffset = rem offset elementSize
+        let countToRead =
+            match elementOffset.term with
+            | Concrete(:? int as i, _) when i = 0 -> (window / concreteElementSize)
+            // NOTE: if offset inside element > 0 then one more element is needed
+            | _ -> (window / concreteElementSize) + 1
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
         let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
         let readElement offset i =
@@ -622,7 +623,7 @@ module internal Memory =
             let element = readArrayIndex state address indices arrayType
             readTermUnsafe element offset window
         let firstElementSlices = readElement elementOffset 0
-        let restSlices = List.map (readElement (makeNumber 0)) [1 .. countToRead]
+        let restSlices = List.map (readElement (makeNumber 0)) [1 .. countToRead - 1]
         let slices = firstElementSlices :: restSlices |> List.concat
         combine slices sightType
 

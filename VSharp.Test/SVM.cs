@@ -211,10 +211,13 @@ namespace VSharp.Test
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
         }
 
-        public IDictionary<codeLocation, string> AnswerPobs(MethodInfo m, List<codeLocation> locs)
+        public (IDictionary<codeLocation, string>, string) AnswerPobs(MethodInfo m, List<codeLocation> locs)
         {
-            var id = FSharpFunc<IDictionary<codeLocation, string>, IDictionary<codeLocation, string>>.FromConverter(x => x);
-            return _explorer.AnswerPobs(m, locs, id);
+            var (dict, results) = _explorer.AnswerPobs(m, locs);
+            var summaries = TestCodeLocationSummaries.WithSummaries(results);
+            var result = ResultToString(summaries);
+
+            return (dict, result);
         }
 
         // public void PrintPobsStatistics(MethodInfo m, codeLocation[] locs)

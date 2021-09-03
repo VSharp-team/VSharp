@@ -59,7 +59,7 @@ namespace VSharp.Test
 
             var stopWatch = new Stopwatch();
             stopWatch.Start();
-            var dict = svm.AnswerPobs(entry, codeLocations);
+            var (dict, testResult) = svm.AnswerPobs(entry, codeLocations);
             stopWatch.Stop();
 
             Console.WriteLine($"Searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");

@@ -160,7 +160,7 @@ type termNode =
             | Ptr(address, typ, shift) ->
                 let offset = ", offset = " + shift.ToString()
                 sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
-            | Slice(term, offset) -> sprintf "Slice(%O, %O)" term offset
+            | Slice(term, offset) -> sprintf "Slice(%O, %O)" term offset |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
@@ -481,7 +481,14 @@ module internal Terms =
     let rec primitiveCast term targetType =
         match term.term, targetType with
         | _ when typeOf term = targetType -> term
-        | _, Pointer typ when typeOf term |> Types.isNumeric -> Ptr (HeapLocation zeroAddress) typ term
+        // TODO: need this cases? #do
+//        | Concrete(:? int as i, Numeric _), Pointer typ when i = 0 -> Ptr (HeapLocation zeroAddress) typ term
+//        | Concrete(:? int as i, Numeric _), ByRef _ when i = 0 -> nullRef
+//        | _, Pointer _ when typeOf term |> Types.isNumeric ->
+//            internalfailf "Casting nonzero number to pointer type %O" targetType
+        // NOTE: Lazy: not casting numbers to ref or ptr until deref
+        | _, Pointer _
+        | _, ByRef _ -> term
         | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _

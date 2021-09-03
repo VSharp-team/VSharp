@@ -133,24 +133,28 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) as this =
 
     override x.Invoke _ _ _ = __notImplemented__()
 
-    override x.AnswerPobs entryMethod codeLocations k =
-        let k x = searcher.Reset(); k x
+    override x.AnswerPobs entryMethod codeLocations =
         let mainPobs =
             codeLocations
             |> Seq.filter (fun loc -> loc.method.GetMethodBody().GetILAsByteArray().Length > loc.offset)
             |> Seq.map (fun (loc : codeLocation) -> {loc = loc; lvl = infty; pc = EmptyPathCondition})
         searcher.Init entryMethod mainPobs
         x.BidirectionalSymbolicExecution (Instruction(0x0, entryMethod)) mainPobs
+        let mutable testResults = Seq.empty<codeLocationSummary>
         let addLocationStatus (d : Dictionary<codeLocation, string>) (pob : pob, status : pobStatus) =
             let result =
                 match status with
-                | Witnessed _ -> "Witnessed"
+                | Witnessed cilState ->
+                    // TODO: check that it's exit of method #do
+                    if cilState.ipStack = [Exit entryMethod] then
+                        testResults <- Seq.cons {cilState = cilState} testResults
+                    "Witnessed"
                 | status -> status.ToString()
             d.Add(pob.loc, result)
-
         let result = Dictionary<codeLocation, string>()
         Seq.iter (addLocationStatus result) (searcher.Statuses())
-        k result
+        searcher.Reset()
+        (result :> IDictionary<codeLocation, string>), testResults
 
     override x.StepInstruction state =
         // TODO: schedule instruction, send response after its execution to client machine.

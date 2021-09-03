@@ -122,6 +122,8 @@ module internal TypeCasting =
         | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
+        | Ptr(HeapLocation address, _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
+        | Ptr _, ByRef _ -> internalfailf "Casting nonnull ptr to ByRef type %O" targetType
         | Ref _, ByRef _ -> term
         | Ref address, Pointer typ' -> Pointers.makePointerFromAddress address typ'
         | Ref _, _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!

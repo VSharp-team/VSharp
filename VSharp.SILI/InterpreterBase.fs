@@ -206,7 +206,6 @@ type public ExplorerBase() =
         let cilState = makeInitialState method state
         x.InitializeStatics cilState method.DeclaringType List.singleton
 
-
     abstract CreateException : Type -> term list -> cilState -> unit
     default x.CreateException exceptionType arguments cilState =
         assert (not <| exceptionType.IsValueType)
@@ -288,8 +287,8 @@ type public ExplorerBase() =
 //            List.iter (dump >> (Logger.trace "ExploreAndCompose: Result after composition %s")) resultStates
             resultStates) >> List.ofSeq >> List.concat >> k)
 
-    abstract member AnswerPobs : MethodBase -> codeLocation seq -> (IDictionary<codeLocation, string> -> 'a) -> 'a
-    default x.AnswerPobs _ _ _ = __notImplemented__()
+    abstract member AnswerPobs : MethodBase -> codeLocation seq -> IDictionary<codeLocation, string> * codeLocationSummary seq
+    default x.AnswerPobs _ _ = __notImplemented__()
     abstract member Invoke : MethodBase -> cilState -> (cilState list -> 'a) -> 'a
 
     abstract member StepInstruction : cilState -> cilState list

@@ -82,7 +82,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             backward.Reset()
             targeted.Reset()
 
-
+// TODO: check state duplicates #do
 type BackwardSearcher() =
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()

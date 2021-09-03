@@ -56,18 +56,8 @@ module API =
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        let MakeIntPtr value =
-            match value.term with
-            // Case for references
-            | Ref _ -> value
-            // Case for numerics, that need to be converted to IntPtr (native int)
-            | Concrete(_, Numeric _) ->
-            // assert(v :?> int = 0) // localloc takes size as native int
-                Ptr (HeapLocation zeroAddress) Void value
-            // Case for native int
-            | Ptr _ -> value
-            | _ -> __unreachable__()
-
+        // NOTE: Ref, Ptr, and nonzero numbers
+        let MakeIntPtr (value : term) = value
         // NOTE: returns type of value
         let TypeOf term = typeOf term
         // NOTE: returns type of location, referenced by 'ref'
@@ -201,7 +191,7 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = Memory.mkEmpty()
+        let EmptyState() = Memory.makeEmpty()
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state

@@ -299,12 +299,22 @@ module internal Types =
         | ArrayType _, ClassType(Id obj, _) -> obj = typedefof<obj> |> certainK
         | Numeric (Id t), Numeric (Id enum)
         | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && enum.GetEnumUnderlyingType() = t -> certainK true
-        | Pointer _, Pointer _ -> certainK true
+        // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
+        // NOTE: Numeric zero may may be treated as ref or ptr
+        | Numeric _, Pointer _
+        | Pointer _, Numeric _
+        | Pointer _, Pointer _
+        | Numeric _, ByRef _
+        | ByRef _, Numeric _ -> certainK true
         | ByRef t1, ByRef t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
         // NOTE: *void cannot be used for read, so we can store refs there
         | ByRef _, Pointer Void -> certainK true
         // NOTE: need subtype relation between 't1' and 't2', because while read by this pointer we should read type 't2'
         | ByRef t1, Pointer t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
+        // NOTE: void* can be stored in pinned references (fixed managed pointers)
+        | Pointer Void, ByRef _ -> certainK true
+        // NOTE: pointers can be stored in pinned references (fixed managed pointers)
+        | Pointer t1, ByRef t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
         | ArrayType _, ArrayType(_, SymbolicDimension) -> certainK true
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK else certainK false

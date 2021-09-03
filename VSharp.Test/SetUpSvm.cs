@@ -32,9 +32,9 @@ namespace VSharp.Test
             var backward = new BackwardSearcher();
             var targeted = new TargetedSearcher.DummyTargetedSearcher();
             var bidirectional = new BidirectionalSearcher(forward, backward, targeted);
-            var svm = new SVM(new PobsInterpreter(bidirectional));
+            // var svm = new SVM(new PobsInterpreter(bidirectional));
             // var svm = new SVM(new PobsInterpreter(new TargetedSearcher(bound)));
-            // var svm = new SVM(new MethodInterpreter(maxBound, new DFSSearcher()));
+            var svm = new SVM(new MethodInterpreter(maxBound, new DFSSearcher(maxBound)));
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
             var searchers = new IBidirectionalSearcher[] {

@@ -42,6 +42,8 @@ module internal CilStateOperations =
 
     let isExecutable (s : cilState) =
         match s.ipStack with
+        // TODO: do better #do #Dima
+//        | [] -> false
         | [] -> __unreachable__()
         | Exit _ :: [] -> false
         | _ -> true
@@ -143,6 +145,7 @@ module internal CilStateOperations =
     let clearEvaluationStackLastFrame (cilState : cilState) =
         cilState.state.evaluationStack <- EvaluationStack.ClearActiveFrame cilState.state.evaluationStack
 
+    // TODO: Not mutable -- copies cilState #do
     let changeState (cilState : cilState) state =
         if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
         else {cilState with state = state}
