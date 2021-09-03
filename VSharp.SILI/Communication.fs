@@ -548,14 +548,28 @@ type Communicator() =
               evaluationStackPushes =  evaluationStackPushes }
         | None -> unexpectedlyTerminated()
 
-    member x.SendExecResponse = function
+    member x.SendExecResponse ops lastPush =
+        match ops with
         | Some ops ->
             let count = ops |> List.sumBy (fun (_, typ) ->
                 if Types.IsValueType typ then sizeof<int> + sizeof<int64>
                 else sizeof<int> + 2 * sizeof<int64>)
+            let mutable index = 0
+            let count =
+                match lastPush with
+                | Some _ -> count + 2
+                | None -> count + 1
             let bytes = Array.zeroCreate (count + sizeof<int>)
+            match lastPush with
+            | Some concreteness ->
+                index <- 2
+                bytes.[0] <- 1uy
+                bytes.[1] <- if concreteness then 1uy else 0uy
+            | None ->
+                index <- 1
+                bytes.[0] <- 0uy
             let success = BitConverter.TryWriteBytes(Span(bytes, 0, sizeof<int>), ops.Length) in assert success
-            let mutable index = sizeof<int>
+            index <- index + sizeof<int>
             ops |> List.iter (fun (obj, typ) ->
                 if Types.IsValueType typ then
                     let opType, (content : int64) =
@@ -576,7 +590,11 @@ type Communicator() =
                     __notImplemented__())
             writeBuffer bytes
         | None ->
-            writeBuffer [|0uy|]
+            match lastPush with
+            | Some concreteness ->
+                writeBuffer [|1uy; if concreteness then 1uy else 0uy|]
+            | None ->
+                writeBuffer [|0uy|]
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
         x.SendCommand ReadMethodBody

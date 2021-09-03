@@ -117,6 +117,7 @@ bool StackFrame::pop(unsigned count)
         unsigned cell = m_concreteness[i - 1];
         if (cell != CONCRETE) {
             --m_symbolsCount;
+            LOG(tout << "m_symbolsCount: " << m_symbolsCount);
             m_lastPoppedSymbolics.push_back(std::make_pair(cell, m_concretenessTop + count - i));
         }
     }
@@ -128,13 +129,6 @@ void StackFrame::pop1Async()
     pop1();
     if (m_minSymbsCountSinceLastSent > m_symbolsCount)
         m_minSymbsCountSinceLastSent = m_symbolsCount;
-}
-
-bool StackFrame::pop2Push1()
-{
-    bool result = pop(2);
-    push1(result);
-    return result;
 }
 
 bool StackFrame::arg(unsigned index) const

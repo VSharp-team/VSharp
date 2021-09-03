@@ -28,7 +28,7 @@ enum EvalStackArgType {
     OpRef = 6
 };
 
-struct  EvalStackOperand {
+struct EvalStackOperand {
     EvalStackArgType typ;
     union {
         long long number;
@@ -45,11 +45,11 @@ struct  EvalStackOperand {
         *(EvalStackArgType *)buffer = typ;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            *(long long *)buffer = content.number;
-            buffer += sizeof(long long);
-        } else {
             *(VirtualAddress *)buffer = content.address;
             buffer += sizeof(VirtualAddress);
+        } else {
+            *(long long *)buffer = content.number;
+            buffer += sizeof(long long);
         }
     }
 
@@ -57,11 +57,11 @@ struct  EvalStackOperand {
         typ = *(EvalStackArgType *)buffer;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            content.number = *(long long *)buffer;
-            buffer += sizeof(long long);
-        } else {
             content.address = *(VirtualAddress *)buffer;
             buffer += sizeof(VirtualAddress);
+        } else {
+            content.number = *(long long *)buffer;
+            buffer += sizeof(long long);
         }
     }
 };
@@ -94,7 +94,7 @@ struct ExecCommand {
         memcpy(buffer, (char*)newCallStackFrames, size);
         buffer += size;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i) {
-            evaluationStackPushes->serialize(buffer);
+            evaluationStackPushes[i].serialize(buffer);
         }
     }
 };
@@ -130,29 +130,27 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     stack.resetPopsTracking();
 }
 
-bool readConcretizedSymbolics(EvalStackOperand *&ops, unsigned count) {
+bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned count) {
     char *bytes; int messageLength;
     if (!protocol->waitExecResult(bytes, messageLength)) {
         return false;
     }
-    assert(messageLength >= 4);
-    count = *((unsigned *)bytes);
-    bytes += sizeof(unsigned);
-    for (unsigned i = 0; i < count; ++i) {
-        EvalStackArgType typ = *((EvalStackArgType *)bytes);
-        bytes += sizeof(EvalStackArgType);
-        switch (typ) {
-        case OpI4:
-        case OpI8:
-        case OpR4:
-        case OpR8:
-            ops[i].content.number = *((long long *)bytes);
-            bytes += sizeof(long long);
-        case OpRef:
-            ops[i].content.address.obj = *((OBJID *)bytes);
-            bytes += sizeof(OBJID);
-            ops[i].content.address.offset = *((SIZE *)bytes);
-            bytes += sizeof(SIZE);
+    LOG(tout << "messageLength: " << messageLength);
+    assert(messageLength >= 2);
+    bool returnsValue = bytes[0] > 0;
+    if (returnsValue) {
+        top.push1(bytes[1] > 0);
+        bytes += 2;
+    } else {
+        bytes += 1;
+    }
+
+    if (messageLength > 2) {
+        assert(messageLength >= 6);
+        count = *((unsigned *)bytes);
+        bytes += sizeof(unsigned);
+        for (unsigned i = 0; i < count; ++i) {
+            ops[i].deserialize(bytes);
         }
     }
     return true;
@@ -168,9 +166,9 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
     freeCommand(command);
-    bool allConcrete = readConcretizedSymbolics(ops, opsCount);
+    StackFrame &top = icsharp::topFrame();
+    bool allConcrete = readConcretizedSymbolics(top, ops, opsCount);
     if (allConcrete) {
-        StackFrame &top = icsharp::topFrame();
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (unsigned i = 0; i < poppedSymbs.size(); ++i) {
             unsigned idx = opsCount - poppedSymbs[i].second - 1;
@@ -223,7 +221,9 @@ inline bool ldarg(INT16 idx) {
     StackFrame &top = icsharp::topFrame();
     top.pop0();
     bool concreteness = top.arg(idx);
-    top.push1(concreteness);
+    if (concreteness) {
+        top.push1Concrete();
+    }
     return concreteness;
 }
 PROBE(void, Track_Ldarg_0, (OFFSET offset)) { if (!ldarg(0)) sendCommand0(offset); }
@@ -238,7 +238,9 @@ inline bool ldloc(INT16 idx) {
     StackFrame &top = icsharp::topFrame();
     top.pop0();
     bool concreteness = top.loc(idx);
-    top.push1(concreteness);
+    if (concreteness) {
+        top.push1Concrete();
+    }
     return concreteness;
 }
 PROBE(void, Track_Ldloc_0, (OFFSET offset)) { if (!ldloc(0)) sendCommand0(offset); }
@@ -293,11 +295,17 @@ PROBE(void, Switch, (OFFSET offset)) {
 PROBE(void, Track_UnOp, (UINT16 op, OFFSET offset)) {
     StackFrame &top = icsharp::topFrame();
     bool concreteness = top.pop1();
-    if (!concreteness)
+    if (concreteness)
+        top.push1Concrete();
+    else
         sendCommand1(offset);
-    top.push1(concreteness);
 }
-PROBE(COND, Track_BinOp, ()) { return topFrame().pop2Push1(); }
+PROBE(COND, Track_BinOp, ()) {
+    StackFrame &top = icsharp::topFrame();
+    bool concreteness = top.pop(2);
+    if (concreteness)
+        top.push1Concrete();
+    return concreteness; }
 // TODO: do we need op?
 PROBE(void, Exec_BinOp_4, (UINT16 op, INT32 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_4(arg2) }); }
 PROBE(void, Exec_BinOp_8, (UINT16 op, INT64 arg1, INT64 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_8(arg1), mkop_8(arg2) }); }
@@ -329,9 +337,10 @@ PROBE(void, Exec_Stind_ref, (INT_PTR ptr, INT_PTR value, OFFSET offset)) { sendC
 inline void conv(OFFSET offset) {
     StackFrame &top = icsharp::topFrame();
     bool concreteness = top.pop1();
-    if (!concreteness)
+    if (concreteness)
+        top.push1Concrete();
+    else
         sendCommand1(offset);
-    top.push1(concreteness);
 }
 PROBE(void, Track_Conv, (OFFSET offset)) { conv(offset); }
 PROBE(void, Track_Conv_Ovf, (OFFSET offset)) { conv(offset); }
@@ -357,10 +366,11 @@ PROBE(void, Track_Initobj, (INT_PTR ptr)) {
 PROBE(void, Track_Ldlen, (INT_PTR ptr, OFFSET offset)) {
     StackFrame &top = topFrame();
     bool concreteness = top.pop1();
-    if (!concreteness)
+    if (concreteness)
+        top.push1Concrete();
+    else
         sendCommand1(offset);
     // TODO: check concreteness of referenced memory
-    top.push1(concreteness); // WRONK
 }
 
 PROBE(COND, Track_Cpobj, (INT_PTR dest, INT_PTR src)) {
@@ -575,7 +585,7 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
         }
 #endif
         if (returnValues) {
-            top.push1(1);
+            top.push1Concrete();
         }
     }
 }

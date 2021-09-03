@@ -101,8 +101,8 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
                 match evalStackArgType with
                 | evalStackArgType.OpSymbolic ->
                     let idx = int content
-                    maxIndex <- max maxIndex idx
-                    EvaluationStack.GetItem (idx - 1) state.evaluationStack
+                    maxIndex <- max maxIndex (idx + 1)
+                    EvaluationStack.GetItem idx state.evaluationStack
                 | evalStackArgType.OpI4 ->
                     Concrete (int content) TypeUtils.int32Type
                 | evalStackArgType.OpI8 ->
@@ -119,6 +119,7 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
         let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
         state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]
+        cilState.lastPushInfo <- None
         poppedSymbolics
 
     member x.ExecCommand() =
@@ -139,8 +140,8 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             let poppedSymbolics = x.SynchronizeStates c
             // TODO: schedule it into interpreter, send back response
             let steppedStates = interpreter.StepInstruction cilState
-            let concretizedOps = steppedStates |> List.tryPick (fun cilState ->
-                match cilState.state.model with
+            let concretizedOps = steppedStates |> List.tryPick (fun cilState' ->
+                match cilState'.state.model with
                 | None -> None
                 | Some model ->
                     let mutable allConcrete = true
@@ -148,8 +149,12 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
                         match model.Eval term with
                         | {term = Concrete(obj, typ)} -> (obj, typ)
                         | _ -> allConcrete <- false; (null, Null))
-                    if allConcrete then Some concretizedSymbolics else None)
-            x.communicator.SendExecResponse concretizedOps
+                    if allConcrete then
+                        cilState <- cilState'
+                        Some concretizedSymbolics
+                    else None)
+            let lastPushInfo = cilState.lastPushInfo |> Option.map IsConcrete
+            x.communicator.SendExecResponse concretizedOps lastPushInfo
             true
         | Terminate ->
             Logger.trace "Got terminate command!"

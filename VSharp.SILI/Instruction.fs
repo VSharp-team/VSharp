@@ -373,6 +373,7 @@ module internal Instruction =
 
 
     let parseInstruction (m : MethodBase) pos =
+        // TODO: this is expensive! Memorize IL bytes
         let ilBytes = m.GetMethodBody().GetILAsByteArray()
         let b1 = ilBytes.[pos]
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]

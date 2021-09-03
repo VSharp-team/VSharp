@@ -81,6 +81,11 @@ module API =
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term
+        let IsConcrete term =
+            match term.term with
+            | Concrete _ -> true
+            | HeapRef(address, _) when isConcreteHeapAddress address -> true
+            | _ -> false
         let IsNullReference term = Pointers.isNull term
 
         let GetHashCode term = Memory.getHashCode term

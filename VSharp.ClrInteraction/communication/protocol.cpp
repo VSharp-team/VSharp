@@ -187,7 +187,7 @@ bool Protocol::waitExecResult(char *&message, int &messageLength) {
     if (!readBuffer(message, messageLength)) {
         FAIL_LOUD("Exec responce validation failed!");
     }
-    return messageLength > 1;
+    return true;
 }
 
 bool Protocol::connect() {

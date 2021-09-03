@@ -47,7 +47,6 @@ public:
 
     void push1(bool isConcrete);
     void push1Concrete();
-    bool pop2Push1();
 
     bool arg(unsigned index) const;
     void setArg(unsigned index, bool value);

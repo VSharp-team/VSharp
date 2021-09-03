@@ -56,6 +56,7 @@ module API =
 
         val IsStruct : term -> bool
         val IsReference : term -> bool
+        val IsConcrete : term -> bool
         val IsNullReference : term -> term
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option

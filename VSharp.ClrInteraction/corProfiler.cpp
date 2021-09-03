@@ -66,8 +66,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
     instrumenter = new Instrumenter(*corProfilerInfo);
 
-//    protocol = new icsharp::Protocol();
-//    if (!protocol->startSession()) return E_FAIL;
+    protocol = new icsharp::Protocol();
+    if (!protocol->startSession()) return E_FAIL;
 
     return S_OK;
 }
@@ -221,8 +221,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID function
 //    std::cout << __FUNCTION__ << " " << std::hex << pToken << std::dec << std::endl;
     UNUSED(fIsSafeToBlock);
 
-//    return instrumenter->instrument(functionId, *protocol);
-    return S_OK;
+    return instrumenter->instrument(functionId, *protocol);
+//    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock)

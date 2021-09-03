@@ -17,6 +17,7 @@ type cilState =
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable ownedByConcolic : bool
+      mutable lastPushInfo : term option
     }
 
 module internal CilStateOperations =
@@ -31,6 +32,7 @@ module internal CilStateOperations =
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
           ownedByConcolic = false
+          lastPushInfo = None
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
@@ -147,7 +149,9 @@ module internal CilStateOperations =
 
     let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
 
-    let push v (cilState : cilState) = cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
+    let push v (cilState : cilState) =
+        cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
+        cilState.lastPushInfo <- Some v
     let pushMany vs (cilState : cilState) = cilState.state.evaluationStack <- EvaluationStack.PushMany vs cilState.state.evaluationStack
 
     let peek (cilState : cilState) =
