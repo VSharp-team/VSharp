@@ -97,7 +97,7 @@ module API =
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
         let (|NullRef|_|) = function
-            | ref when ref = nullRef -> Some()
+            | {term = HeapRef(addr, _)} when addr = MakeNumber 0 -> Some()
             | _ -> None
 
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src

@@ -135,10 +135,10 @@ bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned 
     if (!protocol->waitExecResult(bytes, messageLength)) {
         return false;
     }
-    LOG(tout << "messageLength: " << messageLength);
-    assert(messageLength >= 2);
+    assert(messageLength >= 1);
     bool returnsValue = bytes[0] > 0;
     if (returnsValue) {
+        assert(messageLength >= 2);
         top.push1(bytes[1] > 0);
         bytes += 2;
     } else {
@@ -146,7 +146,7 @@ bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned 
     }
 
     if (messageLength > 2) {
-        assert(messageLength >= 6);
+        assert(messageLength >= 5);
         count = *((unsigned *)bytes);
         bytes += sizeof(unsigned);
         for (unsigned i = 0; i < count; ++i) {
@@ -202,6 +202,7 @@ EvalStackOperand mkop_8(INT64 op) { return {OpI8, (long long)op}; }
 EvalStackOperand mkop_f4(FLOAT op) { return {OpR4, (long long)op}; }
 EvalStackOperand mkop_f8(DOUBLE op) { return {OpR8, (long long)op}; }
 EvalStackOperand mkop_p(INT_PTR op) { return {OpRef, (long long)op}; }
+EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
 
 /// ------------------------------ Probes declarations ---------------------------
 
@@ -410,7 +411,9 @@ PROBE(void, Track_Isinst, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*T
 
 PROBE(void, Track_Box, (INT_PTR ptr, OFFSET offset)) {
     // TODO
-    topFrame().pop1();
+    StackFrame &top = icsharp::topFrame();
+    top.pop1();
+    top.push1Concrete();
 }
 PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
@@ -446,6 +449,11 @@ PROBE(void, Track_Stfld_f8, (mdToken fieldToken, INT_PTR ptr, DOUBLE value, OFFS
 PROBE(void, Track_Stfld_p, (mdToken fieldToken, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
     if (!stfld(fieldToken, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) });
+    }
+}
+PROBE(void, Track_Stfld_struct, (mdToken fieldToken, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_struct(value) });
     }
 }
 /// TODO: stfld may be called with any value type! :(
@@ -486,6 +494,7 @@ PROBE(void, Exec_Stelem_I8, (INT_PTR ptr, INT_PTR index, INT64 value, OFFSET off
 PROBE(void, Exec_Stelem_R4, (INT_PTR ptr, INT_PTR index, FLOAT value, OFFSET offset)) { /*send command*/ }
 PROBE(void, Exec_Stelem_R8, (INT_PTR ptr, INT_PTR index, DOUBLE value, OFFSET offset)) { /*send command*/ }
 PROBE(void, Exec_Stelem_Ref, (INT_PTR ptr, INT_PTR index, INT_PTR value, OFFSET offset)) { /*send command*/ }
+PROBE(void, Exec_Stelem_Struct, (INT_PTR ptr, INT_PTR index, INT_PTR boxedValue, OFFSET offset)) { /*send command*/ }
 
 PROBE(void, Track_Ckfinite, ()) {
     // TODO
@@ -500,32 +509,38 @@ PROBE(void, Track_Mkrefany, ()) {
     topFrame().pop1();
 }
 
-PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned localsCount)) {
+PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount)) {
     Stack &stack = icsharp::stack();
     assert(!stack.isEmpty());
-    StackFrame &top = stack.topFrame();
-    top.configure(maxStackSize, localsCount);
-    unsigned expected = top.resolvedToken();
-    LOG(tout << "Frame " << stack.framesCount() <<
-                ": entering token " << HEX(token) <<
-                ", expected token is " << HEX(expected) << std::endl);
+    StackFrame *top = &stack.topFrame();
+    unsigned expected = top->resolvedToken();
     if (!expected || expected == token) {
+        LOG(tout << "Frame " << stack.framesCount() <<
+                    ": entering token " << HEX(token) <<
+                    ", expected token is " << HEX(expected) << std::endl);
         // TODO: if expected is 0, set resolved token?
-        top.setEnteredMarker(true);
-        top.setUnmanagedContext(false);
+        top->setSpontaneous(false);
     } else {
-        top.setUnmanagedContext(true);
-        LOG(tout << "Hmmm!! Managed code has been triggered in unmanaged context! Details: expected token "
+        LOG(tout << "Spontaneous enter! Details: expected token "
                  << HEX(expected) << ", but entered " << HEX(token) << std::endl);
+        auto args = new bool[argsCount];
+        memset(args, true, argsCount);
+        stack.pushFrame(token, token, args, argsCount);
+        top = &stack.topFrame();
+        top->setSpontaneous(true);
+        delete[] args;
     }
+    top->setEnteredMarker(true);
+    top->configure(maxStackSize, localsCount);
 }
+
 PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
     Stack &stack = icsharp::stack();
     assert(stack.isEmpty());
     auto args = new bool[argsCount];
     memset(args, argsConcreteness, argsCount);
     stack.pushFrame(token, token, args, argsCount);
-    Track_Enter(token, maxStackSize, localsCount);
+    Track_Enter(token, maxStackSize, argsCount, localsCount);
     stack.resetPopsTracking();
 }
 
@@ -542,8 +557,8 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
         bool returnValue = top.pop1();
         stack.popFrame();
         if (!stack.isEmpty()) {
-            if (!top.inUnmanagedContext())
-                top.push1(returnValue);
+            if (!top.isSpontaneous())
+                stack.topFrame().push1(returnValue);
             else
                 LOG(tout << "Ignoring return type because of internal execution in unmanaged context..." << std::endl);
         } else {
@@ -552,7 +567,7 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
     } else {
         stack.popFrame();
     }
-    LOG(tout << "Managed leave. After popping top frame stack balance is " << top.count() << std::endl);
+    LOG(tout << "Managed leave to frame " << stack.framesCount() << ". After popping top frame stack balance is " << top.count() << std::endl);
 }
 
 PROBE(void, Track_LeaveMain, (UINT8 returnValues, OFFSET offset)) {
@@ -574,9 +589,9 @@ PROBE(void, Track_LeaveMain, (UINT8 returnValues, OFFSET offset)) {
 
 PROBE(void, Finalize_Call, (UINT8 returnValues)) {
     Stack &stack = icsharp::stack();
-    StackFrame &top = stack.topFrame();
-    if (!top.hasEntered()) {
-        // Extern has been called, should push return result onto stack
+    if (!stack.topFrame().hasEntered()) {
+        // Extern has been called, should pop its frame and push return result onto stack
+        stack.popFrame();
         LOG(tout << "Extern left! " << stack.framesCount() << " frames remained" << std::endl);
 #ifdef _DEBUG
         assert(returnValues == 0 || returnValues == 1);
@@ -585,21 +600,24 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
         }
 #endif
         if (returnValues) {
-            top.push1Concrete();
+            stack.topFrame().push1Concrete();
         }
     }
 }
 
-PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, UINT16 argsCount, OFFSET offset)) {
+PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
     Stack &stack = icsharp::stack();
     StackFrame &top = stack.topFrame();
-    LOG(tout << "Setting expected token of frame " << stack.framesCount() << " to "
-             << HEX(resolvedToken) << " (entered marker is " << top.hasEntered() << ")" << std::endl);
+    UINT16 poppedArgsCount = argsCount;
+    argsCount = newobj ? argsCount + 1 : argsCount;
     bool *argsConcreteness = new bool[argsCount];
-    memset(argsConcreteness, true, argsCount);
-    top.pop(argsCount);
+    if (newobj) {
+        argsConcreteness[0] = true;
+    }
+    memset(newobj ? argsConcreteness + 1 : argsConcreteness, true, argsCount);
+    top.pop(poppedArgsCount);
     LOG(tout << "Call: resolved_token = " << HEX(resolvedToken) << ", unresolved_token = " << HEX(unresolvedToken) << "\n"
-             << "\t\tbalance after pop: " <<  top.count() << std::endl);
+             << "\t\tbalance after pop: " << top.count() << "; pushing frame " << stack.framesCount() + 1 << std::endl);
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     unsigned symbolicsCount = top.symbolicsCount() + poppedSymbs.size();
     for (auto &pair : poppedSymbs) {
@@ -613,7 +631,7 @@ PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, UIN
     delete[] argsConcreteness;
 }
 
-PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(0, 0, count, offset); }
+PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(0, 0, false, count, offset); }
 PROBE(void, Track_Newobj, (INT_PTR ptr)) { topFrame().push1Concrete(); }
 PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
     // TODO
@@ -627,6 +645,8 @@ PROBE(void, Track_Throw, (OFFSET offset)) {
     top.pop1();
 }
 PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
+
+PROBE(void, Mem_p, (INT_PTR arg)) { clear_mem(); mem_p(arg); }
 
 PROBE(void, Mem2_4, (INT32 arg1, INT32 arg2)) { clear_mem(); mem_i4(arg1); mem_i4(arg2); }
 PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2)) { clear_mem(); mem_i8(arg1); mem_i8(arg2); }
@@ -664,7 +684,7 @@ PROBE(void, DumpInstruction, (UINT32 index)) {
         ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
         StackFrame &top = icsharp::topFrame();
-        LOG(tout << "Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
+        LOG(tout << "[Frame " << icsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
     }
 }
 

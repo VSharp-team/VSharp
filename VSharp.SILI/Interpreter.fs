@@ -47,8 +47,17 @@ type public MethodInterpreter(maxBound, forwardSearcher : IForwardSearcher (*ilI
         forwardSearcher.Init main Seq.empty
         while forwardSearcher.ShouldWork() do
             let s = forwardSearcher.Pick()
-            let goodStates, incompleteStates, errors = interpreter.ExecuteOneInstruction s
-            let allStates = goodStates @ incompleteStates @ errors |> List.toSeq
+            let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
+            let allStates =
+                match goodStates with
+                | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                | _ ->
+                    match iieStates with
+                    | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                    | _ ->
+                        match errors with
+                        | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                        | _ -> __unreachable__()
             forwardSearcher.Update s allStates
         x.GetResults initialState
 

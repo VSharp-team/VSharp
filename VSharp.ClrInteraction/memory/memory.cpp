@@ -122,37 +122,37 @@ void icsharp::mem_p(INT_PTR value) {
 }
 
 void icsharp::update_i1(INT8 value, INT8 idx) {
-    LOG(tout << "update_i1 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_i1 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(INT8), idx);
 }
 
 void icsharp::update_i2(INT16 value, INT8 idx) {
-    LOG(tout << "update_i1 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_i1 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(INT16), idx);
 }
 
 void icsharp::update_i4(INT32 value, INT8 idx) {
-    LOG(tout << "update_i4 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_i4 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(INT32), idx);
 }
 
 void icsharp::update_i8(INT64 value, INT8 idx) {
-    LOG(tout << "update_i8 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_i8 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(INT64), idx);
 }
 
 void icsharp::update_f4(FLOAT value, INT8 idx) {
-    LOG(tout << "update_f4 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_f4 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(FLOAT), idx);
 }
 
 void icsharp::update_f8(DOUBLE value, INT8 idx) {
-    LOG(tout << "update_f8 " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_f8 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(DOUBLE), idx);
 }
 
 void icsharp::update_p(INT_PTR value, INT8 idx) {
-    LOG(tout << "update_p " << (INT64) value << " (index = " << idx << ")" << std::endl);
+    LOG(tout << "update_p " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &value, sizeof(INT_PTR), idx);
 }
 

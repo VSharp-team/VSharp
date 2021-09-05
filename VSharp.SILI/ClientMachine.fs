@@ -148,6 +148,9 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
                     let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
                         match model.Eval term with
                         | {term = Concrete(obj, typ)} -> (obj, typ)
+                        | NullRef -> (null, Null)
+                        | {term = HeapRef({term = ConcreteHeapAddress addr}, _)} -> __notImplemented__()
+                        // TODO: concrete ref and ptr
                         | _ -> allConcrete <- false; (null, Null))
                     if allConcrete then
                         cilState <- cilState'

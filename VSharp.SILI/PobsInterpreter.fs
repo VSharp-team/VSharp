@@ -75,7 +75,7 @@ type public PobsInterpreter(searcher : IBidirectionalSearcher) as this =
                     match errors with
                     | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
                     | _ -> __unreachable__()
-        searcher.UpdateStates s newStates // update will remove s
+        searcher.UpdateStates s newStates
 
     member x.Backward p' s' EP =
         assert(currentLoc s' = p'.loc)

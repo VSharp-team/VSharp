@@ -87,23 +87,23 @@ with
     member x.Arg8 with get() =
         match x.arg with
         | Arg8 v -> v
-        | _ -> internalfail "Requesting 8-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfailf "Requesting 8-bit arg of instruction %O with arg %O" x.opcode x.arg
     member x.Arg16 with get() =
         match x.arg with
         | Arg16 v -> v
-        | _ -> internalfail "Requesting 16-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfailf "Requesting 16-bit arg of instruction %O with arg %O" x.opcode x.arg
     member x.Arg32 with get() =
         match x.arg with
         | Arg32 v -> v
-        | _ -> internalfail "Requesting 32-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfailf "Requesting 32-bit arg of instruction %O with arg %O" x.opcode x.arg
     member x.Arg64 with get() =
         match x.arg with
         | Arg64 v -> v
-        | _ -> internalfail "Requesting 64-bit arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfailf "Requesting 64-bit arg of instruction %O with arg %O" x.opcode x.arg
     member x.Target with get() =
         match x.arg with
         | Target v -> v
-        | _ -> internalfail "Requesting target arg of instruction %O with arg %O" x.opcode x.arg
+        | _ -> internalfailf "Requesting target arg of instruction %O with arg %O" x.opcode x.arg
 
 type ehClauseMatcher =
     | ClassToken of uint32
@@ -127,6 +127,7 @@ module private EvaluationStackTyper =
         result.Add((typeof<int8>.Module.MetadataToken, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<uint8>.Module.MetadataToken, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<char>.Module.MetadataToken, typeof<char>.MetadataToken), evaluationStackCellType.I2)
+        result.Add((typeof<bool>.Module.MetadataToken, typeof<bool>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<int16>.Module.MetadataToken, typeof<int16>.MetadataToken), evaluationStackCellType.I2)
         result.Add((typeof<uint16>.Module.MetadataToken, typeof<uint16>.MetadataToken), evaluationStackCellType.I2)
         result.Add((typeof<int32>.Module.MetadataToken, typeof<int32>.MetadataToken), evaluationStackCellType.I4)
@@ -140,6 +141,8 @@ module private EvaluationStackTyper =
 
     let abstractType (typ : Type) =
         if typ.IsValueType then
+            let typ =
+                if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
             let result = ref evaluationStackCellType.I1
             if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then !result
             else evaluationStackCellType.Struct
@@ -209,20 +212,48 @@ module private EvaluationStackTyper =
             | _ -> false
         if t1_is_I4 && t2_is_I4 then
             if t1 = t2 then t1 else evaluationStackCellType.I4
+        elif t1 = evaluationStackCellType.I8 && t2 = evaluationStackCellType.I8 then evaluationStackCellType.I8
         elif t1_is_F && t2_is_F then
             if t1 = t2 then t1 else evaluationStackCellType.R8
-        elif t1 = evaluationStackCellType.I then t1
-        elif t2 = evaluationStackCellType.I then t2
+        elif t1 = evaluationStackCellType.I || t1 = evaluationStackCellType.Ref then t1
+        elif t2 = evaluationStackCellType.I || t2 = evaluationStackCellType.Ref then t2
         else fail()
         |> Stack.push s
+
+//    let REMOVE_ME (m : Reflection.MethodBase) (instr : ilInstr) =
+//        let instr, arg =
+//            match instr.opcode with
+//            | OpCode op ->
+//                let arg =
+//                    if op = OpCodes.Call || op = OpCodes.Callvirt || op = OpCodes.Newobj then
+//                        match instr.arg with
+//                        | Arg32 token ->
+//                            let callee = Reflection.resolveMethod m token
+//                            Reflection.methodToString callee
+//                        | _ -> __unreachable__()
+//                    else
+//                        match instr.arg with
+//                        | NoArg -> ""
+//                        | Arg8 a -> a.ToString()
+//                        | Arg16 a -> a.ToString()
+//                        | Arg32 a -> a.ToString()
+//                        | Target t ->
+//                            match t.opcode with
+//                            | OpCode op -> op.Name
+//                            | SwitchArg _ -> "<SwitchArg>"
+//                op.Name, arg
+//            | SwitchArg -> "<SwitchArg>", ""
+//        instr + " " + arg
 
     let typeInstruction (m : Reflection.MethodBase) (instr : ilInstr) =
         let s =
             match instr.stackState with
             | Some s -> s
             | None -> fail()
+//       let res =
         match instr.opcode with
         | OpCode op ->
+//            Logger.trace "typer before: [%O] %O: %O" instr.offset (REMOVE_ME m instr) s.Length
             let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
             match opcodeValue with
             | OpCodeValues.Ldarg_0 -> typeLdarg m s 0
@@ -469,6 +500,8 @@ module private EvaluationStackTyper =
                 s
             | _ -> s
         | SwitchArg -> s
+//       Logger.trace "typer after: %O" res.Length
+//       res
 
     let validate (m : Reflection.MethodBase) (startInstr : ilInstr) =
         let emptyState = Stack.empty
@@ -488,7 +521,9 @@ module private EvaluationStackTyper =
                     | OpCodeValues.Throw
                     | OpCodeValues.Rethrow -> []
                     | OpCodeValues.Br_S
-                    | OpCodeValues.Br -> [instr.Target]
+                    | OpCodeValues.Br
+                    | OpCodeValues.Leave
+                    | OpCodeValues.Leave_S -> [instr.Target]
                     | _ ->
                         match instr.arg with
                         | Target tgt ->
@@ -523,7 +558,7 @@ type ILRewriter(body : rawMethodBody) =
         maxStackSize <- maxStackSize + instr.opcode.StackBehaviourPush
 
     member x.ILInstrToString (probes : probes) (instr : ilInstr) =
-        let instr, arg =
+        let opcode, arg =
             match instr.opcode with
             | OpCode op ->
                 let arg =
@@ -544,11 +579,11 @@ type ILRewriter(body : rawMethodBody) =
                         | Arg64 a -> probes.AddressToString a
                         | Target t ->
                             match t.opcode with
-                            | OpCode op -> op.Name
+                            | OpCode op -> sprintf "(%d) %s" t.offset op.Name
                             | SwitchArg _ -> "<SwitchArg>"
                 op.Name, arg
             | SwitchArg -> "<SwitchArg>", ""
-        instr + " " + arg
+        sprintf "[%d] %s %s" instr.offset opcode arg
 
     member x.InstrEq instr1 instr2 =
         Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality instr1 instr2

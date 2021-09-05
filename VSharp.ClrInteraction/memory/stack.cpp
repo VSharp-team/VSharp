@@ -18,7 +18,7 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     , m_resolvedToken(resolvedToken)
     , m_unresolvedToken(unresolvedToken)
     , m_enteredMarker(false)
-    , m_unmanagedContext(false)
+    , m_spontaneous(false)
 {
     std::memcpy(m_args, args, argsCount);
     resetPopsTracking();
@@ -76,8 +76,11 @@ void StackFrame::pop0()
 void StackFrame::push1(bool isConcrete)
 {
 #ifdef _DEBUG
-    if (isFull())
+    if (isFull()) {
+        LOG(tout << "Frame info before stack overflow: balance = " << m_concretenessTop << ", capacity = " << m_capacity
+                 << ", token = " << HEX(m_resolvedToken));
         FAIL_LOUD("Stack overflow!");
+    }
 #endif
     m_concreteness[m_concretenessTop++] = isConcrete ? CONCRETE : ++m_symbolsCount;
 }
@@ -90,8 +93,10 @@ void StackFrame::push1Concrete()
 bool StackFrame::pop1()
 {
 #ifdef _DEBUG
-    if (isEmpty())
+    if (isEmpty()) {
+        LOG(tout << "Corrupted frame info: token = " << HEX(m_resolvedToken) << ", stackSize = " << m_capacity);
         FAIL_LOUD("Corrupted stack!");
+    }
 #endif
     m_lastPoppedSymbolics.clear();
     --m_concretenessTop;
@@ -108,8 +113,10 @@ bool StackFrame::pop1()
 bool StackFrame::pop(unsigned count)
 {
 #ifdef _DEBUG
-    if (m_concretenessTop < count)
+    if (m_concretenessTop < count) {
+        LOG(tout << "Corrupted frame info: token = " << HEX(m_resolvedToken) << ", stackSize = " << m_capacity);
         FAIL_LOUD("Corrupted stack!");
+    }
 #endif
     m_lastPoppedSymbolics.clear();
     m_concretenessTop -= count;
@@ -117,7 +124,6 @@ bool StackFrame::pop(unsigned count)
         unsigned cell = m_concreteness[i - 1];
         if (cell != CONCRETE) {
             --m_symbolsCount;
-            LOG(tout << "m_symbolsCount: " << m_symbolsCount);
             m_lastPoppedSymbolics.push_back(std::make_pair(cell, m_concretenessTop + count - i));
         }
     }
@@ -183,14 +189,14 @@ void StackFrame::setEnteredMarker(bool entered)
     this->m_enteredMarker = entered;
 }
 
-bool StackFrame::inUnmanagedContext() const
+bool StackFrame::isSpontaneous() const
 {
-    return m_unmanagedContext;
+    return m_spontaneous;
 }
 
-void StackFrame::setUnmanagedContext(bool isUnmanaged)
+void StackFrame::setSpontaneous(bool isUnmanaged)
 {
-    this->m_unmanagedContext = isUnmanaged;
+    this->m_spontaneous = isUnmanaged;
 }
 
 unsigned StackFrame::evaluationStackPops() const
@@ -225,7 +231,7 @@ void Stack::popFrame()
 {
     popFrameUntracked();
     if (m_frames.size() < m_minTopSinceLastSent) {
-
+        m_minTopSinceLastSent = m_frames.size();
     }
 }
 

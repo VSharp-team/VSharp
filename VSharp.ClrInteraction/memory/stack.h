@@ -22,7 +22,7 @@ private:
     unsigned m_resolvedToken;
     unsigned m_unresolvedToken;
     bool m_enteredMarker;
-    bool m_unmanagedContext;
+    bool m_spontaneous;
 
     std::vector<std::pair<unsigned, unsigned>> m_lastPoppedSymbolics;
 
@@ -61,8 +61,8 @@ public:
     unsigned unresolvedToken() const;
     bool hasEntered() const;
     void setEnteredMarker(bool entered);
-    bool inUnmanagedContext() const;
-    void setUnmanagedContext(bool isUnmanaged);
+    bool isSpontaneous() const;
+    void setSpontaneous(bool isUnmanaged);
 
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbolics() const;
     unsigned evaluationStackPops() const;

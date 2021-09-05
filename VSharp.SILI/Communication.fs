@@ -103,6 +103,7 @@ type probes = {
     mutable stfld_f4 : uint64
     mutable stfld_f8 : uint64
     mutable stfld_p : uint64
+    mutable stfld_struct : uint64
 
     mutable ldsfld : uint64
     mutable ldsflda : uint64
@@ -122,6 +123,7 @@ type probes = {
     mutable execStelem_R4 : uint64
     mutable execStelem_R8 : uint64
     mutable execStelem_Ref : uint64
+    mutable execStelem_Struct : uint64
 
     mutable ckfinite : uint64
     mutable sizeof : uint64
@@ -142,6 +144,7 @@ type probes = {
     mutable throw : uint64
     mutable rethrow : uint64
 
+    mutable mem_p : uint64
     mutable mem2_4 : uint64
     mutable mem2_8 : uint64
     mutable mem2_f4 : uint64
@@ -219,7 +222,6 @@ type signatureTokens = {
     mutable void_i_i_r4_sig : uint32
     mutable void_i_i_r8_sig : uint32
     mutable void_i_i1_i_sig : uint32
-    mutable void_token_u4_u4_sig : uint32
     mutable void_token_u2_bool_u4_u4_sig : uint32
     mutable void_offset_sig : uint32
     mutable void_u1_offset_sig : uint32
@@ -249,12 +251,13 @@ type signatureTokens = {
     mutable void_i_i_r4_offset_sig : uint32
     mutable void_i_i_r8_offset_sig : uint32
     mutable void_i_i1_i_offset_sig : uint32
+    mutable void_token_u4_u4_u4_sig : uint32
     mutable void_token_i_i_offset_sig : uint32
     mutable void_token_i_i4_offset_sig : uint32
     mutable void_token_i_i8_offset_sig : uint32
     mutable void_token_i_r4_offset_sig : uint32
     mutable void_token_i_r8_offset_sig : uint32
-    mutable void_token_token_u2_offset_sig : uint32
+    mutable void_token_token_bool_u2_offset_sig : uint32
 }
 with
     member private x.SigToken2str =
@@ -568,7 +571,7 @@ type Communicator() =
             | None ->
                 index <- 1
                 bytes.[0] <- 0uy
-            let success = BitConverter.TryWriteBytes(Span(bytes, 0, sizeof<int>), ops.Length) in assert success
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), ops.Length) in assert success
             index <- index + sizeof<int>
             ops |> List.iter (fun (obj, typ) ->
                 if Types.IsValueType typ then
@@ -585,6 +588,13 @@ type Communicator() =
                     let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue opType) in assert success
                     index <- index + sizeof<int>
                     let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), content) in assert success
+                    index <- index + sizeof<int64>
+                elif isNull obj then
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
+                    index <- index + sizeof<int>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), 0L) in assert success
+                    index <- index + sizeof<int64>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), 0L) in assert success
                     index <- index + sizeof<int64>
                 else
                     __notImplemented__())

@@ -130,8 +130,8 @@ bool Protocol::acceptCommand(CommandType &command)
         return false;
     }
     command = (CommandType) *message;
-    CLOG(command == ReadMethodBody, tout << "Accepted ReadMethodBody command");
-    CLOG(command == ReadString, tout << "Accepted ReadString command");
+//    CLOG(command == ReadMethodBody, tout << "Accepted ReadMethodBody command");
+//    CLOG(command == ReadString, tout << "Accepted ReadString command");
     delete[] message;
     return true;
 }
