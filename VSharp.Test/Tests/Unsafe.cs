@@ -69,7 +69,6 @@ namespace VSharp.Test.Tests
             return ptr + 10;
         }
 
-        [TestSvm]
         private static bool Identity(int startValue)
         {
             void* nativeInt = (void*) startValue;
@@ -101,7 +100,10 @@ namespace VSharp.Test.Tests
                 result = *ptr;
             }
 
-            return result == 1;
+            if (result == 1)
+                return true;
+            else
+                return false;
         }
 
         // Expected 2
@@ -114,7 +116,11 @@ namespace VSharp.Test.Tests
             {
                 result = *(ptr + 1);
             }
-            return result == 2;
+            if (result == 2)
+                return true;
+            else
+                return false;
+
         }
 
         [TestSvm]
@@ -128,7 +134,11 @@ namespace VSharp.Test.Tests
                 result = *(ptr2 + 1);
             }
 
-            return result == 17179869187L;
+            if (result == 17179869187L)
+                return true;
+            else
+                return false;
+
         }
 
         [TestSvm]
@@ -141,7 +151,11 @@ namespace VSharp.Test.Tests
                 result = *(ptr + i);
             }
 
-            return result == 3;
+            if (result == 3)
+                return true;
+            else
+                return false;
+
         }
 
         [TestSvm]
@@ -155,7 +169,11 @@ namespace VSharp.Test.Tests
                 result = *(ptr2 + i);
             }
 
-            return result == 17179869187L;
+            if (result == 17179869187L)
+                return true;
+            else
+                return false;
+
         }
 
         [Ignore("Insufficient information")]

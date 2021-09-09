@@ -86,7 +86,7 @@ type termNode =
     | Ref of address
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * symbolicType * term // base address * sight type * offset (in bytes)
-    | Slice of term * term // what term to slice * slicing offset inside term
+    | Slice of term * term * term // what term to slice * start byte * end byte
     | Union of (term * term) list
 
     override x.ToString() =
@@ -160,7 +160,7 @@ type termNode =
             | Ptr(address, typ, shift) ->
                 let offset = ", offset = " + shift.ToString()
                 sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
-            | Slice(term, offset) -> sprintf "Slice(%O, %O)" term offset |> k
+            | Slice(term, offset, size) -> sprintf "Slice(%O, %O, %O)" term offset size |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
@@ -271,7 +271,7 @@ module internal Terms =
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
-    let Slice term first = HashMap.addTerm (Slice(term, first))
+    let Slice term first termSize = HashMap.addTerm (Slice(term, first, termSize))
     let ConcreteHeapAddress addr = Concrete addr AddressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"

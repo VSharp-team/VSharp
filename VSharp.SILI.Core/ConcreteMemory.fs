@@ -47,6 +47,18 @@ module internal ConcreteMemory =
         | :? System.String as string when List.length indices = 1 -> string.[List.head indices] :> obj
         | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
 
+    let private getArrayIndicesWithValues (array : System.Array) =
+        let ubs = List.init array.Rank array.GetUpperBound
+        let lbs = List.init array.Rank array.GetLowerBound
+        let indices = List.map2 (fun lb ub -> [lb .. ub]) lbs ubs |> List.cartesian
+        indices |> Seq.map (fun index -> index, array.GetValue(Array.ofList index))
+
+    let getAllArrayData (cm : concreteMemory) address =
+        match readObject cm address with
+        | :? System.Array as array -> getArrayIndicesWithValues array
+        | :? System.String as string -> string.ToCharArray() |> getArrayIndicesWithValues
+        | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
+
     let readArrayLowerBound (cm : concreteMemory) address dimension =
         match readObject cm address with
         | :? System.Array as array -> array.GetLowerBound(dimension)

@@ -47,7 +47,7 @@ module internal Memory =
     }
 
     let copy state newPc =
-        { state with pc = newPc }
+        { state with pc = newPc; concreteMemory = Dictionary<_,_>(state.concreteMemory) }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -473,12 +473,22 @@ module internal Memory =
         let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
         readArrayRegion state arrayType extractor (extractor state) address indices
 
+    let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
+        let writeOneIndex mr (index, value) =
+            let key = {address = address; indices = List.map makeNumber index}
+            objToTerm state (value.GetType()) value |> MemoryRegion.write mr key
+        let region = arrayData |> Seq.fold writeOneIndex (MemoryRegion.empty (fst3 arrayType))
+        readArrayRegion state arrayType (always region) region address indices
+
     let readArrayIndex state address indices arrayType =
         let cm = state.concreteMemory
         let concreteIndices = tryIntListFromTermList indices
         match address.term, concreteIndices with
-        | ConcreteHeapAddress address, Some concreteIndices when ConcreteMemory.contains cm address->
+        | ConcreteHeapAddress address, Some concreteIndices when ConcreteMemory.contains cm address ->
             ConcreteMemory.readArrayIndex cm address concreteIndices |> objToTerm state (fst3 arrayType |> toDotNetType)
+        | ConcreteHeapAddress concreteAddress, None when ConcreteMemory.contains cm concreteAddress ->
+            let data = ConcreteMemory.getAllArrayData state.concreteMemory concreteAddress
+            readSymbolicIndexFromConcreteArray state address data indices arrayType
         | _ -> readArrayIndexSymbolic state address indices arrayType
 
     let private readClassFieldSymbolic state address (field : fieldId) =
@@ -562,7 +572,7 @@ module internal Memory =
         | Ptr _ -> sprintf "reinterpreting %O" term |> undefinedBehaviour
         | Concrete _
         | Constant _
-        | Expression _ -> Slice term offsetInsideTerm |> List.singleton
+        | Expression _ -> Terms.sizeOf term |> makeNumber |> Slice term offsetInsideTerm |> List.singleton
         | _ -> __unreachable__()
 
     and private readStructUnsafe fields structType offset window =
@@ -581,14 +591,14 @@ module internal Memory =
             let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
                 if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
                     let fieldValue = readField fieldId
-                    let offsetInsideField = fieldOffset - offset
+                    let offsetInsideField = offset - fieldOffset
                     readTermUnsafe fieldValue (makeNumber offsetInsideField) window
                 else List.empty
             Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
         | _ ->
             let readSymbolicSlices (fieldId, fieldOffset, _) =
                 let fieldValue = readField fieldId
-                let offsetInsideField = sub (makeNumber fieldOffset) offset
+                let offsetInsideField = sub offset (makeNumber fieldOffset)
                 readTermUnsafe fieldValue offsetInsideField window
             Seq.collect readSymbolicSlices fieldIntervals |> List.ofSeq
 
@@ -604,6 +614,7 @@ module internal Memory =
 
     let private readArrayUnsafe state address arrayType offset sightType =
         let window = sizeOf sightType
+        // TODO: String has another offset #do
         let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
         let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
         let concreteElementSize = sizeOf elementType
@@ -651,6 +662,8 @@ module internal Memory =
             combine slices sightType
         | StaticLocation loc ->
             readStaticUnsafe state loc offset sightType
+
+// ------------------------------- General reading -------------------------------
 
     // TODO: take type of heap address
     let rec read state reference =
@@ -906,6 +919,7 @@ module internal Memory =
         match address.term, concreteValue, concreteIndices with
         | ConcreteHeapAddress a, Some obj, Some concreteIndices when ConcreteMemory.contains cm a ->
             ConcreteMemory.writeArrayIndex state a concreteIndices obj
+        | ConcreteHeapAddress a, _, None
         | ConcreteHeapAddress a, None, _ when ConcreteMemory.contains cm a ->
             unmarshall state a
             writeArrayIndexSymbolic state address indices arrayType value
@@ -931,9 +945,81 @@ module internal Memory =
 //            writeLowerBound state address dimension typ value
             __unreachable__()
 
+// ------------------------------- Unsafe writing -------------------------------
+
+    let rec writeTermUnsafe term offsetInsideTerm window value =
+        match term.term with
+        | Struct(fields, t) -> writeStructUnsafe fields t offsetInsideTerm window value
+        | HeapRef _
+        | Ref _
+        | Ptr _ -> sprintf "reinterpreting %O" term |> undefinedBehaviour
+        | Concrete _
+        | Constant _
+        | Expression _ ->
+            let size = Terms.sizeOf term |> makeNumber
+            let left = Slice term (makeNumber 0) offsetInsideTerm
+            let right = Slice term (add offsetInsideTerm (makeNumber window)) size
+            [left; value; right]
+        | _ -> __unreachable__()
+
+    and private writeStructUnsafe fields structType offset window value =
+        let readField fieldId = fields.[fieldId]
+        writeFieldsUnsafe readField false structType offset window value
+
+    and private writeFieldsUnsafe readField isStatic (blockType : symbolicType) offset window value : term list =
+        let fields = Reflection.fieldsOf isStatic (toDotNetType blockType)
+        let mapper (fieldId, fieldInfo : Reflection.FieldInfo) =
+            // TODO: add zeros between fields #do
+            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset(fieldInfo), TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let fieldIntervals = Array.map mapper fields |> Array.sortBy snd3
+        // TODO: unify #do
+        match offset.term with
+        | Concrete(:? int as offset, _) ->
+            let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
+                if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
+                    let fieldValue = readField fieldId
+                    let offsetInsideField = offset - fieldOffset
+                    let value' = __notImplemented__() // readTermUnsafe value
+                    writeTermUnsafe fieldValue (makeNumber offsetInsideField) window value'
+                else List.empty
+            Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
+        | _ ->
+            let readSymbolicSlices (fieldId, fieldOffset, _) =
+                let fieldValue = readField fieldId
+                let offsetInsideField = sub offset (makeNumber fieldOffset)
+                readTermUnsafe fieldValue offsetInsideField window
+            Seq.collect readSymbolicSlices fieldIntervals |> List.ofSeq
+
+
+    let writeClassUnsafe state loc typ offset sightType value =
+        __notImplemented__()
+
+    let writeArrayUnsafe state loc typ offset sightType value =
+        __notImplemented__()
+
+    let writeStaticUnsafe state loc offset sightType value =
+        __notImplemented__()
+
     // TODO: do write by pointer #do
     let private writeUnsafe state baseAddress offset sightType value =
-        __notImplemented__()
+        match baseAddress with
+        | HeapLocation loc ->
+            let typ = typeOfHeapLocation state loc
+            match typ with
+            | ClassType _ -> writeClassUnsafe state loc typ offset sightType value
+            | ArrayType _ -> writeArrayUnsafe state loc typ offset sightType value
+            | StructType _ ->
+                // TODO: boxed location? #do
+                __notImplemented__()
+            | _ -> internalfailf "expected complex type, but got %O" typ
+        | StackLocation loc ->
+            let term = readStackLocation state loc
+            let window = sizeOf sightType
+            let slices = writeTermUnsafe term offset window value
+            let updatedTerm = combine slices sightType
+            writeStackLocation state loc updatedTerm
+        | StaticLocation loc ->
+            writeStaticUnsafe state loc offset sightType value
 
     let rec write state reference value =
         guardedStatedMap

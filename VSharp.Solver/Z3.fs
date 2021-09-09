@@ -170,7 +170,7 @@ module internal Z3 =
                         x.EncodeConcreteAddress encCtx addr
                     | _ -> __unreachable__()
                 | _ -> __notImplemented__()
-            encodingResult.Create(expr)
+            encodingResult.Create expr
 
         member private x.EncodeConstant encCtx name (source : ISymbolicConstantSource) typ : encodingResult =
             match source with
@@ -223,6 +223,30 @@ module internal Z3 =
             | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
             | _ -> __unreachable__()
 
+        member private x.EncodeCombine encCtx args typ =
+            let res = ctx.MkNumeral(0, x.Type2Sort typ)
+            let window = (Types.SizeOf typ |> uint) * 8u
+            let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
+            let zeroExpr = ctx.MkNumeral(0, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
+            let folder (res, assumptions) slice =
+                let term, offset, size =
+                    match slice.term with
+                    | Slice(term, offset, {term = Concrete(:? int as size, _)}) -> x.EncodeTerm encCtx term, x.EncodeTerm encCtx offset, (uint size) * 8u
+                    | _ -> internalfailf "encoding combine: expected slice as argument, but got %O" slice
+                let assumptions = List.append assumptions term.assumptions |> List.append offset.assumptions
+                let termExpr = ctx.MkZeroExt((max window size |> uint) - size, term.expr :?> BitVecExpr)
+                let offsetExpr = offset.expr :?> BitVecExpr
+                let sizeExpr = ctx.MkBV(size, 32u)
+                let isAfterStart = ctx.MkBVSGT(ctx.MkBVAdd(offsetExpr, windowExpr), zeroExpr)
+                let isBeforeEnd = ctx.MkBVSLT(offsetExpr, sizeExpr)
+                let intersects = ctx.MkAnd(isAfterStart, isBeforeEnd)
+                let shift = ctx.MkBVSub(windowExpr, ctx.MkBVSub(sizeExpr, offsetExpr))
+                let needShiftLeft = ctx.MkBVSGT(shift, zeroExpr)
+                let elem = ctx.MkITE(needShiftLeft, ctx.MkBVSHL(termExpr, shift), ctx.MkBVLSHR(termExpr, shift))
+                let elem = ctx.MkExtract(window - 1u, 0u, elem :?> BitVecExpr)
+                ctx.MkITE(intersects, elem, res), assumptions
+            List.fold folder (res, List.empty) args |> encodingResult.Create
+
         member private x.EncodeExpression encCtx term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -244,8 +268,8 @@ module internal Z3 =
                     failToEncode "encoding real numbers is not implemented"
                 | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.numericSizeOf t1 = TypeUtils.numericSizeOf t2 ->
                     x.EncodeTerm encCtx (List.head args)
-                | Cast _ ->
-                    __notImplemented__())
+                | Cast _ -> __notImplemented__()
+                | Combine -> x.EncodeCombine encCtx args typ)
 
         member private this.MakeUnary<'a, 'b when 'a :> Expr and 'a : equality and 'b :> Expr and 'b : equality>
                 (encCtx : encodingContext)
