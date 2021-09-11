@@ -601,6 +601,7 @@ module internal Z3 =
                                 |> Seq.map (fun atom -> paths.[atom])
                             SmtSat { mdl = model; usedPaths = usedPaths }
                         | Status.UNSATISFIABLE ->
+                            printLog Trace "SOLVER: got UNSATISFIABLE"
                             SmtUnsat { core = optCtx.UnsatCore |> Array.map builder.Decode }
                         | Status.UNKNOWN ->
                             printLog Trace "SOLVER: unknown! Reason: %O" <| optCtx.ReasonUnknown

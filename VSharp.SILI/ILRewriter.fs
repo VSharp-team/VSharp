@@ -764,7 +764,6 @@ type ILRewriter(body : rawMethodBody) =
             | _ -> invalidProgram "Unexpected operand type!"
 
             offset <- offset + size
-//            Logger.trace "Imported %O (offsets %d .. %d)" instr.opcode startOffset offset
 
         assert(offset = codeSize)
         if branch then
@@ -875,7 +874,6 @@ type ILRewriter(body : rawMethodBody) =
                 | SwitchArg ->
                     branch <- true
                     offset <- offset + sizeof<int32>)
-//                Logger.trace "Exported %O (offsets %d .. %d)" instr.opcode instr.offset offset)
 
             il.offset <- uint32 offset
 
@@ -929,16 +927,3 @@ type ILRewriter(body : rawMethodBody) =
         }
         let ehs = Array.map encodeEH ehs
         {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}
-//        let result = {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}
-//        if result.properties.ilCodeSize <> body.properties.ilCodeSize || result.properties.maxStackSize <> body.properties.maxStackSize then
-//            raise <| Exception(sprintf "Imported and exported properties mismatch (%d, %d) vs (%d, %d)!" body.properties.ilCodeSize body.properties.maxStackSize result.properties.ilCodeSize result.properties.maxStackSize)
-//        if result.ehs <> body.ehs then
-//            raise <| Exception("Imported and exported handlers mismatch!")
-//        if result.il.Length <> body.il.Length then
-//            raise <| Exception(sprintf "Imported and exported IL lengths mismatch (%d and %d)!" body.il.Length result.il.Length)
-//        else
-//            for i in 0 .. result.il.Length - 1 do
-//                if body.il.[i] <> result.il.[i] then
-//                    Logger.trace "Mismatch in byte %d of imported and exported ILs (%d and %d)!" i body.il.[i] result.il.[i]
-//        result
-//        {properties = methodProps; il = outputIL; ehs = ehs}

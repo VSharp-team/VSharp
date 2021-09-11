@@ -19,6 +19,12 @@ type cilState =
       mutable ownedByConcolic : bool
       mutable lastPushInfo : term option
     }
+    with
+    member x.Result with get() =
+        match EvaluationStack.Length x.state.evaluationStack with
+        | 0 -> Nop
+        | 1 -> EvaluationStack.Pop x.state.evaluationStack |> fst
+        | _ -> internalfail "EvaluationStack size was bigger than 1"
 
 module internal CilStateOperations =
 
@@ -36,7 +42,6 @@ module internal CilStateOperations =
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
-
 
     let isIIEState (s : cilState) = Option.isSome s.iie
 

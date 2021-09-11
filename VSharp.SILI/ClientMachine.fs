@@ -10,7 +10,7 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 
 
-type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : state) =
+type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, state : state) =
     let extension =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
@@ -49,6 +49,7 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             cilState <- newState
 
     let mutable mainReached = false
+    let mutable poppedSymbolics : list<_> = List.Empty
     let environment (method : MethodBase) =
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
@@ -115,12 +116,12 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             | PointerOp(baseAddress, offset) ->
                     // TODO: 2misha: parse object ref here
                     __notImplemented__())
-        let poppedSymbolics, evalStack = EvaluationStack.PopMany maxIndex evalStack
+        let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
+        poppedSymbolics <- ps
         let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
         state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]
         cilState.lastPushInfo <- None
-        poppedSymbolics
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
@@ -137,28 +138,30 @@ type ClientMachine(entryPoint : MethodBase, interpreter : ExplorerBase, state : 
             true
         | ExecuteInstruction c ->
             Logger.trace "Got execute instruction command!"
-            let poppedSymbolics = x.SynchronizeStates c
+            x.SynchronizeStates c
             // TODO: schedule it into interpreter, send back response
-            let steppedStates = interpreter.StepInstruction cilState
-            let concretizedOps = steppedStates |> List.tryPick (fun cilState' ->
-                match cilState'.state.model with
-                | None -> None
-                | Some model ->
-                    let mutable allConcrete = true
-                    let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
-                        match model.Eval term with
-                        | {term = Concrete(obj, typ)} -> (obj, typ)
-                        | NullRef -> (null, Null)
-                        | {term = HeapRef({term = ConcreteHeapAddress addr}, _)} -> __notImplemented__()
-                        // TODO: concrete ref and ptr
-                        | _ -> allConcrete <- false; (null, Null))
-                    if allConcrete then
-                        cilState <- cilState'
-                        Some concretizedSymbolics
-                    else None)
-            let lastPushInfo = cilState.lastPushInfo |> Option.map IsConcrete
-            x.communicator.SendExecResponse concretizedOps lastPushInfo
+            requestMakeStep cilState
             true
         | Terminate ->
             Logger.trace "Got terminate command!"
             false
+
+    member x.StepDone (steppedStates : cilState list) =
+        let concretizedOps = steppedStates |> List.tryPick (fun cilState' ->
+            match cilState'.state.model with
+            | None -> None
+            | Some model ->
+                let mutable allConcrete = true
+                let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
+                    match model.Eval term with
+                    | {term = Concrete(obj, typ)} -> (obj, typ)
+                    | NullRef -> (null, Null)
+                    | {term = HeapRef({term = ConcreteHeapAddress addr}, _)} -> __notImplemented__()
+                    // TODO: concrete ref and ptr
+                    | _ -> allConcrete <- false; (null, Null))
+                if allConcrete then
+                    cilState <- cilState'
+                    Some concretizedSymbolics
+                else None)
+        let lastPushInfo = cilState.lastPushInfo |> Option.map IsConcrete
+        x.communicator.SendExecResponse concretizedOps lastPushInfo

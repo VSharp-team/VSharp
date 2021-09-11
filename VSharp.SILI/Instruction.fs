@@ -253,21 +253,21 @@ type ipTransition =
 
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
-        System.BitConverter.ToInt32(ilBytes, pos)
+        BitConverter.ToInt32(ilBytes, pos)
     let public extractUnsignedInt32 (ilBytes : byte []) pos =
-        System.BitConverter.ToUInt32(ilBytes, pos)
+        BitConverter.ToUInt32(ilBytes, pos)
     let public extractUnsignedInt16 (ilBytes : byte []) pos =
-        System.BitConverter.ToUInt16(ilBytes, pos)
+        BitConverter.ToUInt16(ilBytes, pos)
     let public extractInt64 (ilBytes : byte []) pos =
-        System.BitConverter.ToInt64(ilBytes, pos)
+        BitConverter.ToInt64(ilBytes, pos)
     let public extractInt8 (ilBytes : byte []) pos =
         ilBytes.[pos] |> sbyte |> int
     let public extractUnsignedInt8 (ilBytes : byte []) pos =
         ilBytes.[pos]
     let public extractFloat64 (ilBytes : byte []) pos =
-        System.BitConverter.ToDouble(ilBytes, pos)
+        BitConverter.ToDouble(ilBytes, pos)
     let public extractFloat32 (ilBytes : byte []) pos =
-        System.BitConverter.ToSingle(ilBytes, pos)
+        BitConverter.ToSingle(ilBytes, pos)
 
 module internal TokenResolver =
     let private extractToken = NumberCreator.extractInt32

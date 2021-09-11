@@ -21,15 +21,10 @@
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
         <Compile Include="CILState.fs" />
-        <Compile Include="Options.fs" />
-        <Compile Include="InterpreterBase.fs" />
-        <Compile Include="InstructionsSet.fs" />
         <Compile Include="Lambdas.fs" />
+        <Compile Include="Statistics.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
-        <Compile Include="Statistics.fs" />
-        <Compile Include="PobsInterpreter.fs" />
-        <Compile Include="Variables.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="RandomSearcher.fs" />
@@ -38,6 +33,8 @@
         <Compile Include="ILRewriter.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
+        <Compile Include="Options.fs" />
+        <Compile Include="SILI.fs" />
     </ItemGroup>
 
     <ItemGroup>

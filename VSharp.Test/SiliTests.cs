@@ -224,95 +224,95 @@ namespace VSharp.Test
                 return context.CurrentResult;
             }
 
-            private (bool, string) AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
-                , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
-            {
-                var stopWatch = new Stopwatch();
-                stopWatch.Start();
-                var svm = new SVM(new PobsInterpreter(searcher));
-                var list = expectedResults.Keys.ToList();
-                var (dict, testResult) = svm.AnswerPobs(entryMethod, list);
-                stopWatch.Stop();
-
-                Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
-
-                _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
-                _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
-
-                bool res = true;
-                foreach (var loc in list)
-                {
-                    bool matches = expectedResults[loc].ToString() == dict[loc];
-                    if (!matches)
-                    {
-                        _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
-                        // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
-                        // var exit = exitOffset.ToString("X4");
-                        // Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
-                        // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
-                    }
-                    else
-                    {
-                        _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
-                    }
-
-                    res &= matches;
-                }
-
-                return (res, testResult);
-                // return context.CurrentResult;
-            }
+            // private (bool, string) AnswerPobs(MethodInfo entryMethod, IBidirectionalSearcher searcher
+            //     , Dictionary<codeLocation, PobsSetup.DesiredStatus> expectedResults, uint maxBound)
+            // {
+            //     var stopWatch = new Stopwatch();
+            //     stopWatch.Start();
+            //     var svm = new SVM(new PobsInterpreter(searcher));
+            //     var list = expectedResults.Keys.ToList();
+            //     var (dict, testResult) = svm.AnswerPobs(entryMethod, list);
+            //     stopWatch.Stop();
+            //
+            //     Console.WriteLine($"searcher = {searcher.GetType()}, ElapsedTime = {stopWatch.Elapsed}");
+            //
+            //     _pobsStatistics[entryMethod].AddTime(searcher, entryMethod, stopWatch.Elapsed);
+            //     _globalTime[searcher] = _globalTime[searcher] + stopWatch.Elapsed;
+            //
+            //     bool res = true;
+            //     foreach (var loc in list)
+            //     {
+            //         bool matches = expectedResults[loc].ToString() == dict[loc];
+            //         if (!matches)
+            //         {
+            //             _pobsStatistics[entryMethod].AddWrongAnswer(searcher, loc, stopWatch.Elapsed);
+            //             // Console.WriteLine($"Checking location, offset = {exitOffset.ToString(");X4")}, method = {entryMethod});
+            //             // var exit = exitOffset.ToString("X4");
+            //             // Console.WriteLine($"searсher {searcher.GetType()} could not reach {exit} of method = {entryMethod}");
+            //             // Console.WriteLine($"ElapsedTime = {stopWatch.Elapsed}");
+            //         }
+            //         else
+            //         {
+            //             _pobsStatistics[entryMethod].AddCorrectAnswer(searcher, loc, stopWatch.Elapsed);
+            //         }
+            //
+            //         res &= matches;
+            //     }
+            //
+            //     return (res, testResult);
+            //     // return context.CurrentResult;
+            // }
 
             public override TestResult Execute(TestExecutionContext context)
             {
                 return Explore(context);
-                var entryMethod = innerCommand.Test.Method.MethodInfo;
-                var cfg = CFG.findCfg(entryMethod);
-                var codeLocations = new Dictionary<codeLocation, PobsSetup.DesiredStatus>();
-                PobsStatistics.IncrementTestsNumber();
-                foreach (var offset in cfg.sortedOffsets)
-                {
-                    if (offset != 0)
-                    {
-                        var loc = new codeLocation(offset, entryMethod);
-                        if (_unreachableLocations.Contains(offset))
-                        {
-                            // we can not establish ``unreachable'' yet
-                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Unknown);
-                        }
-                        else
-                        {
-                            codeLocations.Add(loc, PobsSetup.DesiredStatus.Witnessed);
-                        }
-                    }
-                }
-
-                // var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
-                _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
-                // bool res = true;
-
-                try
-                {
-                    Debug.Assert(_searchers.Length == 1);
-                    var searcher = _searchers[0];
-                    var (res, testResult) = AnswerPobs(entryMethod, searcher, codeLocations, _maxBound);
-                    // foreach (var s in _searchers)
-                    // {
-                    //     res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
-                    // }
-                    // PrintStats();
-
-                    if (res)
-                        context = HandleResult(entryMethod, context, testResult);
-                    else context.CurrentResult.SetResult(ResultState.Failure);
-                    return context.CurrentResult;
-                }
-                catch (Exception e)
-                {
-                    // TODO: add more info
-                    context.CurrentResult.SetResult(ResultState.Inconclusive, e.Message);
-                    return context.CurrentResult;
-                }
+                // var entryMethod = innerCommand.Test.Method.MethodInfo;
+                // var cfg = CFG.findCfg(entryMethod);
+                // var codeLocations = new Dictionary<codeLocation, PobsSetup.DesiredStatus>();
+                // PobsStatistics.IncrementTestsNumber();
+                // foreach (var offset in cfg.sortedOffsets)
+                // {
+                //     if (offset != 0)
+                //     {
+                //         var loc = new codeLocation(offset, entryMethod);
+                //         if (_unreachableLocations.Contains(offset))
+                //         {
+                //             // we can not establish ``unreachable'' yet
+                //             codeLocations.Add(loc, PobsSetup.DesiredStatus.Unknown);
+                //         }
+                //         else
+                //         {
+                //             codeLocations.Add(loc, PobsSetup.DesiredStatus.Witnessed);
+                //         }
+                //     }
+                // }
+                //
+                // // var exitOffset = entryMethod.GetMethodBody().GetILAsByteArray().Length - 1;
+                // _pobsStatistics.Add(entryMethod, new PobsStatistics(_searchers));
+                // // bool res = true;
+                //
+                // try
+                // {
+                //     Debug.Assert(_searchers.Length == 1);
+                //     var searcher = _searchers[0];
+                //     var (res, testResult) = AnswerPobs(entryMethod, searcher, codeLocations, _maxBound);
+                //     // foreach (var s in _searchers)
+                //     // {
+                //     //     res &= AnswerPobs(entryMethod, s, codeLocations, _maxBound);
+                //     // }
+                //     // PrintStats();
+                //
+                //     if (res)
+                //         context = HandleResult(entryMethod, context, testResult);
+                //     else context.CurrentResult.SetResult(ResultState.Failure);
+                //     return context.CurrentResult;
+                // }
+                // catch (Exception e)
+                // {
+                //     // TODO: add more info
+                //     context.CurrentResult.SetResult(ResultState.Inconclusive, e.Message);
+                //     return context.CurrentResult;
+                // }
             }
         }
 

@@ -5,7 +5,6 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
-open VSharp.Utils
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
@@ -36,6 +35,11 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //            Seq.iter (fun p -> rememberStart p.loc.method) mainPobs
 //        override x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 
+        override x.Init m cilStates mainPobs =
+            mainMethod <- m
+            backward.Init m mainPobs
+//            let start : cilState = CilStateOperations.makeInitialState m (ExplorerBase.FormInitialStateWithoutStatics m)
+            forward.Init cilStates
 
         override x.Statuses() = backward.Statuses()
         override x.Answer pob pobStatus = backward.Answer pob pobStatus
@@ -58,29 +62,18 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             | InitTarget(from, pobs) ->
                 let tos = Seq.map (fun (pob : pob) -> Instruction(pob.loc.offset, pob.loc.method)) pobs
                 targeted.SetTargets from tos
-                GoFront(targeted.Pick())
+                match targeted.Pick() with
+                | Some s -> GoFront s
+                | None -> internalfail "Targeted searcher must pick state successfully immediately after adding new targets"
             | NoAction ->
-                if targeted.ShouldWork() then
-                    GoFront(targeted.Pick())
-                elif forward.ShouldWork() then
-                    let state = forward.Pick()
-                    backward.RemoveBranch state
-                    GoFront state
-                else Stop
-    interface IResettableSearcher with
-        override x.Init m mainPobs =
-            mainMethod <- m
-            backward.Init m mainPobs
-//            let start : cilState = CilStateOperations.makeInitialState m (ExplorerBase.FormInitialStateWithoutStatics m)
-            forward.Init m mainPobs
-        override x.ShouldWork() =
-            // TODO: add has progress
-            backward.ShouldWork()
-        override x.Reset () =
-            mainMethod <- null
-            forward.Reset()
-            backward.Reset()
-            targeted.Reset()
+                match targeted.Pick() with
+                | Some s -> GoFront s
+                | None ->
+                    match forward.Pick() with
+                    | Some s ->
+                        backward.RemoveBranch s
+                        GoFront s
+                    | None -> Stop
 
 // TODO: check state duplicates #do
 type BackwardSearcher() =
@@ -149,18 +142,14 @@ type BackwardSearcher() =
         ancestorOf.Clear()
         answeredPobs.Clear()
 
-    interface IResettableSearcher with
-
-        override x.Reset() = clear()
+    interface IBackwardSearcher with
         override x.Init m pobs =
             clear()
             mainMethod <- m
             Seq.iter mainPobs.Add pobs
             Seq.iter (fun p -> answeredPobs.Add(p, pobStatus.Unknown)) pobs
             Seq.iter doAddPob pobs
-        override x.ShouldWork() =
-            mainPobs.Count > 0
-    interface IBackwardSearcher with
+
         override x.Update parent child = addPob parent child
 
         override x.Answer pob status =
@@ -213,15 +202,6 @@ module TargetedSearcher =
                 if not <| list.Contains s then list.Add(s)
                 Seq.empty
 
-        interface IResettableSearcher with
-            override x.Init _ _ = ()
-            override x.Reset() =
-                forPropagation.Clear()
-                finished.Clear()
-                reached.Clear()
-                targets.Clear()
-            override x.ShouldWork () =
-                Seq.fold (fun acc (kvp : KeyValuePair<ip, List<cilState>>) -> acc || kvp.Value.Count > 0) false forPropagation
         interface ITargetedSearcher with
             override x.SetTargets from tos =
                 if not (targets.ContainsKey from) then targets.Add(from, List<ip>())
@@ -230,11 +210,7 @@ module TargetedSearcher =
             override x.Update parent children =
                 let from = parent.startingIP
                 assert(targets.ContainsKey from)
-//                forPropagation.[from].Remove(parent) |> ignore
                 Seq.map add (Seq.cons parent children) |> Seq.concat
 
             override x.Pick () =
-                let ip = targets.Keys |> Seq.filter (fun ip -> forPropagation.[ip].Count > 0) |> Seq.head
-                forPropagation.[ip].[0]
-
-
+                targets.Keys |> Seq.tryPick (fun ip -> forPropagation.[ip] |> Seq.tryHead)

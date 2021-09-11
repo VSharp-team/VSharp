@@ -3,60 +3,63 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using VSharp.Core;
 using VSharp.Interpreter.IL;
 using NUnit.Framework;
 using System.Text.RegularExpressions;
 using Microsoft.FSharp.Core;
 using VSharp.CSharpUtils;
-using CodeLocationSummaries = System.Collections.Generic.IEnumerable<VSharp.Interpreter.IL.codeLocationSummary>;
+using States = System.Collections.Generic.List<VSharp.Interpreter.IL.cilState>;
 using VSharp.Solver;
 
 namespace VSharp.Test
 {
     public class TestCodeLocationSummaries
     {
-        private InsufficientInformationException _exception;
-        private CodeLocationSummaries _summaries;
+        private States _branches = new States();
+        private States _errors = new States();
+        private List<InsufficientInformationException> _incomplete = new List<InsufficientInformationException>();
 
-        public InsufficientInformationException Exception => _exception;
-        public CodeLocationSummaries Summaries => _summaries;
+        public States Branches => _branches;
+        public States Errors => _errors;
+        public List<InsufficientInformationException> IIEs => _incomplete;
 
-        private TestCodeLocationSummaries(InsufficientInformationException exception)
+        public void AddBranch(cilState state)
         {
-            _exception = exception;
+            _branches.Add(state);
         }
 
-        private TestCodeLocationSummaries(CodeLocationSummaries summaries)
+        public void AddError(cilState state)
         {
-            _summaries = summaries;
+            _errors.Add(state);
         }
 
-        public static TestCodeLocationSummaries WithInsufficientInformationException(InsufficientInformationException exception)
+        public void AddIncompleteException(InsufficientInformationException e)
         {
-            return new TestCodeLocationSummaries(exception);
+            _incomplete.Add(e);
         }
 
-        public static TestCodeLocationSummaries WithSummaries(CodeLocationSummaries summaries)
+        public void AddIncomplete(cilState state)
         {
-            return new TestCodeLocationSummaries(summaries);
+            _incomplete.Add(state.iie.Value);
         }
     }
 
     public class SVM
     {
-        private readonly ExplorerBase _explorer;
+        private readonly SILI _explorer;
         private readonly Statistics _statistics = new Statistics();
         // private PobsStatistics _pobsStatistics = new PobsStatistics();
 
-        public SVM(ExplorerBase explorer)
+        public SVM(siliOptions options)
         {
-            _explorer = explorer;
+            _explorer = new SILI(options);
         }
 
         private TestCodeLocationSummaries PrepareAndInvokeWithoutStatistics(IDictionary<MethodInfo, TestCodeLocationSummaries> dict,
             MethodInfo m,
-            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
+            Action<MethodBase, Action<cilState>, Action<cilState>, Action<cilState>> invoke)
         {
             _statistics.SetupBeforeMethod(m);
             if (m == null)
@@ -69,16 +72,16 @@ namespace VSharp.Test
             }
 
             dict?.Add(m, null);
-            var id = FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>.FromConverter(x => x);
-            TestCodeLocationSummaries summary = null;
+            var id = FSharpFunc<States, States>.FromConverter(x => x);
+            TestCodeLocationSummaries summary = new TestCodeLocationSummaries();
 
             try
             {
-                summary = TestCodeLocationSummaries.WithSummaries(invoke(m, id));
+                invoke(m, summary.AddBranch, summary.AddError, summary.AddIncomplete);
             }
             catch (InsufficientInformationException e)
             {
-                summary = TestCodeLocationSummaries.WithInsufficientInformationException(e);
+                summary.AddIncompleteException(e);
             }
 
             _statistics.AddSucceededMethod(m);
@@ -91,7 +94,7 @@ namespace VSharp.Test
         }
 
         private TestCodeLocationSummaries PrepareAndInvoke(IDictionary<MethodInfo, TestCodeLocationSummaries> dict, MethodInfo m,
-            Func<MethodBase, FSharpFunc<CodeLocationSummaries, CodeLocationSummaries>, CodeLocationSummaries> invoke)
+            Action<MethodBase, Action<cilState>, Action<cilState>, Action<cilState>> invoke)
         {
             // try
             // {
@@ -114,7 +117,7 @@ namespace VSharp.Test
         private void Explore(IDictionary<MethodInfo, TestCodeLocationSummaries> dictionary, MethodInfo m)
         {
             if (m.GetMethodBody() != null)
-                PrepareAndInvoke(dictionary, m, _explorer.Explore);
+                PrepareAndInvoke(dictionary, m, _explorer.InterpretIsolated);
         }
 
         private void ExploreType(List<string> ignoreList, MethodInfo ep,
@@ -144,33 +147,46 @@ namespace VSharp.Test
             return Regex.Replace(str, @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");
         }
 
-        private static string SummaryToString(codeLocationSummary summary)
+        private static string SummaryToString(cilState state)
         {
-            if (summary == null)
+            if (state == null)
                 return "Summary is empty";
-            return $"{summary.Result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Print.Dump(summary.State))}";
+            var result = state.Result;
+            state.state.evaluationStack = API.EvaluationStack.EmptyStack;
+            return $"{result}\nMEMORY DUMP:\n{ReplaceLambdaLines(API.Print.Dump(state.state))}";
         }
 
         private static string ResultToString(TestCodeLocationSummaries summary)
         {
-            if (summary.Exception != null)
+            StringBuilder builder = new StringBuilder();
+            if (summary.IIEs.Count > 0)
             {
-                if (summary.Summaries != null)
-                    return "Test summary contains both InsInfExc and ordinary Summaries";
-                return $"Totally 1 state:\n{summary.Exception.Message}\n";
+                builder.AppendLine("INSUFFICIENT INFORMATION EXCEPTIONS LIST:");
+                summary.IIEs.ForEach(e => builder.AppendLine("    " + e.Message));
+            }
+
+            if (summary.Errors.Count > 0)
+            {
+                builder.AppendLine($"GOT {summary.Errors.Count} ERROR STATES!");
             }
 
             int count = 0;
-            if ((count = summary.Summaries.Count()) == 0)
-                return "No states were obtained!";
+            if ((count = summary.Branches.Count()) == 0)
+            {
+                if (summary.IIEs.Count == 0 && summary.Errors.Count == 0)
+                    throw new Exception("No states were obtained! Most probably this is bug.");
+                builder.AppendLine("No branches were obtained!");
+                return builder.ToString();
+            }
+
             var suffix = count > 1 ? "s" : "";
-            var sortedResults = summary.Summaries.Select(SummaryToString).OrderBy(x => x.GetDeterministicHashCode());
+            var sortedResults = summary.Branches.Select(SummaryToString).OrderBy(x => x.GetDeterministicHashCode());
             return $"Totally {count} state{suffix}:\n{String.Join("\n", sortedResults)}";
         }
 
         public string ExploreOne(MethodInfo m)
         {
-            var summary = PrepareAndInvoke(null, m, _explorer.Explore);
+            var summary = PrepareAndInvoke(null, m, _explorer.InterpretIsolated);
             return ResultToString(summary);
         }
 
@@ -182,7 +198,7 @@ namespace VSharp.Test
 
         public string ExploreOneWithoutStatistics(MethodInfo m)
         {
-            var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.Explore);
+            var summary = PrepareAndInvokeWithoutStatistics(null, m, _explorer.InterpretIsolated);
             return ResultToString(summary);
         }
 
@@ -211,15 +227,15 @@ namespace VSharp.Test
             return dictionary.ToDictionary(kvp => kvp.Key, kvp => ResultToString(kvp.Value));
         }
 
-        public (IDictionary<codeLocation, string>, string) AnswerPobs(MethodInfo m, List<codeLocation> locs)
-        {
-            var (dict, results) = _explorer.AnswerPobs(m, locs);
-            var summaries = TestCodeLocationSummaries.WithSummaries(results);
-            var result = ResultToString(summaries);
-
-            return (dict, result);
-        }
-
+        // public (IDictionary<codeLocation, string>, string) AnswerPobs(MethodInfo m, List<codeLocation> locs)
+        // {
+        //     var (dict, results) = _explorer.AnswerPobs(m, locs);
+        //     var summaries = TestCodeLocationSummaries.WithSummaries(results);
+        //     var result = ResultToString(summaries);
+        //
+        //     return (dict, result);
+        // }
+        //
         // public void PrintPobsStatistics(MethodInfo m, codeLocation[] locs)
         // {
         //     var id = FSharpFunc<IDictionary<codeLocation, string>, IDictionary<codeLocation, string>>.FromConverter(x => x);

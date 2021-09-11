@@ -11,6 +11,14 @@ open VSharp.Utils
 open CilStateOperations
 open ipOperations
 
+type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
+    with
+    override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
+
+type pobStatus =
+    | Unknown
+    | Witnessed of cilState
+    | Unreachable
 
 // TODO: transform to ``module'' with functions #mb do
 type public BidirectionalEngineStatistics() =
@@ -36,6 +44,7 @@ type public BidirectionalEngineStatistics() =
         let sb = PrettyPrinting.appendLine sb (sprintf "Part %d; Start from %O" i k.Key)
 //        let sb = PrettyPrinting.appendLine sb
         printDict "\t\t" sb k.Value
+
     let rememberForward (start : codeLocation, current : codeLocation) =
         if isHeadOfBasicBlock current then
             let mutable totalRef = ref 0u
@@ -55,15 +64,18 @@ type public BidirectionalEngineStatistics() =
                 currentRef <- ref 0u
                 startDict.Add(current, 0u)
             startDict.[current] <- !currentRef + 1u
-    member x.RememberSearcherAction (action : action) =
-        match action with
-        | GoFront s ->
-            let startLoc = ip2codeLocation s.startingIP
-            let currentLoc = ip2codeLocation (currentIp s)
-            match startLoc, currentLoc with
-            | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
-            | _ -> ()
+
+    member x.TrackStepForward (s : cilState) =
+        let startLoc = ip2codeLocation s.startingIP
+        let currentLoc = ip2codeLocation (currentIp s)
+        match startLoc, currentLoc with
+        | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
         | _ -> ()
+
+    member x.TrackStepBackward (pob : pob) (cilState : cilState) =
+        // TODO
+        ()
+
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
     member x.Clear() =
         startIp2currentIp.Clear()
@@ -85,5 +97,3 @@ type public BidirectionalEngineStatistics() =
         let sb = PrettyPrinting.dumpSection "Parts" sb
         let sb = Seq.foldi printPart sb startIp2currentIp
         sb.ToString()
-
-
