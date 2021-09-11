@@ -39,6 +39,7 @@
         <Compile Include="Marshalling.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />
+        <Compile Include="PathConditionIndependent.fs" />
     </ItemGroup>
 
     <ItemGroup>

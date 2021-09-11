@@ -644,24 +644,20 @@ module internal Terms =
         result :> ISet<term>
     
     let discoverConstantsRec term =
-        let result = HashSet<term>()
-        let rec discoverConstantsInner term k =
-            let k _ = k() 
+        let rec discoverConstantsInner acc term k =
             match term.term with
-            | Nop | Concrete _ | HeapRef _ | Ref _ | Ptr(_, _, None) -> k()
+            | Nop | Concrete _ | HeapRef _ | Ref _ | Ptr(_, _, None) -> k acc
             | Constant _ ->
-                result.Add term |> ignore
-                k()
+                PersistentSet.add acc term |> k
             | Expression(_, operands, _) ->
-                Cps.List.mapk discoverConstantsInner operands k
+                Cps.List.foldlk discoverConstantsInner acc operands k
             | Struct(fields, _) ->
-                Cps.Seq.mapk discoverConstantsInner (PersistentDict.values fields) k
-            | Ptr(_, _, Some(term)) -> discoverConstantsInner term k
+                Cps.Seq.foldlk discoverConstantsInner acc (PersistentDict.values fields) k
+            | Ptr(_, _, Some(term)) -> discoverConstantsInner acc term k
             | Union(guardedTerms) ->
                 let guards, terms = List.unzip guardedTerms
-                Cps.Seq.mapk discoverConstantsInner (List.append guards terms) k               
-        discoverConstantsInner term id
-        result :> ISet<term>
+                Cps.Seq.foldlk discoverConstantsInner acc (List.append guards terms) k               
+        discoverConstantsInner PersistentSet.empty term id
 
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ
