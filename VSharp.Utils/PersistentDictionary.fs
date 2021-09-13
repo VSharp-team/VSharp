@@ -40,8 +40,12 @@ module public PersistentDict =
 
     let public size (d : pdict<'a, 'b>) = d.impl.Length
 
-    let public map (keyMapper : 'a -> 'a) (valueMapper : 'b -> 'c) (d : pdict<'a, 'b>) : pdict<'a, 'c> =
+    let public map (keyMapper : 'a -> 'd) (valueMapper : 'b -> 'c) (d : pdict<'a, 'b>) : pdict<'d, 'c> =
         d |> toSeq |> Seq.map (fun (k, v) -> (keyMapper k, valueMapper v)) |> ofSeq
+        
+    let public filterKeys (filter : 'a -> bool) (d : pdict<'a, 'b>) : pdict<'a, 'b> =
+        d |> toSeq |> Seq.filter (fun (k, _) -> filter k) |> ofSeq    
+        
     let public fold folder state (d : pdict<'a, 'b>) =
         d |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public forall predicate (d : pdict<'a, 'b>) =
@@ -106,6 +110,9 @@ module PersistentSet =
     let public isEmpty (d : pset<'a>) = PersistentDict.isEmpty d
 
     let public toSeq (d : pset<'a>) = PersistentDict.keys d
+    
+    let public ofSeq (s : seq<'a>) : pset<'a> =
+        s |> Seq.map (fun k -> k, 0) |> PersistentDict.ofSeq
 
     let public contains (key : 'a) (d : pset<'a>) = PersistentDict.contains key d
 
@@ -119,9 +126,16 @@ module PersistentSet =
         d |> toSeq |> Seq.fold folder state
     let public forall predicate (d : pset<'a>) =
         d |> toSeq |> Seq.forall predicate
-    let public map (mapper : 'a -> 'a) (d : pset<'a>) : pset<'a> =
+        
+    let public map (mapper : 'a -> 'b) (d : pset<'a>) : pset<'b> =
         PersistentDict.map mapper id d
-
+        
+    let public filter (filter : 'a -> bool) (d : pset<'a>) : pset<'a> =
+        PersistentDict.filterKeys filter d
+         
+    let public choose (chooser : 'a -> 'b option) (d : pset<'a>) : pset<'b> =
+        d |> toSeq |> Seq.choose chooser |> ofSeq
+        
     let subtract (s1 : pset<'a>) (s2 : pset<'a>) =
         Seq.fold remove s1 (toSeq s2)
     let union (s1 : pset<'a>) (s2 : pset<'a>) =
