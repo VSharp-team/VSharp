@@ -1,0 +1,12 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.ArrayConcreteSafeRead2()
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+Path condition: 2 == Combine(Slice(2, 0, 4))
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+Initialized types = { VSharp.Test.Tests.Unsafe, System.Runtime.CompilerServices.RuntimeHelpers }

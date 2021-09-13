@@ -339,6 +339,42 @@ namespace VSharp.Test.Tests
             return res;
         }
 
+        [TestSvm]
+        public static bool ArraySymbolicUpdate(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            if (i == 0 && array[0] != 10)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static bool ArraySymbolicUpdate2(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            array[0] = 12;
+            if (i == 0 && array[0] != 12)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static bool ArraySymbolicUpdate3(int i, int j)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            array[0] = 12;
+            array[j] = 42;
+            if ((i == 0 && j == 0 && array[0] != 42) || (i == 0 && j == 2 && array[0] != 12) || (i == 2 && j == 2 && array[2] != 42) || (i == 2 && j == 1 && array[i] != 10) || (i == 2 && j == 1 && array[1] != 42))
+                return false;
+            else
+                return true;
+        }
+
         [Ignore("needs big bound")]
         public static int AddManyElementsToList()
         {
@@ -357,7 +393,6 @@ namespace VSharp.Test.Tests
             return l.Contains('a');
         }
 
-        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray1(Array arr)
         {
             if (arr is int[])
@@ -374,7 +409,6 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray2(Array arr)
         {
             if (arr is int[])

@@ -564,42 +564,45 @@ module internal Memory =
 // ------------------------------- Unsafe reading -------------------------------
 
     // NOTE: returns list of slices
-    let rec private readTermUnsafe term offsetInsideTerm window =
+    let rec private readTermUnsafe term startByte endByte =
         match term.term with
-        | Struct(fields, t) -> readStructUnsafe fields t offsetInsideTerm window
+        | Struct(fields, t) -> readStructUnsafe fields t startByte endByte
         | HeapRef _
         | Ref _
         | Ptr _ -> sprintf "reinterpreting %O" term |> undefinedBehaviour
         | Concrete _
         | Constant _
-        | Expression _ -> Terms.sizeOf term |> makeNumber |> Slice term offsetInsideTerm |> List.singleton
+        | Expression _ -> Slice term startByte endByte |> List.singleton
         | _ -> __unreachable__()
 
-    and private readStructUnsafe fields structType offset window =
+    and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe readField false structType offset window
+        readFieldsUnsafe readField false structType startByte endByte
 
-    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) offset window : term list =
+    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) startByte endByte =
         let fields = Reflection.fieldsOf isStatic (toDotNetType blockType)
         let mapper (fieldId, fieldInfo : Reflection.FieldInfo) =
             // TODO: add zeros between fields #do
             fieldId, CSharpUtils.LayoutUtils.GetFieldOffset(fieldInfo), TypeUtils.internalSizeOf fieldInfo.FieldType |> int
         let fieldIntervals = Array.map mapper fields |> Array.sortBy snd3
         // TODO: unify #do
-        match offset.term with
-        | Concrete(:? int as offset, _) ->
+        match startByte.term, endByte.term with
+        | Concrete(:? int as o, _), Concrete(:? int as s, _) ->
             let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
-                if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
+                if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
                     let fieldValue = readField fieldId
-                    let offsetInsideField = offset - fieldOffset
-                    readTermUnsafe fieldValue (makeNumber offsetInsideField) window
+                    let startByte = o - fieldOffset |> makeNumber
+                    let endByte = sub endByte (makeNumber fieldOffset)
+                    readTermUnsafe fieldValue startByte endByte
                 else List.empty
             Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
         | _ ->
             let readSymbolicSlices (fieldId, fieldOffset, _) =
                 let fieldValue = readField fieldId
-                let offsetInsideField = sub offset (makeNumber fieldOffset)
-                readTermUnsafe fieldValue offsetInsideField window
+                let fieldOffset = makeNumber fieldOffset
+                let startByte = sub startByte fieldOffset
+                let endByte = sub endByte fieldOffset
+                readTermUnsafe fieldValue startByte endByte
             Seq.collect readSymbolicSlices fieldIntervals |> List.ofSeq
 
     // TODO: Add undefined behaviour: #do
@@ -607,13 +610,13 @@ module internal Memory =
     // TODO: 3. when reading info outside block #do
     // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr #do
     let private readClassUnsafe state address classType offset sightType =
-        let window = sizeOf sightType
+        let endByte = sizeOf sightType |> makeNumber |> add offset
         let readField fieldId = readClassField state address fieldId
-        let slices = readFieldsUnsafe readField false classType offset window
+        let slices = readFieldsUnsafe readField false classType offset endByte
         combine slices sightType
 
     let private readArrayUnsafe state address arrayType offset sightType =
-        let window = sizeOf sightType
+        let size = sizeOf sightType
         // TODO: String has another offset #do
         let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
         let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
@@ -623,25 +626,35 @@ module internal Memory =
         let elementOffset = rem offset elementSize
         let countToRead =
             match elementOffset.term with
-            | Concrete(:? int as i, _) when i = 0 -> (window / concreteElementSize)
+            | Concrete(:? int as i, _) when i = 0 -> (size / concreteElementSize)
             // NOTE: if offset inside element > 0 then one more element is needed
-            | _ -> (window / concreteElementSize) + 1
+            | _ -> (size / concreteElementSize) + 1
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
         let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
-        let readElement offset i =
+//        let readElement offset i =
+//            // TODO: elementOffset = linearIndex * elementSize - offset ? #do
+//            let linearIndex = makeNumber i |> add firstElement
+//            let indices = delinearizeArrayIndex linearIndex lens lbs
+//            let element = readArrayIndex state address indices arrayType
+//            readTermUnsafe element offset (makeNumber size |> add offset)
+//        let firstElementSlices = readElement elementOffset 0
+//        let restSlices = List.map (readElement (makeNumber 0)) [1 .. countToRead - 1]
+//        let slices = firstElementSlices :: restSlices |> List.concat
+        let readElement (slicesAcc, currentOffset) i =
+            // TODO: better use rem rather than mul? #do
             let linearIndex = makeNumber i |> add firstElement
             let indices = delinearizeArrayIndex linearIndex lens lbs
             let element = readArrayIndex state address indices arrayType
-            readTermUnsafe element offset window
-        let firstElementSlices = readElement elementOffset 0
-        let restSlices = List.map (readElement (makeNumber 0)) [1 .. countToRead - 1]
-        let slices = firstElementSlices :: restSlices |> List.concat
+            let elementOffset = sub offset currentOffset
+            let slices = readTermUnsafe element elementOffset (makeNumber size |> add elementOffset)
+            slicesAcc @ slices, add currentOffset elementSize
+        let slices = List.fold readElement ([], mul firstElement elementSize) [0 .. countToRead - 1] |> fst
         combine slices sightType
 
     let private readStaticUnsafe state t offset sightType =
-        let window = sizeOf sightType
+        let endByte = sizeOf sightType |> makeNumber |> add offset
         let readField fieldId = readStaticField state t fieldId
-        let slices = readFieldsUnsafe readField true t offset window
+        let slices = readFieldsUnsafe readField true t offset endByte
         combine slices sightType
 
     let private readUnsafe state baseAddress offset sightType =
@@ -657,8 +670,8 @@ module internal Memory =
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc ->
             let term = readStackLocation state loc
-            let window = sizeOf sightType
-            let slices = readTermUnsafe term offset window
+            let endByte = sizeOf sightType |> makeNumber |> add offset
+            let slices = readTermUnsafe term offset endByte
             combine slices sightType
         | StaticLocation loc ->
             readStaticUnsafe state loc offset sightType
@@ -946,80 +959,124 @@ module internal Memory =
             __unreachable__()
 
 // ------------------------------- Unsafe writing -------------------------------
+// TODO: unify with read #do
 
-    let rec writeTermUnsafe term offsetInsideTerm window value =
+    let rec writeTermUnsafe term tOffset value =
         match term.term with
-        | Struct(fields, t) -> writeStructUnsafe fields t offsetInsideTerm window value
+        | Struct(fields, t) -> writeStructUnsafe term fields t tOffset value
         | HeapRef _
         | Ref _
         | Ptr _ -> sprintf "reinterpreting %O" term |> undefinedBehaviour
         | Concrete _
         | Constant _
         | Expression _ ->
-            let size = Terms.sizeOf term |> makeNumber
-            let left = Slice term (makeNumber 0) offsetInsideTerm
-            let right = Slice term (add offsetInsideTerm (makeNumber window)) size
-            [left; value; right]
+            let termType = typeOf term
+            let termSize = sizeOf termType |> makeNumber
+            let valueSize = Terms.sizeOf value |> makeNumber
+            let left = Slice term (makeNumber 0) tOffset
+            let valueSlices = readTermUnsafe value (neg tOffset) (sub termSize tOffset)
+            let right = Slice term (add tOffset valueSize) termSize
+            combine ([left] @ valueSlices @ [right]) termType
         | _ -> __unreachable__()
 
-    and private writeStructUnsafe fields structType offset window value =
+    and private writeStructUnsafe structTerm fields structType tOffset value =
         let readField fieldId = fields.[fieldId]
-        writeFieldsUnsafe readField false structType offset window value
+        let updatedFields = writeFieldsUnsafe readField false structType tOffset value
+        let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
+        Array.fold writeField structTerm updatedFields
+        // TODO: need all fields? #do
+//        assert(Array.length updatedFields = PersistentDict.size fields)
+//        Struct (PersistentDict.ofSeq updatedFields) structType
 
-    and private writeFieldsUnsafe readField isStatic (blockType : symbolicType) offset window value : term list =
+    and private writeFieldsUnsafe readField isStatic (blockType : symbolicType) tOffset value =
         let fields = Reflection.fieldsOf isStatic (toDotNetType blockType)
         let mapper (fieldId, fieldInfo : Reflection.FieldInfo) =
             // TODO: add zeros between fields #do
             fieldId, CSharpUtils.LayoutUtils.GetFieldOffset(fieldInfo), TypeUtils.internalSizeOf fieldInfo.FieldType |> int
         let fieldIntervals = Array.map mapper fields |> Array.sortBy snd3
         // TODO: unify #do
-        match offset.term with
-        | Concrete(:? int as offset, _) ->
-            let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
-                if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
-                    let fieldValue = readField fieldId
-                    let offsetInsideField = offset - fieldOffset
-                    let value' = __notImplemented__() // readTermUnsafe value
-                    writeTermUnsafe fieldValue (makeNumber offsetInsideField) window value'
-                else List.empty
-            Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
+        match tOffset.term with
+        // TODO: add heuristics #do
+//        | Concrete(:? int as offset, _) ->
+//            let readConcreteSlices (fieldId, fieldOffset, fieldSize) =
+//                if (offset + window > fieldOffset && offset < fieldOffset + fieldSize) then
+//                    let fieldValue = readField fieldId
+//                    let offsetInsideField = offset - fieldOffset
+//                    let value' =
+//                        readTermUnsafe value
+//                        __notImplemented__()
+//                    writeTermUnsafe fieldValue (makeNumber offsetInsideField) window value'
+//                else List.empty
+//            Seq.collect readConcreteSlices fieldIntervals |> List.ofSeq
         | _ ->
-            let readSymbolicSlices (fieldId, fieldOffset, _) =
+            let writeSymbolic (fieldId, fieldOffset, _) =
                 let fieldValue = readField fieldId
-                let offsetInsideField = sub offset (makeNumber fieldOffset)
-                readTermUnsafe fieldValue offsetInsideField window
-            Seq.collect readSymbolicSlices fieldIntervals |> List.ofSeq
+                let fieldOffset = makeNumber fieldOffset
+                // TODO: vOffset = -tOffset? #do
+                // NOTE: all offsets must use initial offset
+                let offsetInsideField = sub tOffset fieldOffset
+//                let offsetInsideValue = add vOffset fieldOffset
+                fieldId, writeTermUnsafe fieldValue offsetInsideField value
+            Array.map writeSymbolic fieldIntervals
 
+    let writeClassUnsafe state address typ offset value =
+        let readField fieldId = readClassField state address fieldId
+        let updatedFields = writeFieldsUnsafe readField false typ offset value // (neg offset)
+        let writeField (fieldId, value) = writeClassField state address fieldId value
+        Array.iter writeField updatedFields
 
-    let writeClassUnsafe state loc typ offset sightType value =
-        __notImplemented__()
+    let writeArrayUnsafe state address arrayType offset value =
+        let size = Terms.sizeOf value
+        // TODO: String has another offset #do
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
+        let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
+        let concreteElementSize = sizeOf elementType
+        let elementSize = makeNumber concreteElementSize
+        let firstElement = div offset elementSize
+        let elementOffset = rem offset elementSize
+        let countToRead =
+            match elementOffset.term with
+            | Concrete(:? int as i, _) when i = 0 -> (size / concreteElementSize)
+            // NOTE: if offset inside element > 0 then one more element is needed
+            | _ -> (size / concreteElementSize) + 1
+        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
+        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
+        let writeElement currentOffset i =
+            // TODO: better use rem rather than mul? #do
+            let linearIndex = makeNumber i |> add firstElement
+            let indices = delinearizeArrayIndex linearIndex lens lbs
+            let element = readArrayIndex state address indices arrayType
+            let elementOffset = sub offset currentOffset
+            let updatedElement = writeTermUnsafe element elementOffset value
+            writeArrayIndex state address indices arrayType updatedElement
+            add currentOffset elementSize
+        List.fold writeElement (mul firstElement elementSize) [0 .. countToRead - 1] |> ignore
 
-    let writeArrayUnsafe state loc typ offset sightType value =
-        __notImplemented__()
-
-    let writeStaticUnsafe state loc offset sightType value =
-        __notImplemented__()
+    let writeStaticUnsafe state staticType offset value =
+        let readField fieldId = readStaticField state staticType fieldId
+        let updatedFields = writeFieldsUnsafe readField true staticType offset value
+        let writeField (fieldId, value) = writeStaticField state staticType fieldId value
+        Array.iter writeField updatedFields
 
     // TODO: do write by pointer #do
     let private writeUnsafe state baseAddress offset sightType value =
+        assert(sizeOf sightType = Terms.sizeOf value)
         match baseAddress with
         | HeapLocation loc ->
             let typ = typeOfHeapLocation state loc
             match typ with
-            | ClassType _ -> writeClassUnsafe state loc typ offset sightType value
-            | ArrayType _ -> writeArrayUnsafe state loc typ offset sightType value
+            | ClassType _ -> writeClassUnsafe state loc typ offset value
+            | ArrayType _ -> writeArrayUnsafe state loc typ offset value
             | StructType _ ->
                 // TODO: boxed location? #do
                 __notImplemented__()
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc ->
             let term = readStackLocation state loc
-            let window = sizeOf sightType
-            let slices = writeTermUnsafe term offset window value
-            let updatedTerm = combine slices sightType
+            let updatedTerm = writeTermUnsafe term offset value
             writeStackLocation state loc updatedTerm
         | StaticLocation loc ->
-            writeStaticUnsafe state loc offset sightType value
+            writeStaticUnsafe state loc offset value
 
     let rec write state reference value =
         guardedStatedMap

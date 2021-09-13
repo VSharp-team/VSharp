@@ -1,0 +1,27 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.ArraySymbolicUnsafeRead(System.Int32)
+RESULT: Totally 2 states:
+True
+MEMORY DUMP:
+Path condition: !(1 == i) /\ !(17179869187 == Combine(Slice(2[8 * i / 4], -4 * 8 * i / 4 + 8 * i, -4 * 8 * i / 4 + 8 * i + 8), Slice(2[1 + 8 * i / 4], -4 + -4 * 8 * i / 4 + 8 * i, -4 + -4 * 8 * i / 4 + 8 * i + 8)))
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+key = __loc__1, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int64, offset = 16)
+Initialized types = { VSharp.Test.Tests.Unsafe, System.Runtime.CompilerServices.RuntimeHelpers }
+
+True
+MEMORY DUMP:
+Path condition: 17179869187 == Combine(Slice(2[8 * i / 4], -4 * 8 * i / 4 + 8 * i, -4 * 8 * i / 4 + 8 * i + 8), Slice(2[1 + 8 * i / 4], -4 + -4 * 8 * i / 4 + 8 * i, -4 + -4 * 8 * i / 4 + 8 * i + 8))
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+key = __loc__1, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int64, offset = 16)
+Initialized types = { VSharp.Test.Tests.Unsafe, System.Runtime.CompilerServices.RuntimeHelpers }

@@ -1,0 +1,23 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.ArraySymbolicSafeRead(System.Int32)
+RESULT: Totally 2 states:
+True
+MEMORY DUMP:
+Path condition: !(2 == i) /\ !(3 == Combine(Slice(2[4 * i / 4], -4 * 4 * i / 4 + 4 * i, -4 * 4 * i / 4 + 4 * i + 4)))
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+Initialized types = { VSharp.Test.Tests.Unsafe, System.Runtime.CompilerServices.RuntimeHelpers }
+
+True
+MEMORY DUMP:
+Path condition: 3 == Combine(Slice(2[4 * i / 4], -4 * 4 * i / 4 + 4 * i, -4 * 4 * i / 4 + 4 * i + 4))
+--------------- Concrete memory: ---------------
+2 ==> System.Int32[]
+--------------- Types tokens: ---------------
+2 ==> System.Int32[]
+--------------- Stack: ---------------
+key = __loc__0, value = 0
+Initialized types = { VSharp.Test.Tests.Unsafe, System.Runtime.CompilerServices.RuntimeHelpers }

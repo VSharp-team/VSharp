@@ -1,0 +1,39 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.StructInsideArraySymbolicUnsafeRead2(System.Int32)
+RESULT: Totally 2 states:
+True
+MEMORY DUMP:
+Path condition: !(1 == i)
+--------------- Concrete memory: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+ExplicitStruct[]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+ExplicitStruct[]
+--------------- Stack: ---------------
+key = __loc__0, value = Combine(Slice(x, -8 * i / 8 + i, -8 * i / 8 + i + 8), Slice(y, -1 + -8 * i / 8 + i, -8 * i / 8 + i + 7), Slice(x, -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 8), Slice(y, -1 + -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 7))
+key = __loc__1, value = 0
+key = __loc__2, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Byte, offset = 16)
+key = __loc__3, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int64, offset = 16 + i)
+key = __tmp__VSharp.Test.Tests.Unsafe+ExplicitStruct, value = VSharp.Test.Tests.Unsafe+ExplicitStruct STRUCT [
+	| x ~> 5
+	| y ~> 6]
+Initialized types = { VSharp.Test.Tests.Unsafe+ExplicitStruct, VSharp.Test.Tests.Unsafe }
+
+True
+MEMORY DUMP:
+Path condition: 1 == i /\ 216172782113783808 == Combine(Slice(x, -8 * i / 8 + i, -8 * i / 8 + i + 8), Slice(y, -1 + -8 * i / 8 + i, -8 * i / 8 + i + 7), Slice(x, -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 8), Slice(y, -1 + -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 7))
+--------------- Concrete memory: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+ExplicitStruct[]
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+ExplicitStruct[]
+--------------- Stack: ---------------
+key = __loc__0, value = Combine(Slice(x, -8 * i / 8 + i, -8 * i / 8 + i + 8), Slice(y, -1 + -8 * i / 8 + i, -8 * i / 8 + i + 7), Slice(x, -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 8), Slice(y, -1 + -8 + -8 * i / 8 + i, -8 + -8 * i / 8 + i + 7))
+key = __loc__1, value = 0
+key = __loc__2, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Byte, offset = 16)
+key = __loc__3, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int64, offset = 16 + i)
+key = __tmp__VSharp.Test.Tests.Unsafe+ExplicitStruct, value = VSharp.Test.Tests.Unsafe+ExplicitStruct STRUCT [
+	| x ~> 5
+	| y ~> 6]
+Initialized types = { VSharp.Test.Tests.Unsafe+ExplicitStruct, VSharp.Test.Tests.Unsafe }
