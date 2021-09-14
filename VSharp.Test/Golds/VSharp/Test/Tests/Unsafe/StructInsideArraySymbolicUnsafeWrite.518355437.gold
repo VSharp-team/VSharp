@@ -1,0 +1,75 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.StructInsideArraySymbolicUnsafeWrite(System.Int32, VSharp.Test.Tests.Unsafe+SequentialStruct)
+RESULT: Totally 2 states:
+True
+MEMORY DUMP:
+Path condition: !(1 == i)
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Unsafe+SequentialStruct[] ==> {
+        2[0] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[1] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[2] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[1 + 4 * i / 8] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> Combine(Slice(x, 0, -8 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8 + 4), Slice(y, -4 + -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8), Slice(x, -8 + -8 * 4 * i / 8 + 4 * i + 8, 4))
+	| y ~> Combine(Slice(y, 0, -4 + -8 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 8 + 4, -4 * i + 4 * i / 8 * 8 + 8 + 8), Slice(y, -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8 + 4), Slice(y, -8 + -8 * 4 * i / 8 + 4 * i + 4, 4))]
+        2[4 * i / 8] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> Combine(Slice(x, 0, -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8 + 4), Slice(y, -4 + -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8), Slice(x, -8 * 4 * i / 8 + 4 * i + 8, 4))
+	| y ~> Combine(Slice(y, 0, -4 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 4, -4 * i + 4 * i / 8 * 8 + 8), Slice(y, -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8 + 4), Slice(y, -8 * 4 * i / 8 + 4 * i + 4, 4))]
+    }
+--------------- Array lengths: ---------------
+VSharp.Test.Tests.Unsafe+SequentialStruct[] ==> {2[0] <- 3}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+SequentialStruct[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.Unsafe+SequentialStruct[])
+key = __loc__1, value = 0
+key = __loc__2, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int32, offset = 16)
+key = __loc__3, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as VSharp.Test.Tests.Unsafe+SequentialStruct, offset = 16 + 4 * i)
+key = __tmp__VSharp.Test.Tests.Unsafe+SequentialStruct, value = VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+Initialized types = { VSharp.Test.Tests.Unsafe, VSharp.Test.Tests.Unsafe+SequentialStruct }
+
+True
+MEMORY DUMP:
+Path condition: 1 == i /\ x == y /\ x == y
+--------------- Array contents: ---------------
+VSharp.Test.Tests.Unsafe+SequentialStruct[] ==> {
+        2[0] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[1] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[2] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+        2[1 + 4 * i / 8] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> Combine(Slice(x, 0, -8 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8 + 4), Slice(y, -4 + -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8), Slice(x, -8 + -8 * 4 * i / 8 + 4 * i + 8, 4))
+	| y ~> Combine(Slice(y, 0, -4 + -8 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 8 + 4, -4 * i + 4 * i / 8 * 8 + 8 + 8), Slice(y, -4 * i + 4 * i / 8 * 8 + 8, -4 * i + 4 * i / 8 * 8 + 8 + 4), Slice(y, -8 + -8 * 4 * i / 8 + 4 * i + 4, 4))]
+        2[4 * i / 8] <- VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> Combine(Slice(x, 0, -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8 + 4), Slice(y, -4 + -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8), Slice(x, -8 * 4 * i / 8 + 4 * i + 8, 4))
+	| y ~> Combine(Slice(y, 0, -4 + -8 * 4 * i / 8 + 4 * i), Slice(x, -4 * i + 4 * i / 8 * 8 + 4, -4 * i + 4 * i / 8 * 8 + 8), Slice(y, -4 * i + 4 * i / 8 * 8, -4 * i + 4 * i / 8 * 8 + 4), Slice(y, -8 * 4 * i / 8 + 4 * i + 4, 4))]
+    }
+--------------- Array lengths: ---------------
+VSharp.Test.Tests.Unsafe+SequentialStruct[] ==> {2[0] <- 3}
+--------------- Types tokens: ---------------
+2 ==> VSharp.Test.Tests.Unsafe+SequentialStruct[]
+--------------- Stack: ---------------
+key = __loc__0, value = (HeapRef 2 to VSharp.Test.Tests.Unsafe+SequentialStruct[])
+key = __loc__1, value = 0
+key = __loc__2, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as System.Int32, offset = 16)
+key = __loc__3, value = (HeapPtr HeapLocation { term = Concrete ([2u], AddressType)
+               hc = 659009009 } as VSharp.Test.Tests.Unsafe+SequentialStruct, offset = 16 + 4 * i)
+key = __tmp__VSharp.Test.Tests.Unsafe+SequentialStruct, value = VSharp.Test.Tests.Unsafe+SequentialStruct STRUCT [
+	| x ~> i
+	| y ~> i]
+Initialized types = { VSharp.Test.Tests.Unsafe, VSharp.Test.Tests.Unsafe+SequentialStruct }

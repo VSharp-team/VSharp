@@ -261,13 +261,15 @@ namespace VSharp.Test.Tests
                 return true;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
-        public class SequentialClass
+        [StructLayout(LayoutKind.Explicit)]
+        public class ExplicitClass
         {
+            [FieldOffset(3)]
             public int x;
+            [FieldOffset(4)]
             public int y;
 
-            public SequentialClass(int x, int y)
+            public ExplicitClass(int x, int y)
             {
                 this.x = x;
                 this.y = y;
@@ -275,7 +277,7 @@ namespace VSharp.Test.Tests
         }
 
         [StructLayout(LayoutKind.Sequential)]
-        struct SequentialStruct
+        public struct SequentialStruct
         {
             public int x;
             public int y;
@@ -401,7 +403,54 @@ namespace VSharp.Test.Tests
                 result = *ptr4;
             }
 
-            if (i == 1 && result != 216172782113783808L)
+            if (i == 1 && result != 216172782147338240L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static bool ClassSymbolicReadZeroBetweenFields(int i)
+        {
+            var c = new ExplicitClass(1, 2);
+            byte result;
+            fixed (int* ptr = &c.x)
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = ptr2 + i;
+                result = *ptr3;
+            }
+            if (i == -1 && result != 0)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        // TODO: minimize combine term #do
+        public static bool ClassWriteSafeOverlappingFields(int i, int j)
+        {
+            var c = new ExplicitClass(i, j);
+            c.y = 42;
+            c.x = -1000;
+            if (c.y == 16777212)
+                return true;
+            return false;
+        }
+
+        [TestSvm]
+        public static bool StructInsideArraySymbolicUnsafeWrite(int i, SequentialStruct v)
+        {
+            var array = new [] {new SequentialStruct(i, i), new SequentialStruct(i, i), new SequentialStruct(i, i)};
+            fixed (SequentialStruct* ptr = &array[0])
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (SequentialStruct*) ptr3;
+                *ptr4 = v;
+            }
+
+            if (i == 1 && (array[0].y != v.x || array[1].x != v.y))
                 return false;
             else
                 return true;

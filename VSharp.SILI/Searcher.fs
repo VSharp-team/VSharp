@@ -64,7 +64,8 @@ type ForwardSearcher(maxBound) =
         levelToUnsignedInt s.level > maxBound
     let isStopped s = isIIEState s || isError s || not(isExecutable(s)) || violatesLevel s
     let add (s : cilState) =
-        if not <| isStopped s && forPropagation.Contains(s) |> not then
+        if not <| isStopped s then
+            assert(forPropagation.Contains s |> not)
             forPropagation.Add(s)
 
     interface IForwardSearcher with

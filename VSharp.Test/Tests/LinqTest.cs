@@ -106,7 +106,7 @@ namespace VSharp.Test.Tests
         [TestSvm]
         public static int SymbolicLinqTest2(int x, int y, int z)
         {
-            // TODO: use group by and so on #do
+            // TODO: use group by and so on
             int[] scores = { x, y, z, 60 };
 
             IEnumerable<int> scoreQuery =

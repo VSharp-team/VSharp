@@ -1,0 +1,5 @@
+METHOD: System.Boolean VSharp.Test.Tests.Unsafe.IdentityTest()
+RESULT: Totally 1 state:
+True
+MEMORY DUMP:
+Initialized types = { VSharp.Test.Tests.Unsafe }

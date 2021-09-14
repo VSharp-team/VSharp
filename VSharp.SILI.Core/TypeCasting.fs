@@ -128,8 +128,7 @@ module internal TypeCasting =
         | Ref address, Pointer typ' -> Pointers.makePointerFromAddress address typ'
         | Ref _, _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
         | HeapRef(addr, _), _ -> HeapRef addr targetType
-//        | Struct _, _ -> term
-        | Struct _, _ -> internalfailf "Casting struct to %O" targetType // TODO: can this happen? #do
+        | Struct _, _ -> internalfailf "Casting struct to %O" targetType
         | _ -> internalfailf "Can't cast %O to type %O" term targetType
 
     let canCast state term targetType =

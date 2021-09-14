@@ -37,7 +37,7 @@ module internal Pointers =
             let metadataSize = makeNumber LayoutUtils.ArrayElementsOffset
             let offset = mul index sizeOfElement |> add metadataSize
             Ptr (HeapLocation heapAddress) typ offset
-        // TODO: Address function should use Ptr instead of Ref #do
+        // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
         | BoxedLocation(concreteHeapAddress, _) ->
             let baseAddress = ConcreteHeapAddress concreteHeapAddress |> HeapLocation

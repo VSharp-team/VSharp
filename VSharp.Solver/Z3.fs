@@ -223,30 +223,6 @@ module internal Z3 =
             | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
             | _ -> __unreachable__()
 
-//        member private x.EncodeCombine encCtx args typ =
-//            let res = ctx.MkNumeral(0, x.Type2Sort typ)
-//            let window = (Types.SizeOf typ |> uint) * 8u
-//            let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
-//            let zeroExpr = ctx.MkNumeral(0, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
-//            let folder (res, assumptions) slice =
-//                let term, offset, size =
-//                    match slice.term with
-//                    | Slice(term, offset, {term = Concrete(:? int as size, _)}) -> x.EncodeTerm encCtx term, x.EncodeTerm encCtx offset, (uint size) * 8u
-//                    | _ -> internalfailf "encoding combine: expected slice as argument, but got %O" slice
-//                let assumptions = List.append assumptions term.assumptions |> List.append offset.assumptions
-//                let termExpr = ctx.MkZeroExt((max window size |> uint) - size, term.expr :?> BitVecExpr)
-//                let offsetExpr = offset.expr :?> BitVecExpr
-//                let sizeExpr = ctx.MkBV(size, 32u)
-//                let isAfterStart = ctx.MkBVSGT(ctx.MkBVAdd(offsetExpr, windowExpr), zeroExpr)
-//                let isBeforeEnd = ctx.MkBVSLT(offsetExpr, sizeExpr)
-//                let intersects = ctx.MkAnd(isAfterStart, isBeforeEnd)
-//                let shift = ctx.MkBVSub(windowExpr, ctx.MkBVSub(sizeExpr, offsetExpr))
-//                let needShiftLeft = ctx.MkBVSGT(shift, zeroExpr)
-//                let elem = ctx.MkITE(needShiftLeft, ctx.MkBVSHL(termExpr, shift), ctx.MkBVLSHR(termExpr, shift))
-//                let elem = ctx.MkExtract(window - 1u, 0u, elem :?> BitVecExpr)
-//                ctx.MkITE(intersects, elem, res), assumptions
-//            List.fold folder (res, List.empty) args |> encodingResult.Create
-
         member private x.ExtractOrExtend (expr : BitVecExpr) size =
             let exprSize = expr.SortSize
             if exprSize > size then ctx.MkExtract(size - 1u, 0u, expr)
@@ -258,21 +234,24 @@ module internal Z3 =
             let bytes = List.init (size / 8) (fun byte -> ctx.MkExtract(uint ((byte + 1) * 8) - 1u, uint (byte * 8), expr))
             List.reduce (fun x y -> ctx.MkConcat(x, y)) bytes
 
-        // TODO: try alternative combine: 1. add position term into slice; 2. use offset and endByte for positioning #do
-        member private x.EncodeCombine encCtx args typ =
+        // TODO: make code better
+        member private x.EncodeCombine encCtx slices typ =
             let res = ctx.MkNumeral(0, x.Type2Sort typ) :?> BitVecExpr
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let zero = ctx.MkNumeral(0, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
-            let folder (res, assumptions, offset) slice =
-                let term, startByte, endByte =
+            let addOneSlice (res, assumptions) slice =
+                let term, startByte, endByte, pos =
                     match slice.term with
-                    | Slice(term, startByte, endByte) -> x.EncodeTerm encCtx term, x.EncodeTerm encCtx startByte, x.EncodeTerm encCtx endByte
+                    | Slice(term, startByte, endByte, pos) ->
+                        x.EncodeTerm encCtx term, x.EncodeTerm encCtx startByte, x.EncodeTerm encCtx endByte, x.EncodeTerm encCtx pos
                     | _ -> internalfailf "encoding combine: expected slice as argument, but got %O" slice
-                let assumptions = List.append assumptions term.assumptions |> List.append startByte.assumptions |> List.append endByte.assumptions
+                let assumptions = assumptions @ term.assumptions @ startByte.assumptions @ endByte.assumptions @ pos.assumptions
                 let term = term.expr :?> BitVecExpr
                 let startByte = startByte.expr :?> BitVecExpr
                 let endByte = endByte.expr :?> BitVecExpr
+                let pos = pos.expr :?> BitVecExpr
+                let pos = ctx.MkBVMul(pos, ctx.MkBV(8, pos.SortSize))
                 let startBit = ctx.MkBVMul(startByte, ctx.MkBV(8, startByte.SortSize))
                 let endBit = ctx.MkBVMul(endByte, ctx.MkBV(8, endByte.SortSize))
                 let termSize = term.SortSize
@@ -281,21 +260,21 @@ module internal Z3 =
                 let right = ctx.MkITE(ctx.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
                 let size = ctx.MkBVSub(right, left)
                 let intersects = ctx.MkBVSGT(size, zero)
-                let updatedOffset = ctx.MkBVSub(offset, size)
                 let term = x.ReverseBytes term
                 let left = x.ExtractOrExtend left term.SortSize
                 let term = ctx.MkBVLSHR(ctx.MkBVSHL(term, left), left)
                 let toShiftRight = x.ExtractOrExtend (ctx.MkBVSub(sizeExpr, right)) term.SortSize
                 let term = ctx.MkBVLSHR(term, toShiftRight)
                 let term = if termSize > window then ctx.MkExtract(window - 1u, 0u, term) else ctx.MkZeroExt(window - termSize, term)
-                let shift = x.ExtractOrExtend updatedOffset term.SortSize
-                // TODO: use negative offset also #do
-//                let part = ctx.MkITE(ctx.MkBVSGT(updatedOffset, x.ExtractOrExtend zero updatedOffset.SortSize), ctx.MkBVSHL(term, shift), ctx.MkBVLSHR(term, ctx.MkBVSub(x.ExtractOrExtend zero shift.SortSize, shift))) :?> BitVecExpr
+                let w = x.ExtractOrExtend windowExpr term.SortSize
+                let s = x.ExtractOrExtend sizeExpr term.SortSize
+                let pos = x.ExtractOrExtend pos term.SortSize
+                let toShiftRight = x.ExtractOrExtend toShiftRight term.SortSize
+                let shift = ctx.MkBVAdd(ctx.MkBVSub(w, ctx.MkBVSub(s, pos)), toShiftRight)
                 let part = ctx.MkBVSHL(term, shift)
                 let res = ctx.MkITE(intersects, ctx.MkBVOR(res, part), res) :?> BitVecExpr
-                let offset = ctx.MkITE(intersects, updatedOffset, offset) :?> BitVecExpr
-                res, assumptions, offset
-            let result, assumptions, _ = List.fold folder (res, List.empty, windowExpr) args
+                res, assumptions
+            let result, assumptions = List.fold addOneSlice (res, List.empty) slices
             {expr = x.ReverseBytes result; assumptions = assumptions}
 
         member private x.EncodeExpression encCtx term op args typ =

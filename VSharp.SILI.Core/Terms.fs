@@ -86,7 +86,7 @@ type termNode =
     | Ref of address
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * symbolicType * term // base address * sight type * offset (in bytes)
-    | Slice of term * term * term // what term to slice * start byte * end byte
+    | Slice of term * term * term * term // what term to slice * start byte * end byte * position inside combine
     | Union of (term * term) list
 
     override x.ToString() =
@@ -160,7 +160,7 @@ type termNode =
             | Ptr(address, typ, shift) ->
                 let offset = ", offset = " + shift.ToString()
                 sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
-            | Slice(term, offset, size) -> sprintf "Slice(%O, %O, %O)" term offset size |> k
+            | Slice(term, offset, size, _) -> sprintf "Slice(%O, %O, %O)" term offset size |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
@@ -271,7 +271,7 @@ module internal Terms =
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
-    let Slice term first termSize = HashMap.addTerm (Slice(term, first, termSize))
+    let Slice term first termSize pos = HashMap.addTerm (Slice(term, first, termSize, pos))
     let ConcreteHeapAddress addr = Concrete addr AddressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
@@ -375,7 +375,12 @@ module internal Terms =
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
         | typ -> internalfailf "Expected array type, but got %O" typ
 
-    let sizeOf = typeOf >> Types.sizeOf
+    let sizeOf term =
+        let typ = typeOf term
+        match typ with
+        | Null -> TypeUtils.internalSizeOf typeof<obj> |> int
+        | _ -> Types.sizeOf typ
+
     let bitSizeOf term resultingType = Types.bitSizeOfType (typeOf term) resultingType
 
     let isBool t =    typeOf t |> Types.isBool
@@ -481,12 +486,7 @@ module internal Terms =
     let rec primitiveCast term targetType =
         match term.term, targetType with
         | _ when typeOf term = targetType -> term
-        // TODO: need this cases? #do
-//        | Concrete(:? int as i, Numeric _), Pointer typ when i = 0 -> Ptr (HeapLocation zeroAddress) typ term
-//        | Concrete(:? int as i, Numeric _), ByRef _ when i = 0 -> nullRef
-//        | _, Pointer _ when typeOf term |> Types.isNumeric ->
-//            internalfailf "Casting nonzero number to pointer type %O" targetType
-        // NOTE: Lazy: not casting numbers to ref or ptr until deref
+        // NOTE: Lazy: not casting numbers to ref or ptr until dereference
         | _, Pointer _
         | _, ByRef _ -> term
         | Concrete(value, _), _ -> castConcrete value (Types.toDotNetType targetType)
@@ -606,8 +606,10 @@ module internal Terms =
             | Combined(terms, _) -> terms
             | term -> List.singleton term
         let terms = List.collect concat terms
-        // TODO: if all are concrete, reinterpret concretes #do
-        Expression Combine terms t
+        // TODO: add heuristics: if all are concrete, reinterpret concretes
+        match terms with
+        | [{term = Slice(t, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, _)}] when s = 0 && e = sizeOf t -> t
+        | _ -> Expression Combine terms t
 
     let rec timeOf (address : heapAddress) =
         match address.term with

@@ -47,8 +47,6 @@ module internal CilStateOperations =
 
     let isExecutable (s : cilState) =
         match s.ipStack with
-        // TODO: do better #do #Dima
-//        | [] -> false
         | [] -> __unreachable__()
         | Exit _ :: [] -> false
         | _ -> true

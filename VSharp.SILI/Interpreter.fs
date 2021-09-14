@@ -1842,10 +1842,8 @@ type internal ILInterpreter() as this =
                 cilState.iie <- None
                 let allStates = x.MakeStep cilState
                 let newErrors, restStates = List.partition isError allStates
-                let errors = errors @ newErrors // TODO: check it
+                let errors = errors @ newErrors
                 let newIieStates, goodStates = List.partition isIIEState restStates
-                // TODO: do better #do #Dima
-//                let finishedStates, goodStates = List.partition (fun cilState -> List.isEmpty cilState.ipStack) goodStates
                 let incompleteStates = newIieStates @ incompleteStates
                 match goodStates with
                 | _ when List.forall (currentIp >> condition) goodStates ->
@@ -1877,12 +1875,11 @@ type internal ILInterpreter() as this =
             x.DecrementMethodLevel cilState m
             Logger.printLogLazy Logger.Info "Done with method %s" (lazy Reflection.getFullMethodName m)
             match cilState.ipStack with
-            // the whole method is executed
-            // TODO: [uncommet this and change isExecutable = when [] -> false] or [chill] #do #Dima
+            // NOTE: the whole method is executed
 //            | [ Exit _ ] when startsFromMethodBeginning cilState ->
 //                setCurrentTime [] cilState
 //                popFrameOf cilState
-            // some part of method is executed
+            // NOTE: some part of method is executed
             | [ Exit _ ] -> ()
             | Exit m :: ips' when Reflection.isStaticConstructor m ->
                 popFrameOf cilState

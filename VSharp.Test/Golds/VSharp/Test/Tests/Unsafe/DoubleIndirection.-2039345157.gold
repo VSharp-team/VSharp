@@ -4,5 +4,5 @@ RESULT: Totally 1 state:
 MEMORY DUMP:
 --------------- Stack: ---------------
 key = __loc__0, value = 428999
-key = __loc__1, value = (StackPtr __loc__0 as System.Int32)
+key = __loc__1, value = (StackPtr StackLocation (LocalVariableKey (System.Int32 (0), Int32 DoubleIndirection())) as System.Int32, offset = 0)
 Initialized types = { VSharp.Test.Tests.Unsafe }

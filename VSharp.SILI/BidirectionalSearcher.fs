@@ -75,7 +75,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
                         GoFront s
                     | None -> Stop
 
-// TODO: check state duplicates #do
+// TODO: check pob duplicates
 type BackwardSearcher() =
     let mainPobs = List<pob>()
     let currentPobs = List<pob>()

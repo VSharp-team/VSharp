@@ -4,9 +4,10 @@ True
 MEMORY DUMP:
 --------------- Static fields: ---------------
 Zero ==> {
-        <Pointer to System.Void> <- (nullptr as System.Void)
+        <Pointer to System.Void> <- (HeapPtr HeapLocation { term = Concrete ([0u], AddressType)
+               hc = 659009007 } as System.Void, offset = 0)
     }
 --------------- Stack: ---------------
-key = __loc__0, value = (nullptr as System.Void, offset = 0)
-key = __tmp__System.IntPtr, value = (nullptr as System.Void, offset = 0)
+key = __loc__0, value = 0
+key = __tmp__System.IntPtr, value = 0
 Initialized types = { <Pointer to System.Void>, VSharp.Test.Tests.Unsafe }

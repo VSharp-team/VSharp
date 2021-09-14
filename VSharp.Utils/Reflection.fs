@@ -220,6 +220,19 @@ module public Reflection =
             else Some (wrapField field, field)
         retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
 
+    let fieldIntersects (field : fieldId) =
+        let fieldInfo = getFieldInfo field
+        let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let intersects o s = o + s > offset && o < offset + size
+        let fields = fieldsOf false field.declaringType
+        let checkIntersects (_, fieldInfo : FieldInfo) =
+            let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+            let s = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+            intersects o s
+        let intersectingFields = Array.filter checkIntersects fields
+        Array.length intersectingFields > 1
+
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
         let fs = fieldsOf false typ
