@@ -1,5 +1,6 @@
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace VSharp.CSharpUtils
@@ -46,5 +47,6 @@ namespace VSharp.CSharpUtils
 
         // NOTE: first 16 bytes contain array meta info
         public const int ArrayElementsOffset = 16;
+        public static readonly int StringElementsOffset = RuntimeHelpers.OffsetToStringData;
     }
 }

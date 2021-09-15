@@ -456,6 +456,95 @@ namespace VSharp.Test.Tests
                 return true;
         }
 
+        [TestSvm]
+        public static bool StringAsSpanSymbolicRead(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = &s.AsSpan()[0])
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static bool StringSymbolicRead(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = &s.GetPinnableReference())
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static bool StringSymbolicRead2(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = s)
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm]
+        public static int StringLengthUnsafeRead(int i)
+        {
+            var s = "best string";
+            int result;
+            fixed (char* ptr = s)
+            {
+                int* p = (int*) ptr;
+                result = p[-1];
+            }
+
+            return result;
+        }
+
+        [TestSvm]
+        public static bool StringSymbolicWrite(int i)
+        {
+            var s = "best string";
+            fixed (char* ptr = &s.GetPinnableReference())
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                *ptr4 = 30962698417209460L; // TODO: change #do
+            }
+
+            if (i == 3 && (s[0] != 'b' || s[1] != 'e' || s[2] != 's' || s[3] != 't' || s[4] != ' ')) // s != "best string"
+                return false;
+            else
+                return true;
+        }
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {

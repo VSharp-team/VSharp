@@ -200,9 +200,6 @@ module public Reflection =
     let getFieldInfo (field : fieldId) =
         field.declaringType.GetField(field.name, instanceBindingFlags)
 
-    let getFieldOffset fieldId =
-        getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
-
     let rec private retrieveFields isStatic f (t : System.Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
@@ -253,6 +250,10 @@ module public Reflection =
         match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let getFieldOffset fieldId =
+        if fieldId = stringFirstCharField then CSharpUtils.LayoutUtils.StringElementsOffset
+        else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
 
     let private cachedTypes = Dictionary<Type, bool>()
 

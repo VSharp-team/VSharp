@@ -42,6 +42,15 @@ namespace VSharp.Test.Tests
         }
 
         [TestSvm]
+        public static bool StringOfReplicatedChar()
+        {
+            string str = new string('s', 20);
+            if (str[19] == 's')
+                return true;
+            return false;
+        }
+
+        [TestSvm]
         public static char GetCharOfString()
         {
             char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};

@@ -676,9 +676,9 @@ module internal Memory =
         | HeapLocation loc ->
             let typ = typeOfHeapLocation state loc
             match typ with
+            | StringType -> __notImplemented__() // TODO: handle string case
             | ClassType _ -> readClassUnsafe state loc typ offset sightType
             | ArrayType _ -> readArrayUnsafe state loc typ offset sightType
-            | StringType -> __notImplemented__() // TODO: handle string case
             | StructType _ -> __notImplemented__() // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc ->
