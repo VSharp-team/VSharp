@@ -79,8 +79,6 @@ module API =
 
         val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort
 
-        val ConstantsOf : term seq -> term System.Collections.Generic.ISet
-
         val HeapReferenceToBoxReference : term -> term
 
         val AddConstraint : state -> term -> unit

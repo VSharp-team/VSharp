@@ -70,7 +70,8 @@ type ForwardSearcher(maxBound) =
     interface IForwardSearcher with
         override x.Init state =
             forPropagation.AddRange(state)
-        override x.Pick() = x.Choose(forPropagation)
+        override x.Pick() =
+            x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update parent newStates =
             if isStopped parent then
                 forPropagation.Remove(parent) |> ignore

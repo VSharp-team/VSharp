@@ -10,7 +10,8 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 
 
-type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, state : state) =
+[<AllowNullLiteral>]
+type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, cilState : cilState) =
     let extension =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
@@ -37,15 +38,13 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Memory.NewStackFrame state method (parametersAndThis @ locals)
 
     let mutable cilState : cilState =
-        initSymbolicFrame state entryPoint
-        let cilState = CilStateOperations.makeInitialState entryPoint state
-        cilState.ownedByConcolic <- true
+        cilState.suspended <- true
         cilState
 
     let bindNewCilState newState =
         if not <| LanguagePrimitives.PhysicalEquality cilState newState then
-            cilState.ownedByConcolic <- false
-            newState.ownedByConcolic <- true
+            cilState.suspended <- false
+            newState.suspended <- true
             cilState <- newState
 
     let mutable mainReached = false
@@ -61,7 +60,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         result.RedirectStandardOutput <- true
         result.RedirectStandardError <- true
         if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
-            result.Arguments <- entryPoint.Module.Assembly.Location
+            result.Arguments <- method.Module.Assembly.Location
         else
             let runnerPath = "./VSharp.Runner.dll"
             let moduleFqn = method.Module.FullyQualifiedName
@@ -81,21 +80,21 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         proc.BeginOutputReadLine()
         proc.BeginErrorReadLine()
         Logger.info "Successfully spawned pid %d, working dir \"%s\"" proc.Id env.WorkingDirectory
-        if not <| x.communicator.Connect() then false
-        else
+        if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
             x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
+        else false
 
     member x.SynchronizeStates (c : execCommand) =
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
-        assert(Memory.CallStackSize state > 0)
+        assert(Memory.CallStackSize cilState.state > 0)
         let initFrame state token =
             let topMethod = Memory.GetCurrentExploringFunction state
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame state method
-        Array.iter (initFrame state) c.newCallStackFrames
-        let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) state.evaluationStack |> snd
+        Array.iter (initFrame cilState.state) c.newCallStackFrames
+        let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (function
             | NumericOp(evalStackArgType, content) ->
@@ -103,7 +102,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | evalStackArgType.OpSymbolic ->
                     let idx = int content
                     maxIndex <- max maxIndex (idx + 1)
-                    EvaluationStack.GetItem idx state.evaluationStack
+                    EvaluationStack.GetItem idx cilState.state.evaluationStack
                 | evalStackArgType.OpI4 ->
                     Concrete (int content) TypeUtils.int32Type
                 | evalStackArgType.OpI8 ->
@@ -119,9 +118,11 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
         poppedSymbolics <- ps
         let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
-        state.evaluationStack <- evalStack
-        cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction state)]
+        cilState.state.evaluationStack <- evalStack
+        cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
+
+    member x.State with get() = cilState
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
@@ -139,7 +140,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         | ExecuteInstruction c ->
             Logger.trace "Got execute instruction command!"
             x.SynchronizeStates c
-            // TODO: schedule it into interpreter, send back response
+            cilState.suspended <- false
             requestMakeStep cilState
             true
         | Terminate ->
@@ -160,8 +161,10 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     // TODO: concrete ref and ptr
                     | _ -> allConcrete <- false; (null, Null))
                 if allConcrete then
-                    cilState <- cilState'
+                    bindNewCilState cilState'
                     Some concretizedSymbolics
                 else None)
+        cilState.suspended <- true
         let lastPushInfo = cilState.lastPushInfo |> Option.map IsConcrete
         x.communicator.SendExecResponse concretizedOps lastPushInfo
+        cilState

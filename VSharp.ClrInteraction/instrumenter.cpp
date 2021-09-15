@@ -314,6 +314,10 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
         LOG(tout << "Duplicate jitting of " << HEX(m_jittedToken) << std::endl);
         return S_OK;
     }
+    if (mainLeft()) {
+        LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
+        return S_OK;
+    }
     instrumentedFunctions.insert({m_moduleId, m_jittedToken});
 
     LPCBYTE baseLoadAddress;

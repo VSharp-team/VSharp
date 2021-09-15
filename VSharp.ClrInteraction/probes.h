@@ -535,6 +535,7 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
 }
 
 PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
+    mainEntered();
     Stack &stack = icsharp::stack();
     assert(stack.isEmpty());
     auto args = new bool[argsCount];

@@ -34,7 +34,7 @@ namespace VSharp.Test
             var bidirectional = new BidirectionalSearcher(forward, backward, targeted);
             // var svm = new SVM(new PobsInterpreter(bidirectional));
             // var svm = new SVM(new PobsInterpreter(new TargetedSearcher(bound)));
-            var options = new siliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, maxBound);
+            var options = new siliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.ConcolicMode, maxBound);
             var svm = new SVM(options);
             svm.ConfigureSolver();
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)

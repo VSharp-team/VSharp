@@ -101,8 +101,6 @@ module API =
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
-        let ConstantsOf terms = discoverConstants terms
-
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
             | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))

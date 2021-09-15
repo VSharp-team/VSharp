@@ -16,7 +16,7 @@ type cilState =
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
-      mutable ownedByConcolic : bool
+      mutable suspended : bool
       mutable lastPushInfo : term option
     }
     with
@@ -37,7 +37,7 @@ module internal CilStateOperations =
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
-          ownedByConcolic = false
+          suspended = false
           lastPushInfo = None
         }
 

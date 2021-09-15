@@ -204,3 +204,13 @@ INT_PTR icsharp::unmem_p(INT8 idx) {
     return result;
 //    return *((INT_PTR*) (data.data() + dataPtrs[idx]));
 }
+
+bool _mainEntered = false;
+
+void icsharp::mainEntered() {
+    _mainEntered = true;
+}
+
+bool icsharp::mainLeft() {
+    return _mainEntered && stack().isEmpty();
+}
