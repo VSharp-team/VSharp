@@ -18,7 +18,6 @@ void setProtocol(Protocol *p) {
     protocol = p;
 }
 
-
 enum EvalStackArgType {
     OpSymbolic = 1,
     OpI4 = 2,
@@ -37,7 +36,7 @@ struct EvalStackOperand {
 
     size_t size() const {
         if (typ == OpRef)
-            return sizeof(EvalStackArgType) + sizeof(VirtualAddress);
+            return sizeof(EvalStackArgType) + sizeof(unsigned long) + sizeof(unsigned long);
         return sizeof(EvalStackArgType) + sizeof(long long);
     }
 
@@ -45,8 +44,8 @@ struct EvalStackOperand {
         *(EvalStackArgType *)buffer = typ;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            *(VirtualAddress *)buffer = content.address;
-            buffer += sizeof(VirtualAddress);
+            *(unsigned long *)buffer = content.address.obj; buffer += sizeof(unsigned long);
+            *(unsigned long *)buffer = content.address.offset; buffer += sizeof(unsigned long);
         } else {
             *(long long *)buffer = content.number;
             buffer += sizeof(long long);
@@ -57,8 +56,8 @@ struct EvalStackOperand {
         typ = *(EvalStackArgType *)buffer;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            content.address = *(VirtualAddress *)buffer;
-            buffer += sizeof(VirtualAddress);
+            content.address.obj = (OBJID) *(unsigned long *)buffer; buffer += sizeof(unsigned long);
+            content.address.offset = (SIZE) *(unsigned long *)buffer; buffer += sizeof(unsigned long);
         } else {
             content.number = *(long long *)buffer;
             buffer += sizeof(long long);
@@ -73,14 +72,20 @@ struct ExecCommand {
     unsigned callStackFramesPops;
     unsigned evaluationStackPushesCount;
     unsigned evaluationStackPops;
+    unsigned newAddressesCount;
     unsigned *newCallStackFrames;
     EvalStackOperand *evaluationStackPushes;
+    // TODO: moved objects? #do
     // TODO: 2misha: put here allocated and moved objects
+    OBJID *newAddresses;
+    // TODO: add types #do
+//    ClassID *newAddressesTypes;
 
     void serialize(char *&bytes, unsigned &count) const {
-        count = 6 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount;
+        count = 7 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
             count += evaluationStackPushes[i].size();
+        count += sizeof(UINT_PTR) * newAddressesCount;
         bytes = new char[count];
         char *buffer = bytes;
         unsigned size = sizeof(unsigned);
@@ -89,13 +94,15 @@ struct ExecCommand {
         *(unsigned *)buffer = newCallStackFramesCount; buffer += size;
         *(unsigned *)buffer = callStackFramesPops; buffer += size;
         *(unsigned *)buffer = evaluationStackPushesCount; buffer += size;
-        *(unsigned *)buffer = evaluationStackPops;
-        buffer += size; size = newCallStackFramesCount * sizeof(unsigned);
-        memcpy(buffer, (char*)newCallStackFrames, size);
-        buffer += size;
+        *(unsigned *)buffer = evaluationStackPops; buffer += size;
+        *(unsigned *)buffer = newAddressesCount; buffer += size;
+        size = newCallStackFramesCount * sizeof(unsigned);
+        memcpy(buffer, (char*)newCallStackFrames, size); buffer += size;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i) {
             evaluationStackPushes[i].serialize(buffer);
         }
+        size = newAddressesCount * sizeof(UINT_PTR);
+        memcpy(buffer, (char*)newAddresses, size); buffer += size;
     }
 };
 
@@ -127,6 +134,13 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     command.evaluationStackPushesCount = opsCount;
     command.evaluationStackPops = top.evaluationStackPops();
     command.evaluationStackPushes = ops;
+    auto newAddresses = heap.flushObjects();
+    command.newAddressesCount = newAddresses.size();
+    command.newAddresses = new UINT_PTR[command.newAddressesCount];
+    int i = 0;
+    for (auto &newAddress : newAddresses) {
+        command.newAddresses[i++] = newAddress.first;
+    }
     stack.resetPopsTracking();
 }
 
@@ -159,6 +173,7 @@ bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned 
 void freeCommand(ExecCommand &command) {
     delete[] command.newCallStackFrames;
     delete[] command.evaluationStackPushes;
+    delete[] command.newAddresses;
 }
 
 bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
@@ -177,16 +192,21 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
             switch (op.typ) {
             case OpI4:
                 update_i4((INT32) op.content.number, (INT8) idx);
+                break;
             case OpI8:
                 update_i8((INT64) op.content.number, (INT8) idx);
+                break;
             case OpR4:
                 update_f4((FLOAT) (INT32) op.content.number, (INT8) idx);
+                break;
             case OpR8:
                 update_f8((DOUBLE) op.content.number, (INT8) idx);
+                break;
             case OpRef:
-                // TODO: not implemented
-                INT_PTR addr = 0;
-                update_p(addr, (INT8) idx);
+                VirtualAddress address = op.content.address;
+                auto base = (Object *)address.obj;
+                update_p(base->left + address.offset, (INT8) idx);
+                break;
             }
         }
     }
@@ -201,7 +221,7 @@ EvalStackOperand mkop_4(INT32 op) { return {OpI4, (long long)op}; }
 EvalStackOperand mkop_8(INT64 op) { return {OpI8, (long long)op}; }
 EvalStackOperand mkop_f4(FLOAT op) { return {OpR4, (long long)op}; }
 EvalStackOperand mkop_f8(DOUBLE op) { return {OpR8, (long long)op}; }
-EvalStackOperand mkop_p(INT_PTR op) { return {OpRef, (long long)op}; }
+EvalStackOperand mkop_p(INT_PTR op) { return {.typ = OpRef, .content = {.address = resolve(op)}}; }
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
 
 /// ------------------------------ Probes declarations ---------------------------
@@ -313,6 +333,7 @@ PROBE(void, Exec_BinOp_8, (UINT16 op, INT64 arg1, INT64 arg2, OFFSET offset)) { 
 PROBE(void, Exec_BinOp_f4, (UINT16 op, FLOAT arg1, FLOAT arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f4(arg1), mkop_f4(arg2) }); }
 PROBE(void, Exec_BinOp_f8, (UINT16 op, DOUBLE arg1, DOUBLE arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f8(arg1), mkop_f8(arg2) }); }
 PROBE(void, Exec_BinOp_p, (UINT16 op, INT_PTR arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_8_4, (UINT16 op, INT64 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_8(arg1), mkop_4(arg2) }); }
 PROBE(void, Exec_BinOp_4_p, (UINT16 op, INT32 arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_p(arg2) }); }
 PROBE(void, Exec_BinOp_p_4, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_4(arg2) }); }
 PROBE(void, Exec_BinOp_4_ovf, (UINT16 op, INT32 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_4(arg2) }); }
@@ -320,6 +341,7 @@ PROBE(void, Exec_BinOp_8_ovf, (UINT16 op, INT64 arg1, INT64 arg2, OFFSET offset)
 PROBE(void, Exec_BinOp_f4_ovf, (UINT16 op, FLOAT arg1, FLOAT arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f4(arg1), mkop_f4(arg2) }); }
 PROBE(void, Exec_BinOp_f8_ovf, (UINT16 op, DOUBLE arg1, DOUBLE arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_f8(arg1), mkop_f8(arg2) }); }
 PROBE(void, Exec_BinOp_p_ovf, (UINT16 op, INT_PTR arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_p(arg2) }); }
+PROBE(void, Exec_BinOp_8_4_ovf, (UINT16 op, INT64 arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_8(arg1), mkop_4(arg2) }); }
 PROBE(void, Exec_BinOp_4_p_ovf, (UINT16 op, INT32 arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_p(arg2) }); }
 PROBE(void, Exec_BinOp_p_4_ovf, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_4(arg2) }); }
 
@@ -654,6 +676,7 @@ PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2)) { clear_mem(); mem_i8(arg1); mem_i
 PROBE(void, Mem2_f4, (FLOAT arg1, FLOAT arg2)) { clear_mem(); mem_f4(arg1); mem_f4(arg2); }
 PROBE(void, Mem2_f8, (DOUBLE arg1, DOUBLE arg2)) { clear_mem(); mem_f8(arg1); mem_f8(arg2); }
 PROBE(void, Mem2_p, (INT_PTR arg1, INT_PTR arg2)) { clear_mem(); mem_p(arg1); mem_p(arg2); }
+PROBE(void, Mem2_8_4, (INT64 arg1, INT32 arg2)) { clear_mem(); mem_i8(arg1); mem_i4(arg2); }
 PROBE(void, Mem2_4_p, (INT32 arg1, INT_PTR arg2)) { clear_mem(); mem_i4(arg1); mem_p(arg2); }
 PROBE(void, Mem2_p_1, (INT_PTR arg1, INT8 arg2)) { clear_mem(); mem_p(arg1); mem_i1(arg2); }
 PROBE(void, Mem2_p_2, (INT_PTR arg1, INT16 arg2)) { clear_mem(); mem_p(arg1); mem_i2(arg2); }

@@ -9,7 +9,6 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
 
-
 [<AllowNullLiteral>]
 type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, cilState : cilState) =
     let extension =
@@ -90,6 +89,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
         assert(Memory.CallStackSize cilState.state > 0)
         let initFrame state token =
+            // TODO: can topMethod be from another module? (mb it's iterative (frame over frame)) #do
             let topMethod = Memory.GetCurrentExploringFunction state
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame state method
@@ -113,14 +113,21 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     Concrete (BitConverter.Int64BitsToDouble content) TypeUtils.float64Type
                 | _ -> __unreachable__()
             | PointerOp(baseAddress, offset) ->
-                    // TODO: 2misha: parse object ref here
-                    __notImplemented__())
+                // TODO: need to make ref from ptr? #do
+                // TODO: what about StackLocation and StaticLocation? #do
+                let address = ConcreteHeapAddress [uint32 baseAddress]
+                let offset = Concrete offset Types.TLength
+                // TODO: how to get type of address? #do
+                Ptr (HeapLocation address) Void offset)
         let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
         poppedSymbolics <- ps
-        let evalStack = Array.foldBack EvaluationStack.Push newEntries evalStack
+        let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
+        // TODO: add new addresses to allocatedTypes, physToVirt (if we will create virtual address) #do
+        let allocatedTypes = Array.fold (fun types address -> PersistentDict.add [uint address] Void types) cilState.state.allocatedTypes c.newAddresses
+        cilState.state.allocatedTypes <- allocatedTypes
 
     member x.State with get() = cilState
 
@@ -153,12 +160,24 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | None -> None
             | Some model ->
                 let mutable allConcrete = true
+                // TODO: do better #do
+                let makeObjFromBaseAndOffset baseAddress offset =
+                    match baseAddress, offset.term with
+                    | HeapLocation {term = ConcreteHeapAddress [address]}, Concrete(offset, _) ->
+                        (address, offset :?> uint64) :> obj
+                    // TODO: stack and statics location #do
+                    | _ -> allConcrete <- false; null
                 let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
-                    match model.Eval term with
-                    | {term = Concrete(obj, typ)} -> (obj, typ)
-                    | NullRef -> (null, Null)
-                    | {term = HeapRef({term = ConcreteHeapAddress addr}, _)} -> __notImplemented__()
-                    // TODO: concrete ref and ptr
+                    let concretizedTerm = model.Eval term
+                    match concretizedTerm.term with
+                    | Concrete(obj, typ) -> (obj, typ)
+                    | _ when concretizedTerm = NullRef -> (null, Null)
+                    | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
+                    | Ref address ->
+                        let baseAddress, offset = AddressToBaseAndOffset address
+                        makeObjFromBaseAndOffset baseAddress offset, TypeOf concretizedTerm
+                    | Ptr(baseAddress, sightType, offset) ->
+                        makeObjFromBaseAndOffset baseAddress offset, Pointer sightType
                     | _ -> allConcrete <- false; (null, Null))
                 if allConcrete then
                     bindNewCilState cilState'

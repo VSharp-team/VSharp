@@ -405,11 +405,41 @@ HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRange
     return S_OK;
 }
 
+void CorProfiler::resolveType(ClassID classId, mdTypeDef &token, ULONG &moduleNameSize, WCHAR *&moduleName, ULONG &typeArgsNum, mdTypeDef *&tokens, ULONG *&moduleNamesSizes, WCHAR **&moduleNames)
+{
+    ModuleID moduleId;
+    ClassID parent;
+    auto *typeArgs = new ClassID[0];
+    this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs);
+    delete[] typeArgs;
+    typeArgs = new ClassID[typeArgsNum];
+    this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, typeArgsNum, &typeArgsNum, typeArgs);
+    LPCBYTE *ppBaseLoadAddress;
+    ULONG nameSize;
+    moduleName = new WCHAR[0];
+    AssemblyID assemblyId;
+    this->corProfilerInfo->GetModuleInfo(moduleId, ppBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
+    delete[] moduleName;
+    moduleName = new WCHAR[nameSize];
+    this->corProfilerInfo->GetModuleInfo(moduleId, ppBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
+    for (int i = 0; i < typeArgsNum; ++i) {
+        mdTypeDef typeArgToken;
+        ULONG typeArgModuleNameSize;
+        WCHAR *typeArgModuleName;
+        ULONG typeArgTypeArgsNum;
+        mdTypeDef *typeArgTokens;
+        ULONG *typeArgModuleNamesSizes;
+        WCHAR **typeArgModuleNames;
+        resolveType(typeArgs[i], typeArgToken, typeArgModuleNameSize, typeArgModuleName, typeArgTypeArgsNum, typeArgTokens, typeArgModuleNamesSizes, typeArgModuleNames);
+    }
+    delete[] typeArgs;
+}
+
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
     ULONG size;
     this->corProfilerInfo->GetObjectSize(objectId, &size);
-    heap.allocateObject(objectId, size);
+    heap.allocateObject(objectId, size, classId);
     return S_OK;
 }
 

@@ -19,6 +19,8 @@ private:
     Instrumenter *instrumenter;
     Protocol *protocol;
 
+    void resolveType(ClassID classId, mdTypeDef &token, ULONG &moduleNameSize, WCHAR *&moduleName, ULONG &typeArgsNum, mdTypeDef *&tokens, ULONG *&moduleNamesSizes, WCHAR **&moduleNames);
+
 public:
     CorProfiler();
     virtual ~CorProfiler();

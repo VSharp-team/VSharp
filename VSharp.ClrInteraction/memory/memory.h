@@ -51,6 +51,8 @@ INT_PTR unmem_p(INT8 idx);
 
 void validateStackEmptyness();
 
+VirtualAddress resolve(INT_PTR p);
+
 }
 
 #endif // MEMORY_H_

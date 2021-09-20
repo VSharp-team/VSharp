@@ -50,6 +50,7 @@ type probes = {
     mutable execBinOp_f4 : uint64
     mutable execBinOp_f8 : uint64
     mutable execBinOp_p : uint64
+    mutable execBinOp_8_4 : uint64
     mutable execBinOp_4_p : uint64
     mutable execBinOp_p_4 : uint64
     mutable execBinOp_4_ovf : uint64
@@ -57,6 +58,7 @@ type probes = {
     mutable execBinOp_f4_ovf : uint64
     mutable execBinOp_f8_ovf : uint64
     mutable execBinOp_p_ovf : uint64
+    mutable execBinOp_8_4_ovf : uint64
     mutable execBinOp_4_p_ovf : uint64
     mutable execBinOp_p_4_ovf : uint64
 
@@ -150,6 +152,7 @@ type probes = {
     mutable mem2_f4 : uint64
     mutable mem2_f8 : uint64
     mutable mem2_p : uint64
+    mutable mem2_8_4 : uint64
     mutable mem2_4_p : uint64
     mutable mem2_p_1 : uint64
     mutable mem2_p_2 : uint64
@@ -210,6 +213,7 @@ type signatureTokens = {
     mutable void_i_i_sig : uint32
     mutable void_i4_i4_sig : uint32
     mutable void_i4_i_sig : uint32
+    mutable void_i8_i4_sig : uint32
     mutable void_i8_i8_sig : uint32
     mutable void_r4_r4_sig : uint32
     mutable void_r8_r8_sig : uint32
@@ -238,6 +242,7 @@ type signatureTokens = {
     mutable void_i_token_offset_sig : uint32
     mutable void_u2_i4_i4_offset_sig : uint32
     mutable void_u2_i4_i_offset_sig : uint32
+    mutable void_u2_i8_i4_offset_sig : uint32
     mutable void_u2_i8_i8_offset_sig : uint32
     mutable void_u2_r4_r4_offset_sig : uint32
     mutable void_u2_r8_r8_offset_sig : uint32
@@ -322,7 +327,7 @@ type evalStackArgType =
 
 type evalStackOperand =
     | NumericOp of evalStackArgType * int64
-    | PointerOp of int64 * int64
+    | PointerOp of uint64 * uint64
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type private execCommandStatic = {
@@ -332,6 +337,7 @@ type private execCommandStatic = {
     callStackFramesPops : uint32
     evaluationStackPushesCount : uint32
     evaluationStackPops : uint32
+    newAddressesCount : uint32
 }
 type execCommand = {
     offset : uint32
@@ -340,6 +346,8 @@ type execCommand = {
     evaluationStackPops : uint32
     newCallStackFrames : int32 array
     evaluationStackPushes : evalStackOperand array
+    newAddresses : UIntPtr array
+    // TODO: moved objects? #do
     // TODO: 2misha: put here allocated and moved objects
 }
 
@@ -513,6 +521,10 @@ type Communicator() =
             {properties = properties; tokens = signatureTokens; assembly = assemblyName; moduleName = moduleName; il = ilBytes; ehs = ehs}
         | None -> unexpectedlyTerminated()
 
+    member private x.ToUIntPtr =
+        if IntPtr.Size = 4 then fun (bytes : byte[]) index -> BitConverter.ToUInt32(bytes, index) |> UIntPtr
+        else fun (bytes : byte[]) index -> BitConverter.ToUInt64(bytes, index) |> UIntPtr
+
     member x.ReadExecuteCommand() =
         match readBuffer() with
         | Some bytes ->
@@ -528,11 +540,11 @@ type Communicator() =
                 i <- i + sizeof<int32>
                 let evalStackArgType = LanguagePrimitives.EnumOfValue evalStackArgTypeNum
                 match evalStackArgType with
-                | evalStackArgType.OpRef ->
-                    let baseAddr = BitConverter.ToInt64(dynamicBytes, i)
-                    i <- i + sizeof<int64>
-                    let offset = BitConverter.ToInt64(dynamicBytes, i)
-                    i <- i + sizeof<int64>
+                | evalStackArgType.OpRef -> // TODO: mb use UIntPtr? #do
+                    let baseAddr = BitConverter.ToUInt64(dynamicBytes, i)
+                    i <- i + sizeof<uint64>
+                    let offset = BitConverter.ToUInt64(dynamicBytes, i)
+                    i <- i + sizeof<uint64>
                     PointerOp(baseAddr, offset)
                 | evalStackArgType.OpSymbolic
                 | evalStackArgType.OpI4
@@ -543,12 +555,15 @@ type Communicator() =
                     i <- i + sizeof<int64>
                     NumericOp(evalStackArgType, content)
                 | _ -> __unreachable__())
+            let newAddresses = Array.init (int staticPart.newAddressesCount) (fun i ->
+                x.ToUIntPtr dynamicBytes (i * IntPtr.Size))
             { offset = staticPart.offset
               isBranch = staticPart.isBranch
               callStackFramesPops = staticPart.callStackFramesPops
               evaluationStackPops = staticPart.evaluationStackPops
               newCallStackFrames = newCallStackFrames;
-              evaluationStackPushes =  evaluationStackPushes }
+              evaluationStackPushes = evaluationStackPushes
+              newAddresses = newAddresses}
         | None -> unexpectedlyTerminated()
 
     member x.SendExecResponse ops lastPush =
@@ -573,7 +588,7 @@ type Communicator() =
                 bytes.[0] <- 0uy
             let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), ops.Length) in assert success
             index <- index + sizeof<int>
-            ops |> List.iter (fun (obj, typ) ->
+            ops |> List.iter (fun (obj : obj, typ) ->
                 if Types.IsValueType typ then
                     let opType, (content : int64) =
                         if Types.IsInteger typ then
@@ -590,14 +605,22 @@ type Communicator() =
                     let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), content) in assert success
                     index <- index + sizeof<int64>
                 elif isNull obj then
+                    // NOTE: null refs handling
                     let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
                     index <- index + sizeof<int>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), 0L) in assert success
-                    index <- index + sizeof<int64>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), 0L) in assert success
-                    index <- index + sizeof<int64>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
+                    index <- index + sizeof<uint64>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
+                    index <- index + sizeof<uint64>
                 else
-                    __notImplemented__())
+                    // NOTE: nonnull refs handling
+                    let address, offset = obj :?> uint32 * uint64
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
+                    index <- index + sizeof<int>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), uint64 address) in assert success
+                    index <- index + sizeof<int64>
+                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), offset) in assert success
+                    index <- index + sizeof<int64>)
             writeBuffer bytes
         | None ->
             match lastPush with

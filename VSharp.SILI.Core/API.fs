@@ -53,11 +53,13 @@ module API =
         let False = False
         let NullRef = nullRef
         let MakeNullPtr t = makeNullPtr t
+        let ConcreteHeapAddress (address : concreteHeapAddress) = ConcreteHeapAddress address
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
         // NOTE: Ref, Ptr, and nonzero numbers
         let MakeIntPtr (value : term) = value
+        let AddressToBaseAndOffset address = Pointers.addressToBaseAndOffset address
         // NOTE: returns type of value
         let TypeOf term = typeOf term
         // NOTE: returns type of location, referenced by 'ref'

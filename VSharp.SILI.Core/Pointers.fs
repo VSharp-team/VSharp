@@ -22,29 +22,29 @@ module internal Pointers =
     let private getFieldOffset fieldId =
         Reflection.getFieldOffset fieldId |> makeNumber
 
-    let rec makePointerFromAddress (address : address) typ =
+    let rec addressToBaseAndOffset (address : address) =
         match address with
         | ClassField(heapAddress, field) ->
-            Ptr (HeapLocation heapAddress) typ (getFieldOffset field)
+            HeapLocation heapAddress, getFieldOffset field
         | StructField(address, field) ->
-            let structPtr = makePointerFromAddress address typ
-            shift structPtr (getFieldOffset field)
+            let baseAddress, structOffset = addressToBaseAndOffset address
+            baseAddress, getFieldOffset field |> add structOffset
         | StaticField(symbolicType, field) ->
-            Ptr (StaticLocation symbolicType) typ (getFieldOffset field)
+            StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
         | ArrayIndex(heapAddress, [index], (elementType, _, true)) ->
             let sizeOfElement = Types.sizeOf elementType |> makeNumber
             let metadataSize = makeNumber LayoutUtils.ArrayElementsOffset
             let offset = mul index sizeOfElement |> add metadataSize
-            Ptr (HeapLocation heapAddress) typ offset
+            HeapLocation heapAddress, offset
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
         | BoxedLocation(concreteHeapAddress, _) ->
             let baseAddress = ConcreteHeapAddress concreteHeapAddress |> HeapLocation
-            Ptr baseAddress typ (makeNumber 0)
+            baseAddress, makeNumber 0
         | StackBufferIndex _ -> __notImplemented__()
         | PrimitiveStackLocation loc ->
-            Ptr (StackLocation loc) typ (makeNumber 0)
+            StackLocation loc, makeNumber 0
         | _ -> __unreachable__()
 
 // -------------------------- Comparison operations --------------------------
@@ -107,7 +107,8 @@ module internal Pointers =
         | Ptr _ -> shift ptr bytesToShift |> k
         | Ref address ->
             let typ = typeOfAddress address
-            let ptr = makePointerFromAddress address typ
+            let baseAddress, offset = addressToBaseAndOffset address
+            let ptr = Ptr baseAddress typ offset
             shift ptr bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
 

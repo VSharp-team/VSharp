@@ -81,20 +81,21 @@ struct VirtualAddress
 class Heap {
 private:
     IntervalTree tree;
-    std::vector<OBJID> newAddresses;
+    // TODO: store new addresses or get them from tree? #do
+    std::map<OBJID, ClassID> newAddresses;
 
     bool resolve(ADDR address, VirtualAddress &vAddress);
 
 public:
     Heap();
 
-    OBJID allocateObject(ADDR address, SIZE size);
+    OBJID allocateObject(ADDR address, SIZE size, ClassID objectType);
 
     void moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length);
     void markSurvivedObjects(ADDR start, SIZE length);
     void clearAfterGC();
 
-    std::vector<Interval> flushObjects();
+    std::map<OBJID, ClassID> flushObjects();
 
     VirtualAddress physToVirtAddress(ADDR physAddress);
     static ADDR virtToPhysAddress(const VirtualAddress &virtAddress) ;

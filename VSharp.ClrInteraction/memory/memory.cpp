@@ -214,3 +214,8 @@ void icsharp::mainEntered() {
 bool icsharp::mainLeft() {
     return _mainEntered && stack().isEmpty();
 }
+
+VirtualAddress icsharp::resolve(INT_PTR p) {
+    // TODO: add stack and statics case #do
+    return heap.physToVirtAddress(p);
+}

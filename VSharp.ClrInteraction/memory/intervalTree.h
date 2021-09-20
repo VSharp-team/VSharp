@@ -52,11 +52,11 @@ public:
         objects = marked;
     }
 
-    std::vector<Interval> flush() {
-        std::vector<Interval> newAddresses;
+    std::vector<Interval*> flush() {
+        std::vector<Interval*> newAddresses;
         for (Interval &obj : objects)
             if (!obj.isFlushed()) {
-                newAddresses.push_back(obj);
+                newAddresses.push_back(&obj);
                 obj.flush();
             }
         return newAddresses;

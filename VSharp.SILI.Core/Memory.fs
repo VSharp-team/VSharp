@@ -1035,7 +1035,8 @@ module internal Memory =
     // because need to write to all fields, which intersects with 'field'
     let private writeIntersectingField state address (field : fieldId) value =
         let typ = fromDotNetType field.typ
-        let ptr = Pointers.makePointerFromAddress address typ
+        let baseAddress, offset = Pointers.addressToBaseAndOffset address
+        let ptr = Ptr baseAddress typ offset
         match ptr.term with
         | Ptr(baseAddress, sightType, offset) -> writeUnsafe state baseAddress offset sightType value
         | _ -> internalfailf "expected to get ptr, but got %O" ptr

@@ -125,7 +125,9 @@ module internal TypeCasting =
         | Ptr(HeapLocation address, _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
         | Ptr _, ByRef _ -> internalfailf "Casting nonnull ptr to ByRef type %O" targetType
         | Ref _, ByRef _ -> term
-        | Ref address, Pointer typ' -> Pointers.makePointerFromAddress address typ'
+        | Ref address, Pointer typ' ->
+            let baseAddress, offset = Pointers.addressToBaseAndOffset address
+            Ptr baseAddress typ' offset
         | Ref _, _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
         | HeapRef(addr, _), _ -> HeapRef addr targetType
         | Struct _, _ -> internalfailf "Casting struct to %O" targetType

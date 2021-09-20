@@ -3,19 +3,10 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Collections.Generic
 open System.Reflection
-open System.Reflection.Emit
-open System.Text
-open C5
 open FSharpx.Collections
-open FSharpx.Collections
-open FSharpx.Collections
-open InstructionsSet
-open CilStateOperations
-open VSharp
 open VSharp
 open VSharp.Core
 open ipOperations
-open Instruction
 
  [<CustomComparison; CustomEquality>]
  type reachabilityEvaluation =

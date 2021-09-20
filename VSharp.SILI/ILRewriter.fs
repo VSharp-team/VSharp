@@ -184,7 +184,7 @@ module private EvaluationStackTyper =
     let typeLdloc (m : Reflection.MethodBase) (s : stackState) idx =
         m.GetMethodBody().LocalVariables.[idx].LocalType |> push s
 
-    let typeBinop  (s : stackState) =
+    let typeBinop (s : stackState) =
         // See ECMA-335, sec. III.1.5
         let t1, s = Stack.pop s
         let t2, s = Stack.pop s
@@ -219,6 +219,12 @@ module private EvaluationStackTyper =
         elif t2 = evaluationStackCellType.I || t2 = evaluationStackCellType.Ref then t2
         else fail()
         |> Stack.push s
+    let typeShiftOp (s : stackState) =
+        // TODO: implement fully #do
+        // See ECMA-335, sec. III.1.5, table III.6
+        let t1, s = Stack.pop s
+        let t2, s = Stack.pop s
+        Stack.push s t1
 
 //    let REMOVE_ME (m : Reflection.MethodBase) (instr : ilInstr) =
 //        let instr, arg =
@@ -361,15 +367,16 @@ module private EvaluationStackTyper =
             | OpCodeValues.And
             | OpCodeValues.Or
             | OpCodeValues.Xor
-            | OpCodeValues.Shl
-            | OpCodeValues.Shr
-            | OpCodeValues.Shr_Un
             | OpCodeValues.Add_Ovf
             | OpCodeValues.Add_Ovf_Un
             | OpCodeValues.Mul_Ovf
             | OpCodeValues.Mul_Ovf_Un
             | OpCodeValues.Sub_Ovf
-            | OpCodeValues.Sub_Ovf_Un-> typeBinop s
+            | OpCodeValues.Sub_Ovf_Un -> typeBinop s
+            | OpCodeValues.Shl
+            | OpCodeValues.Shr
+            | OpCodeValues.Shr_Un -> typeShiftOp s
+
             | OpCodeValues.Ceq
             | OpCodeValues.Cgt
             | OpCodeValues.Cgt_Un

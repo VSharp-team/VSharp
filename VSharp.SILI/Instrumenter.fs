@@ -180,10 +180,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                 // Branchings
                 | OpCodeValues.Brfalse_S
-                | OpCodeValues.Brfalse -> x.PrependProbe(probes.brfalse, [], x.tokens.void_sig, &prependTarget) |> ignore
+                | OpCodeValues.Brfalse -> x.PrependProbeWithOffset(probes.brfalse, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Brtrue_S
-                | OpCodeValues.Brtrue -> x.PrependProbe(probes.brtrue, [], x.tokens.void_sig, &prependTarget) |> ignore
-                | OpCodeValues.Switch -> x.PrependProbe(probes.switch, [], x.tokens.void_sig, &prependTarget) |> ignore
+                | OpCodeValues.Brtrue -> x.PrependProbeWithOffset(probes.brtrue, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
+                | OpCodeValues.Switch -> x.PrependProbeWithOffset(probes.switch, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
 
                 // Symbolic stack instructions
                 | OpCodeValues.Ldarg_0 -> x.AppendProbeWithOffset(probes.ldarg_0, [], x.tokens.void_offset_sig, instr)
@@ -243,7 +243,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | _ -> true
                     let execProbe, execSig, memProbe, memSig, unmem1Probe, unmem1Sig, unmem2Probe, unmem2Sig =
                         match instr.stackState with
-                        | Some (evaluationStackCellType.I4 :: evaluationStackCellType.I4 :: _)                        
+                        | Some (evaluationStackCellType.I4 :: evaluationStackCellType.I4 :: _)
                         | Some (evaluationStackCellType.I1 :: evaluationStackCellType.I1 :: _)
                         | Some (evaluationStackCellType.I1 :: evaluationStackCellType.I2 :: _)
                         | Some (evaluationStackCellType.I1 :: evaluationStackCellType.I4 :: _)
@@ -254,6 +254,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | Some (evaluationStackCellType.I4 :: evaluationStackCellType.I2 :: _) ->
                             (if isUnchecked then probes.execBinOp_4 else probes.execBinOp_4_ovf), x.tokens.void_u2_i4_i4_offset_sig,
                                 probes.mem2_4, x.tokens.void_i4_i4_sig, probes.unmem_4, x.tokens.i4_i1_sig, probes.unmem_4, x.tokens.i4_i1_sig
+                        | Some (evaluationStackCellType.I4 :: evaluationStackCellType.I8 :: _) ->
+                            (if isUnchecked then probes.execBinOp_8_4 else probes.execBinOp_8_4_ovf), x.tokens.void_u2_i8_i4_offset_sig,
+                                probes.mem2_8_4, x.tokens.void_i8_i4_sig, probes.unmem_8, x.tokens.i8_i1_sig, probes.unmem_4, x.tokens.i4_i1_sig
                         | Some (evaluationStackCellType.I8 :: evaluationStackCellType.I8 :: _) ->
                             (if isUnchecked then probes.execBinOp_8 else probes.execBinOp_8_ovf), x.tokens.void_u2_i8_i8_offset_sig,
                                 probes.mem2_8, x.tokens.void_i8_i8_sig, probes.unmem_8, x.tokens.i8_i1_sig, probes.unmem_8, x.tokens.i8_i1_sig
@@ -788,7 +791,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         let argsCount =
                             if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1
                             else argsCount
-                        let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken 
+                        let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let args = [(OpCodes.Ldc_I4, Arg32 token)
                                     (OpCodes.Ldc_I4, Arg32 expectedToken)
                                     (OpCodes.Ldc_I4, Arg32 (if opcodeValue = OpCodeValues.Newobj then 1 else 0))

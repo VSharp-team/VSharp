@@ -43,10 +43,12 @@ module API =
         val False : term
         val NullRef : term
         val MakeNullPtr : symbolicType -> term
+        val ConcreteHeapAddress : concreteHeapAddress -> term
 
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
         val MakeIntPtr : term -> term
+        val AddressToBaseAndOffset : address -> pointerBase * term
 
         val TypeOf : term -> symbolicType
         val TypeOfLocation : term -> symbolicType

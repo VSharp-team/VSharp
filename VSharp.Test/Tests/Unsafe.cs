@@ -34,6 +34,18 @@ namespace VSharp.Test.Tests
             return sizeof(FixedSizedBuffer); // sizeof() = 70; Marshal.SizeOf() = 72; we should behave like sizeof()
         }
 
+        public class A
+        {
+            private int x;
+        }
+
+        [TestSvm]
+        public static A ReturnClass()
+        {
+            var a = new A();
+            return a;
+        }
+
         [TestSvm]
         public static int ReturnConst()
         {

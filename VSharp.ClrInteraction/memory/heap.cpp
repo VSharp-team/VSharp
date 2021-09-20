@@ -146,11 +146,11 @@ namespace icsharp {
     Heap::Heap() = default;
 
     // TODO: need to free pointer? #do
-    OBJID Heap::allocateObject(ADDR address, SIZE size) {
+    OBJID Heap::allocateObject(ADDR address, SIZE size, ClassID objectType) {
         auto *obj = new Object(address, size);
         tree.add(*obj);
         auto id = (OBJID) obj;
-        newAddresses.push_back(id);
+        newAddresses[id] = objectType;
         return id;
     }
 
@@ -188,8 +188,12 @@ namespace icsharp {
         tree.clearUnmarked();
     }
 
-    std::vector<Interval> Heap::flushObjects() {
-        return tree.flush();
+    // TODO: store new addresses or get them from tree? #do
+    std::map<OBJID, ClassID> Heap::flushObjects() {
+//        return tree.flush();
+        auto result = newAddresses;
+        newAddresses.clear();
+        return result;
     }
 
     void Heap::dump() const {

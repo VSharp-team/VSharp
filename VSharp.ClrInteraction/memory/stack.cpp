@@ -124,7 +124,7 @@ bool StackFrame::pop(unsigned count)
         unsigned cell = m_concreteness[i - 1];
         if (cell != CONCRETE) {
             --m_symbolsCount;
-            m_lastPoppedSymbolics.push_back(std::make_pair(cell, m_concretenessTop + count - i));
+            m_lastPoppedSymbolics.emplace_back(cell, i - 1 - m_concretenessTop);
         }
     }
     return m_lastPoppedSymbolics.empty();
