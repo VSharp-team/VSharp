@@ -160,7 +160,7 @@ namespace icsharp {
         tree.moveAndMark(i, s);
     }
 
-    bool Heap::isConcrete(ADDR address, SIZE sizeOfPtr) {
+    bool Heap::isConcrete(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
             return false;
@@ -170,8 +170,8 @@ namespace icsharp {
         return obj->read(vAddress.offset, sizeOfPtr);
     }
 
-    bool Heap::resolve(ADDR address, VirtualAddress &vAddress) {
-        if (Interval *i = tree.find(address)) {
+    bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {
+        if (const Interval *i = tree.find(address)) {
             vAddress.offset = address - i->left;
             vAddress.obj = (OBJID) i;
             return true;
@@ -203,7 +203,7 @@ namespace icsharp {
         tout << "-------------- DUMP END ---------------" << std::endl;
     }
 
-    VirtualAddress Heap::physToVirtAddress(ADDR physAddress) {
+    VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {
         VirtualAddress vAddress{};
         if (!resolve(physAddress, vAddress)) {
             FAIL_LOUD("unable to resolve physical address!");

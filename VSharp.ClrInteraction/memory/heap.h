@@ -84,7 +84,7 @@ private:
     // TODO: store new addresses or get them from tree? #do
     std::map<OBJID, ClassID> newAddresses;
 
-    bool resolve(ADDR address, VirtualAddress &vAddress);
+    bool resolve(ADDR address, VirtualAddress &vAddress) const;
 
 public:
     Heap();
@@ -97,10 +97,10 @@ public:
 
     std::map<OBJID, ClassID> flushObjects();
 
-    VirtualAddress physToVirtAddress(ADDR physAddress);
-    static ADDR virtToPhysAddress(const VirtualAddress &virtAddress) ;
+    VirtualAddress physToVirtAddress(ADDR physAddress) const;
+    static ADDR virtToPhysAddress(const VirtualAddress &virtAddress);
 
-    bool isConcrete(ADDR address, SIZE sizeOfPtr);
+    bool isConcrete(ADDR address, SIZE sizeOfPtr) const;
 
     void dump() const;
 };

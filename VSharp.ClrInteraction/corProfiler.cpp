@@ -414,14 +414,14 @@ void CorProfiler::resolveType(ClassID classId, mdTypeDef &token, ULONG &moduleNa
     delete[] typeArgs;
     typeArgs = new ClassID[typeArgsNum];
     this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, typeArgsNum, &typeArgsNum, typeArgs);
-    LPCBYTE *ppBaseLoadAddress;
+    LPCBYTE pBaseLoadAddress;
     ULONG nameSize;
     moduleName = new WCHAR[0];
     AssemblyID assemblyId;
-    this->corProfilerInfo->GetModuleInfo(moduleId, ppBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
+    this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
     delete[] moduleName;
     moduleName = new WCHAR[nameSize];
-    this->corProfilerInfo->GetModuleInfo(moduleId, ppBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
+    this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
     for (int i = 0; i < typeArgsNum; ++i) {
         mdTypeDef typeArgToken;
         ULONG typeArgModuleNameSize;

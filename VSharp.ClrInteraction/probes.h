@@ -185,8 +185,8 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     bool allConcrete = readConcretizedSymbolics(top, ops, opsCount);
     if (allConcrete) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
-        for (unsigned i = 0; i < poppedSymbs.size(); ++i) {
-            unsigned idx = opsCount - poppedSymbs[i].second - 1;
+        for (const auto &poppedSymb : poppedSymbs) {
+            unsigned idx = opsCount - poppedSymb.second - 1;
             assert(idx < opsCount);
             EvalStackOperand op = ops[idx];
             switch (op.typ) {
@@ -203,9 +203,7 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
                 update_f8((DOUBLE) op.content.number, (INT8) idx);
                 break;
             case OpRef:
-                VirtualAddress address = op.content.address;
-                auto base = (Object *)address.obj;
-                update_p(base->left + address.offset, (INT8) idx);
+                update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
                 break;
             }
         }
