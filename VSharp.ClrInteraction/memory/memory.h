@@ -26,14 +26,22 @@ bool mainLeft();
 
 unsigned allocateString(const char *s);
 
+INT8 entriesCount();
 void clear_mem();
 void mem_i1(INT8 value);
+void mem_i1(INT8 value, INT8 idx);
 void mem_i2(INT16 value);
+void mem_i2(INT16 value, INT8 idx);
 void mem_i4(INT32 value);
+void mem_i4(INT32 value, INT8 idx);
 void mem_i8(INT64 value);
+void mem_i8(INT64 value, INT8 idx);
 void mem_f4(FLOAT value);
+void mem_f4(FLOAT value, INT8 idx);
 void mem_f8(DOUBLE value);
+void mem_f8(DOUBLE value, INT8 idx);
 void mem_p(INT_PTR value);
+void mem_p(INT_PTR value, INT8 idx);
 void update_i1(INT8 value, INT8 idx);
 void update_i2(INT16 value, INT8 idx);
 void update_i4(INT32 value, INT8 idx);

@@ -63,21 +63,32 @@ unsigned icsharp::allocateString(const char *s) {
 }
 #endif
 
-unsigned data_idx, data_ptr;
+unsigned entries_count, data_ptr;
 std::vector<char> data;
 std::vector<unsigned> dataPtrs;
 
 #define MAX_ENTRIES 3
 
+INT8 icsharp::entriesCount() {
+    return (INT8) entries_count;
+}
+
 void icsharp::clear_mem() {
     LOG(tout << "clear_mem()" << std::endl);
-    data_idx = 0; data_ptr = 0;
+    entries_count = 0; data_ptr = 0;
     dataPtrs.reserve(MAX_ENTRIES);
     data.reserve(MAX_ENTRIES * sizeof(DOUBLE));
 }
 
 void mem(char *value, size_t size) {
-    dataPtrs[data_idx++] = data_ptr;
+    dataPtrs[entries_count++] = data_ptr;
+    data_ptr += size;
+    memcpy(data.data() + data_ptr - size, value, size);
+}
+
+void mem(char *value, size_t size, INT8 idx) {
+    ++entries_count;
+    dataPtrs[idx] = data_ptr;
     data_ptr += size;
     memcpy(data.data() + data_ptr - size, value, size);
 }
@@ -91,9 +102,19 @@ void icsharp::mem_i1(INT8 value) {
     mem((char *) &value, sizeof(INT8));
 }
 
+void icsharp::mem_i1(INT8 value, INT8 idx) {
+    LOG(tout << "mem_i1 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(INT8), idx);
+}
+
 void icsharp::mem_i2(INT16 value) {
     LOG(tout << "mem_i2 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT16));
+}
+
+void icsharp::mem_i2(INT16 value, INT8 idx) {
+    LOG(tout << "mem_i2 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(INT16), idx);
 }
 
 void icsharp::mem_i4(INT32 value) {
@@ -101,9 +122,19 @@ void icsharp::mem_i4(INT32 value) {
     mem((char *) &value, sizeof(INT32));
 }
 
+void icsharp::mem_i4(INT32 value, INT8 idx) {
+    LOG(tout << "mem_i4 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(INT32), idx);
+}
+
 void icsharp::mem_i8(INT64 value) {
     LOG(tout << "mem_i8 " << (INT64) value << std::endl);
     mem((char *) &value, sizeof(INT64));
+}
+
+void icsharp::mem_i8(INT64 value, INT8 idx) {
+    LOG(tout << "mem_i8 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(INT64), idx);
 }
 
 void icsharp::mem_f4(FLOAT value) {
@@ -111,14 +142,29 @@ void icsharp::mem_f4(FLOAT value) {
     mem((char *) &value, sizeof(FLOAT));
 }
 
+void icsharp::mem_f4(FLOAT value, INT8 idx) {
+    LOG(tout << "mem_f4 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(FLOAT), idx);
+}
+
 void icsharp::mem_f8(DOUBLE value) {
     LOG(tout << "mem_f8 " << value << std::endl);
     mem((char *) &value, sizeof(DOUBLE));
 }
 
+void icsharp::mem_f8(DOUBLE value, INT8 idx) {
+    LOG(tout << "mem_f8 " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(DOUBLE), idx);
+}
+
 void icsharp::mem_p(INT_PTR value) {
     LOG(tout << "mem_p " << value << std::endl);
     mem((char *) &value, sizeof(INT_PTR));
+}
+
+void icsharp::mem_p(INT_PTR value, INT8 idx) {
+    LOG(tout << "mem_p " << value << " " << idx << std::endl);
+    mem((char *) &value, sizeof(INT_PTR), idx);
 }
 
 void icsharp::update_i1(INT8 value, INT8 idx) {

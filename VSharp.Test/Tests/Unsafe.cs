@@ -36,7 +36,7 @@ namespace VSharp.Test.Tests
 
         public class A
         {
-            private int x;
+            public int x;
         }
 
         [TestSvm]
@@ -44,6 +44,13 @@ namespace VSharp.Test.Tests
         {
             var a = new A();
             return a;
+        }
+
+        [TestSvm]
+        public static int ReturnField()
+        {
+            var a = new A();
+            return a.x;
         }
 
         [TestSvm]
