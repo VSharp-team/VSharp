@@ -19,7 +19,8 @@ private:
     Instrumenter *instrumenter;
     Protocol *protocol;
 
-    void resolveType(ClassID classId, mdTypeDef &token, ULONG &moduleNameSize, WCHAR *&moduleName, ULONG &typeArgsNum, mdTypeDef *&tokens, ULONG *&moduleNamesSizes, WCHAR **&moduleNames);
+    void resolveType(ClassID classId, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes);
+    void serializeType(const std::vector<mdTypeDef> &tokens, const std::vector<int> &typeArgsCount, const std::vector<WCHAR> &moduleNames, const std::vector<int> &moduleSizes, char *&type, unsigned long &typeLength, const std::vector<WCHAR>& assemblyNames, const std::vector<int>& assemblySizes);
 
 public:
     CorProfiler();

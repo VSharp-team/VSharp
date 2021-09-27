@@ -388,58 +388,122 @@ HRESULT STDMETHODCALLTYPE CorProfiler::RuntimeThreadResumed(ThreadID threadId)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::MovedReferences(ULONG cMovedObjectIDRanges, ObjectID oldObjectIDRangeStart[], ObjectID newObjectIDRangeStart[], ULONG cObjectIDRangeLength[])
 {
-//    auto vec = heap.FlushObjects();
-//    tout << "Range:" << cMovedObjectIDRanges << std::endl;
-//    for (int i = 0; i < cMovedObjectIDRanges; i++){
-//        tout << "Old: " << oldObjectIDRangeStart[i] << std::endl;
-//        tout << "New: " << newObjectIDRangeStart[i] << std::endl;
-//        tout << "Length: " << cObjectIDRangeLength[i] << std::endl;
-//    }
-//    tout << "Before movement" << std::endl;
-//    heap.dump();
     for (int i = 0; i < cMovedObjectIDRanges; ++i) {
         heap.moveAndMark(oldObjectIDRangeStart[i], newObjectIDRangeStart[i], cObjectIDRangeLength[i]);
     }
-//    tout << "After movement" << std::endl;
-//    heap.dump();
     return S_OK;
 }
 
-void CorProfiler::resolveType(ClassID classId, mdTypeDef &token, ULONG &moduleNameSize, WCHAR *&moduleName, ULONG &typeArgsNum, mdTypeDef *&tokens, ULONG *&moduleNamesSizes, WCHAR **&moduleNames)
+// TODO: union resolveType and serialize type in one function?
+void CorProfiler::resolveType(ClassID classId, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes)
 {
     ModuleID moduleId;
     ClassID parent;
+    ULONG typeArgsNum;
+    mdTypeDef token;
     auto *typeArgs = new ClassID[0];
-    this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs);
+    if (FAILED(this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs))) FAIL_LOUD("getting generic type info failed!");
     delete[] typeArgs;
     typeArgs = new ClassID[typeArgsNum];
-    this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, typeArgsNum, &typeArgsNum, typeArgs);
+    if (FAILED(this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, typeArgsNum, &typeArgsNum, typeArgs))) FAIL_LOUD("getting generic type info failed!");
+    tokens.push_back(token);
+    typeArgsCount.push_back((int)typeArgsNum);
+
     LPCBYTE pBaseLoadAddress;
-    ULONG nameSize;
-    moduleName = new WCHAR[0];
+    ULONG moduleSize;
+    auto moduleName = new WCHAR[0];
     AssemblyID assemblyId;
-    this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
+    if (FAILED(this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &moduleSize, moduleName, &assemblyId))) FAIL_LOUD("getting module info failed");
     delete[] moduleName;
-    moduleName = new WCHAR[nameSize];
-    this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &nameSize, moduleName, &assemblyId);
-    for (int i = 0; i < typeArgsNum; ++i) {
-        mdTypeDef typeArgToken;
-        ULONG typeArgModuleNameSize;
-        WCHAR *typeArgModuleName;
-        ULONG typeArgTypeArgsNum;
-        mdTypeDef *typeArgTokens;
-        ULONG *typeArgModuleNamesSizes;
-        WCHAR **typeArgModuleNames;
-        resolveType(typeArgs[i], typeArgToken, typeArgModuleNameSize, typeArgModuleName, typeArgTypeArgsNum, typeArgTokens, typeArgModuleNamesSizes, typeArgModuleNames);
+    moduleName = new WCHAR[moduleSize];
+    if (FAILED(this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, moduleSize, &moduleSize, moduleName, &assemblyId))) FAIL_LOUD("getting module info failed");
+    moduleSizes.push_back((int)moduleSize * (int)sizeof(WCHAR));
+    for (int i = 0; i < moduleSize; ++i) {
+        moduleNames.push_back(moduleName[i]);
     }
+    delete[] moduleName;
+    ULONG assemblySize;
+    auto assemblyName = new WCHAR [0];
+    AppDomainID appDomainId;
+    ModuleID assemblyModuleId;
+    if (FAILED(this->corProfilerInfo->GetAssemblyInfo(assemblyId, 0, &assemblySize, assemblyName, &appDomainId, &assemblyModuleId))) FAIL_LOUD("getting assembly info failed");
+    delete[] assemblyName;
+    assemblyName = new WCHAR [assemblySize];
+    if (FAILED(this->corProfilerInfo->GetAssemblyInfo(assemblyId, assemblySize, &assemblySize, assemblyName, &appDomainId, &assemblyModuleId))) FAIL_LOUD("getting assembly info failed");
+    assemblySizes.push_back((int)assemblySize * (int)sizeof(WCHAR));
+    for (int i = 0; i < assemblySize; ++i) {
+        assemblyNames.push_back(assemblyName[i]);
+    }
+    delete[] assemblyName;
+
+    for (int i = 0; i < typeArgsNum; ++i)
+        resolveType(typeArgs[i], tokens, typeArgsCount, moduleNames, moduleSizes, assemblyNames, assemblySizes);
     delete[] typeArgs;
+}
+
+// TODO: need to move serialize to probes?
+void CorProfiler::serializeType(const std::vector<mdTypeDef> &tokens, const std::vector<int> &typeArgsCount, const std::vector<WCHAR> &moduleNames, const std::vector<int> &moduleSizes, char *&type, unsigned long &typeLength, const std::vector<WCHAR>& assemblyNames, const std::vector<int>& assemblySizes)
+{
+    auto tokensSize = (INT32)tokens.size();
+    auto typeArgsCountSize = (INT32)typeArgsCount.size();
+    auto moduleNamesSize = (INT32)moduleNames.size();
+    auto moduleSizesSize = (INT32)moduleSizes.size();
+    auto assemblyNamesSize = (INT32)assemblyNames.size();
+    auto assemblySizesSize = (INT32)assemblySizes.size();
+    assert(tokensSize == typeArgsCountSize && typeArgsCountSize == moduleSizesSize && moduleSizesSize == assemblySizesSize);
+    typeLength = tokensSize * sizeof(mdTypeDef) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
+    type = new char[typeLength];
+    char *begin = type;
+    auto moduleNamesPtr = (char *) moduleNames.data();
+    auto assemblyNamesPtr = (char *) assemblyNames.data();
+    for (int i = 0; i < tokensSize; ++i) {
+        auto tokenPtr = (mdTypeDef *)type;
+        *tokenPtr = tokens[i]; type += sizeof(mdTypeDef);
+
+        auto assemblySizePtr = (INT32 *)type;
+        auto assemblySize = assemblySizes[i];
+        *assemblySizePtr = assemblySize; type += sizeof(INT32);
+        memcpy(type, assemblyNamesPtr, assemblySize); type += assemblySize; assemblyNamesPtr += assemblySize;
+
+        auto moduleSizePtr = (INT32 *)type;
+        auto moduleSize = moduleSizes[i];
+        *moduleSizePtr = moduleSize; type += sizeof(INT32);
+        memcpy(type, moduleNamesPtr, moduleSize); type += moduleSize; moduleNamesPtr += moduleSize;
+
+        auto typeArgsCountPtr = (int *)type;
+        *typeArgsCountPtr = typeArgsCount[i]; type += sizeof(INT32);
+    }
+    type = begin;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ObjectAllocated(ObjectID objectId, ClassID classId)
 {
     ULONG size;
     this->corProfilerInfo->GetObjectSize(objectId, &size);
-    heap.allocateObject(objectId, size, classId);
+
+    ModuleID moduleId;
+    ClassID parent;
+    ULONG typeArgsNum;
+    mdTypeDef token;
+    auto *typeArgs = new ClassID[0];
+
+    char *type = new char[0];
+    unsigned long typeLength = 0;
+
+    if (SUCCEEDED(this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs))) {
+        std::vector<mdTypeDef> tokens;
+        std::vector<int> typeArgsCount;
+        std::vector<WCHAR> moduleNames;
+        std::vector<int> nameLengths;
+        std::vector<WCHAR> assemblyNames;
+        std::vector<int> assemblySizes;
+        resolveType(classId, tokens, typeArgsCount, moduleNames, nameLengths, assemblyNames, assemblySizes);
+        serializeType(tokens, typeArgsCount, moduleNames, nameLengths, type, typeLength, assemblyNames, assemblySizes);
+    } else {
+        LOG(tout << "Failed to resolve allocated type: " << classId << std::endl);
+    }
+
+    heap.allocateObject(objectId, size, type, typeLength);
     return S_OK;
 }
 

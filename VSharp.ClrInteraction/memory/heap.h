@@ -65,6 +65,7 @@ private:
     const size_t sizeofCell = sizeof(cell) * 8;
 public:
     Object(ADDR address, SIZE size);
+    ~Object() override;
     std::string toString() const override;
     bool read(SIZE offset, SIZE size) const;
     void write(SIZE offset, SIZE size, bool vConcreteness);
@@ -82,20 +83,21 @@ class Heap {
 private:
     IntervalTree tree;
     // TODO: store new addresses or get them from tree? #do
-    std::map<OBJID, ClassID> newAddresses;
+    std::map<OBJID, std::pair<char*, unsigned long>> newAddresses;
+    std::vector<OBJID> deletedAddresses;
 
     bool resolve(ADDR address, VirtualAddress &vAddress) const;
 
 public:
     Heap();
 
-    OBJID allocateObject(ADDR address, SIZE size, ClassID objectType);
+    OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
 
     void moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length);
     void markSurvivedObjects(ADDR start, SIZE length);
     void clearAfterGC();
 
-    std::map<OBJID, ClassID> flushObjects();
+    std::map<OBJID, std::pair<char*, unsigned long>> flushObjects();
 
     VirtualAddress physToVirtAddress(ADDR physAddress) const;
     static ADDR virtToPhysAddress(const VirtualAddress &virtAddress);

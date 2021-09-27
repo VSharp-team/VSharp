@@ -361,8 +361,8 @@ type execCommand = {
     newCallStackFrames : int32 array
     evaluationStackPushes : evalStackOperand array
     newAddresses : UIntPtr array
-    // TODO: moved objects? #do
-    // TODO: 2misha: put here allocated and moved objects
+    newAddressesTypes : Type array
+    // TODO: add deleted addresses
 }
 
 type commandFromConcolic =
@@ -412,13 +412,20 @@ type Communicator() =
         BitConverter.ToInt32(countBytes, 0)
 
     let readBuffer () =
+        let chunkSize = 8192
         let count = readCount()
         assert(count <> 0)
         if count < 0 then None
         else
             writeConfirmation()
             let buffer : byte[] = Array.zeroCreate count
-            let bytesRead = stream.Read(buffer, 0, count)
+            let mutable bytesRead = 0
+            while bytesRead < count do
+                let length = min chunkSize (count - bytesRead)
+                let chunk : byte[] = Array.zeroCreate length
+                let offset = bytesRead
+                bytesRead <- bytesRead + server.Read(chunk, 0, length)
+                Array.Copy(chunk, 0, buffer, offset, length)
             if bytesRead <> count then
                 fail "Communication with CLR: expected %d bytes, but read %d bytes" count bytesRead
             else
@@ -548,36 +555,64 @@ type Communicator() =
             let callStackEntrySize = Marshal.SizeOf typeof<int32>
             let callStackOffset = (int staticPart.newCallStackFramesCount) * callStackEntrySize
             let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i -> BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
-            let mutable i = callStackOffset
+            let mutable offset = callStackOffset
             let evaluationStackPushes = Array.init (int staticPart.evaluationStackPushesCount) (fun _ ->
-                let evalStackArgTypeNum = BitConverter.ToInt32(dynamicBytes, i)
-                i <- i + sizeof<int32>
+                let evalStackArgTypeNum = BitConverter.ToInt32(dynamicBytes, offset)
+                offset <- offset + sizeof<int32>
                 let evalStackArgType = LanguagePrimitives.EnumOfValue evalStackArgTypeNum
                 match evalStackArgType with
                 | evalStackArgType.OpRef -> // TODO: mb use UIntPtr? #do
-                    let baseAddr = BitConverter.ToUInt64(dynamicBytes, i)
-                    i <- i + sizeof<uint64>
-                    let offset = BitConverter.ToUInt64(dynamicBytes, i)
-                    i <- i + sizeof<uint64>
-                    PointerOp(baseAddr, offset)
+                    let baseAddr = BitConverter.ToUInt64(dynamicBytes, offset)
+                    offset <- offset + sizeof<uint64>
+                    let shift = BitConverter.ToUInt64(dynamicBytes, offset)
+                    offset <- offset + sizeof<uint64>
+                    PointerOp(baseAddr, shift)
                 | evalStackArgType.OpSymbolic
                 | evalStackArgType.OpI4
                 | evalStackArgType.OpI8
                 | evalStackArgType.OpR4
                 | evalStackArgType.OpR8 ->
-                    let content = BitConverter.ToInt64(dynamicBytes, i)
-                    i <- i + sizeof<int64>
+                    let content = BitConverter.ToInt64(dynamicBytes, offset)
+                    offset <- offset + sizeof<int64>
                     NumericOp(evalStackArgType, content)
                 | _ -> __unreachable__())
-            let newAddresses = Array.init (int staticPart.newAddressesCount) (fun i ->
-                x.ToUIntPtr dynamicBytes (i * IntPtr.Size))
+            let newAddresses = Array.init (int staticPart.newAddressesCount) (fun _ ->
+                let res = x.ToUIntPtr dynamicBytes offset in offset <- offset + IntPtr.Size; res)
+            let newAddressesTypesLengths = Array.init (int staticPart.newAddressesCount) (fun _ ->
+                let res = BitConverter.ToUInt64(dynamicBytes, offset) in offset <- offset + sizeof<uint64>; res)
+            let newAddressesTypes = Array.init (int staticPart.newAddressesCount) (fun i ->
+                let size = int newAddressesTypesLengths.[i]
+                let rec readType () =
+                    let token = BitConverter.ToInt32(dynamicBytes, offset)
+                    offset <- offset + sizeof<int>
+                    let assemblySize = BitConverter.ToInt32(dynamicBytes, offset)
+                    offset <- offset + sizeof<int>
+                    let assemblyBytes = dynamicBytes.[offset .. offset + assemblySize - 1]
+                    offset <- offset + assemblySize
+                    let assemblyName = Encoding.Unicode.GetString(assemblyBytes)
+                    let assembly = System.Reflection.Assembly.Load(assemblyName)
+                    let moduleSize = BitConverter.ToInt32(dynamicBytes, offset)
+                    offset <- offset + sizeof<int>
+                    let moduleBytes = dynamicBytes.[offset .. offset + moduleSize - 1]
+                    offset <- offset + moduleSize
+                    let moduleName = Encoding.Unicode.GetString(moduleBytes) |> Path.GetFileName
+                    let typeModule = Reflection.resolveModuleFromAssembly assembly moduleName
+                    let typeArgsCount = BitConverter.ToInt32(dynamicBytes, offset)
+                    offset <- offset + sizeof<int>
+                    let typeArgs = Array.init typeArgsCount (fun _ -> readType())
+                    let resultType = Reflection.resolveTypeFromModule typeModule token
+                    if Array.isEmpty typeArgs then resultType else resultType.MakeGenericType(typeArgs)
+                // NOTE: Some types can not be resolved while concrete execution (GetClassIDInfo2 fails)
+                // NOTE: These types have zero size
+                if size = 0 then typeof<Void> else readType())
             { offset = staticPart.offset
               isBranch = staticPart.isBranch
               callStackFramesPops = staticPart.callStackFramesPops
               evaluationStackPops = staticPart.evaluationStackPops
-              newCallStackFrames = newCallStackFrames;
+              newCallStackFrames = newCallStackFrames
               evaluationStackPushes = evaluationStackPushes
-              newAddresses = newAddresses}
+              newAddresses = newAddresses
+              newAddressesTypes = newAddressesTypes }
         | None -> unexpectedlyTerminated()
 
     member x.SendExecResponse ops lastPush =

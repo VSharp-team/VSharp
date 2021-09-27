@@ -75,17 +75,21 @@ struct ExecCommand {
     unsigned newAddressesCount;
     unsigned *newCallStackFrames;
     EvalStackOperand *evaluationStackPushes;
-    // TODO: moved objects? #do
-    // TODO: 2misha: put here allocated and moved objects
+    // TODO: add deleted addresses
     OBJID *newAddresses;
-    // TODO: add types #do
-//    ClassID *newAddressesTypes;
+    unsigned long *newAddressesTypeLengths;
+    char *newAddressesTypes;
 
     void serialize(char *&bytes, unsigned &count) const {
         count = 7 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
             count += evaluationStackPushes[i].size();
         count += sizeof(UINT_PTR) * newAddressesCount;
+        count += newAddressesCount * sizeof(unsigned long);
+        unsigned long fullTypesSize = 0;
+        for (int i = 0; i < newAddressesCount; ++i)
+            fullTypesSize += newAddressesTypeLengths[i];
+        count += fullTypesSize;
         bytes = new char[count];
         char *buffer = bytes;
         unsigned size = sizeof(unsigned);
@@ -103,6 +107,9 @@ struct ExecCommand {
         }
         size = newAddressesCount * sizeof(UINT_PTR);
         memcpy(buffer, (char*)newAddresses, size); buffer += size;
+        size = newAddressesCount * sizeof(unsigned long);
+        memcpy(buffer, (char*)newAddressesTypeLengths, size); buffer += size;
+        memcpy(buffer, newAddressesTypes, fullTypesSize); buffer += fullTypesSize;
     }
 };
 
@@ -135,12 +142,27 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     command.evaluationStackPops = top.evaluationStackPops();
     command.evaluationStackPushes = ops;
     auto newAddresses = heap.flushObjects();
-    command.newAddressesCount = newAddresses.size();
-    command.newAddresses = new UINT_PTR[command.newAddressesCount];
+    auto addressesSize = newAddresses.size();
+    command.newAddressesCount = addressesSize;
+    command.newAddresses = new UINT_PTR[addressesSize];
+    unsigned long fullTypesSize = 0;
+    for (const auto &newAddress : newAddresses)
+        fullTypesSize += newAddress.second.second;
+    command.newAddressesTypes = new char[fullTypesSize];
+    command.newAddressesTypeLengths = new unsigned long[addressesSize];
+    auto begin = command.newAddressesTypes;
     int i = 0;
-    for (auto &newAddress : newAddresses) {
-        command.newAddresses[i++] = newAddress.first;
+    for (const auto &newAddress : newAddresses) {
+        command.newAddresses[i] = newAddress.first;
+        auto pair = newAddress.second;
+        auto typeSize = pair.second;
+        command.newAddressesTypeLengths[i] = typeSize;
+        if (typeSize != 0) memcpy(command.newAddressesTypes, pair.first, typeSize);
+        command.newAddressesTypes += typeSize;
+        delete pair.first;
+        i++;
     }
+    command.newAddressesTypes = begin;
     stack.resetPopsTracking();
 }
 
@@ -174,6 +196,8 @@ void freeCommand(ExecCommand &command) {
     delete[] command.newCallStackFrames;
     delete[] command.evaluationStackPushes;
     delete[] command.newAddresses;
+    delete[] command.newAddressesTypeLengths;
+    delete[] command.newAddressesTypes;
 }
 
 bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {

@@ -46,7 +46,6 @@ namespace icsharp {
         return Interval(std::max(left, other.left), std::min(right, other.right));
     }
 
-
     void Interval::move(const Shift &shift) {
         left = shift.move(left);
         right = shift.move(right);
@@ -87,6 +86,10 @@ namespace icsharp {
         assert(size > 0);
         SIZE squashedSize = (size + sizeofCell - 1) / sizeofCell;
         concreteness = new cell[squashedSize];
+    }
+
+    Object::~Object() {
+        delete[] concreteness;
     }
 
     std::string Object::toString() const {
@@ -145,12 +148,11 @@ namespace icsharp {
 
     Heap::Heap() = default;
 
-    // TODO: need to free pointer? #do
-    OBJID Heap::allocateObject(ADDR address, SIZE size, ClassID objectType) {
+    OBJID Heap::allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength) {
         auto *obj = new Object(address, size);
         tree.add(*obj);
         auto id = (OBJID) obj;
-        newAddresses[id] = objectType;
+        newAddresses[id] = std::make_pair(type, typeLength);
         return id;
     }
 
@@ -185,13 +187,17 @@ namespace icsharp {
     }
 
     void Heap::clearAfterGC() {
-        tree.clearUnmarked();
+        auto deleted = tree.clearUnmarked();
+        for (Interval *address : deleted)
+            deletedAddresses.push_back((OBJID) address);
     }
 
     // TODO: store new addresses or get them from tree? #do
-    std::map<OBJID, ClassID> Heap::flushObjects() {
+    std::map<OBJID, std::pair<char*, unsigned long>> Heap::flushObjects() {
 //        return tree.flush();
-        auto result = newAddresses;
+        std::map<OBJID, std::pair<char*, unsigned long>> result;
+        for (const auto &address : newAddresses)
+            result[address.first] = address.second;
         newAddresses.clear();
         return result;
     }

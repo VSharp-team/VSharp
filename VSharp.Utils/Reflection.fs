@@ -35,6 +35,12 @@ module public Reflection =
         | :? ConstructorInfo -> null
         | _ -> __notImplemented__()
 
+    let resolveModuleFromAssembly (assembly : Assembly) (moduleName : string) =
+        assembly.GetModule moduleName
+
+    let resolveTypeFromModule (m : Module) typeToken =
+        m.ResolveType(typeToken, null, null)
+
     let resolveField (method : MethodBase) fieldToken =
         let methodsGenerics = retrieveMethodsGenerics method
         let typGenerics = method.DeclaringType.GetGenericArguments()

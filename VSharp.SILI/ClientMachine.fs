@@ -126,7 +126,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
         // TODO: add new addresses to allocatedTypes, physToVirt (if we will create virtual address) #do
-        let allocatedTypes = Array.fold (fun types address -> PersistentDict.add [uint address] Void types) cilState.state.allocatedTypes c.newAddresses
+        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [uint address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
         cilState.state.allocatedTypes <- allocatedTypes
 
     member x.State with get() = cilState

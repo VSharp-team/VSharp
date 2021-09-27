@@ -42,16 +42,19 @@ public:
     }
 
     // TODO: copy all marked and clear or remove unmarked one by one?
-    void clearUnmarked() {
+    std::vector<Interval *> clearUnmarked() {
         std::vector<Interval *> marked;
+        std::vector<Interval *> unmarked;
         for (Interval *obj : objects)
             if (obj->isMarked()) {
                 obj->unmark();
                 marked.push_back(obj);
             } else {
+                unmarked.push_back(obj);
                 delete obj;
             }
         objects = marked;
+        return unmarked;
     }
 
     std::vector<Interval*> flush() {
