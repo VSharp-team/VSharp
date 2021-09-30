@@ -133,7 +133,8 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     unsigned currentSymbs = afterPop + poppedSymbs.size();
     for (auto &pair : poppedSymbs) {
-        unsigned idx = pair.second;
+        assert((int)opsCount - (int)pair.second - 1 >= 0);
+        unsigned idx = opsCount - pair.second - 1;
         assert(idx < opsCount);
         ops[idx].typ = OpSymbolic;
         ops[idx].content.number = (long long)(currentSymbs - pair.first);
@@ -173,9 +174,11 @@ bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned 
     }
     assert(messageLength >= 1);
     bool returnsValue = bytes[0] > 0;
+    bool allConcrete = false;
     if (returnsValue) {
         assert(messageLength >= 2);
-        top.push1(bytes[1] > 0);
+        allConcrete = bytes[1] > 0;
+        top.push1(allConcrete);
         bytes += 2;
     } else {
         bytes += 1;
@@ -189,7 +192,7 @@ bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned 
             ops[i].deserialize(bytes);
         }
     }
-    return true;
+    return allConcrete;
 }
 
 void freeCommand(ExecCommand &command) {
@@ -210,6 +213,7 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     if (allConcrete) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (const auto &poppedSymb : poppedSymbs) {
+            assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
             unsigned idx = opsCount - poppedSymb.second - 1;
             assert(idx < opsCount);
             EvalStackOperand op = ops[idx];
@@ -615,22 +619,26 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
     LOG(tout << "Managed leave to frame " << stack.framesCount() << ". After popping top frame stack balance is " << top.count() << std::endl);
 }
 
-PROBE(void, Track_LeaveMain, (UINT8 returnValues, OFFSET offset)) {
+void leaveMain(OFFSET offset, UINT8 opsCount, EvalStackOperand *ops) {
     Stack &stack = icsharp::stack();
     StackFrame &top = stack.topFrame();
-#ifdef _DEBUG
-    assert(returnValues == 0 || returnValues == 1);
-    if (top.count() != returnValues) {
-        FAIL_LOUD("Corrupted stack: stack is not empty when popping frame!");
-    }
-#endif
     LOG(tout << "Main left!");
-    if (returnValues) {
+    if (opsCount > 0) {
+        // NOTE: popping return value from IL execution
         bool returnValue = top.pop1();
         LOG(tout << "Return value is " << (returnValue ? "concrete" : "symbolic") << std::endl);
     }
+    sendCommand(offset, opsCount, ops);
+    // NOTE: popping return value from SILI
+    if (opsCount > 0) stack.topFrame().pop1();
     stack.popFrame();
 }
+PROBE(void, Track_LeaveMain_0, (OFFSET offset)) { leaveMain(offset, 0, new EvalStackOperand[0] { }); }
+PROBE(void, Track_LeaveMain_4, (INT32 returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_4(returnValue) }); }
+PROBE(void, Track_LeaveMain_8, (INT64 returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_8(returnValue) }); }
+PROBE(void, Track_LeaveMain_f4, (FLOAT returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_f4(returnValue) }); }
+PROBE(void, Track_LeaveMain_f8, (DOUBLE returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_f8(returnValue) }); }
+PROBE(void, Track_LeaveMain_p, (INT_PTR returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_p(returnValue) }); }
 
 PROBE(void, Finalize_Call, (UINT8 returnValues)) {
     Stack &stack = icsharp::stack();
@@ -666,7 +674,10 @@ PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, boo
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     unsigned symbolicsCount = top.symbolicsCount() + poppedSymbs.size();
     for (auto &pair : poppedSymbs) {
-        argsConcreteness[symbolicsCount - pair.first] = false;
+        assert((int)argsCount - (int)pair.second - 1 > 0);
+        unsigned idx = argsCount - pair.second - 1;
+        assert(idx < argsCount);
+        argsConcreteness[idx] = false;
     }
     LOG(tout << "Args concreteness: ";
         for (unsigned i = 0; i < argsCount; ++i)
@@ -693,13 +704,13 @@ PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
 
 PROBE(void, Mem_p, (INT_PTR arg)) { clear_mem(); mem_p(arg); }
 
-PROBE(void, Mem_1_idx, (INT8 arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_i1(arg, idx); }
-PROBE(void, Mem_2_idx, (INT16 arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_i2(arg, idx); }
-PROBE(void, Mem_4_idx, (INT32 arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_i4(arg, idx); }
-PROBE(void, Mem_8_idx, (INT64 arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_i8(arg, idx); }
-PROBE(void, Mem_f4_idx, (FLOAT arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_f4(arg, idx); }
-PROBE(void, Mem_f8_idx, (DOUBLE arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_f8(arg, idx); }
-PROBE(void, Mem_p_idx, (INT_PTR arg, INT8 idx, INT8 order)) { if (entriesCount() > order) clear_mem(); mem_p(arg, idx); }
+PROBE(void, Mem_1_idx, (INT8 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i1(arg, idx); }
+PROBE(void, Mem_2_idx, (INT16 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i2(arg, idx); }
+PROBE(void, Mem_4_idx, (INT32 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i4(arg, idx); }
+PROBE(void, Mem_8_idx, (INT64 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i8(arg, idx); }
+PROBE(void, Mem_f4_idx, (FLOAT arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_f4(arg, idx); }
+PROBE(void, Mem_f8_idx, (DOUBLE arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_f8(arg, idx); }
+PROBE(void, Mem_p_idx, (INT_PTR arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_p(arg, idx); }
 
 PROBE(void, Mem2_4, (INT32 arg1, INT32 arg2)) { clear_mem(); mem_i4(arg1); mem_i4(arg2); }
 PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2)) { clear_mem(); mem_i8(arg1); mem_i8(arg2); }

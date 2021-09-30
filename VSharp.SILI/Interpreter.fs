@@ -28,6 +28,7 @@ module internal TypeUtils =
     let uint32Type  = Numeric typedefof<uint32>
     let uint64Type  = Numeric typedefof<uint64>
     let charType    = Numeric typedefof<char>
+    let nativeint   = Numeric typedefof<nativeint>
 
     let isEnum typ = typ |> ToDotNetType |> (fun t -> t.IsEnum)
 
@@ -386,10 +387,12 @@ module internal InstructionsSet =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Initobj.Size)
         let states = Memory.WriteSafe cilState.state targetAddress (Memory.DefaultOf typ)
         states |> List.map (changeState cilState)
-    let ldind valueCast (cilState : cilState) =
+    let ldind refType (cilState : cilState) =
         // TODO: what about null pointers?
+        // TODO: in all reading by ref or ptr we shall cast ref to needed type and read after that #do
         let address = pop cilState
-        let value = Memory.Read cilState.state address |> valueCast
+        let castedRef = Option.fold (fun acc x -> castUnchecked x acc) address refType
+        let value = Memory.Read cilState.state castedRef
         push value cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
@@ -2042,17 +2045,18 @@ type internal ILInterpreter() as this =
             | OpCodeValues.Initobj -> initobj |> forkThrough cfg offset cilState
             | OpCodeValues.Ldarga -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarga_S -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind (castUnchecked TypeUtils.int32Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind (castUnchecked TypeUtils.int8Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind (castUnchecked TypeUtils.int16Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I8 -> (fun _ _ -> ldind (castUnchecked TypeUtils.int64Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U1 -> (fun _ _ -> ldind (castUnchecked TypeUtils.uint8Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U2 -> (fun _ _ -> ldind (castUnchecked TypeUtils.uint16Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind (castUnchecked TypeUtils.uint32Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind (castUnchecked TypeUtils.float32Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind (castUnchecked TypeUtils.float64Type)) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind id) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I -> (fun _ _ -> ldind MakeIntPtr) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind (Some TypeUtils.int32Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind (Some TypeUtils.int8Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind (Some TypeUtils.int16Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I8 -> (fun _ _ -> ldind (Some TypeUtils.int64Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U1 -> (fun _ _ -> ldind (Some TypeUtils.uint8Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U2 -> (fun _ _ -> ldind (Some TypeUtils.uint16Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind (Some TypeUtils.uint32Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind (Some TypeUtils.float32Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind (Some TypeUtils.float64Type)) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind None) |> fallThrough cfg offset cilState
+            // TODO: need to cast to nativeint? #do
+            | OpCodeValues.Ldind_I -> (fun _ _ -> ldind None) |> fallThrough cfg offset cilState
             | OpCodeValues.Isinst -> isinst |> forkThrough cfg offset cilState
             | OpCodeValues.Stobj -> stobj |> forkThrough cfg offset cilState
             | OpCodeValues.Ldobj -> ldobj |> fallThrough cfg offset cilState

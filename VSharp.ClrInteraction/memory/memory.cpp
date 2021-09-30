@@ -123,7 +123,7 @@ void icsharp::mem_i4(INT32 value) {
 }
 
 void icsharp::mem_i4(INT32 value, INT8 idx) {
-    LOG(tout << "mem_i4 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_i4 " << (INT64) value << " " << (INT64) idx << std::endl);
     mem((char *) &value, sizeof(INT32), idx);
 }
 

@@ -95,6 +95,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             initSymbolicFrame state method
         Array.iter (initFrame cilState.state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
+        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [uint address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
+        cilState.state.allocatedTypes <- allocatedTypes
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (function
             | NumericOp(evalStackArgType, content) ->
@@ -113,21 +115,20 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     Concrete (BitConverter.Int64BitsToDouble content) TypeUtils.float64Type
                 | _ -> __unreachable__()
             | PointerOp(baseAddress, offset) ->
-                // TODO: need to make ref from ptr? #do
                 // TODO: what about StackLocation and StaticLocation? #do
                 let address = ConcreteHeapAddress [uint32 baseAddress]
-                let offset = Concrete offset Types.TLength
-                // TODO: how to get type of address? #do
-                Ptr (HeapLocation address) Void offset)
+                if offset = 0UL then
+                    let typ = TypeOfAddress cilState.state address
+                    HeapRef address typ
+                else
+                    let offset = Concrete (int offset) Types.TLength
+                    Ptr (HeapLocation address) Void offset)
         let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
         poppedSymbolics <- ps
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
-        // TODO: add new addresses to allocatedTypes, physToVirt (if we will create virtual address) #do
-        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [uint address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
-        cilState.state.allocatedTypes <- allocatedTypes
 
     member x.State with get() = cilState
 
@@ -160,7 +161,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | None -> None
             | Some model ->
                 let mutable allConcrete = true
-                // TODO: do better #do
+                // TODO: fix style #style
                 let makeObjFromBaseAndOffset baseAddress offset =
                     match baseAddress, offset.term with
                     | HeapLocation {term = ConcreteHeapAddress [address]}, Concrete(offset, _) ->
@@ -184,6 +185,13 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     Some concretizedSymbolics
                 else None)
         cilState.suspended <- true
-        let lastPushInfo = cilState.lastPushInfo |> Option.map IsConcrete
+        let lastPushInfo = // TODO: fix style #style
+            match cilState.lastPushInfo with
+            | Some x ->
+                if IsConcrete x && CilStateOperations.currentIp cilState |> ipOperations.isExit |> not then
+                    CilStateOperations.pop cilState |> ignore
+                    Some true
+                else Some false
+            | None -> None
         x.communicator.SendExecResponse concretizedOps lastPushInfo
         cilState

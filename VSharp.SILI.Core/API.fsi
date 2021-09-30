@@ -53,6 +53,7 @@ module API =
         val TypeOf : term -> symbolicType
         val TypeOfLocation : term -> symbolicType
         val MostConcreteTypeOfHeapRef : state -> term -> symbolicType
+        val TypeOfAddress : state -> term -> symbolicType
 
         val GetHashCode : term -> term
 

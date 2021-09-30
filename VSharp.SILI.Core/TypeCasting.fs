@@ -128,7 +128,7 @@ module internal TypeCasting =
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress typ' offset
-        | Ref _, _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
+        | Ref _, _ -> internalfailf "casting ref %O to type %O" term targetType // TODO: can this happen? Ref points to primitive type!
         | HeapRef(addr, _), _ -> HeapRef addr targetType
         | Struct _, _ -> internalfailf "Casting struct to %O" targetType
         | _ -> internalfailf "Can't cast %O to type %O" term targetType

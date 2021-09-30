@@ -53,6 +53,33 @@ namespace VSharp.Test.Tests
             return a.x;
         }
 
+        public static void WriteByRefSymbolic(ref int x, int y)
+        {
+            x = y;
+        }
+
+        [TestSvm]
+        public static int WriteFieldByRefSymbolic(int y)
+        {
+            var a = new A();
+            WriteByRefSymbolic(ref a.x, y);
+            return a.x;
+        }
+
+        [TestSvm]
+        public static int RetConcrete()
+        {
+            return 10;
+        }
+
+        [TestSvm]
+        public static int WriteFieldSymbolic(int y)
+        {
+            var a = new A();
+            a.x = y;
+            return a.x;
+        }
+
         [TestSvm]
         public static int ReturnConst()
         {
@@ -555,7 +582,7 @@ namespace VSharp.Test.Tests
                 var ptr2 = (int*) ptr;
                 var ptr3 = ptr2 + i;
                 var ptr4 = (long*) ptr3;
-                *ptr4 = 30962698417209460L; // TODO: change #do
+                *ptr4 = 30962698417209460L;
             }
 
             if (i == 3 && (s[0] != 'b' || s[1] != 'e' || s[2] != 's' || s[3] != 't' || s[4] != ' ')) // s != "best string"

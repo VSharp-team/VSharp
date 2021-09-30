@@ -137,7 +137,12 @@ type probes = {
     mutable enter : uint64
     mutable enterMain : uint64
     mutable leave : uint64
-    mutable leaveMain : uint64
+    mutable leaveMain_0 : uint64
+    mutable leaveMain_4 : uint64
+    mutable leaveMain_8 : uint64
+    mutable leaveMain_f4 : uint64
+    mutable leaveMain_f8 : uint64
+    mutable leaveMain_p : uint64
     mutable finalizeCall : uint64
     mutable call : uint64
     mutable callVirt : uint64
@@ -244,6 +249,10 @@ type signatureTokens = {
     mutable void_offset_sig : uint32
     mutable void_u1_offset_sig : uint32
     mutable void_u2_offset_sig : uint32
+    mutable void_i4_offset_sig : uint32
+    mutable void_i8_offset_sig : uint32
+    mutable void_r4_offset_sig : uint32
+    mutable void_r8_offset_sig : uint32
     mutable void_i_offset_sig : uint32
     mutable void_token_offset_sig : uint32
     mutable void_i_i1_offset_sig : uint32

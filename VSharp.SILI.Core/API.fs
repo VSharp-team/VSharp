@@ -70,6 +70,7 @@ module API =
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
+        let TypeOfAddress state address = Memory.typeOfHeapLocation state address
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term

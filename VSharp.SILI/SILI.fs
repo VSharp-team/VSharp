@@ -76,6 +76,7 @@ type public SILI(options : siliOptions) =
         bidirectionalEngineStatistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReport = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
+        // TODO: need to report? #do
         toReport |> List.iter reportFinished.Invoke
         let errors, toReport = errors |> List.partition (fun s -> s.startingIP <> entryIP)
         toReport |> List.iter reportError.Invoke
@@ -145,7 +146,9 @@ type public SILI(options : siliOptions) =
                 else __notImplemented'__ "Forking in concolic mode"
             while machine.ExecCommand() do
                 x.BidirectionalSymbolicExecution entryIP
-            reportFinished.Invoke machine.State
+            // TODO: need to report? #do
+//            Logger.error "result state = %O" machine.State
+//            reportFinished.Invoke machine.State
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution entryIP
             Logger.info "BidirectionalSymbolicExecution Statistics:\n%s" (bidirectionalEngineStatistics.PrintStatistics(searcher.GetType().ToString()))
