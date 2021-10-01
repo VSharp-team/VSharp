@@ -13,7 +13,8 @@ module internal Pointers =
     type private SymbolicPointerDifference(pos: list<term * int>, neg: list<term * int>) =
         interface ISymbolicConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time = VectorTime.zero
+            override x.Time = VectorTime.zero            
+            override x.IndependentWith _ = false
         member this.Pos = pos
         member this.Neg = neg
 

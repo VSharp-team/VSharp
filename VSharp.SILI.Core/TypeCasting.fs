@@ -24,6 +24,10 @@ module internal TypeCasting =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = optCons (optCons [] x.left.SubTerm) x.right.SubTerm :> term seq
             override x.Time = VectorTime.zero
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? symbolicSubtypeSource as otherSubtype -> x <> otherSubtype
+                | _ -> true
 
     let private makeSubtypeBoolConst left right =
         let subtypeName = sprintf "(%O <: %O)" left right

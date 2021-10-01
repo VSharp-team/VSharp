@@ -219,6 +219,7 @@ and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
         abstract Time : vectorTime
+        abstract IndependentWith : ISymbolicConstantSource -> bool
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource

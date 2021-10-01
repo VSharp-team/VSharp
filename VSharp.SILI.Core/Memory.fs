@@ -151,6 +151,10 @@ module internal Memory =
                 | Some time -> time
                 | None -> internalfailf "Requesting time of primitive stack location %O" x.key
             override x.TypeOfLocation = x.key.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? stackReading as otherReading -> x <> otherReading
+                | _ -> true
 
     [<StructuralEquality;NoComparison>]
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
@@ -159,6 +163,12 @@ module internal Memory =
             override x.SubTerms = Seq.empty
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? heapReading<'key, 'reg> as otherReading ->
+                    let rootRegions hr = match hr.memoryObject.updates with | Node dict -> PersistentDict.keys dict
+                    rootRegions x |> Seq.forall (fun reg1 -> Seq.forall (fun reg2 -> reg1.CompareTo reg2 = Disjoint) (rootRegions otherReading))
+                | _ -> true
 
     let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -208,6 +218,11 @@ module internal Memory =
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = fromDotNetType x.field.typ
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? structField as otherField ->
+                    x.field <> otherField.field || x.baseSource.IndependentWith otherField.baseSource
+                | _ -> true
 
     let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -221,6 +236,10 @@ module internal Memory =
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.baseSource.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? heapAddressSource as otherAddress -> x.baseSource.IndependentWith otherAddress.baseSource
+                | _ -> true
 
     let (|HeapAddressSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -233,6 +252,13 @@ module internal Memory =
         interface IStatedSymbolicConstantSource  with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? typeInitialized as otherType ->
+                    let xDotNetType = toDotNetType x.typ
+                    let otherDotNetType = toDotNetType otherType.typ
+                    structuralInfimum xDotNetType otherDotNetType = None
+                | _ -> true
 
     let (|TypeInitializedSource|_|) (src : IStatedSymbolicConstantSource) =
         match src with
