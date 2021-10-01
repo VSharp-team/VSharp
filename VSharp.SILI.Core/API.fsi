@@ -70,6 +70,7 @@ module API =
         val (|NullRef|_|) : term -> unit option
 
 
+        val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
         val (|ArrayIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
         val (|VectorIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
@@ -145,6 +146,27 @@ module API =
         val Sub : term -> term -> term
         val Add : term -> term -> term
         val IsZero : term -> term
+
+        val Acos : term -> term
+        val Asin : term -> term
+        val Atan : term -> term
+        val Atan2 : term -> term -> term
+        val Ceiling : term -> term
+        val Cos : term -> term
+        val Cosh : term -> term
+        val Floor : term -> term
+        val Sin : term -> term
+        val Tan : term -> term
+        val Sinh : term -> term
+        val Tanh : term -> term
+        val Round : term -> term
+        val Sqrt : term -> term
+        val Log : term -> term
+        val Log10 : term -> term
+        val Exp : term -> term
+        val Pow : term -> term -> term
+        val Abs : term -> term
+        val AbsS : term -> term
 
     module public EvaluationStack =
         val Pop : evaluationStack -> term * evaluationStack

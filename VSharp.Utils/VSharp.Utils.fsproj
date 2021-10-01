@@ -34,6 +34,8 @@
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="PriorityQueue.fs" />
         <Compile Include="FrontQueue.fs" />
+        <Compile Include="Test.fs" />
+        <Compile Include="FileSystem.fs" />
     </ItemGroup>
 
     <ItemGroup>

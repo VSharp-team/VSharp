@@ -555,7 +555,7 @@ module internal Z3 =
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
                     x.DecodeConcrete refinedExpr (fun term -> subst.Add(source, term))
                 | _ -> ())
-            model.ofDict subst
+            model.OfDict subst
 
 
     let private ctx = new Context()

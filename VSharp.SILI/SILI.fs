@@ -21,6 +21,7 @@ type public SILI(options : siliOptions) =
     let mutable reportError : Action<cilState> = Action<_>(fun _ -> internalfail "reporter not configured!")
     let mutable reportIncomplete : Action<cilState> = Action<_>(fun _ -> internalfail "reporter not configured!")
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
+    let testGenerator = new TestGenerator(System.IO.Directory.GetCurrentDirectory())
     let isSat pc =
         // TODO: consider trivial cases
         emptyState.pc <- pc
@@ -43,6 +44,14 @@ type public SILI(options : siliOptions) =
         cfg.sortedOffsets |> Seq.map (fun offset ->
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
+
+    let wrapOnTest (action : Action<cilState>) method state =
+        testGenerator.GenerateTest method state
+        action.Invoke state
+
+    let wrapOnError (action : Action<cilState>) method state =
+        testGenerator.GenerateError method state
+        action.Invoke state
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
         let initialState = Memory.EmptyState()
@@ -125,6 +134,7 @@ type public SILI(options : siliOptions) =
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
+            __notImplemented'__ "Concolic mode"
             initialStates |> List.iter (fun initialState ->
                 let machine = ClientMachine(entryPoint, (fun _ -> ()), initialState)
                 if not <| machine.Spawn() then
@@ -132,7 +142,7 @@ type public SILI(options : siliOptions) =
                 concolicMachines.Add(initialState, machine))
             let machine =
                 if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
-                else __notImplemented__()
+                else __notImplemented'__ "Forking in concolic mode"
             while machine.ExecCommand() do
                 x.BidirectionalSymbolicExecution entryIP
             reportFinished.Invoke machine.State
@@ -147,8 +157,8 @@ type public SILI(options : siliOptions) =
 
     member x.InterpretEntryPoint (method : MethodBase) (onFinished : Action<cilState>) (onError : Action<cilState>)  (onIIE : Action<cilState>) : unit =
         assert method.IsStatic
-        reportFinished <- onFinished
-        reportError <- onError
+        reportFinished <- Action<cilState>(wrapOnTest onFinished method)
+        reportError <- Action<cilState>(wrapOnError onError method)
         reportIncomplete <- onIIE
         let state = Memory.EmptyState()
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
@@ -157,8 +167,8 @@ type public SILI(options : siliOptions) =
 
     member x.InterpretIsolated (method : MethodBase) (onFinished : Action<cilState>) (onError : Action<cilState>) (onIIE : Action<cilState>) : unit =
         Reset()
-        reportFinished <- onFinished
-        reportError <- onError
+        reportFinished <- Action<cilState>(wrapOnTest onFinished method)
+        reportError <- Action<cilState>(wrapOnError onError method)
         reportIncomplete <- onIIE
         let initialStates = x.FormInitialStates method
         x.AnswerPobs method initialStates

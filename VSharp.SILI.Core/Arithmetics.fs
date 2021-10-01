@@ -586,3 +586,185 @@ module internal Arithmetics =
 
     let checkEqualZero y k =
         simplifyEqual y (castConcrete 0 (toDotNetType(typeOf y))) k
+
+// ------------------------------- Standard functions -------------------------------
+
+    let impl<'a when 'a : comparison> (concrete : 'a -> 'a) standFunc arg =
+        arg |> Merging.guardedApply (fun term ->
+            match term.term with
+            | Concrete(obj, _) ->
+                let a = obj :?> 'a
+                makeNumber (concrete a)
+            | Constant(_, _, t)
+            | Expression(_, _, t) ->
+                Expression (Application standFunc) [term] t
+            | term -> internalfailf "expected number, but %O got!" term)
+
+    let powImpl<'a when 'a : comparison> convert isNaN isPosInf isNegInf concrete b p =
+        let mkPowExpr args typ = Expression (Application StandardFunction.Power) args typ
+        let zero = convert 0.0
+        let one = convert 1.0
+        let minusInf = convert -infinity
+        let zeroTerm = makeNumber zero
+        let oneTerm = makeNumber one
+        let infTerm = convert infinity |> makeNumber
+        let minusOneTerm = convert -1.0 |> makeNumber
+        let (<<) x y = simplifyLess x y id
+        let (===) x y = simplifyEqual x y id
+        let (%%%) x y = simplifyRemainder true (x |> typeOf |> toDotNetType) x y id
+        b |> Merging.guardedApply (fun term ->
+            match term.term with
+            | Concrete(bObj, _) ->
+                let bConc = term
+                let b = bObj :?> 'a
+                p |> Merging.guardedApply (fun term ->
+                    match term.term with
+                    | Concrete(pObj, _) ->
+                        let p = pObj :?> 'a
+                        makeNumber (concrete(b, p))
+                    | Constant(_, _, t)
+                    | Expression(_, _, t) ->
+                        let p = term
+                        // base is concrete, exponent is symbolic
+                        match b with
+                        | _ when b = zero ->
+                            let pIsLessZero = p << zeroTerm
+                            let pIsZero = p === zeroTerm
+                            Union([(pIsZero, oneTerm); (pIsLessZero, infTerm);
+                                   (!!pIsLessZero, zeroTerm)])
+                        | _ when b = one -> oneTerm
+                        | _ when isNaN b -> bConc
+                        | _ when isPosInf b ->
+                            let pIsZero = p === zeroTerm
+                            let pIsLessZero = p << zeroTerm
+                            Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
+                                  (!!pIsZero &&& !!pIsLessZero, infTerm)])
+                        | _ when isNegInf b ->
+                            let pIsZero = p === zeroTerm
+                            let pIsLessZero = p << zeroTerm
+                            if isInteger t then
+                                let pIsGreaterZeroAndEven = (p %%% (Concrete 2 t)) === makeNumber 0
+                                Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm); (pIsGreaterZeroAndEven, infTerm);
+                                       (!!pIsZero &&& !!pIsLessZero &&& !!pIsGreaterZeroAndEven, makeNumber minusInf)])
+                            else Union([(pIsZero, oneTerm); (pIsLessZero, zeroTerm);
+                                        (!!pIsZero &&& !!pIsLessZero, infTerm)])
+                        | _ -> mkPowExpr [bConc; p] t
+                    | term -> internalfailf "expected number for power, but %O got!" term)
+            | Constant(_, _, t) | Expression(_, _, t) ->
+                let b = term
+                p |> Merging.guardedApply (fun term ->
+                    match term.term with
+                    | Concrete(pObj, _) ->
+                        let pConc = term
+                        // base is symbolic, exponent is concrete
+                        match pObj :?> 'a with
+                        | p when p = zero -> oneTerm
+                        | p when p = one -> b
+                        | p when isNaN p -> pConc
+                        | p when isPosInf p ->
+                            let bIsOne = b === oneTerm
+                            let bIsMinusOne = b === minusOneTerm
+                            let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
+                            Union([(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan);
+                                   (bIsBetweenMinOneOne, zeroTerm);
+                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, infTerm)])
+                        | p when isNegInf p ->
+                            let bIsOne = b === oneTerm
+                            let bIsMinusOne = b === minusOneTerm
+                            let bIsBetweenMinOneOne = (minusOneTerm << b) &&& (b << oneTerm)
+                            Union([(bIsOne, oneTerm); (bIsMinusOne, makeNumber nan);
+                                   (bIsBetweenMinOneOne, infTerm);
+                                   (!!bIsOne &&& !!bIsMinusOne &&& !!bIsBetweenMinOneOne, zeroTerm)])
+                        | _ -> mkPowExpr [b; pConc] t
+                    | Constant(_, _, t) | Expression(_, _, t) ->
+                        mkPowExpr [b; term] t
+                    | term -> internalfailf "expected number for power, but %O got!" term)
+            | term -> internalfailf "expected number for base, but %O got!" term)
+
+    let atan2Impl<'a when 'a : comparison> convert isNan isInf concrete y x =
+        let atanOp = Application StandardFunction.Arctangent2
+        let inf, Nan = convert infinity, convert nan
+        let (===) x y = simplifyEqual x y id
+        y |> Merging.guardedApply (fun term ->
+            match term.term with
+            | Concrete(yObj, _) ->
+                let yConc = term
+                let y = yObj :?> 'a
+                x |> Merging.guardedApply (fun term ->
+                    match term.term with
+                    | Concrete(xObj, _) -> makeNumber(concrete (y, xObj :?> 'a))
+                    | Constant(_, _, t)
+                    | Expression(_, _, t) ->
+                        let x = term
+                        // x is symbolic, y is concrete
+                        let exp = Expression atanOp [yConc; x] t
+                        match y with
+                        | y when isNan y -> yConc
+                        | y when isInf y ->
+                              let xIsInf = x === makeNumber inf
+                              Union([(xIsInf, makeNumber Nan); (!!xIsInf, exp)])
+                        | _ -> exp
+                    | term -> internalfailf "expected number for x, but %O got!" term)
+            | Constant(_, _, t)
+            | Expression(_, _, t) ->
+                let y = term
+                x |> Merging.guardedApply (fun term ->
+                    match term.term with
+                    | Concrete(xObj, _) ->
+                        let xConc = term
+                        // x is concrete, y is symbolic
+                        let exp = Expression atanOp [y; xConc] t
+                        match xObj :?> 'a with
+                        | x when isNan x -> xConc
+                        | x when isInf x ->
+                            let yIsInf = y === makeNumber inf
+                            Union([(yIsInf, makeNumber Nan); (!!yIsInf, exp)])
+                        | _ -> exp
+                    | Constant(_, _, t)
+                    | Expression(_, _, t) ->
+                        Expression atanOp [y; term] t
+                    | term -> internalfailf "expected number for x, but %O got!" term)
+            | term -> internalfailf "expected number for y, but %O got!" term)
+
+    let acos x = impl<double> System.Math.Acos StandardFunction.Arccosine x
+    let asin x = impl<double> System.Math.Asin StandardFunction.Arcsine x
+    let atan x = impl<double> System.Math.Atan StandardFunction.Arctangent x
+    let atan2 y x = atan2Impl<double> double System.Double.IsNaN System.Double.IsInfinity System.Math.Atan2 y x
+    let ceiling x = impl<double> System.Math.Ceiling StandardFunction.Ceiling x
+    let cos x = impl<double> System.Math.Cos StandardFunction.Cosine x
+    let cosh x = impl<double> System.Math.Cosh StandardFunction.HyperbolicCosine x
+    let floor x = impl<double> System.Math.Floor StandardFunction.Floor x
+    let sin x = impl<double> System.Math.Sin StandardFunction.Sine x
+    let tan x = impl<double> System.Math.Tan StandardFunction.Tangent x
+    let sinh x = impl<double> System.Math.Sinh StandardFunction.HyperbolicSine x
+    let tanh x = impl<double> System.Math.Tanh StandardFunction.HyperbolicTangent x
+    let round x = impl<double> System.Math.Round StandardFunction.Round x
+    let sqrt x = impl<double> System.Math.Sqrt StandardFunction.SquareRoot x
+    let log x = impl<double> System.Math.Log StandardFunction.Logarithm x
+    let log10 x = impl<double> System.Math.Log10 StandardFunction.Logarithm10 x
+    let exp x = impl<double> System.Math.Exp StandardFunction.Exponent x
+    let pow b p = powImpl<double> double System.Double.IsNaN System.Double.IsPositiveInfinity System.Double.IsNegativeInfinity System.Math.Pow b p
+    let abs x = impl<double> System.Math.Abs StandardFunction.Absolute x
+    let absS x = impl<single> System.Math.Abs StandardFunction.AbsoluteS x
+
+    let standardFunction args = function
+        | Arccosine -> acos (List.head args)
+        | Arcsine -> asin (List.head args)
+        | Arctangent -> atan (List.head args)
+        | Arctangent2 -> atan2 (List.item 0 args) (List.item 1 args)
+        | Ceiling -> ceiling (List.head args)
+        | Cosine -> cos (List.head args)
+        | HyperbolicCosine -> cosh (List.head args)
+        | Floor -> floor (List.head args)
+        | Sine -> sin (List.head args)
+        | Tangent -> tan (List.head args)
+        | HyperbolicSine -> sinh (List.head args)
+        | HyperbolicTangent -> tanh (List.head args)
+        | Round -> round (List.head args)
+        | SquareRoot -> sqrt (List.head args)
+        | Logarithm -> log (List.head args)
+        | Logarithm10 -> log10 (List.head args)
+        | Exponent -> exp (List.head args)
+        | Power -> pow (List.item 0 args) (List.item 1 args)
+        | Absolute -> abs (List.head args)
+        | AbsoluteS -> absS (List.head args)

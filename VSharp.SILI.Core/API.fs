@@ -92,6 +92,7 @@ module API =
             | {term = HeapRef(addr, _)} when addr = MakeNumber 0 -> Some()
             | _ -> None
 
+        let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
         let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src
         let (|VectorIndexReading|_|) src = Memory.(|VectorIndexReading|_|) src
@@ -172,6 +173,27 @@ module API =
         let Sub x y = sub x y
         let Add x y = add x y
         let IsZero term = checkEqualZero term id
+
+        let Acos x = acos x
+        let Asin x = asin x
+        let Atan x = atan x
+        let Atan2 y x = atan2 y x
+        let Ceiling x = ceiling x
+        let Cos x = cos x
+        let Cosh x = cosh x
+        let Floor x = floor x
+        let Sin x = sin x
+        let Tan x = tan x
+        let Sinh x = sinh x
+        let Tanh x = tanh x
+        let Round x = round x
+        let Sqrt x = sqrt x
+        let Log x = log x
+        let Log10 x = log10 x
+        let Exp x = exp x
+        let Pow b p = pow b p
+        let Abs x = abs x
+        let AbsS x = absS x
 
     module public EvaluationStack =
         let Pop evaluationStack = EvaluationStack.pop evaluationStack

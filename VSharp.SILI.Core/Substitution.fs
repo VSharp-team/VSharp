@@ -34,7 +34,7 @@ module Substitution =
                     assert(List.length args' = 1)
                     let arg = List.head args'
                     primitiveCast arg targetType
-                | Application _ -> __notImplemented__()
+                | Application f -> standardFunction args' f
                 | Combine -> combine args' (typeSubst t))
             |> Merging.merge
         | Union gvs ->

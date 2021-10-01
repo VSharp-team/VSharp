@@ -1237,6 +1237,11 @@ module internal Memory =
                 let key = x.key.Map (typeVariableSubst state)
                 readStackLocation state key
 
+    let (|StackReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? stackReading as sr -> Some(sr.key)
+        | _ -> None
+
     type structField with
         interface IMemoryAccessConstantSource with
             override x.Compose state =

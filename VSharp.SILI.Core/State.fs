@@ -87,17 +87,21 @@ type arrayCopyInfo =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
 type model =
-    internal { subst : System.Collections.Generic.IDictionary<ISymbolicConstantSource, term> }
+    internal { subst : System.Collections.Generic.IDictionary<ISymbolicConstantSource, term>; complete : bool }
 with
-    static member ofDict d = { subst = d }
+    static member OfDict d = { subst = d; complete = false }
+    static member DefaultComplete = { subst = System.Collections.Generic.Dictionary<ISymbolicConstantSource, term>(); complete = true }
     member x.Eval term =
         Substitution.substitute (fun term ->
             match term with
-            | { term = Constant(_, source, _) } ->
+            | { term = Constant(_, source, typ) } ->
                 let value = ref Nop
                 if x.subst.TryGetValue(source, value) then !value
+                elif x.complete then makeDefaultValue typ
                 else term
             | _ -> term) id id term
+    member x.Iter visit =
+        Seq.iter visit x.subst
 
 type
     [<ReferenceEquality>]
