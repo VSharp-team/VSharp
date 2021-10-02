@@ -44,14 +44,21 @@ type Test private (m : MethodBase, info : testInfo) =
         use stream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write)
         serializer.Serialize(stream, info)
 
-    member x.Deserialize(source : string) =
+    static member Deserialize(source : string) =
         let serializer = XmlSerializer(typeof<testInfo>)
         use stream = new FileStream(source, FileMode.Open, FileAccess.Read)
         try
             let ti = serializer.Deserialize(stream) :?> testInfo
-            let assembly = Assembly.LoadFile(ti.assemblyLocation)
+            let assembly =
+                try
+                    Assembly.Load ti.assemblyLocation
+                    with
+                    | :? IOException as e ->
+                        Assembly.LoadFile ti.assemblyLocation
             let mdle = assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = ti.moduleFullyQualifiedName)
+            if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
             let method = mdle.ResolveMethod(ti.token)
+            if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
             Test(method, ti)
         with child ->
             let exn = InvalidDataException("Input test was of invalid format", child)

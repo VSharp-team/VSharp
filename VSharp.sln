@@ -14,7 +14,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.SILI", "VSharp.SILI\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Test", "VSharp.Test\VSharp.Test.csproj", "{386DACA2-361C-4742-8836-57BF7C7D71E0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Runner", "VSharp.Runner\VSharp.Runner.csproj", "{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.TestRunner", "VSharp.TestRunner\VSharp.TestRunner.csproj", "{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
