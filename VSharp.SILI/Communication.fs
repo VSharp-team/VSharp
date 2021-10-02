@@ -386,7 +386,7 @@ type commandForConcolic =
     | ReadString
 
 type Communicator() =
-    let pipeFile = "/tmp/concolic_fifo" // TODO: use pid also
+    let pipeFile = Path.GetTempPath() + "concolic_fifo" // TODO: use pid also
 
     let confirmationByte = byte(0x55)
     let instrumentCommandByte = byte(0x56)

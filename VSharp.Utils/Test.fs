@@ -19,7 +19,7 @@ with
         assemblyLocation = m.Module.Assembly.Location
         moduleFullyQualifiedName = m.Module.FullyQualifiedName
         token = m.MetadataToken
-        args = Array.zeroCreate <| m.GetParameters().Length
+        args = null
         expectedResult = null
     }
 
@@ -37,6 +37,10 @@ type Test private (m : MethodBase, info : testInfo) =
             p.SetValue(info, r)
 
     member x.AddArg (arg : ParameterInfo) (value : obj) =
+        if info.args = null then
+            let t = typeof<testInfo>
+            let p = t.GetProperty("args")
+            p.SetValue(info, Array.zeroCreate <| m.GetParameters().Length)
         info.args.[arg.Position] <- value
 
     member x.Serialize(destination : string) =

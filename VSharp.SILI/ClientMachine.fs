@@ -17,6 +17,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
     let pathToClient = "libicsharpConcolic" + extension
+    let tempTest = Path.GetTempPath() + "start.vst" // TODO: use unique id
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
@@ -61,16 +62,15 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
             result.Arguments <- method.Module.Assembly.Location
         else
-            let runnerPath = "./VSharp.Runner.dll"
-            let moduleFqn = method.Module.FullyQualifiedName
-            let assemblyPath = method.Module.Assembly.Location
-            let token = method.MetadataToken.ToString()
-            result.Arguments <- runnerPath + " " + assemblyPath + " " + moduleFqn + " " + token
+            let runnerPath = "./VSharp.TestRunner.dll"
+            result.Arguments <- runnerPath + " " + tempTest
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
         assert(entryPoint <> null)
+        let test = Test(entryPoint)
+        test.Serialize(tempTest)
         let env = environment entryPoint
         x.communicator <- new Communicator()
         let proc = Process.Start env

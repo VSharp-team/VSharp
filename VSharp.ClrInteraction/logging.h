@@ -7,7 +7,7 @@
 #endif
 #include <fstream>
 
-#define HEX(x) std::hex << x << std::dec
+#define HEX(x) std::hex << "0x" << x << std::dec
 
 #ifdef _LOGGING
 extern std::ofstream tout; 
