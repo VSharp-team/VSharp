@@ -986,13 +986,18 @@ module internal Memory =
         | Constant _
         | Expression _ ->
             let termType = typeOf term
-            let termSize = sizeOf termType |> makeNumber
-            let valueSize = Terms.sizeOf value |> makeNumber
-            let zero = makeNumber 0
-            let left = Slice term zero startByte zero
-            let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte |> Some)
-            let right = Slice term (add startByte valueSize) termSize zero
-            combine ([left] @ valueSlices @ [right]) termType
+            let termSize = sizeOf termType
+            let valueSize = Terms.sizeOf value
+            match startByte.term with
+            | Concrete(:? int as startByte, _) when startByte = 0 && valueSize = termSize -> value
+            | _ ->
+                let zero = makeNumber 0
+                let termSize = sizeOf termType |> makeNumber
+                let valueSize = Terms.sizeOf value |> makeNumber
+                let left = Slice term zero startByte zero
+                let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte |> Some)
+                let right = Slice term (add startByte valueSize) termSize zero
+                combine ([left] @ valueSlices @ [right]) termType
         | _ -> __unreachable__()
 
     and private writeStructUnsafe structTerm fields structType startByte value =

@@ -188,7 +188,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let lastPushInfo = // TODO: fix style #style
             match cilState.lastPushInfo with
             | Some x ->
-                if IsConcrete x && CilStateOperations.currentIp cilState |> ipOperations.isExit |> not then
+                if IsConcrete x && CilStateOperations.currentIp cilState <> Exit entryPoint then
                     CilStateOperations.pop cilState |> ignore
                     Some true
                 else Some false

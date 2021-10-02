@@ -374,7 +374,15 @@ PROBE(void, Exec_BinOp_p_4_ovf, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET off
 PROBE(void, Track_Ldind, (INT_PTR ptr, OFFSET offset)) {
     // TODO
 }
-PROBE(COND, Track_Stind, (INT_PTR ptr)) { return topFrame().pop(2); }
+
+PROBE(COND, Track_Stind, (INT_PTR ptr, INT32 sizeOfPtr)) {
+    StackFrame &top = topFrame();
+    auto valueIsConcrete = top.peek0();
+    auto addressIsConcrete = top.peek1();
+    if (addressIsConcrete) heap.write(ptr, sizeOfPtr, valueIsConcrete);
+    return topFrame().pop(2);
+}
+
 PROBE(void, Exec_Stind_I1, (INT_PTR ptr, INT8 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
 PROBE(void, Exec_Stind_I2, (INT_PTR ptr, INT16 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
 PROBE(void, Exec_Stind_I4, (INT_PTR ptr, INT32 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
@@ -466,14 +474,28 @@ PROBE(void, Track_Box, (INT_PTR ptr, OFFSET offset)) {
 PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 
-PROBE(void, Track_Ldfld, (INT_PTR ptr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
-PROBE(void, Track_Ldflda, (INT_PTR ptr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
+inline bool ldfld(INT_PTR fieldPtr, INT32 fieldSize) {
+    StackFrame &top = icsharp::topFrame();
+    bool ptrIsConcrete = top.pop1();
+    bool fieldIsConcrete = false;
+    if (ptrIsConcrete) fieldIsConcrete = heap.read(fieldPtr, fieldSize);
+    return ptrIsConcrete && fieldIsConcrete;
+}
+
+// TODO: if objPtr = null, it's static field
+PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
+    if (!ldfld(objPtr + fieldOffset, fieldSize)) {
+        sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(objPtr) });
+    }
+}
+PROBE(void, Track_Ldflda, (INT_PTR fieldPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
 
 inline bool stfld(mdToken fieldToken, INT_PTR ptr) {
     StackFrame &top = icsharp::topFrame();
     // TODO: check concreteness of memory referenced by ptr
     return top.pop(2);
 }
+
 PROBE(void, Track_Stfld_4, (mdToken fieldToken, INT_PTR ptr, INT32 value, OFFSET offset)) {
     if (!stfld(fieldToken, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) });

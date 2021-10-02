@@ -110,6 +110,7 @@ namespace icsharp {
 
         auto shift = sizeofCell - startOffset;
         cell startMask = ((cell)1 << shift) - 1; // get 00..011...1
+        shift = sizeofCell - endOffset;
         cell endMask = (max >> shift) << shift; // get 11..100..0
         if (startOffset && ((concreteness[startIndex] & startMask) != startMask))
             return false;
@@ -129,6 +130,7 @@ namespace icsharp {
 
         auto shift = sizeofCell - startOffset;
         cell startMask = ((cell)1 << shift) - 1; // get 00..011...1
+        shift = sizeofCell - endOffset;
         cell endMask = (max >> shift) << shift; // get 11..100..0
         if (startOffset) {
             if (vConcreteness)
@@ -162,7 +164,7 @@ namespace icsharp {
         tree.moveAndMark(i, s);
     }
 
-    bool Heap::isConcrete(ADDR address, SIZE sizeOfPtr) const {
+    bool Heap::read(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
             return false;
@@ -170,6 +172,16 @@ namespace icsharp {
 
         auto *obj = (Object *) vAddress.obj;
         return obj->read(vAddress.offset, sizeOfPtr);
+    }
+
+    void Heap::write(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
+        VirtualAddress vAddress{};
+        if (!resolve(address, vAddress)) {
+            FAIL_LOUD("Writing to heap: unable to resolve address");
+        }
+
+        auto *obj = (Object *) vAddress.obj;
+        obj->write(vAddress.offset, sizeOfPtr, vConcreteness);
     }
 
     bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {

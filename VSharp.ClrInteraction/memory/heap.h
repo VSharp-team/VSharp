@@ -102,7 +102,8 @@ public:
     VirtualAddress physToVirtAddress(ADDR physAddress) const;
     static ADDR virtToPhysAddress(const VirtualAddress &virtAddress);
 
-    bool isConcrete(ADDR address, SIZE sizeOfPtr) const;
+    bool read(ADDR address, SIZE sizeOfPtr) const;
+    void write(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const;
 
     void dump() const;
 };
