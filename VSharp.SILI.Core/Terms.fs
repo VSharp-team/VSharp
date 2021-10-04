@@ -496,6 +496,10 @@ module internal Terms =
     let (|UnionT|_|) = term >> function
         | Union gvs -> Some(UnionT gvs)
         | _ -> None
+        
+    let (|ConstantT|_|) = term >> function
+        | Constant(name, src, typ) -> Some(ConstantT name, src, typ)
+        | _ -> None
 
     let (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
         | Union gvs -> Some(GuardedValues(List.unzip gvs))
@@ -643,22 +647,6 @@ module internal Terms =
             | _ -> ()
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
-    
-    let discoverConstantsRec term =
-        let rec discoverConstantsInner acc term k =
-            match term.term with
-            | Nop | Concrete _ | HeapRef _ | Ref _ | Ptr(_, _, None) -> k acc
-            | Constant _ ->
-                PersistentSet.add acc term |> k
-            | Expression(_, operands, _) ->
-                Cps.List.foldlk discoverConstantsInner acc operands k
-            | Struct(fields, _) ->
-                Cps.Seq.foldlk discoverConstantsInner acc (PersistentDict.values fields) k
-            | Ptr(_, _, Some(term)) -> discoverConstantsInner acc term k
-            | Union(guardedTerms) ->
-                let guards, terms = List.unzip guardedTerms
-                Cps.Seq.foldlk discoverConstantsInner acc (List.append guards terms) k               
-        discoverConstantsInner PersistentSet.empty term id
 
     let private foldFields isStatic folder acc typ =
         let dotNetType = Types.toDotNetType typ

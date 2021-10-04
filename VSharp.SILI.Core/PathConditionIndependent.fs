@@ -37,23 +37,35 @@ module internal PCI =
         | _ when isFalse pc -> falsePC
         | _ when PersistentDict.contains !!cond pc.constraintsWithConstants -> falsePC
         | _ ->
-            let consts = discoverConstantsRec cond
-            let tryHead = PersistentSet.toSeq >> Seq.tryHead
+            let condConsts = discoverConstants [cond] |> PersistentSet.ofSeq
+            let someSetElement = PersistentSet.toSeq >> Seq.tryHead
             let pufWithNewConsts =
-                consts
+                condConsts
                 |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind pc.constants t)
                 |> PersistentSet.fold PersistentUnionFind.add pc.constants
-            let pufWithMergedConsts =
-                consts
-                |> tryHead
+            let constsWithSources =
+                Seq.map
+                    (function
+                    | ConstantT(_, src, _) as constant -> constant, src
+                    | _ -> __unreachable__()
+                    )
+            let pufMergedByConstantSource =
+                Seq.allPairs
+                    (condConsts |> PersistentSet.toSeq |> constsWithSources)
+                    (pc.constants |> PersistentUnionFind.toSeq |> constsWithSources)
+                |> Seq.filter (fun ((_, src1), (_, src2)) -> not <| src1.IndependentWith src2)
+                |> Seq.fold (fun puf ((const1, _), (const2, _)) -> PersistentUnionFind.union const1 const2 puf) pufWithNewConsts
+            let pufMergedByDependentCondition =
+                condConsts
+                |> someSetElement
                 |> function
                     | Some(parent) ->
-                        PersistentSet.fold (fun puf t -> PersistentUnionFind.union t parent puf) pufWithNewConsts consts
-                    | None -> pufWithNewConsts
-            {constants = pufWithMergedConsts
+                        PersistentSet.fold (fun puf t -> PersistentUnionFind.union t parent puf) pufMergedByConstantSource condConsts
+                    | None -> pufMergedByConstantSource
+            {constants = pufMergedByDependentCondition
              constraintsWithConstants =
-                 consts
-                 |> tryHead
+                 condConsts
+                 |> someSetElement
                  |> (fun head -> PersistentDict.add cond head pc.constraintsWithConstants)}
             
     let public mapPC mapper (pc : pathConditionIndependent) : pathConditionIndependent =
@@ -65,7 +77,7 @@ module internal PCI =
 
     let toString pc = mapSeq toString pc |> Seq.sort |> join " /\ "
 
-    let union (pc1 : pathConditionIndependent) (pc2 : pathConditionIndependent) = Seq.fold add pc1 (toSeq pc2)
+    let public union (pc1 : pathConditionIndependent) (pc2 : pathConditionIndependent) = Seq.fold add pc1 (toSeq pc2)
     
     let public slice pc cond : pathCondition =
         PersistentDict.find pc.constraintsWithConstants cond
@@ -86,4 +98,7 @@ module internal PCI =
                         | _ -> __unreachable__())
                 |> PersistentSet.ofSeq
             | None -> PC.empty
+            
+    //let public fragments pc =
+        
                 

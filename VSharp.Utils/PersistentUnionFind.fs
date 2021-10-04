@@ -9,6 +9,8 @@ module public PersistentUnionFind =
     
     let public empty<'a when 'a : equality> : pUnionFind<'a> = {impl = PersistentDict.empty}
     
+    let public toSeq puf = PersistentDict.keys puf.impl
+    
     let rec public tryFind puf a =
         let tryFindInternal pdict a =
             try

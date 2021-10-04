@@ -167,7 +167,7 @@ module internal Memory =
                 match otherSource with
                 | :? heapReading<'key, 'reg> as otherReading ->
                     let rootRegions hr = match hr.memoryObject.updates with | Node dict -> PersistentDict.keys dict
-                    rootRegions x |> Seq.forall (fun reg1 -> Seq.forall (fun reg2 -> reg1.CompareTo reg2 = Disjoint) (rootRegions otherReading))
+                    Seq.allPairs (rootRegions x) (rootRegions otherReading) |> Seq.forall (fun (reg1, reg2) -> reg1.CompareTo reg2 = Disjoint)
                 | _ -> true
 
     let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
