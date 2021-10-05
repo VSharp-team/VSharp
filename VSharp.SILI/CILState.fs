@@ -21,6 +21,7 @@ type cilState =
     }
     with
     member x.Result with get() =
+        assert(Memory.CallStackSize x.state = 1)
         match EvaluationStack.Length x.state.evaluationStack with
         | 0 -> Nop
         | 1 -> EvaluationStack.Pop x.state.evaluationStack |> fst

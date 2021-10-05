@@ -86,6 +86,8 @@ namespace icsharp {
         assert(size > 0);
         SIZE squashedSize = (size + sizeofCell - 1) / sizeofCell;
         concreteness = new cell[squashedSize];
+        // NOTE: all contents are concrete at the beginning
+        for (int i = 0; i < squashedSize; ++i) concreteness[i] = max;
     }
 
     Object::~Object() {

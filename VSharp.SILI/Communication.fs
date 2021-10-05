@@ -144,7 +144,9 @@ type probes = {
     mutable leaveMain_f8 : uint64
     mutable leaveMain_p : uint64
     mutable finalizeCall : uint64
+    mutable execCall : uint64
     mutable call : uint64
+    mutable pushFrame : uint64
     mutable callVirt : uint64
     mutable newobj : uint64
     mutable calli : uint64
@@ -208,6 +210,7 @@ type signatureTokens = {
     mutable void_u4_sig : uint32
     mutable void_i_sig : uint32
     mutable bool_i_sig : uint32
+    mutable bool_u2_sig : uint32
     mutable i1_i1_sig : uint32
     mutable i2_i1_sig : uint32
     mutable i4_i1_sig : uint32
@@ -626,26 +629,33 @@ type Communicator() =
               newAddressesTypes = newAddressesTypes }
         | None -> unexpectedlyTerminated()
 
-    member x.SendExecResponse ops lastPush =
-        match ops with
-        | Some ops ->
-            let count = ops |> List.sumBy (fun (_, typ) ->
-                if Types.IsValueType typ then sizeof<int> + sizeof<int64>
-                else sizeof<int> + 2 * sizeof<int64>)
-            let mutable index = 0
+    // TODO: send struct via serialize
+    member x.SendExecResponse ops lastPush (framesCount : int) =
+        let mutable index = 0
+        let writeFirstPart count =
+            let count = count + sizeof<int>
             let count =
                 match lastPush with
                 | Some _ -> count + 2
                 | None -> count + 1
             let bytes = Array.zeroCreate (count + sizeof<int>)
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), framesCount) in assert success
+            index <- index + sizeof<int>
             match lastPush with
             | Some concreteness ->
-                index <- 2
-                bytes.[0] <- 1uy
-                bytes.[1] <- if concreteness then 1uy else 0uy
+                bytes.[index] <- 1uy
+                bytes.[index + 1] <- if concreteness then 1uy else 0uy
+                index <- index + 2
             | None ->
-                index <- 1
-                bytes.[0] <- 0uy
+                bytes.[index] <- 0uy
+                index <- index + 1
+            bytes
+        match ops with
+        | Some ops ->
+            let count = ops |> List.sumBy (fun (_, typ) ->
+                if Types.IsValueType typ then sizeof<int> + sizeof<int64>
+                else sizeof<int> + 2 * sizeof<int64>)
+            let bytes = writeFirstPart count
             let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), ops.Length) in assert success
             index <- index + sizeof<int>
             ops |> List.iter (fun (obj : obj, typ) ->
@@ -683,11 +693,8 @@ type Communicator() =
                     index <- index + sizeof<int64>)
             writeBuffer bytes
         | None ->
-            match lastPush with
-            | Some concreteness ->
-                writeBuffer [|1uy; if concreteness then 1uy else 0uy|]
-            | None ->
-                writeBuffer [|0uy|]
+            let bytes = writeFirstPart 0
+            writeBuffer bytes
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
         x.SendCommand ReadMethodBody

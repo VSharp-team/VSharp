@@ -164,25 +164,25 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
         i++;
     }
     command.newAddressesTypes = begin;
-    stack.resetPopsTracking();
 }
 
-bool readConcretizedSymbolics(StackFrame &top, EvalStackOperand *&ops, unsigned count) {
+bool readExecResponse(StackFrame &top, EvalStackOperand *&ops, unsigned count, int &framesCount) {
     char *bytes; int messageLength;
     if (!protocol->waitExecResult(bytes, messageLength)) {
         return false;
     }
     assert(messageLength >= 1);
-    bool returnsValue = bytes[0] > 0;
+    int index = 0;
+    framesCount = *(int*)bytes; index += sizeof(int);
+    bool returnsValue = bytes[index] > 0; index += 1;
     bool allConcrete = false;
     if (returnsValue) {
         assert(messageLength >= 2);
-        allConcrete = bytes[1] > 0;
+        allConcrete = bytes[index] > 0; index += 1;
+        tout << "allConcrete = " << allConcrete << std::endl;
         top.push1(allConcrete);
-        bytes += 2;
-    } else {
-        bytes += 1;
     }
+    bytes += index;
 
     if (messageLength > 2) {
         assert(messageLength >= 5);
@@ -209,7 +209,8 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     protocol->sendSerializable(ExecuteCommand, command);
     freeCommand(command);
     StackFrame &top = icsharp::topFrame();
-    bool allConcrete = readConcretizedSymbolics(top, ops, opsCount);
+    int framesCount;
+    bool allConcrete = readExecResponse(top, ops, opsCount, framesCount);
     if (allConcrete) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (const auto &poppedSymb : poppedSymbs) {
@@ -236,6 +237,7 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
             }
         }
     }
+    icsharp::stack().resetPopsTracking(framesCount);
     return allConcrete;
 }
 
@@ -486,6 +488,8 @@ inline bool ldfld(INT_PTR fieldPtr, INT32 fieldSize) {
 PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
     if (!ldfld(objPtr + fieldOffset, fieldSize)) {
         sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(objPtr) });
+    } else {
+        icsharp::topFrame().push1Concrete();
     }
 }
 PROBE(void, Track_Ldflda, (INT_PTR fieldPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
@@ -612,7 +616,7 @@ PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConc
     memset(args, argsConcreteness, argsCount);
     stack.pushFrame(token, token, args, argsCount);
     Track_Enter(token, maxStackSize, argsCount, localsCount);
-    stack.resetPopsTracking();
+    stack.resetPopsTracking(1);
 }
 
 PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
@@ -680,21 +684,55 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
     }
 }
 
-PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
+PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
+    auto ops = new EvalStackOperand[argsCount];
+    for (int i = 0; i < argsCount; ++i) {
+        CorElementType type = unmemType((INT8) i);
+        switch (type) {
+            case ELEMENT_TYPE_I1:
+                ops[i] = mkop_4(unmem_i1((INT8) i));
+                break;
+            case ELEMENT_TYPE_I2:
+                ops[i] = mkop_4(unmem_i2((INT8) i));
+                break;
+            case ELEMENT_TYPE_I4:
+                ops[i] = mkop_4(unmem_i4((INT8) i));
+                break;
+            case ELEMENT_TYPE_I8:
+                ops[i] = mkop_8(unmem_i8((INT8) i));
+                break;
+            case ELEMENT_TYPE_R4:
+                ops[i] = mkop_f4(unmem_f4((INT8) i));
+                break;
+            case ELEMENT_TYPE_R8:
+                ops[i] = mkop_f8(unmem_f8((INT8) i));
+                break;
+            case ELEMENT_TYPE_PTR:
+                ops[i] = mkop_p(unmem_p((INT8) i));
+                break;
+            default:
+                LOG(tout << "type = " << type << std::endl);
+                FAIL_LOUD("Exec_Call: not implemented");
+        }
+    }
+    sendCommand(offset, argsCount, ops);
+}
+PROBE(COND, Track_Call, (UINT16 argsCount)) {
+    return icsharp::stack().topFrame().pop(argsCount);
+}
+
+PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
     Stack &stack = icsharp::stack();
     StackFrame &top = stack.topFrame();
-    UINT16 poppedArgsCount = argsCount;
     argsCount = newobj ? argsCount + 1 : argsCount;
     bool *argsConcreteness = new bool[argsCount];
     if (newobj) {
         argsConcreteness[0] = true;
     }
     memset(newobj ? argsConcreteness + 1 : argsConcreteness, true, argsCount);
-    top.pop(poppedArgsCount);
     LOG(tout << "Call: resolved_token = " << HEX(resolvedToken) << ", unresolved_token = " << HEX(unresolvedToken) << "\n"
              << "\t\tbalance after pop: " << top.count() << "; pushing frame " << stack.framesCount() + 1 << std::endl);
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
-    unsigned symbolicsCount = top.symbolicsCount() + poppedSymbs.size();
     for (auto &pair : poppedSymbs) {
         assert((int)argsCount - (int)pair.second - 1 > 0);
         unsigned idx = argsCount - pair.second - 1;
@@ -709,7 +747,7 @@ PROBE(void, Track_Call, (mdToken unresolvedToken, mdMethodDef resolvedToken, boo
     delete[] argsConcreteness;
 }
 
-PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(0, 0, false, count, offset); }
+PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(count); PushFrame(0, 0, false, count, offset); }
 PROBE(void, Track_Newobj, (INT_PTR ptr)) { topFrame().push1Concrete(); }
 PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
     // TODO

@@ -89,7 +89,7 @@ public:
 
     unsigned unsentPops() const;
     unsigned minTopSinceLastSent() const;
-    void resetPopsTracking();
+    void resetPopsTracking(int framesCount);
 };
 
 }

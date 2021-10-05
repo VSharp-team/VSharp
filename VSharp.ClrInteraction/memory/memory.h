@@ -49,6 +49,7 @@ void update_i8(INT64 value, INT8 idx);
 void update_f4(FLOAT value, INT8 idx);
 void update_f8(DOUBLE value, INT8 idx);
 void update_p(INT_PTR value, INT8 idx);
+CorElementType unmemType(INT8 idx);
 INT8 unmem_i1(INT8 idx);
 INT16 unmem_i2(INT8 idx);
 INT32 unmem_i4(INT8 idx);

@@ -123,6 +123,8 @@ module internal TypeCasting =
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
         | Ptr(HeapLocation address, _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
+        // CASE: pointer from concolic
+        | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
         | Ptr _, ByRef _ -> internalfailf "Casting nonnull ptr to ByRef type %O" targetType
         | Ref _, ByRef _ -> term
         | Ref address, Pointer typ' ->

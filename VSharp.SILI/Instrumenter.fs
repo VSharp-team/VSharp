@@ -258,6 +258,39 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         | OpCodeValues.Stind_Ref -> System.IntPtr.Size
         | _ -> __unreachable__()
 
+    member private x.MemUnmemForType(t : evaluationStackCellType, idx, order, instr : ilInstr byref) =
+        match t with
+        | evaluationStackCellType.I1 ->
+            x.PrependMem_i1(idx, order, &instr)
+            probes.unmem_1, x.tokens.i1_i1_sig
+        | evaluationStackCellType.I2 ->
+            x.PrependMem_i2(idx, order, &instr)
+            probes.unmem_2, x.tokens.i2_i1_sig
+        | evaluationStackCellType.I4 ->
+            x.PrependMem_i4(idx, order, &instr)
+            probes.unmem_4, x.tokens.i4_i1_sig
+        | evaluationStackCellType.I8 ->
+            x.PrependMem_i8(idx, order, &instr)
+            probes.unmem_8, x.tokens.i8_i1_sig
+        | evaluationStackCellType.R4 ->
+            x.PrependMem_f4(idx, order, &instr)
+            probes.unmem_f4, x.tokens.r4_i1_sig
+        | evaluationStackCellType.R8 ->
+            x.PrependMem_f8(idx, order, &instr)
+            probes.unmem_f8, x.tokens.r8_i1_sig
+        | evaluationStackCellType.I ->
+            x.PrependMem_p(idx, order, &instr)
+            probes.unmem_p, x.tokens.i_i1_sig
+        | evaluationStackCellType.Ref ->
+            x.PrependMem_p(idx, order, &instr)
+            probes.unmem_p, x.tokens.i_i1_sig
+        | evaluationStackCellType.Struct ->
+            // TODO: support struct
+//            x.PrependInstr(OpCodes.Box, NoArg, &instr)
+            x.PrependMem_p(idx, order, &instr)
+            probes.unmem_p, x.tokens.i_i1_sig
+        | _ -> __unreachable__()
+
     member x.PlaceProbes() =
         let instructions = x.rewriter.CopyInstructions()
         assert(not <| Array.isEmpty instructions)
@@ -988,28 +1021,47 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Call
                 | OpCodeValues.Callvirt
                 | OpCodeValues.Newobj ->
+                    // mem args
+                    // unmem args
+                    // calli track_call
+                    // branch_true A
+                    // calli exec
+                    // A: pushFrame
+                    // call
+
                     match instr.arg with
                     | Arg32 token ->
                         let callee = Reflection.resolveMethod x.m token
                         let hasThis = callee.CallingConvention.HasFlag(CallingConventions.HasThis)
                         let argsCount = callee.GetParameters().Length
-                        let returnsSomething = Reflection.hasNonVoidResult callee
-                        let argsCount =
-                            if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1
-                            else argsCount
+                        let argsCount = if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1 else argsCount
+                        let unmems = List<uint64 * uint32>()
+                        match instr.stackState with
+                        | Some list ->
+                            let types = List.take argsCount list |> Array.ofList
+                            for i = 0 to argsCount - 1 do
+                                let t = types.[i]
+                                unmems.Add(x.MemUnmemForType(t, argsCount - i - 1, i, &prependTarget))
+                        | None -> internalfail "unexpected stack state"
+                        for i = argsCount - 1 downto 0 do
+                            let probe, token = unmems.[i]
+                            x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
+                        x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
+                        let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
+                        x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                         let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let args = [(OpCodes.Ldc_I4, Arg32 token)
                                     (OpCodes.Ldc_I4, Arg32 expectedToken)
                                     (OpCodes.Ldc_I4, Arg32 (if opcodeValue = OpCodeValues.Newobj then 1 else 0))
                                     (OpCodes.Ldc_I4, Arg32 argsCount)]
-                        x.PrependProbeWithOffset(probes.call, args, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
-                        let returnValues = if returnsSomething then 1 else 0
+                        let pushFrame = x.PrependProbeWithOffset(probes.pushFrame, args, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget)
+                        br_true.arg <- Target pushFrame
                         if opcodeValue = OpCodeValues.Newobj then
                             x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr)
                             x.AppendInstr OpCodes.Conv_I NoArg instr
                             x.AppendDup(instr)
-
-                        x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr);
+                        let returnValues = if Reflection.hasNonVoidResult callee then 1 else 0
+                        x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
                     | _ -> __unreachable__()
                 | OpCodeValues.Calli -> __notImplemented__()
 

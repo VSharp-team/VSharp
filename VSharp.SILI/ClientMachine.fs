@@ -193,5 +193,6 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     Some true
                 else Some false
             | None -> None
-        x.communicator.SendExecResponse concretizedOps lastPushInfo
+        let framesCount = Memory.CallStackSize cilState.state
+        x.communicator.SendExecResponse concretizedOps lastPushInfo framesCount
         cilState
