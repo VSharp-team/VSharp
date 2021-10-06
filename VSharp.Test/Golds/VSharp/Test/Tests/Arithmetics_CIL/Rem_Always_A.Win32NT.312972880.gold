@@ -1,6 +1,0 @@
-METHOD: System.Double VSharp.Test.Tests.Arithmetics_CIL.Rem_Always_A(System.Double)
-RESULT: a % Infinity
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []

@@ -1,9 +1,0 @@
-METHOD: System.Void VSharp.Test.Tests.InsInfException.EnsureConcreteType_1()
-RESULT: Totally 1 state:
-<VOID>
-MEMORY DUMP:
---------------- Concrete memory: ---------------
-2 ==> System.Int32[]
---------------- Types tokens: ---------------
-2 ==> System.Int32[]
-Initialized types = { VSharp.Test.Tests.InsInfException }

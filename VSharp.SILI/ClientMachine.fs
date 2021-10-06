@@ -69,7 +69,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
         assert(entryPoint <> null)
-        let test = Test(entryPoint)
+        let test = UnitTest(entryPoint)
         test.Serialize(tempTest)
         let env = environment entryPoint
         x.communicator <- new Communicator()

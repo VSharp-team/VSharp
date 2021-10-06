@@ -1,6 +1,4 @@
-using NUnit.Framework.Interfaces;
-
-namespace VSharp.Test.Tests.Pobs
+namespace IntegrationTests
 {
     public class Calls
     {

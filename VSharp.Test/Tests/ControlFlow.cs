@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices.ComTypes;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     // unrolling recursion cycles

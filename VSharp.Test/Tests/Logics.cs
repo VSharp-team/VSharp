@@ -1,4 +1,6 @@
-namespace VSharp.Test.Tests
+using VSharp.Test;
+
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public sealed class Logics
@@ -425,7 +427,7 @@ namespace VSharp.Test.Tests
             return (a ^ b) ^ (b ^ a);
         }
 
-        [TestSvm(new []{0x12, 0x16, 0x18, 0x1E})]
+        [TestSvm]
         public static bool CondAnd1(int x)
         {
             var xOrig = x;
@@ -434,7 +436,7 @@ namespace VSharp.Test.Tests
             return x1 == xOrig && x2 == xOrig + 1 && x2 == xOrig + 2;
         }
 
-        [TestSvm(0x1B, 0x1C)]
+        [TestSvm]
         public static bool CondAnd2(int x)
         {
             var x1 = x + 1;
@@ -442,7 +444,7 @@ namespace VSharp.Test.Tests
             return true && x2 == x1 + 1 && x2 - x1 == 1 && x2 - x1 == 3;
         }
 
-        [TestSvm(0x1A, 0x1B)]
+        [TestSvm]
         public static bool CondAnd3(int x)
         {
             var x1 = x + 1;
@@ -450,7 +452,7 @@ namespace VSharp.Test.Tests
             return true && x2 == x1 + 1 && x2 - x1 == 1 && AlwaysFalse();
         }
 
-        [TestSvm(new []{0x12, 0x16, 0x18, 0x1E})]
+        [TestSvm]
         public static bool CondOr1(int x)
         {
             var xOrig = x;
@@ -459,7 +461,7 @@ namespace VSharp.Test.Tests
             return x1 != xOrig || x2 != xOrig + 1 || x2 == xOrig + 2;
         }
 
-        [TestSvm(0x1B, 0x1C)]
+        [TestSvm]
         public static bool CondOr2(int x)
         {
             var x1 = x + 1;
@@ -467,7 +469,7 @@ namespace VSharp.Test.Tests
             return false || x2 != x1 + 1 || x2 - x1 != 1 || x2 - x1 == 3;
         }
 
-        [TestSvm(new []{0xE, 0x12, 0x14, 0x19})]
+        [TestSvm]
         public static bool CondOr3(int x)
         {
             var x1 = x + 1;

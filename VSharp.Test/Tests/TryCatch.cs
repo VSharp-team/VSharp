@@ -1,7 +1,8 @@
 ﻿using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class TryCatch

@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
 //    public class ListNode
 //    {
@@ -301,7 +302,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm(0x12)]
+        [TestSvm]
         public static int TestConnectionBetweenIndicesAndValues(int[] a, int i, int j)
         {
             int x = a[i];
@@ -312,7 +313,7 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        [TestSvm(0x22)]
+        [TestSvm]
         public static int TestConnectionBetweenMultiIndicesAndValues(int[,] a, int i, int j, int f, int g)
         {
             int x = a[i, j];
@@ -328,7 +329,7 @@ namespace VSharp.Test.Tests
             public int x;
         }
 
-        [TestSvm(0x12)]
+        [TestSvm]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {
             MyClass x = a[i];

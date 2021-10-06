@@ -1,7 +1,8 @@
 using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Need exceptions for all tests")]
@@ -1023,7 +1024,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [TestSvm(new []{0xA, 0xF, 0x14, 0x17, 0x1B, 0x20, 0x21})]
+        [TestSvm]
         public static int ImpossibleBug(int n) {
             try {
                 if (n <= 0 && checked(-n) < 0) {

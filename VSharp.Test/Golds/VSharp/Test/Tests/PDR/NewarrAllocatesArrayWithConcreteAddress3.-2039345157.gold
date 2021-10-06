@@ -1,9 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.PDR.NewarrAllocatesArrayWithConcreteAddress3()
-RESULT: Totally 1 state:
-42
-MEMORY DUMP:
---------------- Concrete memory: ---------------
-2 ==> System.Int32[]
---------------- Types tokens: ---------------
-2 ==> System.Int32[]
-Initialized types = { VSharp.Test.Tests.PDR, System.Runtime.CompilerServices.RuntimeHelpers }

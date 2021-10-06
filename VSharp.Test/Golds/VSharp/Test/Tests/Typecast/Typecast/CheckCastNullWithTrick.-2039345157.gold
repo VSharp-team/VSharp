@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.CheckCastNullWithTrick()
-RESULT: Totally 1 state:
-20
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

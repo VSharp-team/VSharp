@@ -1,7 +1,0 @@
-METHOD: System.Int32* VSharp.Test.Tests.Unsafe.AddressArithmetic()
-RESULT: Totally 1 state:
-(StackPtr StackLocation (LocalVariableKey (System.Int32 (0), Int32* AddressArithmetic())) as System.Int32, offset = 4)
-MEMORY DUMP:
---------------- Stack: ---------------
-key = __loc__0, value = 428999
-Initialized types = { VSharp.Test.Tests.Unsafe }

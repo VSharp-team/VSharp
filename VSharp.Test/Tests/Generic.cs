@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using NUnit.Framework;
-using VSharp.Test.Tests.Typecast;
+using IntegrationTests.Typecast;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests.Generic
+namespace IntegrationTests
 {
     public interface IKeeper<in T>
     {
@@ -54,7 +54,7 @@ namespace VSharp.Test.Tests.Generic
             return new List<double>();
         }
 
-        [TestSvm(0x1)]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
@@ -70,19 +70,19 @@ namespace VSharp.Test.Tests.Generic
         where N : IKeeper<K>
         where Z : List<int>
     {
-        [TestSvm(0x1)]
+        [TestSvm]
         public static T RetT(T t)
         {
             return t;
         }
 
-        [TestSvm(0x1)]
+        [TestSvm]
         public static U RetU(U u)
         {
             return u;
         }
 
-        [TestSvm(0x1)]
+        [TestSvm]
         public static P RetP(P p)
         {
             return p;
@@ -94,7 +94,7 @@ namespace VSharp.Test.Tests.Generic
             return k;
         }
 
-        [TestSvm(0x1)]
+        [TestSvm]
         public static N RetN(N n)
         {
             return n;
@@ -123,7 +123,7 @@ namespace VSharp.Test.Tests.Generic
             return 0;
         }
 
-        [TestSvm(0x1)]
+        [TestSvm]
         public static V RetV(V v)
         {
             return v;
@@ -271,13 +271,13 @@ namespace VSharp.Test.Tests.Generic
         {
         }
 
-        [TestSvm(0x6)]
+        [TestSvm]
         public T GetFields()
         {
             return _field;
         }
 
-        [TestSvm(0x7)]
+        [TestSvm]
         public void SetField(T f)
         {
             _field = f;

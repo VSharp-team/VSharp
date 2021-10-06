@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.Serialization;
 using System.Reflection;
 using System.Linq;
@@ -7,15 +9,6 @@ namespace VSharp.TestRunner
 {
     public static class Program
     {
-
-        private static void ValidateProfilerEnvironment(Test test)
-        {
-            // TODO
-            // if (test has no externals)
-            return;
-            if (Environment.GetEnvironmentVariable("CORCLR_ENABLE_PROFILING") != "1")
-                throw new InvalidOperationException("IL rewriter environment was not set up! Please use the batch file runner instead of this executable.");
-        }
 
         private static bool CompareResults(object expected, object got)
         {
@@ -26,42 +19,82 @@ namespace VSharp.TestRunner
             return got.Equals(expected);
         }
 
+        private static int ShowUsage()
+        {
+            Console.Error.WriteLine("V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.\n" +
+                                    "\n" +
+                                    "Usage: {0} <test directory or *.vst file>", AppDomain.CurrentDomain.FriendlyName);
+            return 2;
+        }
+
         public static int Main(string[] args)
         {
             if (args.Length != 1)
             {
-                Console.Error.WriteLine("V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.\n" +
-                                  "\n" +
-                                  "Usage: {0} test.vst", AppDomain.CurrentDomain.FriendlyName);
-                return 2;
+                return ShowUsage();
             }
-            try
+
+            string path = args[0];
+            IEnumerable<FileInfo> tests;
+            if (Directory.Exists(path))
             {
-                Test test = Test.Deserialize(args[0]);
-                ValidateProfilerEnvironment(test);
+                var dir = new DirectoryInfo(path);
 
-                var method = test.Method;
-                // TODO: support generic arguments?
-                bool hasThis = method.CallingConvention.HasFlag(CallingConventions.HasThis);
+                tests = dir.EnumerateFiles("*.vst");
+            } else if (File.Exists(path))
+            {
+                var fi = new FileInfo(path);
+                tests = new List<FileInfo> {fi};
+            }
+            else
+            {
+                return ShowUsage();
+            }
 
-                // TODO: support virtual methods by passing explicit declaring type?
-                object thisObj = hasThis && method.DeclaringType != null ? FormatterServices.GetUninitializedObject(method.DeclaringType) : null;
-                object[] parameters = test.Args ?? method.GetParameters().Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
-                object result = method.Invoke(thisObj, parameters);
-                if (!CompareResults(test.Expected, result))
+            bool atLeastOneTestFound = false;
+            foreach (FileInfo fi in tests)
+            {
+                atLeastOneTestFound = true;
+                try
                 {
-                    // TODO: use NUnit?
-                    Console.Error.WriteLine("Test failed! Expected {0}, but got {1}", test.Expected, result);
-                    return 5;
+                    using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
+                    {
+                        UnitTest test = UnitTest.Deserialize(stream);
+
+                        var method = test.Method;
+                        // TODO: support generic arguments?
+                        bool hasThis = method.CallingConvention.HasFlag(CallingConventions.HasThis);
+
+                        // TODO: support virtual methods by passing explicit declaring type?
+                        object thisObj = hasThis && method.DeclaringType != null
+                            ? FormatterServices.GetUninitializedObject(method.DeclaringType)
+                            : null;
+                        object[] parameters = test.Args ?? method.GetParameters()
+                            .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
+                        object result = method.Invoke(thisObj, parameters);
+                        if (!CompareResults(test.Expected, result))
+                        {
+                            // TODO: use NUnit?
+                            Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name, test.Expected ?? "null",
+                                result ?? "null");
+                            return 5;
+                        }
+                    }
                 }
-            }
-            catch (Exception e)
-            {
-                Console.Error.WriteLine("Error: {0} {1}", e.Message, e.GetType().FullName);
-                return 2;
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine("Error: {0} {1}", e.Message, e.GetType().FullName);
+                    return 2;
+                }
+
+                Console.WriteLine("Test passed!");
             }
 
-            Console.WriteLine("Test passed!");
+            if (!atLeastOneTestFound)
+            {
+                Console.Error.WriteLine("No *.vst tests found in {0}", path);
+            }
+
             return 0;
         }
     }

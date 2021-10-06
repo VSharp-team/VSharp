@@ -1,7 +1,8 @@
 using System;
 using System.Collections.Generic;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class Reflection

@@ -1,5 +1,0 @@
-METHOD: System.Boolean VSharp.Test.Tests.Logics.Negation2(System.Boolean)
-RESULT: Totally 1 state:
-!b
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Logics }

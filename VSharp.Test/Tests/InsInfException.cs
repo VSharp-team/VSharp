@@ -1,8 +1,8 @@
 using System;
 using NUnit.Framework;
-using VSharp.Test.Tests.Methods;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class InsInfException
@@ -268,7 +268,7 @@ namespace VSharp.Test.Tests
 
 
         // expecting IIE
-        [TestSvm(0xC)]
+        [TestSvm]
         public static int ArrayRank_IIE_1(Array array)
         {
             if (array == null) return 42;

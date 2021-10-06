@@ -1482,4 +1482,6 @@ module internal Memory =
         let sb = dumpStack sb s.stack
         let sb = dumpInitializedTypes sb s.initializedTypes
         let sb = dumpEvaluationStack sb s.evaluationStack
-        if sb.Length = 0 then "<Empty>" else sb.ToString()
+        if sb.Length = 0 then "<Empty>"
+        else
+            System.Text.RegularExpressions.Regex.Replace(sb.ToString(), @"@\d+(\+|\-)\d*\[Microsoft.FSharp.Core.Unit\]", "");

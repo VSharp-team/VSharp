@@ -1,7 +1,8 @@
 using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public static class Lambdas
@@ -98,7 +99,7 @@ namespace VSharp.Test.Tests
             return nullAction;
         }
 
-        [TestSvm(0x8)]
+        [TestSvm]
         public static bool SymbolicLambdaInvoke(Func<int, bool> f)
         {
             return f.Invoke(42);

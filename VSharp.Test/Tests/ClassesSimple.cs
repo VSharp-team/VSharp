@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     internal class ClassesSimpleA
     {
@@ -273,7 +274,7 @@ namespace VSharp.Test.Tests
         public static int Y;
         public static int Z;
 
-        [TestSvm(0x6)]
+        [TestSvm]
         public void Set(int x)
         {
             X = x;

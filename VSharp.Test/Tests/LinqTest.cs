@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public static class Extensions
     {
@@ -62,7 +63,7 @@ namespace VSharp.Test.Tests
             return result;
         }
 
-        [TestSvm(new []{0x57, 0x59, 0x5B})]
+        [TestSvm]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             int[] scores = { x, y, z, 60 };

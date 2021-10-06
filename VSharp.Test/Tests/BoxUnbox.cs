@@ -1,7 +1,7 @@
 using NUnit.Framework;
-using VSharp.Test.Tests.Methods;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class UnboxAny
@@ -157,7 +157,7 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class UnboxGeneric<T>
     {
-        [TestSvm(0x6)]
+        [TestSvm]
         public static T Cast(object o)
         {
             return (T) o;
@@ -170,7 +170,7 @@ namespace VSharp.Test.Tests
         where T : class, IVirtual
         where U : struct, IVirtual
     {
-        [TestSvm(0x6)]
+        [TestSvm]
         public static object BoxValueOrReference(G t)
         {
             object o = t;
@@ -184,7 +184,7 @@ namespace VSharp.Test.Tests
             return o;
         }
 
-        [TestSvm(0x6)]
+        [TestSvm]
         public static object BoxValue(U t)
         {
             object o = t;

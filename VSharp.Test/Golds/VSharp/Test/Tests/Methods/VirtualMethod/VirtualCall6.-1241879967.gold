@@ -1,3 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.VirtualCall6(VSharp.Test.Tests.Methods.VirtualI`1[System.Double], System.Int32)
-RESULT: Totally 1 state:
-Insufficient information! Can't call abstract method Int32 F[Int32](), need more information about the object type

@@ -1,9 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Typecast.Typecast.CastAfterNull()
-RESULT: Totally 1 state:
-38
-MEMORY DUMP:
---------------- Concrete memory: ---------------
-2 ==> 
---------------- Types tokens: ---------------
-2 ==> VSharp.Test.Tests.Typecast.Piece
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast, System.Object, VSharp.Test.Tests.Typecast.Piece }

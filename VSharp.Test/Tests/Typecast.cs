@@ -1,7 +1,8 @@
 ﻿using NUnit.Framework;
 using System;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests.Typecast
+namespace IntegrationTests.Typecast
 {
     public class Celsius
     {
@@ -131,7 +132,7 @@ namespace VSharp.Test.Tests.Typecast
         }
 
         // always 38, because the null reference is not assigned any type at all
-        [TestSvm(new []{0xE, 0x10})]
+        [TestSvm]
         public static int CastAfterNull()
         {
             Piece a = new Piece(1, 3);

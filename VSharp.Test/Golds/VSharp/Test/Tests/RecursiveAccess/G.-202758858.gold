@@ -1,6 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.RecursiveAccess.G(System.Int32)
-RESULT: 76
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.RecursiveAccess ==> CLASS []

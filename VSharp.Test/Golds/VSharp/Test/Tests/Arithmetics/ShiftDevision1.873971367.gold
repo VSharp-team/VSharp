@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ShiftDevision1(System.Byte)
-RESULT: Totally 1 state:
-((System.Int32 a) >> 20) / 1024
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Arithmetics }

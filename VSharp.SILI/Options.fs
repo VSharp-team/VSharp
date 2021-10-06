@@ -19,5 +19,5 @@ type executionMode =
     | ConcolicMode
     | SymbolicMode
 
-type siliOptions =
+type SiliOptions =
     {explorationMode : explorationMode; executionMode : executionMode; bound : uint32}

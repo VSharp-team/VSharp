@@ -1,3 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.PDR.ByRefTest3(System.Int32&)
-RESULT: Totally 1 state:
-Insufficient information! Can't instantiate symbolic value of ByRef type <ByRef to System.Int32>

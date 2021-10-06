@@ -1,6 +1,6 @@
-using System;
+// using VSharp.Test;
 
-namespace VSharp.Test.Tests.Pobs
+namespace IntegrationTests
 {
     // [TestPobsFixture]
     public class SmokeTest

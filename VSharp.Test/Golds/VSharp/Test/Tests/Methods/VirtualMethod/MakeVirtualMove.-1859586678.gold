@@ -1,3 +1,0 @@
-METHOD: VSharp.Test.Tests.Typecast.IMovable VSharp.Test.Tests.Methods.VirtualMethod.MakeVirtualMove(VSharp.Test.Tests.Typecast.Pawn, VSharp.Test.Tests.Typecast.Coord)
-RESULT: Totally 1 state:
-Insufficient information! Can't call abstract method VSharp.Test.Tests.Typecast.IMovable MakeMove(VSharp.Test.Tests.Typecast.Coord), need more information about the object type

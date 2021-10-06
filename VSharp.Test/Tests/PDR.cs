@@ -5,9 +5,9 @@ using System.Dynamic;
 using System.IO;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
-using VSharp.Test.Tests.Methods;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public static class PDR
@@ -229,7 +229,7 @@ namespace VSharp.Test.Tests
             new ClassWithOneField();
         }
 
-        [TestSvm(0x25, 0x2A)]
+        [TestSvm]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -329,7 +329,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting System.ArrayTypeMismatchException
-        [TestSvm(0x33)]
+        [TestSvm]
         public static void LdelemaTest2(bool f)
         {
             var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
@@ -460,7 +460,7 @@ namespace VSharp.Test.Tests
 
 
         // expecting 1
-        [TestSvm(0xF, 0x10)]
+        [TestSvm]
         public static int TestAllocatedType_1()
         {
             VirtualC c = new VirtualC();
@@ -474,7 +474,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting 1
-        [TestSvm(0x9, 0xA)]
+        [TestSvm]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();
@@ -877,7 +877,7 @@ namespace VSharp.Test.Tests
             return classWithLotsOfFields._next;
         }
 
-        [TestSvm(0x35, 0x3A)]
+        [TestSvm]
         public static int CheckInvalidCfaConstruction(bool f)
         {
             ClassWithLotsOFFields c = new ClassWithLotsOFFields();
@@ -1250,13 +1250,13 @@ namespace VSharp.Test.Tests
             return ClassWithCCtor._f;
         }
 
-        [TestSvm(0x02)]
+        [TestSvm]
         public static int ByRefTest1(ref int x)
         {
             return x;
         }
 
-        [TestSvm(0x04)]
+        [TestSvm]
         public static void ByRefTest2(out int x)
         {
             x = 10;
@@ -1270,7 +1270,7 @@ namespace VSharp.Test.Tests
             return x;
         }
 
-        [TestSvm(0x02)]
+        [TestSvm]
         public static int ByRefTest3(in int x)
         {
             return x;

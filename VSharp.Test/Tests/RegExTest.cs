@@ -1,7 +1,8 @@
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public static class RegExImplementation
     {

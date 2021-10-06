@@ -4,8 +4,9 @@ using System.Linq;
 using ChessDotNet;
 using ChessDotNet.Pieces;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class ChessDotNet
@@ -108,7 +109,7 @@ namespace VSharp.Test.Tests
             return p1 == p2;
         }
 
-        [TestSvm(0x39, 0x3D)]
+        [TestSvm]
         public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();

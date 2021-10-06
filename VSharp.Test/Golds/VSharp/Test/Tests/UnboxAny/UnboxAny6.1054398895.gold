@@ -1,9 +1,0 @@
-METHOD: System.Int32[] VSharp.Test.Tests.UnboxAny.UnboxAny6()
-RESULT: Totally 1 state:
-(HeapRef 2 to System.Int32[])
-MEMORY DUMP:
---------------- Concrete memory: ---------------
-2 ==> System.UInt32[]
---------------- Types tokens: ---------------
-2 ==> System.UInt32[]
-Initialized types = { VSharp.Test.Tests.UnboxAny, System.Runtime.CompilerServices.RuntimeHelpers }

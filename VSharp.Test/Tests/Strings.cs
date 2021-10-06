@@ -1,7 +1,8 @@
 using NUnit.Framework;
 using System;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public sealed class Strings

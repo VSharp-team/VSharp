@@ -1,8 +1,9 @@
 using System;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public unsafe class Unsafe

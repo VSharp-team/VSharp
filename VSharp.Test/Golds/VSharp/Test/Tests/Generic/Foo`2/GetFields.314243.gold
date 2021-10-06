@@ -1,3 +1,0 @@
-METHOD: T VSharp.Test.Tests.Generic.Foo`2[T,U].GetFields()
-RESULT: Totally 1 state:
-Insufficient information! Can't determine if T is a value type or not!

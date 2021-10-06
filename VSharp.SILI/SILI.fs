@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Reflection
 open System.Collections.Generic
+open System.IO
 open FSharpx.Collections
 
 open VSharp
@@ -10,18 +11,22 @@ open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
 
-type public SILI(options : siliOptions) =
+type public SILI(options : SiliOptions) =
 
     let bidirectionalEngineStatistics = BidirectionalEngineStatistics()
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
     let mutable entryIP : ip = Exit null
-    let mutable reportFinished : Action<cilState> = Action<_>(fun _ -> internalfail "reporter not configured!")
-    let mutable reportError : Action<cilState> = Action<_>(fun _ -> internalfail "reporter not configured!")
-    let mutable reportIncomplete : Action<cilState> = Action<_>(fun _ -> internalfail "reporter not configured!")
+    let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportException : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
-    let testGenerator = new TestGenerator(System.IO.Directory.GetCurrentDirectory())
+    let mutable startTime = DateTime.Now
+    let internalFails = List<Exception>()
+    let iies = List<cilState>()
+
     let isSat pc =
         // TODO: consider trivial cases
         emptyState.pc <- pc
@@ -45,13 +50,53 @@ type public SILI(options : siliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let wrapOnTest (action : Action<cilState>) method state =
-        testGenerator.GenerateTest method state
-        action.Invoke state
+    let term2obj = function
+        | {term = Concrete(v, _)} -> v
+        | {term = Nop} -> null
+        | _ -> __notImplemented__()
 
-    let wrapOnError (action : Action<cilState>) method state =
-        testGenerator.GenerateError method state
-        action.Invoke state
+    let state2test (m : MethodBase) (cilState : cilState) =
+        let test = UnitTest m
+        match cilState.state.model with
+        | Some model ->
+            model.Iter (fun kvp ->
+                let value : obj = term2obj kvp.Value
+                match kvp.Key with
+                | StackReading key ->
+                    match key with
+                    | ParameterKey pi -> test.AddArg pi value
+                    | ThisKey m ->
+                        let pi = m.GetParameters().[0]
+                        assert(pi.Name = "this")
+                        test.AddArg pi value
+                    | _ -> __notImplemented__()
+                | _ -> __notImplemented__())
+            let retVal = model.Eval cilState.Result
+            test.Expected <- term2obj retVal
+        | None ->
+            m.GetParameters() |> Seq.iter (fun pi ->
+                let defaultValue = System.Runtime.Serialization.FormatterServices.GetUninitializedObject pi.ParameterType
+                test.AddArg pi defaultValue)
+            let emptyModel = model.DefaultComplete
+            let retVal = emptyModel.Eval cilState.Result
+            test.Expected <- term2obj retVal
+        test
+
+    let wrapOnTest (action : Action<UnitTest>) method state =
+        let test = state2test method state
+        action.Invoke test
+
+    let wrapOnError (action : Action<UnitTest>) method state =
+        let test = state2test method state
+        action.Invoke test
+
+    let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
+        iies.Add(state)
+        action.Invoke state.iie.Value
+
+    let wrapOnInternalFail (action : Action<Exception>) (e : Exception) =
+        internalFails.Add(e)
+        action.Invoke e
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
         let initialState = Memory.EmptyState()
@@ -77,11 +122,11 @@ type public SILI(options : siliOptions) =
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReport = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         // TODO: need to report? #do
-        toReport |> List.iter reportFinished.Invoke
+        toReport |> List.iter reportFinished
         let errors, toReport = errors |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReport |> List.iter reportError.Invoke
+        toReport |> List.iter reportException
         let iieStates, toReport = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReport |> List.iter reportIncomplete.Invoke
+        toReport |> List.iter reportIncomplete
         let newStates =
             match goodStates with
             | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
@@ -130,6 +175,7 @@ type public SILI(options : siliOptions) =
             | Stop -> __unreachable__()
 
     member private x.AnswerPobs entryPoint initialStates =
+        startTime <- DateTime.Now
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
         searcher.Init entryPoint initialStates mainPobs
         entryIP <- Instruction(0x0, entryPoint)
@@ -158,21 +204,43 @@ type public SILI(options : siliOptions) =
                 Logger.warning "Unknown status for pob at %O" pob.loc
             | _ -> ())
 
-    member x.InterpretEntryPoint (method : MethodBase) (onFinished : Action<cilState>) (onError : Action<cilState>)  (onIIE : Action<cilState>) : unit =
+    member x.InterpretEntryPoint (method : MethodBase) (onFinished : Action<UnitTest>)
+                                 (onException : Action<UnitTest>)  (onIIE : Action<InsufficientInformationException>)
+                                 (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
-        reportFinished <- Action<cilState>(wrapOnTest onFinished method)
-        reportError <- Action<cilState>(wrapOnError onError method)
-        reportIncomplete <- onIIE
+        reportFinished <- wrapOnTest onFinished method
+        reportException <- wrapOnError onException method
+        reportIncomplete <- wrapOnIIE onIIE
+        reportInternalFail <- wrapOnInternalFail onInternalFail
         let state = Memory.EmptyState()
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
         x.AnswerPobs method [initialState]
 
-    member x.InterpretIsolated (method : MethodBase) (onFinished : Action<cilState>) (onError : Action<cilState>) (onIIE : Action<cilState>) : unit =
+    member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
+                               (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
+                               (onInternalFail : Action<Exception>) : unit =
         Reset()
-        reportFinished <- Action<cilState>(wrapOnTest onFinished method)
-        reportError <- Action<cilState>(wrapOnError onError method)
-        reportIncomplete <- onIIE
+        reportFinished <- wrapOnTest onFinished method
+        reportException <- wrapOnError onException method
+        reportIncomplete <- wrapOnIIE onIIE
+        reportInternalFail <- wrapOnInternalFail onInternalFail
         let initialStates = x.FormInitialStates method
         x.AnswerPobs method initialStates
         Restore()
+
+    member x.GenerateReport (writer : TextWriter) =
+        let time = DateTime.Now - startTime
+        writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", time.Hours, time.Minutes, time.Seconds, time.Milliseconds)
+        if internalFails.Count > 0 then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} error(s) occured!")
+            internalFails |> Seq.iter writer.WriteLine
+        if iies.Count > 0 then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} branch(es) with insufficient input information!")
+            iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
+
+    member x.IncompleteStates with get() = iies
