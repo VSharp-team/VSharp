@@ -4,7 +4,7 @@ open VSharp.Utils
 open VSharp.Utils.PersistentUnionFind
 
 type pathCondition =
-    private {constants : pUnionFind<term>; constraintsWithConstants : pdict<term, term option>}
+    private {constants : pUnionFind<term>; conditionsWithConstants : pdict<term, term option>}
 
 // Invariants:
 // - PC does not contain True
@@ -14,30 +14,31 @@ module internal PC =
 
     let public empty =
         {constants = PersistentUnionFind.empty
-         constraintsWithConstants = PersistentDict.empty}
+         conditionsWithConstants = PersistentDict.empty}
         
-    let public isEmpty pc = PersistentDict.isEmpty pc.constraintsWithConstants
+    let public isEmpty pc = PersistentDict.isEmpty pc.conditionsWithConstants
 
-    let public toSeq pc = PersistentDict.keys pc.constraintsWithConstants
+    let public toSeq pc = PersistentDict.keys pc.conditionsWithConstants
 
     let private falsePC =
         {constants = PersistentUnionFind.empty
-         constraintsWithConstants = PersistentDict.add False None PersistentDict.empty}
-        
+         conditionsWithConstants = PersistentDict.add False None PersistentDict.empty}
+       
     let public isFalse pc =
-        let isFalsePC = PersistentDict.contains False pc.constraintsWithConstants
+        let isFalsePC = PersistentDict.contains False pc.conditionsWithConstants
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
             
+    let private someSetElement = PersistentSet.toSeq >> Seq.tryHead
+    
     let public add pc cond : pathCondition =
         match cond with
         | True -> pc
         | False -> falsePC
         | _ when isFalse pc -> falsePC
-        | _ when PersistentDict.contains !!cond pc.constraintsWithConstants -> falsePC
+        | _ when PersistentDict.contains !!cond pc.conditionsWithConstants -> falsePC
         | _ ->
             let condConsts = discoverConstants [cond] |> PersistentSet.ofSeq
-            let someSetElement = PersistentSet.toSeq >> Seq.tryHead
             let pufWithNewConsts =
                 condConsts
                 |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind pc.constants t)
@@ -62,10 +63,10 @@ module internal PC =
                         PersistentSet.fold (fun puf t -> PersistentUnionFind.union t parent puf) pufMergedByConstantSource condConsts
                     | None -> pufMergedByConstantSource
             {constants = pufMergedByDependentCondition
-             constraintsWithConstants =
+             conditionsWithConstants =
                  condConsts
                  |> someSetElement
-                 |> (fun head -> PersistentDict.add cond head pc.constraintsWithConstants)}
+                 |> (fun head -> PersistentDict.add cond head pc.conditionsWithConstants)}
             
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =
@@ -79,9 +80,21 @@ module internal PC =
     let public union (pc1 : pathCondition) (pc2 : pathCondition) = Seq.fold add pc1 (toSeq pc2)
     
 (*    let public fragments pc =
-        PersistentDict.fold (fun groups cond constant ->
-            PersistentUnionFind.tryFind pc.constants constant
-            |> PersistentDict.tryFind groups
-            |> function
-                | Some(ls)
+        let groups = PersistentDict.fold (fun groups cond constants ->
+            let parent =
+                constants
+                |> someSetElement
+                |> function
+                    | Some(someConst) -> PersistentUnionFind.tryFind pc.constants someConst
+                    | None -> None
+            let updatedGroup =
+                PersistentDict.tryFind groups parent
+                |> function
+                    | Some(condList) -> cond :: condList
+                    | None -> [cond]
+            PersistentDict.add parent updatedGroup groups
+            ) PersistentDict.empty pc.conditionsWithConstants
+        groups
+        |> PersistentDict.map (fun _ conds ->
+            let 
             )*)
