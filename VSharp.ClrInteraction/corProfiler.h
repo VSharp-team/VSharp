@@ -19,8 +19,8 @@ private:
     Instrumenter *instrumenter;
     Protocol *protocol;
 
-    void resolveType(ClassID classId, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes);
-    void serializeType(const std::vector<mdTypeDef> &tokens, const std::vector<int> &typeArgsCount, const std::vector<WCHAR> &moduleNames, const std::vector<int> &moduleSizes, char *&type, unsigned long &typeLength, const std::vector<WCHAR>& assemblyNames, const std::vector<int>& assemblySizes);
+    void resolveType(ClassID classId, std::vector<bool> &isValid, std::vector<bool> &isArray, std::vector<std::pair<CorElementType, int>> &arrayTypes, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes);
+    void serializeType(const std::vector<bool> &isValid, const std::vector<bool> &isArray, const std::vector<std::pair<CorElementType, int>> &arrayTypes, const std::vector<mdTypeDef> &tokens, const std::vector<int> &typeArgsCount, const std::vector<WCHAR> &moduleNames, const std::vector<int> &moduleSizes, char *&type, unsigned long &typeLength, const std::vector<WCHAR>& assemblyNames, const std::vector<int>& assemblySizes);
 
 public:
     CorProfiler();
