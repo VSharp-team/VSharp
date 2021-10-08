@@ -1,7 +1,6 @@
 ﻿module VSharp.Utils.PersistentUnionFind
 
 open VSharp
-open VSharp.Utils
 
 type private node<'a> =
     | Tail of 'a
@@ -47,7 +46,7 @@ module public PersistentUnionFind =
             {elements = mergedElements}
         | _ -> puf
         
-    let public add a puf =
+    let public add puf a =
         match tryFind a puf with
         | Some _ -> puf
         | None -> {elements = PersistentDict.add a (Tail(a)) puf.elements}

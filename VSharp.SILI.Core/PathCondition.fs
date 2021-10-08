@@ -79,22 +79,30 @@ module internal PC =
 
     let public union (pc1 : pathCondition) (pc2 : pathCondition) = Seq.fold add pc1 (toSeq pc2)
     
-(*    let public fragments pc =
-        let groups = PersistentDict.fold (fun groups cond constants ->
-            let parent =
-                constants
-                |> someSetElement
-                |> function
-                    | Some(someConst) -> PersistentUnionFind.tryFind pc.constants someConst
-                    | None -> None
-            let updatedGroup =
-                PersistentDict.tryFind groups parent
-                |> function
-                    | Some(condList) -> cond :: condList
-                    | None -> [cond]
-            PersistentDict.add parent updatedGroup groups
-            ) PersistentDict.empty pc.conditionsWithConstants
-        groups
-        |> PersistentDict.map (fun _ conds ->
-            let 
-            )*)
+    let public fragments pc =
+        pc.conditionsWithConstants
+        |> PersistentDict.fold
+            (fun groups cond constant ->
+                let parent =
+                    constant
+                    |> function
+                        | Some(someConst) -> PersistentUnionFind.tryFind someConst pc.constants
+                        | None -> None
+                let updatedGroup =
+                    PersistentDict.tryFind groups parent
+                    |> function
+                        | Some(condSet) -> PersistentSet.add condSet cond
+                        | None -> PersistentSet.add PersistentSet.empty cond
+                PersistentDict.add parent updatedGroup groups
+            ) PersistentDict.empty
+        |> PersistentDict.toSeq
+        |> Seq.map
+            (fun (parent, conds) ->
+                let fragmentConstants =
+                    match parent with
+                    | Some(parent) -> PersistentUnionFind.subset parent pc.constants
+                    | None -> PersistentUnionFind.empty
+                let fragmentConditionsWithConstants =
+                    PersistentSet.fold (fun dict cond -> PersistentDict.add cond parent dict) PersistentDict.empty conds
+                {constants = fragmentConstants; conditionsWithConstants = fragmentConditionsWithConstants}
+            ) 
