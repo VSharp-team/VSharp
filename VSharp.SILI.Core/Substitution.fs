@@ -25,17 +25,20 @@ module Substitution =
         let recur = substitute termSubst typeSubst timeSubst
         match term.term with
         | Expression(op, args, t) ->
+            let t' = typeSubst t
             substituteMany termSubst typeSubst timeSubst args (fun args' ->
             if args = args' then term
             else
                 match op with
-                | Operator op -> simplifyOperation op args' id
+                | Operator op ->
+                    let term = simplifyOperation op args' id
+                    primitiveCast term t'
                 | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'
-                    primitiveCast arg targetType
+                    primitiveCast arg (typeSubst targetType)
                 | Application f -> standardFunction args' f
-                | Combine -> combine args' (typeSubst t))
+                | Combine -> combine args' t')
             |> Merging.merge
         | Union gvs ->
             let gvs' = gvs |> List.choose (fun (g, v) ->

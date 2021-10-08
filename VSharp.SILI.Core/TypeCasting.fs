@@ -170,13 +170,13 @@ module internal TypeCasting =
         | _ when t = typeof<int16>   -> Int32
         | _ when t = typeof<int32>   -> Int32
         | _ when t = typeof<int64>   -> Int64
-        | _ when t = typeof<byte>    -> Int32
-        | _ when t = typeof<char>    -> Int32
-        | _ when t = typeof<uint16>  -> Int32
-        | _ when t = typeof<uint32>  -> Int32
-        | _ when t = typeof<uint64>  -> Int64
+        | _ when t = typeof<byte>    -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<char>    -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<uint16>  -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<uint32>  -> UInt32
+        | _ when t = typeof<uint64>  -> UInt64
         | _ when t = typeof<float32> -> F
-        | _ when t = typeof<float>   -> F
+        | _ when t = typeof<float>   -> D
         | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 

@@ -689,7 +689,7 @@ namespace IntegrationTests
             return Math.Log(-1);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double LogMethod7(double x)
         {
             double y;
@@ -714,7 +714,7 @@ namespace IntegrationTests
             return Math.Sqrt(4);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double SqrtMethod3(double x)
         {
             double y;
@@ -774,7 +774,7 @@ namespace IntegrationTests
             return Math.Pow(x, y);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double PowMethod5(double x)
         {
             double y;
@@ -785,7 +785,7 @@ namespace IntegrationTests
             return Math.Pow(y, 2);
         }
 
-        [TestSvm]
+        [TestSvm(71)]
         public static double PowMethod6(double x)
         {
             double y;
@@ -935,7 +935,7 @@ namespace IntegrationTests
             return Math.Tan(Double.NegativeInfinity);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double SinhMethod(double x)
         {
             double y;

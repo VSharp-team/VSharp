@@ -260,8 +260,10 @@ module internal Types =
 
     let public Char = Numeric typedefof<char>
     let public String = fromDotNetType typedefof<string>
-    let Int32 = Numeric typeof<int>
+    let Int32 = Numeric typeof<int32>
+    let UInt32 = Numeric typeof<uint32>
     let Int64 = Numeric typeof<int64>
+    let UInt64 = Numeric typeof<uint64>
     let F = Numeric typeof<float>
     let D = Numeric typeof<double>
 

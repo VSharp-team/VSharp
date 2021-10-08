@@ -17,14 +17,12 @@ module FileSystem =
 
     let private createSymlinkWindows target link =
         __notImplemented__()
-    let private createSymlinkLinux target link =
+    let private createSymlinkUnix target link =
         run "unlink" link
         run "ln" (sprintf "-s \"%s\" \"%s\"" target link)
-    let private createSymlinkOSX target link =
-        __notImplemented__()
 
     let createSymlink =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then createSymlinkWindows
-        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then createSymlinkLinux
-        elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then createSymlinkOSX
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then createSymlinkUnix
+        elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then createSymlinkUnix
         else __notImplemented__()

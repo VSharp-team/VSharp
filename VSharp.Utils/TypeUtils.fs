@@ -51,6 +51,10 @@ module TypeUtils =
     // returns false, if "t" is reference type or if we have no information about "t" type from constraints
     let isValueTypeParameter (t : Type) = t.IsValueType
 
+    let private isInt8 = (=) typeof<int8>
+    let private isUInt8 = (=) typeof<uint8>
+    let private isInt16 = (=) typeof<int16>
+    let private isUInt16 = (=) typeof<uint16>
     let private isInt = (=) typeof<int32>
     let private isUInt = (=) typeof<uint32>
     let private isLong = (=) typeof<int64>
@@ -190,11 +194,15 @@ module TypeUtils =
             || isUInt x && isInt y
             || isLong x && isULong y
             || isULong x && isLong y
-        if isReal x || isReal y || areSameButSignedAndUnsigned then failDeduceBinaryTargetType op x y
-        elif isLong x || isULong x then x // DO NOT REORDER THESE elif's!
-        elif isLong y || isULong y then y
-        elif isInt x || isUInt x then x
-        elif isInt y || isUInt y then y
+        if isReal x || isReal y (* || areSameButSignedAndUnsigned *) then failDeduceBinaryTargetType op x y
+        elif isLong x then x // DO NOT REORDER THESE elif's!
+        elif isLong y then y
+        elif isULong x then x
+        elif isULong y then y
+        elif isInt x then x
+        elif isInt y then y
+        elif isUInt x then x
+        elif isUInt y then y
         else typeof<int32>
 
     let deduceSimpleArithmeticOperationTargetType x y =

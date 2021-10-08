@@ -1478,7 +1478,6 @@ type internal ILInterpreter() as this =
 
     member private this.CommonDivRem performAction (cilState : cilState) =
         let integerCase (cilState : cilState) x y minusOne minValue =
-            assert(TypeOf x = TypeOf y)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Arithmetics.IsZero y, state))
                 (this.Raise this.InvalidCastException)

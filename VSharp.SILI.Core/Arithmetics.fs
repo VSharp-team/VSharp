@@ -1,11 +1,92 @@
 namespace VSharp.Core
 
+open System.Reflection.Emit
 open VSharp
 open VSharp.TypeUtils
 open VSharp.CSharpUtils
 open VSharp.Core.Common
 open VSharp.Core.Types
 open VSharp.Core.Types.Constructor
+
+module Calculator1 =
+
+    // TODO: add all other operations and cache delegates
+    type binaryDelegateType = delegate of obj * obj -> obj
+
+    let Add(x : obj, y : obj, t : System.Type) =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let add = DynamicMethod("Add", typeof<obj>, args)
+        let il = add.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Add)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let add = add.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        add.Invoke(x, y)
+
+    let Sub(x : obj, y : obj, t : System.Type) =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let sub = DynamicMethod("Sub", typeof<obj>, args)
+        let il = sub.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Sub)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let sub = sub.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        sub.Invoke(x, y)
+
+    let Mul(x : obj, y : obj, t : System.Type) =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let mul = DynamicMethod("Mul", typeof<obj>, args)
+        let il = mul.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Mul)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let mul = mul.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        mul.Invoke(x, y)
+
+    let Div(x : obj, y : obj, t : System.Type) =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let div = DynamicMethod("Div", typeof<obj>, args)
+        let il = div.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Div)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let div = div.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        div.Invoke(x, y)
+
+    let ShiftRight(x : obj, y : obj, t : System.Type) =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let shr = DynamicMethod("ShiftRight", typeof<obj>, args)
+        let il = shr.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Shr)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let shr = shr.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        shr.Invoke(x, y)
 
 [<AutoOpen>]
 module internal Arithmetics =
@@ -23,7 +104,8 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "+" -------------------------------
 
     let private simplifyConcreteAddition t x y =
-        castConcrete (Calculator.Add(x, y, t)) t
+        castConcrete (Calculator1.Add(x, y, t)) t
+//        castConcrete (Calculator.Add(x, y, t)) t
 
     let rec private simplifyAdditionToSum t a b y matched unmatched =
         // Simplifying (a + b) + y at this step
@@ -281,7 +363,7 @@ module internal Arithmetics =
                 // x / 1 = x
                 | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, System.Convert.ChangeType(1, typeOf x |> toDotNetType)) -> x |> k
                 // x / -1 = -x
-                | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, System.Convert.ChangeType(-1, typeOf x |> toDotNetType)) ->
+                | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, convert -1 (typeOf y |> toDotNetType)) ->
                     simplifyUnaryMinus t x k
                 // x / x = 1 if unchecked
                 | x, y when x = y -> castConcrete 1 t |> k
@@ -633,7 +715,10 @@ module internal Arithmetics =
                             Union([(pIsZero, oneTerm); (pIsLessZero, infTerm);
                                    (!!pIsLessZero, zeroTerm)])
                         | _ when b = one -> oneTerm
-                        | _ when isNaN b -> bConc
+                        | _ when isNaN b ->
+                            // NOTE hack for .NET 5, msdn says: if any operand is NaN, result is NaN
+                            let pIsZero = p === zeroTerm
+                            Union([(pIsZero, oneTerm); (!!pIsZero, bConc)])
                         | _ when isPosInf b ->
                             let pIsZero = p === zeroTerm
                             let pIsLessZero = p << zeroTerm

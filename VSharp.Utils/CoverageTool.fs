@@ -55,7 +55,9 @@ type CoverageTool(testDir : string, runnerDir : string) =
         let assemblyName = m.Module.Assembly.GetName().Name
         let namespaceName = m.DeclaringType.Namespace
         let typeName = m.DeclaringType.Name
-        let parametersTypes = m.GetParameters() |> Seq.map (fun p -> p.ParameterType.FullName) |> join ","
+        let nameOfParameter (p : ParameterInfo) =
+            p.ParameterType.FullName.Replace('+', '.')
+        let parametersTypes = m.GetParameters() |> Seq.map nameOfParameter |> join ","
         let returnType = m.ReturnType.FullName
         let methodName = sprintf "%s(%s):%s" m.Name parametersTypes returnType
         let xpath = sprintf "/Root/Assembly[@Name='%s']/Namespace[@Name='%s']/Type[@Name='%s']/Method[@Name='%s']/@CoveragePercent" assemblyName namespaceName typeName methodName

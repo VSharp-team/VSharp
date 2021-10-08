@@ -83,7 +83,7 @@ namespace VSharp.TestRunner
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine("Error: {0} {1}", e.Message, e.GetType().FullName);
+                    Console.Error.WriteLine("Error: {0}", e);
                     return 2;
                 }
 
