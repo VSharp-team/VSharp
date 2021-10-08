@@ -3,6 +3,11 @@ open VSharp
 open VSharp.Utils
 open VSharp.Utils.PersistentUnionFind
 
+(*
+    Path condition is represented as a union-find of sets disjoint by independence of
+    constants in them and a dictionary where a condition is mapped to some constant
+    contained in it or None if the condition doesn't contain any constants
+*)
 type pathCondition =
     private {constants : pUnionFind<term>; conditionsWithConstants : pdict<term, term option>}
 
@@ -49,12 +54,17 @@ module internal PC =
                     | ConstantT(_, src, _) as constant -> constant, src
                     | _ -> __unreachable__()
                     )
+            // Merge sets of constants dependent in terms of ISymbolicConstantSource 
             let pufMergedByConstantSource =
                 Seq.allPairs
                     (condConsts |> PersistentSet.toSeq |> constsWithSources)
                     (pc.constants |> PersistentUnionFind.toSeq |> constsWithSources)
                 |> Seq.filter (fun ((_, src1), (_, src2)) -> not <| src1.IndependentWith src2)
                 |> Seq.fold (fun puf ((const1, _), (const2, _)) -> PersistentUnionFind.union const1 const2 puf) pufWithNewConsts
+            (*
+                Merge sets of constants dependent in terms of reachability in graph where
+                edge between constants means that they are contained in the same condition
+            *) 
             let pufMergedByDependentCondition =
                 condConsts
                 |> someSetElement
@@ -79,6 +89,10 @@ module internal PC =
 
     let public union (pc1 : pathCondition) (pc2 : pathCondition) = Seq.fold add pc1 (toSeq pc2)
     
+    /// <summary>
+    /// Returns the sequence of path conditions such that constants contained in
+    /// one path condition are independent with constants contained in another one 
+    /// </summary>
     let public fragments pc =
         pc.conditionsWithConstants
         |> PersistentDict.fold
