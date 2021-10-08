@@ -2,35 +2,49 @@
 
 open VSharp
 
-type public pUnionFind<'a> when 'a : equality =
-    private {impl : pdict<'a, 'a>}
+type private node<'a> =
+    | Tail of 'a
+    | Node of 'a
+    
+type public pUnionFind<'a> when 'a : equality =    
+    private {elements : pdict<'a, node<'a>>}
 
 module public PersistentUnionFind =
     
-    let public empty<'a when 'a : equality> : pUnionFind<'a> = {impl = PersistentDict.empty}
+    let public empty<'a when 'a : equality> : pUnionFind<'a> =
+        {elements = PersistentDict.empty}
     
-    let public toSeq puf = PersistentDict.keys puf.impl
+    let public toSeq puf = PersistentDict.keys puf.elements
     
-    let rec public tryFind puf a =
-        let tryFindInternal pdict a =
-            try
-                PersistentDict.find pdict a |> Some
-            with
-                _ -> None
-        match tryFindInternal puf.impl a with
-            | Some b when a = b -> Some a
-            | Some b -> tryFind puf b
-            | None -> None
+    let rec public find a puf =
+        PersistentDict.find puf.elements a
+        |> function
+            | Tail _ -> a
+            | Node(next) -> find next puf
+            
+    let public tryFind a puf =
+        try
+            find a puf |> Some
+        with
+            _ -> None
             
     let public union a b puf =
-        let aParentOption = tryFind puf a
-        let bParentOption = tryFind puf b
+        let aParentOption = tryFind a puf
+        let bParentOption = tryFind b puf
         match aParentOption, bParentOption with
-        | Some aParent, Some bParent when aParent <> bParent ->
-            {impl = PersistentDict.add aParent bParent puf.impl}
-        | _  -> puf
+        | Some(aParent), Some(bParent) when aParent <> bParent ->
+            let unwrap = function
+                | Tail value -> value
+                | Node value -> value
+            let aTail = PersistentDict.find puf.elements aParent |> unwrap
+            let bTail = PersistentDict.find puf.elements bParent |> unwrap
+            puf.elements
+            |> PersistentDict.add aParent (Tail(bTail))
+            |> PersistentDict.add bParent (Node(aTail))
+            |> (fun pdict -> {elements = pdict})
+        | _ -> puf
         
     let public add puf a =
-        match tryFind puf a with
+        match tryFind a puf with
         | Some _ -> puf
-        | None -> {impl = PersistentDict.add a a puf.impl}
+        | None -> {elements = PersistentDict.add a (Tail(a)) puf.elements}

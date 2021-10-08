@@ -41,7 +41,7 @@ module internal PC =
             let condConsts = discoverConstants [cond] |> PersistentSet.ofSeq
             let pufWithNewConsts =
                 condConsts
-                |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind pc.constants t)
+                |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind t pc.constants)
                 |> PersistentSet.fold PersistentUnionFind.add pc.constants
             let constsWithSources =
                 Seq.map
