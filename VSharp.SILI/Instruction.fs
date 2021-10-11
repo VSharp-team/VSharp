@@ -248,8 +248,8 @@ type ipTransition =
     | Return
     | UnconditionalBranch of offset
     | ConditionalBranch of offset * offset list
+    // TODO: use this thing? #do
     | ExceptionMechanism
-
 
 module internal NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =

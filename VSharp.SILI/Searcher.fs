@@ -62,7 +62,7 @@ type ForwardSearcher(maxBound) =
     let forPropagation = List<cilState>()
     let violatesLevel (s : cilState) =
         levelToUnsignedInt s.level > maxBound
-    let isStopped s = isIIEState s || isError s || not(isExecutable(s)) || violatesLevel s
+    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
     let add (s : cilState) =
         if not <| isStopped s then
             assert(forPropagation.Contains s |> not)

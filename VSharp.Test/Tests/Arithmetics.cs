@@ -8,7 +8,8 @@ namespace IntegrationTests
     [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
-        [Ignore("unknown result")]
+        // [Ignore("unknown result")]
+        [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {
             float a = 0.825402526103613f;
@@ -19,7 +20,8 @@ namespace IntegrationTests
             return d != e;
         }
 
-        [Ignore("unknown result")]
+        // [Ignore("unknown result")]
+        [TestSvm]
         public static bool MultiplicationOfFloatsIsCommutativity()
         {
             float a = 0.825402526103613f;
@@ -28,7 +30,8 @@ namespace IntegrationTests
         }
 
         // Overflow exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int DivideWithOverflow()
         {
             int a = Int32.MinValue;
@@ -53,7 +56,8 @@ namespace IntegrationTests
         }
 
         // divide by zero exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static float DivideOnZero1()
         {
             int x = 8;
@@ -62,7 +66,8 @@ namespace IntegrationTests
         }
 
         // divide by zero exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static float DivideOnZero2()
         {
             uint x = 8;
@@ -132,7 +137,8 @@ namespace IntegrationTests
             return Mul_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static uint Mul_OverFlow1()
         {
             int a = -1;
@@ -148,7 +154,8 @@ namespace IntegrationTests
             return checked(a - b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow1()
         {
             int a = 0;
@@ -156,7 +163,8 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow2()
         {
             int a = 1;
@@ -164,7 +172,8 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow3()
         {
             int a = Int32.MinValue;
@@ -346,6 +355,7 @@ namespace IntegrationTests
 
         // 6*n - 126826
         [Ignore("Exceptions handling")]
+        // [TestSvm]
         public static int ArithmeticsMethod4(int n, int m)
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
@@ -1024,7 +1034,7 @@ namespace IntegrationTests
             return 42;
         }
 
-        [TestSvm]
+        [TestSvm(86)]
         public static int ImpossibleBug(int n) {
             try {
                 if (n <= 0 && checked(-n) < 0) {

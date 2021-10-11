@@ -171,6 +171,7 @@ type BackwardSearcher() =
         override x.RemoveBranch cilState =
             let count = qBack.RemoveAll(fun ((cilState', _) as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
             if count > 0 then
+                // TODO: need this?
                 internalfail "olololo!"
 
 module TargetedSearcher =
@@ -194,7 +195,7 @@ module TargetedSearcher =
             assert(targets.ContainsKey from)
             let current = currentIp s
 
-            if isIIEState s || isError s || not(isExecutable(s)) then
+            if isIIEState s || isUnhandledError s || not(isExecutable(s)) then
                 finished.[from].Add(s); Seq.empty
             elif targets.[from].Contains(current) then addReached from s
             else

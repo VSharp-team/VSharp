@@ -120,13 +120,13 @@ type public SILI(options : SiliOptions) =
         // TODO: update pobs when visiting new methods; use coverageZone
         bidirectionalEngineStatistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
-        let goodStates, toReport = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
+        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         // TODO: need to report? #do
-        toReport |> List.iter reportFinished
-        let errors, toReport = errors |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReport |> List.iter reportException
-        let iieStates, toReport = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReport |> List.iter reportIncomplete
+        toReportFinished |> List.iter reportFinished
+        let errors, toReportError = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
+        toReportError |> List.iter reportException
+        let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
+        toReportIIE |> List.iter reportIncomplete
         let newStates =
             match goodStates with
             | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors

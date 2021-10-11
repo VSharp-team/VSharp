@@ -102,6 +102,36 @@ namespace IntegrationTests
 
 
         [TestSvm]
+        public static int NestedTryCatchFinally()
+        {
+            int globalMemory = 0;
+            try
+            {
+                try
+                {
+                    throw new Exception();
+                }
+                catch (Exception)
+                {
+                    globalMemory = 42;
+                }
+                finally
+                {
+                    globalMemory++;
+                }
+            }
+            catch (Exception)
+            {
+                globalMemory = 12;
+            }
+            finally
+            {
+                globalMemory++;
+            }
+            return globalMemory;
+        }
+
+        [TestSvm]
         public static int CallInsideFinally(bool f)
         {
             int res = 0;

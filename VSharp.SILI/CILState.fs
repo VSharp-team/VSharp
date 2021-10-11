@@ -66,13 +66,17 @@ module internal CilStateOperations =
         | Unhandled _ -> true
         | _ -> false
 
-
     let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
     let currentIp (s : cilState) =
         match s.ipStack with
         | [] -> __unreachable__()
         | h::_ -> h
 //        List.head s.ipStack
+
+    let stoppedByException (s : cilState) =
+        match currentIp s with
+        | SearchingForHandler([], []) -> true
+        | _ -> false
 
     let currentLoc = currentIp >> ip2codeLocation >> Option.get
     let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get
@@ -204,8 +208,10 @@ module internal CilStateOperations =
             | FallThrough nextInstruction -> instruction m nextInstruction :: []
             | Return -> exit m :: []
             | ExceptionMechanism ->
-                let toObserve = __notImplemented__()
-                searchingForHandler toObserve 0 :: []
+                // TODO: use ExceptionMechanism? #do
+//                let toObserve = __notImplemented__()
+//                searchingForHandler toObserve 0 :: []
+                __notImplemented__()
             | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
         List.map (fun ip -> setCurrentIp ip cilState) newIps
 

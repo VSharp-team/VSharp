@@ -539,6 +539,8 @@ module internal Z3 =
             | :? BitVecNum as bv ->
                 if bv.SortSize = 32u then MakeNumber (int bv.Int64)
                 elif bv.SortSize = 64u then MakeNumber (uint64 bv.BigInteger |> int64)
+                elif bv.SortSize = 16u then MakeNumber (int16 bv.Int)
+                elif bv.SortSize = 8u then MakeNumber (int8 bv.Int)
                 else __unreachable__()
                 |> k
             | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>)) |> k
