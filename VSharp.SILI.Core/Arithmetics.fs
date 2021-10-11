@@ -545,8 +545,8 @@ module internal Arithmetics =
     and private simplifyConcreteComparison operator _ x y =
         let bx = box x
         let by = box y
-        if (bx :? uint32 list) && (by :? uint32 list) then
-            Concrete (List.compareWith compare (bx :?> uint32 list) (by :?> uint32 list) |> operator) Bool
+        if (bx :? int32 list) && (by :? int32 list) then
+            Concrete (List.compareWith compare (bx :?> int32 list) (by :?> int32 list) |> operator) Bool
         else
             Concrete (Calculator.Compare(bx, by) |> operator) Bool
 

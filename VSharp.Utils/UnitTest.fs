@@ -7,43 +7,65 @@ open System.Xml.Serialization
 
 [<CLIMutable>]
 [<Serializable>]
+[<XmlInclude(typeof<structureRepr>)>]
+[<XmlInclude(typeof<arrayRepr>)>]
+[<XmlInclude(typeof<referenceRepr>)>]
+[<XmlInclude(typeof<pointerRepr>)>]
 type testInfo = {
-    assemblyLocation : string
+    assemblyName : string
     moduleFullyQualifiedName : string
     token : int32
+    thisArg : obj
     args : obj array
     expectedResult : obj
+    memory : memoryRepr
 }
 with
     static member OfMethod(m : MethodBase) = {
-        assemblyLocation = m.Module.Assembly.Location
+        assemblyName = m.Module.Assembly.FullName
         moduleFullyQualifiedName = m.Module.FullyQualifiedName
         token = m.MetadataToken
+        thisArg = null
         args = null
         expectedResult = null
+        memory = {objects = Array.empty; types = Array.empty}
     }
 
 type UnitTest private (m : MethodBase, info : testInfo) =
+    let memoryGraph = MemoryGraph(info.memory)
+    let thisArg = memoryGraph.DecodeValue info.thisArg
+    let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
+    let expectedResult = memoryGraph.DecodeValue info.expectedResult
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
 
     member x.Method with get() = m
-    member x.Args with get() = info.args
+    member x.ThisArg
+        with get() = thisArg
+        and set this =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("thisArg")
+            p.SetValue(info, memoryGraph.Encode this)
+    member x.Args with get() = args
     member x.Expected
-        with get() = info.expectedResult
+        with get() = expectedResult
         and set r =
             let t = typeof<testInfo>
             let p = t.GetProperty("expectedResult")
             p.SetValue(info, r)
+
+    member x.MemoryGraph with get() = memoryGraph
 
     member x.AddArg (arg : ParameterInfo) (value : obj) =
         if info.args = null then
             let t = typeof<testInfo>
             let p = t.GetProperty("args")
             p.SetValue(info, Array.zeroCreate <| m.GetParameters().Length)
+        let value = memoryGraph.Encode value
         info.args.[arg.Position] <- value
 
     member x.Serialize(destination : string) =
+        memoryGraph.Serialize info.memory
         let serializer = XmlSerializer(typeof<testInfo>)
         use stream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write)
         serializer.Serialize(stream, info)
@@ -52,19 +74,13 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let serializer = XmlSerializer(typeof<testInfo>)
         try
             let ti = serializer.Deserialize(stream) :?> testInfo
-            let assembly =
-                try
-                    Assembly.Load ti.assemblyLocation
-                    with
-                    | :? IOException as e ->
-                        Assembly.LoadFile ti.assemblyLocation
-            let mdle = assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = ti.moduleFullyQualifiedName)
+            let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
             let method = mdle.ResolveMethod(ti.token)
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
             UnitTest(method, ti)
         with child ->
-            let exn = InvalidDataException("Input test was of invalid format", child)
+            let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
     static member Deserialize(source : string) =

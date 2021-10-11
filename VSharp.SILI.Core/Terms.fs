@@ -111,7 +111,7 @@ type termNode =
             | Concrete(_, (ClassType(Id t, _) as typ)) when TypeUtils.isSubtypeOrEqual t typedefof<Delegate> ->
                 sprintf "<Lambda Expression %O>" typ |> k
             | Concrete(_, Null) -> k "null"
-            | Concrete(obj, AddressType) when (obj :?> uint32 list) = [0u] -> k "null"
+            | Concrete(obj, AddressType) when (obj :?> int32 list) = [0] -> k "null"
             | Concrete(c, Numeric (Id t)) when t = typedefof<char> && c :?> char = '\000' -> k "'\\000'"
             | Concrete(c, Numeric (Id t)) when t = typedefof<char> -> sprintf "'%O'" c |> k
             | Concrete(:? concreteHeapAddress as addr, AddressType) -> VectorTime.print addr |> k
@@ -154,7 +154,7 @@ type termNode =
                 Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
                 let printed = guards |> Seq.sort |> join ("\n" + indent)
                 formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
-            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> uint32 list) = [0u] -> k "NullRef"
+            | HeapRef({term = Concrete(obj, AddressType)}, Null) when (obj :?> int32 list) = [0] -> k "NullRef"
             | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
             | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
             | Ptr(address, typ, shift) ->
@@ -716,4 +716,5 @@ module internal Terms =
         | TypeVariable(Id t) -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
         | StructType _ -> makeStruct false (fun _ _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ
+        | AddressType -> zeroAddress
         | _ -> __notImplemented__()

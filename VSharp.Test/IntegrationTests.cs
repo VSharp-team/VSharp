@@ -77,22 +77,22 @@ namespace VSharp.Test
                 {
                     SILI explorer = new SILI(_options);
                     Statistics statistics = new Statistics();
-                    TestGenerator testGenerator = new TestGenerator(Directory.GetCurrentDirectory());
+                    UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     statistics.SetupBeforeMethod(methodInfo);
 
-                    explorer.InterpretIsolated(methodInfo, testGenerator.GenerateTest, testGenerator.GenerateError, _ => { }, e => throw e);
+                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
 
-                    if (testGenerator.UnitTestsCount == 0 && testGenerator.ErrorsCount == 0 &&
+                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 &&
                         explorer.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
                     }
                     statistics.AddSucceededMethod(methodInfo);
                     explorer.GenerateReport(TestContext.Out);
-                    TestContext.Out.WriteLine("Test results written to {0}", testGenerator.TestDirectory.FullName);
-                    testGenerator.WriteReport(explorer.GenerateReport);
-                    var coverageTool = new CoverageTool(testGenerator.TestDirectory.FullName, Directory.GetCurrentDirectory());
-                    coverageTool.Run(testGenerator.TestDirectory);
+                    TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
+                    unitTests.WriteReport(explorer.GenerateReport);
+                    var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName, Directory.GetCurrentDirectory());
+                    coverageTool.Run(unitTests.TestDirectory);
                     int coverage = coverageTool.GetCoverage(methodInfo);
                     if (coverage != _expectedCoverage)
                     {

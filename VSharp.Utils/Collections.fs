@@ -18,6 +18,17 @@ module public Seq =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)
 
+    let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
+        let detachOne (acc, lensProd) dim =
+            let curOffset = acc / lensProd
+            let curIndex = curOffset + lowerBounds.[dim]
+            let rest = acc % lensProd
+            curIndex, (rest, if dim = lengths.Length then 1 else lensProd / lengths.[dim + 1])
+        let mutable lenProd = 1
+        for i in 1 .. lengths.Length - 1 do
+            lenProd <- lenProd - 1
+        Array.mapFold detachOne (idx, lenProd) (Array.init (lengths.Length - 1) id) |> fst
+
 module public List =
     let rec private mappedPartitionAcc f left right = function
         | [] -> (List.rev left, List.rev right)

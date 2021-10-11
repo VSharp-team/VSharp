@@ -3,8 +3,10 @@ namespace VSharp.Solver
 open System
 open Microsoft.Z3
 open System.Collections.Generic
+open Microsoft.Z3
 open VSharp
 open VSharp.Core
+open VSharp.Core.API
 open VSharp.Core.SolverInteraction
 open Logger
 
@@ -40,6 +42,9 @@ module internal Z3 =
         sorts : IDictionary<symbolicType, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
+        heapAddresses : IDictionary<Expr, vectorTime * symbolicType>
+        staticKeys : IDictionary<Expr, symbolicType>
+        mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
             Dict.tryGetValue2 x.t2e term (fun () ->
@@ -58,6 +63,9 @@ module internal Z3 =
         sorts = Dictionary<symbolicType, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
+        heapAddresses = Dictionary<Expr, vectorTime * symbolicType>()
+        staticKeys = Dictionary<Expr, symbolicType>()
+        lastSymbolicAddress = 0
     }
 
     let private solverResultCache = Dictionary<query, smtResult>()
@@ -139,7 +147,10 @@ module internal Z3 =
 
         member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
+            let result = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
+            if not <| encodingCache.heapAddresses.ContainsKey result then
+                encodingCache.heapAddresses.Add(result, (address, Void))
+            result
 
         member private x.CreateConstant name typ =
             ctx.MkConst(x.ValidateId name, x.Type2Sort typ) |> encodingResult.Create
@@ -428,6 +439,7 @@ module internal Z3 =
             encodingResult.Create(expr, assumptions)
 
         member private x.HeapReading encCtx key mo typ source structFields name =
+            assert mo.defaultValue.IsNone
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
@@ -436,6 +448,7 @@ module internal Z3 =
             x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
+            assert mo.defaultValue.IsNone
             let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
             let valueSort = x.Type2Sort typ
             let inst (k : Expr[]) =
@@ -447,13 +460,15 @@ module internal Z3 =
             x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
+            assert mo.defaultValue.IsNone
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let inst (k : Expr) = ctx.MkSelect(array, k)
             x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey inst structFields key mo
 
-        member private x.StaticsReading encCtx key mo typ source structFields (name : string) =
+        member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source structFields (name : string) =
+            assert mo.defaultValue.IsNone
             let keyType = x.Type2Sort Types.IndexType
             let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
@@ -461,7 +476,10 @@ module internal Z3 =
             let value = Seq.tryFind (fun (k, _) -> k = key) updates
             match value with
             | Some (_, v) -> x.EncodeTerm encCtx v
-            | None -> {expr = ctx.MkSelect(array, ctx.MkConst(key.ToString(), keyType)); assumptions = List.empty}
+            | None ->
+                let encodedKey = ctx.MkConst(key.ToString(), keyType)
+                encodingCache.staticKeys.Add(encodedKey, key.typ)
+                {expr = ctx.MkSelect(array, encodedKey); assumptions = List.empty}
 
         member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ structFields name =
             x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
@@ -503,17 +521,73 @@ module internal Z3 =
             let dotNetType =
                 if bv.SortSize = 32u then typeof<int32>
                 elif bv.SortSize = 64u then typeof<int64>
+                elif bv.SortSize = 8u then typeof<int8>
+                elif bv.SortSize = 16u then typeof<int16>
                 else __unreachable__()
             Numeric (Id dotNetType)
+
+        member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
+            // TODO: maybe throw away typ?
+            let result = ref (vectorTime.Empty, Void)
+            if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
+            elif encodingCache.heapAddresses.TryGetValue(expr, result) then !result |> fst
+            else
+                encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
+                let addr = [encodingCache.lastSymbolicAddress]
+                encodingCache.heapAddresses.Add(expr, (addr, typ))
+                addr
+
+        member private x.DecodeSymbolicTypeAddress (expr : Expr) =
+            let result = ref Void
+            if encodingCache.staticKeys.TryGetValue(expr, result) then !result
+            else __notImplemented__()
+
+        member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
+            let toType (elementType, rank, isVector) =
+                let dim = if isVector then Vector else ConcreteDimension rank
+                ArrayType(elementType, dim)
+            match reg with
+            | HeapFieldSort field ->
+                assert(exprs.Length = 1)
+                let address = exprs.[0] |> x.DecodeConcreteHeapAddress (field.declaringType |> Types.FromDotNetType) |> ConcreteHeapAddress
+                ClassField(address, field)
+            | StaticFieldSort field ->
+                assert(exprs.Length = 1)
+                let typ = x.DecodeSymbolicTypeAddress exprs.[0]
+                StaticField(typ, field)
+            | ArrayIndexSort typ ->
+                assert(exprs.Length >= 2)
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let indices = exprs |> Seq.tail |> Seq.map x.Decode |> List.ofSeq
+                ArrayIndex(heapAddress, indices, typ)
+            | ArrayLengthSort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let index = x.Decode exprs.[1]
+                ArrayLength(heapAddress, index, typ)
+            | ArrayLowerBoundSort typ ->
+                assert(exprs.Length = 2)
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let index = x.Decode exprs.[1]
+                ArrayLowerBound(heapAddress, index, typ)
+            | StackBufferSort key ->
+                assert(exprs.Length = 1)
+                let index = x.Decode exprs.[0]
+                StackBufferIndex(key, index)
+
+        member private x.DecodeBv (bv : BitVecNum) =
+            match bv.SortSize with
+            | 32u -> MakeNumber (int bv.Int64)
+            | 64u -> MakeNumber (uint64 bv.BigInteger |> int64)
+            | 16u -> MakeNumber (int16 bv.Int)
+            | 8u  -> MakeNumber (int8 bv.Int)
+            | _ -> __notImplemented__()
 
         member public x.Decode (expr : Expr) =
             if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
             else
                 match expr with
-                | :? BitVecNum as bv ->
-                    if bv.SortSize = 32u then MakeNumber bv.Int
-                    elif bv.SortSize = 64u then MakeNumber bv.Int64
-                    else __unreachable__()
+                | :? BitVecNum as bv -> x.DecodeBv bv
                 | :? BitVecExpr as bv when bv.IsConst -> x.GetTypeOfBV bv |> Concrete expr.String
                 | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
                 | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
@@ -536,13 +610,7 @@ module internal Z3 =
 
         member public x.DecodeConcrete (expr : Expr) k =
             match expr with
-            | :? BitVecNum as bv ->
-                if bv.SortSize = 32u then MakeNumber (int bv.Int64)
-                elif bv.SortSize = 64u then MakeNumber (uint64 bv.BigInteger |> int64)
-                elif bv.SortSize = 16u then MakeNumber (int16 bv.Int)
-                elif bv.SortSize = 8u then MakeNumber (int8 bv.Int)
-                else __unreachable__()
-                |> k
+            | :? BitVecNum as bv -> x.DecodeBv bv |> k
             | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>)) |> k
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>)) |> k
             | _ ->
@@ -551,13 +619,86 @@ module internal Z3 =
 
         member x.MkModel (m : Model) =
             let subst = Dictionary<ISymbolicConstantSource, term>()
+            let mutable stackEntries : (stackKey * term option * symbolicType) list = []
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
+                | {term = Constant(_, StackReading(key), _)} ->
+                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    x.DecodeConcrete refinedExpr (fun term -> stackEntries <- (key, Some term, TypeOf term)::stackEntries)
+                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
+                    match ms with
+                    | HeapAddressSource(StackReading(key)) ->
+                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let t = key.TypeOfLocation
+                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        stackEntries <- (key, Some (HeapRef addr t), t)::stackEntries
+                    | _ -> ()
+                | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, _)} ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
                     x.DecodeConcrete refinedExpr (fun term -> subst.Add(source, term))
                 | _ -> ())
-            model.OfDict subst
+
+            let state = Memory.EmptyState()
+            Memory.NewStackFrame state null stackEntries
+
+            let defaultValues = Dictionary<regionSort, term ref>()
+            regionConstants |> Seq.iter (fun kvp ->
+                let region, fields = kvp.Key
+                let constant = kvp.Value
+                let arr = m.Eval(constant, false)
+                let rec parseArray (arr : Expr) =
+                    if arr.IsConstantArray then
+                        assert(arr.Args.Length = 1)
+                        let constantValue = x.Decode arr.Args.[0]
+                        match fields with
+                        | [] ->
+                            assert(not <| defaultValues.ContainsKey region)
+                            defaultValues.Add(region, ref constantValue)
+                        | _ ->
+                            let structureRef = Dict.getValueOrUpdate defaultValues region (fun () ->
+                                Memory.DefaultOf region.TypeOfLocation |> ref)
+                            let rec writeFields structure value = function
+                                | [field] -> Memory.WriteStructField structure field value
+                                | field::fields ->
+                                    match structure with
+                                    | {term = Struct(contents, _)} ->
+                                        let recurred = writeFields (contents.[field]) value fields
+                                        Memory.WriteStructField structure field recurred
+                                    | _ -> internalfail "Expected structure, but got %O" structure
+                                | [] -> __unreachable__()
+                            structureRef := writeFields !structureRef constantValue fields
+                    elif arr.IsDefaultArray then
+                        assert(arr.Args.Length = 1)
+                    elif arr.IsStore then
+                        assert(arr.Args.Length >= 3)
+                        parseArray arr.Args.[0]
+                        let address = x.DecodeMemoryKey region arr.Args.[1..arr.Args.Length - 2]
+                        let value =
+                            if Types.IsValueType region.TypeOfLocation then
+                                x.Decode (Array.last arr.Args)
+                            else
+                                let t = region.TypeOfLocation
+                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                                HeapRef address t
+                        let address = fields |> List.fold (fun address field -> StructField(address, field)) address
+                        let states = Memory.WriteSafe state (Ref address) value
+                        assert(states.Length = 1 && states.[0] = state)
+                    elif arr.IsConst then ()
+                    else internalfailf "Unexpected array expression in model: %O" arr
+                parseArray arr)
+            defaultValues |> Seq.iter (fun kvp ->
+                let region = kvp.Key
+                let constantValue = !kvp.Value
+                Memory.FillRegion state constantValue region)
+
+            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
+                let addr, typ = kvp.Value
+                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
+                    state.allocatedTypes <- PersistentDict.add addr typ state.allocatedTypes)
+            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+
+            {state = state; subst = subst; complete = false}
 
 
     let private ctx = new Context()

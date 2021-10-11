@@ -20,13 +20,16 @@ module public Reflection =
 
     // --------------------------- Metadata Resolving ---------------------------
 
-    let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
+    let resolveModule (assemblyName : string) (moduleName : string) =
         let assembly =
             try
                 Assembly.Load(assemblyName)
             with _ ->
                 Assembly.LoadFile(moduleName)
-        let m = assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
+        assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
+
+    let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
+        let m = resolveModule assemblyName moduleName
         m.ResolveMethod(token)
 
     let private retrieveMethodsGenerics (method : MethodBase) =
@@ -206,7 +209,7 @@ module public Reflection =
     let getFieldInfo (field : fieldId) =
         field.declaringType.GetField(field.name, instanceBindingFlags)
 
-    let rec private retrieveFields isStatic f (t : System.Type) =
+    let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)

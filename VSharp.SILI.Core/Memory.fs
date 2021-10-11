@@ -11,10 +11,6 @@ open VSharp.Utils
 
 #nowarn "69"
 
-type IStatedSymbolicConstantSource =
-    inherit ISymbolicConstantSource
-    abstract Compose : state -> term
-
 type IMemoryAccessConstantSource =
     inherit IStatedSymbolicConstantSource
     abstract TypeOfLocation : symbolicType
@@ -41,7 +37,7 @@ module internal Memory =
         allocatedTypes = PersistentDict.empty
         typeVariables = (MappedStack.empty, Stack.empty)
         delegates = PersistentDict.empty
-        currentTime = [1u]
+        currentTime = [1]
         startingTime = VectorTime.zero
         model = None
     }
@@ -271,7 +267,7 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private heapAddressSource =
-        {baseSource : IMemoryAccessConstantSource;}
+        {baseSource : IMemoryAccessConstantSource}
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
@@ -427,8 +423,8 @@ module internal Memory =
         | { term = Struct(fields, _) } -> fields.[field]
         | _ -> internalfailf "Reading field of structure: expected struct, but got %O" structTerm
 
-    let private readLowerBoundSymbolic state address dimension arrayType =
-        let extractor state = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
+    let private readLowerBoundSymbolic (state : state) address dimension arrayType =
+        let extractor (state : state) = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "LowerBound(%O, %O)" key.address key.index
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
         let key = {address = address; index = dimension}
@@ -443,7 +439,7 @@ module internal Memory =
         | _ -> readLowerBoundSymbolic state address dimension arrayType
 
     let private readLengthSymbolic state address dimension arrayType =
-        let extractor state = accessRegion state.lengths (substituteTypeVariablesIntoArrayType state arrayType) lengthType
+        let extractor (state : state) = accessRegion state.lengths (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "Length(%O, %O)" key.address key.index
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = address; index = dimension}
@@ -529,7 +525,7 @@ module internal Memory =
         let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) (Numeric typeof<int8>)
         let mkname = fun (key : stackBufferIndexKey) -> sprintf "%O[%O]" stackKey key.index
         let isDefault _ _ = true
-        let key = {index = index}
+        let key : stackBufferIndexKey = {index = index}
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
@@ -655,7 +651,7 @@ module internal Memory =
             // TODO: fix style #style
             match elementOffset.term, size with
             | Concrete(:? int as i, _), Some size when i = 0 -> (size / concreteElementSize)
-            | Concrete(:? int as i, _), None -> 1
+            | Concrete(:? int, _), None -> 1
             // NOTE: if offset inside element > 0 then one more element is needed
             | _, Some size -> (size / concreteElementSize) + 1
             | _ -> internalfail "reading array using pointer Void*"
@@ -861,14 +857,14 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.staticFields <- PersistentDict.add field mr' state.staticFields
 
-    let private writeLowerBoundSymbolic state address dimension arrayType value =
+    let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
         ensureConcreteType (fst3 arrayType)
         let mr = accessRegion state.lowerBounds arrayType lengthType
         let key = {address = address; index = dimension}
         let mr' = MemoryRegion.write mr key value
         state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
 
-    let writeLengthSymbolic state address dimension arrayType value =
+    let writeLengthSymbolic (state : state) address dimension arrayType value =
         ensureConcreteType (fst3 arrayType)
         let mr = accessRegion state.lengths arrayType lengthType
         let key = {address = address; index = dimension}
@@ -886,7 +882,7 @@ module internal Memory =
 
     let writeStackBuffer state stackKey index value =
         let mr = accessRegion state.stackBuffers stackKey (Numeric typeof<int8>)
-        let key = {index = index}
+        let key : stackBufferIndexKey = {index = index}
         let mr' = MemoryRegion.write mr key value
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 

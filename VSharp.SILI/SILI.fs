@@ -50,44 +50,12 @@ type public SILI(options : SiliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let term2obj = function
-        | {term = Concrete(v, _)} -> v
-        | {term = Nop} -> null
-        | _ -> __notImplemented__()
-
-    let state2test (m : MethodBase) (cilState : cilState) =
-        let test = UnitTest m
-        match cilState.state.model with
-        | Some model ->
-            model.Iter (fun kvp ->
-                let value : obj = term2obj kvp.Value
-                match kvp.Key with
-                | StackReading key ->
-                    match key with
-                    | ParameterKey pi -> test.AddArg pi value
-                    | ThisKey m ->
-                        let pi = m.GetParameters().[0]
-                        assert(pi.Name = "this")
-                        test.AddArg pi value
-                    | _ -> __notImplemented__()
-                | _ -> __notImplemented__())
-            let retVal = model.Eval cilState.Result
-            test.Expected <- term2obj retVal
-        | None ->
-            m.GetParameters() |> Seq.iter (fun pi ->
-                let defaultValue = System.Runtime.Serialization.FormatterServices.GetUninitializedObject pi.ParameterType
-                test.AddArg pi defaultValue)
-            let emptyModel = model.DefaultComplete
-            let retVal = emptyModel.Eval cilState.Result
-            test.Expected <- term2obj retVal
-        test
-
     let wrapOnTest (action : Action<UnitTest>) method state =
-        let test = state2test method state
+        let test = TestGenerator.state2test method state
         action.Invoke test
 
     let wrapOnError (action : Action<UnitTest>) method state =
-        let test = state2test method state
+        let test = TestGenerator.state2test method state
         action.Invoke test
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =

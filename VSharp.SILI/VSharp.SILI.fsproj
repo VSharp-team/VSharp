@@ -45,6 +45,7 @@
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
         <Compile Include="Options.fs" />
+        <Compile Include="TestGenerator.fs" />
         <Compile Include="SILI.fs" />
     </ItemGroup>
 

@@ -191,7 +191,6 @@ module private UpdateTree =
             list {
                 let! (g, tree) = trees
                 let! (g', k) = key.key.Unguard
-                Console.WriteLine("keyyyyyy: {0}", k);
                 let key' = {key with key = k}
                 return (g &&& g', RegionTree.write reg key' tree)
             }) [(True, earlier)]
@@ -212,19 +211,25 @@ module private UpdateTree =
 
 [<StructuralEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : symbolicType; updates : updateTree<'key, term, 'reg>}
+    {typ : symbolicType; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
 
 module MemoryRegion =
 
     let empty typ =
-        {typ = typ; updates = UpdateTree.empty}
+        {typ = typ; updates = UpdateTree.empty; defaultValue = None}
+
+    let fillRegion defaultValue region =
+        { region with defaultValue = Some defaultValue }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
 
     let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}
-        let makeDefault () = makeDefaultValue mr.typ
+        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree; defaultValue = mr.defaultValue}
+        let makeDefault () =
+            match mr.defaultValue with
+            | Some d -> d
+            | None -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
     let validateWrite value cellType =
@@ -233,22 +238,24 @@ module MemoryRegion =
 
     let write mr key value =
         assert(validateWrite value mr.typ)
-        {typ=mr.typ; updates=UpdateTree.write key value mr.updates}
+        {typ = mr.typ; updates = UpdateTree.write key value mr.updates; defaultValue = mr.defaultValue}
 
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
-        {typ=mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates}
+        {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
 
     let deterministicCompose earlier later =
+        assert(later.defaultValue.IsNone)
         if earlier.typ = later.typ then
             if UpdateTree.isEmpty earlier.updates then later
-            else {typ=earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates}
+            else {typ = earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates; defaultValue = earlier.defaultValue}
         else internalfail "Composing two incomparable memory objects!"
 
     let compose earlier later =
+        assert(later.defaultValue.IsNone)
         if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
             [(True, deterministicCompose earlier later)]
         elif earlier.typ = later.typ then
-            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree}))
+            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue=earlier.defaultValue}))
         else internalfail "Composing two incomparable memory objects!"
 
     let toString indent mr = UpdateTree.print indent toString mr.updates
@@ -259,7 +266,7 @@ module MemoryRegion =
     let localizeArray address dimension mr =
         let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
         let reg = productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) anyIndexRegion
-        {typ=mr.typ; updates = UpdateTree.localize reg mr.updates}
+        {typ=mr.typ; updates = UpdateTree.localize reg mr.updates; defaultValue = mr.defaultValue}
 
     // TODO: merging!
 

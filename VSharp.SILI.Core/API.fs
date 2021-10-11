@@ -90,7 +90,7 @@ module API =
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
         let (|NullRef|_|) = function
-            | {term = HeapRef(addr, _)} when addr = MakeNumber 0 -> Some()
+            | {term = HeapRef(addr, _)} when addr = zeroAddress -> Some()
             | _ -> None
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
@@ -434,7 +434,21 @@ module API =
 //            __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
 
+        let FillRegion state value = function
+            | HeapFieldSort field ->
+                state.classFields <- PersistentDict.update state.classFields field (MemoryRegion.fillRegion value)
+            | StaticFieldSort field ->
+                state.staticFields <- PersistentDict.update state.staticFields field (MemoryRegion.fillRegion value)
+            | ArrayIndexSort typ ->
+                state.arrays <- PersistentDict.update state.arrays typ (MemoryRegion.fillRegion value)
+            | ArrayLengthSort typ ->
+                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.fillRegion value)
+            | ArrayLowerBoundSort typ ->
+                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.fillRegion value)
+            | StackBufferSort key ->
+                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.fillRegion value)
+
+
     module Print =
         let Dump state = Memory.dump state
         let PrintPC pc = PC.toString pc
-

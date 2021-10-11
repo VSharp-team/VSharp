@@ -2,6 +2,7 @@ namespace VSharp
 
 open FSharpx.Collections
 open VSharp
+open VSharp
 
 // TODO: migrate on System.Collections.Immutable?
 // TODO: We do not really need equality of 'value, but PersistentHashMap requires it
@@ -37,6 +38,10 @@ module public PersistentDict =
         // TODO: speed it up by scanning only once! Perhaps we should migrate to System.Collections.Immutable to support this
         if d.impl.ContainsKey key then d.impl.[key] |> Some
         else None
+    let public update (d : pdict<'a, 'b>) key (mapper : 'b -> 'b) =
+        match tryFind d key with
+        | Some value -> add key (mapper value) d
+        | None -> d
 
     let public size (d : pdict<'a, 'b>) = d.impl.Length
 

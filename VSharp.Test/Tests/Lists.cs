@@ -668,6 +668,27 @@ namespace IntegrationTests
             LinkedListNode<int> m = new LinkedListNode<int>(42);
             return x.Value;
         }
+
+        [TestSvm]
+        public static int ArithmeticalProgression(LinkedList<int> list)
+        {
+            int sum = 0;
+            int prev = 0;
+            if (list == null)
+                return 0;
+            LinkedListNode<int> node = list.First;
+            for (int i = 0; i < 5 && node != null; ++i)
+            {
+                if (node.Value == prev + 1)
+                    sum += node.Value;
+                node = node.Next;
+                prev = node.Value;
+            }
+
+            if (sum == 15)
+                return 1;
+            return 2;
+        }
     }
 
     [TestSvmFixture]

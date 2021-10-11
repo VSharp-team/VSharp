@@ -95,7 +95,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             initSymbolicFrame state method
         Array.iter (initFrame cilState.state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
-        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [uint address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
+        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
         cilState.state.allocatedTypes <- allocatedTypes
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (function
@@ -116,7 +116,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | _ -> __unreachable__()
             | PointerOp(baseAddress, offset) ->
                 // TODO: what about StackLocation and StaticLocation? #do
-                let address = ConcreteHeapAddress [uint32 baseAddress]
+                let address = ConcreteHeapAddress [int32 baseAddress]
                 if offset = 0UL then
                     let typ = TypeOfAddress cilState.state address
                     HeapRef address typ

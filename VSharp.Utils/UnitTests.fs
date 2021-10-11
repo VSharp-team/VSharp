@@ -5,7 +5,7 @@ open System.Collections.Generic
 open System.IO
 open VSharp
 
-type TestGenerator(outputDir : string) =
+type UnitTests(outputDir : string) =
     let testPrefix = "VSharp.tests."
     let testExtension = ".vst"
     let mutable testNumber = 0u

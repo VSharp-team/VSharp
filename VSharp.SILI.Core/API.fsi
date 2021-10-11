@@ -261,6 +261,9 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
+
+        val FillRegion : state -> term -> regionSort -> unit
+
     module Print =
         val Dump : state -> string
         val PrintPC : pathCondition -> string

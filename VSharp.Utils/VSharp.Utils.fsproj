@@ -46,8 +46,9 @@
         <Compile Include="PriorityQueue.fs" />
         <Compile Include="FrontQueue.fs" />
         <Compile Include="FileSystem.fs" />
+        <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
-        <Compile Include="TestGenerator.fs" />
+        <Compile Include="UnitTests.fs" />
         <Compile Include="CoverageTool.fs" />
     </ItemGroup>
 
