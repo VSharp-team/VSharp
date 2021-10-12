@@ -59,7 +59,7 @@ type memoryRepr = {
     types : typeRepr array
 }
 
-type MemoryGraph(repr : memoryRepr) =
+module Serialization =
 
     let encodeType (t : Type) : typeRepr =
         {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; fullName = t.FullName}
@@ -67,7 +67,9 @@ type MemoryGraph(repr : memoryRepr) =
         let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
         mdle.GetType(t.fullName)
 
-    let sourceTypes = List<Type>(repr.types |> Array.map decodeType)
+type MemoryGraph(repr : memoryRepr) =
+
+    let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
 
     let allocatePlaceholder (obj : obj) =
         assert(obj <> null)
@@ -257,4 +259,4 @@ type MemoryGraph(repr : memoryRepr) =
         let p = t.GetProperty("objects")
         p.SetValue(target, objReprs.ToArray())
         let p = t.GetProperty("types")
-        p.SetValue(target, sourceTypes |> Seq.map encodeType |> Array.ofSeq)
+        p.SetValue(target, sourceTypes |> Seq.map Serialization.encodeType |> Array.ofSeq)

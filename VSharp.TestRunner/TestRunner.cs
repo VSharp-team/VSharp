@@ -114,13 +114,21 @@ namespace VSharp.TestRunner
                             : null;
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
-                        object result = method.Invoke(thisObj, parameters);
-                        if (!CompareObjects(test.Expected, result))
+                        try
                         {
-                            // TODO: use NUnit?
-                            Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name, test.Expected ?? "null",
-                                result ?? "null");
-                            return 5;
+                            object result = method.Invoke(thisObj, parameters);
+                            if (!CompareObjects(test.Expected, result))
+                            {
+                                // TODO: use NUnit?
+                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
+                                    test.Expected ?? "null",
+                                    result ?? "null");
+                                return 5;
+                            }
+                        }
+                        catch (Exception e) when (e.GetType() == test.Exception)
+                        {
+                            Console.WriteLine("Test throws expected error!");
                         }
                     }
                 }

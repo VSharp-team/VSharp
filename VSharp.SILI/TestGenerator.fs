@@ -102,4 +102,9 @@ module TestGenerator =
             let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
             let retVal = emptyModel.Eval cilState.Result
             test.Expected <- term2obj emptyModel indices test retVal
+        match cilState.state.exceptionsRegister with
+        | Unhandled e ->
+            let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
+            test.Exception <- t
+        | _ -> ()
         test

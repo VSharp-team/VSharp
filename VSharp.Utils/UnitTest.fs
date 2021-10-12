@@ -18,6 +18,7 @@ type testInfo = {
     thisArg : obj
     args : obj array
     expectedResult : obj
+    throwsException : typeRepr
     memory : memoryRepr
 }
 with
@@ -28,11 +29,16 @@ with
         thisArg = null
         args = null
         expectedResult = null
+        throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
         memory = {objects = Array.empty; types = Array.empty}
     }
 
 type UnitTest private (m : MethodBase, info : testInfo) =
     let memoryGraph = MemoryGraph(info.memory)
+    let exceptionInfo = info.throwsException
+    let throwsException =
+        if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
+        else Serialization.decodeType exceptionInfo
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
@@ -53,6 +59,13 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let t = typeof<testInfo>
             let p = t.GetProperty("expectedResult")
             p.SetValue(info, r)
+    member x.Exception
+        with get() = throwsException
+        and set (e : Type) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("throwsException")
+            let v = Serialization.encodeType e
+            p.SetValue(info, v)
 
     member x.MemoryGraph with get() = memoryGraph
 
