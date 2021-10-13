@@ -9,4 +9,4 @@ open VSharp.Core
 module Volatile =
 
     [<Implements("T System.Threading.Volatile.Read(T&)")>]
-    val internal Read : state -> term list -> term * state
+    val internal Read : state -> term list -> term

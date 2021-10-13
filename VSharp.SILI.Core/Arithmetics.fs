@@ -88,6 +88,55 @@ module Calculator1 =
         let shr = shr.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         shr.Invoke(x, y)
 
+    type compareDelegateType = delegate of obj * obj -> int
+
+    let Compare(x : obj, y : obj) : int =
+        assert(TypeUtils.isNumeric <| x.GetType() && TypeUtils.isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let compare = DynamicMethod("Compare", typeof<int>, args)
+        let il = compare.GetILGenerator(256)
+        let eq = il.DefineLabel()
+        let gt = il.DefineLabel()
+        let lt = il.DefineLabel()
+        let xType = x.GetType()
+        let yType = y.GetType()
+
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Ceq)
+        il.Emit(OpCodes.Brtrue, eq)
+
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Cgt)
+        il.Emit(OpCodes.Brtrue, gt)
+
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, xType)
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, yType)
+        il.Emit(OpCodes.Clt)
+        il.Emit(OpCodes.Brtrue, lt)
+
+        il.MarkLabel(eq)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+
+        il.MarkLabel(gt)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+
+        il.MarkLabel(lt)
+        il.Emit(OpCodes.Ldc_I4_M1)
+        il.Emit(OpCodes.Ret)
+
+        let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
+        compare.Invoke(x, y)
+
 [<AutoOpen>]
 module internal Arithmetics =
 
@@ -168,7 +217,7 @@ module internal Arithmetics =
         // (a << b) + (a << b) = 0            if unchecked, b = (size of a) * 8 - 1
         // (a << b) + (a << b) = a << (b + 1) if unchecked, b < (size of a) * 8 - 1
         | Concrete(x, xt), ShiftLeft(c, ConcreteT(d, _), _) when a = c && x = d ->
-            let tooBigShift = Calculator.Compare(x, ((Terms.sizeOf a) * 8) - 1) = 0
+            let tooBigShift = Calculator1.Compare(x, ((Terms.sizeOf a) * 8) - 1) = 0
             if tooBigShift then
                 castConcrete 0 t |> matched
             else
@@ -294,7 +343,7 @@ module internal Arithmetics =
         // (a << b) * (c << d) = (a * c) << (b + d) if unchecked, b and d are conctere, b + d < (size of a) * 8
         // (a << b) * (c << d) = 0 if unchecked, b and d are conctere, b + d >= (size of a) * 8
         | Concrete(bval, bt), ShiftLeft(c, (ConcreteT(dval, _)), _) ->
-            let smallShift = Calculator.Compare(Calculator.Add(bval, dval, t), bitSizeOf a t) = -1
+            let smallShift = Calculator1.Compare(Calculator.Add(bval, dval, t), bitSizeOf a t) = -1
             if smallShift then
                 simplifyMultiplication t a c (fun mul ->
                 let bt' = toDotNetType bt
@@ -306,7 +355,7 @@ module internal Arithmetics =
         // (a << b) * 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
         | Concrete(bval, bt), ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) ->
             let n = Calculator.WhatPowerOf2(powOf2)
-            let tooBigShift = Calculator.Compare(Calculator.Add(bval, n, t), bitSizeOf a t) >= 0
+            let tooBigShift = Calculator1.Compare(Calculator.Add(bval, n, t), bitSizeOf a t) >= 0
             if tooBigShift then castConcrete 0 t |> matched
             else
                 let bt' = toDotNetType bt
@@ -376,7 +425,7 @@ module internal Arithmetics =
                 | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
                     when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                         let n = Calculator.WhatPowerOf2(powOf2)
-                        let tooBigShift = Calculator.Compare(Calculator.Add(b, n, t), bitSizeOf a t) >= 0
+                        let tooBigShift = Calculator1.Compare(Calculator.Add(b, n, t), bitSizeOf a t) >= 0
                         if tooBigShift then castConcrete 0 t |> k
                         else
                             let bt' = toDotNetType bt
@@ -445,7 +494,7 @@ module internal Arithmetics =
         | Concrete(powOf2, _), _, Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = Calculator1.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
                     let yt' = toDotNetType yt
@@ -460,7 +509,7 @@ module internal Arithmetics =
         | Concrete(powOf2, _), Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> toDotNetType |> isUnsigned ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = Calculator1.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
                     let yt' = toDotNetType yt
@@ -473,7 +522,7 @@ module internal Arithmetics =
         // (a + a) << y = 0 if unchecked, y is concrete, y = (size of a) * 8 - 1
         // (a + a) << y = a << (y + 1) if unchecked, y is concrete, y < (size of a) * 8 - 1
         | Concrete(yval, yt) ->
-            let tooBigShift = Calculator.Compare(yval, ((Terms.sizeOf a) * 8) - 1) = 0
+            let tooBigShift = Calculator1.Compare(yval, ((Terms.sizeOf a) * 8) - 1) = 0
             if tooBigShift then castConcrete 0 t |> matched
             else
                 let yt' = toDotNetType yt
@@ -484,7 +533,7 @@ module internal Arithmetics =
         // Simplifying (a op b) op y at this step
         match b.term, y.term, op with
         // (a op b) op y = a op (b + y) if unchecked, b and y are concrete, b + y < (size of a) * 8
-        | Concrete(x, xt), Concrete(c, _), _ when Calculator.Compare(Calculator.Add(x, c, t), bitSizeOf a t) = -1 ->
+        | Concrete(x, xt), Concrete(c, _), _ when Calculator1.Compare(Calculator.Add(x, c, t), bitSizeOf a t) = -1 ->
             let xt' = toDotNetType xt
             simplifyShift op t a (castConcrete (Calculator.Add(x, c, xt')) xt') matched
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
@@ -548,7 +597,7 @@ module internal Arithmetics =
         if (bx :? int32 list) && (by :? int32 list) then
             Concrete (List.compareWith compare (bx :?> int32 list) (by :?> int32 list) |> operator) Bool
         else
-            Concrete (Calculator.Compare(bx, by) |> operator) Bool
+            Concrete (Calculator1.Compare(bx, by) |> operator) Bool
 
     and private simplifyComparison op x y comparator sameIsTrue k =
         simplifyGenericBinary "comparison" x y k

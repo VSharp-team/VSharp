@@ -8,7 +8,7 @@ open VSharp.Core
 
 module Volatile =
 
-    let Read (state : state) (args : term list) : term * state =
+    let Read (state : state) (args : term list) : term =
         assert(List.length args = 2)
         let ref = List.item 1 args
-        Memory.Read state ref, state
+        Memory.Read state ref

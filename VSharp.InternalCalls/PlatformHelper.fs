@@ -5,5 +5,5 @@ open VSharp.Core
 
 module internal PlatformHelper =
 
-    let get_ProcessorCount (state : state) (_ : term list) : term * state =
-        MakeNumber 1, state
+    let get_ProcessorCount (_ : state) (_ : term list) : term =
+        MakeNumber 1

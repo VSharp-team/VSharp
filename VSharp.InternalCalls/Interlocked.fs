@@ -41,5 +41,5 @@ module internal Interlocked =
         let location, value = args.[0], args.[1]
         exchange state location value
 
-    let memoryBarrier (state : state) (args : term list) : term * state =
-        Nop, state
+    let memoryBarrier (state : state) (args : term list) : term =
+        Nop

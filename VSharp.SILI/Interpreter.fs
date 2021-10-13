@@ -387,13 +387,14 @@ module internal InstructionsSet =
         let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Initobj.Size)
         let states = Memory.WriteSafe cilState.state targetAddress (Memory.DefaultOf typ)
         states |> List.map (changeState cilState)
-    let ldind refType (cilState : cilState) =
+    let ldind t (cilState : cilState) =
         // TODO: what about null pointers?
         // TODO: in all reading by ref or ptr we shall cast ref to needed type and read after that #do
+        // TODO: - need to cast inside safe memory read
         let address = pop cilState
-        let castedRef = Option.fold (fun acc x -> castUnchecked x acc) address refType
-        let value = Memory.Read cilState.state castedRef
-        push value cilState
+        let value = Memory.Read cilState.state address
+        let castedValue = Option.fold (fun acc x -> castUnchecked x acc) value t
+        push castedValue cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
     let cgt = binaryOperationWithBoolResult OperationType.Greater idTransformation idTransformation

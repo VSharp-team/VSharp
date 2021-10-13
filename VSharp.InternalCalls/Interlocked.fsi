@@ -19,4 +19,4 @@ module internal Interlocked =
     val internal intExchange : state -> term list -> (term * state) list
 
     [<Implements("System.Void System.Threading.Interlocked.MemoryBarrier()")>]
-    val internal memoryBarrier : state -> term list -> term * state
+    val internal memoryBarrier : state -> term list -> term
