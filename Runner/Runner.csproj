@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <TargetFramework>netcoreapp6.0</TargetFramework>
@@ -14,11 +14,14 @@
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
-        <WarnOn>3390;$(WarnOn)</WarnOn>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Program.fs"/>
+      <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
     </ItemGroup>
 
 </Project>

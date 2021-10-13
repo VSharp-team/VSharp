@@ -16,7 +16,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Test", "VSharp.Test\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.TestRunner", "VSharp.TestRunner\VSharp.TestRunner.csproj", "{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp", "VSharp\VSharp.fsproj", "{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Runner", "Runner\Runner.csproj", "{49CF66CD-2465-415E-8464-46D95042E0AF}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -79,11 +79,11 @@ Global
 		{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}.Release|Any CPU.Build.0 = Release|Any CPU
 		{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
 		{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
-		{B088E5AD-EEBC-42E6-A3D3-3E4253D508EA}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{49CF66CD-2465-415E-8464-46D95042E0AF}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
