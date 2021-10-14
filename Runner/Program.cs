@@ -190,60 +190,65 @@ namespace Runner
         }
         static int Main(string[] args)
         {
-            var rootCommand = new RootCommand
-            {
-                new Argument<FileInfo>(
-                    "assembly-path",
-                    description: "Path to the target assembly"),
-                new Option<DirectoryInfo>(
-                    aliases: new [] {"--output", "-o"},
-                    () => new DirectoryInfo(Directory.GetCurrentDirectory()),
-                    "Path where unit tests will be generated")
-            };
-            rootCommand.Description = "Symbolic execution engine for .NET";
+            var assemblyPathArgument =
+                new Argument<FileInfo>("assembly-path", description: "Path to the target assembly");
+            var outputOption =
+                new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
+                () => new DirectoryInfo(Directory.GetCurrentDirectory()),
+                "Path where unit tests will be generated");
+
+            var rootCommand = new RootCommand();
 
             var entryPointCommand =
                 new Command("--entry-point", "Generate test coverage from the entry point of assembly (assembly must contain Main method)");
             rootCommand.AddCommand(entryPointCommand);
+            entryPointCommand.AddArgument(assemblyPathArgument);
+            entryPointCommand.AddGlobalOption(outputOption);
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
+            allPublicMethodsCommand.AddArgument(assemblyPathArgument);
+            allPublicMethodsCommand.AddGlobalOption(outputOption);
             var publicMethodsOfClassCommand =
                 new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
-            var classArgument = new Argument<string>("class name");
+            var classArgument = new Argument<string>("class-name");
             publicMethodsOfClassCommand.AddArgument(classArgument);
+            publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
+            publicMethodsOfClassCommand.AddGlobalOption(outputOption);
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
-            var methodArgument = new Argument<string>("method name, signature or metadata token");
+            var methodArgument = new Argument<string>("method-name");
             specificMethodCommand.AddArgument(methodArgument);
+            specificMethodCommand.AddArgument(assemblyPathArgument);
+            specificMethodCommand.AddGlobalOption(outputOption);
+
+            rootCommand.Description = "Symbolic execution engine for .NET";
 
             // NOTE: default behaviour
             CoverageZone zone = CoverageZone.AllPublicMethods;
 
-            entryPointCommand.Handler = CommandHandler.Create(() => zone = CoverageZone.EntryPoint);
-            // entryPointCommand.InvokeAsync(args);
-            allPublicMethodsCommand.Handler = CommandHandler.Create(() => zone = CoverageZone.AllPublicMethods);
-            // allPublicMethodsCommand.InvokeAsync(args);
-            string classArgumentValue = null;
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string>(specificClass =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
             {
-                zone = CoverageZone.PublicMethodsOfClass;
-                classArgumentValue = specificClass;
+                Run(assemblyPath, output, CoverageZone.EntryPoint, null, null);
             });
-            // publicMethodsOfClassCommand.InvokeAsync(args);
-            string methodArgumentValue = null;
-            specificMethodCommand.Handler = CommandHandler.Create<string>(specificMethod =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
             {
-                zone = CoverageZone.SpecificMethod;
-                methodArgumentValue = specificMethod;
+                Run(assemblyPath, output, CoverageZone.AllPublicMethods, null, null);
             });
-            // specificMethodCommand.InvokeAsync(args);
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo>((className, assemblyPath, output) =>
+            {
+                Run(assemblyPath, output, CoverageZone.PublicMethodsOfClass, className, null);
+            });
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo>((methodName, assemblyPath, output) =>
+            {
+                Run(assemblyPath, output, CoverageZone.SpecificMethod, null, methodName);
+            });
 
-            rootCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, resultsPath) =>
+            rootCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
             {
-                Run(assemblyPath, resultsPath, zone, classArgumentValue, methodArgumentValue);
+                Run(assemblyPath, output, zone, null, null);
             });
 
             return rootCommand.InvokeAsync(args).Result;

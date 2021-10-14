@@ -90,6 +90,12 @@ module internal ConcreteMemory =
         | :? System.Array as array ->
             array.SetValue(value, Array.ofList indices)
             writeObject state address array
+        // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
+        | :? System.String as string when List.length indices = 1 ->
+            let charArray = string.ToCharArray()
+            charArray.SetValue(value, List.head indices)
+            let newString = System.String(charArray)
+            writeObject state address newString
         | obj -> internalfailf "writing array index to concrete memory: expected to read array, but got %O" obj
 
     let initializeArray (state : state) address (rfh : System.RuntimeFieldHandle) =
