@@ -8,31 +8,16 @@ open VSharp
 open VSharp.Core
 
 module TestGenerator =
-    let rec term2obj model indices (test : UnitTest) = function
-        | {term = Concrete(v, _)} -> v
-        | {term = Nop} -> null
-        | {term = Struct(fields, t)} ->
-            let t = Types.ToDotNetType t
-            let fieldReprs =
-                t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> term2obj model indices test fields.[field])
-            test.MemoryGraph.RepresentStruct t fieldReprs
-        | NullRef -> null
-        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} -> obj2test model indices test addr
-        | _ -> __notImplemented__()
-
-    and obj2test model (indices : Dictionary<concreteHeapAddress, int>) test addr =
-        let eval address =
-            address |> Ref |> Memory.Read model.state |> model.Complete |> term2obj model indices test
+    let obj2test eval (indices : Dictionary<concreteHeapAddress, int>) (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
             let referenceRepr : referenceRepr = {index = !index}
             referenceRepr :> obj
         else
-            let typ = model.state.allocatedTypes.[addr]
             let cha = ConcreteHeapAddress addr
+            let dnt = Types.ToDotNetType typ
             match typ with
             | ArrayType(elemType, dim) ->
-                let dnt = Types.ToDotNetType typ
                 let arrayType, (lengths : int array), (lowerBounds : int array) =
                     match dim with
                     | Vector ->
@@ -51,6 +36,7 @@ module TestGenerator =
                 let repr = test.MemoryGraph.AddArray dnt contents lengths lowerBounds
                 indices.Add(addr, repr.index)
                 repr :> obj
+            | _ when dnt.IsValueType -> BoxedLocation(addr, typ) |> eval
             | _ ->
                 let typ = Types.ToDotNetType typ
                 let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
@@ -58,6 +44,27 @@ module TestGenerator =
                 let repr = test.MemoryGraph.AddClass typ fields
                 indices.Add(addr, repr.index)
                 repr :> obj
+
+    let rec term2obj model state indices (test : UnitTest) = function
+        | {term = Concrete(v, _)} -> v
+        | {term = Nop} -> null
+        | {term = Struct(fields, t)} ->
+            let t = Types.ToDotNetType t
+            let fieldReprs =
+                t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> term2obj model state indices test fields.[field])
+            test.MemoryGraph.RepresentStruct t fieldReprs
+        | NullRef -> null
+        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
+            let eval address =
+                address |> Ref |> Memory.Read model.state |> model.Complete |> term2obj model state indices test
+            let typ = model.state.allocatedTypes.[addr]
+            obj2test eval indices test addr typ
+        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
+            let eval address =
+                address |> Ref |> Memory.Read state |> model.Eval |> term2obj model state indices test
+            let typ = state.allocatedTypes.[addr]
+            obj2test eval indices test addr typ
+        | _ -> __notImplemented__()
 
     let state2test (m : MethodBase) (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
@@ -67,18 +74,16 @@ module TestGenerator =
         | Some model ->
             m.GetParameters() |> Seq.iter (fun pi ->
                 let value = Memory.ReadArgument model.state pi |> model.Complete
-//                let value = model.Eval symbolicArg
-                let concreteValue : obj = term2obj model indices test value
+                let concreteValue : obj = term2obj model cilState.state indices test value
                 test.AddArg pi concreteValue)
 
             if Reflection.hasThis m then
                 let value = Memory.ReadThis model.state m |> model.Complete
-//                let value = model.Eval symbolicArg
-                let concreteValue : obj = term2obj model indices test value
+                let concreteValue : obj = term2obj model cilState.state indices test value
                 test.ThisArg <- concreteValue
 
             let retVal = model.Eval cilState.Result
-            test.Expected <- term2obj model indices test retVal
+            test.Expected <- term2obj model cilState.state indices test retVal
         | None ->
             let emptyState = Memory.EmptyState()
             emptyState.allocatedTypes <- cilState.state.allocatedTypes
@@ -101,7 +106,7 @@ module TestGenerator =
                 test.AddArg pi defaultValue)
             let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
             let retVal = emptyModel.Eval cilState.Result
-            test.Expected <- term2obj emptyModel indices test retVal
+            test.Expected <- term2obj emptyModel cilState.state indices test retVal
         match cilState.state.exceptionsRegister with
         | Unhandled e ->
             let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType

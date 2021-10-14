@@ -27,7 +27,7 @@ module public Seq =
         let mutable lenProd = 1
         for i in 1 .. lengths.Length - 1 do
             lenProd <- lenProd - 1
-        Array.mapFold detachOne (idx, lenProd) (Array.init (lengths.Length - 1) id) |> fst
+        Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
 module public List =
     let rec private mappedPartitionAcc f left right = function

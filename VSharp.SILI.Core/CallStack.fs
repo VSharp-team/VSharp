@@ -3,6 +3,7 @@ namespace VSharp.Core
 open System.Reflection
 open VSharp
 open VSharp.Core
+open VSharp.Core.Types
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : symbolicType }
@@ -61,10 +62,17 @@ module internal CallStack =
         | None -> findFrameAndRead frames key k
 
     let readStackLocation (stack : callStack) key makeSymbolic =
-        let entry = findFrameAndRead stack.frames key id
-        match entry.value with
-        | Some value -> value
-        | None -> makeSymbolic entry.typ
+        if stack.frames.Length = 1 && stack.frames.Head.func = null && (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key')) then
+            // This state is formed by SMT solver model, just return the default value
+            match key with
+            | ParameterKey pi -> Constructor.fromDotNetType pi.ParameterType |> makeDefaultValue
+            | ThisKey _ -> nullRef
+            | _ -> __unreachable__()
+        else
+            let entry = findFrameAndRead stack.frames key id
+            match entry.value with
+            | Some value -> value
+            | None -> makeSymbolic entry.typ
 
     let rec private findFrameAndWrite (frames : frame stack) key entry k =
         if Stack.isEmpty frames then internalfailf "stack does not contain key %O!" key
