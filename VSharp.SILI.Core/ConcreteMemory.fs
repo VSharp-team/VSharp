@@ -10,6 +10,18 @@ module internal ConcreteMemory =
 
 // ----------------------------- Primitives -----------------------------
 
+    let deepCopy (state : state) =
+        let cm = state.concreteMemory
+        let cm' = System.Collections.Generic.Dictionary<concreteHeapAddress, physicalAddress>()
+        let cmSeq = Seq.map (|KeyValue|) cm
+        let updateOne acc (k, v : physicalAddress) =
+            let v' = {object = v.object} // TODO: deep copy object
+            cm'.Add(k, v')
+            PersistentDict.add v' k acc
+        let physToVirt = Seq.fold updateOne PersistentDict.empty cmSeq
+        state.physToVirt <- physToVirt
+        { state with state.concreteMemory = cm' }
+
     let getObject (physicalAddress : physicalAddress) = physicalAddress.object
 
     let contains (cm : concreteMemory) address =

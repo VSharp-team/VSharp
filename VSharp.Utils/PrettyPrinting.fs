@@ -20,7 +20,8 @@ module PrettyPrinting =
     let private valueToString v = if box v = null then "null" else v.ToString()
 
     let private classToString obj (t : System.Type) =
-        t.GetFields() |> Array.map (fun f -> f.Name + ": " + (f.GetValue(obj) |> valueToString)) |> join "; "
+        let fields = t.GetFields() |> Array.map (fun f -> f.Name + ": " + (f.GetValue(obj) |> valueToString)) |> join "; "
+        sprintf "%O { %s } " (t.GetType()) fields
 
     let printConcrete (obj : obj) =
         let t = TypeUtils.getTypeOfConcrete obj

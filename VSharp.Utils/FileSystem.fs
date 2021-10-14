@@ -12,7 +12,8 @@ module FileSystem =
         cmd.StartInfo.RedirectStandardOutput <- false
         cmd.StartInfo.CreateNoWindow <- true
         cmd.StartInfo.UseShellExecute <- false
-        assert(cmd.Start())
+        let started = cmd.Start()
+        assert started
         cmd.WaitForExit()
 
     let private createSymlinkWindows target link =

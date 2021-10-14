@@ -41,7 +41,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            uint maxBound = 15;
+            uint maxBound = 1000;
             Logger.ConfigureWriter(TestContext.Progress);
             _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, maxBound);
             Core.API.ConfigureSolver(SolverPool.mkSolver());

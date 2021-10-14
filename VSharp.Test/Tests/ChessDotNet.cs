@@ -120,6 +120,56 @@ namespace IntegrationTests
             return isValid && type == MoveType.Invalid;
         }
 
+        public static GameCreationData CreateDataForCheckMate()
+        {
+            var whiteKing = (Piece) new King(Player.White);
+            var blackKing = (Piece) new King(Player.Black);
+            var whiteQueen = (Piece) new Queen(Player.White);
+            var piece = (Piece) null;
+            var Board = new Piece[8][]
+                {
+                    new Piece[8] { blackKing, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, whiteQueen, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, whiteKing, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                };
+            var data = new GameCreationData();
+            data.Board = Board;
+            data.WhoseTurn = Player.White;
+            return data;
+        }
+
+        [TestSvm]
+        public static bool CheckMate1(bool f)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            Move c7b7 = new Move("C7", "B7", Player.White);
+            Move c7d7 = new Move("C7", "D7", Player.White);
+            Move move;
+            if (f)
+                move = c7b7;
+            else
+                move = c7d7;
+            game.ApplyMove(move, true);
+            return game.IsCheckmated(Player.Black);
+        }
+
+        [TestSvm]
+        public static bool CheckMate2(int dst)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            string s = "B" + dst;
+            Move move = new Move("C7", s, Player.White);
+            MoveType type = game.ApplyMove(move, true);
+            return game.IsCheckmated(Player.Black);
+        }
+
         [Ignore("needs big bound and works too long")]
         public static bool CheckMoveIsValidAndApply()
         {

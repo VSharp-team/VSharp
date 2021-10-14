@@ -42,8 +42,18 @@ module internal Memory =
         model = None
     }
 
+    type memoryMode =
+        | ConcreteMemory
+        | SymbolicMemory
+
+    let mutable memoryMode = SymbolicMemory
+
     let copy state newPc =
-        { state with pc = newPc; concreteMemory = Dictionary<_,_>(state.concreteMemory) }
+        let state =
+            match memoryMode with
+            | ConcreteMemory -> ConcreteMemory.deepCopy state
+            | SymbolicMemory -> state
+        { state with pc = newPc }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -1112,10 +1122,11 @@ module internal Memory =
         assert (not <| TypeUtils.isSubtypeOrEqual dotNetType typeof<String>)
         assert (not <| TypeUtils.isSubtypeOrEqual dotNetType typeof<Delegate>)
         let concreteAddress = allocateType state typ
-        match dotNetType with
+        match memoryMode with
         // TODO: it's hack for reflection, remove it after concolic will be implemented
         | _ when TypeUtils.isSubtypeOrEqual dotNetType typeof<Type> -> ()
-        | _ -> Reflection.createObject dotNetType |> ConcreteMemory.allocate state concreteAddress
+        | ConcreteMemory -> Reflection.createObject dotNetType |> ConcreteMemory.allocate state concreteAddress
+        | SymbolicMemory -> ()
         HeapRef (ConcreteHeapAddress concreteAddress) typ
 
     // TODO: unify allocation with unmarshalling
@@ -1127,8 +1138,8 @@ module internal Memory =
         let address = ConcreteHeapAddress concreteAddress
         let concreteLengths = tryIntListFromTermList lengths
         let concreteLowerBounds = tryIntListFromTermList lowerBounds
-        match concreteLengths, concreteLowerBounds with
-        | Some concreteLengths, Some concreteLBs ->
+        match memoryMode, concreteLengths, concreteLowerBounds with
+        | ConcreteMemory, Some concreteLengths, Some concreteLBs ->
             let elementDotNetType = elementType typ |> toDotNetType
             let array = Array.CreateInstance(elementDotNetType, Array.ofList concreteLengths, Array.ofList concreteLBs) :> obj
             ConcreteMemory.allocate state concreteAddress array
@@ -1140,8 +1151,8 @@ module internal Memory =
         allocateArray state typ [makeNumber 0] [length]
 
     let allocateConcreteVector state elementType length contents =
-        match length.term with
-        | Concrete(:? int as intLength, _) ->
+        match memoryMode, length.term with
+        | ConcreteMemory, Concrete(:? int as intLength, _) ->
             let concreteAddress = allocateType state (ArrayType(elementType, Vector))
             let array = Array.CreateInstance(toDotNetType elementType, intLength)
             Seq.iteri (fun i value -> array.SetValue(value, i)) contents
@@ -1157,8 +1168,8 @@ module internal Memory =
 
     // TODO: unify allocation with unmarshalling
     let private commonAllocateString state length contents =
-        match length.term with
-        | Concrete(:? int as intLength, _) ->
+        match memoryMode, length.term with
+        | ConcreteMemory, Concrete(:? int as intLength, _) ->
             let charArray : char array = Array.zeroCreate intLength
             Seq.iteri (fun i char -> charArray.SetValue(char, i)) contents
             let string = new string(charArray) :> obj

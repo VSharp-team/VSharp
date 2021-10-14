@@ -341,6 +341,7 @@ module internal Terms =
 
     let typeOfRef =
         let getTypeOfRef = term >> function
+            | HeapRef(_, t) -> t
             | Ref address -> typeOfAddress address
             | Ptr(_, sightType, _) -> sightType
             | term -> internalfailf "expected reference, but got %O" term

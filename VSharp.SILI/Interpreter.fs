@@ -488,7 +488,7 @@ module internal InstructionsSet =
             let thisForCallVirt = pop cilState
             match thisForCallVirt.term with
             | HeapRef _ -> ()
-            | Ref _ when TypeOf thisForCallVirt |> Types.IsValueType ->
+            | Ref _ when TypeOfLocation thisForCallVirt |> Types.IsValueType ->
                 let thisStruct = Memory.Read cilState.state thisForCallVirt
                 let heapRef = Memory.BoxValueType cilState.state thisStruct
                 push heapRef cilState
@@ -732,7 +732,7 @@ type internal ILInterpreter() as this =
     member private x.InstantiateThisIfNeed state thisOption (methodBase : MethodBase) =
         match thisOption with
         | Some this ->
-            let thisType = TypeOf this
+            let thisType = TypeOfLocation this
             if Types.IsValueType thisType && methodBase.IsConstructor then
                 let newThis = Memory.DefaultOf thisType
                 let states = Memory.WriteSafe state this newThis
@@ -799,7 +799,7 @@ type internal ILInterpreter() as this =
             match this with
             | Some thisValue ->
                 let thisKey = ThisKey method
-                (thisKey, Some thisValue, TypeOf thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+                (thisKey, Some thisValue, TypeOfLocation thisValue) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             | None -> parameters
         Memory.NewStackFrame state method (parametersAndThis @ locals)
 
