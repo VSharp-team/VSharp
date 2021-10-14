@@ -194,29 +194,29 @@ namespace Runner
             {
                 new Argument<FileInfo>(
                     "assembly-path",
-                    description: "Path to assembly that need to be verified"),
+                    description: "Path to the target assembly"),
                 new Option<DirectoryInfo>(
-                    aliases: new [] {"--results-path", "-p"},
+                    aliases: new [] {"--output", "-o"},
                     () => new DirectoryInfo(Directory.GetCurrentDirectory()),
-                    "Path where tests will be generated")
+                    "Path where unit tests will be generated")
             };
             rootCommand.Description = "Symbolic execution engine for .NET";
 
             var entryPointCommand =
-                new Command("--entry-point", "Trying to find entry point and generate tests for it");
+                new Command("--entry-point", "Generate test coverage from the entry point of assembly (assembly must contain Main method)");
             rootCommand.AddCommand(entryPointCommand);
             var allPublicMethodsCommand =
-                new Command("--all-public-methods", "Trying to find all public methods of all public classes and generate tests for them");
+                new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
             var publicMethodsOfClassCommand =
-                new Command("--public-methods-of-class", "Trying to find all public methods of specific class and generate tests for them");
+                new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
-            var classArgument = new Argument<string>("specific-class");
+            var classArgument = new Argument<string>("class name");
             publicMethodsOfClassCommand.AddArgument(classArgument);
             var specificMethodCommand =
-                new Command("--specific-method", "Trying to find specific method and generate tests for it");
+                new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
-            var methodArgument = new Argument<string>("specific-method");
+            var methodArgument = new Argument<string>("method name, signature or metadata token");
             specificMethodCommand.AddArgument(methodArgument);
 
             // NOTE: default behaviour
@@ -250,47 +250,3 @@ namespace Runner
         }
     }
 }
-
-//        private void InterpretEntryPoint(MethodInfo m)
-//        {
-//            Assert.IsTrue(m.IsStatic);
-//            PrepareAndInvoke(m, _explorer.InterpretEntryPoint);
-//        }
-//
-//        private void ExploreType(List<string> ignoreList, MethodInfo ep, Type t)
-//        {
-//            BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
-//                                        BindingFlags.DeclaredOnly;
-//
-//            if (ignoreList?.Where(kw => !t.AssemblyQualifiedName.Contains(kw)).Count() == ignoreList?.Count &&
-//                t.IsPublic)
-//            {
-//                foreach (var m in t.GetMethods(bindingFlags))
-//                {
-//                    // FOR DEBUGGING SPECIFIED METHOD
-//                    // if (m != ep && !m.IsAbstract)
-//                    if (m != ep && !m.IsAbstract && m.Name != "op_Division")
-//                    {
-//                        Debug.Print(@"Called interpreter for method {0}", m.Name);
-//                        Explore(m);
-//                    }
-//                }
-//            }
-//        }
-//
-//        public void Run(Assembly assembly, List<string> ignoredList)
-//        {
-//            var ep = assembly.EntryPoint;
-//
-//            foreach (var t in assembly.GetTypes())
-//            {
-//                ExploreType(ignoredList, ep, t);
-//            }
-//
-//            if (ep != null)
-//            {
-//                InterpretEntryPoint(ep);
-//            }
-//
-//            _statistics.PrintExceptionsStats();
-//        }
