@@ -293,6 +293,10 @@ module internal Types =
         | Null -> false
         | _ -> TypeUtils.isNullable (toDotNetType termType)
 
+    let isEnum = function
+        | Numeric(Id t) when t.IsEnum -> true
+        | _ -> false
+
     // [NOTE] All heuristics of subtyping are here
     let rec private commonConcreteCanCast canCast nullCase leftType rightType certainK uncertainK =
         match leftType, rightType with

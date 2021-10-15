@@ -25,6 +25,38 @@ module internal TypeCasting =
             override x.SubTerms = optCons (optCons [] x.left.SubTerm) x.right.SubTerm :> term seq
             override x.Time = VectorTime.zero
 
+    let (|TypeSubtypeTypeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | ConcreteType u, ConcreteType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|RefSubtypeTypeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | SymbolicType u, ConcreteType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|TypeSubtypeRefSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | ConcreteType u, SymbolicType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|RefSubtypeRefSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | SymbolicType u, SymbolicType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
     let private makeSubtypeBoolConst left right =
         let subtypeName = sprintf "(%O <: %O)" left right
         let source = {left = left; right = right}

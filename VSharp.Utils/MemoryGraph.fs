@@ -21,6 +21,13 @@ type referenceRepr = {
 
 [<CLIMutable>]
 [<Serializable>]
+type enumRepr = {
+    typ : int
+    underlyingValue : obj
+}
+
+[<CLIMutable>]
+[<Serializable>]
 type pointerRepr = {
     index : int
     shift : int
@@ -31,6 +38,7 @@ type pointerRepr = {
 [<XmlInclude(typeof<structureRepr>)>]
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
 type structureRepr = {
     typ : int
     fields : obj array
@@ -41,6 +49,7 @@ type structureRepr = {
 [<XmlInclude(typeof<structureRepr>)>]
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
 type arrayRepr = {
     typ : int
     contents : obj array
@@ -54,6 +63,7 @@ type arrayRepr = {
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<arrayRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
 type memoryRepr = {
     objects : obj array
     types : typeRepr array
@@ -100,6 +110,9 @@ type MemoryGraph(repr : memoryRepr) =
             decodeStructure repr obj
             obj
         | :? arrayRepr -> internalfail "Unexpected array representation inside object!"
+        | :? enumRepr as repr ->
+            let t = sourceTypes.[repr.typ]
+            Enum.ToObject(t, repr.underlyingValue)
         | _ -> obj
 
     and decodeStructure (repr : structureRepr) obj =
@@ -137,7 +150,7 @@ type MemoryGraph(repr : memoryRepr) =
 
     member private x.IsSerializable (t : Type) =
         // TODO: find out which types can be serialized by XMLSerializer
-        t.IsPrimitive || t = typeof<string> || (t.IsArray && (x.IsSerializable <| t.GetElementType()))
+        (t.IsPrimitive && not t.IsEnum) || t = typeof<string> || (t.IsArray && (x.IsSerializable <| t.GetElementType()))
 
     member private x.EncodeArray (arr : Array) =
         let contents =
@@ -167,6 +180,11 @@ type MemoryGraph(repr : memoryRepr) =
         let repr : structureRepr = {typ = x.RegisterType t; fields = fields}
         repr :> obj
 
+    member x.RepresentEnum (obj : obj) =
+        let t = obj.GetType()
+        let repr : enumRepr = {typ = x.RegisterType t; underlyingValue = Convert.ChangeType(obj, Enum.GetUnderlyingType t)}
+        repr :> obj
+
     member private x.Bind (obj : obj) (repr : obj) =
         sourceObjects.Add obj
         objReprs.Add repr
@@ -180,13 +198,16 @@ type MemoryGraph(repr : memoryRepr) =
         | :? structureRepr -> obj
         | :? arrayRepr -> obj
         | :? pointerRepr -> obj
+        | :? enumRepr -> obj
         | _ ->
             // TODO: delegates?
             let t = obj.GetType()
             if x.IsSerializable t then obj
             else
                 match t with
-                | _ when t.IsValueType -> x.EncodeStructure obj
+                | _ when t.IsValueType ->
+                    if t.IsEnum then x.RepresentEnum obj
+                    else x.EncodeStructure obj
                 | _ ->
                     let idx =
                         match Seq.tryFindIndex (fun obj' -> Object.ReferenceEquals(obj, obj')) sourceObjects with

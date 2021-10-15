@@ -3,10 +3,8 @@ namespace VSharp.Solver
 open System
 open Microsoft.Z3
 open System.Collections.Generic
-open Microsoft.Z3
 open VSharp
 open VSharp.Core
-open VSharp.Core.API
 open VSharp.Core.SolverInteraction
 open Logger
 
@@ -512,7 +510,7 @@ module internal Z3 =
     // ------------------------------- Decoding -------------------------------
 
         member private x.DecodeExpr op t (expr : Expr) =
-            Expression (Operator op) (expr.Args |> Seq.map x.Decode |> List.ofSeq) t
+            Expression (Operator op) (expr.Args |> Seq.map (x.Decode t) |> List.ofSeq) t
 
         member private x.DecodeBoolExpr op (expr : Expr) =
             x.DecodeExpr op Bool expr
@@ -558,65 +556,56 @@ module internal Z3 =
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
                 let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let indices = exprs |> Seq.tail |> Seq.map x.Decode |> List.ofSeq
+                let indices = exprs |> Seq.tail |> Seq.map (x.Decode (fst3 typ)) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
                 let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode exprs.[1]
+                let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLength(heapAddress, index, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
                 let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode exprs.[1]
+                let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
                 assert(exprs.Length = 1)
-                let index = x.Decode exprs.[0]
+                let index = x.Decode Types.Int8 exprs.[0]
                 StackBufferIndex(key, index)
 
-        member private x.DecodeBv (bv : BitVecNum) preferredType =
+        member private x.DecodeBv t (bv : BitVecNum) =
             match bv.SortSize with
-            | 32u -> let t = Option.defaultValue Types.Int32 preferredType in Concrete (TypeUtils.convert bv.Int64 (Types.ToDotNetType t)) t
-            | 64u -> let t = Option.defaultValue Types.Int64 preferredType in Concrete (TypeUtils.convert (uint64 bv.BigInteger) (Types.ToDotNetType t)) t
-            | 16u -> let t = Option.defaultValue Types.Int16 preferredType in Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
-            | 8u  -> let t = Option.defaultValue Types.Int8 preferredType in Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
+            | 32u -> Concrete (TypeUtils.convert bv.Int64 (Types.ToDotNetType t)) t
+            | 64u -> Concrete (TypeUtils.convert (uint64 bv.BigInteger) (Types.ToDotNetType t)) t
+            | 16u -> Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
+            | 8u  -> Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
             | _ -> __notImplemented__()
 
-        member public x.Decode (expr : Expr) =
-            if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
-            else
-                match expr with
-                | :? BitVecNum as bv -> x.DecodeBv bv None
-                | :? BitVecExpr as bv when bv.IsConst -> x.GetTypeOfBV bv |> Concrete expr.String
-                | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
-                | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
-                | _ ->
-                    if expr.IsTrue then True
-                    elif expr.IsFalse then False
-                    elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
-                    elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
-                    elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
-                    elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
-                    elif expr.IsBVSGT then x.DecodeBoolExpr OperationType.Greater expr
-                    elif expr.IsBVUGT then x.DecodeBoolExpr OperationType.Greater_Un expr
-                    elif expr.IsBVSGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
-                    elif expr.IsBVUGE then x.DecodeBoolExpr OperationType.GreaterOrEqual_Un expr
-                    elif expr.IsBVSLT then x.DecodeBoolExpr OperationType.Less expr
-                    elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
-                    elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
-                    elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
-                    else __notImplemented__()
-
-        member public x.DecodeConcrete (expr : Expr) preferredType k =
+        member public x.Decode t (expr : Expr) =
             match expr with
-            | :? BitVecNum as bv -> x.DecodeBv bv preferredType |> k
-            | :? IntNum as i -> Concrete i.Int Types.Int32 |> k
-            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) Types.Int32 |> k
+            | :? BitVecNum as bv -> x.DecodeBv t bv
+            | :? BitVecExpr as bv when bv.IsConst ->
+                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                else x.GetTypeOfBV bv |> Concrete expr.String
+            | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
+            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
             | _ ->
-                if expr.IsTrue then True |> k
-                elif expr.IsFalse then False |> k
-                else __unreachable__()
+                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                elif expr.IsTrue then True
+                elif expr.IsFalse then False
+                elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
+                elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
+                elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
+                elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
+                elif expr.IsBVSGT then x.DecodeBoolExpr OperationType.Greater expr
+                elif expr.IsBVUGT then x.DecodeBoolExpr OperationType.Greater_Un expr
+                elif expr.IsBVSGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
+                elif expr.IsBVUGE then x.DecodeBoolExpr OperationType.GreaterOrEqual_Un expr
+                elif expr.IsBVSLT then x.DecodeBoolExpr OperationType.Less expr
+                elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
+                elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
+                elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
+                else __notImplemented__()
 
         member private x.WriteFields structure value = function
             | [field] -> Memory.WriteStructField structure field value
@@ -646,7 +635,8 @@ module internal Z3 =
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    x.DecodeConcrete refinedExpr (Some t) (x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation)
+                    x.Decode t refinedExpr
+                    |> x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
@@ -658,7 +648,8 @@ module internal Z3 =
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    x.DecodeConcrete refinedExpr (Some t) (fun term -> subst.Add(source, term))
+                    let term = x.Decode t refinedExpr
+                    subst.Add(source, term)
                 | _ -> ())
 
             let state = Memory.EmptyState()
@@ -678,7 +669,7 @@ module internal Z3 =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType region.TypeOfLocation then x.DecodeConcrete arr.Args.[0] (Some region.TypeOfLocation) id
+                            if Types.IsValueType region.TypeOfLocation then x.Decode region.TypeOfLocation arr.Args.[0]
                             else
                                 let addr = x.DecodeConcreteHeapAddress region.TypeOfLocation arr.Args.[0] |> ConcreteHeapAddress
                                 HeapRef addr region.TypeOfLocation
@@ -692,7 +683,7 @@ module internal Z3 =
                         let t = region.TypeOfLocation
                         let value =
                             if Types.IsValueType t then
-                                x.DecodeConcrete (Array.last arr.Args) (Some t) id
+                                x.Decode t (Array.last arr.Args)
                             else
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                                 HeapRef address t
@@ -790,7 +781,7 @@ module internal Z3 =
                             SmtSat { mdl = model; usedPaths = usedPaths }
                         | Status.UNSATISFIABLE ->
                             printLog Trace "SOLVER: got UNSATISFIABLE"
-                            SmtUnsat { core = optCtx.UnsatCore |> Array.map builder.Decode }
+                            SmtUnsat { core = optCtx.UnsatCore |> Array.map (builder.Decode Bool) }
                         | Status.UNKNOWN ->
                             printLog Trace "SOLVER: unknown! Reason: %O" <| optCtx.ReasonUnknown
                             SmtUnknown optCtx.ReasonUnknown

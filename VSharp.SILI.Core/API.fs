@@ -11,6 +11,7 @@ module API =
 
     let Reset() =
         IdGenerator.reset()
+        TypeSolver.reset()
     let SaveConfiguration() =
         IdGenerator.saveConfiguration()
     let Restore() =
@@ -87,6 +88,7 @@ module API =
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
+        let (|Negation|_|) t = Terms.(|NegationT|_|) t
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
         let (|NullRef|_|) = function
@@ -110,6 +112,10 @@ module API =
             | _ -> None
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
+        let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src
+        let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
+        let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
+        let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
@@ -146,6 +152,7 @@ module API =
         let IsValueType t = Types.isValueType t
         let IsArrayType t = Types.isArray t
         let IsNullable t = Types.isNullable t
+        let IsEnum t = Types.isEnum t
         let Int8 = Types.Int8
         let Int16 = Types.Int16
         let Int32 = Types.Int32

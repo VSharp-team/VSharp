@@ -51,12 +51,14 @@ type public SILI(options : SiliOptions) =
         |> List.ofSeq
 
     let wrapOnTest (action : Action<UnitTest>) method state =
-        let test = TestGenerator.state2test method state
-        action.Invoke test
+        match TestGenerator.state2test method state with
+        | Some test -> action.Invoke test
+        | None -> ()
 
     let wrapOnError (action : Action<UnitTest>) method state =
-        let test = TestGenerator.state2test method state
-        action.Invoke test
+        match TestGenerator.state2test method state with
+        | Some test -> action.Invoke test
+        | None -> ()
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         iies.Add(state)
@@ -145,6 +147,8 @@ type public SILI(options : SiliOptions) =
     member private x.AnswerPobs entryPoint initialStates =
         startTime <- DateTime.Now
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
+        AssemblyManager.reset()
+        entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with

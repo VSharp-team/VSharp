@@ -22,10 +22,13 @@ module public Reflection =
 
     let resolveModule (assemblyName : string) (moduleName : string) =
         let assembly =
-            try
-                Assembly.Load(assemblyName)
-            with _ ->
-                Assembly.LoadFile(moduleName)
+            match AppDomain.CurrentDomain.GetAssemblies() |> Array.tryFindBack (fun assembly -> assembly.FullName = assemblyName) with
+            | Some assembly -> assembly
+            | None ->
+                try
+                    Assembly.Load(assemblyName)
+                with _ ->
+                    Assembly.LoadFile(moduleName)
         assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
 
     let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =

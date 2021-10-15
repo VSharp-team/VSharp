@@ -66,6 +66,7 @@ module API =
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
+        val (|Negation|_|) : term -> term option
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
         val (|NullRef|_|) : term -> unit option
@@ -81,6 +82,10 @@ module API =
         val (|StructFieldChain|_|) : ISymbolicConstantSource -> option<fieldId list * IMemoryAccessConstantSource>
         val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource>
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
+        val (|TypeSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<symbolicType * symbolicType>
+        val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * symbolicType>
+        val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<symbolicType * heapAddress>
+        val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
 
         val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort
 
@@ -123,6 +128,7 @@ module API =
 
         val TypeIsType : symbolicType -> symbolicType -> term
         val IsNullable : symbolicType -> bool
+        val IsEnum : symbolicType -> bool
         val TypeIsRef :  state -> symbolicType -> term -> term
         val RefIsType : state -> term -> symbolicType -> term
         val RefIsAssignableToType : state -> term -> symbolicType -> term

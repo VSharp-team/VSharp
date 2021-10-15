@@ -91,7 +91,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let t = typeof<testInfo>
         let p = t.GetProperty("extraAssemblyLoadDirs")
         p.SetValue(info, Array.ofList extraAssemblyLoadDirs)
-        let serializer = XmlSerializer(typeof<testInfo>)
+        let serializer = XmlSerializer t
         use stream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write)
         serializer.Serialize(stream, info)
 

@@ -51,6 +51,7 @@
         <Compile Include="UnitTests.fs" />
         <Compile Include="CoverageTool.fs" />
         <Compile Include="AssemblyManager.fs" />
+        <Compile Include="TypeSolver.fs" />
     </ItemGroup>
 
     <ItemGroup>

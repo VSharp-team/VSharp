@@ -13,6 +13,26 @@ namespace VSharp.TestRunner
 
         private static IEnumerable<string> _extraAssemblyLoadDirs;
 
+        private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
+        {
+            var existingInstance = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.FullName == args.Name);
+            if (existingInstance != null)
+            {
+                return existingInstance;
+            }
+            Console.WriteLine("try load {0}", args.Name);
+            foreach (string path in _extraAssemblyLoadDirs)
+            {
+                string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
+                if (!File.Exists(assemblyPath))
+                    return null;
+                Assembly assembly = Assembly.LoadFrom(assemblyPath);
+                return assembly;
+            }
+
+            return null;
+        }
+
         private static bool StructurallyEqual(object expected, object got)
         {
             Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
@@ -51,9 +71,10 @@ namespace VSharp.TestRunner
         {
             if (got == null)
                 return expected == null;
-            if (expected.GetType() != got.GetType())
+            var type = expected.GetType();
+            if (type != got.GetType())
                 return false;
-            if (expected.GetType().IsPrimitive || expected is string)
+            if (type.IsPrimitive || expected is string || type.IsEnum)
             {
                 // TODO: compare double with epsilon?
                 return got.Equals(expected);
@@ -72,20 +93,6 @@ namespace VSharp.TestRunner
             return 2;
         }
 
-        private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
-        {
-            foreach (string path in _extraAssemblyLoadDirs)
-            {
-                string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
-                if (!File.Exists(assemblyPath))
-                    return null;
-                Assembly assembly = Assembly.LoadFrom(assemblyPath);
-                return assembly;
-            }
-
-            return null;
-        }
-
         public static int Main(string[] args)
         {
             if (args.Length != 1)
@@ -100,7 +107,8 @@ namespace VSharp.TestRunner
                 var dir = new DirectoryInfo(path);
 
                 tests = dir.EnumerateFiles("*.vst");
-            } else if (File.Exists(path))
+            }
+            else if (File.Exists(path))
             {
                 var fi = new FileInfo(path);
                 tests = new List<FileInfo> {fi};
@@ -111,7 +119,12 @@ namespace VSharp.TestRunner
             }
 
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-            bool atLeastOneTestFound = false;
+            AppDomain.CurrentDomain.AssemblyLoad += (sender, args) =>
+            {
+                Console.WriteLine("loaded {0}", args.LoadedAssembly.GetName().Name);
+            };
+
+        bool atLeastOneTestFound = false;
             foreach (FileInfo fi in tests)
             {
                 atLeastOneTestFound = true;

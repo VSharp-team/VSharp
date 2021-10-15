@@ -10,7 +10,7 @@ open VSharp.Core
 
 module TestGenerator =
 
-    let obj2test eval (indices : Dictionary<concreteHeapAddress, int>) (test : UnitTest) addr typ =
+    let private obj2test eval (indices : Dictionary<concreteHeapAddress, int>) (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
             let referenceRepr : referenceRepr = {index = !index}
@@ -53,8 +53,9 @@ module TestGenerator =
                 let repr = test.MemoryGraph.AddClass typ fields index
                 repr :> obj
 
-    let rec term2obj model state indices (test : UnitTest) = function
+    let rec private term2obj model state indices (test : UnitTest) = function
         | {term = Concrete(_, AddressType)} -> __unreachable__()
+        | {term = Concrete(v, t)} when Types.IsEnum t -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
         | {term = Struct(fields, t)} when Types.IsNullable t ->
@@ -82,26 +83,87 @@ module TestGenerator =
             obj2test eval indices test addr typ
         | _ -> __notImplemented__()
 
+    let private solveTypes (model : model) (cilState : cilState) =
+        let typeOfAddress addr =
+            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
+            else cilState.state.allocatedTypes.[addr]
+        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let addresses = HashSet<concreteHeapAddress>()
+        let add dict address typ =
+            match model.Eval address with
+            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
+                addresses.Add addr |> ignore
+                let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
+                let typ = Types.ToDotNetType typ
+                if not <| list.Contains typ then
+                    list.Add typ
+                Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
+                    let list = List<Type>()
+                    addr |> typeOfAddress |> Types.ToDotNetType |> list.Add
+                    list)
+                |> ignore
+            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
+
+        PathConditionToSeq cilState.state.pc |> Seq.iter (function
+            | {term = Constant(_, TypeSubtypeTypeSource _, _)} -> __notImplemented__()
+            | {term = Constant(_, RefSubtypeTypeSource(address, typ), _)} -> add supertypeConstraints address typ
+            | {term = Constant(_, TypeSubtypeRefSource(typ, address), _)} -> add subtypeConstraints address typ
+            | {term = Constant(_, RefSubtypeRefSource _, _)} -> __notImplemented__()
+            | Negation({term = Constant(_, TypeSubtypeTypeSource _, _)}) -> __notImplemented__()
+            | Negation({term = Constant(_, RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
+            | Negation({term = Constant(_, TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
+            | Negation({term = Constant(_, RefSubtypeRefSource _, _)}) -> __notImplemented__()
+            | _ ->())
+        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
+            let l = Dict.tryGetValue d addr null
+            if l = null then [] else List.ofSeq l
+        let addresses = List.ofSeq addresses
+        let solverResult =
+            addresses
+            |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
+                                     notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
+            |> List.ofSeq
+            |> TypeSolver.solve
+        match solverResult with
+        | None -> None
+        | Some(types, subst) -> Some(List.zip addresses types, subst)
+
     let state2test (m : MethodBase) (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
         test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
-//        referencedAssembliesLocations m.Module.Assembly |> Array.iter test.AddExtraAssemblySearchPath
+        match cilState.state.exceptionsRegister with
+        | Unhandled e ->
+            let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
+            test.Exception <- t
+        | _ -> ()
 
         match cilState.state.model with
         | Some model ->
-            m.GetParameters() |> Seq.iter (fun pi ->
-                let value = Memory.ReadArgument model.state pi |> model.Complete
-                let concreteValue : obj = term2obj model cilState.state indices test value
-                test.AddArg pi concreteValue)
+            match solveTypes model cilState with
+            | None -> None
+            | Some(typesOfAddresses, subst) ->
+                typesOfAddresses |> Seq.iter (fun (addr, t) ->
+                    model.state.allocatedTypes <- PersistentDict.add addr (Types.FromDotNetType t) model.state.allocatedTypes
+                    if t.IsValueType then
+                        model.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) model.state.boxedLocations)
 
-            if Reflection.hasThis m then
-                let value = Memory.ReadThis model.state m |> model.Complete
-                let concreteValue : obj = term2obj model cilState.state indices test value
-                test.ThisArg <- concreteValue
+                m.GetParameters() |> Seq.iter (fun pi ->
+                    let value = Memory.ReadArgument model.state pi |> model.Complete
+                    let concreteValue : obj = term2obj model cilState.state indices test value
+                    test.AddArg pi concreteValue)
 
-            let retVal = model.Eval cilState.Result
-            test.Expected <- term2obj model cilState.state indices test retVal
+                if Reflection.hasThis m then
+                    let value = Memory.ReadThis model.state m |> model.Complete
+                    let concreteValue : obj = term2obj model cilState.state indices test value
+                    test.ThisArg <- concreteValue
+
+                let retVal = model.Eval cilState.Result
+                test.Expected <- term2obj model cilState.state indices test retVal
+                Some test
         | None ->
             let emptyState = Memory.EmptyState()
             emptyState.allocatedTypes <- cilState.state.allocatedTypes
@@ -125,9 +187,4 @@ module TestGenerator =
             let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
             let retVal = emptyModel.Eval cilState.Result
             test.Expected <- term2obj emptyModel cilState.state indices test retVal
-        match cilState.state.exceptionsRegister with
-        | Unhandled e ->
-            let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
-            test.Exception <- t
-        | _ -> ()
-        test
+            Some test
