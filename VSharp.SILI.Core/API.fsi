@@ -78,6 +78,7 @@ module API =
         val (|StackBufferReading|_|) : IMemoryAccessConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
         val (|StaticsReading|_|) : IMemoryAccessConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<symbolicType>>>
         val (|StructFieldSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource * fieldId>
+        val (|StructFieldChain|_|) : ISymbolicConstantSource -> option<fieldId list * IMemoryAccessConstantSource>
         val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource>
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<symbolicType * symbolicTypeSet>
 
@@ -110,6 +111,11 @@ module API =
         val IsPointer : symbolicType -> bool
         val IsValueType : symbolicType -> bool
         val IsArrayType : symbolicType -> bool
+        val Int8 : symbolicType
+        val Int16 : symbolicType
+        val Int32 : symbolicType
+        val Int64 : symbolicType
+        val Char : symbolicType
         val String : symbolicType
         val (|StringType|_|) : symbolicType -> unit option
 

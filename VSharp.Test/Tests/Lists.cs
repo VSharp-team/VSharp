@@ -681,8 +681,8 @@ namespace IntegrationTests
             {
                 if (node.Value == prev + 1)
                     sum += node.Value;
-                node = node.Next;
                 prev = node.Value;
+                node = node.Next;
             }
 
             if (sum == 15)

@@ -21,9 +21,9 @@ module public Seq =
     let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
         let detachOne (acc, lensProd) dim =
             let curOffset = acc / lensProd
-            let curIndex = curOffset + lowerBounds.[dim]
+            let curIndex = curOffset + (if lowerBounds = null then 0 else lowerBounds.[dim])
             let rest = acc % lensProd
-            curIndex, (rest, if dim = lengths.Length then 1 else lensProd / lengths.[dim + 1])
+            curIndex, (rest, if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1])
         let mutable lenProd = 1
         for i in 1 .. lengths.Length - 1 do
             lenProd <- lenProd - 1

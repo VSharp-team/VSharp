@@ -296,7 +296,7 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
-    public static class TetsUnion
+    public static class TestUnion
     {
         public static Coord RetCoord(Object obj, Coord coord, int field)
         {

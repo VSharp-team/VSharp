@@ -100,6 +100,14 @@ module API =
         let (|StackBufferReading|_|) src = Memory.(|StackBufferReading|_|) src
         let (|StaticsReading|_|) src = Memory.(|StaticsReading|_|) src
         let (|StructFieldSource|_|) src = Memory.(|StructFieldSource|_|) src
+        let rec (|StructFieldChain|_|) (src : ISymbolicConstantSource) =
+            let rec structFieldChainRec acc = function
+                | Memory.StructFieldSource(baseSource, field) ->
+                    structFieldChainRec (field::acc) baseSource
+                | src -> Some(acc, src)
+            match src with
+            | :? IMemoryAccessConstantSource as ms -> structFieldChainRec [ ] ms
+            | _ -> None
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
 
@@ -138,6 +146,11 @@ module API =
         let IsValueType t = Types.isValueType t
         let IsArrayType t = Types.isArray t
         let IsNullable t = Types.isNullable t
+        let Int8 = Types.Int8
+        let Int16 = Types.Int16
+        let Int32 = Types.Int32
+        let Int64 = Types.Int64
+        let Char = Types.Char
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 

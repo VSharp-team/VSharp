@@ -2,12 +2,14 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Collections.Generic
+open System.IO
 open System.Reflection
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
 module TestGenerator =
+
     let obj2test eval (indices : Dictionary<concreteHeapAddress, int>) (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
@@ -18,6 +20,8 @@ module TestGenerator =
             let dnt = Types.ToDotNetType typ
             match typ with
             | ArrayType(elemType, dim) ->
+                let index = test.MemoryGraph.ReserveRepresentation()
+                indices.Add(addr, index)
                 let arrayType, (lengths : int array), (lowerBounds : int array) =
                     match dim with
                     | Vector ->
@@ -33,21 +37,33 @@ module TestGenerator =
                     let indices = Seq.delinearizeArrayIndex i lengths lowerBounds
                     let indexTerms = indices |> Seq.map (fun i -> Concrete i Types.IndexType) |> List.ofSeq
                     ArrayIndex(cha, indexTerms, arrayType) |> eval)
-                let repr = test.MemoryGraph.AddArray dnt contents lengths lowerBounds
-                indices.Add(addr, repr.index)
+                let repr = test.MemoryGraph.AddArray dnt contents lengths lowerBounds index
                 repr :> obj
             | _ when dnt.IsValueType -> BoxedLocation(addr, typ) |> eval
+            | _ when dnt = typeof<string> ->
+                let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
+                let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (Types.Char, 1, true)) |> eval |> unbox)
+                String(contents) :> obj
             | _ ->
+                let index = test.MemoryGraph.ReserveRepresentation()
+                indices.Add(addr, index)
                 let typ = Types.ToDotNetType typ
                 let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
                     ClassField(cha, field) |> eval)
-                let repr = test.MemoryGraph.AddClass typ fields
-                indices.Add(addr, repr.index)
+                let repr = test.MemoryGraph.AddClass typ fields index
                 repr :> obj
 
     let rec term2obj model state indices (test : UnitTest) = function
+        | {term = Concrete(_, AddressType)} -> __unreachable__()
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
+        | {term = Struct(fields, t)} when Types.IsNullable t ->
+            let t = Types.ToDotNetType t
+            let valueField, hasValueField = Reflection.fieldsOfNullable t
+            let hasValue : bool = fields.[hasValueField] |> term2obj model state indices test |> unbox
+            if hasValue then
+                fields.[valueField] |> term2obj model state indices test
+            else null
         | {term = Struct(fields, t)} ->
             let t = Types.ToDotNetType t
             let fieldReprs =
@@ -69,6 +85,8 @@ module TestGenerator =
     let state2test (m : MethodBase) (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
+        test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
+//        referencedAssembliesLocations m.Module.Assembly |> Array.iter test.AddExtraAssemblySearchPath
 
         match cilState.state.model with
         | Some model ->

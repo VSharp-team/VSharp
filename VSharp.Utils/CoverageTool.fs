@@ -41,6 +41,15 @@ type CoverageTool(testDir : string, runnerDir : string) =
 
     let mutable doc : XmlDocument = null
 
+    let rec typeName4Dotcover (typ : Type) =
+        if typ.IsGenericType then
+            let args = typ.GetGenericArguments()
+            let name = typ.GetGenericTypeDefinition().FullName.Replace("+", ".")
+            let index = name.IndexOf("`")
+            let trimmedName = if index >= 0 then name.Substring(0, index) else name
+            sprintf "%s<%s>" trimmedName (args |> Array.map typeName4Dotcover |> join ",")
+        else typ.FullName.Replace("+", ".")
+
     member x.Run(testDir : DirectoryInfo) =
         let success, error = run testDir
         if not success then
@@ -55,10 +64,9 @@ type CoverageTool(testDir : string, runnerDir : string) =
         let assemblyName = m.Module.Assembly.GetName().Name
         let namespaceName = m.DeclaringType.Namespace
         let typeName = m.DeclaringType.Name
-        let nameOfParameter (p : ParameterInfo) =
-            p.ParameterType.FullName.Replace('+', '.')
+        let nameOfParameter (p : ParameterInfo) = typeName4Dotcover p.ParameterType
         let parametersTypes = m.GetParameters() |> Seq.map nameOfParameter |> join ","
-        let returnType = m.ReturnType.FullName
+        let returnType = m.ReturnType |> typeName4Dotcover
         let methodName = sprintf "%s(%s):%s" m.Name parametersTypes returnType
         let xpath = sprintf "/Root/Assembly[@Name='%s']/Namespace[@Name='%s']/Type[@Name='%s']/Method[@Name='%s']/@CoveragePercent" assemblyName namespaceName typeName methodName
         let nodes = doc.DocumentElement.SelectNodes(xpath)

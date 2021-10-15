@@ -73,16 +73,16 @@ module internal TypeUtils =
         let Zero = MakeNumber 0
         let One = MakeNumber 1
         let MinusOne = MakeNumber -1
-        let MinValue = MakeNumber Int32.MinValue
-        let MaxValue = MakeNumber Int32.MaxValue
+        let MinValue = MakeNumber System.Int32.MinValue
+        let MaxValue = MakeNumber System.Int32.MaxValue
     module UInt32 =
         let Zero = MakeNumber 0u
         let MaxValue = MakeNumber UInt32.MaxValue
     module Int64 =
         let Zero = MakeNumber 0L
         let MinusOne = MakeNumber -1L
-        let MinValue = MakeNumber Int64.MinValue
-        let MaxValue = MakeNumber Int64.MaxValue
+        let MinValue = MakeNumber System.Int64.MinValue
+        let MaxValue = MakeNumber System.Int64.MaxValue
     module UInt64 =
         let Zero = MakeNumber 0UL
         let MaxValue = MakeNumber UInt64.MaxValue
@@ -1943,7 +1943,8 @@ type internal ILInterpreter() as this =
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->
                 let method = location.method
-                let ehcs = method.GetMethodBody().ExceptionHandlingClauses
+                let body = method.GetMethodBody()
+                let ehcs = if body = null then System.Collections.Generic.List<_>() :> System.Collections.Generic.IList<_> else body.ExceptionHandlingClauses
                 let filter = ehcs |> Seq.filter (fun ehc -> ehc.Flags = ExceptionHandlingClauseOptions.Filter) // TODO: use
                 let catchBlocks = ehcs |> Seq.filter (fun ehc -> ehc.Flags = ExceptionHandlingClauseOptions.Clause)
                 let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError()) |> Types.ToDotNetType

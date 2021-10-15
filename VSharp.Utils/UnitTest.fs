@@ -20,6 +20,7 @@ type testInfo = {
     expectedResult : obj
     throwsException : typeRepr
     memory : memoryRepr
+    extraAssemblyLoadDirs : string array
 }
 with
     static member OfMethod(m : MethodBase) = {
@@ -31,6 +32,7 @@ with
         expectedResult = null
         throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
         memory = {objects = Array.empty; types = Array.empty}
+        extraAssemblyLoadDirs = Array.empty
     }
 
 type UnitTest private (m : MethodBase, info : testInfo) =
@@ -42,6 +44,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
+    let mutable extraAssemblyLoadDirs : string list = []
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
 
@@ -69,6 +72,8 @@ type UnitTest private (m : MethodBase, info : testInfo) =
 
     member x.MemoryGraph with get() = memoryGraph
 
+    member x.ExtraAssemblyLoadDirs with get() = info.extraAssemblyLoadDirs
+
     member x.AddArg (arg : ParameterInfo) (value : obj) =
         if info.args = null then
             let t = typeof<testInfo>
@@ -77,8 +82,15 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let value = memoryGraph.Encode value
         info.args.[arg.Position] <- value
 
+    member x.AddExtraAssemblySearchPath path =
+        if not <| List.contains path extraAssemblyLoadDirs then
+            extraAssemblyLoadDirs <- path::extraAssemblyLoadDirs
+
     member x.Serialize(destination : string) =
         memoryGraph.Serialize info.memory
+        let t = typeof<testInfo>
+        let p = t.GetProperty("extraAssemblyLoadDirs")
+        p.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let serializer = XmlSerializer(typeof<testInfo>)
         use stream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write)
         serializer.Serialize(stream, info)

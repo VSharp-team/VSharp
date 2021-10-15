@@ -79,8 +79,9 @@ type MemoryGraph(repr : memoryRepr) =
             System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
         | :? arrayRepr as repr ->
             let t = sourceTypes.[repr.typ]
-            if repr.lowerBounds = null then Array.CreateInstance(t, repr.lengths) :> obj
-            else Array.CreateInstance(t, repr.lengths, repr.lowerBounds) :> obj
+            let elementType = t.GetElementType()
+            if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
+            else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
         | _ -> obj
 
     let sourceObjects = List<obj>(repr.objects |> Array.map allocatePlaceholder)
@@ -132,48 +133,6 @@ type MemoryGraph(repr : memoryRepr) =
     let () =
         Seq.iter2 decodeObject objReprs sourceObjects
 
-//    member x.DecodeValue (obj : obj) =
-//        match obj with
-//        | :? referenceRepr as repr ->
-//            sourceObjects.[repr.index]
-//        | :? pointerRepr -> __notImplemented__()
-//        | :? structureRepr as repr ->
-//            let t = sourceTypes.[repr.typ]
-//            if not t.IsValueType then
-//                internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
-//            let obj = allocatePlaceholder repr
-//            x.DecodeStructure repr obj
-//            obj
-//        | :? arrayRepr -> internalfail "Unexpected array representation inside object!"
-//        | _ -> obj
-//
-//    member private x.DecodeStructure (repr : structureRepr) obj =
-//        let t = obj.GetType()
-//        Reflection.fieldsOf false t |> Array.iteri (fun i (_, field) ->
-//            let value = x.DecodeValue repr.fields.[i]
-//            field.SetValue(obj, value))
-//
-//    member private x.DecodeArray (repr : arrayRepr) (obj : obj) =
-//        match repr.lengths, repr.lowerBounds with
-//        | [|len|], null ->
-//            let arr = obj :?> obj array
-//            assert(arr.Length = len)
-//            repr.contents |> Array.iteri (fun i r -> arr.[i] <- x.DecodeValue r)
-//        | lens, lbs ->
-//            assert(lens.Length = lbs.Length)
-//            let arr = obj :?> Array
-//            repr.contents |> Array.iteri (fun i r ->
-//                let value = x.DecodeValue r
-//                let indices = Seq.delinearizeArrayIndex i lens lbs
-//                arr.SetValue(value, indices))
-//
-//    member private x.DecodeObject (repr : obj) obj =
-//        match repr with
-//        | :? structureRepr as repr ->
-//            x.DecodeStructure repr obj
-//        | :? arrayRepr as repr ->
-//            x.DecodeArray repr obj
-//        | _ -> ()
     member x.DecodeValue (obj : obj) = decodeValue obj
 
     member private x.IsSerializable (t : Type) =
@@ -245,14 +204,17 @@ type MemoryGraph(repr : memoryRepr) =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
         repr :> obj
 
-    member x.AddClass (typ : Type) (fields : obj array) =
-        let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
-        { index = x.Bind null repr }
+    member x.ReserveRepresentation() = x.Bind null null
 
-    member x.AddArray (typ : Type) (contents : obj array) (lengths : int array) (lowerBounds : int array) =
-        let lowerBounds = if lowerBounds.Length = 1 && lowerBounds.[0] = 0 then null else lowerBounds
+    member x.AddClass (typ : Type) (fields : obj array) index =
+        let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
+        objReprs.[index] <- repr
+        { index = index }
+
+    member x.AddArray (typ : Type) (contents : obj array) (lengths : int array) (lowerBounds : int array) index =
         let repr : arrayRepr = {typ = x.RegisterType typ; contents = contents; lengths = lengths; lowerBounds = lowerBounds }
-        { index = x.Bind null repr }
+        objReprs.[index] <- repr
+        { index = index }
 
     member x.Serialize (target : memoryRepr) =
         let t = typeof<memoryRepr>

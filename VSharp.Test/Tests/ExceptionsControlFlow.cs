@@ -69,8 +69,8 @@ namespace IntegrationTests
             return res;
         }
 
-        private static int Alway42() => 42;
-        private static int Alway84() => Alway42() * 2;
+        private static int Always42() => 42;
+        private static int Always84() => Always42() * 2;
 
         // expecting 111111
         [Ignore("FilterHandler support")]
@@ -88,7 +88,7 @@ namespace IntegrationTests
                     globalMemory += 10;
                     throw new Exception();
                 }
-                catch (Exception) when ((globalMemory += 100) > 50 && f && Alway42() == 42)
+                catch (Exception) when ((globalMemory += 100) > 50 && f && Always42() == 42)
                 {
                     globalMemory += 1000;
                 }
@@ -137,7 +137,7 @@ namespace IntegrationTests
             int res = 0;
             try
             {
-                res += Alway42();
+                res += Always42();
             }
             finally
             {
@@ -145,11 +145,11 @@ namespace IntegrationTests
                 {
                     try
                     {
-                        res += Alway42();
+                        res += Always42();
                     }
                     finally
                     {
-                        res += Alway84();
+                        res += Always84();
                     }
                 }
             }
