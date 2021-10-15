@@ -365,9 +365,9 @@ module internal InstructionsSet =
                     kRestCases otherState k)
         let fallThroughIp, restIps =
             match conditionalBranchTarget m offset with
-            | fall,  rests -> instruction m fall, List.map (instruction m) rests
+            | fall, rests -> instruction m fall, List.map (instruction m) rests
         let casesAndOffsets = List.mapi (fun i offset -> value === MakeNumber i, offset) restIps
-        let fallThroughGuard = Arithmetics.(>>=) value (List.length restIps |> MakeNumber)
+        let fallThroughGuard = Arithmetics.(>>=) value (makeUnsignedInteger (List.length restIps |> MakeNumber) id)
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (cfg : cfg) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
@@ -965,7 +965,7 @@ type internal ILInterpreter() as this =
                 StatedConditionalExecutionAppendResultsCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
                     (callForConcreteType baseType)
-                    (x.CallAbstract ancestorMethod)
+                    (fun s k -> x.CallAbstract ancestorMethod s k)
                     k
             let baseDotNetType = Types.ToDotNetType baseType
             if baseDotNetType.IsInterface
@@ -1938,7 +1938,10 @@ type internal ILInterpreter() as this =
                 List.iter makeLeaveIfNeeded states
                 k states)
             | SearchingForHandler([], framesToPop) ->
-                if List.length framesToPop > 1 then List.iter (fun _ -> popFrameOf cilState) (List.tail framesToPop)
+                let popFrameWithContents _ =
+                    clearEvaluationStackLastFrame cilState
+                    popFrameOf cilState
+                if List.length framesToPop > 1 then List.iter popFrameWithContents (List.tail framesToPop)
                 setCurrentIp (SearchingForHandler([], [])) cilState
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->
@@ -1987,6 +1990,7 @@ type internal ILInterpreter() as this =
                 let neededBlock = x.FindNeededEHCBlock location.offset isWider finallyBlocks
                 let finallyHandlerIp = neededBlock |> Option.map (fun b -> Instruction(b.HandlerOffset, location.method))
                 let ip = SecondBypass(finallyHandlerIp, otherLocations, codeLocation)
+                clearEvaluationStackLastFrame cilState
                 popFrameOf cilState
                 setCurrentIp ip cilState
                 k [cilState]

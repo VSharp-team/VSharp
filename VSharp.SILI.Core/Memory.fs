@@ -649,10 +649,7 @@ module internal Memory =
         let readField fieldId = readClassField state address fieldId
         readFieldsUnsafe readField false classType offset endByte
 
-    let private getAffectedIndices state address arrayType startByte size =
-        // TODO: String array has another offset #do
-        let offset = sub startByte (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let elementType, dim, _ as arrayType = symbolicTypeToArrayType arrayType
+    let private getAffectedIndices state address (elementType, dim, _ as arrayType) offset size =
         let concreteElementSize = sizeOf elementType
         let elementSize = makeNumber concreteElementSize
         let firstElement = div offset elementSize
@@ -678,7 +675,15 @@ module internal Memory =
 
     let private readArrayUnsafe state address arrayType offset sightType =
         let size = Option.map sizeOf sightType
-        let indices = getAffectedIndices state address arrayType offset size
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
+        let indices = getAffectedIndices state address (symbolicTypeToArrayType arrayType) offset size
+        List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
+
+    let private readStringUnsafe state address offset sightType =
+        let size = Option.map sizeOf sightType
+         // TODO: handle case, when reading string length
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
+        let indices = getAffectedIndices state address (Char, 1, true) offset size
         List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
 
     let private readStaticUnsafe state t offset sightType =
@@ -698,7 +703,7 @@ module internal Memory =
             | HeapLocation loc ->
                 let typ = typeOfHeapLocation state loc
                 match typ with
-                | StringType -> __notImplemented__() // TODO: handle string case
+                | StringType -> readStringUnsafe state loc offset nonVoidType
                 | ClassType _ -> readClassUnsafe state loc typ offset nonVoidType
                 | ArrayType _ -> readArrayUnsafe state loc typ offset nonVoidType
                 | StructType _ -> __notImplemented__() // TODO: boxed location?
@@ -1025,8 +1030,19 @@ module internal Memory =
 
     let writeArrayUnsafe state address arrayType offset value =
         let size = Terms.sizeOf value
-        let affectedIndices = getAffectedIndices state address arrayType offset (Some size)
         let arrayType = symbolicTypeToArrayType arrayType
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
+        let affectedIndices = getAffectedIndices state address arrayType offset (Some size)
+        let writeElement (index, element, startByte, _) =
+            let updatedElement = writeTermUnsafe element startByte value
+            writeArrayIndex state address index arrayType updatedElement
+        List.iter writeElement affectedIndices
+
+    let private writeStringUnsafe state address offset value =
+        let size = Terms.sizeOf value
+        let arrayType = Char, 1, true
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
+        let affectedIndices = getAffectedIndices state address arrayType offset (Some size)
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
@@ -1044,9 +1060,9 @@ module internal Memory =
         | HeapLocation loc ->
             let typ = typeOfHeapLocation state loc
             match typ with
+            | StringType -> writeStringUnsafe state loc offset value
             | ClassType _ -> writeClassUnsafe state loc typ offset value
             | ArrayType _ -> writeArrayUnsafe state loc typ offset value
-            | StringType -> __notImplemented__() // TODO: handle string case
             | StructType _ -> __notImplemented__() // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc ->

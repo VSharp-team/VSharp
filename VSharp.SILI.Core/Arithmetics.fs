@@ -101,6 +101,9 @@ module Calculator1 =
         let xType = x.GetType()
         let yType = y.GetType()
 
+        // TODO: each opcode should have it's concrete version, so cgt.un calls exactly cgt.un
+        let areUnsigned = isUnsigned xType && isUnsigned yType
+
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, xType)
         il.Emit(OpCodes.Ldarg_1)
@@ -112,14 +115,16 @@ module Calculator1 =
         il.Emit(OpCodes.Unbox_Any, xType)
         il.Emit(OpCodes.Ldarg_1)
         il.Emit(OpCodes.Unbox_Any, yType)
-        il.Emit(OpCodes.Cgt)
+        if areUnsigned then il.Emit(OpCodes.Cgt_Un)
+        else il.Emit(OpCodes.Cgt)
         il.Emit(OpCodes.Brtrue, gt)
 
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, xType)
         il.Emit(OpCodes.Ldarg_1)
         il.Emit(OpCodes.Unbox_Any, yType)
-        il.Emit(OpCodes.Clt)
+        if areUnsigned then il.Emit(OpCodes.Clt_Un)
+        else il.Emit(OpCodes.Clt)
         il.Emit(OpCodes.Brtrue, lt)
 
         il.MarkLabel(eq)
@@ -267,7 +272,7 @@ module internal Arithmetics =
 // ------------------------------- Simplification of unary "-" -------------------------------
 
     and private simplifyConcreteUnaryMinus t x =
-        castConcrete (Calculator.UnaryMinus(x, t)) t
+        castConcrete (Calculator1.Sub(0, x, t)) t
 
     and private simplifyUnaryMinus (t : System.Type) x k =
         let simplifyConcrete _ obj _ =

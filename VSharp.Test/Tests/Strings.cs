@@ -14,14 +14,14 @@ namespace IntegrationTests
             return String.Empty;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static string SymbolicString(string s)
         {
             var len = s.Length;
             return s;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int NullLength()
         {
             string s = null;
@@ -65,6 +65,21 @@ namespace IntegrationTests
             char[] a = null;
             string str = new string(a);
             return str.Length;
+        }
+
+        [TestSvm]
+        public static bool ConcreteStringToUpper()
+        {
+            string str = "C7";
+            string upper = str.ToUpperInvariant();
+            return upper == str;
+        }
+
+        [TestSvm]
+        public static bool SymbolicStringToUpper(char c)
+        {
+            string s = c + "c";
+            return s.ToUpperInvariant()[1] == 'C';
         }
     }
 }
