@@ -84,7 +84,7 @@ module TestGenerator =
             obj2test eval indices test addr typ
         | _ -> __notImplemented__()
 
-    let private solveTypes (model : model) (cilState : cilState) =
+    let private solveTypes (m : MethodBase) (model : model) (cilState : cilState) =
         let typeOfAddress addr =
             if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
             else cilState.state.allocatedTypes.[addr]
@@ -122,15 +122,21 @@ module TestGenerator =
             let l = Dict.tryGetValue d addr null
             if l = null then [] else List.ofSeq l
         let addresses = List.ofSeq addresses
-        let solverResult =
+        let inputConstraints =
             addresses
             |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
                                      notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
             |> List.ofSeq
-            |> TypeSolver.solve
+        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
+        let methodGenericParameters = m.GetGenericArguments()
+        let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
-        | None -> None
-        | Some(types, subst) -> Some(List.zip addresses types, subst)
+        | TypeSat(refsTypes, typeParams) ->
+            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+            Some(List.zip addresses refsTypes, Array.ofList classParams, Array.ofList methodParams)
+        | TypeUnsat -> None
+        | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
+        | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
 
     let state2test isError (m : MethodBase) (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
@@ -144,9 +150,11 @@ module TestGenerator =
 
         match cilState.state.model with
         | Some model ->
-            match solveTypes model cilState with
+            match solveTypes m model cilState with
             | None -> None
-            | Some(typesOfAddresses, subst) ->
+            | Some(typesOfAddresses, classParams, methodParams) ->
+                test.SetTypeGenericParameters classParams
+                test.SetMethodGenericParameters methodParams
                 typesOfAddresses |> Seq.iter (fun (addr, t) ->
                     model.state.allocatedTypes <- PersistentDict.add addr (Types.FromDotNetType t) model.state.allocatedTypes
                     if t.IsValueType then
@@ -188,9 +196,20 @@ module TestGenerator =
             m.GetParameters() |> Seq.iter (fun pi ->
                 let defaultValue = TypeUtils.defaultOf pi.ParameterType
                 test.AddArg pi defaultValue)
+            let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
+
             test.IsError <- isError
-            if not isError then
-                let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
-                let retVal = emptyModel.Eval cilState.Result
-                test.Expected <- term2obj emptyModel cilState.state indices test retVal
-            Some test
+            match solveTypes m emptyModel cilState with
+            | None -> None
+            | Some(typesOfAddresses, classParams, methodParams) ->
+                test.SetTypeGenericParameters classParams
+                test.SetMethodGenericParameters methodParams
+                typesOfAddresses |> Seq.iter (fun (addr, t) ->
+                    emptyModel.state.allocatedTypes <- PersistentDict.add addr (Types.FromDotNetType t) emptyModel.state.allocatedTypes
+                    if t.IsValueType then
+                        emptyModel.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) emptyModel.state.boxedLocations)
+
+                if not isError then
+                    let retVal = emptyModel.Eval cilState.Result
+                    test.Expected <- term2obj emptyModel cilState.state indices test retVal
+                Some test

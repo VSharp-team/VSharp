@@ -48,7 +48,17 @@ type CoverageTool(testDir : string, runnerDir : string) =
             let index = name.IndexOf("`")
             let trimmedName = if index >= 0 then name.Substring(0, index) else name
             sprintf "%s<%s>" trimmedName (args |> Array.map typeName4Dotcover |> join ",")
-        else typ.FullName.Replace("+", ".")
+        elif typ.IsGenericParameter then typ.Name
+        else typ.FullName.Replace("+", ".") // Replace + in inner class names with dots
+
+    let rec declaringTypeName4Dotcover (typ : Type) =
+        if typ.IsGenericType then
+            let args = typ.GetGenericArguments()
+            let name = typ.GetGenericTypeDefinition().Name.Replace("+", ".")
+            let index = name.IndexOf("`")
+            let trimmedName = if index >= 0 then name.Substring(0, index) else name
+            sprintf "%s<%s>" trimmedName (args |> Array.map typeName4Dotcover |> join ",")
+        else typ.Name
 
     member x.Run(testDir : DirectoryInfo) =
         let success, error = run testDir
@@ -63,7 +73,7 @@ type CoverageTool(testDir : string, runnerDir : string) =
         // TODO: we might also have inner classes and properties
         let assemblyName = m.Module.Assembly.GetName().Name
         let namespaceName = m.DeclaringType.Namespace
-        let typeName = m.DeclaringType.Name
+        let typeName = declaringTypeName4Dotcover m.DeclaringType
         let nameOfParameter (p : ParameterInfo) = typeName4Dotcover p.ParameterType
         let parametersTypes = m.GetParameters() |> Seq.map nameOfParameter |> join ","
         let returnType = m.ReturnType |> typeName4Dotcover

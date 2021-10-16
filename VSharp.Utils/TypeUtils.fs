@@ -179,6 +179,7 @@ module TypeUtils =
         match t with
         // TODO: throws an exception when value = char, implement using Emit
         | _ when t = typeof<Boolean> || value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t)
+        | _ when t.IsEnum -> Enum.ToObject(t, value)
         | _ -> convNumeric value t
 
     // --------------------------------------- Operation target type ---------------------------------------

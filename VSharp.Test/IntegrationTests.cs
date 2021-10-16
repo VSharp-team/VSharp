@@ -82,8 +82,7 @@ namespace VSharp.Test
 
                     explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
 
-                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 &&
-                        explorer.IncompleteStates.Count == 0)
+                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
                     }
@@ -91,12 +90,21 @@ namespace VSharp.Test
                     explorer.GenerateReport(TestContext.Out);
                     TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
                     unitTests.WriteReport(explorer.GenerateReport);
-                    var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName, Directory.GetCurrentDirectory());
-                    coverageTool.Run(unitTests.TestDirectory);
-                    int coverage = coverageTool.GetCoverage(methodInfo);
-                    if (coverage != _expectedCoverage)
+                    if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
-                        context.CurrentResult.SetResult(ResultState.Failure, "Incomplete coverage! Expected " + _expectedCoverage + ", but got " + coverage);
+                        var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName,
+                            Directory.GetCurrentDirectory());
+                        coverageTool.Run(unitTests.TestDirectory);
+                        int coverage = coverageTool.GetCoverage(methodInfo);
+                        if (coverage != _expectedCoverage)
+                        {
+                            context.CurrentResult.SetResult(ResultState.Failure,
+                                "Incomplete coverage! Expected " + _expectedCoverage + ", but got " + coverage);
+                        }
+                        else
+                        {
+                            context.CurrentResult.SetResult(ResultState.Success);
+                        }
                     }
                     else
                     {

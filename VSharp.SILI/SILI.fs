@@ -50,15 +50,20 @@ type public SILI(options : SiliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
+    let reportState reporter isError method state =
+        try
+            match TestGenerator.state2test isError method state with
+            | Some test -> reporter test
+            | None -> ()
+        with :? InsufficientInformationException as e ->
+            state.iie <- Some e
+            reportIncomplete state
+
     let wrapOnTest (action : Action<UnitTest>) method state =
-        match TestGenerator.state2test false method state with
-        | Some test -> action.Invoke test
-        | None -> ()
+        reportState action.Invoke false method state
 
     let wrapOnError (action : Action<UnitTest>) method state =
-        match TestGenerator.state2test true method state with
-        | Some test -> action.Invoke test
-        | None -> ()
+        reportState action.Invoke true method state
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         iies.Add(state)
@@ -215,7 +220,7 @@ type public SILI(options : SiliOptions) =
         if iies.Count > 0 then
             writer.WriteLine()
             writer.WriteLine()
-            writer.WriteLine("{0} branch(es) with insufficient input information!")
+            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
 
     member x.IncompleteStates with get() = iies

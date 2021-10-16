@@ -20,7 +20,6 @@ namespace VSharp.TestRunner
             {
                 return existingInstance;
             }
-            Console.WriteLine("try load {0}", args.Name);
             foreach (string path in _extraAssemblyLoadDirs)
             {
                 string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
@@ -69,9 +68,9 @@ namespace VSharp.TestRunner
 
         private static bool CompareObjects(object expected, object got)
         {
-            if (got == null)
-                return expected == null;
             if (expected == null)
+                return got == null;
+            if (got == null)
                 return false;
             var type = expected.GetType();
             if (type != got.GetType())
@@ -123,10 +122,6 @@ namespace VSharp.TestRunner
             }
 
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-            AppDomain.CurrentDomain.AssemblyLoad += (sender, args) =>
-            {
-                Console.WriteLine("loaded {0}", args.LoadedAssembly.GetName().Name);
-            };
 
         bool atLeastOneTestFound = false;
             foreach (FileInfo fi in tests)
@@ -173,7 +168,7 @@ namespace VSharp.TestRunner
                         catch (TargetInvocationException e)
                         {
                             if (e.InnerException != null && e.InnerException.GetType() == ex)
-                                Console.WriteLine("Test throws expected error!");
+                                Console.WriteLine("Test {0} throws expected error!", fi.Name);
                             else if (e.InnerException != null) throw e.InnerException;
                             else throw;
                         }
@@ -181,11 +176,11 @@ namespace VSharp.TestRunner
                 }
                 catch (Exception e)
                 {
-                    Console.Error.WriteLine("Error: {0}", e);
+                    Console.Error.WriteLine("Error ({0}): {1}", fi.Name, e);
                     return 2;
                 }
 
-                Console.WriteLine("Test passed!");
+                Console.WriteLine("{0} passed!", fi.Name);
             }
 
             if (!atLeastOneTestFound)
