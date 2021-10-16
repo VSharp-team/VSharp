@@ -1,5 +1,6 @@
-﻿module VSharp.Utils.PersistentUnionFind
+﻿namespace VSharp
 
+open System
 open VSharp
 
 (*
@@ -28,11 +29,15 @@ module public PersistentUnionFind =
     /// Returns representative element of the set containing the given element or
     /// throws if the given element not found
     /// </summary>
+    /// <exception cref="InvalidOperationException">Element not found</exception>
     let rec public find a puf =
-        PersistentDict.find puf.elements a
-        |> function
-            | Tail _ -> a
-            | Node(next) -> find next puf
+        try
+            PersistentDict.find puf.elements a
+            |> function
+                | Tail _ -> a
+                | Node(next) -> find next puf
+        with
+            _ -> raise (InvalidOperationException "Element not found")
             
     /// <summary>
     /// Returns representative element of the set containing the given element or
@@ -66,7 +71,8 @@ module public PersistentUnionFind =
         | _ -> puf
     
     /// <summary>
-    /// Adds a single-element set containing the given element 
+    /// Adds a single-element set containing the given element. If the element already exists,
+    /// does nothing
     /// </summary>
     let public add puf a =
         match tryFind a puf with
@@ -76,9 +82,14 @@ module public PersistentUnionFind =
     /// <summary>
     /// Returns a single-set union-find with the set containing the given element
     /// </summary>
+    /// <exception cref="InvalidOperationException">Element not found</exception>
     let public subset a puf =
         let rec traverse current acc =
-            let next = PersistentDict.find puf.elements current
+            let next =
+                try
+                    PersistentDict.find puf.elements current
+                with
+                    _ -> raise (InvalidOperationException "Element not found")
             let updatedDict = PersistentDict.add current next acc
             let unwrappedNext = unwrapNode next
             if (unwrappedNext <> a) then

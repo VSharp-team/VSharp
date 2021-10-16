@@ -1,7 +1,6 @@
 namespace VSharp.Core
 open VSharp
 open VSharp.Utils
-open VSharp.Utils.PersistentUnionFind
 
 (*
     Path condition is represented as a union-find of sets disjoint by independence of
