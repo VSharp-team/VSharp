@@ -19,7 +19,7 @@ type public SILI(options : SiliOptions) =
     let interpreter = ILInterpreter()
     let mutable entryIP : ip = Exit null
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportException : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
@@ -51,12 +51,12 @@ type public SILI(options : SiliOptions) =
         |> List.ofSeq
 
     let wrapOnTest (action : Action<UnitTest>) method state =
-        match TestGenerator.state2test method state with
+        match TestGenerator.state2test false method state with
         | Some test -> action.Invoke test
         | None -> ()
 
     let wrapOnError (action : Action<UnitTest>) method state =
-        match TestGenerator.state2test method state with
+        match TestGenerator.state2test true method state with
         | Some test -> action.Invoke test
         | None -> ()
 
@@ -92,9 +92,10 @@ type public SILI(options : SiliOptions) =
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         // TODO: need to report? #do
+        toReportFinished |> List.iter (fun s -> Logger.info "Result = %O" s.Result)
         toReportFinished |> List.iter reportFinished
-        let errors, toReportError = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportError |> List.iter reportException
+        let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
+        toReportExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
         let newStates =
@@ -181,9 +182,10 @@ type public SILI(options : SiliOptions) =
                                  (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
         reportFinished <- wrapOnTest onFinished method
-        reportException <- wrapOnError onException method
+        reportError <- wrapOnError onException method
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
+        interpreter.ConfigureErrorReporter reportError
         let state = Memory.EmptyState()
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
@@ -194,9 +196,10 @@ type public SILI(options : SiliOptions) =
                                (onInternalFail : Action<Exception>) : unit =
         Reset()
         reportFinished <- wrapOnTest onFinished method
-        reportException <- wrapOnError onException method
+        reportError <- wrapOnError onException method
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
+        interpreter.ConfigureErrorReporter reportError
         let initialStates = x.FormInitialStates method
         x.AnswerPobs method initialStates
         Restore()

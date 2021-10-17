@@ -71,6 +71,8 @@ namespace VSharp.TestRunner
         {
             if (got == null)
                 return expected == null;
+            if (expected == null)
+                return false;
             var type = expected.GetType();
             if (type != got.GetType())
                 return false;
@@ -153,23 +155,19 @@ namespace VSharp.TestRunner
                             object result = null;
                             if (!test.IsError || runExactTest)
                                 result = method.Invoke(thisObj, parameters);
-                            if (!CompareObjects(test.Expected, result))
-                            {
-                                // TODO: use NUnit?
-                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
-                                    test.Expected.GetType(),
-                                    result.GetType());
-                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
-                                    test.Expected ?? "null",
-                                    result ?? "null");
-                                return 5;
-                            }
-
                             if (ex != null)
                             {
                                 Console.Error.WriteLine("Test {0} failed! Expected exception {1} was not thrown",
                                     fi.Name, ex);
                                 return 6;
+                            }
+                            if (!CompareObjects(test.Expected, result))
+                            {
+                                // TODO: use NUnit?
+                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
+                                    test.Expected ?? "null",
+                                    result ?? "null");
+                                return 5;
                             }
                         }
                         catch (TargetInvocationException e)

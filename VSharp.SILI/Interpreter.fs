@@ -533,7 +533,9 @@ module internal InstructionsSet =
 
 open InstructionsSet
 
-type internal ILInterpreter(reportError : cilState -> unit) as this =
+type internal ILInterpreter() as this =
+
+    let mutable reportError : cilState -> unit = fun _ -> ()
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
         Map.ofList [
@@ -542,9 +544,13 @@ type internal ILInterpreter(reportError : cilState -> unit) as this =
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
             "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
             "System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)", this.ClearArray
-            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm
+            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm1
+            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
         ]
+
+    member x.ConfigureErrorReporter reporter =
+        reportError <- reporter
 
     member private x.Raise createException (cilState : cilState) k =
         createException cilState
@@ -698,8 +704,13 @@ type internal ILInterpreter(reportError : cilState -> unit) as this =
             rankCheck
             id
 
-    member private x.CopyArrayExtendedForm (cilState : cilState) _ (args : term list) =
+    member private x.CopyArrayExtendedForm1 (cilState : cilState) _ (args : term list) =
         assert(List.length args = 6)
+        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+        x.CommonCopyArray cilState src srcIndex dst dstIndex length
+
+    member private x.CopyArrayExtendedForm2 (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 5)
         let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
         x.CommonCopyArray cilState src srcIndex dst dstIndex length
 
