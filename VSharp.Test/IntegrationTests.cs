@@ -84,20 +84,17 @@ namespace VSharp.Test
                 {
                     _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, _maxBoundForTest);
                     SILI explorer = new SILI(_options);
-                    Statistics statistics = new Statistics();
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
-                    statistics.SetupBeforeMethod(methodInfo);
 
                     explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
 
-                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.IncompleteStates.Count == 0)
+                    if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
                     }
-                    statistics.AddSucceededMethod(methodInfo);
-                    explorer.GenerateReport(TestContext.Out);
+                    explorer.Statistics.PrintStatistics(TestContext.Out);
                     TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
-                    unitTests.WriteReport(explorer.GenerateReport);
+                    unitTests.WriteReport(explorer.Statistics.PrintStatistics);
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");

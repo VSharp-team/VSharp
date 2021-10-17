@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace VSharp.TestRunner
 {
-    public static class Program
+    public static class TestRunner
     {
 
         private static IEnumerable<string> _extraAssemblyLoadDirs;
@@ -86,47 +86,12 @@ namespace VSharp.TestRunner
             return StructurallyEqual(expected, got);
         }
 
-        private static int ShowUsage()
+        private static bool ReproduceTests(IEnumerable<FileInfo> tests, bool shouldReproduceError)
         {
-            Console.Error.WriteLine("V# test runner tool. Accepts unit test in *.vst format, runs the target executable with the specified input data.\n" +
-                                    "\n" +
-                                    "Usage: {0} <test directory or *.vst file>", AppDomain.CurrentDomain.FriendlyName);
-            return 2;
-        }
-
-        public static int Main(string[] args)
-        {
-            if (args.Length != 1)
-            {
-                return ShowUsage();
-            }
-
-            string path = args[0];
-            IEnumerable<FileInfo> tests;
-            var runExactTest = false;
-            if (Directory.Exists(path))
-            {
-                var dir = new DirectoryInfo(path);
-
-                tests = dir.EnumerateFiles("*.vst");
-            }
-            else if (File.Exists(path))
-            {
-                var fi = new FileInfo(path);
-                tests = new List<FileInfo> {fi};
-                runExactTest = true;
-            }
-            else
-            {
-                return ShowUsage();
-            }
-
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
-        bool atLeastOneTestFound = false;
             foreach (FileInfo fi in tests)
             {
-                atLeastOneTestFound = true;
                 try
                 {
                     using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
@@ -148,13 +113,13 @@ namespace VSharp.TestRunner
                         try
                         {
                             object result = null;
-                            if (!test.IsError || runExactTest)
+                            if (!test.IsError || shouldReproduceError)
                                 result = method.Invoke(thisObj, parameters);
                             if (ex != null)
                             {
                                 Console.Error.WriteLine("Test {0} failed! Expected exception {1} was not thrown",
                                     fi.Name, ex);
-                                return 6;
+                                return false;
                             }
                             if (!CompareObjects(test.Expected, result))
                             {
@@ -162,7 +127,7 @@ namespace VSharp.TestRunner
                                 Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
                                     test.Expected ?? "null",
                                     result ?? "null");
-                                return 5;
+                                return false;
                             }
                         }
                         catch (TargetInvocationException e)
@@ -177,18 +142,31 @@ namespace VSharp.TestRunner
                 catch (Exception e)
                 {
                     Console.Error.WriteLine("Error ({0}): {1}", fi.Name, e);
-                    return 2;
+                    return false;
                 }
 
                 Console.WriteLine("{0} passed!", fi.Name);
             }
 
-            if (!atLeastOneTestFound)
+            return true;
+        }
+
+        public static bool ReproduceTest(FileInfo file)
+        {
+            return ReproduceTests(new[] {file}, true);
+        }
+
+        public static bool ReproduceTests(DirectoryInfo testsDir)
+        {
+            var tests = testsDir.EnumerateFiles("*.vst");
+            var testsList = tests.ToList();
+            if (testsList.Count > 0)
             {
-                Console.Error.WriteLine("No *.vst tests found in {0}", path);
+                return ReproduceTests(testsList, false);
             }
 
-            return 0;
+            Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
+            return false;
         }
     }
 }

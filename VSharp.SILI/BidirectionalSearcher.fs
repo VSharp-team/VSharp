@@ -57,23 +57,26 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
                 Seq.iter (backward.AddBranch >> ignore) reached
 
         override x.Pick () =
-            match backward.Pick() with
-            | Propagate(s,p) -> GoBack (s,p)
-            | InitTarget(from, pobs) ->
-                let tos = Seq.map (fun (pob : pob) -> Instruction(pob.loc.offset, pob.loc.method)) pobs
-                targeted.SetTargets from tos
-                match targeted.Pick() with
-                | Some s -> GoFront s
-                | None -> internalfail "Targeted searcher must pick state successfully immediately after adding new targets"
-            | NoAction ->
-                match targeted.Pick() with
-                | Some s -> GoFront s
-                | None ->
-                    match forward.Pick() with
-                    | Some s ->
-                        backward.RemoveBranch s
-                        GoFront s
-                    | None -> Stop
+            match forward.Pick() with
+            | Some s -> GoFront s
+            | None -> Stop
+//            match backward.Pick() with
+//            | Propagate(s,p) -> GoBack (s,p)
+//            | InitTarget(from, pobs) ->
+//                let tos = Seq.map (fun (pob : pob) -> Instruction(pob.loc.offset, pob.loc.method)) pobs
+//                targeted.SetTargets from tos
+//                match targeted.Pick() with
+//                | Some s -> GoFront s
+//                | None -> internalfail "Targeted searcher must pick state successfully immediately after adding new targets"
+//            | NoAction ->
+//                match targeted.Pick() with
+//                | Some s -> GoFront s
+//                | None ->
+//                    match forward.Pick() with
+//                    | Some s ->
+//                        backward.RemoveBranch s
+//                        GoFront s
+//                    | None -> Stop
 
 // TODO: check pob duplicates
 type BackwardSearcher() =

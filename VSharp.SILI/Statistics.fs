@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.IO
 open System.Text
 open System.Collections.Generic
 
@@ -21,10 +22,13 @@ type pobStatus =
     | Unreachable
 
 // TODO: transform to ``module'' with functions #mb do
-type public BidirectionalEngineStatistics() =
+type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let unansweredPobs = List<pob>()
+    let mutable startTime = DateTime.Now
+    let internalFails = List<Exception>()
+    let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let cfg = CFG.findCfg codeLocation.method
         cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
@@ -81,19 +85,45 @@ type public BidirectionalEngineStatistics() =
         startIp2currentIp.Clear()
         totalVisited.Clear()
         unansweredPobs.Clear()
-    member x.PrintStatistics searcherName =
-        let sb = StringBuilder()
-        let sb = PrettyPrinting.appendLine sb searcherName
-        let sb =
-            if unansweredPobs.Count = 0 then sb
-            else
-                let sb = PrettyPrinting.dumpSection "Unanswered Pobs" sb
-                Seq.fold (fun sb p -> PrettyPrinting.appendLine sb (p.ToString())) sb unansweredPobs
-        let sb =
-            if startIp2currentIp.Keys.Count > 1 then
-                let sb = PrettyPrinting.dumpSection "Total" sb
-                printDict "" sb totalVisited
-            else sb
-        let sb = PrettyPrinting.dumpSection "Parts" sb
-        let sb = Seq.foldi printPart sb startIp2currentIp
-        sb.ToString()
+        internalFails.Clear()
+        iies.Clear()
+
+    member x.ExplorationStarted() =
+        x.Clear()
+        startTime <- DateTime.Now
+
+
+    member x.CurrentExplorationTime with get() = DateTime.Now - startTime
+
+    member x.IncompleteStates with get() = iies
+
+    member x.InternalFails with get() = internalFails
+
+    member x.PrintStatistics (writer : TextWriter) =
+        let time = DateTime.Now - startTime
+        writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", time.Hours, time.Minutes, time.Seconds, time.Milliseconds)
+        if internalFails.Count > 0 then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} error(s) occured!")
+            internalFails |> Seq.iter writer.WriteLine
+        if iies.Count > 0 then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
+            iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
+//        let sb = StringBuilder()
+//        let sb = PrettyPrinting.appendLine sb searcherName
+//        let sb =
+//            if unansweredPobs.Count = 0 then sb
+//            else
+//                let sb = PrettyPrinting.dumpSection "Unanswered Pobs" sb
+//                Seq.fold (fun sb p -> PrettyPrinting.appendLine sb (p.ToString())) sb unansweredPobs
+//        let sb =
+//            if startIp2currentIp.Keys.Count > 1 then
+//                let sb = PrettyPrinting.dumpSection "Total" sb
+//                printDict "" sb totalVisited
+//            else sb
+//        let sb = PrettyPrinting.dumpSection "Parts" sb
+//        let sb = Seq.foldi printPart sb startIp2currentIp
+//        sb.ToString()

@@ -16,7 +16,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Test", "VSharp.Test\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.TestRunner", "VSharp.TestRunner\VSharp.TestRunner.csproj", "{3DDCE1AF-A16B-42E9-8E99-3249E7EA69D0}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Runner", "Runner\Runner.csproj", "{49CF66CD-2465-415E-8464-46D95042E0AF}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Runner", "VSharp.Runner\VSharp.Runner.csproj", "{49CF66CD-2465-415E-8464-46D95042E0AF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.API", "VSharp.API\VSharp.API.csproj", "{C908A11C-B910-4283-A718-DA6A69E19D7F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -85,5 +87,11 @@ Global
 		{49CF66CD-2465-415E-8464-46D95042E0AF}.Release|Any CPU.Build.0 = Release|Any CPU
 		{49CF66CD-2465-415E-8464-46D95042E0AF}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
 		{49CF66CD-2465-415E-8464-46D95042E0AF}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{C908A11C-B910-4283-A718-DA6A69E19D7F}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

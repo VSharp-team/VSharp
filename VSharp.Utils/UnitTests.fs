@@ -10,7 +10,7 @@ type UnitTests(outputDir : string) =
     let testExtension = ".vst"
     let mutable testNumber = 0u
     let mutable errorNumber = 0u
-    let rootDir = Directory.CreateDirectory(outputDir)
+    let rootDir = Directory.CreateDirectory(if String.IsNullOrWhiteSpace outputDir then Directory.GetCurrentDirectory() else outputDir)
     let mutable currentDir = rootDir
 
     let () =

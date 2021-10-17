@@ -3,7 +3,6 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Reflection
 open System.Collections.Generic
-open System.IO
 open FSharpx.Collections
 
 open VSharp
@@ -14,7 +13,7 @@ open VSharp.Solver
 
 type public SILI(options : SiliOptions) =
 
-    let bidirectionalEngineStatistics = BidirectionalEngineStatistics()
+    let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
@@ -24,9 +23,6 @@ type public SILI(options : SiliOptions) =
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
-    let mutable startTime = DateTime.Now
-    let internalFails = List<Exception>()
-    let iies = List<cilState>()
 
     let isSat pc =
         // TODO: consider trivial cases
@@ -67,11 +63,11 @@ type public SILI(options : SiliOptions) =
         reportState action.Invoke true method state
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
-        iies.Add(state)
+        statistics.IncompleteStates.Add(state)
         action.Invoke state.iie.Value
 
     let wrapOnInternalFail (action : Action<Exception>) (e : Exception) =
-        internalFails.Add(e)
+        statistics.InternalFails.Add(e)
         action.Invoke e
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
@@ -97,7 +93,7 @@ type public SILI(options : SiliOptions) =
 
     member private x.Forward (s : cilState) =
         // TODO: update pobs when visiting new methods; use coverageZone
-        bidirectionalEngineStatistics.TrackStepForward s
+        statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         // TODO: need to report? #do
@@ -135,7 +131,7 @@ type public SILI(options : SiliOptions) =
             match isSat pc with
             | true when s'.startingIP = EP -> searcher.Answer p' (Witnessed s')
             | true ->
-                bidirectionalEngineStatistics.TrackStepBackward p' s'
+                statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
                 searcher.UpdatePobs p' p
@@ -155,7 +151,7 @@ type public SILI(options : SiliOptions) =
             | Stop -> __unreachable__()
 
     member private x.AnswerPobs entryPoint initialStates =
-        startTime <- DateTime.Now
+        statistics.ExplorationStarted()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
@@ -179,7 +175,6 @@ type public SILI(options : SiliOptions) =
 //            reportFinished.Invoke machine.State
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution entryIP
-            Logger.info "BidirectionalSymbolicExecution Statistics:\n%s" (bidirectionalEngineStatistics.PrintStatistics(searcher.GetType().ToString()))
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
             | pobStatus.Unknown ->
@@ -217,18 +212,4 @@ type public SILI(options : SiliOptions) =
             x.AnswerPobs method initialStates
         Restore()
 
-    member x.GenerateReport (writer : TextWriter) =
-        let time = DateTime.Now - startTime
-        writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", time.Hours, time.Minutes, time.Seconds, time.Milliseconds)
-        if internalFails.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!")
-            internalFails |> Seq.iter writer.WriteLine
-        if iies.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
-            iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
-
-    member x.IncompleteStates with get() = iies
+    member x.Statistics with get() = statistics
