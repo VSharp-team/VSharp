@@ -120,6 +120,18 @@ namespace IntegrationTests
             return isValid && type == MoveType.Invalid;
         }
 
+        [TestSvm]
+        public static bool GetOwnerSymbolic(int dst)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            string s = "B" + dst;
+            Move move = new Move("C7", s, Player.White);
+            MoveType type = game.ApplyMove(move, true);
+            Piece p = game.GetPieceAt(new Position("B7"));
+            return p.Owner == Player.Black;
+        }
+
         public static GameCreationData CreateDataForCheckMate()
         {
             var whiteKing = (Piece) new King(Player.White);

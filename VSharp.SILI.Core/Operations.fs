@@ -21,15 +21,17 @@ type OperationType =
     | LessOrEqual = 17
     | LessOrEqual_Un = 18
     | Add = 19
-    | Subtract = 20
-    | Divide = 21
-    | Divide_Un = 22
-    | Multiply = 23
-    | Remainder = 24
-    | Remainder_Un = 25
-    | ShiftLeft = 26
-    | ShiftRight = 27
-    | ShiftRight_Un = 28
+    | AddNoOvf = 20
+    | Subtract = 21
+    | Divide = 22
+    | Divide_Un = 23
+    | Multiply = 24
+    | MultiplyNoOvf = 25
+    | Remainder = 26
+    | Remainder_Un = 27
+    | ShiftLeft = 28
+    | ShiftRight = 29
+    | ShiftRight_Un = 30
 
 type StandardFunction =
     | Arccosine
@@ -103,6 +105,8 @@ module internal Operations =
         | OperationType.ShiftLeft
         | OperationType.ShiftRight
         | OperationType.ShiftRight_Un -> maxPriority - 3
+        | OperationType.AddNoOvf
+        | OperationType.MultiplyNoOvf
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual
@@ -123,7 +127,9 @@ module internal Operations =
 
     let isCommutative = function
         | OperationType.Add
+        | OperationType.AddNoOvf
         | OperationType.Multiply
+        | OperationType.MultiplyNoOvf
         | OperationType.Equal
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
@@ -162,10 +168,14 @@ module internal Operations =
         | OperationType.ShiftRight_Un -> " >> "
         | OperationType.Subtract -> " - "
         | OperationType.UnaryMinus -> "-%s"
+        | OperationType.AddNoOvf
+        | OperationType.MultiplyNoOvf
         | _ -> ""
 
     let deduceArithmeticBinaryExpressionTargetType op x y =
         match op with
+        | OperationType.AddNoOvf
+        | OperationType.MultiplyNoOvf
         | OperationType.Equal
         | OperationType.NotEqual
         | OperationType.Greater

@@ -17,6 +17,7 @@ type testInfo = {
     token : int32
     thisArg : obj
     args : obj array
+    isError : bool
     expectedResult : obj
     throwsException : typeRepr
     memory : memoryRepr
@@ -29,6 +30,7 @@ with
         token = m.MetadataToken
         thisArg = null
         args = null
+        isError = false
         expectedResult = null
         throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
         memory = {objects = Array.empty; types = Array.empty}
@@ -43,6 +45,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         else Serialization.decodeType exceptionInfo
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
+    let isError = info.isError
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
     let mutable extraAssemblyLoadDirs : string list = []
     new(m : MethodBase) =
@@ -56,6 +59,12 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let p = t.GetProperty("thisArg")
             p.SetValue(info, memoryGraph.Encode this)
     member x.Args with get() = args
+    member x.IsError
+        with get() = isError
+        and set (e : bool) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("isError")
+            p.SetValue(info, e)
     member x.Expected
         with get() = expectedResult
         and set r =

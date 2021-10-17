@@ -142,6 +142,8 @@ module Calculator1 =
         let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
         compare.Invoke(x, y)
 
+    let IsZero x = Compare(x, 0) = 0
+
 [<AutoOpen>]
 module internal Arithmetics =
 
@@ -242,8 +244,8 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(xval, _), Concrete(yval, _) ->
             simplifyConcreteAddition t xval yval |> matched
-        | Concrete(xval, _), _ when Calculator.IsZero(xval) -> matched y
-        | _, Concrete(yval, _) when Calculator.IsZero(yval) -> matched x
+        | Concrete(xval, _), _ when Calculator1.IsZero xval -> matched y
+        | _, Concrete(yval, _) when Calculator1.IsZero yval -> matched x
         | Expression _, Expression _ ->
             simplifyAdditionToExpression x y t matched (fun () ->
             simplifyAdditionToExpression y x t matched unmatched)
@@ -682,6 +684,8 @@ module internal Arithmetics =
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
         | OperationType.BitwiseXor -> simplifyBitwise op x y t (typeOf x) k
+        | OperationType.AddNoOvf
+        | OperationType.MultiplyNoOvf -> makeBinary op x y (fromDotNetType t) |> k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let simplifyUnaryOperation op x t k =
@@ -694,8 +698,10 @@ module internal Arithmetics =
         (Types.isNumeric t1 || t1 = AddressType) && (Types.isNumeric t2 || t2 = AddressType) &&
         match op with
         | OperationType.Add
+        | OperationType.AddNoOvf
         | OperationType.Subtract
         | OperationType.Multiply
+        | OperationType.MultiplyNoOvf
         | OperationType.Divide
         | OperationType.Divide_Un
         | OperationType.Remainder
@@ -722,6 +728,14 @@ module internal Arithmetics =
 
     let checkEqualZero y k =
         simplifyEqual y (castConcrete 0 (toDotNetType(typeOf y))) k
+
+    let rec makeExpressionNoOvf expr k =
+        match expr with
+        | Add(x, y, t) -> makeBinary OperationType.AddNoOvf x y Bool |> k
+        | Mul(x, y, t) -> makeBinary OperationType.MultiplyNoOvf x y Bool |> k
+        | {term = Expression(_, args, _) } ->
+            Cps.List.foldlk (fun acc x k -> makeExpressionNoOvf x (fun x' -> k (acc &&& x'))) True args k
+        | _ -> k True
 
 // ------------------------------- Standard functions -------------------------------
 

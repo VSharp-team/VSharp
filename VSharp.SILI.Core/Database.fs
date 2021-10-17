@@ -98,6 +98,7 @@ type ip =
         | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" (offset.ToString("X")) (Reflection.getFullMethodName m)
         | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
         | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
+        | SearchingForHandler(toObserve, checkFinally) -> sprintf "SearchingForHandler(%O, %O)" toObserve checkFinally
         | _ -> __notImplemented__()
 
 and ipStack = ip list

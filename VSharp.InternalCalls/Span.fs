@@ -11,7 +11,7 @@ module ReadOnlySpan =
     let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
         assert(List.length args = 3)
         let this, index = List.item 0 args, List.item 2 args
-        let span = Memory.Read state this
+        let span = Memory.ReadSafe state this
         let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField = fst spanFields.[0]
@@ -39,7 +39,7 @@ module ReadOnlySpan =
         GetItemFromReadOnlySpan state args
 
     let internal CtorFromFromArray (state : state) this arrayRef =
-        let span = Memory.Read state this
+        let span = Memory.ReadSafe state this
         let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField, ptrFieldInfo = spanFields.[0]

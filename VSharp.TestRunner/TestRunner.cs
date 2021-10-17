@@ -102,6 +102,7 @@ namespace VSharp.TestRunner
 
             string path = args[0];
             IEnumerable<FileInfo> tests;
+            var runExactTest = false;
             if (Directory.Exists(path))
             {
                 var dir = new DirectoryInfo(path);
@@ -112,6 +113,7 @@ namespace VSharp.TestRunner
             {
                 var fi = new FileInfo(path);
                 tests = new List<FileInfo> {fi};
+                runExactTest = true;
             }
             else
             {
@@ -145,21 +147,34 @@ namespace VSharp.TestRunner
                             : null;
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
+                        var ex = test.Exception;
                         try
                         {
-                            object result = method.Invoke(thisObj, parameters);
+                            object result = null;
+                            if (!test.IsError || runExactTest)
+                                result = method.Invoke(thisObj, parameters);
                             if (!CompareObjects(test.Expected, result))
                             {
                                 // TODO: use NUnit?
+                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
+                                    test.Expected.GetType(),
+                                    result.GetType());
                                 Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
                                     test.Expected ?? "null",
                                     result ?? "null");
                                 return 5;
                             }
+
+                            if (ex != null)
+                            {
+                                Console.Error.WriteLine("Test {0} failed! Expected exception {1} was not thrown",
+                                    fi.Name, ex);
+                                return 6;
+                            }
                         }
                         catch (TargetInvocationException e)
                         {
-                            if (e.InnerException != null && e.InnerException.GetType() == test.Exception)
+                            if (e.InnerException != null && e.InnerException.GetType() == ex)
                                 Console.WriteLine("Test throws expected error!");
                             else if (e.InnerException != null) throw e.InnerException;
                             else throw;

@@ -70,7 +70,7 @@ module API =
         val (|Conjunction|_|) : term -> term list option
         val (|Disjunction|_|) : term -> term list option
         val (|NullRef|_|) : term -> unit option
-
+        val (|NullPtr|_|) : term -> unit option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
@@ -206,7 +206,8 @@ module API =
         val ReferenceField : state -> term -> fieldId -> term
         val ReferenceArrayIndex : term -> term list -> term
 
-        val Read : state -> term -> term
+        val ReadSafe : state -> term -> term
+        val ReadUnsafe : state -> (state -> unit) -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> MethodBase -> term
         val ReadArgument : state -> ParameterInfo -> term
@@ -219,6 +220,7 @@ module API =
         val InitializeArray : state -> term -> term -> unit
 
         val WriteSafe : state -> term -> term -> state list
+        val WriteUnsafe : state -> (state -> unit) -> term -> term -> state list
         val WriteLocalVariable : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list

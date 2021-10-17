@@ -567,162 +567,13 @@ module internal Memory =
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
-// ------------------------------- Unsafe reading -------------------------------
-
-    let private readAddressUnsafe address startByte endByte =
-        let size = Terms.sizeOf address
-        match startByte.term, endByte with
-        | Concrete(:? int as s, _), Some({term = Concrete(:? int as e, _)}) when s = 0 && size = e -> List.singleton address
-        // CASE: reading ref (ldind.ref, ldelem.ref ..) by pointer from concolic
-        | Concrete(:? int as s, _), None when s = 0 -> List.singleton address
-        | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
-
-    // NOTE: returns list of slices
-    let rec private readTermUnsafe term startByte endByte =
-        match term.term with
-        | Struct(fields, t) -> readStructUnsafe fields t startByte endByte
-        | HeapRef _
-        | Ref _
-        | Ptr _ -> readAddressUnsafe term startByte endByte
-        | Concrete _
-        | Constant _
-        | Expression _ -> Slice term startByte (Option.get endByte) startByte |> List.singleton // TODO: fix style #style
-        | _ -> __unreachable__()
-
-    and private readStructUnsafe fields structType startByte endByte =
-        let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe readField false structType startByte endByte
-
-    and private getAffectedFields readField isStatic (blockType : symbolicType) startByte endByte =
-        let t = toDotNetType blockType
-        let blockSize = TypeUtils.internalSizeOf t |> int
-        let fields = Reflection.fieldsOf isStatic t
-        let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
-            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, TypeUtils.internalSizeOf fieldInfo.FieldType |> int
-        let fieldIntervals = Array.map getOffsetAndSize fields |> Array.sortBy snd3
-        let betweenField = {name = ""; declaringType = t; typ = typeof<byte>}
-        let addZerosBetween (_, offset, size as field) (allFields, nextOffset) =
-            let curEnd = offset + size
-            let between = nextOffset - curEnd
-            // TODO: add there is enough space, insert short, int or long
-            let zeros = if between > 0 then List.init between (fun i -> betweenField, curEnd + i, 1) else List.empty
-            let fieldsWithZeros = List.foldBack (fun zero fields -> zero :: fields) zeros allFields
-            field :: fieldsWithZeros, offset
-        let fieldsWithZeros, fstOffset = Array.foldBack addZerosBetween fieldIntervals (List.empty, blockSize)
-        let zeros = if fstOffset > 0 then List.init fstOffset (fun i -> betweenField, i, 1) else List.empty
-        let allFields = List.foldBack (fun zero fields -> zero :: fields) zeros fieldsWithZeros
-        let readFieldOrZero fieldId =
-            if fieldId.name = "" then makeDefaultValue (Numeric fieldId.typ)
-            else readField fieldId
-        let getField (fieldId, fieldOffset, _) =
-            let fieldValue = readFieldOrZero fieldId
-            let fieldOffset = makeNumber fieldOffset
-            let startByte = sub startByte fieldOffset
-            let endByte = Option.map (fun endByte -> sub endByte fieldOffset) endByte
-            fieldId, fieldValue, startByte, endByte
-        match startByte.term, endByte with
-        | Concrete(:? int as o, _), Some({term = Concrete(:? int as s, _)}) ->
-            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
-                    getField field :: affectedFields
-                else affectedFields
-            List.foldBack concreteGetField allFields List.empty
-        // TODO: fix style #style
-        | Concrete(:? int as o, _), None ->
-            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o >= fieldOffset && o < fieldOffset + fieldSize) then
-                    getField field :: affectedFields
-                else affectedFields
-            List.foldBack concreteGetField allFields List.empty
-        | _ -> List.map getField allFields
-
-    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) startByte endByte =
-        let affectedFields = getAffectedFields readField isStatic blockType startByte endByte
-        List.collect (fun (_, v, s, e) -> readTermUnsafe v s e) affectedFields
-
-    // TODO: Add undefined behaviour:
-    // TODO: 1. when reading info between fields
-    // TODO: 3. when reading info outside block
-    // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr
-    let private readClassUnsafe state address classType offset sightType =
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
-        let readField fieldId = readClassField state address fieldId
-        readFieldsUnsafe readField false classType offset endByte
-
-    let private getAffectedIndices state address (elementType, dim, _ as arrayType) offset size =
-        let concreteElementSize = sizeOf elementType
-        let elementSize = makeNumber concreteElementSize
-        let firstElement = div offset elementSize
-        let elementOffset = rem offset elementSize
-        let countToRead =
-            // TODO: fix style #style
-            match elementOffset.term, size with
-            | Concrete(:? int as i, _), Some size when i = 0 -> (size / concreteElementSize)
-            | Concrete(:? int, _), None -> 1
-            // NOTE: if offset inside element > 0 then one more element is needed
-            | _, Some size -> (size / concreteElementSize) + 1
-            | _ -> internalfail "reading array using pointer Void*"
-        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
-        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
-        let getElement currentOffset i =
-            let linearIndex = makeNumber i |> add firstElement
-            let indices = delinearizeArrayIndex linearIndex lens lbs
-            let element = readArrayIndex state address indices arrayType
-            let startByte = sub offset currentOffset
-            let endByte = Option.map (makeNumber >> add startByte) size
-            (indices, element, startByte, endByte), add currentOffset elementSize
-        List.mapFold getElement (mul firstElement elementSize) [0 .. countToRead - 1] |> fst
-
-    let private readArrayUnsafe state address arrayType offset sightType =
-        let size = Option.map sizeOf sightType
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let indices = getAffectedIndices state address (symbolicTypeToArrayType arrayType) offset size
-        List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
-
-    let private readStringUnsafe state address offset sightType =
-        let size = Option.map sizeOf sightType
-         // TODO: handle case, when reading string length
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let indices = getAffectedIndices state address (Char, 1, true) offset size
-        List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
-
-    let private readStaticUnsafe state t offset sightType =
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
-        let readField fieldId = readStaticField state t fieldId
-        readFieldsUnsafe readField true t offset endByte
-
-    let private readUnsafe state baseAddress offset sightType =
-        // TODO: fix style #style
-        let nonVoidType, combine =
-            match sightType with
-            | Void when isConcrete offset -> None, fun slices -> assert(List.length slices = 1); List.head slices
-            | Void -> internalfail "reading pointer Void* with symbolic offset"
-            | _ -> Some sightType, fun slices -> combine slices sightType
-        let slices =
-            match baseAddress with
-            | HeapLocation loc ->
-                let typ = typeOfHeapLocation state loc
-                match typ with
-                | StringType -> readStringUnsafe state loc offset nonVoidType
-                | ClassType _ -> readClassUnsafe state loc typ offset nonVoidType
-                | ArrayType _ -> readArrayUnsafe state loc typ offset nonVoidType
-                | StructType _ -> __notImplemented__() // TODO: boxed location?
-                | _ -> internalfailf "expected complex type, but got %O" typ
-            | StackLocation loc ->
-                let term = readStackLocation state loc
-                let endByte = Option.map (sizeOf >> makeNumber >> add offset) nonVoidType
-                readTermUnsafe term offset endByte
-            | StaticLocation loc ->
-                readStaticUnsafe state loc offset nonVoidType
-        combine slices
-
 // ------------------------------- General reading -------------------------------
 
     // TODO: take type of heap address
     let rec read state reference =
         match reference.term with
         | Ref address -> readSafe state address
-        | Ptr(baseAddress, sightType, offset) -> readUnsafe state baseAddress offset sightType
+        | Ptr _ -> internalfailf "reading ptr %O from safe context" reference
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
         | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
@@ -834,6 +685,191 @@ module internal Memory =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
         statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
+
+    // ------------------------------- Unsafe reading -------------------------------
+
+    let private readAddressUnsafe address startByte endByte =
+        let size = Terms.sizeOf address
+        match startByte.term, endByte with
+        | Concrete(:? int as s, _), Some({term = Concrete(:? int as e, _)}) when s = 0 && size = e -> List.singleton address
+        // CASE: reading ref (ldind.ref, ldelem.ref ..) by pointer from concolic
+        | Concrete(:? int as s, _), None when s = 0 -> List.singleton address
+        | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
+
+    // NOTE: returns list of slices
+    let rec private readTermUnsafe term startByte endByte =
+        match term.term with
+        | Struct(fields, t) -> readStructUnsafe fields t startByte endByte
+        | HeapRef _
+        | Ref _
+        | Ptr _ -> readAddressUnsafe term startByte endByte
+        | Concrete _
+        | Constant _
+        | Expression _ -> Slice term startByte (Option.get endByte) startByte |> List.singleton // TODO: fix style #style
+        | _ -> __unreachable__()
+
+    and private readStructUnsafe fields structType startByte endByte =
+        let readField fieldId = fields.[fieldId]
+        readFieldsUnsafe readField false structType startByte endByte
+
+    and private getAffectedFields readField isStatic (blockType : symbolicType) startByte endByte =
+        let t = toDotNetType blockType
+        let blockSize = TypeUtils.internalSizeOf t |> int
+        let fields = Reflection.fieldsOf isStatic t
+        let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
+            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let fieldIntervals = Array.map getOffsetAndSize fields |> Array.sortBy snd3
+        let betweenField = {name = ""; declaringType = t; typ = typeof<byte>}
+        let addZerosBetween (_, offset, size as field) (allFields, nextOffset) =
+            let curEnd = offset + size
+            let between = nextOffset - curEnd
+            // TODO: add there is enough space, insert short, int or long
+            let zeros = if between > 0 then List.init between (fun i -> betweenField, curEnd + i, 1) else List.empty
+            let fieldsWithZeros = List.foldBack (fun zero fields -> zero :: fields) zeros allFields
+            field :: fieldsWithZeros, offset
+        let fieldsWithZeros, fstOffset = Array.foldBack addZerosBetween fieldIntervals (List.empty, blockSize)
+        let zeros = if fstOffset > 0 then List.init fstOffset (fun i -> betweenField, i, 1) else List.empty
+        let allFields = List.foldBack (fun zero fields -> zero :: fields) zeros fieldsWithZeros
+        let readFieldOrZero fieldId =
+            if fieldId.name = "" then makeDefaultValue (Numeric fieldId.typ)
+            else readField fieldId
+        let getField (fieldId, fieldOffset, _) =
+            let fieldValue = readFieldOrZero fieldId
+            let fieldOffset = makeNumber fieldOffset
+            let startByte = sub startByte fieldOffset
+            let endByte = Option.map (fun endByte -> sub endByte fieldOffset) endByte
+            fieldId, fieldValue, startByte, endByte
+        match startByte.term, endByte with
+        | Concrete(:? int as o, _), Some({term = Concrete(:? int as s, _)}) ->
+            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
+                if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
+                    getField field :: affectedFields
+                else affectedFields
+            List.foldBack concreteGetField allFields List.empty
+        // TODO: fix style #style
+        | Concrete(:? int as o, _), None ->
+            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
+                if (o >= fieldOffset && o < fieldOffset + fieldSize) then
+                    getField field :: affectedFields
+                else affectedFields
+            List.foldBack concreteGetField allFields List.empty
+        | _ -> List.map getField allFields
+
+    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) startByte endByte =
+        let affectedFields = getAffectedFields readField isStatic blockType startByte endByte
+        List.collect (fun (_, v, s, e) -> readTermUnsafe v s e) affectedFields
+
+    let private checkUnsafeRead state reportError failCondition =
+        commonStatedConditionalExecutionk state
+            (fun state k -> k (!!failCondition, state))
+            (fun _ k -> k ())
+            (fun state k -> k (reportError state))
+            (fun _ _ -> [])
+            ignore
+
+    let private checkClassUnsafeRead state reportError classType offset viewSize =
+        let t = toDotNetType classType
+        let classSize = TypeUtils.internalSizeOf t |> int |> makeNumber
+        let failCondition = simplifyGreater (add offset viewSize) classSize id ||| simplifyLess offset (makeNumber 0) id
+        // NOTE: disables overflow in solver
+        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+        checkUnsafeRead state reportError failCondition
+
+    // TODO: Add undefined behaviour:
+    // TODO: 1. when reading info between fields
+    // TODO: 3. when reading info outside block
+    // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr
+    let private readClassUnsafe state reportError address classType offset sightType =
+        checkClassUnsafeRead state reportError classType offset (Option.get sightType |> sizeOf |> makeNumber)
+        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+        let readField fieldId = readClassField state address fieldId
+        readFieldsUnsafe readField false classType offset endByte
+
+    let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset size =
+        let concreteElementSize = sizeOf elementType
+        let elementSize = makeNumber concreteElementSize
+        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
+        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
+        let arraySize = List.fold mul elementSize lens
+        let failCondition = simplifyGreater (Option.get size |> makeNumber |> add offset) arraySize id ||| simplifyLess offset (makeNumber 0) id
+        // NOTE: disables overflow in solver
+        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        checkUnsafeRead state reportError failCondition
+        let firstElement = div offset elementSize
+        let elementOffset = rem offset elementSize
+        let countToRead =
+            // TODO: fix style #style
+            match elementOffset.term, size with
+            | Concrete(:? int as i, _), Some size when i = 0 -> (size / concreteElementSize)
+            | Concrete(:? int, _), None -> 1
+            // NOTE: if offset inside element > 0 then one more element is needed
+            | _, Some size -> (size / concreteElementSize) + 1
+            | _ -> internalfail "reading array using pointer Void*"
+        let getElement currentOffset i =
+            let linearIndex = makeNumber i |> add firstElement
+            let indices = delinearizeArrayIndex linearIndex lens lbs
+            let element = readArrayIndex state address indices arrayType
+            let startByte = sub offset currentOffset
+            let endByte = Option.map (makeNumber >> add startByte) size
+            (indices, element, startByte, endByte), add currentOffset elementSize
+        List.mapFold getElement (mul firstElement elementSize) [0 .. countToRead - 1] |> fst
+
+    let private readArrayUnsafe state reportError address arrayType offset sightType =
+        let size = Option.map sizeOf sightType
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
+        let indices = getAffectedIndices state reportError address (symbolicTypeToArrayType arrayType) offset size
+        List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
+
+    let private readStringUnsafe state reportError address offset sightType =
+        let size = Option.map sizeOf sightType
+         // TODO: handle case, when reading string length
+        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
+        let indices = getAffectedIndices state reportError address (Char, 1, true) offset size
+        List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
+
+    let private readStaticUnsafe state reportError t offset sightType =
+        checkClassUnsafeRead state reportError t offset (Option.get sightType |> sizeOf |> makeNumber)
+        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+        let readField fieldId = readStaticField state t fieldId
+        readFieldsUnsafe readField true t offset endByte
+
+    let private readUnsafe state reportError baseAddress offset sightType =
+        // TODO: fix style #style
+        let nonVoidType, combine = // TODO: this can be in case of reading ref or ptr, so size will be IntPtr.Size #do
+            match sightType with
+            | Void when isConcrete offset -> None, fun slices -> assert(List.length slices = 1); List.head slices
+            | Void -> internalfail "reading pointer Void* with symbolic offset"
+            | _ -> Some sightType, fun slices -> combine slices sightType
+        let slices =
+            match baseAddress with
+            | HeapLocation loc ->
+                let typ = typeOfHeapLocation state loc
+                match typ with
+                | StringType -> readStringUnsafe state reportError loc offset nonVoidType
+                | ClassType _ -> readClassUnsafe state reportError loc typ offset nonVoidType
+                | ArrayType _ -> readArrayUnsafe state reportError loc typ offset nonVoidType
+                | StructType _ -> __notImplemented__() // TODO: boxed location?
+                | _ -> internalfailf "expected complex type, but got %O" typ
+            | StackLocation loc ->
+                // TODO: check bounds here #do
+                let term = readStackLocation state loc
+                let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
+                let viewSize = nonVoidType |> Option.get |> sizeOf |> int |> makeNumber
+                let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
+                state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+                checkUnsafeRead state reportError failCondition
+                let endByte = Option.map (sizeOf >> makeNumber >> add offset) nonVoidType
+                readTermUnsafe term offset endByte
+            | StaticLocation loc ->
+                readStaticUnsafe state reportError loc offset nonVoidType
+        combine slices
+
+    let rec readIndirection state reportError reference =
+        match reference.term with
+        | Ref address -> readSafe state address
+        | Ptr(baseAddress, sightType, offset) -> readUnsafe state reportError baseAddress offset sightType
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
+        | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
 // ------------------------------- Writing -------------------------------
 
@@ -1022,55 +1058,62 @@ module internal Memory =
         let affectedFields = getAffectedFields readField isStatic blockType startByte (Some endByte)
         List.map (fun (id, v, s, _) -> id, writeTermUnsafe v s value) affectedFields
 
-    let writeClassUnsafe state address typ offset value =
+    let writeClassUnsafe state reportError address typ offset value =
+        checkClassUnsafeRead state reportError typ offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readClassField state address fieldId
         let updatedFields = writeFieldsUnsafe readField false typ offset value
         let writeField (fieldId, value) = writeClassField state address fieldId value
         List.iter writeField updatedFields
 
-    let writeArrayUnsafe state address arrayType offset value =
+    let writeArrayUnsafe state reportError address arrayType offset value =
         let size = Terms.sizeOf value
         let arrayType = symbolicTypeToArrayType arrayType
         let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let affectedIndices = getAffectedIndices state address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
         List.iter writeElement affectedIndices
 
-    let private writeStringUnsafe state address offset value =
+    let private writeStringUnsafe state reportError address offset value =
         let size = Terms.sizeOf value
         let arrayType = Char, 1, true
         let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let affectedIndices = getAffectedIndices state address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
         List.iter writeElement affectedIndices
 
-    let writeStaticUnsafe state staticType offset value =
+    let writeStaticUnsafe state reportError staticType offset value =
+        checkClassUnsafeRead state reportError staticType offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readStaticField state staticType fieldId
         let updatedFields = writeFieldsUnsafe readField true staticType offset value
         let writeField (fieldId, value) = writeStaticField state staticType fieldId value
         List.iter writeField updatedFields
 
-    let private writeUnsafe state baseAddress offset sightType value =
+    let private writeUnsafe state reportError baseAddress offset sightType value =
         assert(sightType = symbolicType.Void && isConcrete offset || sizeOf sightType = Terms.sizeOf value)
         match baseAddress with
         | HeapLocation loc ->
             let typ = typeOfHeapLocation state loc
             match typ with
-            | StringType -> writeStringUnsafe state loc offset value
-            | ClassType _ -> writeClassUnsafe state loc typ offset value
-            | ArrayType _ -> writeArrayUnsafe state loc typ offset value
+            | StringType -> writeStringUnsafe state reportError loc offset value
+            | ClassType _ -> writeClassUnsafe state reportError loc typ offset value
+            | ArrayType _ -> writeArrayUnsafe state reportError loc typ offset value
             | StructType _ -> __notImplemented__() // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc ->
             let term = readStackLocation state loc
+            let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
+            let viewSize = value |> Terms.sizeOf |> int |> makeNumber
+            let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
+            state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+            checkUnsafeRead state reportError failCondition
             let updatedTerm = writeTermUnsafe term offset value
             writeStackLocation state loc updatedTerm
         | StaticLocation loc ->
-            writeStaticUnsafe state loc offset value
+            writeStaticUnsafe state reportError loc offset value
 
 // ------------------------------- General writing -------------------------------
 
@@ -1081,7 +1124,7 @@ module internal Memory =
         let baseAddress, offset = Pointers.addressToBaseAndOffset address
         let ptr = Ptr baseAddress typ offset
         match ptr.term with
-        | Ptr(baseAddress, sightType, offset) -> writeUnsafe state baseAddress offset sightType value
+        | Ptr(baseAddress, sightType, offset) -> writeUnsafe state (fun _ -> ()) baseAddress offset sightType value
         | _ -> internalfailf "expected to get ptr, but got %O" ptr
 
     let rec private writeSafe state address value =
@@ -1107,12 +1150,22 @@ module internal Memory =
 //            writeLowerBound state address dimension typ value
             __unreachable__()
 
-    let rec write state reference value =
+    let write state reference value =
         guardedStatedMap
             (fun state reference ->
                 match reference.term with
                 | Ref address -> writeSafe state address value
-                | Ptr(address, sightType, offset) -> writeUnsafe state address offset sightType value
+                | Ptr _ -> internalfailf "writing by ptr %O from safe context" reference
+                | _ -> internalfailf "Writing: expected reference, but got %O" reference
+                state)
+            state reference
+
+    let writeIndirection state reportError reference value =
+        guardedStatedMap
+            (fun state reference ->
+                match reference.term with
+                | Ref address -> writeSafe state address value
+                | Ptr(address, sightType, offset) -> writeUnsafe state reportError address offset sightType value
                 | _ -> internalfailf "Writing: expected reference, but got %O" reference
                 state)
             state reference

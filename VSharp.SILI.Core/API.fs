@@ -94,6 +94,9 @@ module API =
         let (|NullRef|_|) = function
             | {term = HeapRef(addr, _)} when addr = zeroAddress -> Some()
             | _ -> None
+        let (|NullPtr|_|) = function
+            | {term = Ptr(HeapLocation addr, _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
+            | _ -> None
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
@@ -262,13 +265,20 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
-        let Read state reference =
+        let ReadSafe state reference =
             let reference =
                 // TODO: check if reference is BoxedLocation
                 match reference.term with
                 | HeapRef _ -> HeapReferenceToBoxReference reference
                 | _ -> reference
             Memory.read state reference
+        let ReadUnsafe state (reportError : state -> unit) reference = // TODO: fix style #style
+            let reference =
+                // TODO: check if reference is BoxedLocation
+                match reference.term with
+                | HeapRef _ -> HeapReferenceToBoxReference reference
+                | _ -> reference
+            Memory.readIndirection state reportError reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -302,6 +312,7 @@ module API =
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
         let WriteSafe state reference value = Memory.write state reference value
+        let WriteUnsafe state reportError reference value = Memory.writeIndirection state reportError reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
             Memory.guardedStatedMap
