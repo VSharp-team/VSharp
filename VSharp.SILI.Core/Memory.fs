@@ -549,7 +549,7 @@ module internal Memory =
         | HeapRef(address, _) ->
             match address.term with
             | ConcreteHeapAddress address -> state.delegates.[address]
-            | _ -> __insufficientInformation__ "Can't obtain symbolic delegate %O!" address
+            | _ -> __insufficientInformation__ "Unknown delegate %O!" address
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readDelegate state v)) |> Merging.merge
         | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
 

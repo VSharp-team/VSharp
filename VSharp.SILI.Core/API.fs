@@ -467,17 +467,17 @@ module API =
 
         let FillRegion state value = function
             | HeapFieldSort field ->
-                state.classFields <- PersistentDict.update state.classFields field (MemoryRegion.fillRegion value)
+                state.classFields <- PersistentDict.update state.classFields field (field.typ |> Types.FromDotNetType |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
             | StaticFieldSort field ->
-                state.staticFields <- PersistentDict.update state.staticFields field (MemoryRegion.fillRegion value)
+                state.staticFields <- PersistentDict.update state.staticFields field (field.typ |> Types.FromDotNetType |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
             | ArrayIndexSort typ ->
-                state.arrays <- PersistentDict.update state.arrays typ (MemoryRegion.fillRegion value)
+                state.arrays <- PersistentDict.update state.arrays typ (typ |> fst3 |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
             | ArrayLengthSort typ ->
-                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.fillRegion value)
+                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | ArrayLowerBoundSort typ ->
-                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.fillRegion value)
+                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
-                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.fillRegion value)
+                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
 
 
     module Print =

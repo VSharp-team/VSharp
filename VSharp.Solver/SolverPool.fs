@@ -13,4 +13,7 @@ module public SolverPool =
 
     let mkSolver () : ISolver =
         match currentSolver with
-        | Z3 -> new Z3.Z3Solver() :> ISolver
+        | Z3 -> Z3.Z3Solver() :> ISolver
+
+    let reset() =
+        Z3.reset()

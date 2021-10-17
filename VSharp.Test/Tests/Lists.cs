@@ -340,7 +340,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(80)]
         public static bool ArraySymbolicUpdate(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};

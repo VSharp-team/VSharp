@@ -10,6 +10,7 @@ open VSharp
 open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
+open VSharp.Solver
 
 type public SILI(options : SiliOptions) =
 
@@ -75,20 +76,23 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
         let initialState = Memory.EmptyState()
-        let this(*, isMethodOfStruct*) =
-            let declaringType = Types.FromDotNetType method.DeclaringType
-            Memory.InitializeStaticMembers initialState declaringType
-            if method.IsStatic then None // *TODO: use hasThis flag from Reflection
-            else
-                let this = Memory.MakeSymbolicThis method
-                !!(IsNullReference this) |> AddConstraint initialState
-                Some this
-        ILInterpreter.InitFunctionFrame initialState method this None
-        initialState
+        let cilState = makeInitialState method initialState
+        try
+            let this(*, isMethodOfStruct*) =
+                let declaringType = Types.FromDotNetType method.DeclaringType
+                Memory.InitializeStaticMembers initialState declaringType
+                if method.IsStatic then None // *TODO: use hasThis flag from Reflection
+                else
+                    let this = Memory.MakeSymbolicThis method
+                    !!(IsNullReference this) |> AddConstraint initialState
+                    Some this
+            ILInterpreter.InitFunctionFrame initialState method this None
+        with :? InsufficientInformationException as e ->
+            cilState.iie <- Some e
+        cilState
 
     member private x.FormInitialStates (method : MethodBase) : cilState list =
-        let state = SILI.FormInitialStateWithoutStatics method
-        let cilState = makeInitialState method state
+        let cilState = SILI.FormInitialStateWithoutStatics method
         interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
@@ -200,13 +204,17 @@ type public SILI(options : SiliOptions) =
                                (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                (onInternalFail : Action<Exception>) : unit =
         Reset()
+        SolverPool.reset()
         reportFinished <- wrapOnTest onFinished method
         reportError <- wrapOnError onException method
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
         let initialStates = x.FormInitialStates method
-        x.AnswerPobs method initialStates
+        let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
+        iieStates |> List.iter reportIncomplete
+        if not initialStates.IsEmpty then
+            x.AnswerPobs method initialStates
         Restore()
 
     member x.GenerateReport (writer : TextWriter) =

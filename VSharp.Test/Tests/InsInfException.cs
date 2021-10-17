@@ -268,7 +268,7 @@ namespace IntegrationTests
 
 
         // expecting IIE
-        [TestSvm]
+        [TestSvm(67)]
         public static int ArrayRank_IIE_1(Array array)
         {
             if (array == null) return 42;

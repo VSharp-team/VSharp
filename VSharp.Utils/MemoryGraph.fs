@@ -124,9 +124,9 @@ type MemoryGraph(repr : memoryRepr) =
     and decodeArray (repr : arrayRepr) (obj : obj) =
         match repr.lengths, repr.lowerBounds with
         | [|len|], null ->
-            let arr = obj :?> obj array
+            let arr = obj :?> Array
             assert(arr.Length = len)
-            repr.contents |> Array.iteri (fun i r -> arr.[i] <- decodeValue r)
+            repr.contents |> Array.iteri (fun i r -> arr.SetValue(decodeValue r, i))
         | lens, lbs ->
             assert(lens.Length = lbs.Length)
             let arr = obj :?> Array

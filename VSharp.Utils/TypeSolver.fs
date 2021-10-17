@@ -31,7 +31,7 @@ module TypeSolver =
                 if sure then NotExists else NotFound
             else
                 match if typ.IsAbstract then NotExists else predicate typ with
-                | Found ts -> Found (typ::ts)
+                | Found ts -> Found ts
                 | NotExists -> findRec predicate typ.BaseType sure
                 | NotFound -> findRec predicate typ.BaseType false
         findRec predicate typ true

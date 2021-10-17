@@ -40,7 +40,7 @@ module internal Z3 =
         sorts : IDictionary<symbolicType, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
-        heapAddresses : IDictionary<Expr, vectorTime * symbolicType>
+        heapAddresses : IDictionary<symbolicType * Expr, vectorTime>
         staticKeys : IDictionary<Expr, symbolicType>
         mutable lastSymbolicAddress : int32
     } with
@@ -61,7 +61,7 @@ module internal Z3 =
         sorts = Dictionary<symbolicType, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
-        heapAddresses = Dictionary<Expr, vectorTime * symbolicType>()
+        heapAddresses = Dictionary<symbolicType * Expr, vectorTime>()
         staticKeys = Dictionary<Expr, symbolicType>()
         lastSymbolicAddress = 0
     }
@@ -69,12 +69,12 @@ module internal Z3 =
     let private solverResultCache = Dictionary<query, smtResult>()
 
     let private getSolverResult mkResult (q : query) =
-        let result : smtResult ref = ref (SmtUnknown "not ready")
-        if solverResultCache.TryGetValue(q, result) then !result
-        else
-            let result = mkResult()
-            solverResultCache.Add(q, result)
-            result
+        let result = Dict.getValueOrUpdate solverResultCache q mkResult
+        match result with
+        | SmtSat _ -> trace "Got SATISFIABLE"
+        | SmtUnsat _ -> trace "Got UNSATISFIABLE"
+        | SmtUnknown reason -> trace "Got UNKNOWN: %s" reason
+        result
 
 
     let private regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
@@ -90,8 +90,11 @@ module internal Z3 =
 // ------------------------------- Encoding: primitives -------------------------------
 
     type private Z3Builder(ctx : Context) =
-        let encodingCache = freshCache()
+        let mutable encodingCache = freshCache()
         let emptyState = Memory.EmptyState()
+
+        member x.Reset() =
+            encodingCache <- freshCache()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -145,10 +148,8 @@ module internal Z3 =
 
         member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            let result = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
-            if not <| encodingCache.heapAddresses.ContainsKey result then
-                encodingCache.heapAddresses.Add(result, (address, Void))
-            result
+            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
+            // TODO: cache in heapAddresses?
 
         member private x.CreateConstant name typ =
             ctx.MkConst(x.ValidateId name, x.Type2Sort typ) |> encodingResult.Create
@@ -528,13 +529,13 @@ module internal Z3 =
 
         member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
-            let result = ref (vectorTime.Empty, Void)
+            let result = ref vectorTime.Empty
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif encodingCache.heapAddresses.TryGetValue(expr, result) then !result |> fst
+            elif encodingCache.heapAddresses.TryGetValue((typ, expr), result) then !result
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
-                encodingCache.heapAddresses.Add(expr, (addr, typ))
+                encodingCache.heapAddresses.Add((typ, expr), addr)
                 addr
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
@@ -701,19 +702,22 @@ module internal Z3 =
                 Memory.FillRegion state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let addr, typ = kvp.Value
+                let typ, _ = kvp.Key
+                let addr = kvp.Value
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
                     state.allocatedTypes <- PersistentDict.add addr typ state.allocatedTypes)
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
-            {state = state; subst = subst; complete = false}
+            encodingCache.heapAddresses.Clear()
+            {state = state; subst = subst; complete = true}
 
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
     type internal Z3Solver() =
-        let optCtx = ctx.MkOptimize()
+//        let optCtx = ctx.MkOptimize()
+        let optCtx = ctx.MkSolver()
         let levelAtoms = List<BoolExpr>()
         let mutable pathsCount = 0u
         let pathAtoms = Dictionary<level, List<BoolExpr>>()
@@ -737,22 +741,22 @@ module internal Z3 =
             paths.Add(atom, p)
             atom
 
-        let addSoftConstraints lvl =
-            let pathAtoms =
-                seq {
-                    for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
-                        if levelAtoms.[i] <> null then
-                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
-                }
-            optCtx.Push()
-            let weight = 1u
-            let group = null
-            pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
-            pathAtoms
+//        let addSoftConstraints lvl =
+//            let pathAtoms =
+//                seq {
+//                    for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
+//                        if levelAtoms.[i] <> null then
+//                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
+//                }
+//            optCtx.Push()
+//            let weight = 1u
+//            let group = null
+//            pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
+//            pathAtoms
 
         interface ISolver with
             member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
-                printLog Info "SOLVER: trying to solve constraints [level %O]..." q.lvl
+                printLog Trace "SOLVER: trying to solve constraints [level %O]..." q.lvl
                 printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
                 let mkResult () =
                     try
@@ -769,23 +773,20 @@ module internal Z3 =
                                     yield assumptions.[i] :> Expr
                                 yield query.expr
                             } |> Array.ofSeq
-                        let pathAtoms = addSoftConstraints q.lvl
+//                        let pathAtoms = addSoftConstraints q.lvl
                         let result = optCtx.Check assumptions
-                        printLog Info "SOLVER: got %O" result
                         match result with
                         | Status.SATISFIABLE ->
                             let z3Model = optCtx.Model
                             let model = builder.MkModel z3Model
-                            let usedPaths =
-                                pathAtoms
-                                |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
-                                |> Seq.map (fun atom -> paths.[atom])
-                            SmtSat { mdl = model; usedPaths = usedPaths }
+//                            let usedPaths =
+//                                pathAtoms
+//                                |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
+//                                |> Seq.map (fun atom -> paths.[atom])
+                            SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
                         | Status.UNSATISFIABLE ->
-                            printLog Trace "SOLVER: got UNSATISFIABLE"
                             SmtUnsat { core = optCtx.UnsatCore |> Array.map (builder.Decode Bool) }
                         | Status.UNKNOWN ->
-                            printLog Trace "SOLVER: unknown! Reason: %O" <| optCtx.ReasonUnknown
                             SmtUnknown optCtx.ReasonUnknown
                         | _ -> __unreachable__()
                     with
@@ -814,3 +815,6 @@ module internal Z3 =
                 let encodedWithAssumptions = Seq.append assumptions encoded |> Array.ofSeq
                 let encoded = builder.MkAnd encodedWithAssumptions
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
+
+    let reset() =
+        builder.Reset()
