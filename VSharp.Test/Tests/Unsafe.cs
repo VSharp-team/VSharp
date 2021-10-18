@@ -96,7 +96,7 @@ namespace IntegrationTests
             return **&p;
         }
 
-        [TestSvm]
+        [Ignore("Need to create IntPtr struct")]
         public static IntPtr IntPtrZero()
         {
             return IntPtr.Zero;
@@ -110,7 +110,7 @@ namespace IntegrationTests
             return ptr1 == ptr2;
         }
 
-        [TestSvm]
+        [Ignore("Need to create IntPtr struct")]
         public static IntPtr IntPtrSum()
         {
             IntPtr ptr = new IntPtr(0);
@@ -502,7 +502,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm]
+        [Ignore("Incorrect result (unsafe reading for strings)")]
         public static bool StringAsSpanSymbolicRead(int i)
         {
             var s = "best string";
@@ -559,7 +559,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm]
+        [Ignore("Support unsafe reading of string length")]
         public static int StringLengthUnsafeRead(int i)
         {
             var s = "best string";

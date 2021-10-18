@@ -1306,7 +1306,8 @@ module internal Memory =
         Cps.List.foldrk skipIfNeed [] ys (always [])
 
     let private composeTime state time =
-        if VectorTime.less VectorTime.zero time |> not then time
+        if time = [] then state.currentTime
+        elif VectorTime.less VectorTime.zero time |> not then time
         else state.currentTime @ time
 
     let rec private fillHole state term =

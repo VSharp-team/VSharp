@@ -56,7 +56,8 @@ type public SILI(options : SiliOptions) =
             state.iie <- Some e
             reportIncomplete state
 
-    let wrapOnTest (action : Action<UnitTest>) method state =
+    let wrapOnTest (action : Action<UnitTest>) (method : MethodBase) (state : cilState) =
+        Logger.info "Result of method %s is %O" method.Name state.Result
         reportState action.Invoke false method state
 
     let wrapOnError (action : Action<UnitTest>) method state =
@@ -75,8 +76,6 @@ type public SILI(options : SiliOptions) =
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
-                let declaringType = Types.FromDotNetType method.DeclaringType
-                Memory.InitializeStaticMembers initialState declaringType
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
                 else
                     let this = Memory.MakeSymbolicThis method
@@ -96,8 +95,6 @@ type public SILI(options : SiliOptions) =
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
-        // TODO: need to report? #do
-        toReportFinished |> List.iter (fun s -> Logger.info "Result = %O" s.Result)
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
         toReportExceptions |> List.iter reportFinished

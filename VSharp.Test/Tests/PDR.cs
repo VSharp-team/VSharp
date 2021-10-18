@@ -877,7 +877,7 @@ namespace IntegrationTests
             return classWithLotsOfFields._next;
         }
 
-        [TestSvm]
+        [TestSvm(89)]
         public static int CheckInvalidCfaConstruction(bool f)
         {
             ClassWithLotsOFFields c = new ClassWithLotsOFFields();

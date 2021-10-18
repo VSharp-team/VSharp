@@ -42,6 +42,7 @@ module internal Z3 =
         t2e : IDictionary<term, encodingResult>
         heapAddresses : IDictionary<symbolicType * Expr, vectorTime>
         staticKeys : IDictionary<Expr, symbolicType>
+        regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
@@ -63,35 +64,23 @@ module internal Z3 =
         t2e = Dictionary<term, encodingResult>()
         heapAddresses = Dictionary<symbolicType * Expr, vectorTime>()
         staticKeys = Dictionary<Expr, symbolicType>()
+        regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
     }
-
-    let private solverResultCache = Dictionary<query, smtResult>()
-
-    let private getSolverResult mkResult (q : query) =
-        let result = Dict.getValueOrUpdate solverResultCache q mkResult
-        match result with
-        | SmtSat _ -> trace "Got SATISFIABLE"
-        | SmtUnsat _ -> trace "Got UNSATISFIABLE"
-        | SmtUnknown reason -> trace "Got UNKNOWN: %s" reason
-        result
-
-
-    let private regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
-
-    let private getMemoryConstant mkConst (typ : regionSort * fieldId list) =
-        let result : ArrayExpr ref = ref null
-        if regionConstants.TryGetValue(typ, result) then !result
-        else
-            let regConst = mkConst()
-            regionConstants.Add(typ, regConst)
-            regConst
 
 // ------------------------------- Encoding: primitives -------------------------------
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
         let emptyState = Memory.EmptyState()
+
+        let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
+            let result : ArrayExpr ref = ref null
+            if encodingCache.regionConstants.TryGetValue(typ, result) then !result
+            else
+                let regConst = mkConst()
+                encodingCache.regionConstants.Add(typ, regConst)
+                regConst
 
         member x.Reset() =
             encodingCache <- freshCache()
@@ -676,7 +665,7 @@ module internal Z3 =
             Memory.NewStackFrame state null (List.ofSeq frame)
 
             let defaultValues = Dictionary<regionSort, term ref>()
-            regionConstants |> Seq.iter (fun kvp ->
+            encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
@@ -770,42 +759,40 @@ module internal Z3 =
             member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
                 printLog Trace "SOLVER: trying to solve constraints [level %O]..." q.lvl
                 printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
-                let mkResult () =
-                    try
-                        let query = builder.EncodeTerm encCtx q.queryFml
-                        let assumptions = query.assumptions
-                        let assumptions =
-                            seq {
-                                for i in 0 .. levelAtoms.Count - 1 do
-                                    let atom = levelAtoms.[i]
-                                    if atom <> null then
-                                        let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
-                                        yield lit :> Expr
-                                for i in 0 .. assumptions.Length - 1 do
-                                    yield assumptions.[i] :> Expr
-                                yield query.expr
-                            } |> Array.ofSeq
-//                        let pathAtoms = addSoftConstraints q.lvl
-                        let result = optCtx.Check assumptions
-                        match result with
-                        | Status.SATISFIABLE ->
-                            let z3Model = optCtx.Model
-                            let model = builder.MkModel z3Model
-//                            let usedPaths =
-//                                pathAtoms
-//                                |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
-//                                |> Seq.map (fun atom -> paths.[atom])
-                            SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
-                        | Status.UNSATISFIABLE ->
-                            SmtUnsat { core = optCtx.UnsatCore |> Array.map (builder.Decode Bool) }
-                        | Status.UNKNOWN ->
-                            SmtUnknown optCtx.ReasonUnknown
-                        | _ -> __unreachable__()
-                    with
-                    | :? EncodingException as e ->
-                        printLog Info "SOLVER: exception was thrown: %s" e.Message
-                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
-                getSolverResult mkResult q
+                try
+                    let query = builder.EncodeTerm encCtx q.queryFml
+                    let assumptions = query.assumptions
+                    let assumptions =
+                        seq {
+                            for i in 0 .. levelAtoms.Count - 1 do
+                                let atom = levelAtoms.[i]
+                                if atom <> null then
+                                    let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
+                                    yield lit :> Expr
+                            for i in 0 .. assumptions.Length - 1 do
+                                yield assumptions.[i] :> Expr
+                            yield query.expr
+                        } |> Array.ofSeq
+//                    let pathAtoms = addSoftConstraints q.lvl
+                    let result = optCtx.Check assumptions
+                    match result with
+                    | Status.SATISFIABLE ->
+                        let z3Model = optCtx.Model
+                        let model = builder.MkModel z3Model
+//                        let usedPaths =
+//                            pathAtoms
+//                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
+//                            |> Seq.map (fun atom -> paths.[atom])
+                        SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
+                    | Status.UNSATISFIABLE ->
+                        SmtUnsat { core = optCtx.UnsatCore |> Array.map (builder.Decode Bool) }
+                    | Status.UNKNOWN ->
+                        SmtUnknown optCtx.ReasonUnknown
+                    | _ -> __unreachable__()
+                with
+                | :? EncodingException as e ->
+                    printLog Info "SOLVER: exception was thrown: %s" e.Message
+                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
 
             member x.Assert encCtx (lvl : level) (fml : formula) =
                 printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl

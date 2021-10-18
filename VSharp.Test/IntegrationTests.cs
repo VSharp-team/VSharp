@@ -42,7 +42,6 @@ namespace VSharp.Test
             Thread.CurrentThread.CurrentCulture = ci;
 
             Logger.ConfigureWriter(TestContext.Progress);
-            Core.API.ConfigureSolver(SolverPool.mkSolver());
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
         private int _expectedCoverage = 100;
@@ -79,6 +78,7 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
+                Core.API.ConfigureSolver(SolverPool.mkSolver());
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {

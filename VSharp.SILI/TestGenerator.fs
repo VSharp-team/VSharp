@@ -56,7 +56,7 @@ module TestGenerator =
                 let repr = test.MemoryGraph.AddClass typ fields index
                 repr :> obj
 
-    let rec private term2obj model state indices (test : UnitTest) = function
+    let rec private term2obj (model : model) state indices (test : UnitTest) = function
         | {term = Concrete(_, AddressType)} -> __unreachable__()
         | {term = Concrete(v, t)} when Types.IsEnum t -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
@@ -71,7 +71,7 @@ module TestGenerator =
         | {term = Struct(fields, t)} ->
             let t = Types.ToDotNetType t
             let fieldReprs =
-                t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> term2obj model state indices test fields.[field])
+                t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> model.Complete fields.[field] |> term2obj model state indices test)
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef
         | NullPtr -> null
