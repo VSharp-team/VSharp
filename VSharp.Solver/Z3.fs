@@ -432,21 +432,22 @@ module internal Z3 =
             assert mo.defaultValue.IsNone
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
-            let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
+            let regionSort = GetHeapReadingRegionSort source
+            let array = x.GetRegionConstant name sort structFields regionSort
             let inst (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
+            let res = x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
+            match regionSort with
+            | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
+            | _ -> res
 
-        member private x.NormalizeArrayReading source encodingResult =
-            match GetHeapReadingRegionSort source with
-            | ArrayLengthSort _ ->
-                let expr = encodingResult.expr :?> BitVecExpr
-                let assumptions = encodingResult.assumptions
-                let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
-                let lengthIsNotGiant = ctx.MkBVSLE(expr, ctx.MkBV(20, expr.SortSize))
-                // TODO: this limits length < 20, delete when model normalization is complete
-                { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
-            | _ -> encodingResult
+        member private x.GenerateLengthAssumptions encodingResult =
+            let expr = encodingResult.expr :?> BitVecExpr
+            let assumptions = encodingResult.assumptions
+            let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
+            let lengthIsNotGiant = ctx.MkBVSLE(expr, ctx.MkBV(20, expr.SortSize))
+            // TODO: this limits length < 20, delete when model normalization is complete
+            { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
@@ -459,7 +460,9 @@ module internal Z3 =
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
             let res = x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
-            x.NormalizeArrayReading source res
+            match GetHeapReadingRegionSort source with
+            | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
+            | _ -> res
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
@@ -587,7 +590,10 @@ module internal Z3 =
 
         member public x.Decode t (expr : Expr) =
             match expr with
-            | :? BitVecNum as bv -> x.DecodeBv t bv
+            | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
+            | :? BitVecNum as bv when not (Types.IsValueType t) ->
+                let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
+                HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String

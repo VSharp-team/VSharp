@@ -95,6 +95,7 @@ with
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value with
             | {term = Constant(_, _, typ)} -> makeDefaultValue typ
+            | {term = HeapRef({term = Constant _}, _)} -> nullRef
             | _ -> value
         else value
 

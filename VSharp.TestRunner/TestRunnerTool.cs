@@ -100,13 +100,6 @@ namespace VSharp.TestRunner
                         _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                         var method = test.Method;
-                        // TODO: support generic arguments?
-                        bool hasThis = method.CallingConvention.HasFlag(CallingConventions.HasThis);
-
-                        // TODO: support virtual methods by passing explicit declaring type?
-                        object thisObj = hasThis && method.DeclaringType != null
-                            ? FormatterServices.GetUninitializedObject(method.DeclaringType)
-                            : null;
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
                         var ex = test.Exception;
@@ -114,7 +107,7 @@ namespace VSharp.TestRunner
                         {
                             object result = null;
                             if (!test.IsError || shouldReproduceError)
-                                result = method.Invoke(thisObj, parameters);
+                                result = method.Invoke(test.ThisArg, parameters);
                             if (ex != null)
                             {
                                 Console.Error.WriteLine("Test {0} failed! Expected exception {1} was not thrown",

@@ -1274,4 +1274,73 @@ namespace IntegrationTests
             return RecF(n - 15);
         }
     }
+
+
+    public class Customerrr
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string City { get; set; }
+
+        public override bool Equals(Object other)
+        {
+            if (other is Customerrr otherCustomer)
+            {
+                return otherCustomer.Id == this.Id;
+            }
+
+            return false;
+        }
+
+        protected bool Equals(Customerrr other)
+        {
+            return Id == other.Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Id, Name, City);
+        }
+    }
+
+    [TestSvmFixture]
+    public class ContainsCustomerClass
+    {
+        private Customerrr _customer;
+
+        // [TestSvm(100, 2)]
+        // // [Ignore("Hangs up")]
+        // public bool ListContainsOurCustomer(LinkedList<Customerrr> l)
+        // {
+        //     return l.Contains(_customer);
+        // }
+
+        [Ignore("")]
+        // [TestSvm]
+        public bool ArrayContainsOurCustomer(Customerrr[] customers)
+        {
+            foreach (var other in customers)
+            {
+                if (other.Equals(_customer))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        [TestSvm]
+        public bool ContainsOurCustomer(Customerrr other)
+        {
+            if (other.Equals(_customer))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+    }
+
 }

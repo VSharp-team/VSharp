@@ -98,23 +98,25 @@ module TypeSolver =
         constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
 
     let private satisfyInput constraints subst validate =
-        Dict.getValueOrUpdate inputsCache (constraints, subst) (fun () ->
+//        match PersistentDict.tryFind inputsCache (constraints, subst) with
+//        | Some t when validate t -> Found t
+//        | _ ->
             let validate typ =
                 if satisfiesConstraints constraints subst typ then
                     validate typ
                 else NotExists
             match constraints.subtypes with
             | [] -> findNonAbstractType constraints.supertypes validate (AssemblyManager.assemblies())
-            | t :: _ -> findNonAbstractSupertype validate t)
+            | t :: _ -> findNonAbstractSupertype validate t//)
 
     let private satisfyTypeParameter parameter subst validate =
-        Dict.getValueOrUpdate typeVarsCache (parameter, subst) (fun () ->
+//        Dict.getValueOrUpdate typeVarsCache (parameter, subst) (fun () ->
             let validate typ =
                 if satisfiesTypeParameterConstraints parameter subst typ then
                     validate typ
                 else NotExists
             let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-            findType supertypes validate (AssemblyManager.assemblies()))
+            findType supertypes validate (AssemblyManager.assemblies())//)
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then

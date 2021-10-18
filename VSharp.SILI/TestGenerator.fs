@@ -109,6 +109,7 @@ module TestGenerator =
                     addr |> typeOfAddress |> Types.ToDotNetType |> list.Add
                     list)
                 |> ignore
+            | {term = ConcreteHeapAddress _} -> ()
             | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
 
         PathConditionToSeq cilState.state.pc |> Seq.iter (function
