@@ -215,13 +215,6 @@ module internal CilStateOperations =
             | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
         List.map (fun ip -> setCurrentIp ip cilState) newIps
 
-    let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
-        let mutable onDemandCopy = cilState
-        StatedConditionalExecution cilState.state condition
-            (fun state k -> thenBranch (onDemandCopy <- {cilState with state = state}; changeState cilState state) k)
-            (fun state k -> elseBranch (changeState onDemandCopy state) k)
-            (fun x y -> List.append x y |> List.singleton)
-            (List.head >> k)
     let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
         let mkCilState state =
             if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
@@ -230,7 +223,7 @@ module internal CilStateOperations =
             (fun state term k -> f (mkCilState state) term k)
             cilState.state term id (List.concat >> k)
 
-    let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
+    let StatedConditionalExecutionCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
         let origCilState = {cilState with state = cilState.state}
         let mkCilState state =
             if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
@@ -242,7 +235,7 @@ module internal CilStateOperations =
             (List.concat >> k)
 
     let BranchOnNullCIL (cilState : cilState) term thenBranch elseBranch k =
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference term, state))
             thenBranch
             elseBranch

@@ -568,7 +568,7 @@ type internal ILInterpreter() as this =
             assert(List.length upperBounds = List.length indices)
             let upperBoundsAndIndices = List.zip upperBounds indices
             List.fold checkOneBound True upperBoundsAndIndices
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (checkArrayBounds upperBounds indices, state))
             accessor
             (x.Raise x.IndexOutOfRangeException)
@@ -628,7 +628,7 @@ type internal ILInterpreter() as this =
         let copy (cilState : cilState) k =
             Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
             k [cilState]
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (check, state))
             copy
             (x.Raise x.IndexOutOfRangeException)
@@ -647,12 +647,12 @@ type internal ILInterpreter() as this =
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
             let check = index << lb ||| (Arithmetics.Add index length) >> numOfAllElements ||| length << zero
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.IndexOutOfRangeException)
                 clearCase
                 k
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference array, state))
             (x.Raise x.ArgumentNullException)
             nonNullCase
@@ -675,7 +675,7 @@ type internal ILInterpreter() as this =
             k [cilState]
         let lengthCheck (cilState : cilState) =
             let check = ((add srcIndex length) >> srcNumOfAllElements) ||| ((add dstIndex length) >> dstNumOfAllElements)
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.ArgumentException)
                 defaultCase
@@ -685,7 +685,7 @@ type internal ILInterpreter() as this =
             let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >> srcNumOfAllElements else False)
             let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >> dstNumOfAllElements else False)
 
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
                 (x.Raise x.ArgumentOutOfRangeException)
                 lengthCheck
@@ -695,14 +695,14 @@ type internal ILInterpreter() as this =
             let condition =
                 if Types.IsValueType srcElemType then True
                 else Types.TypeIsType srcElemType dstElemType
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (condition, state))
                 indicesCheck
                 (x.Raise x.InvalidCastException)
         let rankCheck (cilState : cilState) =
             if Types.RankOf srcType = Types.RankOf dstType then assignableCheck cilState
             else x.Raise x.RankException cilState
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference src ||| IsNullReference dst, state))
             (x.Raise x.ArgumentNullException)
             rankCheck
@@ -980,7 +980,7 @@ type internal ILInterpreter() as this =
             let callForConcreteType typ state k =
                 x.CallVirtualMethodFromTermType state typ ancestorMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
-                StatedConditionalExecutionAppendResultsCIL cilState
+                StatedConditionalExecutionCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
                     (callForConcreteType baseType)
                     (fun s k -> x.CallAbstract ancestorMethod s k)
@@ -1063,7 +1063,7 @@ type internal ILInterpreter() as this =
         x.ConvOvf targetType cilState
 
     member private x.CommonCastClass (cilState : cilState) (term : term) (typ : symbolicType) k =
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference term ||| Types.IsCast state term typ, state))
             (fun cilState k ->
                 push (Types.Cast term typ) cilState
@@ -1317,7 +1317,7 @@ type internal ILInterpreter() as this =
             k [cilState]
         let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
             let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
                 referenceLocation
                 (x.Raise x.ArrayTypeMismatchException)
@@ -1338,7 +1338,7 @@ type internal ILInterpreter() as this =
                 let condition =
                     if Types.IsValueType typeOfValue then True
                     else Types.RefIsAssignableToType cilState.state value baseType
-                StatedConditionalExecutionAppendResultsCIL cilState
+                StatedConditionalExecutionCIL cilState
                     (fun state k -> k (condition, state))
                     uncheckedStElem
                     (x.Raise x.ArrayTypeMismatchException)
@@ -1389,7 +1389,7 @@ type internal ILInterpreter() as this =
             List.iter boxValue cilStates
             k cilStates
         let boxNullable (hasValue, cilState : cilState) k =
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (hasValue, state))
                 hasValueCase
                 (fun cilState k ->
@@ -1429,7 +1429,7 @@ type internal ILInterpreter() as this =
                 x.Raise x.NullReferenceException cilState k
         let nullableCase (cilState : cilState) =
             let underlyingTypeOfNullableT = Nullable.GetUnderlyingType t
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.RefIsType state obj (Types.FromDotNetType underlyingTypeOfNullableT), state))
                 (fun cilState k ->
                     let value = HeapReferenceToBoxReference obj |> Memory.ReadSafe cilState.state
@@ -1445,7 +1445,7 @@ type internal ILInterpreter() as this =
             if Types.IsNullable termType then
                 nullableCase cilState
             else
-                StatedConditionalExecutionAppendResultsCIL cilState
+                StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.IsCast state obj termType, state))
                     (fun cilState k ->
                         let res = handleRestResults cilState (Types.Cast obj termType |> HeapReferenceToBoxReference)
@@ -1489,7 +1489,7 @@ type internal ILInterpreter() as this =
             cilState.iie <- Some iie
             [cilState]
         else
-            StatedConditionalExecutionAppendResultsCIL cilState
+            StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.TypeIsType termType valueType, state))
                 (fun cilState k ->
                     let handleRestResults cilState address = Memory.ReadSafe cilState.state address
