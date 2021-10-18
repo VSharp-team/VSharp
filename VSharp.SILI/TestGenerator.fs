@@ -28,12 +28,15 @@ module TestGenerator =
                         let arrayType = (elemType, 1, true)
                         arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox |], null
                     | ConcreteDimension rank ->
-                        let arrayType = (elemType, rank, true)
+                        let arrayType = (elemType, rank, false)
                         arrayType,
                         Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox),
                         Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
                     | SymbolicDimension -> __notImplemented__()
-                let contents = Array.init (Array.reduce ( * ) lengths) (fun i ->
+                let length = Array.reduce ( * ) lengths
+                // TODO: normalize model (for example, try to minimize lengths of generated arrays)
+                if length > 128 then raise <| InsufficientInformationException "Test generation for too large buffers disabled for now"
+                let contents = Array.init length (fun i ->
                     let indices = Seq.delinearizeArrayIndex i lengths lowerBounds
                     let indexTerms = indices |> Seq.map (fun i -> Concrete i Types.IndexType) |> List.ofSeq
                     ArrayIndex(cha, indexTerms, arrayType) |> eval)
@@ -138,45 +141,57 @@ module TestGenerator =
         | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
         | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
 
+    let tryGetModel (state : state) =
+        match IsValid state with
+        | SolverInteraction.SmtSat model -> Some model.mdl
+        | SolverInteraction.SmtUnknown _ -> None
+        // NOTE: irrelevant case, because exploring branch must be valid
+        | SolverInteraction.SmtUnsat _ -> __unreachable__()
+
+    let model2test (test : UnitTest) isError hasException indices m model cilState =
+        match solveTypes m model cilState with
+        | None -> None
+        | Some(typesOfAddresses, classParams, methodParams) ->
+            test.SetTypeGenericParameters classParams
+            test.SetMethodGenericParameters methodParams
+            typesOfAddresses |> Seq.iter (fun (addr, t) ->
+                model.state.allocatedTypes <- PersistentDict.add addr (Types.FromDotNetType t) model.state.allocatedTypes
+                if t.IsValueType then
+                    model.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) model.state.boxedLocations)
+
+            m.GetParameters() |> Seq.iter (fun pi ->
+                let value = Memory.ReadArgument model.state pi |> model.Complete
+                let concreteValue : obj = term2obj model cilState.state indices test value
+                test.AddArg pi concreteValue)
+
+            if Reflection.hasThis m then
+                let value = Memory.ReadThis model.state m |> model.Complete
+                let concreteValue : obj = term2obj model cilState.state indices test value
+                test.ThisArg <- concreteValue
+
+            if not isError && not hasException then
+                let retVal = model.Eval cilState.Result
+                test.Expected <- term2obj model cilState.state indices test retVal
+            Some test
+
     let state2test isError (m : MethodBase) (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
         test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
-        match cilState.state.exceptionsRegister with
-        | Unhandled e ->
-            let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
-            test.Exception <- t
-        | _ -> ()
+        let hasException =
+            match cilState.state.exceptionsRegister with
+            | Unhandled e ->
+                let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
+                test.Exception <- t
+                true
+            | _ -> false
+        test.IsError <- isError
 
         match cilState.state.model with
         | Some model ->
-            match solveTypes m model cilState with
-            | None -> None
-            | Some(typesOfAddresses, classParams, methodParams) ->
-                test.SetTypeGenericParameters classParams
-                test.SetMethodGenericParameters methodParams
-                typesOfAddresses |> Seq.iter (fun (addr, t) ->
-                    model.state.allocatedTypes <- PersistentDict.add addr (Types.FromDotNetType t) model.state.allocatedTypes
-                    if t.IsValueType then
-                        model.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) model.state.boxedLocations)
-
-                m.GetParameters() |> Seq.iter (fun pi ->
-                    let value = Memory.ReadArgument model.state pi |> model.Complete
-                    let concreteValue : obj = term2obj model cilState.state indices test value
-                    test.AddArg pi concreteValue)
-
-                if Reflection.hasThis m then
-                    let value = Memory.ReadThis model.state m |> model.Complete
-                    let concreteValue : obj = term2obj model cilState.state indices test value
-                    test.ThisArg <- concreteValue
-
-                test.IsError <- isError
-
-                if not isError then
-                    let retVal = model.Eval cilState.Result
-                    test.Expected <- term2obj model cilState.state indices test retVal
-                Some test
-        | None ->
+            model2test test isError hasException indices m model cilState
+        | None when cilState.state.pc = EmptyPathCondition ->
+            // NOTE: case when no branches occured
             let emptyState = Memory.EmptyState()
             emptyState.allocatedTypes <- cilState.state.allocatedTypes
             let parameters = m.GetParameters() |> Seq.map (fun param ->
@@ -197,8 +212,6 @@ module TestGenerator =
                 let defaultValue = TypeUtils.defaultOf pi.ParameterType
                 test.AddArg pi defaultValue)
             let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
-
-            test.IsError <- isError
             match solveTypes m emptyModel cilState with
             | None -> None
             | Some(typesOfAddresses, classParams, methodParams) ->
@@ -209,7 +222,13 @@ module TestGenerator =
                     if t.IsValueType then
                         emptyModel.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) emptyModel.state.boxedLocations)
 
-                if not isError then
+                if not isError && not hasException then
                     let retVal = emptyModel.Eval cilState.Result
                     test.Expected <- term2obj emptyModel cilState.state indices test retVal
                 Some test
+        | None ->
+            // NOTE: case when branch occured, but we have no model, so trying to get it
+            match tryGetModel cilState.state with
+            | Some model ->
+                model2test test isError hasException indices m model cilState
+            | None -> None

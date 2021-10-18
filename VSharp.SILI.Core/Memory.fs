@@ -662,8 +662,16 @@ module internal Memory =
         else
             conditionState.pc <- thenPc
             match SolverInteraction.checkSat conditionState with
-            | SolverInteraction.SmtUnsat _
             | SolverInteraction.SmtUnknown _ ->
+                conditionState.pc <- elsePc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    __insufficientInformation__ "Unable to witness branch"
+                | SolverInteraction.SmtSat model ->
+                    conditionState.model <- Some model.mdl
+                    elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat model ->
@@ -1143,12 +1151,9 @@ module internal Memory =
         // TODO: need concrete memory for BoxedLocation?
         | BoxedLocation(address, _) -> writeBoxedLocation state address value
         | StackBufferIndex(key, index) -> writeStackBuffer state key index value
-        | ArrayLength _ ->
-//            writeLength state address dimension typ value
-            __unreachable__()
-        | ArrayLowerBound _ ->
-//            writeLowerBound state address dimension typ value
-            __unreachable__()
+        // NOTE: Cases below is needed to construct a model
+        | ArrayLength(address, dimension, typ) -> writeLengthSymbolic state address dimension typ value
+        | ArrayLowerBound(address, dimension, typ) -> writeLowerBoundSymbolic state address dimension typ value
 
     let write state reference value =
         guardedStatedMap
@@ -1300,7 +1305,9 @@ module internal Memory =
             else List.take (List.length ys - List.length acc) ys
         Cps.List.foldrk skipIfNeed [] ys (always [])
 
-    let private composeTime state time = state.currentTime @ time
+    let private composeTime state time =
+        if VectorTime.less VectorTime.zero time |> not then time
+        else state.currentTime @ time
 
     let rec private fillHole state term =
         match term.term with

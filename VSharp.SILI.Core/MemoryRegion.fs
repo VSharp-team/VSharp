@@ -23,16 +23,16 @@ type regionSort =
         match x with
         | HeapFieldSort field
         | StaticFieldSort field -> field.typ |> Types.Constructor.fromDotNetType
-        | ArrayIndexSort(elementType, _, _)
-        | ArrayLengthSort(elementType, _, _)
-        | ArrayLowerBoundSort(elementType, _, _) -> elementType
+        | ArrayIndexSort(elementType, _, _) -> elementType
+        | ArrayLengthSort _
+        | ArrayLowerBoundSort _ -> Types.Int32
         | StackBufferSort _ -> Types.Numeric typeof<int8>
 
 module private MemoryKeyUtils =
 
     let regionOfHeapAddress = function
         | {term = ConcreteHeapAddress addr} -> intervals<vectorTime>.Singleton addr
-        | addr -> intervals<vectorTime>.Closed VectorTime.zero (timeOf addr)
+        | addr -> intervals<vectorTime>.Closed VectorTime.minfty (timeOf addr)
 
     let regionOfIntegerTerm = function
         | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType -> points<int>.Singleton value
@@ -50,13 +50,13 @@ type heapAddressKey =
 //            | _ -> false
         override x.Region = MemoryKeyUtils.regionOfHeapAddress x.address
         override x.Map mapTerm _ mapTime reg =
-            let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
+            let symbolicReg = intervals<vectorTime>.Closed VectorTime.minfty VectorTime.zero
             let newReg =
-                if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
+                if (reg :> IRegion<vectorTime intervals>).CompareTo symbolicReg = Includes then
                     let rightBound = mapTime []
                     assert(not <| VectorTime.isEmpty rightBound)
-                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
-                    let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.zero rightBound
+                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract symbolicReg
+                    let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.minfty rightBound
                     mappedZeroInterval.Union(reg'.Map mapTime)
                 else
                     reg.Map mapTime
@@ -246,7 +246,7 @@ module MemoryRegion =
     let deterministicCompose earlier later =
         assert(later.defaultValue.IsNone)
         if earlier.typ = later.typ then
-            if UpdateTree.isEmpty earlier.updates then later
+            if UpdateTree.isEmpty earlier.updates then { later with defaultValue = earlier.defaultValue }
             else {typ = earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates; defaultValue = earlier.defaultValue}
         else internalfail "Composing two incomparable memory objects!"
 
@@ -255,7 +255,7 @@ module MemoryRegion =
         if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
             [(True, deterministicCompose earlier later)]
         elif earlier.typ = later.typ then
-            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue=earlier.defaultValue}))
+            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue = earlier.defaultValue}))
         else internalfail "Composing two incomparable memory objects!"
 
     let toString indent mr = UpdateTree.print indent toString mr.updates

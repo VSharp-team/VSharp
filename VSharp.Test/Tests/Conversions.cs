@@ -171,7 +171,7 @@ namespace IntegrationTests
             return (short)number;
         }
 
-        [TestSvm]
+        [Ignore("Encoding of reals is not supported")]
         public static ushort ConvOvfDoubleToUshort(double number) {
             return checked((ushort)number);
         }

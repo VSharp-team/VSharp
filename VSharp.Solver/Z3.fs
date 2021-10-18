@@ -364,7 +364,7 @@ module internal Z3 =
                     | endpointSort.ClosedLeft -> ctx.MkBVSGE(key :?> BitVecExpr, bound)
                     | _ -> __unreachable__()
                 x.MkAnd(acc, condition)
-            let intervalWithoutLeftZeroBound = List.except [{elem = VectorTime.zero; sort = endpointSort.ClosedLeft}] region.points
+            let intervalWithoutLeftZeroBound = region.points |> List.filter (fun ep -> VectorTime.less VectorTime.zero ep.elem)
             List.fold onePointCondition acc intervalWithoutLeftZeroBound
 
         member private x.HeapAddressKeyInRegion encCtx acc (key : heapAddressKey) (keyExpr : Expr) =
@@ -448,6 +448,17 @@ module internal Z3 =
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
             x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
 
+        member private x.NormalizeArrayReading source encodingResult =
+            match GetHeapReadingRegionSort source with
+            | ArrayLengthSort _ ->
+                let expr = encodingResult.expr :?> BitVecExpr
+                let assumptions = encodingResult.assumptions
+                let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
+                let lengthIsNotGiant = ctx.MkBVSLE(expr, ctx.MkBV(20, expr.SortSize))
+                // TODO: this limits length < 20, delete when model normalization is complete
+                { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
+            | _ -> encodingResult
+
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
@@ -458,7 +469,8 @@ module internal Z3 =
                     let sort = ctx.MkArraySort(domainSort, valueSort)
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
-            x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
+            let res = x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
+            x.NormalizeArrayReading source res
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone

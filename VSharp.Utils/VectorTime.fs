@@ -4,7 +4,8 @@ type vectorTime = int32 list
 
 module VectorTime =
     let zero = [0]
-    let infty = [System.UInt32.MaxValue]
+    let infty = [System.Int32.MaxValue]
+    let minfty = [System.Int32.MinValue]
 
     let rec compare (t1 : vectorTime) (t2 : vectorTime) =
         List.compareWith (fun (v1 : int32) (v2 : int32) -> v1.CompareTo(v2)) t1 t2

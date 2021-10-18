@@ -408,6 +408,17 @@ module API =
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
+        let StringFromReplicatedChar state string char length =
+            match string.term with
+            | HeapRef(address, sightType) ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = Types.String)
+                let arrayType = Types.Char, 1, true
+                Copying.fillArray state address arrayType (makeNumber 0) length char
+                Memory.writeLengthSymbolic state address (makeNumber 0) arrayType (add length (makeNumber 1))
+                Memory.writeArrayIndex state address [length] arrayType (Concrete '\000' Types.Char)
+                Memory.writeClassField state address Reflection.stringLengthField length
+            | _ -> internalfailf "Creating string from replicated char: expected heapRef, but got %O" string
+
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
         let StackTrace stack = CallStack.stackTrace stack

@@ -41,10 +41,12 @@ module internal TypeUtils =
         | _ -> __unreachable__()
 
     let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
+    let longs = [int64Type; uint64Type]
 
     let isIntegerTermType typ = integers |> List.contains typ || isEnum typ
     let isFloatTermType typ = typ = float32Type || typ = float64Type
     let isInteger = Terms.TypeOf >> isIntegerTermType
+    let isLong term = List.contains (TypeOf term) longs
     let isBool = Terms.TypeOf >> IsBool
     let (|Int8|_|) t = if Terms.TypeOf t = int8Type then Some() else None
     let (|UInt8|_|) t = if Terms.TypeOf t = uint8Type then Some() else None
@@ -678,9 +680,11 @@ type internal ILInterpreter() as this =
                 (x.Raise x.ArgumentException)
                 defaultCase
         let indicesCheck (cilState : cilState) =
-            let primitiveLengthCheck = (length << zero) ||| (length >> TypeUtils.Int32.MaxValue)
-            let srcIndexCheck = (srcIndex << srcLB) ||| (srcIndex >> srcNumOfAllElements)
-            let dstIndexCheck = (dstIndex << dstLB) ||| (dstIndex >> dstNumOfAllElements)
+            // TODO: extended form needs
+            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False)
+            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >> srcNumOfAllElements else False)
+            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >> dstNumOfAllElements else False)
+
             StatedConditionalExecutionAppendResultsCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
                 (x.Raise x.ArgumentOutOfRangeException)

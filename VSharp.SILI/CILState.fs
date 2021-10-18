@@ -231,9 +231,10 @@ module internal CilStateOperations =
             cilState.state term id (List.concat >> k)
 
     let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
+        let origCilState = {cilState with state = cilState.state}
         let mkCilState state =
             if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-            else {cilState with state = state}
+            else {origCilState with state = state}
         StatedConditionalExecution cilState.state conditionInvocation
             (fun state k -> thenBranch (mkCilState state) k)
             (fun state k -> elseBranch (mkCilState state) k)

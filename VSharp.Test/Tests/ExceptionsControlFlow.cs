@@ -101,7 +101,7 @@ namespace IntegrationTests
         }
 
 
-        [TestSvm]
+        [TestSvm(79)]
         public static int NestedTryCatchFinally()
         {
             int globalMemory = 0;

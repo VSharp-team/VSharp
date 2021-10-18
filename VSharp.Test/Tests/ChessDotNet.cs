@@ -92,7 +92,7 @@ namespace IntegrationTests
             return game.HasAnyValidMoves(Player.Black);
         }
 
-        [Ignore("needs big bound and works too long")]
+        [TestSvm(100, 1000u)]
         public static bool ApplyMoveAndCheckOtherValidMoves()
         {
             var game = new ChessGame();
@@ -109,7 +109,7 @@ namespace IntegrationTests
             return p1 == p2;
         }
 
-        [TestSvm]
+        [TestSvm(100, 1000u)]
         public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();
@@ -120,7 +120,7 @@ namespace IntegrationTests
             return isValid && type == MoveType.Invalid;
         }
 
-        [TestSvm]
+        [Ignore("Not ready")]
         public static bool GetOwnerSymbolic(int dst)
         {
             var data = CreateDataForCheckMate();
@@ -155,7 +155,7 @@ namespace IntegrationTests
             return data;
         }
 
-        [TestSvm]
+        [TestSvm(100, 1000u)]
         public static bool CheckMate1(bool f)
         {
             var data = CreateDataForCheckMate();
@@ -171,7 +171,7 @@ namespace IntegrationTests
             return game.IsCheckmated(Player.Black);
         }
 
-        [TestSvm]
+        [Ignore("Not ready")]
         public static bool CheckMate2(int dst)
         {
             var data = CreateDataForCheckMate();
@@ -182,7 +182,7 @@ namespace IntegrationTests
             return game.IsCheckmated(Player.Black);
         }
 
-        [Ignore("needs big bound and works too long")]
+        [TestSvm(100, 1000u)]
         public static bool CheckMoveIsValidAndApply()
         {
             var game = new ChessGame();

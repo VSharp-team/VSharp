@@ -21,12 +21,14 @@ module public Seq =
     let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
         let detachOne (acc, lensProd) dim =
             let curOffset = acc / lensProd
-            let curIndex = curOffset + (if lowerBounds = null then 0 else lowerBounds.[dim])
+            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
+            let curIndex = curOffset + lb
             let rest = acc % lensProd
-            curIndex, (rest, if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1])
+            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
+            curIndex, (rest, lensProd)
         let mutable lenProd = 1
         for i in 1 .. lengths.Length - 1 do
-            lenProd <- lenProd - 1
+            lenProd <- lenProd * lengths.[i]
         Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
 module public List =

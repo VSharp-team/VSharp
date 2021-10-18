@@ -21,6 +21,12 @@ module internal String =
                 | _ -> __notImplemented__())
             id
 
+    let CtorFromReplicatedChar state args =
+        assert (List.length args = 3)
+        let this, char, length = args.[0], args.[1], args.[2]
+        Memory.StringFromReplicatedChar state this char length
+        Nop
+
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)
         Memory.StringLength state (List.head args)

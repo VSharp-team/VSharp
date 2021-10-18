@@ -41,13 +41,12 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            uint maxBound = 1000;
             Logger.ConfigureWriter(TestContext.Progress);
-            _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, maxBound);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
         private int _expectedCoverage = 100;
+        private uint _maxBoundForTest = 15u;
 
 
         public TestSvmAttribute() { }
@@ -57,17 +56,25 @@ namespace VSharp.Test
             _expectedCoverage = expectedCoverage;
         }
 
+        public TestSvmAttribute(int expectedCoverage, uint maxBoundForTest)
+        {
+            _expectedCoverage = expectedCoverage;
+            _maxBoundForTest = maxBoundForTest;
+        }
+
         public virtual TestCommand Wrap(TestCommand command)
         {
-            return new TestSvmCommand(command, _expectedCoverage);
+            return new TestSvmCommand(command, _expectedCoverage, _maxBoundForTest);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
             private int _expectedCoverage;
-            public TestSvmCommand(TestCommand innerCommand, int expectedCoverage) : base(innerCommand)
+            private uint _maxBoundForTest;
+            public TestSvmCommand(TestCommand innerCommand, int expectedCoverage, uint maxBoundForTest) : base(innerCommand)
             {
                 _expectedCoverage = expectedCoverage;
+                _maxBoundForTest = maxBoundForTest;
             }
 
             private TestResult Explore(TestExecutionContext context)
@@ -75,6 +82,7 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
+                    _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, _maxBoundForTest);
                     SILI explorer = new SILI(_options);
                     Statistics statistics = new Statistics();
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
@@ -92,6 +100,7 @@ namespace VSharp.Test
                     unitTests.WriteReport(explorer.GenerateReport);
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
+                        TestContext.Out.WriteLine("Starting coverage tool...");
                         var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName,
                             Directory.GetCurrentDirectory());
                         coverageTool.Run(unitTests.TestDirectory);

@@ -274,7 +274,8 @@ module internal Arithmetics =
 // ------------------------------- Simplification of unary "-" -------------------------------
 
     and private simplifyConcreteUnaryMinus t x =
-        castConcrete (Calculator1.Sub(0, x, t)) t
+        let zero = defaultOf (x.GetType())
+        castConcrete (Calculator1.Sub(zero, x, t)) t
 
     and private simplifyUnaryMinus (t : System.Type) x k =
         let simplifyConcrete _ obj _ =

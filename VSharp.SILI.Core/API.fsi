@@ -255,6 +255,8 @@ module API =
 
         val ClearArray : state -> term -> term -> term -> unit
 
+        val StringFromReplicatedChar : state -> term -> term -> term -> unit
+
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
         val StackTrace : callStack -> string

@@ -419,7 +419,9 @@ module internal Terms =
             Concrete concrete (fromDotNetType t)
         elif t.IsEnum && TypeUtils.isNumeric actualType then
             let underlyingType = t.GetEnumUnderlyingType()
-            Concrete (TypeUtils.convert concrete underlyingType) (fromDotNetType t)
+            let underlyingValue = TypeUtils.convert concrete underlyingType
+            let enumValue = TypeUtils.convert underlyingValue t
+            Concrete enumValue (fromDotNetType t)
         elif actualType.IsEnum && TypeUtils.isNumeric t then
             Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
         elif TypeUtils.canConvert actualType t then

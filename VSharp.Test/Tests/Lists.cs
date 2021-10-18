@@ -302,7 +302,7 @@ namespace IntegrationTests
             return arr;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int TestConnectionBetweenIndicesAndValues(int[] a, int i, int j)
         {
             int x = a[i];
@@ -313,7 +313,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int TestConnectionBetweenMultiIndicesAndValues(int[,] a, int i, int j, int f, int g)
         {
             int x = a[i, j];
@@ -329,7 +329,7 @@ namespace IntegrationTests
             public int x;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {
             MyClass x = a[i];
@@ -351,7 +351,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static bool ArraySymbolicUpdate2(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -363,7 +363,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm]
+        [TestSvm(86)]
         public static bool ArraySymbolicUpdate3(int i, int j)
         {
             var array = new int[] {1, 2, 3, 4, 5};
