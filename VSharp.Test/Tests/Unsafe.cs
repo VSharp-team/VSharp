@@ -573,7 +573,7 @@ namespace IntegrationTests
             return result;
         }
 
-        [Ignore("Appveyor has incorrect result")]
+        [TestSvm(89)]
         public static bool StringSymbolicWrite(int i)
         {
             var s = "best string";

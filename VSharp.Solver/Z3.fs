@@ -213,9 +213,9 @@ module internal Z3 =
             | OperationType.LessOrEqual -> x.MakeBinary encCtx ctx.MkBVSLE args
             | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
             | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
-            | OperationType.AddNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkBVAddNoOverflow(x, y, true)) args
+            | OperationType.AddNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkAnd(ctx.MkBVAddNoUnderflow(x, y), ctx.MkBVAddNoOverflow(x, y, true))) args
             | OperationType.Multiply -> x.MakeBinary encCtx ctx.MkBVMul args
-            | OperationType.MultiplyNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkBVMulNoOverflow(x, y, true)) args
+            | OperationType.MultiplyNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkAnd(ctx.MkBVMulNoUnderflow(x, y), ctx.MkBVMulNoOverflow(x, y, true))) args
             | OperationType.Subtract -> x.MakeBinary encCtx ctx.MkBVSub args
             | OperationType.Divide -> x.MakeBinary encCtx ctx.MkBVSDiv args
             | OperationType.Divide_Un -> x.MakeBinary encCtx ctx.MkBVUDiv args

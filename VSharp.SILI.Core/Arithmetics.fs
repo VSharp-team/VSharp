@@ -730,6 +730,8 @@ module internal Arithmetics =
     let checkEqualZero y k =
         simplifyEqual y (castConcrete 0 (toDotNetType(typeOf y))) k
 
+    // TODO: implement without using of expression AddNoOvf or MultiplyNoOvf:
+    // TODO: - if signed, then it should keep the sign
     let rec makeExpressionNoOvf expr k =
         match expr with
         | Add(x, y, t) -> makeBinary OperationType.AddNoOvf x y Bool |> k
