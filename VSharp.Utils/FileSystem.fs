@@ -17,7 +17,9 @@ module FileSystem =
         cmd.WaitForExit()
 
     let private createSymlinkWindows target link =
-        __notImplemented__()
+        run "cmd.exe" (sprintf "/c if exist %s ( rmdir %s )" link link)
+        run "cmd.exe" (sprintf "/c mklink /d %s %s" link target)
+
     let private createSymlinkUnix target link =
         run "unlink" link
         run "ln" (sprintf "-s \"%s\" \"%s\"" target link)
