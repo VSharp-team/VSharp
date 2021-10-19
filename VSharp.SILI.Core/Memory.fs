@@ -46,6 +46,16 @@ module internal Memory =
         x = VectorTime.zero
 
     let withPathCondition (s : state) cond : state = { s with pc = PC.add s.pc cond }
+    
+    let withIndependentBy (s : state) cond : state =
+        let fragment =
+            PC.fragments s.pc
+            |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
+            |> function
+                | Some(fragment) -> fragment
+                | None -> raise InvalidOperationException ""
+        { s with pc = fragment }
+        
 
 // ------------------------------- Stack -------------------------------
 
