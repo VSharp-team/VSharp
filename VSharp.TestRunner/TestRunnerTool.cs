@@ -39,7 +39,9 @@ namespace VSharp.TestRunner
             var fields = expected.GetType().GetFields(flags);
             foreach (var field in fields)
             {
-                if (!CompareObjects(field.GetValue(expected), field.GetValue(got)))
+                if (!TypeUtils.isSubtypeOrEqual(field.FieldType, typeof(MulticastDelegate)) &&
+                    !field.Name.Contains("threadid", StringComparison.OrdinalIgnoreCase) &&
+                    !CompareObjects(field.GetValue(expected), field.GetValue(got)))
                 {
                     return false;
                 }

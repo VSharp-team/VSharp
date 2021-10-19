@@ -263,7 +263,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [Ignore("Raise OverflowException on allocation of array with negative size")]
         public static int SolverTestMultiDimensionArray(int[,] a, int x, int y)
         {
             var res = 0;

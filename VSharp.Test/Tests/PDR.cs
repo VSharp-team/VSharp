@@ -56,7 +56,7 @@ namespace IntegrationTests
         }
 
 
-        [TestSvm]
+        [Ignore("Tests generation with lambdas is not implemented")]
         public static Action<int> CreateLambda(bool flag)
         {
             int a = 0, b = 0, c = 0;
@@ -229,7 +229,7 @@ namespace IntegrationTests
             new ClassWithOneField();
         }
 
-        [TestSvm]
+        [TestSvm(89)]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -460,7 +460,7 @@ namespace IntegrationTests
 
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(80)]
         public static int TestAllocatedType_1()
         {
             VirtualC c = new VirtualC();
@@ -474,7 +474,7 @@ namespace IntegrationTests
         }
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(75)]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();

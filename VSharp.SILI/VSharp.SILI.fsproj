@@ -49,20 +49,6 @@
         <Compile Include="SILI.fs" />
     </ItemGroup>
 
-    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dylib">
-          <Link>libicsharpConcolic.dylib</Link>
-          <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dll">
-            <Link>libicsharpConcolic.dylib</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
     <ItemGroup>
       <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />

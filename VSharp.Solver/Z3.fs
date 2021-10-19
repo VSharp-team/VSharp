@@ -517,6 +517,7 @@ module internal Z3 =
     // ------------------------------- Decoding -------------------------------
 
         member private x.DecodeExpr op t (expr : Expr) =
+            // TODO: bug -- decoding arguments with type of expression
             Expression (Operator op) (expr.Args |> Seq.map (x.Decode t) |> List.ofSeq) t
 
         member private x.DecodeBoolExpr op (expr : Expr) =
@@ -791,7 +792,7 @@ module internal Z3 =
 //                            |> Seq.map (fun atom -> paths.[atom])
                         SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
                     | Status.UNSATISFIABLE ->
-                        SmtUnsat { core = optCtx.UnsatCore |> Array.map (builder.Decode Bool) }
+                        SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()

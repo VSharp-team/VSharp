@@ -407,7 +407,7 @@ module internal Arithmetics =
 
     and simplifyConcreteDivision t x y =
         let success = ref true
-        let result = Calculator.Div(x, y, t, success)
+        let result = Calculator1.Div(x, y, t)
         castConcrete result t
 
     and private simplifyDivision isSigned t x y k =
