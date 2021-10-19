@@ -1,6 +1,0 @@
-METHOD: VSharp.Test.Tests.Typecast.Pawn VSharp.Test.Tests.Typecast.Typecast.TypeCast(System.Object)
-RESULT: Totally 1 state:
-(HeapRef obj to VSharp.Test.Tests.Typecast.Pawn)
-MEMORY DUMP:
-Path condition: (obj <: VSharp.Test.Tests.Typecast.Pawn) | null == obj
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

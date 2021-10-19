@@ -4,7 +4,6 @@ open System.Collections.Generic
 open global.System
 open VSharp
 open VSharp.Core
-open ChessDotNet
 
 
 // ------------------------------ System.Collections.Generic.ComparerHelpers --------------------------------
@@ -16,13 +15,13 @@ module EqualityComparer =
         let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typ)
         Types.FromDotNetType genericEqualityComparer |> Memory.AllocateDefaultClass state
 
-    let internal CreateDefaultEqualityComparer (state : state) (args : term list) : term * state =
+    let internal CreateDefaultEqualityComparer (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let typ = Type.getActualType state runtimeType
         createEqualityComparer state typ
 
-    let internal CreateDefaultComparer (state : state) (args : term list) : term * state =
+    let internal CreateDefaultComparer (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let typ = Type.getActualType state runtimeType
@@ -30,7 +29,7 @@ module EqualityComparer =
         let genericEqualityComparer = genericEqualityComparer.MakeGenericType(typ)
         Types.FromDotNetType genericEqualityComparer |> Memory.AllocateDefaultClass state
 
-    let internal get_Default (state : state) (args : term list) : term * state =
+    let internal get_Default (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let wrappedType = List.head args
         let typ =

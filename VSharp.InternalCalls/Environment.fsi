@@ -9,7 +9,7 @@ open VSharp.Core
 module Environment =
 
     [<Implements("System.String System.Environment.GetResourceFromDefault(System.String)")>]
-    val internal GetResourceFromDefault : state -> term list -> term * state
+    val internal GetResourceFromDefault : state -> term list -> term
 
     [<Implements("System.Int32 System.Environment.get_CurrentManagedThreadId()")>]
-    val internal GetCurrentManagedThreadId : state -> term list -> term * state
+    val internal GetCurrentManagedThreadId : state -> term list -> term

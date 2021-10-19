@@ -1,3 +1,0 @@
-METHOD: T VSharp.Test.Tests.UnboxGeneric`1[T].Cast(System.Object)
-RESULT: Totally 1 state:
-Insufficient information! Can't introduce generic type X for equation: T = Nullable<X>

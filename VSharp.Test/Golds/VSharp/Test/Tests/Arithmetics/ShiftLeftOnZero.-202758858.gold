@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ShiftLeftOnZero(System.Int32)
-RESULT: Totally 1 state:
-a
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Arithmetics }

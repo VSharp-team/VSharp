@@ -1,5 +1,0 @@
-METHOD: System.Boolean VSharp.Test.Tests.Logics.Xor5(System.Boolean, System.Boolean, System.Boolean, System.Boolean)
-RESULT: Totally 1 state:
-a
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Logics }

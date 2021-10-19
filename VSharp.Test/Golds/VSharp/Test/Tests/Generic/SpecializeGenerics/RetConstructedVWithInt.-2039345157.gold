@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Generic.SpecializeGenerics.RetConstructedVWithInt()
-RESULT: Totally 1 state:
-0
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Generic.GenericClass`2[System.Object,System.Int32], VSharp.Test.Tests.Generic.SpecializeGenerics }

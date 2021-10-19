@@ -1,5 +1,0 @@
-METHOD: VSharp.Test.Tests.Typecast.Pawn VSharp.Test.Tests.Typecast.Typecast.TypeCastConcreteNull()
-RESULT: Totally 1 state:
-NullRef
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Typecast.Typecast }

@@ -51,6 +51,10 @@ module TypeUtils =
     // returns false, if "t" is reference type or if we have no information about "t" type from constraints
     let isValueTypeParameter (t : Type) = t.IsValueType
 
+    let private isInt8 = (=) typeof<int8>
+    let private isUInt8 = (=) typeof<uint8>
+    let private isInt16 = (=) typeof<int16>
+    let private isUInt16 = (=) typeof<uint16>
     let private isInt = (=) typeof<int32>
     let private isUInt = (=) typeof<uint32>
     let private isLong = (=) typeof<int64>
@@ -83,11 +87,13 @@ module TypeUtils =
     // ---------------------------------- Basic type operations ----------------------------------
 
     let getTypeOfConcrete value =
-        assert(box value <> null)
-        value.GetType()
+        if box value = null then null
+        else value.GetType()
+
+    let inline isNullable (t : Type) = Nullable.GetUnderlyingType(t) <> null
 
     let defaultOf (t : Type) =
-        if t.IsValueType && Nullable.GetUnderlyingType t = null && not (t.ContainsGenericParameters)
+        if t.IsValueType && not (isNullable t) && not t.ContainsGenericParameters
             then Activator.CreateInstance t
             else null
 
@@ -114,6 +120,9 @@ module TypeUtils =
         | _ when typ = typeof<uint64> -> 64u
         | _ when typ = typeof<float> -> 64u
         | _ -> __unreachable__()
+
+    let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t1 = t2 || t1.IsSubclassOf(t2)
+    let isPointer (t : Type) = t.IsPointer || t = typeof<IntPtr> || t = typeof<UIntPtr>
 
     // --------------------------------------- Conversions ---------------------------------------
 
@@ -170,6 +179,7 @@ module TypeUtils =
         match t with
         // TODO: throws an exception when value = char, implement using Emit
         | _ when t = typeof<Boolean> || value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t)
+        | _ when t.IsEnum -> Enum.ToObject(t, value)
         | _ -> convNumeric value t
 
     // --------------------------------------- Operation target type ---------------------------------------
@@ -185,11 +195,15 @@ module TypeUtils =
             || isUInt x && isInt y
             || isLong x && isULong y
             || isULong x && isLong y
-        if isReal x || isReal y || areSameButSignedAndUnsigned then failDeduceBinaryTargetType op x y
-        elif isLong x || isULong x then x // DO NOT REORDER THESE elif's!
-        elif isLong y || isULong y then y
-        elif isInt x || isUInt x then x
-        elif isInt y || isUInt y then y
+        if isReal x || isReal y (* || areSameButSignedAndUnsigned *) then failDeduceBinaryTargetType op x y
+        elif isLong x then x // DO NOT REORDER THESE elif's!
+        elif isLong y then y
+        elif isULong x then x
+        elif isULong y then y
+        elif isInt x then x
+        elif isInt y then y
+        elif isUInt x then x
+        elif isUInt y then y
         else typeof<int32>
 
     let deduceSimpleArithmeticOperationTargetType x y =

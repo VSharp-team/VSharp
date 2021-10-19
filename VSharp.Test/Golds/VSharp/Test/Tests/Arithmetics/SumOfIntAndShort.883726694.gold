@@ -1,5 +1,0 @@
-METHOD: System.Int64 VSharp.Test.Tests.Arithmetics.SumOfIntAndShort(System.Int32, System.Int16)
-RESULT: Totally 1 state:
-(System.Int64 ((System.Int32 b) + a))
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Arithmetics }

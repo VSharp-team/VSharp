@@ -4,8 +4,9 @@ using System.Linq;
 using ChessDotNet;
 using ChessDotNet.Pieces;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class ChessDotNet
@@ -91,7 +92,7 @@ namespace VSharp.Test.Tests
             return game.HasAnyValidMoves(Player.Black);
         }
 
-        [Ignore("needs big bound and works too long")]
+        [TestSvm(100, 1000u)]
         public static bool ApplyMoveAndCheckOtherValidMoves()
         {
             var game = new ChessGame();
@@ -108,7 +109,7 @@ namespace VSharp.Test.Tests
             return p1 == p2;
         }
 
-        [TestSvm]
+        [TestSvm(100, 1000u)]
         public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();
@@ -119,7 +120,69 @@ namespace VSharp.Test.Tests
             return isValid && type == MoveType.Invalid;
         }
 
-        [Ignore("needs big bound and works too long")]
+        [Ignore("Not ready")]
+        public static bool GetOwnerSymbolic(int dst)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            string s = "B" + dst;
+            Move move = new Move("C7", s, Player.White);
+            MoveType type = game.ApplyMove(move, true);
+            Piece p = game.GetPieceAt(new Position("B7"));
+            return p.Owner == Player.Black;
+        }
+
+        public static GameCreationData CreateDataForCheckMate()
+        {
+            var whiteKing = (Piece) new King(Player.White);
+            var blackKing = (Piece) new King(Player.Black);
+            var whiteQueen = (Piece) new Queen(Player.White);
+            var piece = (Piece) null;
+            var Board = new Piece[8][]
+                {
+                    new Piece[8] { blackKing, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, whiteQueen, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, whiteKing, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                    new Piece[8] { piece, piece, piece, piece, piece, piece, piece, piece },
+                };
+            var data = new GameCreationData();
+            data.Board = Board;
+            data.WhoseTurn = Player.White;
+            return data;
+        }
+
+        [TestSvm(100, 1000u)]
+        public static bool CheckMate1(bool f)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            Move c7b7 = new Move("C7", "B7", Player.White);
+            Move c7d7 = new Move("C7", "D7", Player.White);
+            Move move;
+            if (f)
+                move = c7b7;
+            else
+                move = c7d7;
+            game.ApplyMove(move, true);
+            return game.IsCheckmated(Player.Black);
+        }
+
+        [Ignore("Not ready")]
+        public static bool CheckMate2(int dst)
+        {
+            var data = CreateDataForCheckMate();
+            var game = new ChessGame(data);
+            string s = "B" + dst;
+            Move move = new Move("C7", s, Player.White);
+            MoveType type = game.ApplyMove(move, true);
+            return game.IsCheckmated(Player.Black);
+        }
+
+        [TestSvm(100, 1000u)]
         public static bool CheckMoveIsValidAndApply()
         {
             var game = new ChessGame();

@@ -1,3 +1,0 @@
-METHOD: P VSharp.Test.Tests.Generic.GenericTest`6[T,U,P,K,N,Z].RetP(P)
-RESULT: Totally 1 state:
-Insufficient information! Can't instantiate symbolic value of unknown value type P

@@ -5,9 +5,9 @@ using System.Dynamic;
 using System.IO;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
-using VSharp.Test.Tests.Methods;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public static class PDR
@@ -56,7 +56,7 @@ namespace VSharp.Test.Tests
         }
 
 
-        [TestSvm]
+        [Ignore("Tests generation with lambdas is not implemented")]
         public static Action<int> CreateLambda(bool flag)
         {
             int a = 0, b = 0, c = 0;
@@ -76,7 +76,7 @@ namespace VSharp.Test.Tests
             return assign;
         }
 
-        [TestSvm]
+        // [TestSvm]
         public static int factAgain(int n)
         {
             if (n <= 0) return 1;
@@ -229,7 +229,7 @@ namespace VSharp.Test.Tests
             new ClassWithOneField();
         }
 
-        [TestSvm]
+        [TestSvm(89)]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -460,7 +460,7 @@ namespace VSharp.Test.Tests
 
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(80)]
         public static int TestAllocatedType_1()
         {
             VirtualC c = new VirtualC();
@@ -474,7 +474,7 @@ namespace VSharp.Test.Tests
         }
 
         // expecting 1
-        [TestSvm]
+        [TestSvm(75)]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();
@@ -877,7 +877,7 @@ namespace VSharp.Test.Tests
             return classWithLotsOfFields._next;
         }
 
-        [TestSvm]
+        [TestSvm(89)]
         public static int CheckInvalidCfaConstruction(bool f)
         {
             ClassWithLotsOFFields c = new ClassWithLotsOFFields();

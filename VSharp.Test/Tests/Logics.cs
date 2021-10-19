@@ -1,4 +1,6 @@
-namespace VSharp.Test.Tests
+using VSharp.Test;
+
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public sealed class Logics

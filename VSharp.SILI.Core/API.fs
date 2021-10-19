@@ -7,10 +7,11 @@ module API =
     let ConfigureSolver solver =
         SolverInteraction.configureSolver solver
     let ConfigureSimplifier simplifier =
-        Propositional.configureSimplifier simplifier
+        configureSimplifier simplifier
 
     let Reset() =
         IdGenerator.reset()
+        TypeSolver.reset()
     let SaveConfiguration() =
         IdGenerator.saveConfiguration()
     let Restore() =
@@ -32,10 +33,10 @@ module API =
     let GuardedStatedApplyk f state term mergeStates k =
         Memory.commonGuardedStatedApplyk f state term mergeStates k
 
-    let PerformBinaryOperation op left right k = Operators.simplifyBinaryOperation op left right k
-    let PerformUnaryOperation op arg k = Operators.simplifyUnaryOperation op arg k
+    let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
+    let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let IsValid state = SolverInteraction.isValid state
+    let IsValid state = SolverInteraction.checkSat state
 
     [<AutoOpen>]
     module public Terms =
@@ -52,53 +53,74 @@ module API =
         let True = True
         let False = False
         let NullRef = nullRef
+        let MakeNullPtr t = makeNullPtr t
+        let ConcreteHeapAddress (address : concreteHeapAddress) = ConcreteHeapAddress address
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        let MakeIntPtr value state =
-            match value.term with
-            // Case for references
-            | Ref _ -> TypeCasting.castReferenceToPointer state value
-            // Case for numerics, that need to be converted to IntPtr (native int)
-            | Concrete(_, Numeric _) ->
-                // We will never create IntPtr from another numeric, because it's pointless
-//                assert(v :?> int = 0) // localloc takes size in native int
-                Ptr None Void (Some value)
-            // Case for native int
-            | Ptr _ -> value
-            | _ -> __unreachable__()
-
+        // NOTE: Ref, Ptr, and nonzero numbers
+        let MakeIntPtr (value : term) = value
+        let AddressToBaseAndOffset address = Pointers.addressToBaseAndOffset address
+        // NOTE: returns type of value
         let TypeOf term = typeOf term
+        // NOTE: returns type of location, referenced by 'ref'
+        let TypeOfLocation ref = typeOfRef ref
         let rec MostConcreteTypeOfHeapRef state ref =
             let getType ref =
                 match ref.term with
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
+        let TypeOfAddress state address = Memory.typeOfHeapLocation state address
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term
+        let IsConcrete term =
+            match term.term with
+            | Concrete _ -> true
+            | HeapRef(address, _) when isConcreteHeapAddress address -> true
+            | _ -> false
         let IsNullReference term = Pointers.isNull term
+
+        let GetHashCode term = Memory.getHashCode term
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
+        let (|Negation|_|) t = Terms.(|NegationT|_|) t
         let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
         let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
+        let (|NullRef|_|) = function
+            | {term = HeapRef(addr, _)} when addr = zeroAddress -> Some()
+            | _ -> None
+        let (|NullPtr|_|) = function
+            | {term = Ptr(HeapLocation addr, _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
+            | _ -> None
 
+        let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
         let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src
         let (|VectorIndexReading|_|) src = Memory.(|VectorIndexReading|_|) src
         let (|StackBufferReading|_|) src = Memory.(|StackBufferReading|_|) src
         let (|StaticsReading|_|) src = Memory.(|StaticsReading|_|) src
         let (|StructFieldSource|_|) src = Memory.(|StructFieldSource|_|) src
+        let rec (|StructFieldChain|_|) (src : ISymbolicConstantSource) =
+            let rec structFieldChainRec acc = function
+                | Memory.StructFieldSource(baseSource, field) ->
+                    structFieldChainRec (field::acc) baseSource
+                | src -> Some(acc, src)
+            match src with
+            | :? IMemoryAccessConstantSource as ms -> structFieldChainRec [ ] ms
+            | _ -> None
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
+        let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src
+        let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
+        let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
+        let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
-
-        let ConstantsOf terms = discoverConstants terms
 
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
@@ -107,9 +129,11 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
-        let WithPathCondition conditionState condition = Memory.withPathCondition conditionState condition
+        let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
         let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
+        let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
         let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
+        let EmptyPathCondition = PC.empty
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -130,13 +154,19 @@ module API =
         let IsPointer t = Types.isPointer t
         let IsValueType t = Types.isValueType t
         let IsArrayType t = Types.isArray t
+        let IsNullable t = Types.isNullable t
+        let IsEnum t = Types.isEnum t
+        let Int8 = Types.Int8
+        let Int16 = Types.Int16
+        let Int32 = Types.Int32
+        let Int64 = Types.Int64
+        let Char = Types.Char
         let String = Types.String
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
         let ElementType arrayType = Types.elementType arrayType
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
-        let TypeIsNullable typ = TypeCasting.isNullable typ
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
         let RefIsAssignableToType state ref typ = TypeCasting.refIsAssignableToType state ref typ
@@ -144,7 +174,6 @@ module API =
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
         let Cast term targetType = TypeCasting.cast term targetType
-        let CastReferenceToPointer state reference = TypeCasting.castReferenceToPointer state reference
 
     module public Operators =
         let (!!) x = simplifyNegation x id
@@ -169,12 +198,35 @@ module API =
         let Add x y = add x y
         let IsZero term = checkEqualZero term id
 
+        let Acos x = acos x
+        let Asin x = asin x
+        let Atan x = atan x
+        let Atan2 y x = atan2 y x
+        let Ceiling x = ceiling x
+        let Cos x = cos x
+        let Cosh x = cosh x
+        let Floor x = floor x
+        let Sin x = sin x
+        let Tan x = tan x
+        let Sinh x = sinh x
+        let Tanh x = tanh x
+        let Round x = round x
+        let Sqrt x = sqrt x
+        let Log x = log x
+        let Log10 x = log10 x
+        let Exp x = exp x
+        let Pow b p = pow b p
+        let Abs x = abs x
+        let AbsS x = absS x
+
     module public EvaluationStack =
         let Pop evaluationStack = EvaluationStack.pop evaluationStack
-        let PopArguments n evaluationStack = EvaluationStack.popMany n evaluationStack
+        let PopMany n evaluationStack = EvaluationStack.popMany n evaluationStack
         let Push x evaluationStack =
             let x' = TypeCasting.castToEvaluationStackType x
             EvaluationStack.push x' evaluationStack
+        let PushMany xs evaluationStack =
+            EvaluationStack.pushMany xs evaluationStack
         let GetItem index evaluationStack = EvaluationStack.item index evaluationStack
         let FilterActiveFrame f evaluationStack = EvaluationStack.filterActiveFrame f evaluationStack
         let Union oldStack newStack = EvaluationStack.union oldStack newStack
@@ -182,10 +234,12 @@ module API =
         let Length evaluationStack = EvaluationStack.length evaluationStack
         let ToList evaluationStack = EvaluationStack.toList evaluationStack
         let ClearActiveFrame evaluationStack = EvaluationStack.clearActiveFrame evaluationStack
+        let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState = Memory.empty
+        let EmptyState() = Memory.makeEmpty()
         let PopFrame state = Memory.popFrame state
+        let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
@@ -198,10 +252,12 @@ module API =
         let rec ReferenceField state reference fieldId =
             match reference.term with
             | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+//                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
                 ReferenceField state (HeapReferenceToBoxReference reference) fieldId
             | HeapRef(address, typ) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+                //assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
                 ClassField(address, fieldId) |> Ref
             | Ref address ->
                 assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
@@ -211,11 +267,18 @@ module API =
 
         let ReadSafe state reference =
             let reference =
-                // TODO: check of reference is BoxedLocation
+                // TODO: check if reference is BoxedLocation
                 match reference.term with
                 | HeapRef _ -> HeapReferenceToBoxReference reference
                 | _ -> reference
-            Memory.readSafe state reference
+            Memory.read state reference
+        let ReadUnsafe state (reportError : state -> unit) reference = // TODO: fix style #style
+            let reference =
+                // TODO: check if reference is BoxedLocation
+                match reference.term with
+                | HeapRef _ -> HeapReferenceToBoxReference reference
+                | _ -> reference
+            Memory.readIndirection state reportError reference
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -223,7 +286,7 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
-                | Ref _ -> ReferenceField state target field |> Memory.readSafe state
+                | Ref _ -> ReferenceField state target field |> Memory.read state
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
@@ -245,15 +308,19 @@ module API =
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
+        let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
+
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
-        let WriteSafe state reference value = Memory.writeSafe state reference value
+        let WriteSafe state reference value = Memory.write state reference value
+        let WriteUnsafe state reportError reference value = Memory.writeIndirection state reportError reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
             Memory.guardedStatedMap
                 (fun state reference ->
                     match reference.term with
                     | HeapRef(addr, _) -> Memory.writeClassField state addr field value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
+                    state)
                 state reference
         let WriteArrayIndex state reference indices value =
             Memory.guardedStatedMap
@@ -263,15 +330,8 @@ module API =
                         let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                         assert(dim = List.length indices)
                         Memory.writeArrayIndex state addr indices arrayType value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
-                state reference
-        let WriteStringChar state reference index value =
-            Memory.guardedStatedMap
-                (fun state reference ->
-                    match reference.term with
-                    | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
-                        Memory.writeArrayIndex state addr index (Types.Char, 1, true) value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference)
+                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
+                    state)
                 state reference
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
@@ -285,9 +345,10 @@ module API =
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 
         let BoxValueType state term =
-            let address, state = Memory.freshAddress state
+            let address = Memory.freshAddress state
             let reference = HeapRef (ConcreteHeapAddress address) Types.ObjectType
-            reference, Memory.writeBoxedLocation state address term
+            Memory.writeBoxedLocation state address term
+            reference
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
@@ -295,23 +356,31 @@ module API =
         let AllocateTemporaryLocalVariable state typ term =
             let tmpKey = TemporaryLocalVariableKey typ
             let ref = PrimitiveStackLocation tmpKey |> Ref
-            ref, Memory.allocateOnStack state tmpKey term
+            Memory.allocateOnStack state tmpKey term
+            ref
 
         let AllocateDefaultClass state typ =
-            Memory.allocateClass state typ
+            if typ = Types.String then Memory.allocateString state ""
+            else Memory.allocateClass state typ
 
         let AllocateDefaultArray state lengths typ =
-            let address, state = Memory.allocateArray state typ None lengths
-            HeapRef address typ, state
+            let zeroLowerBounds = List.map (fun _ -> makeNumber 0) lengths
+            let address = Memory.allocateArray state typ zeroLowerBounds lengths
+            HeapRef address typ
 
         let AllocateVectorArray state length elementType =
-            let address, state = Memory.allocateVector state elementType length
-            HeapRef address (ArrayType(elementType, Vector)), state
+            let address = Memory.allocateVector state elementType length
+            HeapRef address (ArrayType(elementType, Vector))
+
+        let AllocateConcreteVectorArray state length elementType contents =
+            let address = Memory.allocateConcreteVector state elementType length contents
+            HeapRef address (ArrayType(elementType, Vector))
 
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
+        let CreateStringFromChar state char = Memory.createStringFromChar state char
 
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
@@ -339,8 +408,20 @@ module API =
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
+        let StringFromReplicatedChar state string char length =
+            match string.term with
+            | HeapRef(address, sightType) ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = Types.String)
+                let arrayType = Types.Char, 1, true
+                Copying.fillArray state address arrayType (makeNumber 0) length char
+                Memory.writeLengthSymbolic state address (makeNumber 0) arrayType (add length (makeNumber 1))
+                Memory.writeArrayIndex state address [length] arrayType (Concrete '\000' Types.Char)
+                Memory.writeClassField state address Reflection.stringLengthField length
+            | _ -> internalfailf "Creating string from replicated char: expected heapRef, but got %O" string
+
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
+        let StackTrace stack = CallStack.stackTrace stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
@@ -377,13 +458,15 @@ module API =
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))
                         Copying.copyCharArrayToString state arrayAddr dstAddr
-                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef)
+                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef
+                    state)
                     state arrayRef
             | HeapRef _
             | Union _ -> __notImplemented__()
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
         let ComposeStates state state' = Memory.composeStates state state'
+        let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
@@ -393,3 +476,21 @@ module API =
 //            __notImplemented__() : state
             //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
 
+        let FillRegion state value = function
+            | HeapFieldSort field ->
+                state.classFields <- PersistentDict.update state.classFields field (field.typ |> Types.FromDotNetType |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
+            | StaticFieldSort field ->
+                state.staticFields <- PersistentDict.update state.staticFields field (field.typ |> Types.FromDotNetType |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
+            | ArrayIndexSort typ ->
+                state.arrays <- PersistentDict.update state.arrays typ (typ |> fst3 |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
+            | ArrayLengthSort typ ->
+                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
+            | ArrayLowerBoundSort typ ->
+                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
+            | StackBufferSort key ->
+                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
+
+
+    module Print =
+        let Dump state = Memory.dump state
+        let PrintPC pc = PC.toString pc

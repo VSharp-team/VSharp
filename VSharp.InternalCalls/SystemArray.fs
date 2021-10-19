@@ -10,7 +10,7 @@ module internal SystemArray =
 
     let GetRank (state : state) args =
         assert(List.length args = 1)
-        List.head args |> Memory.ArrayRank state, state
+        List.head args |> Memory.ArrayRank state
 
     let get_Rank state args =
         GetRank state args
@@ -25,7 +25,7 @@ module internal SystemArray =
             | [l] -> l
             | l::ls -> List.fold Arithmetics.Mul l ls
             | _ -> __unreachable__()
-        GuardedApplyExpression (List.head args) getLengthFromRank, state
+        GuardedApplyExpression (List.head args) getLengthFromRank
 
     let ContainsChar (state : state) args =
         assert(List.length args = 3)
@@ -41,7 +41,7 @@ module internal SystemArray =
             | Concrete(obj, _) ->
                 let length = obj :?> int
                 let indices = List.init length id
-                List.fold checkOneElement False indices, state
+                List.fold checkOneElement False indices
             | _ -> __unreachable__()
         | _ -> __insufficientInformation__ "Contains works only for concrete address arrays"
 
@@ -53,4 +53,4 @@ module internal SystemArray =
     let GetItem (state : state) (args : term list) =
         assert(List.length args = 3)
         let this, index = args.[0], args.[2]
-        Memory.ReadArrayIndex state this [index], state
+        Memory.ReadArrayIndex state this [index]

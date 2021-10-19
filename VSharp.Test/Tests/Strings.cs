@@ -1,7 +1,8 @@
 using NUnit.Framework;
 using System;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public sealed class Strings
@@ -13,14 +14,14 @@ namespace VSharp.Test.Tests
             return String.Empty;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static string SymbolicString(string s)
         {
             var len = s.Length;
             return s;
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int NullLength()
         {
             string s = null;
@@ -41,6 +42,15 @@ namespace VSharp.Test.Tests
             return str;
         }
 
+        [TestSvm(75)]
+        public static bool StringOfReplicatedChar()
+        {
+            string str = new string('s', 20);
+            if (str[19] == 's')
+                return true;
+            return false;
+        }
+
         [TestSvm]
         public static char GetCharOfString()
         {
@@ -55,6 +65,21 @@ namespace VSharp.Test.Tests
             char[] a = null;
             string str = new string(a);
             return str.Length;
+        }
+
+        [TestSvm]
+        public static bool ConcreteStringToUpper()
+        {
+            string str = "C7";
+            string upper = str.ToUpperInvariant();
+            return upper == str;
+        }
+
+        [TestSvm]
+        public static bool SymbolicStringToUpper(char c)
+        {
+            string s = c + "c";
+            return s.ToUpperInvariant()[1] == 'C';
         }
     }
 }

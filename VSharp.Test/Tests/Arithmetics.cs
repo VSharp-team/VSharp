@@ -1,13 +1,15 @@
 using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
-        [Ignore("unknown result")]
+        // [Ignore("unknown result")]
+        [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {
             float a = 0.825402526103613f;
@@ -18,7 +20,8 @@ namespace VSharp.Test.Tests
             return d != e;
         }
 
-        [Ignore("unknown result")]
+        // [Ignore("unknown result")]
+        [TestSvm]
         public static bool MultiplicationOfFloatsIsCommutativity()
         {
             float a = 0.825402526103613f;
@@ -27,7 +30,8 @@ namespace VSharp.Test.Tests
         }
 
         // Overflow exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int DivideWithOverflow()
         {
             int a = Int32.MinValue;
@@ -52,7 +56,8 @@ namespace VSharp.Test.Tests
         }
 
         // divide by zero exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static float DivideOnZero1()
         {
             int x = 8;
@@ -61,7 +66,8 @@ namespace VSharp.Test.Tests
         }
 
         // divide by zero exception
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static float DivideOnZero2()
         {
             uint x = 8;
@@ -131,7 +137,8 @@ namespace VSharp.Test.Tests
             return Mul_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static uint Mul_OverFlow1()
         {
             int a = -1;
@@ -147,7 +154,8 @@ namespace VSharp.Test.Tests
             return checked(a - b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow1()
         {
             int a = 0;
@@ -155,7 +163,8 @@ namespace VSharp.Test.Tests
             return Sub_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow2()
         {
             int a = 1;
@@ -163,7 +172,8 @@ namespace VSharp.Test.Tests
             return Sub_Ovf(a, b);
         }
 
-        [Ignore("Exceptions handling")]
+        // [Ignore("Exceptions handling")]
+        [TestSvm]
         public static int Sub_Overflow3()
         {
             int a = Int32.MinValue;
@@ -345,6 +355,7 @@ namespace VSharp.Test.Tests
 
         // 6*n - 126826
         [Ignore("Exceptions handling")]
+        // [TestSvm]
         public static int ArithmeticsMethod4(int n, int m)
         {
             return (n + n + n + n + n + n - 2312) + m * m * m / (2 * n - n + 3 * n - 4 * n + m * m * m) - 124515;
@@ -420,7 +431,7 @@ namespace VSharp.Test.Tests
         }
 
         // Expecting Infinity + x1
-        [TestSvm]
+        [Ignore("Incorrect result")]
         public static double CheckOverflow3(double x1)
         {
             double x = 1.5E+308;
@@ -688,7 +699,7 @@ namespace VSharp.Test.Tests
             return Math.Log(-1);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double LogMethod7(double x)
         {
             double y;
@@ -713,7 +724,7 @@ namespace VSharp.Test.Tests
             return Math.Sqrt(4);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double SqrtMethod3(double x)
         {
             double y;
@@ -773,7 +784,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(x, y);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double PowMethod5(double x)
         {
             double y;
@@ -784,7 +795,7 @@ namespace VSharp.Test.Tests
             return Math.Pow(y, 2);
         }
 
-        [TestSvm]
+        [TestSvm(71)]
         public static double PowMethod6(double x)
         {
             double y;
@@ -934,7 +945,7 @@ namespace VSharp.Test.Tests
             return Math.Tan(Double.NegativeInfinity);
         }
 
-        [TestSvm]
+        [TestSvm(75)]
         public static double SinhMethod(double x)
         {
             double y;
@@ -1023,7 +1034,7 @@ namespace VSharp.Test.Tests
             return 42;
         }
 
-        [TestSvm]
+        [TestSvm(86)]
         public static int ImpossibleBug(int n) {
             try {
                 if (n <= 0 && checked(-n) < 0) {

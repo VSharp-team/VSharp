@@ -1,5 +1,0 @@
-METHOD: System.Int64 VSharp.Test.Tests.PDR.Many_Conversions(System.Int16)
-RESULT: Totally 1 state:
-(System.Int64 (System.Byte a))
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.PDR }

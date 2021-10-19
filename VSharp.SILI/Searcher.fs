@@ -1,130 +1,88 @@
 namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
+open FSharpx.Collections
 open VSharp
 open CilStateOperations
 open VSharp.Core
 
-type IndexedQueue() =
-    let q = List<cilState>()
-//    let isRecursiveEffect (s : cilState) =
-//        let isEffect = (Seq.last s.state.frames).isEffect
-//        if isEffect then
-//            let effectsMethod = (Seq.last s.state.frames).func.Method
-//            match currentIp s with
-//            | {label = Instruction offset; method = m} when Instruction.isDemandingCallOpCode (Instruction.parseInstruction m offset)->
-//                let callSite = Instruction.parseCallSite m offset
-//                callSite.calledMethod.Equals(effectsMethod)
-//            | _ -> false
-//        else false
-    member x.Add (s : cilState) =
-        assert(List.length s.ipStack = Memory.CallStackSize s.state)
-        q.Add s
+type action =
+    | GoFront of cilState
+    | GoBack of cilState * pob
+    | Stop
 
-    member x.Remove s =
-        let removed = q.Remove s
-        if not removed then Logger.trace "CilState was not removed from IndexedQueue:\n%O" s
-    member x.GetStates () = List.ofSeq q
+type IBidirectionalSearcher =
+    abstract member Init : System.Reflection.MethodBase -> cilState list -> pob seq -> unit
+    abstract member UpdateStates : cilState -> cilState seq -> unit
+    abstract member UpdatePobs : pob -> pob -> unit
+    abstract member Pick : unit -> action
+    abstract member Answer : pob -> pobStatus -> unit
+    abstract member Statuses : unit -> seq<pob * pobStatus>
+
+type IForwardSearcher =
+    abstract member Init : cilState list -> unit
+    abstract member Update : cilState -> cilState seq -> unit
+    abstract member Pick : unit -> cilState option
+
+type ITargetedSearcher =
+    abstract member SetTargets : ip -> ip seq -> unit
+    abstract member Update : cilState -> cilState seq -> cilState seq // returns states that reached its target
+    abstract member Pick : unit -> cilState option
+
+type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
+
+type IBackwardSearcher =
+    abstract member Init : System.Reflection.MethodBase -> pob seq -> unit
+    abstract member Update : pob -> pob -> unit
+    abstract member Answer : pob -> pobStatus -> unit
+    abstract member Statuses : unit -> seq<pob * pobStatus>
+    abstract member Pick : unit -> backwardAction
+    abstract member AddBranch : cilState -> pob list
+
+    // TODO: get rid of this!
+    abstract member RemoveBranch : cilState -> unit
+
+type IpStackComparer() =
+    interface IComparer<cilState> with
+        override _.Compare(x : cilState, y : cilState) =
+            let res = (List.length x.ipStack).CompareTo(List.length y.ipStack)
+            res
+
+type cilStateComparer(comparer) =
+    interface IComparer<cilState> with
+        override _.Compare(x : cilState, y : cilState) =
+            comparer x y
+
 
 [<AbstractClass>]
-type ISearcher() =
-    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-    abstract member PickNext : IndexedQueue -> cilState option
+type ForwardSearcher(maxBound) =
+//    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
+//    let mutable mainMethod = null
+//    let mutable startedFromMain = false
+    let forPropagation = List<cilState>()
+    let violatesLevel (s : cilState) =
+        levelToUnsignedInt s.level > maxBound
+    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
+    let add (s : cilState) =
+        if not <| isStopped s then
+            assert(forPropagation.Contains s |> not)
+            forPropagation.Add(s)
 
-    member x.Used (cilState : cilState) =
-        match currentIp cilState with
-        | Instruction(offset, m) ->
-            let codeLocation = {offset = offset; method = m}
-            match PersistentDict.tryFind cilState.level codeLocation with
-            | Some current -> current >= maxBound
-            | None -> false
-        | _ -> false
+    interface IForwardSearcher with
+        override x.Init state =
+            forPropagation.AddRange(state)
+        override x.Pick() =
+            x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
+        override x.Update parent newStates =
+            if isStopped parent then
+                forPropagation.Remove(parent) |> ignore
+            Seq.iter add newStates
+    abstract member Choose : seq<cilState> -> cilState option
+    default x.Choose states = Seq.tryLast states
 
-    member x.GetResults initialState (q : IndexedQueue) =
-        let (|CilStateWithIIE|_|) (cilState : cilState) = cilState.iie
-        let isStartingDescender (s : cilState) = s.startingIP = initialState.startingIP
-        let allStates = List.filter isStartingDescender (q.GetStates())
-        let iieStates, nonIIEstates = List.partition isIIEState allStates
-        let isFinished (s : cilState) = s.ipStack = [Exit <| methodOf initialState.startingIP]
-        let finishedStates = List.filter isFinished nonIIEstates
-        let isValid (cilState : cilState) =
-           match IsValid cilState.state with
-           | SolverInteraction.SmtUnsat _ -> false
-           | _ -> true
-        let validStates = List.filter isValid finishedStates
-        match iieStates with
-        | CilStateWithIIE iie :: _ -> raise iie
-        | _ :: _ -> __unreachable__()
-        | _ when validStates = [] ->
-            internalfailf "No states were obtained. Most likely such a situation is a bug. Check it!"
-        | _ -> validStates
+type BFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound) with
+        override x.Choose states = Seq.tryHead states
 
-    member x.CanBePropagated (s : cilState) =
-        not (isIIEState s || isUnhandledError s || x.Used s) && isExecutable s
-
-type DummySearcher() =
-    inherit ISearcher() with
-        override x.PickNext q =
-            let states = q.GetStates() |> Seq.filter x.CanBePropagated
-            match states with
-            | Seq.Cons(x, _) -> Some x
-            | Seq.Empty -> None
-
-// Most probably won't be used in real testing
-// Aimed to test composition and Interpreter--Searcher feature
-type CFASearcher() =
-    inherit ISearcher() with
-        override x.PickNext q =
-            // 1) should append states to Queue
-            // 2) should stop executing states and produce states with proper
-            //    a) current time
-            //    b) evaluationStack (including FRCS)
-
-            let states = q.GetStates() |> Seq.filter x.CanBePropagated
-            match states with
-            | Seq.Cons(x, _) -> Some x
-            | Seq.Empty -> None
-
-type EffectsFirstSearcher() =
-    inherit ISearcher()
-    override x.PickNext q =
-        let canBePropagated (s : cilState) =
-            let conditions = [isIIEState; isUnhandledError; x.Used; isExecutable >> not]
-            conditions |> List.fold (fun acc f -> acc || f s) false |> not
-
-        let states = q.GetStates() |> Seq.filter canBePropagated
-        match states with
-        | Seq.Empty -> None
-        | Seq.Cons(s, _) when x.ShouldStartExploringInIsolation (q, s) ->
-            try
-                let m = currentMethod s
-                let stateForComposition = ExplorerBase.FormInitialStateWithoutStatics m
-                let cilStateForComposition = makeInitialState m stateForComposition
-                Some cilStateForComposition
-            with
-            | :? InsufficientInformationException -> Some s
-        | Seq.Cons(s, _) -> Some s
-    abstract member ShouldStartExploringInIsolation: IndexedQueue * cilState -> bool
-    default x.ShouldStartExploringInIsolation (_,_) = false
-
-type AllMethodsExplorationSearcher() =
-    inherit EffectsFirstSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        let states = q.GetStates()
-        match currentIp s with
-        | Instruction(0, _) as ip when states |> Seq.filter (startingIpOf >> (=) ip) |> Seq.length = 0 -> true
-        | _ -> false
-
-type ParameterlessMethodsExplorationSearcher() =
-    inherit AllMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        base.ShouldStartExploringInIsolation(q, s) &&
-            let m = Memory.GetCurrentExploringFunction s.state
-            (m.IsConstructor || m.IsStatic) && m.GetParameters().Length = 0
-
-type ExceptionsExplorationSearcher() =
-    inherit ParameterlessMethodsExplorationSearcher()
-    override x.ShouldStartExploringInIsolation(q, s) =
-        base.ShouldStartExploringInIsolation(q, s) &&
-            let m = Memory.GetCurrentExploringFunction s.state
-            m.DeclaringType.IsSubclassOf(typeof<System.Exception>)
+type DFSSearcher(maxBound) =
+    inherit ForwardSearcher(maxBound)

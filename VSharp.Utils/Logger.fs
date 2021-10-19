@@ -8,7 +8,7 @@ module Logger =
     let Info = 3
     let Trace = 4
 
-    let mutable current_log_level = Warning
+    let mutable current_log_level = Trace
     let mutable current_text_writer = Console.Out
     let public ConfigureWriter writer = current_text_writer <- writer
 
@@ -20,7 +20,7 @@ module Logger =
         | _ -> "Unknown"
 
     let private writeLineString vLevel message =
-        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) System.DateTime.Now message
+        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()
 
@@ -30,6 +30,10 @@ module Logger =
     let public printLogLazy vLevel format (s : Lazy<_>) =
         if current_log_level >= vLevel then
             Printf.ksprintf (writeLineString vLevel) format (s.Force())
+
+//    let public printLogLazy vLevel format ([<ParamArray>] s : Lazy<_> array) =
+//        if current_log_level >= vLevel then
+//            Printf.ksprintf (writeLineString vLevel) format (Array.map (fun (s : Lazy<_>) -> s.Force()) s)
 
     let public error format = printLog Error format
     let public warning format = printLog Warning format

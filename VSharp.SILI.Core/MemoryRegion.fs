@@ -4,8 +4,6 @@ open System
 open System.Text
 open VSharp
 
-#nowarn "60"
-#nowarn "342"
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
 //    abstract IsAllocated : bool
@@ -25,16 +23,16 @@ type regionSort =
         match x with
         | HeapFieldSort field
         | StaticFieldSort field -> field.typ |> Types.Constructor.fromDotNetType
-        | ArrayIndexSort(elementType, _, _)
-        | ArrayLengthSort(elementType, _, _)
-        | ArrayLowerBoundSort(elementType, _, _) -> elementType
+        | ArrayIndexSort(elementType, _, _) -> elementType
+        | ArrayLengthSort _
+        | ArrayLowerBoundSort _ -> Types.Int32
         | StackBufferSort _ -> Types.Numeric typeof<int8>
 
 module private MemoryKeyUtils =
 
     let regionOfHeapAddress = function
         | {term = ConcreteHeapAddress addr} -> intervals<vectorTime>.Singleton addr
-        | addr -> intervals<vectorTime>.Closed VectorTime.zero (timeOf addr)
+        | addr -> intervals<vectorTime>.Closed VectorTime.minfty (timeOf addr)
 
     let regionOfIntegerTerm = function
         | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType -> points<int>.Singleton value
@@ -52,13 +50,13 @@ type heapAddressKey =
 //            | _ -> false
         override x.Region = MemoryKeyUtils.regionOfHeapAddress x.address
         override x.Map mapTerm _ mapTime reg =
-            let zeroReg = intervals<vectorTime>.Singleton VectorTime.zero
+            let symbolicReg = intervals<vectorTime>.Closed VectorTime.minfty VectorTime.zero
             let newReg =
-                if (reg :> IRegion<vectorTime intervals>).CompareTo zeroReg = Includes then
+                if (reg :> IRegion<vectorTime intervals>).CompareTo symbolicReg = Includes then
                     let rightBound = mapTime []
                     assert(not <| VectorTime.isEmpty rightBound)
-                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract zeroReg
-                    let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.zero rightBound
+                    let reg' = (reg :> IRegion<vectorTime intervals>).Subtract symbolicReg
+                    let mappedZeroInterval = intervals<vectorTime>.Closed VectorTime.minfty rightBound
                     mappedZeroInterval.Union(reg'.Map mapTime)
                 else
                     reg.Map mapTime
@@ -193,7 +191,6 @@ module private UpdateTree =
             list {
                 let! (g, tree) = trees
                 let! (g', k) = key.key.Unguard
-                Console.WriteLine("keyyyyyy: {0}", k);
                 let key' = {key with key = k}
                 return (g &&& g', RegionTree.write reg key' tree)
             }) [(True, earlier)]
@@ -214,43 +211,51 @@ module private UpdateTree =
 
 [<StructuralEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : symbolicType; updates : updateTree<'key, term, 'reg>}
+    {typ : symbolicType; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
 
 module MemoryRegion =
 
     let empty typ =
-        {typ = typ; updates = UpdateTree.empty}
+        {typ = typ; updates = UpdateTree.empty; defaultValue = None}
+
+    let fillRegion defaultValue region =
+        { region with defaultValue = Some defaultValue }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
-        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) VectorTime.zero tree
+        RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
 
     let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree}
-        let makeDefault () = makeDefaultValue mr.typ
+        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree; defaultValue = mr.defaultValue}
+        let makeDefault () =
+            match mr.defaultValue with
+            | Some d -> d
+            | None -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
     let validateWrite value cellType =
         let typ = typeOf value
-        Types.isAssignable typ cellType
+        Types.canCastImplicitly typ cellType
 
     let write mr key value =
         assert(validateWrite value mr.typ)
-        {typ=mr.typ; updates=UpdateTree.write key value mr.updates}
+        {typ = mr.typ; updates = UpdateTree.write key value mr.updates; defaultValue = mr.defaultValue}
 
     let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
-        {typ=mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates}
+        {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
 
     let deterministicCompose earlier later =
+        assert(later.defaultValue.IsNone)
         if earlier.typ = later.typ then
-            if UpdateTree.isEmpty earlier.updates then later
-            else {typ=earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates}
+            if UpdateTree.isEmpty earlier.updates then { later with defaultValue = earlier.defaultValue }
+            else {typ = earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates; defaultValue = earlier.defaultValue}
         else internalfail "Composing two incomparable memory objects!"
 
     let compose earlier later =
+        assert(later.defaultValue.IsNone)
         if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
             [(True, deterministicCompose earlier later)]
         elif earlier.typ = later.typ then
-            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree}))
+            UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue = earlier.defaultValue}))
         else internalfail "Composing two incomparable memory objects!"
 
     let toString indent mr = UpdateTree.print indent toString mr.updates
@@ -261,7 +266,7 @@ module MemoryRegion =
     let localizeArray address dimension mr =
         let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
         let reg = productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) anyIndexRegion
-        {typ=mr.typ; updates = UpdateTree.localize reg mr.updates}
+        {typ=mr.typ; updates = UpdateTree.localize reg mr.updates; defaultValue = mr.defaultValue}
 
     // TODO: merging!
 

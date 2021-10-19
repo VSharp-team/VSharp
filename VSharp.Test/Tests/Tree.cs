@@ -1,7 +1,8 @@
 using NUnit.Framework;
  using System;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public class Tree
     {

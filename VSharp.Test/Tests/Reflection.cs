@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class Reflection
@@ -14,7 +16,7 @@ namespace VSharp.Test.Tests
             return type.Name;
         }
 
-        [TestSvm]
+        [Ignore("use different equality comparers for different types")]
         public static EqualityComparer<String> TestEqualityComparer()
         {
             return EqualityComparer<String>.Default;

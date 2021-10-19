@@ -235,18 +235,17 @@ module internal Types =
                 Seq.map fromDotNetType (dotNetType.GetGenericArguments()) |> List.ofSeq
             else []
 
-        and fromDotNetType (dotNetType : Type) =
-            match dotNetType with
+        and fromDotNetType (t : Type) =
+            match t with
             | null -> Null
             | t when t.IsByRef -> t.GetElementType() |> fromDotNetType |> ByRef
-            | _ when dotNetType = typeof<IntPtr> -> Pointer Void
+            | _ when t = typeof<IntPtr> || t = typeof<UIntPtr> -> Pointer Void
             | p when p.IsPointer -> p.GetElementType() |> fromDotNetType |> Pointer
             | v when v.FullName = "System.Void" -> Void
             | a when a.FullName = "System.Array" -> ArrayType(fromDotNetType typedefof<obj>, SymbolicDimension)
             | b when b.Equals(typedefof<bool>) -> Bool
             | a when a.Equals(typedefof<AddressTypeAgent>) -> AddressType
             | n when TypeUtils.isNumeric n -> Numeric n
-            | e when e.IsEnum -> Numeric e
             | a when a.IsArray ->
                 ArrayType(
                     fromDotNetType (a.GetElementType()),
@@ -261,9 +260,14 @@ module internal Types =
 
     let public Char = Numeric typedefof<char>
     let public String = fromDotNetType typedefof<string>
-    let Int32 = Numeric typeof<int>
+    let Int8 = Numeric typeof<int32>
+    let Int16 = Numeric typeof<int32>
+    let Int32 = Numeric typeof<int32>
+    let UInt32 = Numeric typeof<uint32>
     let Int64 = Numeric typeof<int64>
+    let UInt64 = Numeric typeof<uint64>
     let F = Numeric typeof<float>
+    let D = Numeric typeof<double>
 
     let (|StringType|_|) = function
         | typ when typ = String -> Some()
@@ -282,6 +286,17 @@ module internal Types =
         | Null -> false
         | t -> (toDotNetType t).IsValueType
 
+    let isNullable termType =
+        match termType with
+        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
+        | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
+        | Null -> false
+        | _ -> TypeUtils.isNullable (toDotNetType termType)
+
+    let isEnum = function
+        | Numeric(Id t) when t.IsEnum -> true
+        | _ -> false
+
     // [NOTE] All heuristics of subtyping are here
     let rec private commonConcreteCanCast canCast nullCase leftType rightType certainK uncertainK =
         match leftType, rightType with
@@ -292,7 +307,22 @@ module internal Types =
         | ArrayType _, ClassType(Id obj, _) -> obj = typedefof<obj> |> certainK
         | Numeric (Id t), Numeric (Id enum)
         | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && enum.GetEnumUnderlyingType() = t -> certainK true
-        | Pointer _, Pointer _ -> certainK true
+        // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
+        // NOTE: Numeric zero may may be treated as ref or ptr
+        | Numeric _, Pointer _
+        | Pointer _, Numeric _
+        | Pointer _, Pointer _
+        | Numeric _, ByRef _
+        | ByRef _, Numeric _ -> certainK true
+        | ByRef t1, ByRef t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
+        // NOTE: *void cannot be used for read, so we can store refs there
+        | ByRef _, Pointer Void -> certainK true
+        // NOTE: need subtype relation between 't1' and 't2', because while read by this pointer we should read type 't2'
+        | ByRef t1, Pointer t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
+        // NOTE: void* can be stored in pinned references (fixed managed pointers)
+        | Pointer Void, ByRef _ -> certainK true
+        // NOTE: pointers can be stored in pinned references (fixed managed pointers)
+        | Pointer t1, ByRef t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
         | ArrayType _, ArrayType(_, SymbolicDimension) -> certainK true
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             if d1 = d2 then commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK else certainK false

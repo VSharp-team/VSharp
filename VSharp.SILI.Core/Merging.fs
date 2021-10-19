@@ -108,6 +108,7 @@ module internal Merging =
             if PC.isFalse pc' then k gvs
             else mapper v (fun t -> k ((g, t) :: gvs))
         Cps.List.foldlk foldFunc [] gvs (merge >> k)
+
     let commonGuardedApplykWithPC pc f term merge k =
         match term.term with
         | Union gvs -> commonGuardedMapkWithPC pc f gvs merge k
@@ -120,7 +121,6 @@ module internal Merging =
         | t -> [(True, t)]
 
     let unguardMerge = unguard >> merge
-
 
 // ----------------------------------------------------------------------------------------------------
 

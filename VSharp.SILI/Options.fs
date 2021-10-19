@@ -1,16 +1,23 @@
 ﻿namespace VSharp.Interpreter.IL
 
-type ExplorationMode = TrustConventions | CompleteExploration
-type RecursionUnrollingModeType = SmartUnrolling | NeverUnroll | AlwaysUnroll
-type NativeIntExplorationMode = Arch32 | Arch64 | Unknown
+open System.Diagnostics
 
-module internal Options =
+type searchMode =
+    | DFSMode
+    | BFSMode
 
-    let mutable private invokeConcrete = true
-    let public InvokeConcrete () = invokeConcrete
+type coverageZone =
+    | MethodZone
+    | ClassZone
+    | ModuleZone
 
-    let mutable private explorationMode = TrustConventions
-    let public ExplorationMode () = explorationMode
+type explorationMode =
+    | TestCoverageMode of coverageZone * searchMode
+    | StackTraceReproductionMode of StackTrace
 
-    let mutable private recursionUnrollingMode = NeverUnroll
-    let public RecursionUnrollingMode () = recursionUnrollingMode
+type executionMode =
+    | ConcolicMode
+    | SymbolicMode
+
+type SiliOptions =
+    {explorationMode : explorationMode; executionMode : executionMode; bound : uint32}

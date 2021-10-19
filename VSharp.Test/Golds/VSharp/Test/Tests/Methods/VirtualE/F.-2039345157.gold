@@ -1,8 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualE.F()
-RESULT: Totally 1 state:
-9
-MEMORY DUMP:
-Path condition: !(null == this)
---------------- Stack: ---------------
-key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualE)
-Initialized types = { VSharp.Test.Tests.Methods.VirtualE }

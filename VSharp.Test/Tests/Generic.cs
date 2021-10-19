@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
-using NUnit.Framework;
-using VSharp.Test.Tests.Typecast;
+using IntegrationTests.Typecast;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests.Generic
+namespace IntegrationTests
 {
     public interface IKeeper<in T>
     {
@@ -296,7 +296,7 @@ namespace VSharp.Test.Tests.Generic
     }
 
     [TestSvmFixture]
-    public static class TetsUnion
+    public static class TestUnion
     {
         public static Coord RetCoord(Object obj, Coord coord, int field)
         {

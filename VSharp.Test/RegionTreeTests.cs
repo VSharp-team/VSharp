@@ -2,11 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp;
 using VSharp.Core;
 using listProductReg = VSharp.listProductRegion<VSharp.points<int>>;
 using productReg = VSharp.productRegion<VSharp.intervals<int>, VSharp.listProductRegion<VSharp.points<int>>>;
 
-namespace VSharp.Test
+namespace UnitTests
 {
     [TestFixture]
     public sealed class RegionTreeTests

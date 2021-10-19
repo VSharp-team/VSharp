@@ -15,6 +15,11 @@ module internal EvaluationStack =
         | [] -> __corruptedStack__()
         | l :: ls -> { contents = (x :: l) :: ls }
 
+    let pushMany (xs : term list) evaluationStack =
+        match evaluationStack.contents with
+        | [] -> __corruptedStack__()
+        | l :: ls -> { contents = (xs @ l) :: ls }
+
     let pop evaluationStack =
         match evaluationStack.contents with
         | [] | [] :: _ -> __corruptedStack__()
@@ -37,6 +42,9 @@ module internal EvaluationStack =
         | [_] :: [] -> evaluationStack // res case
         | [res] :: l :: ls -> {contents = (res :: l) :: ls} // call case
         | _ -> __corruptedStack__()
+
+    let forcePopStackFrames count (evaluationStack : evaluationStack) =
+        {contents = List.skip count evaluationStack.contents}
 
     let filterActiveFrame f evaluationStack =
         match evaluationStack.contents with

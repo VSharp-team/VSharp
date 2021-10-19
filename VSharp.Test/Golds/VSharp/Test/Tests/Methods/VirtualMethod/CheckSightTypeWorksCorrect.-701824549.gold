@@ -1,3 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualMethod.CheckSightTypeWorksCorrect(VSharp.Test.Tests.Methods.VirtualMethod+C)
-RESULT: Totally 1 state:
-Insufficient information! Can't call abstract method Int32 F(), need more information about the object type
