@@ -4,6 +4,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open CilStateOperations
+open VSharp.Utils
 open VSharp.Core
 
 type action =
@@ -70,8 +71,8 @@ type ForwardSearcher(maxBound) =
             forPropagation.Add(s)
 
     interface IForwardSearcher with
-        override x.Init state =
-            forPropagation.AddRange(state)
+        override x.Init states =
+            forPropagation.AddRange(states)
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update parent newStates =
@@ -87,3 +88,28 @@ type BFSSearcher(maxBound) =
 
 type DFSSearcher(maxBound) =
     inherit ForwardSearcher(maxBound)
+
+type IWeighter =
+    abstract member Weight : cilState -> uint
+    abstract member Next : unit -> uint
+
+type WeightedSearcher(maxBound, weighter : IWeighter) =
+    let dpdf = DiscretePDF(cilStateComparer(fun a b -> a.GetHashCode().CompareTo(b.GetHashCode())))
+    let violatesLevel (s : cilState) =
+        levelToUnsignedInt s.level > maxBound
+    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
+    let modMax n = n % DiscretePDF.maxWeight dpdf
+    let add (s : cilState) =
+        if not <| isStopped s then
+            assert(DiscretePDF.contains dpdf s |> not)
+            DiscretePDF.insert dpdf s (weighter.Weight s)
+
+    interface IForwardSearcher with
+        override x.Init states =
+            List.iter (fun state -> DiscretePDF.insert dpdf state (weighter.Weight state)) states
+        override x.Pick() =
+            DiscretePDF.choose dpdf (modMax <| weighter.Next())
+        override x.Update parent newStates =
+            if isStopped parent then
+                DiscretePDF.remove dpdf parent
+            Seq.iter add newStates

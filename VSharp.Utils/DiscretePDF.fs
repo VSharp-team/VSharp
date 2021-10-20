@@ -19,7 +19,7 @@ type private node<'a when 'a : equality> =
         let rightWeight = x.Right |> Option.map (fun n -> n.SumWeight) |> Option.defaultValue 0u
         x.SumWeight <- x.Weight + leftWeight + rightWeight
 
-type public DiscretePDF<'a when 'a : equality>(comparer : Comparer<'a>) =
+type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     let less a b = comparer.Compare(a, b) = -1
     let mutable root = None : node<'a> option
     let mutable maxWeight = 0u
@@ -209,7 +209,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : Comparer<'a>) =
             maxWeight <- n.Weight
         } |> ignore
 
-    member x.InTree(item : 'a) =
+    member x.Contains(item : 'a) =
         lookup root item |> Option.isSome
 
     member x.GetWeight(item : 'a) =
@@ -217,6 +217,8 @@ type public DiscretePDF<'a when 'a : equality>(comparer : Comparer<'a>) =
             let! n = lookup root item
             return n.Weight
         }
+
+    member x.MaxWeight() = maxWeight
 
     member x.Update(item : 'a, weight) =
         option {
@@ -238,4 +240,10 @@ type public DiscretePDF<'a when 'a : equality>(comparer : Comparer<'a>) =
             return! choose root scaledW
         }
 
-// module public DiscretePDF =
+module public DiscretePDF =
+    let insert (dpdf: DiscretePDF<'a>) item weight = dpdf.Insert(item, weight)
+    let remove (dpdf: DiscretePDF<'a>) item = dpdf.Remove(item)
+    let update (dpdf: DiscretePDF<'a>) item weight = dpdf.Update(item, weight)
+    let choose (dpdf: DiscretePDF<'a>) weight = dpdf.Choose weight
+    let maxWeight (dpdf: DiscretePDF<'a>) = dpdf.MaxWeight()
+    let contains (dpdf: DiscretePDF<'a>) item = dpdf.Contains(item)
