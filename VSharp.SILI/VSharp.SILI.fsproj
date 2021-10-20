@@ -1,7 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <TargetFramework>netcoreapp6.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -13,19 +24,29 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
       <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
+      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Communication.fs" />
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
         <Compile Include="CILState.fs" />
-        <Compile Include="Options.fs" />
-        <Compile Include="InterpreterBase.fs" />
-        <Compile Include="InstructionsSet.fs" />
         <Compile Include="Lambdas.fs" />
+        <Compile Include="Statistics.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
-        <Compile Include="Variables.fs" />
+        <Compile Include="TargetedSearcher.fs" />
+        <Compile Include="BidirectionalSearcher.fs" />
+        <Compile Include="RandomSearcher.fs" />
+        <Compile Include="StackTraceEstimator.fs" />
+        <Compile Include="StackTraceSearcher.fs" />
+        <Compile Include="ILRewriter.fs" />
+        <Compile Include="Instrumenter.fs" />
+        <Compile Include="ClientMachine.fs" />
+        <Compile Include="Options.fs" />
+        <Compile Include="TestGenerator.fs" />
+        <Compile Include="SILI.fs" />
     </ItemGroup>
 
     <ItemGroup>

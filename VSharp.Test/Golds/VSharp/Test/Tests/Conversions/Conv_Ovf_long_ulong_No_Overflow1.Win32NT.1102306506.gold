@@ -1,6 +1,0 @@
-METHOD: System.UInt64 VSharp.Test.Tests.Conversions.Conv_Ovf_long_ulong_No_Overflow1()
-RESULT: 9223372036854775807
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Conversions ==> CLASS []

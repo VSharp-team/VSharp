@@ -1,7 +1,9 @@
 using System;
+using System.Runtime.InteropServices;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public unsafe class Unsafe
@@ -33,6 +35,52 @@ namespace VSharp.Test.Tests
             return sizeof(FixedSizedBuffer); // sizeof() = 70; Marshal.SizeOf() = 72; we should behave like sizeof()
         }
 
+        public class A
+        {
+            public int x;
+        }
+
+        [TestSvm]
+        public static A ReturnClass()
+        {
+            var a = new A();
+            return a;
+        }
+
+        [TestSvm]
+        public static int ReturnField()
+        {
+            var a = new A();
+            return a.x;
+        }
+
+        public static void WriteByRefSymbolic(ref int x, int y)
+        {
+            x = y;
+        }
+
+        [TestSvm]
+        public static int WriteFieldByRefSymbolic(int y)
+        {
+            var a = new A();
+            WriteByRefSymbolic(ref a.x, y);
+            return a.x;
+        }
+
+        [TestSvm]
+        public static int RetConcrete()
+        {
+            return 10;
+        }
+
+        [TestSvm]
+        public static int WriteFieldSymbolic(int y)
+        {
+            var a = new A();
+            a.x = y;
+            return a.x;
+        }
+
         [TestSvm]
         public static int ReturnConst()
         {
@@ -48,7 +96,7 @@ namespace VSharp.Test.Tests
             return **&p;
         }
 
-        [TestSvm]
+        [Ignore("Need to create IntPtr struct")]
         public static IntPtr IntPtrZero()
         {
             return IntPtr.Zero;
@@ -62,24 +110,485 @@ namespace VSharp.Test.Tests
             return ptr1 == ptr2;
         }
 
-        [TestSvm]
+        [Ignore("Need to create IntPtr struct")]
         public static IntPtr IntPtrSum()
         {
             IntPtr ptr = new IntPtr(0);
             return ptr + 10;
         }
 
-        private static unsafe bool Identity(int startValue)
+        private static bool Identity(int startValue)
         {
             void* nativeInt = (void*) startValue;
             int back = (int) nativeInt;
             return startValue == back;
         }
 
-        [Ignore("Casting from pointer to number results in pointer, so we try to 'Ptr == 5'")]
-        public static unsafe bool IdentityTest()
+        [TestSvm]
+        public static bool IdentityTest()
         {
             return Identity(5);
+        }
+
+        [Ignore("need to create case for ptr inside term2obj(use ptrRepr)")]
+        public static int *AddressArithmetic()
+        {
+            int x = 428999;
+            return &x + 1;
+        }
+
+        // Expected true
+        [TestSvm(83)]
+        public static bool ArrayConcreteSafeRead1()
+        {
+            var array = new int[] {1, 2, 3};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *ptr;
+            }
+
+            if (result == 1)
+                return true;
+            else
+                return false;
+        }
+
+        // Expected 2
+        [TestSvm(83)]
+        public static bool ArrayConcreteSafeRead2()
+        {
+            var array = new int[] {1, 2, 3};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *(ptr + 1);
+            }
+            if (result == 2)
+                return true;
+            else
+                return false;
+
+        }
+
+        [TestSvm(86)]
+        public static bool ArrayConcreteUnsafeRead()
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            long result;
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (long*) ptr;
+                result = *(ptr2 + 1);
+            }
+
+            if (result == 17179869187L)
+                return true;
+            else
+                return false;
+
+        }
+
+        [TestSvm(83)]
+        public static bool ArraySymbolicSafeRead(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            int result;
+            fixed (int* ptr = &array[0])
+            {
+                result = *(ptr + i);
+            }
+
+            if (result != 3 && i == 2)
+                return false;
+            else
+                return true;
+
+        }
+
+        [TestSvm(86)]
+        public static bool ArraySymbolicUnsafeRead(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            long result;
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (long*) ptr;
+                result = *(ptr2 + i);
+            }
+
+            if (result != 17179869187L && i == 1)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(88)]
+        public static bool ArraySymbolicUnsafeRead2(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            long result;
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                result = *ptr3;
+            }
+
+            if (result != 216172782147338240L && i == 1)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(83)]
+        public static bool ArrayConcreteSafeWrite()
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            fixed (int* ptr = &array[0])
+            {
+                *ptr = 10;
+            }
+
+            if (array[0] == 10)
+                return true;
+            else
+                return false;
+        }
+
+        [TestSvm(86)]
+        public static bool ArrayConcreteUnsafeWrite()
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (long*) ptr;
+                *ptr2 = 17179869187L;
+            }
+
+            if (array[0] == 3)
+                return true;
+            else
+                return false;
+        }
+
+        [TestSvm(88)]
+        public static bool ArraySymbolicUnsafeWrite(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                *ptr3 = 17179869187L;
+            }
+
+            if (i == 0 && array[0] == 1)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(89)]
+        public static bool ArraySymbolicUnsafeWrite2(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            var test = new int[] {1, 2, 3, 4, 5};
+            fixed (int* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                *ptr3 = 216172782147338240L;
+            }
+
+            if ((array[0] != test[0] || array[1] != test[1] || array[2] != test[2] || array[3] != test[3] || array[4] != test[4]) && i == 1)
+                return false;
+            else
+                return true;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public class ExplicitClass
+        {
+            [FieldOffset(3)]
+            public int x;
+            [FieldOffset(4)]
+            public int y;
+
+            public ExplicitClass(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct SequentialStruct
+        {
+            public int x;
+            public int y;
+
+            public SequentialStruct(int x, int y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        struct ExplicitStruct
+        {
+            [FieldOffset(0)]
+            public int x;
+            [FieldOffset(1)]
+            public int y;
+
+            public ExplicitStruct(int x, int y)
+            {
+                this.y = y;
+                this.x = x;
+            }
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        class ExplicitClassWithStructsInside
+        {
+            [FieldOffset(3)]
+            public ExplicitStruct x;
+            [FieldOffset(5)]
+            public SequentialStruct y;
+
+            public ExplicitClassWithStructsInside(ExplicitStruct x, SequentialStruct y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        class SequentialClassWithStructsInside
+        {
+            public SequentialStruct x;
+            public SequentialStruct y;
+
+            public SequentialClassWithStructsInside(SequentialStruct x, SequentialStruct y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+        }
+
+        [TestSvm(88)]
+        public static bool StructInsideArraySymbolicUnsafeRead(int i)
+        {
+            var array = new [] {new SequentialStruct(1, 2), new SequentialStruct(3, 4), new SequentialStruct(5, 6)};
+            long result;
+            fixed (SequentialStruct* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                result = *ptr3;
+            }
+
+            if (i == 1 && result != 216172782147338240L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(88)]
+        public static bool StructInsideArraySymbolicUnsafeRead2(int i)
+        {
+            var array = new [] {new ExplicitStruct(1, 2), new ExplicitStruct(3, 4), new ExplicitStruct(5, 6)};
+            long result;
+            fixed (ExplicitStruct* ptr = &array[0])
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                result = *ptr3;
+            }
+
+            if (i == 1 && result != 216172782113783808L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(90)]
+        public static bool ClassSymbolicUnsafeRead(int i)
+        {
+            var x = new ExplicitStruct(1, 2);
+            var y = new SequentialStruct(3, 4);
+            var c = new ExplicitClassWithStructsInside(x, y);
+            long result;
+            fixed (ExplicitStruct* ptr = &c.x)
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = (long*) (ptr2 + i);
+                result = *ptr3;
+            }
+
+            if (i == 1 && result != 4398046511872L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(91)]
+        public static bool ClassSymbolicUnsafeRead2(int i)
+        {
+            var x = new SequentialStruct(1, 2);
+            var y = new SequentialStruct(3, 4);
+            var c = new SequentialClassWithStructsInside(x, y);
+            long result;
+            fixed (SequentialStruct* ptr = &c.x)
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 1 && result != 216172782147338240L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(88)]
+        public static bool ClassSymbolicReadZeroBetweenFields(int i)
+        {
+            var c = new ExplicitClass(1, 2);
+            byte result;
+            fixed (int* ptr = &c.x)
+            {
+                var ptr2 = (byte*) ptr;
+                var ptr3 = ptr2 + i;
+                result = *ptr3;
+            }
+            if (i == -1 && result != 0)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(83)]
+        // TODO: minimize combine term #do
+        public static bool ClassWriteSafeOverlappingFields(int i, int j)
+        {
+            var c = new ExplicitClass(i, j);
+            c.y = 42;
+            c.x = -1000;
+            if (c.y == 16777212)
+                return true;
+            return false;
+        }
+
+        [TestSvm(89)]
+        public static bool StructInsideArraySymbolicUnsafeWrite(int i, SequentialStruct v)
+        {
+            var array = new [] {new SequentialStruct(i, i), new SequentialStruct(i, i), new SequentialStruct(i, i)};
+            fixed (SequentialStruct* ptr = &array[0])
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (SequentialStruct*) ptr3;
+                *ptr4 = v;
+            }
+
+            if (i == 1 && (array[0].y != v.x || array[1].x != v.y))
+                return false;
+            else
+                return true;
+        }
+
+        [Ignore("Incorrect result (unsafe reading for strings)")]
+        public static bool StringAsSpanSymbolicRead(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = &s.AsSpan()[0])
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(89)]
+        public static bool StringSymbolicRead(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = &s.GetPinnableReference())
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(89)]
+        public static bool StringSymbolicRead2(int i)
+        {
+            var s = "best string";
+            long result;
+            fixed (char* ptr = s)
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                result = *ptr4;
+            }
+
+            if (i == 3 && result != 30962698417209460L)
+                return false;
+            else
+                return true;
+        }
+
+        [Ignore("Support unsafe reading of string length")]
+        public static int StringLengthUnsafeRead(int i)
+        {
+            var s = "best string";
+            int result;
+            fixed (char* ptr = s)
+            {
+                int* p = (int*) ptr;
+                result = p[-1];
+            }
+
+            return result;
+        }
+
+        [TestSvm(89)]
+        public static bool StringSymbolicWrite(int i)
+        {
+            var s = "best string";
+            fixed (char* ptr = &s.GetPinnableReference())
+            {
+                var ptr2 = (int*) ptr;
+                var ptr3 = ptr2 + i;
+                var ptr4 = (long*) ptr3;
+                *ptr4 = 30962698417209460L;
+            }
+
+            if (i == 3 && (s[0] != 'b' || s[1] != 'e' || s[2] != 's' || s[3] != 't' || s[4] != ' ')) // s != "best string"
+                return false;
+            else
+                return true;
         }
 
         [Ignore("Insufficient information")]

@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     internal class ClassesSimpleA
     {

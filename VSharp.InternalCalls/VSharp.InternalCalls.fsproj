@@ -1,7 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <TargetFramework>netcoreapp6.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -13,6 +24,7 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
       <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
+      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
@@ -26,8 +38,12 @@
         <Compile Include="Environment.fs" />
         <Compile Include="Thread.fsi" />
         <Compile Include="Thread.fs" />
+        <Compile Include="Volatile.fsi" />
+        <Compile Include="Volatile.fs" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fsi" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fs" />
+        <Compile Include="HashHelpers.fsi" />
+        <Compile Include="HashHelpers.fs" />
         <Compile Include="Type.fsi" />
         <Compile Include="Type.fs" />
         <Compile Include="IntPtr.fsi" />
@@ -46,6 +62,10 @@
         <Compile Include="SR.fs" />
         <Compile Include="Interlocked.fsi" />
         <Compile Include="Interlocked.fs" />
+        <Compile Include="Globalization.fsi" />
+        <Compile Include="Globalization.fs" />
+        <Compile Include="PlatformHelper.fsi" />
+        <Compile Include="PlatformHelper.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 
@@ -57,6 +77,24 @@
       <Reference Include="ChessDotNet, Version=0.9.4.0, Culture=neutral, PublicKeyToken=95fb3ccd1157343b">
         <HintPath>..\VSharp.Test\Tests\Chess.NET\ChessDotNet.dll</HintPath>
       </Reference>
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp6.0' ">
+      <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+        <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\Test.Lifetimes.dll</HintPath>
+      </Reference>
+      <Reference Include="JetBrains.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+        <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\JetBrains.Lifetimes.dll</HintPath>
+      </Reference>
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' ">
+        <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+            <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\net5.0\Test.Lifetimes.dll</HintPath>
+        </Reference>
+        <Reference Include="JetBrains.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
+            <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\net5.0\JetBrains.Lifetimes.dll</HintPath>
+        </Reference>
     </ItemGroup>
 
 </Project>

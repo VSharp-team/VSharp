@@ -3,13 +3,13 @@ namespace VSharp.Core
 open System.Reflection
 open VSharp
 open VSharp.Core
+open VSharp.Core.Types
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : symbolicType }
 type private frame = internal { func : MethodBase; entries : pdict<stackKey, entry> }
 type callStack = private { frames : frame stack }
 
-// TODO: rename and style #do
 module internal CallStack =
 
     let empty = { frames = Stack.empty }
@@ -29,16 +29,14 @@ module internal CallStack =
         let _, frames = Stack.pop stack.frames
         {frames = frames}
 
+    let popFrames (stack : callStack) count : callStack =
+        {frames = Stack.drop count stack.frames}
+
     let private tryFindEntryOnFrame (frame : frame) key : entry option =
         PersistentDict.tryFind frame.entries key
 
     let private writeFrameLocation (frame : frame) key entry =
-        let entriesWithoutKey =
-            let entries = frame.entries
-            assert(PersistentDict.contains key entries)
-            // TODO: need to delete entry before add? #do
-            PersistentDict.remove key entries
-        let newEntries = PersistentDict.add key entry entriesWithoutKey
+        let newEntries = PersistentDict.add key entry frame.entries
         {frame with entries = newEntries}
 
     // NOTE: allocate function is used for adding values to CURRENT frame:
@@ -63,15 +61,18 @@ module internal CallStack =
         | Some entry -> k entry
         | None -> findFrameAndRead frames key k
 
-    let typeOfStackLocation (stack : callStack) key =
-        let entry = findFrameAndRead stack.frames key id
-        entry.typ
-
     let readStackLocation (stack : callStack) key makeSymbolic =
-        let entry = findFrameAndRead stack.frames key id
-        match entry.value with
-        | Some value -> value
-        | None -> makeSymbolic entry.typ
+        if stack.frames.Length = 1 && stack.frames.Head.func = null && (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key')) then
+            // This state is formed by SMT solver model, just return the default value
+            match key with
+            | ParameterKey pi -> Constructor.fromDotNetType pi.ParameterType |> makeDefaultValue
+            | ThisKey _ -> nullRef
+            | _ -> __unreachable__()
+        else
+            let entry = findFrameAndRead stack.frames key id
+            match entry.value with
+            | Some value -> value
+            | None -> makeSymbolic entry.typ
 
     let rec private findFrameAndWrite (frames : frame stack) key entry k =
         if Stack.isEmpty frames then internalfailf "stack does not contain key %O!" key
@@ -131,3 +132,6 @@ module internal CallStack =
         let sorted = List.sortBy fst keysAndValues
         List.choose printEntry sorted
         |> join "\n"
+
+    let stackTrace (stack : callStack) =
+        Stack.map (fun f -> Reflection.getFullMethodName f.func) stack.frames |> join "\n"

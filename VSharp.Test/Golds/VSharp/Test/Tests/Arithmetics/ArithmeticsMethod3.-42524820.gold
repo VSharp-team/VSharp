@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Arithmetics.ArithmeticsMethod3(System.Int32, System.Int32, System.Int32)
-RESULT: Totally 1 state:
--3 + -8 + -a + -b + a + b + c
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Arithmetics }

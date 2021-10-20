@@ -29,6 +29,38 @@ module internal TypeCasting =
                 | :? symbolicSubtypeSource as otherSubtype -> x <> otherSubtype
                 | _ -> true
 
+    let (|TypeSubtypeTypeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | ConcreteType u, ConcreteType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|RefSubtypeTypeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | SymbolicType u, ConcreteType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|TypeSubtypeRefSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | ConcreteType u, SymbolicType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
+    let (|RefSubtypeRefSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? symbolicSubtypeSource as s ->
+            match s.left, s.right with
+            | SymbolicType u, SymbolicType v -> Some(u, v)
+            | _ -> None
+        | _ -> None
+
     let private makeSubtypeBoolConst left right =
         let subtypeName = sprintf "(%O <: %O)" left right
         let source = {left = left; right = right}
@@ -121,33 +153,30 @@ module internal TypeCasting =
                     typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
 
-    let isNullable termType =
-        match termType with
-        | TypeVariable(Id t) when TypeUtils.isReferenceTypeParameter t -> false
-        | TypeVariable _ -> __insufficientInformation__ "Can't determine if %O is a nullable type or not!" termType
-        | Null -> false
-        | _ -> System.Nullable.GetUnderlyingType(toDotNetType termType) <> null
-
     let private doCast term targetType =
-        match term.term with
-        | Ptr _ ->
-            match targetType with
-            | Pointer typ' -> castReferenceToPointer typ' term
-            // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
-            | Numeric _ -> term
-            | _ -> internalfailf "Can't cast pointer %O to type %O" term targetType
-        | HeapRef(addr, _) -> HeapRef addr targetType
-        | Ref _ when isByRef targetType -> term
-        | Ref _ -> __notImplemented__() // TODO: can this happen? Ref points to primitive type!
-        | Struct _ -> term
-        | _ -> __unreachable__()
+        match term.term, targetType with
+        | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
+        // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
+        | Ptr _, Numeric _ -> term
+        | Ptr(HeapLocation address, _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
+        // CASE: pointer from concolic
+        | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
+        | Ptr _, ByRef _ -> internalfailf "Casting nonnull ptr to ByRef type %O" targetType
+        | Ref _, ByRef _ -> term
+        | Ref address, Pointer typ' ->
+            let baseAddress, offset = Pointers.addressToBaseAndOffset address
+            Ptr baseAddress typ' offset
+        | Ref _, _ -> internalfailf "casting ref %O to type %O" term targetType // TODO: can this happen? Ref points to primitive type!
+        | HeapRef(addr, _), _ -> HeapRef addr targetType
+        | Struct _, _ -> internalfailf "Casting struct to %O" targetType
+        | _ -> internalfailf "Can't cast %O to type %O" term targetType
 
     let canCast state term targetType =
         let castCheck term =
             match term.term with
             | Concrete(value, _) -> canCastConcrete value targetType |> makeBool
             | Ptr(_, typ, _) -> typeIsType (Pointer typ) targetType
-            | Ref address -> typeIsType (Memory.baseTypeOfAddress state address) targetType
+            | Ref address -> typeIsType (Memory.baseTypeOfAddress state address |> ByRef) targetType
             | HeapRef(address, sightType) ->
                 let baseType = Memory.mostConcreteTypeOfHeapRef state address sightType
                 addressIsType address baseType targetType
@@ -161,6 +190,7 @@ module internal TypeCasting =
             | Bool
             | Numeric _ -> primitiveCast term targetType
             | Pointer _
+            | ByRef _
             | StructType _
             | ClassType _
             | InterfaceType _
@@ -170,29 +200,19 @@ module internal TypeCasting =
             | _ -> __unreachable__()
         Merging.guardedApply castUnguarded term
 
-    let castReferenceToPointer state reference =
-        let getType ref =
-            match ref.term with
-            | Ref(PrimitiveStackLocation key) -> Memory.typeOfStackLocation state key
-            | _ -> typeOfRef ref
-        let doCast reference =
-            let typ = commonTypeOf getType reference
-            Terms.castReferenceToPointer typ reference
-        Merging.guardedApply doCast reference
-
     let rec private nearestBiggerTypeForEvaluationStack (t : System.Type) =
         match t with
         | _ when t = typeof<int8>    -> Int32
         | _ when t = typeof<int16>   -> Int32
         | _ when t = typeof<int32>   -> Int32
         | _ when t = typeof<int64>   -> Int64
-        | _ when t = typeof<byte>    -> Int32
-        | _ when t = typeof<char>    -> Int32
-        | _ when t = typeof<uint16>  -> Int32
-        | _ when t = typeof<uint32>  -> Int32
-        | _ when t = typeof<uint64>  -> Int64
+        | _ when t = typeof<byte>    -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<char>    -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<uint16>  -> UInt32 // TODO: need to use signed?
+        | _ when t = typeof<uint32>  -> UInt32
+        | _ when t = typeof<uint64>  -> UInt64
         | _ when t = typeof<float32> -> F
-        | _ when t = typeof<float>   -> F
+        | _ when t = typeof<float>   -> D
         | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 

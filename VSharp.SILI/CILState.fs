@@ -2,20 +2,36 @@ namespace VSharp.Interpreter.IL
 
 open VSharp
 open System.Text
-open System.Reflection
 open VSharp.Core
 open ipOperations
 
+[<ReferenceEquality>]
 type cilState =
-    { ipStack : ipStack
+    { mutable ipStack : ipStack
       state : state
-      filterResult : term option
+      mutable filterResult : term option
       //TODO: #mb frames list #mb transfer to Core.State
-      iie : InsufficientInformationException option
-      level : level
-      startingIP : ip
-      initialEvaluationStackSize : uint32
+      mutable iie : InsufficientInformationException option
+      mutable level : level
+      mutable startingIP : ip
+      mutable initialEvaluationStackSize : uint32
+      mutable stepsNumber : uint
+      mutable suspended : bool
+      mutable lastPushInfo : term option
     }
+    with
+    member x.Result with get() =
+//        assert(Memory.CallStackSize x.state = 1)
+        match EvaluationStack.Length x.state.evaluationStack with
+        | _ when Memory.CallStackSize x.state <> 1 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+        | 0 -> Nop
+        | 1 ->
+            let result = EvaluationStack.Pop x.state.evaluationStack |> fst
+            match x.ipStack with
+            | [Exit m] -> Types.Cast result (Reflection.getMethodReturnType m |> Types.FromDotNetType)
+            | _ when x.state.exceptionsRegister.UnhandledError -> Nop
+            | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
+        | _ -> internalfail "EvaluationStack size was bigger than 1"
 
 module internal CilStateOperations =
 
@@ -27,6 +43,9 @@ module internal CilStateOperations =
           level = PersistentDict.empty
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
+          stepsNumber = 0u
+          suspended = false
+          lastPushInfo = None
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
@@ -48,8 +67,20 @@ module internal CilStateOperations =
         | Unhandled _ -> true
         | _ -> false
 
-    let currentIp (s : cilState) = List.head s.ipStack
+    let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
+    let currentIp (s : cilState) =
+        match s.ipStack with
+        | [] -> __unreachable__()
+        | h::_ -> h
+//        List.head s.ipStack
 
+    let stoppedByException (s : cilState) =
+        match currentIp s with
+        | SearchingForHandler([], []) -> true
+        | _ -> false
+
+    let currentLoc = currentIp >> ip2codeLocation >> Option.get
+    let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get
     let methodOf = function
         | Exit m
         | Instruction(_, m)
@@ -71,10 +102,10 @@ module internal CilStateOperations =
         match s.startingIP with
         | Instruction (0, _) -> true
         | _ -> false
-    let pushToIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: cilState.ipStack}
-    let setCurrentIp (ip : ip) (cilState : cilState) = {cilState with ipStack = ip :: List.tail cilState.ipStack}
+    let pushToIp (ip : ip) (cilState : cilState) = cilState.ipStack <- ip :: cilState.ipStack
+    let setCurrentIp (ip : ip) (cilState : cilState) = cilState.ipStack <- ip :: List.tail cilState.ipStack
 
-    let withIpStack (ipStack : ipStack) (cilState : cilState) = {cilState with ipStack = ipStack}
+    let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
     let startingIpOf (cilState : cilState) = cilState.startingIP
 
     let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
@@ -95,9 +126,9 @@ module internal CilStateOperations =
         let iie = None // we might concretize state, so we should try executed instructions again
         let ip = composeIps (List.tail cilState1.ipStack) cilState2.ipStack
         let states = Memory.ComposeStates cilState1.state cilState2.state
-        let _, leftEvaluationStack = EvaluationStack.PopArguments (int cilState2.initialEvaluationStackSize) cilState1.state.evaluationStack
+        let _, leftEvaluationStack = EvaluationStack.PopMany (int cilState2.initialEvaluationStackSize) cilState1.state.evaluationStack
         let makeResultState (state : state) =
-            let state' = {state with evaluationStack = EvaluationStack.Union leftEvaluationStack state.evaluationStack }
+            let state' = { state with evaluationStack = EvaluationStack.Union leftEvaluationStack state.evaluationStack }
             {cilState2 with state = state'; ipStack = ip; level = level; initialEvaluationStackSize = cilState1.initialEvaluationStackSize
                             startingIP = cilState1.startingIP; iie = iie}
         List.map makeResultState states
@@ -105,53 +136,66 @@ module internal CilStateOperations =
     let incrementLevel (cilState : cilState) k =
         let lvl = cilState.level
         let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
-        {cilState with level = PersistentDict.add k (oldValue + 1u) lvl}
+        cilState.level <- PersistentDict.add k (oldValue + 1u) lvl
 
     let decrementLevel (cilState : cilState) k =
         let lvl = cilState.level
         let oldValue = PersistentDict.tryFind lvl k
         match oldValue with
-        | Some value when value > 0u -> {cilState with level = PersistentDict.add k (value - 1u) lvl}
-        | _ -> cilState
+        | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
+        | _ -> ()
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 
     let stateOf (cilState : cilState) = cilState.state
     let popFrameOf (cilState : cilState) =
-        let s = Memory.PopFrame cilState.state
+        Memory.PopFrame cilState.state
         let ip = List.tail cilState.ipStack
-        {cilState with state = s; ipStack = ip}
+        cilState.ipStack <- ip
 
-    let emptyEvaluationStack = Memory.EmptyState.evaluationStack
-    let withCurrentTime time (cilState : cilState) = {cilState with state = {cilState.state with currentTime = time}}
-    let withEvaluationStack evaluationStack (cilState : cilState) = {cilState with state = {cilState.state with evaluationStack = evaluationStack}}
+    let setCurrentTime time (cilState : cilState) = cilState.state.currentTime <- time
+    let setEvaluationStack evaluationStack (cilState : cilState) = cilState.state.evaluationStack <- evaluationStack
 
     let clearEvaluationStackLastFrame (cilState : cilState) =
-        {cilState with state = {cilState.state with evaluationStack = EvaluationStack.ClearActiveFrame cilState.state.evaluationStack}}
+        cilState.state.evaluationStack <- EvaluationStack.ClearActiveFrame cilState.state.evaluationStack
 
-    let withState state (cilState : cilState) = {cilState with state = state}
-    let changeState (cilState : cilState) state = {cilState with state = state}
+    // TODO: Not mutable -- copies cilState #do
+    let changeState (cilState : cilState) state =
+        if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
+        else {cilState with state = state}
 
-    let withException exc (cilState : cilState) = {cilState with state = {cilState.state with exceptionsRegister = exc}}
+    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
 
-    let push v (cilState : cilState) = {cilState with state = {cilState.state with evaluationStack = EvaluationStack.Push v cilState.state.evaluationStack}}
+    let push v (cilState : cilState) =
+        cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
+        cilState.lastPushInfo <- Some v
+    let pushMany vs (cilState : cilState) = cilState.state.evaluationStack <- EvaluationStack.PushMany vs cilState.state.evaluationStack
+
+    let peek (cilState : cilState) =
+        EvaluationStack.Pop cilState.state.evaluationStack |> fst
+    let peek2 (cilState : cilState) =
+        let stack = cilState.state.evaluationStack
+        let arg2, stack = EvaluationStack.Pop stack
+        let arg1, _ = EvaluationStack.Pop stack
+        arg2, arg1
     let pop (cilState : cilState) =
         let v, evaluationStack = EvaluationStack.Pop cilState.state.evaluationStack
-        v, {cilState with state = {cilState.state with evaluationStack = evaluationStack}}
+        cilState.state.evaluationStack <- evaluationStack
+        v
     let pop2 (cilState : cilState) =
-        let arg2, cilState = pop cilState
-        let arg1, cilState = pop cilState
-        arg2, arg1, cilState
+        let arg2 = pop cilState
+        let arg1 = pop cilState
+        arg2, arg1
     let pop3 (cilState : cilState) =
-        let arg3, cilState = pop cilState
-        let arg2, cilState = pop cilState
-        let arg1, cilState = pop cilState
-        arg3, arg2, arg1, cilState
+        let arg3 = pop cilState
+        let arg2 = pop cilState
+        let arg1 = pop cilState
+        arg3, arg2, arg1
 
     let pushNewObjForValueTypes (afterCall : cilState) =
-        let ref, cilState = pop afterCall
-        let value = Memory.ReadSafe cilState.state ref
-        push value cilState
+        let ref = pop afterCall
+        let value = Memory.ReadSafe afterCall.state ref
+        push value afterCall
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
@@ -165,31 +209,34 @@ module internal CilStateOperations =
             | FallThrough nextInstruction -> instruction m nextInstruction :: []
             | Return -> exit m :: []
             | ExceptionMechanism ->
-                let toObserve = __notImplemented__()
-                searchingForHandler toObserve 0 :: []
+                // TODO: use ExceptionMechanism? #do
+//                let toObserve = __notImplemented__()
+//                searchingForHandler toObserve 0 :: []
+                __notImplemented__()
             | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
         List.map (fun ip -> setCurrentIp ip cilState) newIps
 
-    let StatedConditionalExecutionCIL (cilState : cilState) (condition : state -> (term * state -> 'a) -> 'a) (thenBranch : cilState -> ('c list -> 'a) -> 'a) (elseBranch : cilState -> ('c list -> 'a) -> 'a) (k : 'c list -> 'a) =
-        StatedConditionalExecution cilState.state condition
-            (fun state k -> thenBranch {cilState with state = state} k)
-            (fun state k -> elseBranch {cilState with state = state} k)
-            (fun x y -> List.append x y |> List.singleton)
-            (List.head >> k)
     let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
+        let mkCilState state =
+            if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
+            else {cilState with state = state}
         GuardedStatedApplyk
-            (fun state term k -> f {cilState with state = state} term k)
+            (fun state term k -> f (mkCilState state) term k)
             cilState.state term id (List.concat >> k)
 
-    let StatedConditionalExecutionAppendResultsCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
+    let StatedConditionalExecutionCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
+        let origCilState = {cilState with state = cilState.state}
+        let mkCilState state =
+            if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
+            else {origCilState with state = state}
         StatedConditionalExecution cilState.state conditionInvocation
-            (fun state k -> thenBranch {cilState with state = state} k)
-            (fun state k -> elseBranch {cilState with state = state} k)
+            (fun state k -> thenBranch (mkCilState state) k)
+            (fun state k -> elseBranch (mkCilState state) k)
             (fun x y -> [x; y])
             (List.concat >> k)
 
     let BranchOnNullCIL (cilState : cilState) term thenBranch elseBranch k =
-        StatedConditionalExecutionAppendResultsCIL cilState
+        StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference term, state))
             thenBranch
             elseBranch
@@ -215,6 +262,6 @@ module internal CilStateOperations =
         let sb = dumpSectionValue "IIE" (sprintf "%O" cilState.iie) sb
         let sb = dumpSectionValue "Initial EvaluationStack Size" (sprintf "%O" cilState.initialEvaluationStackSize) sb
         let sb = Utils.PrettyPrinting.dumpDict "Level" id ipAndMethodBase2String id sb cilState.level
-        let stateDump = Memory.Dump cilState.state
+        let stateDump = Print.Dump cilState.state
         let sb = dumpSectionValue "State" stateDump sb
         if sb.Length = 0 then "<EmptyCilState>" else sb.ToString()

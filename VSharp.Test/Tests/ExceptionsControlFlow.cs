@@ -1,12 +1,13 @@
 using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     public class ExceptionsControlFlow
     {
-        [TestSvm]
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static int TestWithHandlers(int x, int y) {
             //A[] array = new A[15];
             int addition = 1;
@@ -68,8 +69,8 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        private static int Alway42() => 42;
-        private static int Alway84() => Alway42() * 2;
+        private static int Always42() => 42;
+        private static int Always84() => Always42() * 2;
 
         // expecting 111111
         [Ignore("FilterHandler support")]
@@ -87,7 +88,7 @@ namespace VSharp.Test.Tests
                     globalMemory += 10;
                     throw new Exception();
                 }
-                catch (Exception) when ((globalMemory += 100) > 50 && f && Alway42() == 42)
+                catch (Exception) when ((globalMemory += 100) > 50 && f && Always42() == 42)
                 {
                     globalMemory += 1000;
                 }
@@ -100,13 +101,43 @@ namespace VSharp.Test.Tests
         }
 
 
+        [TestSvm(79)]
+        public static int NestedTryCatchFinally()
+        {
+            int globalMemory = 0;
+            try
+            {
+                try
+                {
+                    throw new Exception();
+                }
+                catch (Exception)
+                {
+                    globalMemory = 42;
+                }
+                finally
+                {
+                    globalMemory++;
+                }
+            }
+            catch (Exception)
+            {
+                globalMemory = 12;
+            }
+            finally
+            {
+                globalMemory++;
+            }
+            return globalMemory;
+        }
+
         [TestSvm]
         public static int CallInsideFinally(bool f)
         {
             int res = 0;
             try
             {
-                res += Alway42();
+                res += Always42();
             }
             finally
             {
@@ -114,11 +145,11 @@ namespace VSharp.Test.Tests
                 {
                     try
                     {
-                        res += Alway42();
+                        res += Always42();
                     }
                     finally
                     {
-                        res += Alway84();
+                        res += Always84();
                     }
                 }
             }

@@ -1,7 +1,6 @@
 namespace VSharp.System
 
 open global.System
-open VSharp
 open VSharp.Core
 
 // ------------------------------- mscorlib.System.Environment -------------------------------
@@ -9,8 +8,7 @@ open VSharp.Core
 module Environment =
 
     let internal GetResourceFromDefault (state : state) (_ : term list) =
-        let reference, state = Memory.AllocateString "Getting resource strings currently not supported!" state
-        reference, state
+        Memory.AllocateString "Getting resource strings currently not supported!" state
 
-    let GetCurrentManagedThreadId  (state : state) (_ : term list) =
-        MakeNumber 0, state
+    let GetCurrentManagedThreadId  (_ : state) (_ : term list) =
+        MakeNumber 0

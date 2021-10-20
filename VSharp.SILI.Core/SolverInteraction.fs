@@ -5,7 +5,6 @@ open VSharp
 
 module public SolverInteraction =
 
-    type model() = class end
     type unsatCore() = class end
 
     type encodingContext =
@@ -35,7 +34,7 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let isValid state =
+    let checkSat state =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with

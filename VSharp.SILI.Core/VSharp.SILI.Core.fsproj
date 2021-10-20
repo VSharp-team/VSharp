@@ -1,7 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <TargetFramework>netcoreapp6.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -13,6 +24,7 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
       <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
+      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
@@ -31,12 +43,13 @@
         <Compile Include="EvaluationStack.fs" />
         <Compile Include="CallStack.fs" />
         <Compile Include="State.fs" />
+        <Compile Include="ConcreteMemory.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="SolverInteraction.fs" />
         <Compile Include="Memory.fs" />
+        <Compile Include="ArrayInitialization.fs" />
         <Compile Include="TypeCasting.fs" />
         <Compile Include="Copying.fs" />
-        <Compile Include="Marshalling.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />
     </ItemGroup>

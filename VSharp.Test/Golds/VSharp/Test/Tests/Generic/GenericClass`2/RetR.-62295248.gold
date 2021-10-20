@@ -1,5 +1,0 @@
-METHOD: R VSharp.Test.Tests.Generic.GenericClass`2[R,V].RetR(R)
-RESULT: Totally 1 state:
-(HeapRef r to R)
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Generic.GenericClass`2[R,V] }

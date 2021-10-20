@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.PDR.SmokeTest()
-RESULT: Totally 1 state:
-100500
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.PDR }

@@ -1,6 +1,0 @@
-METHOD: System.UInt32 VSharp.Test.Tests.Arithmetics_CIL.DivideWithoutOverflow(System.UInt32)
-RESULT: a / 4294967295
-HEAP:
-{ heap = <empty>, statics = s0 } where
----------- s0 = ----------
-VSharp.Test.Tests.Arithmetics_CIL ==> CLASS []

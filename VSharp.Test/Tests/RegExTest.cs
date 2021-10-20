@@ -1,11 +1,12 @@
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public static class RegExImplementation
     {
-        private static bool MatchStar(char c, string re, int repos, string text, int textpos)
+        public static bool MatchStar(char c, string re, int repos, string text, int textpos)
         {
             do
             {
@@ -13,12 +14,12 @@ namespace VSharp.Test.Tests
                 {
                     return true;
                 }
-            } while (textpos <= text.Length && (text[textpos++] == c || c == '.'));
+            } while (textpos < text.Length && (text[textpos++] == c || c == '.'));
 
             return false;
         }
 
-        private static bool MatchHere(string re, int repos, string text, int textpos)
+        public static bool MatchHere(string re, int repos, string text, int textpos)
         {
             if (repos >= re.Length)
                 return textpos >= text.Length;
@@ -50,20 +51,61 @@ namespace VSharp.Test.Tests
     public class RegExTest
     {
         [TestSvm]
-        public static bool OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
+        public static string OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
         {
             string pattern = new string(new char[] {c1, c2, c3});
-            return RegExImplementation.Match(pattern, "hello");
+            string result = "";
+            if (RegExImplementation.Match(pattern, "hello"))
+            {
+                result += "hello";
+                if (!RegExImplementation.Match(pattern, "world"))
+                {
+                    result += " world";
+                }
+            }
+            else
+            {
+                if (!RegExImplementation.Match(pattern, "nothing"))
+                {
+                    result += " nothing";
+                }
+            }
+
+            return result;
         }
 
         [Ignore("need more external method implementations")]
-        public static MatchCollection SystemImplementationTest()
+        [TestSvm]
+        public static bool OwnImplementationTest2(char c1, char c2, char c3, char c4, char c5, char c6)
         {
-            Regex rx = new Regex(@"\b(?<word>\w+)\s+(\k<word>)\b",
-                RegexOptions.Compiled | RegexOptions.IgnoreCase);
-            string text = "The the quick brown fox  fox jumps over the lazy dog dog.";
-            MatchCollection matches = rx.Matches(text);
-            return matches;
+            string text = new string(new char[] {c1, c2, c3});
+            return RegExImplementation.Match("kek", text);
+        }
+
+        public static int OwnImplementationTest3(char c1, char c2, char c3, char c4, char c5, char c6)
+        {
+            string text = new string(new char[] {c1, c2, c3});
+            string text2 = new string(new char[] {c4, c5, c6});
+            if (RegExImplementation.Match("yes", text))
+            {
+                if (RegExImplementation.Match (text2, text))
+                {
+                    return 42;
+                }
+                else
+                {
+                    return 100;
+                }
+            }
+
+            return 0;
+        }
+
+        // [TestSvm(100, 2)]
+        [Ignore("Incorrect result")]
+        public static bool OwnImplementationTest4(string pattern)
+        {
+            return RegExImplementation.Match(pattern, "Hello");
         }
 
         [Ignore("need more external method implementations")]

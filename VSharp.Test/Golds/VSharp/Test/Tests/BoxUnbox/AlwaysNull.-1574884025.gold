@@ -1,9 +1,0 @@
-METHOD: System.Boolean VSharp.Test.Tests.BoxUnbox.AlwaysNull()
-RESULT: Totally 1 state:
-True
-MEMORY DUMP:
---------------- Stack: ---------------
-key = __loc__0, value = System.Nullable`1[System.Int32] STRUCT [
-	| hasValue ~> False
-	| value ~> 0]
-Initialized types = { VSharp.Test.Tests.BoxUnbox }

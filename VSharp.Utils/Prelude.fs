@@ -16,11 +16,15 @@ module public Prelude =
 
     let public internalfail message = raise (InternalException message)
     let public internalfailf format = Printf.ksprintf internalfail format
-    let inline public __notImplemented__() = raise (System.NotImplementedException())
+    let undefinedBehaviour reason = internalfailf "Undefined behaviour: %s" reason
+
+    let inline public __notImplemented__() = raise (NotImplementedException())
+    let inline public __notImplemented'__ message = raise (NotImplementedException (message + " is not implemented yet"))
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
+    let public createInsufficientInformation format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason)) format
     let inline public toString x = x.ToString()
-    let inline public join s (ss : seq<string>) = System.String.Join(s, ss)
+    let inline public join s (ss : seq<string>) = String.Join(s, ss)
 
     let public always x _ = x
 
@@ -30,6 +34,11 @@ module public Prelude =
     let inline public optCons xs = function
         | Some x -> x::xs
         | None -> xs
+
+    let public swap (x : 'a byref) (y : 'a byref) =
+        let tmp = x
+        x <- y
+        y <- tmp
 
     let inline public withFst x = fun y -> (x, y)
     let inline public withSnd y = fun x -> (x, y)
@@ -68,7 +77,7 @@ type 'a transparent =
 
 [<CustomEquality;CustomComparison>]
 type fieldId =
-    { declaringType : System.Type; name : string; typ : System.Type } with
+    { declaringType : Type; name : string; typ : Type } with
     override x.GetHashCode() =
         31 * x.declaringType.MetadataToken ^^^ x.name.GetDeterministicHashCode()
     override x.Equals y =

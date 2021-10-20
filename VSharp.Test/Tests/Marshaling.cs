@@ -1,10 +1,10 @@
 using NUnit.Framework;
-using System;
 using System.Collections.Generic;
 using ChessDotNet;
 using ChessDotNet.Pieces;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Marshaling is not implemented")]

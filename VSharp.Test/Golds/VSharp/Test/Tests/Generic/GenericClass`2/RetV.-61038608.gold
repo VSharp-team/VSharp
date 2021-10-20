@@ -1,3 +1,0 @@
-METHOD: V VSharp.Test.Tests.Generic.GenericClass`2[R,V].RetV(V)
-RESULT: Totally 1 state:
-Insufficient information! Can't instantiate symbolic value of unknown value type V

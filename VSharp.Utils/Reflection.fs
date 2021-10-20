@@ -20,11 +20,32 @@ module public Reflection =
 
     // --------------------------- Metadata Resolving ---------------------------
 
+    let resolveModule (assemblyName : string) (moduleName : string) =
+        let assembly =
+            match AppDomain.CurrentDomain.GetAssemblies() |> Array.tryFindBack (fun assembly -> assembly.FullName = assemblyName) with
+            | Some assembly -> assembly
+            | None ->
+                try
+                    Assembly.Load(assemblyName)
+                with _ ->
+                    Assembly.LoadFile(moduleName)
+        assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
+
+    let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
+        let m = resolveModule assemblyName moduleName
+        m.ResolveMethod(token)
+
     let private retrieveMethodsGenerics (method : MethodBase) =
         match method with
         | :? MethodInfo as mi -> mi.GetGenericArguments()
         | :? ConstructorInfo -> null
         | _ -> __notImplemented__()
+
+    let resolveModuleFromAssembly (assembly : Assembly) (moduleName : string) =
+        assembly.GetModule moduleName
+
+    let resolveTypeFromModule (m : Module) typeToken =
+        m.ResolveType(typeToken, null, null)
 
     let resolveField (method : MethodBase) fieldToken =
         let methodsGenerics = retrieveMethodsGenerics method
@@ -54,7 +75,9 @@ module public Reflection =
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let hasNonVoidResult m = getMethodReturnType m <> typeof<Void>
+    let hasNonVoidResult m = (getMethodReturnType m).FullName <> typeof<Void>.FullName
+
+    let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)
 
     let getFullTypeName (typ : Type) = typ.ToString()
 
@@ -75,10 +98,10 @@ module public Reflection =
         methodBase.IsConstructor && methodBase.DeclaringType.IsArray
 
     let isDelegateConstructor (methodBase : MethodBase) =
-        methodBase.IsConstructor && methodBase.DeclaringType.IsSubclassOf typedefof<Delegate>
+        methodBase.IsConstructor && TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate>
 
     let isDelegate (methodBase : MethodBase) =
-        methodBase.DeclaringType.IsSubclassOf typedefof<Delegate> && methodBase.Name = "Invoke"
+        TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate> && methodBase.Name = "Invoke"
 
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
         methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
@@ -87,6 +110,12 @@ module public Reflection =
         m.IsStatic && m.Name = ".cctor"
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
+
+    // ----------------------------------- Creating objects ----------------------------------
+
+    let createObject (t : Type) =
+        if TypeUtils.isNullable t then null
+        else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     // --------------------------------- Substitute generics ---------------------------------
 
@@ -168,12 +197,22 @@ module public Reflection =
         let declaringType = concretizeType subst f.declaringType
         {declaringType = declaringType; name = f.name; typ = concretizeType subst f.typ}
 
+    let public methodToString (m : MethodBase) =
+        let hasThis = hasThis m
+        let returnsSomething = hasNonVoidResult m
+        let argsCount = m.GetParameters().Length
+        if m.DeclaringType = null then m.Name
+        else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.FullName m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
+
     // --------------------------------- Fields ---------------------------------
 
     let wrapField (field : FieldInfo) =
         {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
 
-    let rec private retrieveFields isStatic f (t : System.Type) =
+    let getFieldInfo (field : fieldId) =
+        field.declaringType.GetField(field.name, instanceBindingFlags)
+
+    let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags)
@@ -183,12 +222,25 @@ module public Reflection =
 
     let retrieveNonStaticFields t = retrieveFields false id t
 
-    let fieldsOf isStatic (t : System.Type) =
+    let fieldsOf isStatic (t : Type) =
         let extractFieldInfo (field : FieldInfo) =
             // Events may appear at this point. Filtering them out...
-            if field.FieldType.IsSubclassOf(typeof<MulticastDelegate>) then None
-            else Some (wrapField field, field.FieldType)
+            if TypeUtils.isSubtypeOrEqual field.FieldType typeof<MulticastDelegate> then None
+            else Some (wrapField field, field)
         retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
+
+    let fieldIntersects (field : fieldId) =
+        let fieldInfo = getFieldInfo field
+        let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let intersects o s = o + s > offset && o < offset + size
+        let fields = fieldsOf false field.declaringType
+        let checkIntersects (_, fieldInfo : FieldInfo) =
+            let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+            let s = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+            intersects o s
+        let intersectingFields = Array.filter checkIntersects fields
+        Array.length intersectingFields > 1
 
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
@@ -210,6 +262,10 @@ module public Reflection =
         match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let getFieldOffset fieldId =
+        if fieldId = stringFirstCharField then CSharpUtils.LayoutUtils.StringElementsOffset
+        else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
 
     let private cachedTypes = Dictionary<Type, bool>()
 

@@ -1,8 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Methods.VirtualC.F()
-RESULT: Totally 1 state:
-7
-MEMORY DUMP:
-Path condition: !(null == this)
---------------- Stack: ---------------
-key = this, value = (HeapRef this to VSharp.Test.Tests.Methods.VirtualC)
-Initialized types = { VSharp.Test.Tests.Methods.VirtualC }

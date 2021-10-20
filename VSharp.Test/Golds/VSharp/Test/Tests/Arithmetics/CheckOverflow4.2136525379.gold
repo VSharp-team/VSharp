@@ -1,7 +1,0 @@
-METHOD: System.Double VSharp.Test.Tests.Arithmetics.CheckOverflow4()
-RESULT: Totally 1 state:
-Infinity
-MEMORY DUMP:
---------------- Stack: ---------------
-key = __loc__0, value = 1.7976931348623157E+308
-Initialized types = { VSharp.Test.Tests.Arithmetics }

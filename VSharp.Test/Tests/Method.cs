@@ -1,7 +1,9 @@
+using IntegrationTests.Typecast;
 using NUnit.Framework;
-using VSharp.Test.Tests.Typecast;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests.Methods
+
+namespace IntegrationTests
 {
     public interface IVirtual
     {
@@ -152,7 +154,7 @@ namespace VSharp.Test.Tests.Methods
             return p.MakeMove(c);
         }
 
-        [TestSvm]
+        [TestSvm(80)]
         public static int VirtualCall(IVirtual a)
         {
             if (a == null) return 0;

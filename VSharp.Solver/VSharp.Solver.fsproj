@@ -1,7 +1,18 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <TargetFramework>netcoreapp6.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <TargetFramework>net5.0</TargetFramework>
+    </PropertyGroup>
+
     <PropertyGroup>
-        <TargetFramework>netcoreapp3.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -13,6 +24,7 @@
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
       <Tailcalls>true</Tailcalls>
       <DebugSymbols>true</DebugSymbols>
+      <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,8 +37,14 @@
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 
-    <ItemGroup>
-      <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
+    <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp6.0' ">
+        <Reference Include="Microsoft.Z3, Version=4.8.11.0, Culture=neutral, PublicKeyToken=null">
+            <HintPath>..\..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' ">
+        <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
     </ItemGroup>
 
 </Project>

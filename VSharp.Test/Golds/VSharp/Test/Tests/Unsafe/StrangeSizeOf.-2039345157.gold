@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Unsafe.StrangeSizeOf()
-RESULT: Totally 1 state:
-70
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Unsafe }

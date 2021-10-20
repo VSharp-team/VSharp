@@ -2,8 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public static class Extensions
     {
@@ -62,7 +63,7 @@ namespace VSharp.Test.Tests
             return result;
         }
 
-        [TestSvm]
+        [TestSvm(85)]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             int[] scores = { x, y, z, 60 };
@@ -78,7 +79,19 @@ namespace VSharp.Test.Tests
                 if (i > 80)
                 {
                     result += i;
+                } else if (i > 0)
+                {
+                    result += 5;
                 }
+                // else
+                // {
+                //     result++;
+                // }
+            }
+
+            if (result != 8)
+            {
+                return 100;
             }
 
             return result;
@@ -91,6 +104,39 @@ namespace VSharp.Test.Tests
             public char City { get; set; }
         }
 
+        [TestSvm]
+        public static int SymbolicLinqTest2(int x, int y, int z)
+        {
+            // TODO: use group by and so on
+            int[] scores = { x, y, z, 60 };
+
+            IEnumerable<int> scoreQuery =
+                from score in scores
+                where score > 80 && score % 2 == 0
+                select score;
+
+            int left = 0;
+            int right = 0;
+
+            foreach (int i in scoreQuery)
+            {
+                if (i > 90)
+                {
+                    left++;
+                } else
+                {
+                    right++;
+                }
+            }
+
+            if (right == 2 && left == 1)
+            {
+                return 100;
+            }
+
+            return left;
+        }
+
         class Distributor
         {
             public int ID { get; set; }
@@ -98,7 +144,8 @@ namespace VSharp.Test.Tests
             public char City { get; set; }
         }
 
-        [TestSvm]
+        // TODO: add this test after concolic will be implemented
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static string HardSymbolicLinqTest(int x, int y, int z, int f, int g)
         {
             var customers = new List<Customer>
@@ -155,6 +202,14 @@ namespace VSharp.Test.Tests
             yield return "queen";
             yield return "king";
             yield return "ace";
+        }
+
+        [TestSvm]
+        public static IEnumerable<int> SelectTest(string x)
+        {
+            var newList = Suits().Select(id => id);
+            newList.Append(x);
+            return newList.Select(i => i.Length);
         }
 
         [Ignore("takes too much time")]

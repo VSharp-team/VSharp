@@ -1,7 +1,8 @@
 ﻿using NUnit.Framework;
 using System;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests.Typecast
+namespace IntegrationTests.Typecast
 {
     public class Celsius
     {

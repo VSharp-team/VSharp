@@ -1,7 +1,8 @@
 using System;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     [TestSvmFixture]
     [Ignore("Need exceptions for all tests")]
@@ -170,7 +171,7 @@ namespace VSharp.Test.Tests
             return (short)number;
         }
 
-        [TestSvm]
+        [Ignore("Encoding of reals is not supported")]
         public static ushort ConvOvfDoubleToUshort(double number) {
             return checked((ushort)number);
         }

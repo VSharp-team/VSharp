@@ -1,8 +1,9 @@
 using System;
 using NUnit.Framework;
 using VSharp.CSharpUtils;
+using VSharp;
 
-namespace VSharp.Test
+namespace UnitTests
 {
     [TestFixture]
     public sealed class UtilsTests

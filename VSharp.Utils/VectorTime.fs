@@ -1,13 +1,14 @@
 namespace VSharp
 
-type vectorTime = uint32 list
+type vectorTime = int32 list
 
 module VectorTime =
-    let zero = [0u]
-    let infty = [System.UInt32.MaxValue]
+    let zero = [0]
+    let infty = [System.Int32.MaxValue]
+    let minfty = [System.Int32.MinValue]
 
     let rec compare (t1 : vectorTime) (t2 : vectorTime) =
-        List.compareWith (fun (v1 : uint32) (v2 : uint32) -> v1.CompareTo(v2)) t1 t2
+        List.compareWith (fun (v1 : int32) (v2 : int32) -> v1.CompareTo(v2)) t1 t2
 
     let lessOrEqual (t1 : vectorTime) (t2 : vectorTime) =
         let res = compare t1 t2
@@ -20,7 +21,7 @@ module VectorTime =
         true
 //        t |> Seq.pairwise |> Seq.forall (fun (a, b) -> a >= b)
 
-    let advance (t : vectorTime) = List.mapLast (fun x -> x + 1u) t
+    let advance (t : vectorTime) = List.mapLast (fun x -> x + 1) t
 //        assert(isDescending t)
 //        let inc x = if x = System.UInt32.MaxValue then internalfailf "Advancing infinite time!" else x + 1u
 //        let getNextTime x acc =

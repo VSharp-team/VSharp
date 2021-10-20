@@ -15,21 +15,30 @@ module Substitution =
         | StackBufferIndex(key, index)  -> StackBufferIndex(key, termSubst index)
         | ArrayLowerBound(addr, dim, (typ, d, isVector)) -> ArrayLowerBound(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
 
+    let substitutePointerBase termSubst typeSubst = function
+        | HeapLocation loc -> HeapLocation (termSubst loc)
+        | StaticLocation loc -> StaticLocation (typeSubst loc)
+        | StackLocation _ as sl -> sl
+
     // TODO: get rid of union unnesting to avoid the exponential blow-up!
     let rec substitute termSubst typeSubst timeSubst term =
         let recur = substitute termSubst typeSubst timeSubst
         match term.term with
-        | Expression(op, args, _) ->
+        | Expression(op, args, t) ->
+            let t' = typeSubst t
             substituteMany termSubst typeSubst timeSubst args (fun args' ->
             if args = args' then term
             else
                 match op with
-                | Operator op -> Operators.simplifyOperation op args' id
+                | Operator op ->
+                    let term = simplifyOperation op args' id
+                    primitiveCast term t'
                 | Cast(_, targetType) ->
                     assert(List.length args' = 1)
                     let arg = List.head args'
-                    primitiveCast arg targetType
-                | Application _ -> __notImplemented__())
+                    primitiveCast arg (typeSubst targetType)
+                | Application f -> standardFunction args' f
+                | Combine -> combine args' t')
             |> Merging.merge
         | Union gvs ->
             let gvs' = gvs |> List.choose (fun (g, v) ->
@@ -46,7 +55,7 @@ module Substitution =
             Struct contents' typ'
         | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
         | Ref address -> substituteAddress recur typeSubst timeSubst address |> Ref
-        | Ptr(address, typ, shift) -> Ptr (Option.map (substituteAddress recur typeSubst timeSubst) address) (typeSubst typ) (Option.map recur shift)
+        | Ptr(address, typ, shift) -> Ptr (substitutePointerBase recur typeSubst address) (typeSubst typ) (recur shift)
         | _ -> termSubst term
 
     and private substituteMany termSubst typeSubst timeSubst terms ctor =

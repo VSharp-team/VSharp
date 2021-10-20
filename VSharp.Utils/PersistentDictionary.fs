@@ -2,6 +2,7 @@ namespace VSharp
 
 open FSharpx.Collections
 open VSharp
+open VSharp
 
 // TODO: migrate on System.Collections.Immutable?
 // TODO: We do not really need equality of 'value, but PersistentHashMap requires it
@@ -37,6 +38,10 @@ module public PersistentDict =
         // TODO: speed it up by scanning only once! Perhaps we should migrate to System.Collections.Immutable to support this
         if d.impl.ContainsKey key then d.impl.[key] |> Some
         else None
+    let public update (d : pdict<'a, 'b>) key defaultValue (mapper : 'b -> 'b) =
+        match tryFind d key with
+        | Some value -> add key (mapper value) d
+        | None -> add key (mapper defaultValue) d
 
     let public size (d : pdict<'a, 'b>) = d.impl.Length
 
@@ -46,6 +51,8 @@ module public PersistentDict =
     let public filterKeys (filter : 'a -> bool) (d : pdict<'a, 'b>) : pdict<'a, 'b> =
         d |> toSeq |> Seq.filter (fun (k, _) -> filter k) |> ofSeq    
         
+    let public iter (action : 'a * 'b -> unit) (d : pdict<'a, 'b>) : unit =
+        d |> toSeq |> Seq.iter action
     let public fold folder state (d : pdict<'a, 'b>) =
         d |> toSeq |> Seq.fold (fun state (k, v) -> folder state k v) state
     let public forall predicate (d : pdict<'a, 'b>) =
@@ -136,6 +143,9 @@ module PersistentSet =
     let public choose (chooser : 'a -> 'b option) (d : pset<'a>) : pset<'b> =
         d |> toSeq |> Seq.choose chooser |> ofSeq
         
+    let public iter (action : 'a -> unit) (d : pset<'a>) : unit =
+        PersistentDict.iter (fst >> action) d
+
     let subtract (s1 : pset<'a>) (s2 : pset<'a>) =
         Seq.fold remove s1 (toSeq s2)
     let union (s1 : pset<'a>) (s2 : pset<'a>) =

@@ -1,8 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Unsafe.DoubleIndirection()
-RESULT: Totally 1 state:
-428999
-MEMORY DUMP:
---------------- Stack: ---------------
-key = __loc__0, value = 428999
-key = __loc__1, value = (StackPtr __loc__0 as System.Int32)
-Initialized types = { VSharp.Test.Tests.Unsafe }

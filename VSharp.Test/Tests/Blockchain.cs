@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
+using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
     public class Transaction
     {
@@ -80,12 +82,54 @@ namespace VSharp.Test.Tests
     [TestSvmFixture]
     public class Blockchain
     {
-        [TestSvm]
+        // TODO: add this test after concolic will be implemented
+        [Ignore("need deep copy for concrete memory or concolic")]
         public static long test(long time)
         {
             var miner = new BlockMiner();
             miner.Mine(time, 1);
             return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
+        }
+
+
+        [TestSvm]
+        public static int test2(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time, 1);
+            // a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static int test6(long time, bool f)
+        {
+            var a = new BlockMiner();
+            if (f)
+                a.Mine(time, 1);
+            else
+            {
+                a.Mine(time * 5, 1);
+            }
+            // a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static int test3(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time, 1);
+            a.Blockchain.First();
+            return 0;
+        }
+
+        [TestSvm]
+        public static long test4(long time)
+        {
+            var a = new BlockMiner();
+            a.Mine(time, 1);
+            return a.Blockchain.First().Hash;
         }
     }
 }

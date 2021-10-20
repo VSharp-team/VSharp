@@ -1,5 +1,0 @@
-METHOD: System.Boolean VSharp.Test.Tests.Logics.AndOr4(System.Boolean, System.Boolean, System.Boolean)
-RESULT: Totally 1 state:
-!b | c
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Logics }

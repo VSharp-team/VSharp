@@ -2,8 +2,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp.Test;
 
-namespace VSharp.Test.Tests
+namespace IntegrationTests
 {
 //    public class ListNode
 //    {
@@ -262,7 +263,7 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        [TestSvm]
+        [Ignore("Raise OverflowException on allocation of array with negative size")]
         public static int SolverTestMultiDimensionArray(int[,] a, int x, int y)
         {
             var res = 0;
@@ -271,6 +272,14 @@ namespace VSharp.Test.Tests
             var bxy = b[x, y];
             if (axy == bxy)
                 res = 1;
+            return res;
+        }
+
+        [Ignore("needs extern 'Array.InternalCreate'")]
+        public static int SpecifyLowerBounds(int x, int y)
+        {
+            var a = Array.CreateInstance(typeof(int), new[] { 4 }, new[] { 2011 });
+            var res = (int) a.GetValue(new[] {1});
             return res;
         }
 
@@ -293,7 +302,7 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int TestConnectionBetweenIndicesAndValues(int[] a, int i, int j)
         {
             int x = a[i];
@@ -304,7 +313,7 @@ namespace VSharp.Test.Tests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int TestConnectionBetweenMultiIndicesAndValues(int[,] a, int i, int j, int f, int g)
         {
             int x = a[i, j];
@@ -320,7 +329,7 @@ namespace VSharp.Test.Tests
             public int x;
         }
 
-        [TestSvm]
+        [TestSvm(83)]
         public static int ArrayElementsAreReferences(MyClass[] a, int i, int j)
         {
             MyClass x = a[i];
@@ -329,6 +338,42 @@ namespace VSharp.Test.Tests
             if (i == j && x != y)
                 res = 1;
             return res;
+        }
+
+        [TestSvm(80)]
+        public static bool ArraySymbolicUpdate(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            if (i == 0 && array[0] != 10)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(83)]
+        public static bool ArraySymbolicUpdate2(int i)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            array[0] = 12;
+            if (i == 0 && array[0] != 12)
+                return false;
+            else
+                return true;
+        }
+
+        [TestSvm(86)]
+        public static bool ArraySymbolicUpdate3(int i, int j)
+        {
+            var array = new int[] {1, 2, 3, 4, 5};
+            array[i] = 10;
+            array[0] = 12;
+            array[j] = 42;
+            if ((i == 0 && j == 0 && array[0] != 42) || (i == 0 && j == 2 && array[0] != 12) || (i == 2 && j == 2 && array[2] != 42) || (i == 2 && j == 1 && array[i] != 10) || (i == 2 && j == 1 && array[1] != 42))
+                return false;
+            else
+                return true;
         }
 
         [Ignore("needs big bound")]
@@ -349,7 +394,6 @@ namespace VSharp.Test.Tests
             return l.Contains('a');
         }
 
-        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray1(Array arr)
         {
             if (arr is int[])
@@ -366,7 +410,6 @@ namespace VSharp.Test.Tests
             return arr;
         }
 
-        [Ignore("System.Array.Set(...) is not implemented")]
         public static Array RetSystemArray2(Array arr)
         {
             if (arr is int[])
@@ -624,6 +667,27 @@ namespace VSharp.Test.Tests
             LinkedListNode<int> x = G(l.First, n);
             LinkedListNode<int> m = new LinkedListNode<int>(42);
             return x.Value;
+        }
+
+        [TestSvm]
+        public static int ArithmeticalProgression(LinkedList<int> list)
+        {
+            int sum = 0;
+            int prev = 0;
+            if (list == null)
+                return 0;
+            LinkedListNode<int> node = list.First;
+            for (int i = 0; i < 5 && node != null; ++i)
+            {
+                if (node.Value == prev + 1)
+                    sum += node.Value;
+                prev = node.Value;
+                node = node.Next;
+            }
+
+            if (sum == 15)
+                return 1;
+            return 2;
         }
     }
 
@@ -1210,4 +1274,73 @@ namespace VSharp.Test.Tests
             return RecF(n - 15);
         }
     }
+
+
+    public class Customerrr
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public string City { get; set; }
+
+        public override bool Equals(Object other)
+        {
+            if (other is Customerrr otherCustomer)
+            {
+                return otherCustomer.Id == this.Id;
+            }
+
+            return false;
+        }
+
+        protected bool Equals(Customerrr other)
+        {
+            return Id == other.Id;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Id, Name, City);
+        }
+    }
+
+    [TestSvmFixture]
+    public class ContainsCustomerClass
+    {
+        private Customerrr _customer;
+
+        // [TestSvm(100, 2)]
+        // // [Ignore("Hangs up")]
+        // public bool ListContainsOurCustomer(LinkedList<Customerrr> l)
+        // {
+        //     return l.Contains(_customer);
+        // }
+
+        [Ignore("")]
+        // [TestSvm]
+        public bool ArrayContainsOurCustomer(Customerrr[] customers)
+        {
+            foreach (var other in customers)
+            {
+                if (other.Equals(_customer))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        [TestSvm]
+        public bool ContainsOurCustomer(Customerrr other)
+        {
+            if (other.Equals(_customer))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+    }
+
 }

@@ -1,5 +1,0 @@
-METHOD: System.Int32 VSharp.Test.Tests.Conditional.FirstEvenGreaterThen7()
-RESULT: Totally 1 state:
-8
-MEMORY DUMP:
-Initialized types = { VSharp.Test.Tests.Conditional }
