@@ -564,7 +564,7 @@ module internal Z3 =
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
                 let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let indices = exprs |> Seq.tail |> Seq.map (x.Decode (fst3 typ)) |> List.ofSeq
+                let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)

@@ -129,7 +129,7 @@ namespace VSharp.TestRunner
                         {
                             if (e.InnerException != null && e.InnerException.GetType() == ex)
                                 Console.WriteLine("Test {0} throws the expected exception!", fi.Name);
-                            else if (e.InnerException != null)
+                            else if (e.InnerException != null && ex != null)
                             {
                                 Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fi.Name, e.InnerException, ex);
                                 throw e.InnerException;

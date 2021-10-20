@@ -215,7 +215,7 @@ module public Reflection =
     let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
         let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
-        let fields = t.GetFields(flags)
+        let fields = t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
         let ourFields = f fields
         if isStatic || t.BaseType = null then ourFields
         else Array.append (retrieveFields false f t.BaseType) ourFields
