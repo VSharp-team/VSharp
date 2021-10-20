@@ -4,13 +4,13 @@
     public class ConstraintIndependenceSandbox
     {
         [TestSvm]
-        public static int Sandbox(int a, int b)
+        public static int Sandbox(int a, int b, int c)
         {
-            if (a != b)
+            if (c > 0)
             {
                 if (a > 100)
                 {
-                    if (b < 200)
+                    if (b == c)
                     {
                         return 1;
                     }

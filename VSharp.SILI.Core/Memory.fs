@@ -80,15 +80,6 @@ module internal Memory =
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length - 1]
 
-    let withIndependentBy (s : state) cond : state =
-        let fragment =
-            PC.fragments s.pc
-            |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
-            |> function
-                | Some(fragment) -> fragment
-                | None -> raise InvalidOperationException ""
-        { s with pc = fragment }
-
 // ------------------------------- Stack -------------------------------
 
     let newStackFrame (s : state) m frame =
@@ -185,7 +176,15 @@ module internal Memory =
         {object : term}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time = VectorTime.zero
+            override x.Time = VectorTime.zero            
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? hashCodeSource as otherHashCodeSource ->
+                    match otherHashCodeSource.object, x.object with
+                    | ConstantT(_, otherConstantSource, _), ConstantT(_, constantSource, _) ->
+                        otherConstantSource.IndependentWith constantSource
+                    | _ -> true
+                | _ -> true 
 
     let hashConcreteAddress (address : concreteHeapAddress) =
         address.GetHashCode() |> makeNumber
@@ -680,37 +679,47 @@ module internal Memory =
         commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let keepIndependentWith pc cond =
+            PC.fragments pc
+            |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
+            |> function
+                | Some(fragment) -> fragment
+                | None -> pc                
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
             thenBranch thenState (fun thenResult ->
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->
+        conditionInvocation state (fun (condition, conditionState) ->            
+        let negatedCondition = !!condition
         let thenPc = PC.add state.pc condition
-        let elsePc = PC.add state.pc (!!condition)
-        if PC.isFalse thenPc then
+        let elsePc = PC.add state.pc negatedCondition
+        let independentThenPc = keepIndependentWith thenPc condition
+        let independentElsePc = keepIndependentWith elsePc negatedCondition 
+        if PC.isFalse independentThenPc then
             conditionState.pc <- elsePc
             elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse elsePc then
+        elif PC.isFalse independentElsePc then
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
-            conditionState.pc <- thenPc
+            conditionState.pc <- independentThenPc
             match SolverInteraction.checkSat conditionState with
             | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- elsePc
+                conditionState.pc <- independentElsePc
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
                     __insufficientInformation__ "Unable to witness branch"
                 | SolverInteraction.SmtSat model ->
+                    conditionState.pc <- thenPc
                     conditionState.model <- Some model.mdl
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat model ->
-                conditionState.pc <- elsePc
+                conditionState.pc <- independentElsePc
                 conditionState.model <- Some model.mdl
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
@@ -718,6 +727,7 @@ module internal Memory =
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat model ->
+                    conditionState.pc <- elsePc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
                     elseState.model <- Some model.mdl
