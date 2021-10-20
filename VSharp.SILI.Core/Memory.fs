@@ -183,6 +183,7 @@ module internal Memory =
 
     let getHashCode object =
         assert(isReference object)
+        // TODO: implement GetHashCode() for value type (it's boxed)
         match object.term with
         | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
         | HeapRef(address, _) ->

@@ -200,7 +200,7 @@ module private UpdateTree =
     let print indent valuePrint tree =
         let window = 50
         let incIndent = indent + "    "
-        let lines = tree |> RegionTree.flatten |> List.sortBy (fun (_, node) -> node.key) |> List.map (fun (_, {key=k; value=v}) -> sprintf "%O <- %O" k (valuePrint v))
+        let lines = tree |> RegionTree.flatten |> List.map (fun (_, {key=k; value=v}) -> sprintf "%O <- %O" k (valuePrint v))
         if lines |> List.sumBy (fun s -> s.Length) > window then
             sprintf "{\n%s\n%s}" (lines |> List.map (fun s -> incIndent + s) |> join "\n") indent
         else sprintf "{%s}" (join "; " lines)
@@ -269,6 +269,9 @@ module MemoryRegion =
         {typ=mr.typ; updates = UpdateTree.localize reg mr.updates; defaultValue = mr.defaultValue}
 
     // TODO: merging!
+
+type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> with
+    override x.ToString() = MemoryRegion.toString "" x
 
 type setKeyWrapper<'key when 'key : equality> =
     {key : 'key}

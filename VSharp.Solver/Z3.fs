@@ -449,6 +449,13 @@ module internal Z3 =
             // TODO: this limits length < 20, delete when model normalization is complete
             { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
 
+        member private x.GenerateCharAssumptions encodingResult =
+            // TODO: use stringRepr for serialization of strings
+            let expr = encodingResult.expr :?> BitVecExpr
+            let assumptions = encodingResult.assumptions
+            let cond = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
+            {expr = expr; assumptions = cond :: assumptions}
+
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
@@ -460,6 +467,7 @@ module internal Z3 =
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
             let res = x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
+            let res = if typ = Types.Char then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
             | _ -> res

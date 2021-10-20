@@ -14,14 +14,14 @@ module ReadOnlySpan =
         let span = Memory.ReadSafe state this
         let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
-        let ptrField = fst spanFields.[0]
+        let ptrField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_pointer") |> fst
         // TODO: throw ThrowIndexOutOfRangeException if len is less or equal to index
         // let lenField = fst spanFields.[1]
         // let len = Memory.ReadField state span lenField
         let byRefStruct = Memory.ReadField state span ptrField
         let byRefFields = Terms.TypeOf byRefStruct |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length byRefFields = 1)
-        let byRefField = fst byRefFields.[0]
+        let byRefField = byRefFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_value") |> fst
         let ptrToArray = Memory.ReadField state byRefStruct byRefField
         let ref =
             match ptrToArray.term with
@@ -42,17 +42,19 @@ module ReadOnlySpan =
         let span = Memory.ReadSafe state this
         let spanFields = Terms.TypeOf span |> Types.ToDotNetType |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
-        let ptrField, ptrFieldInfo = spanFields.[0]
+        let ptrField, ptrFieldInfo = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_pointer")
         let ptrFieldType = ptrFieldInfo.FieldType
         let byRefType = Types.FromDotNetType ptrFieldType
         let refToFirstElement = Memory.ReferenceArrayIndex arrayRef [MakeNumber 0]
         let byRef = Memory.DefaultOf byRefType
         let byRefFields = Reflection.fieldsOf false ptrFieldType
         assert(Array.length byRefFields = 1)
-        let initializedByRef = Memory.WriteStructField byRef (fst byRefFields.[0]) refToFirstElement
+        let valueField = byRefFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_value") |> fst
+        let initializedByRef = Memory.WriteStructField byRef valueField refToFirstElement
         let spanWithPtrField = Memory.WriteStructField span ptrField initializedByRef
         let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
-        let initializedSpan = Memory.WriteStructField spanWithPtrField (fst spanFields.[1]) lengthOfArray
+        let lengthField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
+        let initializedSpan = Memory.WriteStructField spanWithPtrField lengthField lengthOfArray
         Memory.WriteSafe state this initializedSpan |> List.map (withFst Nop)
 
     let internal CtorFromPtrForSpan (state : state) (args : term list) : (term * state) list =
