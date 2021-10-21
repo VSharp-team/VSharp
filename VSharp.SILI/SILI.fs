@@ -178,8 +178,8 @@ type public SILI(options : SiliOptions) =
                 Logger.warning "Unknown status for pob at %O" pob.loc
             | _ -> ())
 
-    member x.InterpretEntryPoint (method : MethodBase) (onFinished : Action<UnitTest>)
-                                 (onException : Action<UnitTest>)  (onIIE : Action<InsufficientInformationException>)
+    member x.InterpretEntryPoint (method : MethodBase) (mainArguments : List<string>) (onFinished : Action<UnitTest>)
+                                 (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                  (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
         reportFinished <- wrapOnTest onFinished method
@@ -188,6 +188,15 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
         let state = Memory.EmptyState()
+        let arguments =
+            if mainArguments = null then None
+            else
+                let args = Seq.map (fun str -> Memory.AllocateString str state) mainArguments
+                let stringType = Types.FromDotNetType typeof<string>
+                let argsNumber = MakeNumber mainArguments.Count
+                let address = Memory.AllocateConcreteVectorArray state argsNumber stringType args
+                Some [address]
+        ILInterpreter.InitFunctionFrame state method None arguments
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
         x.AnswerPobs method [initialState]

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -116,6 +117,10 @@ namespace VSharp.Runner
                 new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),
                 "Path where unit tests will be generated");
+            var concreteArguments =
+                new Argument<List<string>>("args", description: "Command line arguments");
+            var unknownArgsOption =
+                new Option("--unknown-args", description: "Force engine to generate various input console arguments");
 
             var rootCommand = new RootCommand();
 
@@ -123,7 +128,9 @@ namespace VSharp.Runner
                 new Command("--entry-point", "Generate test coverage from the entry point of assembly (assembly must contain Main method)");
             rootCommand.AddCommand(entryPointCommand);
             entryPointCommand.AddArgument(assemblyPathArgument);
+            entryPointCommand.AddArgument(concreteArguments);
             entryPointCommand.AddGlobalOption(outputOption);
+            entryPointCommand.AddOption(unknownArgsOption);
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
@@ -146,17 +153,19 @@ namespace VSharp.Runner
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, List<string>, DirectoryInfo, bool>((assemblyPath, args, output, unknownArgs) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
+                if (unknownArgs)
+                    args = null;
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, false, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, args, output.FullName));
             });
             allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, true, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, output.FullName));
             });
             publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo>((className, assemblyPath, output) =>
             {
