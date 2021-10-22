@@ -439,11 +439,6 @@ module internal Arithmetics =
                             let bt' = toDotNetType bt
                             let op = if isSigned then OperationType.ShiftRight else OperationType.ShiftRight_Un
                             simplifyShift op t a (castConcrete (Calculator.Add(b, n, bt')) bt') k
-                // (a / b) / y = a / (b * y) if unchecked and b and y concrete
-                | Div(a, (ConcreteT(bval, _)), _, isSigned'), ConcreteT(yval, _) ->
-                    assert(isSigned = isSigned')
-                    let bMulY = simplifyConcreteMultiplication t bval yval
-                    simplifyDivision isSigned t a bMulY k
                 | _ ->
                     let op = if isSigned then OperationType.Divide else OperationType.Divide_Un
                     (makeBinary op x y (fromDotNetType t)) |> k)

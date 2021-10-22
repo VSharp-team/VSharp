@@ -71,7 +71,7 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, List<string> mainArguments = null)
+        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null)
         {
             var maxBound = 15u;
             var options =
@@ -185,7 +185,7 @@ namespace VSharp
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, List<string> args, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, string[] args, string outputDirectory = "")
         {
             List<MethodBase> methods;
             var entryPoint = assembly.EntryPoint;
@@ -245,7 +245,7 @@ namespace VSharp
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, List<string> args, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, string[] args, string outputDirectory = "")
         {
             var stats = Cover(assembly, args, outputDirectory);
             return Reproduce(stats.OutputDir);

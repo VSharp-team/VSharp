@@ -47,21 +47,21 @@ type public SILI(options : SiliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let reportState reporter isError method state =
+    let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method state with
+            match TestGenerator.state2test isError method cmdArgs state with
             | Some test -> reporter test
             | None -> ()
         with :? InsufficientInformationException as e ->
             state.iie <- Some e
             reportIncomplete state
 
-    let wrapOnTest (action : Action<UnitTest>) (method : MethodBase) (state : cilState) =
+    let wrapOnTest (action : Action<UnitTest>) (method : MethodBase) cmdArgs (state : cilState) =
         Logger.info "Result of method %s is %O" method.Name state.Result
-        reportState action.Invoke false method state
+        reportState action.Invoke false method cmdArgs state
 
-    let wrapOnError (action : Action<UnitTest>) method state =
-        reportState action.Invoke true method state
+    let wrapOnError (action : Action<UnitTest>) method cmdArgs state =
+        reportState action.Invoke true method cmdArgs state
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
@@ -178,25 +178,31 @@ type public SILI(options : SiliOptions) =
                 Logger.warning "Unknown status for pob at %O" pob.loc
             | _ -> ())
 
-    member x.InterpretEntryPoint (method : MethodBase) (mainArguments : List<string>) (onFinished : Action<UnitTest>)
+    member x.InterpretEntryPoint (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
                                  (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                  (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
-        reportFinished <- wrapOnTest onFinished method
-        reportError <- wrapOnError onException method
+        let optionArgs = if mainArguments = null then None else Some mainArguments
+        reportFinished <- wrapOnTest onFinished method optionArgs
+        reportError <- wrapOnError onException method optionArgs
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
         let state = Memory.EmptyState()
-        let arguments =
-            if mainArguments = null then None
-            else
-                let args = Seq.map (fun str -> Memory.AllocateString str state) mainArguments
-                let stringType = Types.FromDotNetType typeof<string>
-                let argsNumber = MakeNumber mainArguments.Count
-                let address = Memory.AllocateConcreteVectorArray state argsNumber stringType args
-                Some [address]
+        let argsToState args =
+            let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
+            let stringType = Types.FromDotNetType typeof<string>
+            let argsNumber = MakeNumber mainArguments.Length
+            Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+        let arguments = Option.map (argsToState >> List.singleton) optionArgs
         ILInterpreter.InitFunctionFrame state method None arguments
+        if Option.isNone optionArgs then
+            // NOTE: if args are symbolic, constraint 'args != null' is added
+            let parameters = method.GetParameters()
+            assert(Array.length parameters = 1)
+            let argsParameter = Array.head parameters
+            let argsParameterTerm = Memory.ReadArgument state argsParameter
+            AddConstraint state (!!(IsNullReference argsParameterTerm))
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
         x.AnswerPobs method [initialState]
@@ -206,8 +212,8 @@ type public SILI(options : SiliOptions) =
                                (onInternalFail : Action<Exception>) : unit =
         Reset()
         SolverPool.reset()
-        reportFinished <- wrapOnTest onFinished method
-        reportError <- wrapOnError onException method
+        reportFinished <- wrapOnTest onFinished method None
+        reportError <- wrapOnError onException method None
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError

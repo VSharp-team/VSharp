@@ -118,7 +118,7 @@ namespace VSharp.Runner
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),
                 "Path where unit tests will be generated");
             var concreteArguments =
-                new Argument<List<string>>("args", description: "Command line arguments");
+                new Argument<string[]>("args", description: "Command line arguments");
             var unknownArgsOption =
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
 
@@ -153,7 +153,7 @@ namespace VSharp.Runner
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, List<string>, DirectoryInfo, bool>((assemblyPath, args, output, unknownArgs) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool>((assemblyPath, args, output, unknownArgs) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (unknownArgs)
