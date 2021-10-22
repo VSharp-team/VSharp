@@ -28,7 +28,7 @@
         <Compile Include="Statistics.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
-        <Compile Include="TargetedSearcher.fs" />
+        <Compile Include="DistanceWeighter.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="RandomSearcher.fs" />
         <Compile Include="StackTraceEstimator.fs" />

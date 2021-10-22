@@ -11,7 +11,10 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 
 module public CFG =
+    type internal genericGraph<'a> = Dictionary<'a, List<'a>>
+    type internal genericDistance<'a> = Dictionary<'a, Dictionary<'a, uint>>
     type internal graph = Dictionary<offset, List<offset>>
+    let private infinity = UInt32.MaxValue
 
     [<CustomEquality; CustomComparison>]
     type public cfgData =
@@ -25,6 +28,7 @@ module public CFG =
             reverseGraph : graph
             clauses : ExceptionHandlingClause []
             offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
+            retOffsets : List<offset>
         }
         interface IComparable with
             override x.CompareTo (obj : obj) =
@@ -43,6 +47,7 @@ module public CFG =
         fallThroughOffset : offset option []
         edges : Dictionary<offset, List<offset>>
         offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
+        retOffsets : List<offset>
     }
     with
         member x.AddEdge src dst =
@@ -59,6 +64,7 @@ module public CFG =
             edges = Dictionary<_, _>()
             opCodes = Array.init size (fun _ -> OpCodes.Prefix1)
             offsetsDemandingCall = Dictionary<_,_>()
+            retOffsets = List<_>()
         }
         let cfg = {
             methodBase = methodBase
@@ -70,6 +76,7 @@ module public CFG =
             reverseGraph = Dictionary<_,_>()
             clauses = ehsBytes
             offsetsDemandingCall = Dictionary<_,_>()
+            retOffsets = List<_>()
         }
         interim, cfg
 
@@ -111,7 +118,7 @@ module public CFG =
                     )
                 | None -> ()
         cfgData.sortedOffsets |> Seq.iter (fun offset -> addEdges offset offset)
-        { cfgData with offsetsDemandingCall = interimData.offsetsDemandingCall }
+        { cfgData with offsetsDemandingCall = interimData.offsetsDemandingCall; retOffsets = interimData.retOffsets }
 
     let private markVertex (set : HashSet<offset>) vOffset =
         set.Add vOffset |> ignore
@@ -128,6 +135,8 @@ module public CFG =
                 let opCode = Instruction.parseInstruction methodBase v
 //                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.getFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
+                if opCode = OpCodes.Ret then
+                    data.retOffsets.Add v
 
                 let dealWithJump src dst =
                     markVertex data.verticesOffsets src
@@ -178,18 +187,17 @@ module public CFG =
         let usedForSCC = HashSet<offset>()
         vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
 
-    let floydAlgo (cfg : cfgData) infty =
-//        let infty = 10000
-        let dist = Dictionary<offset * offset, int>()
-        let offsets = cfg.sortedOffsets
+    let floydAlgo nodes (graph : genericGraph<'a>) =
+        let dist = Dictionary<'a * 'a, uint>()
+        let offsets = nodes
         for i in offsets do
             for j in offsets do
-                dist.Add((i, j), infty)
+                dist.Add((i, j), infinity)
 
         for i in offsets do
-            dist.[(i, i)] <- 0
-            for j in cfg.graph.[i] do
-                dist.[(i, j)] <- 1
+            dist.[(i, i)] <- 0u
+            for j in graph.[i] do
+                dist.[(i, j)] <- 1u
 
         for k in offsets do
             for i in offsets do
@@ -197,6 +205,11 @@ module public CFG =
                     if dist.[i, j] > dist.[i, k] + dist.[k, j] then
                         dist.[(i,j)] <- dist.[i, k] + dist.[k, j]
         dist
+
+    let foydAlgoCFG cfg =
+        let nodes = cfg.sortedOffsets
+        let graph = cfg.graph
+        floydAlgo nodes graph
 
     let private build (methodBase : MethodBase) =
         let ilBytes = Instruction.getILBytes methodBase
@@ -210,10 +223,33 @@ module public CFG =
         cfg
 
     let cfgs = Dictionary<MethodBase, cfgData>()
-    let floyds = Dictionary<cfgData, Dictionary<offset * offset, int>>()
+    let cfgFloyds = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
+    let cfgDistanceFrom = Dictionary<cfgData, genericDistance<offset>>()
+    let cfgDistanceTo = Dictionary<cfgData, genericDistance<offset>>()
+
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
 
-    let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
+    let findDistance cfg = Dict.getValueOrUpdate cfgFloyds cfg (fun () -> foydAlgoCFG cfg)
+
+    let findDistanceFrom cfg node =
+        let cfgDist = Dict.getValueOrUpdate cfgDistanceFrom cfg (fun () -> Dictionary<_, _>())
+        Dict.getValueOrUpdate cfgDist node (fun () ->
+        let dist = findDistance cfg
+        let distFromNode = Dictionary<offset, uint>()
+        for i in dist do
+            if fst i.Key = node && i.Value <> infinity then
+                distFromNode.Add(snd i.Key, i.Value)
+        distFromNode)
+
+    let findDistanceTo cfg node =
+        let cfgDist = Dict.getValueOrUpdate cfgDistanceTo cfg (fun () -> Dictionary<_, _>())
+        Dict.getValueOrUpdate cfgDist node (fun () ->
+        let dist = findDistance cfg
+        let distToNode = Dictionary<offset, uint>()
+        for i in dist do
+            if snd i.Key = node && i.Value <> infinity then
+                distToNode.Add(fst i.Key, i.Value)
+        distToNode)
 
     let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
 
@@ -224,27 +260,72 @@ module public CFG =
             dict.Add(k, refSet.Value)
         refSet.Value.Add(v) |> ignore
 
-    let private addCall methodsReachability inverseMethodsReachability caller callee =
+    let private addCall (methods : HashSet<MethodBase>) methodsReachability caller callee =
+        methods.Add callee |> ignore
         addToDict methodsReachability caller callee
-        addToDict inverseMethodsReachability callee caller
 
-    let buildMethodsReachabilityForAssembly (entryMethod : MethodBase) =
-        let assembly = entryMethod.Module.Assembly
+    let callGraphFloyds = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
+    let callGraphDistanceFrom = Dictionary<Assembly, genericDistance<MethodBase>>()
+    let callGraphDistanceTo = Dictionary<Assembly, genericDistance<MethodBase>>()
+
+    let private buildMethodsReachabilityForAssembly (assembly : Assembly) =
+        let mutable entryMethod = assembly.EntryPoint :> MethodBase
+        let methods = HashSet<MethodBase>()
         let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
-        let inverseMethodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
         let rec exit processedMethods = function
             | [] -> ()
-            | m :: q' -> dfs (processedMethods, q') m
-        and dfs (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
+            | m :: q' -> dfs processedMethods q' m
+        and dfs (processedMethods : MethodBase list) (methodsQueue : MethodBase list) (current : MethodBase) =
+            methods.Add current |> ignore
             if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
             else
                 let processedMethods = current :: processedMethods
                 if current.GetMethodBody() <> null then
                     let cfg = findCfg current
-                    Seq.iter (fun (_, m) -> addCall methodsReachability inverseMethodsReachability current m) cfg.offsetsDemandingCall.Values
+                    Seq.iter (fun (_, m) -> addCall methods methodsReachability current m) cfg.offsetsDemandingCall.Values
                 let newQ =
                     if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue
                 exit processedMethods newQ
-        dfs ([],[]) entryMethod
-        methodsReachability, inverseMethodsReachability
+        let mq = List<MethodBase>()
+        if isNull entryMethod then
+            for typ in assembly.GetTypes() do
+                for m in typ.GetMethods() do
+                    mq.Add m |> ignore
+            entryMethod <- mq.[0]
+            mq.RemoveAt 0
+        dfs [] (List.ofSeq mq) entryMethod
+        methods, methodsReachability
+
+    let private buildCallGraphDistance (assembly : Assembly) =
+        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly
+        let callGraph = genericGraph<MethodBase>()
+        for i in methodsReachability do
+            for j in i.Value do
+                callGraph.[j].Add j
+        floydAlgo methods callGraph
+
+    let findCallGraphDistance (assembly : Assembly) =
+        Dict.getValueOrUpdate callGraphFloyds assembly  (fun () -> buildCallGraphDistance assembly)
+
+    let findCallGraphDistanceFrom (method : MethodBase) =
+        let assembly = method.Module.Assembly
+        let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
+        Dict.getValueOrUpdate callGraphDist method (fun () ->
+        let dist = findCallGraphDistance assembly
+        let distFromNode = Dictionary<MethodBase, uint>()
+        for i in dist do
+            if fst i.Key = method && i.Value <> infinity then
+                distFromNode.Add(snd i.Key, i.Value)
+        distFromNode)
+
+    let findCallGraphDistanceTo (method : MethodBase) =
+        let assembly = method.Module.Assembly
+        let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
+        Dict.getValueOrUpdate callGraphDist method (fun () ->
+        let dist = findCallGraphDistance assembly
+        let distToNode = Dictionary<MethodBase, uint>()
+        for i in dist do
+            if snd i.Key = method && i.Value <> infinity then
+                distToNode.Add(fst i.Key, i.Value)
+        distToNode)
