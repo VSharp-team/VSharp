@@ -3,6 +3,7 @@ using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
 using System.Reflection;
+using System.Runtime.Loader;
 
 namespace VSharp.Runner
 {
@@ -13,7 +14,23 @@ namespace VSharp.Runner
         {
             try
             {
-                return AssemblyManager.Resolve(assemblyPath.FullName);
+                var ctx = new AssemblyLoadContext("app-context");
+                var result = ctx.LoadFromAssemblyPath(assemblyPath.FullName);
+                
+                var dir = assemblyPath.Directory;
+                if (dir == null) return result;
+                
+                foreach (var file in dir.GetFiles("*.dll"))
+                {
+                    if (file.Name == "System.Private.CoreLib.dll" || file.FullName == assemblyPath.FullName)
+                    {
+                        continue;
+                    }
+
+                    ctx.LoadFromAssemblyPath(file.FullName);
+                }
+
+                return result;
             }
             catch (Exception)
             {
