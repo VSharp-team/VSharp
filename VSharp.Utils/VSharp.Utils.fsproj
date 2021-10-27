@@ -36,6 +36,7 @@
         <Compile Include="PersistentDictionary.fs" />
         <Compile Include="Cps.fs" />
         <Compile Include="TypeUtils.fs" />
+        <Compile Include="AssemblyManager.fs" />
         <Compile Include="Reflection.fs" />
         <Compile Include="Persistent.fs" />
         <Compile Include="IdGenerator.fs" />
@@ -50,12 +51,12 @@
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
         <Compile Include="CoverageTool.fs" />
-        <Compile Include="AssemblyManager.fs" />
         <Compile Include="TypeSolver.fs" />
     </ItemGroup>
 
     <ItemGroup>
       <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
+      <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="6.0.0-rc.2.21480.5" />
     </ItemGroup>
 
     <ItemGroup>

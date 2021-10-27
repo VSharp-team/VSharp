@@ -106,7 +106,7 @@ module TypeSolver =
                     validate typ
                 else NotExists
             match constraints.subtypes with
-            | [] -> findNonAbstractType constraints.supertypes validate (AssemblyManager.assemblies())
+            | [] -> findNonAbstractType constraints.supertypes validate (AssemblyManager.Assemblies())
             | t :: _ -> findNonAbstractSupertype validate t//)
 
     let private satisfyTypeParameter parameter subst validate =
@@ -116,7 +116,7 @@ module TypeSolver =
                     validate typ
                 else NotExists
             let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-            findType supertypes validate (AssemblyManager.assemblies())//)
+            findType supertypes validate (AssemblyManager.Assemblies())//)
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then

@@ -150,8 +150,6 @@ type public SILI(options : SiliOptions) =
     member private x.AnswerPobs entryPoint initialStates =
         statistics.ExplorationStarted()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
-        AssemblyManager.reset()
-        entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with
