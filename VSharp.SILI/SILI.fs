@@ -217,8 +217,6 @@ type public SILI(options : SiliOptions) =
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
-        AssemblyManager.reset()
-        entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
         entryIP <- Instruction(0<offsets>, entryPoint)
         match options.executionMode with

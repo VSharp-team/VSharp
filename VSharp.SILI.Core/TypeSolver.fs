@@ -162,13 +162,13 @@ module TypeSolver =
     let private inputCandidates getMock constraints subst =
         let validate = satisfiesConstraints constraints subst
         match constraints.subtypes with
-        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.assemblies())
+        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.Assemblies())
         | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
     let private typeParameterCandidates getMock parameter subst =
         let validate typ = satisfiesTypeParameterConstraints parameter subst typ
         let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-        enumerateTypes supertypes getMock validate (AssemblyManager.assemblies())
+        enumerateTypes supertypes getMock validate (AssemblyManager.Assemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then

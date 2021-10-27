@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -14,7 +13,7 @@ namespace VSharp.Runner
         {
             try
             {
-                return Assembly.LoadFrom(assemblyPath.FullName);
+                return AssemblyManager.Resolve(assemblyPath.FullName);
             }
             catch (Exception)
             {
