@@ -192,7 +192,10 @@ module internal Types =
         | ByRef t -> (toDotNetType t).MakeByRefType()
         | Null -> __unreachable__()
 
-    let sizeOf typ = typ |> toDotNetType |> TypeUtils.internalSizeOf |> int
+    let sizeOf typ =
+        match typ with
+        | Null -> sizeof<obj>
+        | _ -> typ |> toDotNetType |> TypeUtils.internalSizeOf |> int
 
     let bitSizeOfType t (resultingType : System.Type) = System.Convert.ChangeType(sizeOf(t) * 8, resultingType)
 

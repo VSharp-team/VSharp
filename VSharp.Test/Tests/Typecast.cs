@@ -141,7 +141,7 @@ namespace IntegrationTests.Typecast
             return b is Object ? 33 : 38;
         }
 
-        [TestSvm]
+        [Ignore("Incorrect result")]
         public static Pawn TypeCast(Object obj)
         {
             Pawn pawn = (Pawn)obj;

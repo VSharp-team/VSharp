@@ -34,9 +34,7 @@ module internal Pointers =
         // NOTE: only vector case
         | ArrayIndex(heapAddress, [index], (elementType, _, true)) ->
             let sizeOfElement = Types.sizeOf elementType |> makeNumber
-            let metadataSize = makeNumber LayoutUtils.ArrayElementsOffset
-            let offset = mul index sizeOfElement |> add metadataSize
-            HeapLocation heapAddress, offset
+            HeapLocation heapAddress, mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
         | BoxedLocation(concreteHeapAddress, _) ->

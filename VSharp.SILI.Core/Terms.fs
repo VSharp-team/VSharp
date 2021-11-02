@@ -612,6 +612,10 @@ module internal Terms =
         // TODO: add heuristics: if all are concrete, reinterpret concretes
         match terms with
         | [{term = Slice(t, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, _)}] when s = 0 && e = sizeOf t -> t
+        | _ when Types.concreteIsReferenceType t || Types.isByRef t || Types.isPointer t ->
+            assert(List.length terms = 1)
+            List.head terms
+        | [term] -> term
         | _ -> Expression Combine terms t
 
     let rec timeOf (address : heapAddress) =

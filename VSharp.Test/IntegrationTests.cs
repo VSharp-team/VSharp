@@ -119,7 +119,6 @@ namespace VSharp.Test
                 }
                 catch (Exception e)
                 {
-                    // TODO: add more info
                     context.CurrentResult.SetResult(ResultState.Error, e.Message);
                 }
 

@@ -102,6 +102,8 @@ namespace VSharp.TestRunner
                         _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                         var method = test.Method;
+
+                        Console.WriteLine("Starting test reproducing for method {0}", method);
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
                         var ex = test.Exception;

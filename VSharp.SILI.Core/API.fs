@@ -75,6 +75,7 @@ module API =
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term
+        let IsPtr term = isPtr term
         let IsConcrete term =
             match term.term with
             | Concrete _ -> true
@@ -265,20 +266,15 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
+        let private transformBoxedRef ref =
+            match ref.term with
+            | HeapRef _ -> HeapReferenceToBoxReference ref
+            | _ -> ref
+
         let ReadSafe state reference =
-            let reference =
-                // TODO: check if reference is BoxedLocation
-                match reference.term with
-                | HeapRef _ -> HeapReferenceToBoxReference reference
-                | _ -> reference
-            Memory.read state reference
-        let ReadUnsafe state (reportError : state -> unit) reference = // TODO: fix style #style
-            let reference =
-                // TODO: check if reference is BoxedLocation
-                match reference.term with
-                | HeapRef _ -> HeapReferenceToBoxReference reference
-                | _ -> reference
-            Memory.readIndirection state reportError reference
+            transformBoxedRef reference |> Memory.read state
+        let ReadUnsafe state (reportError : state -> unit) reference =
+            transformBoxedRef reference |> Memory.readIndirection state reportError
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)

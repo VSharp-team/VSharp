@@ -264,7 +264,7 @@ module public Reflection =
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
     let getFieldOffset fieldId =
-        if fieldId = stringFirstCharField then CSharpUtils.LayoutUtils.StringElementsOffset
+        if fieldId = stringFirstCharField then 0
         else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
 
     let private cachedTypes = Dictionary<Type, bool>()

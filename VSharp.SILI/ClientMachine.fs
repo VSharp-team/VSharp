@@ -47,6 +47,12 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             newState.suspended <- true
             cilState <- newState
 
+    let metadataSizeOfAddress state address =
+        let t = TypeOfAddress state address
+        if t = Types.String then CSharpUtils.LayoutUtils.StringElementsOffset
+        elif Types.IsArrayType t then CSharpUtils.LayoutUtils.ArrayElementsOffset
+        else 0
+
     let mutable mainReached = false
     let mutable poppedSymbolics : list<_> = List.Empty
     let environment (method : MethodBase) =
@@ -121,7 +127,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     let typ = TypeOfAddress cilState.state address
                     HeapRef address typ
                 else
-                    let offset = Concrete (int offset) Types.TLength
+                    let offset = int offset - metadataSizeOfAddress cilState.state address
+                    let offset = Concrete offset Types.TLength
                     Ptr (HeapLocation address) Void offset)
         let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
         poppedSymbolics <- ps
@@ -164,8 +171,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 // TODO: fix style #style
                 let makeObjFromBaseAndOffset baseAddress offset =
                     match baseAddress, offset.term with
-                    | HeapLocation {term = ConcreteHeapAddress [address]}, Concrete(offset, _) ->
-                        (address, offset :?> uint64) :> obj
+                    | HeapLocation ({term = ConcreteHeapAddress [address]} as a), Concrete(offset, _) ->
+                        (address, uint64 (offset :?> int + metadataSizeOfAddress cilState'.state a)) :> obj
                     // TODO: stack and statics location #do
                     | _ -> allConcrete <- false; null
                 let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->

@@ -568,7 +568,7 @@ module internal Memory =
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
-// ------------------------------- General reading -------------------------------
+// --------------------------- General safe reading ---------------------------
 
     // TODO: take type of heap address
     let rec read state reference =
@@ -697,12 +697,24 @@ module internal Memory =
 
     // ------------------------------- Unsafe reading -------------------------------
 
+    let private reportErrorIfNeed state reportError failCondition =
+        commonStatedConditionalExecutionk state
+            (fun state k -> k (!!failCondition, state))
+            (fun _ k -> k ())
+            (fun state k -> k (reportError state))
+            (fun _ _ -> [])
+            ignore
+
+    let private checkBlockBounds state reportError blockSize startByte endByte =
+        let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
+        // NOTE: disables overflow in solver
+        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        reportErrorIfNeed state reportError failCondition
+
     let private readAddressUnsafe address startByte endByte =
         let size = Terms.sizeOf address
-        match startByte.term, endByte with
-        | Concrete(:? int as s, _), Some({term = Concrete(:? int as e, _)}) when s = 0 && size = e -> List.singleton address
-        // CASE: reading ref (ldind.ref, ldelem.ref ..) by pointer from concolic
-        | Concrete(:? int as s, _), None when s = 0 -> List.singleton address
+        match startByte.term, endByte.term with
+        | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && size = e -> List.singleton address
         | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
 
     // NOTE: returns list of slices
@@ -714,16 +726,17 @@ module internal Memory =
         | Ptr _ -> readAddressUnsafe term startByte endByte
         | Concrete _
         | Constant _
-        | Expression _ -> Slice term startByte (Option.get endByte) startByte |> List.singleton // TODO: fix style #style
+        | Expression _ -> Slice term startByte endByte startByte |> List.singleton
         | _ -> __unreachable__()
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe readField false structType startByte endByte
+        readFieldsUnsafe (makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
-    and private getAffectedFields readField isStatic (blockType : symbolicType) startByte endByte =
+    and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
-        let blockSize = TypeUtils.internalSizeOf t |> int
+        let blockSize = CSharpUtils.LayoutUtils.ClassSize t
+        if isValueType blockType |> not then checkBlockBounds state reportError (makeNumber blockSize) startByte endByte
         let fields = Reflection.fieldsOf isStatic t
         let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
             fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, TypeUtils.internalSizeOf fieldInfo.FieldType |> int
@@ -746,132 +759,89 @@ module internal Memory =
             let fieldValue = readFieldOrZero fieldId
             let fieldOffset = makeNumber fieldOffset
             let startByte = sub startByte fieldOffset
-            let endByte = Option.map (fun endByte -> sub endByte fieldOffset) endByte
+            let endByte = sub endByte fieldOffset
             fieldId, fieldValue, startByte, endByte
-        match startByte.term, endByte with
-        | Concrete(:? int as o, _), Some({term = Concrete(:? int as s, _)}) ->
+        match startByte.term, endByte.term with
+        | Concrete(:? int as o, _), Concrete(:? int as s, _) ->
             let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
                 if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
                     getField field :: affectedFields
                 else affectedFields
             List.foldBack concreteGetField allFields List.empty
-        // TODO: fix style #style
-        | Concrete(:? int as o, _), None ->
-            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o >= fieldOffset && o < fieldOffset + fieldSize) then
-                    getField field :: affectedFields
-                else affectedFields
-            List.foldBack concreteGetField allFields List.empty
         | _ -> List.map getField allFields
 
-    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) startByte endByte =
-        let affectedFields = getAffectedFields readField isStatic blockType startByte endByte
+    and private readFieldsUnsafe state reportError readField isStatic (blockType : symbolicType) startByte endByte =
+        let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
         List.collect (fun (_, v, s, e) -> readTermUnsafe v s e) affectedFields
-
-    let private checkUnsafeRead state reportError failCondition =
-        commonStatedConditionalExecutionk state
-            (fun state k -> k (!!failCondition, state))
-            (fun _ k -> k ())
-            (fun state k -> k (reportError state))
-            (fun _ _ -> [])
-            ignore
-
-    let private checkClassUnsafeRead state reportError classType offset viewSize =
-        let t = toDotNetType classType
-        let classSize = TypeUtils.internalSizeOf t |> int |> makeNumber
-        let failCondition = simplifyGreater (add offset viewSize) classSize id ||| simplifyLess offset (makeNumber 0) id
-        // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-        checkUnsafeRead state reportError failCondition
 
     // TODO: Add undefined behaviour:
     // TODO: 1. when reading info between fields
     // TODO: 3. when reading info outside block
     // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr
-    let private readClassUnsafe state reportError address classType offset sightType =
-        checkClassUnsafeRead state reportError classType offset (Option.get sightType |> sizeOf |> makeNumber)
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+    let private readClassUnsafe state reportError address classType offset (viewSize : int) =
+        let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readClassField state address fieldId
-        readFieldsUnsafe readField false classType offset endByte
+        readFieldsUnsafe state reportError readField false classType offset endByte
 
-    let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset size =
+    let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset viewSize =
         let concreteElementSize = sizeOf elementType
         let elementSize = makeNumber concreteElementSize
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
         let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
         let arraySize = List.fold mul elementSize lens
-        let failCondition = simplifyGreater (Option.get size |> makeNumber |> add offset) arraySize id ||| simplifyLess offset (makeNumber 0) id
-        // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
-        checkUnsafeRead state reportError failCondition
+        checkBlockBounds state reportError arraySize offset (makeNumber viewSize |> add offset)
         let firstElement = div offset elementSize
         let elementOffset = rem offset elementSize
         let countToRead =
-            // TODO: fix style #style
-            match elementOffset.term, size with
-            | Concrete(:? int as i, _), Some size when i = 0 -> (size / concreteElementSize)
-            | Concrete(:? int, _), None -> 1
+            match elementOffset.term with
+            | Concrete(:? int as i, _) when i = 0 -> (viewSize / concreteElementSize)
             // NOTE: if offset inside element > 0 then one more element is needed
-            | _, Some size -> (size / concreteElementSize) + 1
-            | _ -> internalfail "reading array using pointer Void*"
+            | _ -> (viewSize / concreteElementSize) + 1
         let getElement currentOffset i =
             let linearIndex = makeNumber i |> add firstElement
             let indices = delinearizeArrayIndex linearIndex lens lbs
             let element = readArrayIndex state address indices arrayType
             let startByte = sub offset currentOffset
-            let endByte = Option.map (makeNumber >> add startByte) size
+            let endByte = makeNumber viewSize |> add startByte
             (indices, element, startByte, endByte), add currentOffset elementSize
         List.mapFold getElement (mul firstElement elementSize) [0 .. countToRead - 1] |> fst
 
-    let private readArrayUnsafe state reportError address arrayType offset sightType =
-        let size = Option.map sizeOf sightType
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let indices = getAffectedIndices state reportError address (symbolicTypeToArrayType arrayType) offset size
+    let private readArrayUnsafe state reportError address arrayType offset viewSize =
+        let indices = getAffectedIndices state reportError address (symbolicTypeToArrayType arrayType) offset viewSize
         List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
 
-    let private readStringUnsafe state reportError address offset sightType =
-        let size = Option.map sizeOf sightType
+    let private readStringUnsafe state reportError address offset viewSize =
          // TODO: handle case, when reading string length
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let indices = getAffectedIndices state reportError address (Char, 1, true) offset size
+        let indices = getAffectedIndices state reportError address (Char, 1, true) offset viewSize
         List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
 
-    let private readStaticUnsafe state reportError t offset sightType =
-        checkClassUnsafeRead state reportError t offset (Option.get sightType |> sizeOf |> makeNumber)
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+    let private readStaticUnsafe state reportError t offset (viewSize : int) =
+        let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readStaticField state t fieldId
-        readFieldsUnsafe readField true t offset endByte
+        readFieldsUnsafe state reportError readField true t offset endByte
+
+    let private readStackUnsafe state reportError loc offset (viewSize : int) =
+        let term = readStackLocation state loc
+        let locSize = Terms.sizeOf term |> makeNumber
+        let endByte = makeNumber viewSize |> add offset
+        checkBlockBounds state reportError locSize offset endByte
+        readTermUnsafe term offset endByte
 
     let private readUnsafe state reportError baseAddress offset sightType =
-        // TODO: fix style #style
-        let nonVoidType, combine = // TODO: this can be in case of reading ref or ptr, so size will be IntPtr.Size #do
-            match sightType with
-            | Void when isConcrete offset -> None, fun slices -> assert(List.length slices = 1); List.head slices
-            | Void -> internalfail "reading pointer Void* with symbolic offset"
-            | _ -> Some sightType, fun slices -> combine slices sightType
+        let viewSize = sizeOf sightType
         let slices =
             match baseAddress with
             | HeapLocation loc ->
                 let typ = typeOfHeapLocation state loc
                 match typ with
-                | StringType -> readStringUnsafe state reportError loc offset nonVoidType
-                | ClassType _ -> readClassUnsafe state reportError loc typ offset nonVoidType
-                | ArrayType _ -> readArrayUnsafe state reportError loc typ offset nonVoidType
+                | StringType -> readStringUnsafe state reportError loc offset viewSize
+                | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
+                | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
                 | StructType _ -> __notImplemented__() // TODO: boxed location?
                 | _ -> internalfailf "expected complex type, but got %O" typ
-            | StackLocation loc ->
-                // TODO: check bounds here #do
-                let term = readStackLocation state loc
-                let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
-                let viewSize = nonVoidType |> Option.get |> sizeOf |> int |> makeNumber
-                let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-                state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-                checkUnsafeRead state reportError failCondition
-                let endByte = Option.map (sizeOf >> makeNumber >> add offset) nonVoidType
-                readTermUnsafe term offset endByte
-            | StaticLocation loc ->
-                readStaticUnsafe state reportError loc offset nonVoidType
-        combine slices
+            | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
+            | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
+        combine slices sightType
 
     let rec readIndirection state reportError reference =
         match reference.term with
@@ -1051,34 +1021,32 @@ module internal Memory =
                 let termSize = sizeOf termType |> makeNumber
                 let valueSize = Terms.sizeOf value |> makeNumber
                 let left = Slice term zero startByte zero
-                let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte |> Some)
+                let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte)
                 let right = Slice term (add startByte valueSize) termSize zero
                 combine ([left] @ valueSlices @ [right]) termType
         | _ -> __unreachable__()
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 
-    and private writeFieldsUnsafe readField isStatic (blockType : symbolicType) startByte value =
+    and private writeFieldsUnsafe state reportError readField isStatic (blockType : symbolicType) startByte value =
         let endByte = Terms.sizeOf value |> makeNumber |> add startByte
-        let affectedFields = getAffectedFields readField isStatic blockType startByte (Some endByte)
+        let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
         List.map (fun (id, v, s, _) -> id, writeTermUnsafe v s value) affectedFields
 
     let writeClassUnsafe state reportError address typ offset value =
-        checkClassUnsafeRead state reportError typ offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readClassField state address fieldId
-        let updatedFields = writeFieldsUnsafe readField false typ offset value
+        let updatedFields = writeFieldsUnsafe state reportError readField false typ offset value
         let writeField (fieldId, value) = writeClassField state address fieldId value
         List.iter writeField updatedFields
 
     let writeArrayUnsafe state reportError address arrayType offset value =
         let size = Terms.sizeOf value
         let arrayType = symbolicTypeToArrayType arrayType
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset size
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
@@ -1087,19 +1055,25 @@ module internal Memory =
     let private writeStringUnsafe state reportError address offset value =
         let size = Terms.sizeOf value
         let arrayType = Char, 1, true
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset size
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
         List.iter writeElement affectedIndices
 
     let writeStaticUnsafe state reportError staticType offset value =
-        checkClassUnsafeRead state reportError staticType offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readStaticField state staticType fieldId
-        let updatedFields = writeFieldsUnsafe readField true staticType offset value
+        let updatedFields = writeFieldsUnsafe state reportError readField true staticType offset value
         let writeField (fieldId, value) = writeStaticField state staticType fieldId value
         List.iter writeField updatedFields
+
+    let writeStackUnsafe state reportError loc offset value =
+        let term = readStackLocation state loc
+        let locSize = Terms.sizeOf term |> makeNumber
+        let endByte = Terms.sizeOf value |> makeNumber |> add offset
+        checkBlockBounds state reportError locSize offset endByte
+        let updatedTerm = writeTermUnsafe term offset value
+        writeStackLocation state loc updatedTerm
 
     let private writeUnsafe state reportError baseAddress offset sightType value =
         assert(sightType = symbolicType.Void && isConcrete offset || sizeOf sightType = Terms.sizeOf value)
@@ -1112,17 +1086,8 @@ module internal Memory =
             | ArrayType _ -> writeArrayUnsafe state reportError loc typ offset value
             | StructType _ -> __notImplemented__() // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
-        | StackLocation loc ->
-            let term = readStackLocation state loc
-            let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
-            let viewSize = value |> Terms.sizeOf |> int |> makeNumber
-            let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-            state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-            checkUnsafeRead state reportError failCondition
-            let updatedTerm = writeTermUnsafe term offset value
-            writeStackLocation state loc updatedTerm
-        | StaticLocation loc ->
-            writeStaticUnsafe state reportError loc offset value
+        | StackLocation loc -> writeStackUnsafe state reportError loc offset value
+        | StaticLocation loc -> writeStaticUnsafe state reportError loc offset value
 
 // ------------------------------- General writing -------------------------------
 

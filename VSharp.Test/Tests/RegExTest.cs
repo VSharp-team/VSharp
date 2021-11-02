@@ -102,7 +102,6 @@ namespace IntegrationTests
         }
 
         [TestSvm(100, 2)]
-        // [Ignore("Incorrect result")]
         public static bool OwnImplementationTest4(string pattern)
         {
             return RegExImplementation.Match(pattern, "Hello");

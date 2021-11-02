@@ -391,13 +391,10 @@ module internal InstructionsSet =
         states |> List.map (changeState cilState)
     let ldind t reportError (cilState : cilState) =
         // TODO: what about null pointers?
-        // TODO: in all reading by ref or ptr we shall cast ref to needed type and read after that #do
-        // TODO: - need to cast inside safe memory read
         let address = pop cilState
-        let reportError state = reportError { cilState with state = state }
-        let value = Memory.ReadUnsafe cilState.state reportError address
-        let castedValue = Option.fold (fun acc x -> castUnchecked x acc) value t
-        push castedValue cilState
+        let castedAddress = if TypeOfLocation address = t then address else castUnchecked (Pointer t) address
+        let value = Memory.ReadUnsafe cilState.state (changeState cilState >> reportError) castedAddress
+        push value cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
     let cgt = binaryOperationWithBoolResult OperationType.Greater idTransformation idTransformation
@@ -1960,6 +1957,7 @@ type internal ILInterpreter() as this =
                     clearEvaluationStackLastFrame cilState
                     popFrameOf cilState
                 if List.length framesToPop > 1 then List.iter popFrameWithContents (List.tail framesToPop)
+                clearEvaluationStackLastFrame cilState
                 setCurrentIp (SearchingForHandler([], [])) cilState
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->
@@ -2133,18 +2131,18 @@ type internal ILInterpreter() as this =
             | OpCodeValues.Initobj -> initobj |> forkThrough cfg offset cilState
             | OpCodeValues.Ldarga -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarga_S -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind (Some TypeUtils.int32Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind (Some TypeUtils.int8Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind (Some TypeUtils.int16Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_I8 -> (fun _ _ -> ldind (Some TypeUtils.int64Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U1 -> (fun _ _ -> ldind (Some TypeUtils.uint8Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U2 -> (fun _ _ -> ldind (Some TypeUtils.uint16Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind (Some TypeUtils.uint32Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind (Some TypeUtils.float32Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind (Some TypeUtils.float64Type) reportError) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind None reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind TypeUtils.int32Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind TypeUtils.int8Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind TypeUtils.int16Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I8 -> (fun _ _ -> ldind TypeUtils.int64Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U1 -> (fun _ _ -> ldind TypeUtils.uint8Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U2 -> (fun _ _ -> ldind TypeUtils.uint16Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind TypeUtils.uint32Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind TypeUtils.float32Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind TypeUtils.float64Type reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind TypeUtils.nativeint reportError) |> fallThrough cfg offset cilState
             // TODO: need to cast to nativeint? #do
-            | OpCodeValues.Ldind_I -> (fun _ _ -> ldind None reportError) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldind_I -> (fun _ _ -> ldind TypeUtils.nativeint reportError) |> fallThrough cfg offset cilState
             | OpCodeValues.Isinst -> isinst |> forkThrough cfg offset cilState
             | OpCodeValues.Stobj -> (stobj reportError) |> forkThrough cfg offset cilState
             | OpCodeValues.Ldobj -> ldobj |> fallThrough cfg offset cilState
