@@ -604,6 +604,7 @@ module internal Terms =
         | _ -> false
 
     let combine terms t =
+        let defaultCase() = Expression Combine terms t
         assert(List.isEmpty terms |> not)
         let concat = function
             | Combined(terms, _) -> terms
@@ -615,8 +616,9 @@ module internal Terms =
         | _ when Types.concreteIsReferenceType t || Types.isByRef t || Types.isPointer t ->
             assert(List.length terms = 1)
             List.head terms
-        | [term] -> term
-        | _ -> Expression Combine terms t
+        | [{term = Slice _ }] -> defaultCase()
+        | [nonSliceTerm] -> nonSliceTerm
+        | _ -> defaultCase()
 
     let rec timeOf (address : heapAddress) =
         match address.term with
