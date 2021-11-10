@@ -120,6 +120,10 @@ module public Dict =
             dict.Add(key, newVal)
             newVal
 
+    let public setValueOrUpdate (dict : IDictionary<'a, 'b>) key value =
+        if dict.ContainsKey(key) then dict.[key] <- value
+        else dict.Add(key, value)
+
     let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]
         else defaultValue

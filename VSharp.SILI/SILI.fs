@@ -36,14 +36,17 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtSat _
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
-    let mkForwardSearcher = function
+    let mkForwardSearcher coverageZone = function
         | BFSMode -> BFSSearcher(options.bound) :> IForwardSearcher
         | DFSMode -> DFSSearcher(options.bound) :> IForwardSearcher
+        | GuidedMode ->
+            let baseSearcher = DFSSearcher(options.bound) :> IForwardSearcher
+            GuidedSearcher(options.bound, options.recursionBound, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
 
     let searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(coverageZone, searchMode) ->
-            BidirectionalSearcher(mkForwardSearcher searchMode, BackwardSearcher(), TargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
+            BidirectionalSearcher(mkForwardSearcher coverageZone searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
     let coveragePobsForMethod (method : MethodBase) =

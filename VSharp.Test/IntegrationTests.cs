@@ -50,6 +50,7 @@ namespace VSharp.Test
         //       if it was -- dotCover will be started
         private int? _expectedCoverage = null;
         private uint _maxBoundForTest = 15u;
+        private uint _recursionBoundForTest = 0u;
         private bool _concolicMode = false;
 
         public TestSvmAttribute(int expectedCoverage=-1, uint maxBoundForTest=15u, bool concolicMode=false)
@@ -63,6 +64,13 @@ namespace VSharp.Test
             _concolicMode = concolicMode;
         }
 
+        public TestSvmAttribute(int expectedCoverage, uint maxBoundForTest, uint recursionBoundForTest)
+        {
+            _expectedCoverage = expectedCoverage;
+            _maxBoundForTest = maxBoundForTest;
+            _recursionBoundForTest = recursionBoundForTest;
+        }
+
         public virtual TestCommand Wrap(TestCommand command)
         {
             executionMode execMode;
@@ -70,18 +78,25 @@ namespace VSharp.Test
                 execMode = executionMode.ConcolicMode;
             else
                 execMode = executionMode.SymbolicMode;
-            return new TestSvmCommand(command, _expectedCoverage, _maxBoundForTest, execMode);
+            return new TestSvmCommand(command, _expectedCoverage, _maxBoundForTest, _recursionBoundForTest, execMode);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
             private int? _expectedCoverage;
             private uint _maxBoundForTest;
+            private uint _recursionBoundForTest;
             private executionMode _executionMode;
-            public TestSvmCommand(TestCommand innerCommand, int? expectedCoverage, uint maxBoundForTest, executionMode execMode) : base(innerCommand)
+            public TestSvmCommand(
+                TestCommand innerCommand,
+                int? expectedCoverage,
+                uint maxBoundForTest,
+                uint recursionBoundForTest,
+                executionMode execMode) : base(innerCommand)
             {
                 _expectedCoverage = expectedCoverage;
                 _maxBoundForTest = maxBoundForTest;
+                _recursionBoundForTest = recursionBoundForTest;
                 _executionMode = execMode;
             }
 
@@ -91,7 +106,13 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
-                    _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), _executionMode, _maxBoundForTest);
+                    _options = new SiliOptions
+                        (
+                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
+                            _executionMode,
+                            _maxBoundForTest,
+                            _recursionBoundForTest
+                        );
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 

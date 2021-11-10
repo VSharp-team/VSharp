@@ -2,6 +2,7 @@ namespace VSharp.Interpreter.IL
 
 open VSharp
 open System.Text
+open System.Collections.Generic
 open VSharp.Core
 open ipOperations
 
@@ -13,10 +14,12 @@ type cilState =
       //TODO: #mb frames list #mb transfer to Core.State
       mutable iie : InsufficientInformationException option
       mutable level : level
+      mutable history : Set<codeLocation>
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable suspended : bool
+      mutable targets : Set<codeLocation> option
       mutable lastPushInfo : term option
     }
     with
@@ -36,15 +39,18 @@ type cilState =
 module internal CilStateOperations =
 
     let makeCilState curV initialEvaluationStackSize state =
+        let loc = ip2codeLocation curV |> Option.get
         { ipStack = [curV]
           state = state
           filterResult = None
           iie = None
           level = PersistentDict.empty
+          history = Set.empty
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
           suspended = false
+          targets = None
           lastPushInfo = None
         }
 
@@ -79,8 +85,18 @@ module internal CilStateOperations =
         | SearchingForHandler([], []) -> true
         | _ -> false
 
-    let currentLoc = currentIp >> ip2codeLocation >> Option.get
+    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
+
+    let tryCurrentLoc = currentIp >> ip2codeLocation
+    let currentLoc = tryCurrentLoc >> Option.get
     let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get
+
+    let violatesLevel (s : cilState) maxBound =
+        match tryCurrentLoc s with
+        | Some currLoc when PersistentDict.contains currLoc s.level ->
+            s.level.[currLoc] >= maxBound
+        | _ -> false
+
     let methodOf = function
         | Exit m
         | Instruction(_, m)
@@ -98,6 +114,12 @@ module internal CilStateOperations =
     let currentMethod = currentIp >> methodOf
 
     let currentOffset = currentIp >> offsetOf
+
+    let inCoverageZone coverageZone startingLoc loc =
+        match coverageZone with
+        | MethodZone -> loc.method = startingLoc.method
+        | ClassZone -> loc.method.DeclaringType= startingLoc.method.DeclaringType
+        | ModuleZone -> loc.method.Module = startingLoc.method.Module
 
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
@@ -145,6 +167,13 @@ module internal CilStateOperations =
         match oldValue with
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
+
+    let addIntoHistory (cilState: cilState) k =
+        let history = cilState.history
+        cilState.history <- Set.add k history
+
+    let historyVisited (cilState : cilState) =
+        seq cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 
@@ -197,6 +226,26 @@ module internal CilStateOperations =
         let ref = pop afterCall
         let value = Memory.Read afterCall.state ref
         push value afterCall
+
+    let addTarget (state : cilState) target =
+        match state.targets with
+        | Some targets -> state.targets <- Some <| Set.add target targets
+        | None -> state.targets <- Some (Set.add target Set.empty)
+
+    let removeTarget (state : cilState) target =
+        match state.targets with
+        | Some targets ->
+            let newTargets = Set.remove target targets
+            if newTargets.Count = 0 then
+                state.targets <- None
+            else
+                state.targets <- Some <| Set.remove target targets
+        | None -> ()
+
+    let checkTargets (state : cilState) =
+        match state.targets with
+        | Some targets -> targets.Count <> 0
+        | None -> true
 
     // ------------------------------- Helper functions for cilState -------------------------------
 

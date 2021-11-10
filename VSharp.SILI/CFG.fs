@@ -13,7 +13,7 @@ open VSharp.Interpreter.IL
 module public CFG =
     type internal genericGraph<'a> = Dictionary<'a, List<'a>>
     type internal genericDistance<'a> = Dictionary<'a, Dictionary<'a, uint>>
-    type internal graph = Dictionary<offset, List<offset>>
+    type internal graph = genericGraph<offset>
     let private infinity = UInt32.MaxValue
 
     [<CustomEquality; CustomComparison>]
@@ -171,7 +171,8 @@ module public CFG =
         | _ -> ()
         dfsComponent methodBase data used ilBytes ehc.handlerOffset // some catch handlers may be nested
 
-    let orderEdges (used : HashSet<offset>) (cfg : cfgData) : unit =
+    let orderEdges (cfg : cfgData) : unit =
+        let used = HashSet<offset>()
         let rec bypass acc (u : offset) =
             used.Add u |> ignore
             let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
@@ -190,6 +191,8 @@ module public CFG =
     let floydAlgo nodes (graph : genericGraph<'a>) =
         let dist = Dictionary<'a * 'a, uint>()
         let offsets = nodes
+        let infinitySum a b =
+            if a = infinity || b = infinity then infinity else a + b
         for i in offsets do
             for j in offsets do
                 dist.Add((i, j), infinity)
@@ -202,8 +205,8 @@ module public CFG =
         for k in offsets do
             for i in offsets do
                 for j in offsets do
-                    if dist.[i, j] > dist.[i, k] + dist.[k, j] then
-                        dist.[(i,j)] <- dist.[i, k] + dist.[k, j]
+                    if dist.[i, j] > infinitySum dist.[i, k] dist.[k, j] then
+                        dist.[(i,j)] <- infinitySum dist.[i, k] dist.[k, j]
         dist
 
     let foydAlgoCFG cfg =
@@ -219,7 +222,7 @@ module public CFG =
         dfsComponent methodBase interimData used ilBytes 0
         Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) ehs
         let cfg = addVerticesAndEdges cfgData interimData
-        orderEdges (HashSet<offset>()) cfg
+        orderEdges cfg
         cfg
 
     let cfgs = Dictionary<MethodBase, cfgData>()
@@ -251,6 +254,38 @@ module public CFG =
                 distToNode.Add(fst i.Key, i.Value)
         distToNode)
 
+    let vertexOf (method : MethodBase) (offset : offset) =
+        if isNull <| method.GetMethodBody() then None
+        else
+            let cfg = findCfg method
+            cfg.sortedOffsets
+         |> Seq.filter (fun vertex -> vertex <= offset)
+         |> Seq.max
+         |> Some
+
+    let isVertex (method : MethodBase) (offset : offset) =
+        if isNull <| method.GetMethodBody() then
+            let cfg = findCfg method
+            cfg.sortedOffsets.BinarySearch(offset) >= 0
+        else false
+
+    let isReachingReturn (method : MethodBase) (offset : offset) =
+        if not method.IsAbstract then
+            let cfg = findCfg method
+            let vertex = cfg.sortedOffsets |> Seq.filter (fun vertex -> vertex <= offset) |> Seq.max
+            let dist = findDistanceFrom cfg vertex
+            Seq.exists (fun offset -> dist.ContainsKey offset && dist.[offset] <> 0u) cfg.retOffsets
+        else false
+
+    let isRecursiveVertex (method : MethodBase) (offset : offset) =
+        if not method.IsAbstract then
+            let cfg = findCfg method
+            if cfg.dfsOut.ContainsKey offset then
+                let t1 = cfg.dfsOut.[offset]
+                cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
+            else false
+        else false
+
     let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
 
     let private addToDict (dict : Dictionary<'a, HashSet<'b>> ) (k : 'a ) (v : 'b) =
@@ -268,8 +303,7 @@ module public CFG =
     let callGraphDistanceFrom = Dictionary<Assembly, genericDistance<MethodBase>>()
     let callGraphDistanceTo = Dictionary<Assembly, genericDistance<MethodBase>>()
 
-    let private buildMethodsReachabilityForAssembly (assembly : Assembly) =
-        let mutable entryMethod = assembly.EntryPoint :> MethodBase
+    let private buildMethodsReachabilityForAssembly (assembly : Assembly) (entryMethod : MethodBase) =
         let methods = HashSet<MethodBase>()
         let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
         let rec exit processedMethods = function
@@ -288,31 +322,31 @@ module public CFG =
                     else methodsQueue
                 exit processedMethods newQ
         let mq = List<MethodBase>()
-        if isNull entryMethod then
-            for typ in assembly.GetTypes() do
-                for m in typ.GetMethods() do
-                    mq.Add m |> ignore
-            entryMethod <- mq.[0]
-            mq.RemoveAt 0
         dfs [] (List.ofSeq mq) entryMethod
         methods, methodsReachability
 
-    let private buildCallGraphDistance (assembly : Assembly) =
-        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly
+    let private buildCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
+        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
         let callGraph = genericGraph<MethodBase>()
+        for i in methods do
+            callGraph.Add (i, List<_>())
         for i in methodsReachability do
             for j in i.Value do
-                callGraph.[j].Add j
+                callGraph.[i.Key].Add j
         floydAlgo methods callGraph
 
-    let findCallGraphDistance (assembly : Assembly) =
-        Dict.getValueOrUpdate callGraphFloyds assembly  (fun () -> buildCallGraphDistance assembly)
+    let findCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
+        let callGraphDist = Dict.getValueOrUpdate callGraphFloyds assembly (fun () -> buildCallGraphDistance assembly entryMethod)
+        if not <| callGraphDist.ContainsKey (entryMethod, entryMethod) then
+            for i in buildCallGraphDistance assembly entryMethod do
+                callGraphDist.TryAdd(i.Key, i.Value) |> ignore
+        callGraphDist
 
     let findCallGraphDistanceFrom (method : MethodBase) =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let dist = findCallGraphDistance assembly
+        let dist = findCallGraphDistance assembly method
         let distFromNode = Dictionary<MethodBase, uint>()
         for i in dist do
             if fst i.Key = method && i.Value <> infinity then
@@ -323,7 +357,7 @@ module public CFG =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let dist = findCallGraphDistance assembly
+        let dist = findCallGraphDistance assembly method
         let distToNode = Dictionary<MethodBase, uint>()
         for i in dist do
             if snd i.Key = method && i.Value <> infinity then

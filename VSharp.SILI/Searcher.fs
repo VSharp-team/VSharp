@@ -3,10 +3,9 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
-open CilStateOperations
-open VSharp.Prelude
 open VSharp.Utils
 open VSharp.Core
+open CilStateOperations
 
 type action =
     | GoFront of cilState
@@ -22,8 +21,8 @@ type IBidirectionalSearcher =
     abstract member Statuses : unit -> seq<pob * pobStatus>
 
 type IForwardSearcher =
-    abstract member Init : cilState list -> unit
-    abstract member Update : cilState -> cilState seq -> unit
+    abstract member Init : cilState seq -> unit
+    abstract member Update : cilState * cilState seq -> unit
     abstract member Pick : unit -> cilState option
 
 type ITargetedSearcher =
@@ -57,15 +56,12 @@ type cilStateComparer(comparer) =
 
 
 [<AbstractClass>]
-type ForwardSearcher(maxBound) =
+type SimpleForwardSearcher(maxBound) =
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
 //    let mutable mainMethod = null
 //    let mutable startedFromMain = false
     let forPropagation = List<cilState>()
-    let violatesLevel (s : cilState) =
-        // TODO: report states which violate level as incomplete
-        levelToUnsignedInt s.level > maxBound
-    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
+    let isStopped s = isStopped s || violatesLevel s maxBound
     let add (s : cilState) =
         if not <| isStopped s then
             assert(forPropagation.Contains s |> not)
@@ -76,7 +72,7 @@ type ForwardSearcher(maxBound) =
             forPropagation.AddRange(states)
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
-        override x.Update parent newStates =
+        override x.Update (parent, newStates) =
             if isStopped parent then
                 forPropagation.Remove(parent) |> ignore
             Seq.iter add newStates
@@ -84,11 +80,11 @@ type ForwardSearcher(maxBound) =
     default x.Choose states = Seq.tryLast states
 
 type BFSSearcher(maxBound) =
-    inherit ForwardSearcher(maxBound) with
+    inherit SimpleForwardSearcher(maxBound) with
         override x.Choose states = Seq.tryHead states
 
 type DFSSearcher(maxBound) =
-    inherit ForwardSearcher(maxBound)
+    inherit SimpleForwardSearcher(maxBound)
 
 type IWeighter =
     abstract member Weight : cilState -> uint option
@@ -96,29 +92,55 @@ type IWeighter =
 
 type WeightedSearcher(maxBound, weighter : IWeighter) =
     let dpdf = DiscretePDF(cilStateComparer(fun a b -> a.GetHashCode().CompareTo(b.GetHashCode())))
-    let violatesLevel (s : cilState) =
-        levelToUnsignedInt s.level > maxBound
-    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
-    let modMax n = n % DiscretePDF.maxWeight dpdf
+    let suspended = HashSet<cilState>()
+    let modMax n =
+        if DiscretePDF.maxWeight dpdf = 0u then 0u
+        else n % DiscretePDF.maxWeight dpdf
+    let isStopped s = isStopped s || violatesLevel s maxBound
+    let optionWeight s =
+        option {
+            if s.suspended then
+                suspended.Add s |> ignore
+            elif not <| isStopped s then
+                return! weighter.Weight s
+        }
     let add (s : cilState) =
-        if not <| isStopped s then
-            assert(DiscretePDF.contains dpdf s |> not)
-            option {
-                let! weight = weighter.Weight s
-                DiscretePDF.insert dpdf s weight
-            } |> ignore
+        let weight = optionWeight s
+        match weight with
+        | Some w ->
+            assert(not <| DiscretePDF.contains dpdf s)
+            DiscretePDF.insert dpdf s w
+        | None -> ()
+    let update s =
+        let weight = optionWeight s
+        match weight with
+        | Some w ->
+            if suspended.Contains s || not <| DiscretePDF.contains dpdf s then
+                if suspended.Contains s then suspended.Remove s |> ignore
+                assert(not <| DiscretePDF.contains dpdf s)
+                DiscretePDF.insert dpdf s w
+            else DiscretePDF.update dpdf s w
+        | None ->
+            if not <| suspended.Contains s then
+                assert(DiscretePDF.contains dpdf s)
+                DiscretePDF.remove dpdf s
+
+    abstract member Insert : cilState seq -> unit
+    default x.Insert states =
+        Seq.iter add states
+
+    member x.Pick() =
+        DiscretePDF.choose dpdf (modMax <| weighter.Next())
+
+    abstract member Update : cilState * cilState seq -> unit
+    default x.Update (parent, newStates) =
+        update parent
+        x.Insert newStates
 
     interface IForwardSearcher with
-        override x.Init states =
-            List.iter (fun state ->
-            option {
-                let! weight = weighter.Weight state
-                DiscretePDF.insert dpdf state weight
-            } |> ignore) states
-        override x.Pick() =
-            DiscretePDF.choose dpdf (modMax <| weighter.Next())
-        override x.Update parent newStates =
-            if isStopped parent then
-                assert (DiscretePDF.contains dpdf parent)
-                DiscretePDF.remove dpdf parent
-            Seq.iter add newStates
+        override x.Init states = x.Insert states
+        override x.Pick() = x.Pick()
+        override x.Update (parent, newStates) = x.Update (parent, newStates)
+
+    member x.Weighter = weighter
+    member x.GetWeight state = DiscretePDF.tryGetWeight dpdf state

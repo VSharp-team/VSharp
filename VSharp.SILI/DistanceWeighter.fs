@@ -21,48 +21,51 @@ type ShortestDistancetWeighter(target : codeLocation) =
             if callGraphDistance = infinity then infinity
             else 2u * callGraphDistance + frameNumber
         state.ipStack
-     |> List.map methodOf
-     |> List.mapi (fun number method -> frameWeight method (uint number), uint number)
-     |> List.minBy fst
+     |> Seq.map methodOf
+     |> Seq.mapi (fun number method -> frameWeight method (uint number), uint number)
+     |> Seq.minBy fst
      |> fun (w, n) -> if w = infinity then None else Some (w, n)
 
-    let localWeight loc (tagets : codeLocation list) =
-        let localCFG = CFG.findCfg loc.method
-        let dist = CFG.findDistanceFrom localCFG loc.offset
-        tagets
-     |> List.fold (fun m l -> min m (Dict.tryGetValue dist l.offset infinity)) infinity
-     |> handleInfinity
-     |> Option.map logarithmicScale
+    let localWeight loc (tagets : codeLocation seq) =
+        option {
+            let localCFG = CFG.findCfg loc.method
+            let! vertexOffset = CFG.vertexOf loc.method loc.offset
+            let dist = CFG.findDistanceFrom localCFG vertexOffset
+            return!
+                tagets
+             |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.offset infinity)) infinity
+             |> handleInfinity
+             |> Option.map logarithmicScale
+        }
 
-    let targetWeight state =
-        let currLoc = currentLoc state
+    let targetWeight currLoc =
         localWeight currLoc [target]
 
-    let preTargetWeight state =
-        let currLoc = currentLoc state
+    let preTargetWeight currLoc =
         let localCFG = CFG.findCfg currLoc.method
         let targets =
             localCFG.offsetsDemandingCall
          |> Seq.filter (fun kv -> callGraphDistanceToTarget.ContainsKey (snd kv.Value))
-         |> Seq.map (fun kv -> { offset = kv.Key; method = currLoc.method })
-         |> List.ofSeq
+         |> Seq.choose (fun kv -> CFG.vertexOf currLoc.method kv.Key)
+         |> Seq.map (fun vertex -> { offset = vertex; method = currLoc.method })
         localWeight currLoc targets
 
-    let postTargetWeight state =
-        let currLoc = currentLoc state
+    let postTargetWeight currLoc =
         let localCFG = CFG.findCfg currLoc.method
         let targets =
-            localCFG.retOffsets
+            localCFG.retOffsets |> Seq.choose (CFG.vertexOf currLoc.method)
          |> Seq.map (fun offset -> { offset = offset; method = currLoc.method })
-         |> List.ofSeq
         localWeight currLoc targets
 
     interface IWeighter with
         override x.Weight(state) =
-            let callWeight = calculateCallWeight state
-            match callWeight with
-            | Some (0u, _) -> targetWeight state
-            | Some (_, 0u) -> preTargetWeight state
-            | Some _ -> postTargetWeight state
-            | None -> None
+            option {
+                let! currLoc = tryCurrentLoc state
+                let! callWeight = calculateCallWeight state
+                return!
+                    match callWeight with
+                    | 0u, _ -> targetWeight currLoc
+                    | _, 0u -> preTargetWeight currLoc
+                    | _ -> postTargetWeight currLoc
+            }
         override x.Next() = 0u

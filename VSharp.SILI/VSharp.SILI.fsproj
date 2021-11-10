@@ -19,6 +19,7 @@
 
     <ItemGroup>
         <Compile Include="OpCodes.fs" />
+        <Compile Include="Options.fs" />
         <Compile Include="Communication.fs" />
         <Compile Include="ILRewriter.fs" />
         <Compile Include="Instruction.fs" />
@@ -29,13 +30,13 @@
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
         <Compile Include="DistanceWeighter.fs" />
+        <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="RandomSearcher.fs" />
         <Compile Include="StackTraceEstimator.fs" />
         <Compile Include="StackTraceSearcher.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
-        <Compile Include="Options.fs" />
         <Compile Include="TestGenerator.fs" />
         <Compile Include="SILI.fs" />
     </ItemGroup>

@@ -159,6 +159,19 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             return max |?? n
         }
 
+    let rec maxWeightOf nOpt =
+        option {
+            let! n = nOpt
+            let lMax = maxWeightOf n.Left
+            let rMax = maxWeightOf n.Right
+            return
+                match lMax, rMax with
+                | None, None -> n.Weight
+                | Some l, None -> max n.Weight l
+                | None, Some r-> max n.Weight r
+                | Some l, Some r -> max n.Weight (max l r)
+        }
+
     let rec remove nOpt item =
         let mutable root = nOpt
         option {
@@ -185,12 +198,12 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     let rec choose (nOpt : node<'a> option) weight =
         option {
             let! n = nOpt
-            match n.Left with
-            | Some left when weight < left.SumWeight ->
+            match n.Left, n.Right with
+            | Some left, _ when weight < left.SumWeight ->
                 return! choose n.Left weight
-            | Some left when weight >= left.SumWeight && weight - left.SumWeight >= n.Weight ->
+            | Some left,Some _ when weight >= left.SumWeight && weight - left.SumWeight >= n.Weight ->
                 return! choose n.Right (weight - left.SumWeight - n.Weight)
-            | None when weight >= n.Weight ->
+            | None, Some _ when weight >= n.Weight ->
                 return! choose n.Right (weight - n.Weight)
             | _ -> return n.Key
         }
@@ -205,14 +218,14 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     member x.Remove(item : 'a) =
         root <- remove root item
         option {
-            let! n = maxValueNode root
-            maxWeight <- n.Weight
+            let! w = maxWeightOf root
+            maxWeight <- w
         } |> ignore
 
     member x.Contains(item : 'a) =
         lookup root item |> Option.isSome
 
-    member x.GetWeight(item : 'a) =
+    member x.TryGetWeight(item : 'a) =
         option {
             let! n = lookup root item
             return n.Weight
@@ -221,20 +234,24 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     member x.MaxWeight() = maxWeight
 
     member x.Update(item : 'a, weight) =
-        option {
+        let res = option {
             do! lookupAndUpdate root item (fun p act ->
             p.Weight <- weight
             act p)
             maxWeight <- max maxWeight weight
-        } |> ignore
+            return ()
+        }
+        assert (Option.isSome res)
 
     member x.Choose(weight) =
-        let wOpt = if weight >= maxWeight then None else Some weight
+        let wOpt = if weight <> 0u && weight >= maxWeight then None else Some weight
         option {
             let! r = root
             let! w = wOpt
             let scaledW =
-                (double w / double maxWeight) * double r.SumWeight
+                if maxWeight > 0u then
+                    (double w / double maxWeight) * double r.SumWeight
+                else double w
              |> round
              |> uint
             return! choose root scaledW
@@ -247,3 +264,4 @@ module public DiscretePDF =
     let choose (dpdf: DiscretePDF<'a>) weight = dpdf.Choose weight
     let maxWeight (dpdf: DiscretePDF<'a>) = dpdf.MaxWeight()
     let contains (dpdf: DiscretePDF<'a>) item = dpdf.Contains(item)
+    let tryGetWeight (dpdf: DiscretePDF<'a>) item = dpdf.TryGetWeight item

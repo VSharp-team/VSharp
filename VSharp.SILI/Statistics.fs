@@ -25,13 +25,16 @@ type pobStatus =
 type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
+    let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
-        let cfg = CFG.findCfg codeLocation.method
-        cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        if isNull <| codeLocation.method.GetMethodBody() then false
+        else
+            let cfg = CFG.findCfg codeLocation.method
+            cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
         let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
@@ -49,13 +52,57 @@ type public SILIStatistics() =
 //        let sb = PrettyPrinting.appendLine sb
         printDict "\t\t" sb k.Value
 
-    let rememberForward (start : codeLocation, current : codeLocation) =
+    let pickTotalUnvisitedInCFG (currentLoc : codeLocation) : codeLocation option =
+        let infinity = UInt32.MaxValue
+        let method = currentLoc.method
+        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        match optVertex with
+        | Some vertex ->
+            let cfg = CFG.findCfg method
+            CFG.findDistanceFrom cfg vertex
+         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+         |> Seq.filter (fun offsetDistancePair ->
+            let loc = { offset = offsetDistancePair.Key; method = method }
+            let distance = offsetDistancePair.Value
+            let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
+            distance <> infinity && distance <> 0u && numberOfVisit = 0u)
+         |> Seq.tryHead
+         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        | None -> None
+
+    let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
+        let infinity = UInt32.MaxValue
+        let method = currentLoc.method
+        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        match optVertex with
+        | Some vertex ->
+            let cfg = CFG.findCfg method
+            CFG.findDistanceFrom cfg vertex
+         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+         |> Seq.filter (fun offsetDistancePair ->
+            let loc = { offset = offsetDistancePair.Key; method = method }
+            let distance = offsetDistancePair.Value
+            let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
+            let l = distance <> infinity && distance <> 0u
+            let r = not <| totalHistory.IsSupersetOf(history)
+            l && r)
+         |> Seq.tryHead
+         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        | None -> None
+
+    let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
         if isHeadOfBasicBlock current then
             let mutable totalRef = ref 0u
             if not <| totalVisited.TryGetValue(current, totalRef) then
                 totalRef <- ref 0u
                 totalVisited.Add(current, 0u)
             totalVisited.[current] <- !totalRef + 1u
+
+            let mutable historyRef = ref null
+            if not <| visitedWithHistory.TryGetValue(current, historyRef) then
+                historyRef <- ref <| HashSet<_>()
+                visitedWithHistory.Add(current, !historyRef)
+            (!historyRef).UnionWith visited
 
             let mutable startRefDict = ref null
             if not <| startIp2currentIp.TryGetValue(start, startRefDict) then
@@ -72,8 +119,9 @@ type public SILIStatistics() =
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
+        let visited = historyVisited s
         match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
+        | Some startLoc, Some currentLoc -> rememberForward startLoc currentLoc visited
         | _ -> ()
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
@@ -92,6 +140,9 @@ type public SILIStatistics() =
         x.Clear()
         startTime <- DateTime.Now
 
+    member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
+
+    member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
 
     member x.CurrentExplorationTime with get() = DateTime.Now - startTime
 
