@@ -240,6 +240,7 @@ module API =
 
         val InitializeStaticMembers : state -> symbolicType -> unit
 
+        val Allocate : state -> stackKey -> term -> unit
         val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term
         val AllocateDefaultClass : state -> symbolicType -> term
         val AllocateDefaultArray : state -> term list -> symbolicType -> term
@@ -279,6 +280,8 @@ module API =
 
 
         val FillRegion : state -> term -> regionSort -> unit
+        
+        val IsStackEmpty : state -> bool
 
     module Print =
         val Dump : state -> string

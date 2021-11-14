@@ -18,30 +18,7 @@ type IMemoryAccessConstantSource =
 module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
-
-    let makeEmpty() = {
-        pc = PC.empty
-        evaluationStack = EvaluationStack.empty
-        exceptionsRegister = NoException
-        stack = CallStack.empty
-        stackBuffers = PersistentDict.empty
-        classFields = PersistentDict.empty
-        arrays = PersistentDict.empty
-        lengths = PersistentDict.empty
-        lowerBounds = PersistentDict.empty
-        staticFields = PersistentDict.empty
-        boxedLocations = PersistentDict.empty
-        initializedTypes = SymbolicSet.empty
-        concreteMemory = Dictionary<_,_>()
-        physToVirt = PersistentDict.empty
-        allocatedTypes = PersistentDict.empty
-        typeVariables = (MappedStack.empty, Stack.empty)
-        delegates = PersistentDict.empty
-        currentTime = [1]
-        startingTime = VectorTime.zero
-        model = None
-    }
-
+    
     type memoryMode =
         | ConcreteMemory
         | SymbolicMemory
@@ -695,6 +672,7 @@ module internal Memory =
         let thenPc = PC.add state.pc condition
         let elsePc = PC.add state.pc negatedCondition
         let independentThenPc = keepIndependentWith thenPc condition
+        // Unnecessary
         let independentElsePc = keepIndependentWith elsePc negatedCondition 
         if PC.isFalse independentThenPc then
             conditionState.pc <- elsePc
@@ -726,11 +704,11 @@ module internal Memory =
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat model ->
+                | SolverInteraction.SmtSat model2 ->
                     conditionState.pc <- elsePc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
-                    elseState.model <- Some model.mdl
+                    elseState.model <- Some model2.mdl
                     thenState.pc <- thenPc
                     execution thenState elseState condition k)
 

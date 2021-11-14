@@ -237,7 +237,7 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = Memory.makeEmpty()
+        let EmptyState() = State.makeEmpty()
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -352,6 +352,8 @@ module API =
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
+            
+        let Allocate state key term = Memory.allocateOnStack state key term
 
         let AllocateTemporaryLocalVariable state typ term =
             let tmpKey = TemporaryLocalVariableKey typ
@@ -489,7 +491,8 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
-
+        
+        let IsStackEmpty state = CallStack.isEmpty state.stack
 
     module Print =
         let Dump state = Memory.dump state

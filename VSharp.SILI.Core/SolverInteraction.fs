@@ -1,5 +1,7 @@
 namespace VSharp.Core
 
+open System
+open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 
@@ -38,5 +40,10 @@ module public SolverInteraction =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
+        | Some s ->
+            let model =
+                match state.model with
+                | Some(m) -> m
+                | None -> { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
+            s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""

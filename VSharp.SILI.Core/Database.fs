@@ -186,7 +186,7 @@ type path =
         sprintf "{path [lvl %s]: %O}" (Level.toString x.lvl) x.state.pc
 
 type query =
-    { lvl : level; queryFml : formula } with
+    { lvl : level; queryFml : formula; currentModel : model } with
     override x.ToString() =
         sprintf "{query [lvl %s]: %O}" (Level.toString x.lvl) x.queryFml
 

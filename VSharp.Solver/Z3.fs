@@ -639,43 +639,43 @@ module internal Z3 =
                 structureRef := x.WriteFields !structureRef value fields
 
 
-        member x.MkModel (m : Model) =
-            let subst = Dictionary<ISymbolicConstantSource, term>()
+        member x.UpdateModel (z3Model : Model) (targetModel : model) =
             let stackEntries = Dictionary<stackKey, term ref>()
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
-                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     x.Decode t refinedExpr
                     |> x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
-                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
                         let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} ->
-                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     let term = x.Decode t refinedExpr
-                    subst.Add(source, term)
+                    targetModel.subst.[source] <- term
                 | _ -> ())
 
-            let state = Memory.EmptyState()
-            let frame = stackEntries |> Seq.map (fun kvp ->
+            if (Memory.IsStackEmpty targetModel.state) then
+                Memory.NewStackFrame targetModel.state null List.empty
+            
+            // Check that stack is not empty 
+            stackEntries |> Seq.iter (fun kvp ->
                     let key = kvp.Key
                     let term = !kvp.Value
-                    let typ = TypeOf term
-                    (key, Some term, typ))
-            Memory.NewStackFrame state null (List.ofSeq frame)
+                    Memory.Allocate targetModel.state key term)
 
             let defaultValues = Dictionary<regionSort, term ref>()
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
-                let arr = m.Eval(constant, false)
+                let arr = z3Model.Eval(constant, false)
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
@@ -699,26 +699,29 @@ module internal Z3 =
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                                 HeapRef address t
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.WriteSafe state (Ref address) value
-                        assert(states.Length = 1 && states.[0] = state)
+                        // Seems that it's ok to use it with existing state
+                        let states = Memory.WriteSafe targetModel.state (Ref address) value
+                        // And that also will be true?
+                        assert(states.Length = 1 && states.[0] = targetModel.state)
                     elif arr.IsConst then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
                 let constantValue = !kvp.Value
-                Memory.FillRegion state constantValue region)
+                // Also ok?
+                Memory.FillRegion targetModel.state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr typ state.allocatedTypes)
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr targetModel.state.allocatedTypes then
+                    targetModel.state.allocatedTypes <- PersistentDict.add addr typ targetModel.state.allocatedTypes)
+            // Vector.time min of [encodingCache.lastSymbolicAddress - 1] and current starting time
+            targetModel.state.startingTime <- VectorTime.min targetModel.state.startingTime [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst; complete = true}
-
+            encodingCache.t2e.Clear()
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
@@ -785,12 +788,13 @@ module internal Z3 =
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
-                        let model = builder.MkModel z3Model
+                        let updatedModel = {q.currentModel with state = {q.currentModel.state with model = q.currentModel.state.model}}
+                        builder.UpdateModel z3Model updatedModel
 //                        let usedPaths =
 //                            pathAtoms
 //                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
 //                            |> Seq.map (fun atom -> paths.[atom])
-                        SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
+                        SmtSat { mdl = updatedModel; usedPaths = [](*usedPaths*) }
                     | Status.UNSATISFIABLE ->
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
