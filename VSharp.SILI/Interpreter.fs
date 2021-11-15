@@ -1903,7 +1903,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let isVertex offset = cfg.sortedOffsets.BinarySearch(offset) >= 0
         if offset = 0 || CFG.isRecursiveVertex cfg.methodBase offset then
             incrementLevel cilState {offset = offset; method = cfg.methodBase}
-        if offset = 0 || isVertex offset then
+        if CFG.hasSiblings cfg.methodBase offset then
             addIntoHistory cilState {offset = offset; method = cfg.methodBase}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =

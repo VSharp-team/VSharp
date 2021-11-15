@@ -23,6 +23,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     let less a b = comparer.Compare(a, b) = -1
     let mutable root = None : node<'a> option
     let mutable maxWeight = 0u
+    let mutable count = 0u
 
     let mkNode (key : 'a) weight =
         { Left = None
@@ -134,6 +135,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
 
     let rec insert nOpt item weight =
         maxWeight <- max maxWeight weight
+        count <- count + 1u
         match nOpt with
         | Some n when n.Key = item -> nOpt
         | Some n ->
@@ -208,12 +210,24 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             | _ -> return n.Key
         }
 
+    let rec enumerate optNode =
+        seq {
+            match optNode with
+            | Some node ->
+                yield node.Key
+                yield! enumerate node.Left
+                yield! enumerate node.Right
+            | None -> ()
+        }
+
+
     member x.Empty() = root = None
 
     member private x.Lookup(item : 'a) = lookup root item
 
     member x.Insert(item : 'a, weight) =
         root <- insert root item weight
+        count <- count + 1u
 
     member x.Remove(item : 'a) =
         root <- remove root item
@@ -221,6 +235,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             let! w = maxWeightOf root
             maxWeight <- w
         } |> ignore
+        count <- count - 1u
 
     member x.Contains(item : 'a) =
         lookup root item |> Option.isSome
@@ -257,6 +272,9 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             return! choose root scaledW
         }
 
+    member x.ToSeq() = enumerate root
+    member x.Count = count
+
 module public DiscretePDF =
     let insert (dpdf: DiscretePDF<'a>) item weight = dpdf.Insert(item, weight)
     let remove (dpdf: DiscretePDF<'a>) item = dpdf.Remove(item)
@@ -265,3 +283,4 @@ module public DiscretePDF =
     let maxWeight (dpdf: DiscretePDF<'a>) = dpdf.MaxWeight()
     let contains (dpdf: DiscretePDF<'a>) item = dpdf.Contains(item)
     let tryGetWeight (dpdf: DiscretePDF<'a>) item = dpdf.TryGetWeight item
+    let toSeq (dpdf: DiscretePDF<'a>) = dpdf.ToSeq ()

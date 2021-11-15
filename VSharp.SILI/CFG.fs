@@ -255,16 +255,16 @@ module public CFG =
         distToNode)
 
     let vertexOf (method : MethodBase) (offset : offset) =
-        if isNull <| method.GetMethodBody() then None
-        else
+        if not method.IsAbstract then
             let cfg = findCfg method
             cfg.sortedOffsets
-         |> Seq.filter (fun vertex -> vertex <= offset)
-         |> Seq.max
-         |> Some
+             |> Seq.filter (fun vertex -> vertex <= offset)
+             |> Seq.max
+             |> Some
+        else None
 
     let isVertex (method : MethodBase) (offset : offset) =
-        if isNull <| method.GetMethodBody() then
+        if not method.IsAbstract then
             let cfg = findCfg method
             cfg.sortedOffsets.BinarySearch(offset) >= 0
         else false
@@ -283,6 +283,15 @@ module public CFG =
             if cfg.dfsOut.ContainsKey offset then
                 let t1 = cfg.dfsOut.[offset]
                 cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
+            else false
+        else false
+
+    let hasSiblings (method : MethodBase) (offset : offset) =
+        if not method.IsAbstract then
+            let cfg = findCfg method
+            if cfg.sortedOffsets.BinarySearch(offset) >= 0 then
+                let parents = cfg.reverseGraph.[offset]
+                parents |> Seq.exists (fun parent -> cfg.graph.[parent].Count > 1)
             else false
         else false
 

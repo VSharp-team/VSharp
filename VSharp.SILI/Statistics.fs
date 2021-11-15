@@ -31,10 +31,10 @@ type public SILIStatistics() =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
-        if isNull <| codeLocation.method.GetMethodBody() then false
-        else
+        if not codeLocation.method.IsAbstract then
             let cfg = CFG.findCfg codeLocation.method
             cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        else false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
         let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
@@ -83,9 +83,10 @@ type public SILIStatistics() =
             let loc = { offset = offsetDistancePair.Key; method = method }
             let distance = offsetDistancePair.Value
             let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
-            let l = distance <> infinity && distance <> 0u
-            let r = not <| totalHistory.IsSupersetOf(history)
-            l && r)
+            let validDistance = distance <> infinity && distance <> 0u
+            let emptyHistory = totalHistory.Count = 0
+            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
+            validDistance && (emptyHistory || nontrivialHistory))
          |> Seq.tryHead
          |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         | None -> None
@@ -119,7 +120,7 @@ type public SILIStatistics() =
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
-        let visited = historyVisited s
+        let visited = history s
         match startLoc, currentLoc with
         | Some startLoc, Some currentLoc -> rememberForward startLoc currentLoc visited
         | _ -> ()

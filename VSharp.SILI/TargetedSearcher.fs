@@ -66,7 +66,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
             | None when inCoverageZone loc ->
-                    let localHistory = Seq.filter inCoverageZone (historyVisited state)
+                    let localHistory = Seq.filter inCoverageZone (history state)
                     match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
                     | None -> k None
                     | Some l -> Some l
@@ -76,29 +76,23 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
 type GuidedSearcher(maxBound, recursionBound : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
     let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
-    let cachedLevels = Dictionary<cilState, level>()
 
     let calculateTarget (state : cilState): codeLocation option =
         targetCalculator.CalculateTarget state
 
-    let cacheLevel (state : cilState) =
-        cachedLevels.[state] <- state.level
     let suspend (state : cilState) : unit =
-        cacheLevel state
         state.suspended <- true
     let resume (state : cilState) : unit =
         state.suspended <- false
     let violatesRecursionLevel s =
-        let cachedLevel = Dict.getValueOrUpdate cachedLevels s (fun () -> level.Empty())
         let startingLoc = startingLoc s
         let inCoverageZone loc = inCoverageZone coverageZone startingLoc loc
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
-        | Some currLoc when inCoverageZone currLoc->
+        | Some currLoc ->
             let onVertex = CFG.isVertex currLoc.method currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
-            let cachedLevel = if PersistentDict.contains currLoc cachedLevel then cachedLevel.[currLoc] else 0u
-            onVertex && level - cachedLevel > recursionBound
+            onVertex && level > recursionBound
         | _ -> false
 
     let mkTargetedSearcher target = TargetedSearcher(maxBound, target)
@@ -127,10 +121,15 @@ type GuidedSearcher(maxBound, recursionBound : uint, baseSearcher : IForwardSear
 
         addedCilStates |> Seq.iter (fun kvpair ->
         let targetedSearcher = getTargetedSearcher kvpair.Key
-        match updateParentTargets with
-        | Some targets when targets.Contains kvpair.Key ->
-            targetedSearcher.Update (parent, kvpair.Value)
-        | _ -> targetedSearcher.Insert addedCilStates.[kvpair.Key])
+        let reachedStates  =
+            match updateParentTargets with
+            | Some targets when targets.Contains kvpair.Key ->
+            targetedSearcher.TargetedUpdate (parent, kvpair.Value)
+            | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
+        if not <| List.isEmpty reachedStates then
+            for state in targetedSearcher.ToSeq () do
+                removeTarget state kvpair.Key 
+            targetedSearchers.Remove kvpair.Key |> ignore)
 
     let insertInTargetedSearchers states =
         states
@@ -151,7 +150,6 @@ type GuidedSearcher(maxBound, recursionBound : uint, baseSearcher : IForwardSear
         match calculateTarget state with
         | Some target ->
             addTarget state target
-            cacheLevel state // TODO:: need level cashing after reaching target
             insertInTargetedSearchers [state]
         | None ->
             state.targets <- None

@@ -118,7 +118,7 @@ module internal CilStateOperations =
     let inCoverageZone coverageZone startingLoc loc =
         match coverageZone with
         | MethodZone -> loc.method = startingLoc.method
-        | ClassZone -> loc.method.DeclaringType= startingLoc.method.DeclaringType
+        | ClassZone -> loc.method.DeclaringType = startingLoc.method.DeclaringType
         | ModuleZone -> loc.method.Module = startingLoc.method.Module
 
     let startsFromMethodBeginning (s : cilState) =
@@ -170,9 +170,9 @@ module internal CilStateOperations =
 
     let addIntoHistory (cilState: cilState) k =
         let history = cilState.history
-        cilState.history <- Set.add k history
+        cilState.history<- Set.add k history
 
-    let historyVisited (cilState : cilState) =
+    let history (cilState : cilState) =
         seq cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------

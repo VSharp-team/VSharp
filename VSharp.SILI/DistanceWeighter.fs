@@ -48,14 +48,14 @@ type ShortestDistancetWeighter(target : codeLocation) =
          |> Seq.filter (fun kv -> callGraphDistanceToTarget.ContainsKey (snd kv.Value))
          |> Seq.choose (fun kv -> CFG.vertexOf currLoc.method kv.Key)
          |> Seq.map (fun vertex -> { offset = vertex; method = currLoc.method })
-        localWeight currLoc targets
+        localWeight currLoc targets |> Option.map ((+) 32u)
 
     let postTargetWeight currLoc =
         let localCFG = CFG.findCfg currLoc.method
         let targets =
             localCFG.retOffsets |> Seq.choose (CFG.vertexOf currLoc.method)
          |> Seq.map (fun offset -> { offset = offset; method = currLoc.method })
-        localWeight currLoc targets
+        localWeight currLoc targets |> Option.map ((+) 32u)
 
     interface IWeighter with
         override x.Weight(state) =

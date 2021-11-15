@@ -144,3 +144,4 @@ type WeightedSearcher(maxBound, weighter : IWeighter) =
 
     member x.Weighter = weighter
     member x.GetWeight state = DiscretePDF.tryGetWeight dpdf state
+    member x.ToSeq() = DiscretePDF.toSeq dpdf
