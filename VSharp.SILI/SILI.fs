@@ -41,7 +41,7 @@ type public SILI(options : SiliOptions) =
         | DFSMode -> DFSSearcher(options.bound) :> IForwardSearcher
         | GuidedMode ->
             let baseSearcher = DFSSearcher(options.bound) :> IForwardSearcher
-            GuidedSearcher(options.bound, options.recursionBound, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
+            GuidedSearcher(options.bound, options.threshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
 
     let searcher : IBidirectionalSearcher =
         match options.explorationMode with

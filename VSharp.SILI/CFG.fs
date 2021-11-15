@@ -209,10 +209,36 @@ module public CFG =
                         dist.[(i,j)] <- infinitySum dist.[i, k] dist.[k, j]
         dist
 
+    let sourcedDijkstraAlgo source (graph : genericGraph<'a>) =
+        let dist = Dictionary<'a, uint>()
+        dist.Add (source, 0u)
+        let queue = Queue<_>()
+        queue.Enqueue source
+        while not <| Seq.isEmpty queue do
+            let parent = queue.Dequeue()
+            for children in graph.[parent] do
+                if not <| dist.ContainsKey (children) then
+                    dist.Add (children, dist.[parent] + 1u)
+                    queue.Enqueue children
+        dist
+
+    let dijkstraAlgo nodes (graph : genericGraph<'a>) =
+        let dist = Dictionary<'a * 'a, uint>()
+        for i in nodes do
+            let iDist = sourcedDijkstraAlgo i graph
+            for kvpair in iDist do
+                dist.Add ((i, kvpair.Key), kvpair.Value)
+        dist
+
     let foydAlgoCFG cfg =
         let nodes = cfg.sortedOffsets
         let graph = cfg.graph
         floydAlgo nodes graph
+
+    let dijkstraAlgoCFG cfg =
+        let nodes = cfg.sortedOffsets
+        let graph = cfg.graph
+        dijkstraAlgo nodes graph
 
     let private build (methodBase : MethodBase) =
         let ilBytes = Instruction.getILBytes methodBase
@@ -227,31 +253,32 @@ module public CFG =
 
     let cfgs = Dictionary<MethodBase, cfgData>()
     let cfgFloyds = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
+    let cfgDijkstras = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
     let cfgDistanceFrom = Dictionary<cfgData, genericDistance<offset>>()
     let cfgDistanceTo = Dictionary<cfgData, genericDistance<offset>>()
 
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
 
-    let findDistance cfg = Dict.getValueOrUpdate cfgFloyds cfg (fun () -> foydAlgoCFG cfg)
+    let findDistance cfg = Dict.getValueOrUpdate cfgDijkstras cfg (fun () -> dijkstraAlgoCFG cfg)
 
     let findDistanceFrom cfg node =
         let cfgDist = Dict.getValueOrUpdate cfgDistanceFrom cfg (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = findDistance cfg
+        let dist = sourcedDijkstraAlgo node cfg.graph
         let distFromNode = Dictionary<offset, uint>()
         for i in dist do
-            if fst i.Key = node && i.Value <> infinity then
-                distFromNode.Add(snd i.Key, i.Value)
+            if i.Value <> infinity then
+                distFromNode.Add(i.Key, i.Value)
         distFromNode)
 
     let findDistanceTo cfg node =
         let cfgDist = Dict.getValueOrUpdate cfgDistanceTo cfg (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = findDistance cfg
+        let dist = sourcedDijkstraAlgo node cfg.reverseGraph
         let distToNode = Dictionary<offset, uint>()
         for i in dist do
-            if snd i.Key = node && i.Value <> infinity then
-                distToNode.Add(fst i.Key, i.Value)
+            if i.Value <> infinity then
+                distToNode.Add(i.Key, i.Value)
         distToNode)
 
     let vertexOf (method : MethodBase) (offset : offset) =
@@ -291,7 +318,8 @@ module public CFG =
             let cfg = findCfg method
             if cfg.sortedOffsets.BinarySearch(offset) >= 0 then
                 let parents = cfg.reverseGraph.[offset]
-                parents |> Seq.exists (fun parent -> cfg.graph.[parent].Count > 1)
+                parents |> Seq.exists (fun parent ->
+                cfg.graph.[parent].Count > 1)
             else false
         else false
 
@@ -308,6 +336,14 @@ module public CFG =
         methods.Add callee |> ignore
         addToDict methodsReachability caller callee
 
+    type callGraph =
+        {
+            graph : genericGraph<MethodBase>
+            reverseGraph : genericGraph<MethodBase>
+        }
+
+    let callGraphs = Dictionary<Assembly, callGraph>()
+    let callGraphDijkstras = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
     let callGraphFloyds = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
     let callGraphDistanceFrom = Dictionary<Assembly, genericDistance<MethodBase>>()
     let callGraphDistanceTo = Dictionary<Assembly, genericDistance<MethodBase>>()
@@ -334,6 +370,29 @@ module public CFG =
         dfs [] (List.ofSeq mq) entryMethod
         methods, methodsReachability
 
+    let private buildCallGraph (assembly : Assembly) (entryMethod : MethodBase) =
+        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
+        let graph = genericGraph<MethodBase>()
+        let reverseGraph = genericGraph<MethodBase>()
+        for i in methods do
+            graph.Add (i, List<_>())
+            reverseGraph.Add (i, List<_>())
+        for i in methodsReachability do
+            for j in i.Value do
+                graph.[i.Key].Add j
+                reverseGraph.[j].Add i.Key
+        { graph = graph; reverseGraph = reverseGraph }
+
+    let private findCallGraph (assembly : Assembly) (entryMethod : MethodBase) =
+        let callGraph = Dict.getValueOrUpdate callGraphs assembly (fun () -> buildCallGraph assembly entryMethod)
+        if not <| callGraph.graph.ContainsKey entryMethod then
+            let updateCallGraph = buildCallGraph assembly entryMethod
+            for i in updateCallGraph.graph do
+                callGraph.graph.TryAdd(i.Key, i.Value) |> ignore
+            for i in updateCallGraph.reverseGraph do
+                callGraph.reverseGraph.TryAdd(i.Key, i.Value) |> ignore
+        callGraph
+
     let private buildCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
         let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
         let callGraph = genericGraph<MethodBase>()
@@ -342,10 +401,10 @@ module public CFG =
         for i in methodsReachability do
             for j in i.Value do
                 callGraph.[i.Key].Add j
-        floydAlgo methods callGraph
+        dijkstraAlgo methods callGraph
 
     let findCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
-        let callGraphDist = Dict.getValueOrUpdate callGraphFloyds assembly (fun () -> buildCallGraphDistance assembly entryMethod)
+        let callGraphDist = Dict.getValueOrUpdate callGraphDijkstras assembly (fun () -> buildCallGraphDistance assembly entryMethod)
         if not <| callGraphDist.ContainsKey (entryMethod, entryMethod) then
             for i in buildCallGraphDistance assembly entryMethod do
                 callGraphDist.TryAdd(i.Key, i.Value) |> ignore
@@ -355,20 +414,22 @@ module public CFG =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let dist = findCallGraphDistance assembly method
+        let callGraph = findCallGraph assembly method
+        let dist = sourcedDijkstraAlgo method callGraph.graph
         let distFromNode = Dictionary<MethodBase, uint>()
         for i in dist do
-            if fst i.Key = method && i.Value <> infinity then
-                distFromNode.Add(snd i.Key, i.Value)
+            if i.Value <> infinity then
+                distFromNode.Add(i.Key, i.Value)
         distFromNode)
 
     let findCallGraphDistanceTo (method : MethodBase) =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let dist = findCallGraphDistance assembly method
+        let callGraph = findCallGraph assembly method
+        let dist = sourcedDijkstraAlgo method callGraph.reverseGraph
         let distToNode = Dictionary<MethodBase, uint>()
         for i in dist do
-            if snd i.Key = method && i.Value <> infinity then
-                distToNode.Add(fst i.Key, i.Value)
+            if i.Value <> infinity then
+                distToNode.Add(i.Key, i.Value)
         distToNode)

@@ -1,6 +1,5 @@
 namespace VSharp.Interpreter.IL
 
-open System
 open System.Collections.Generic
 
 open VSharp
@@ -34,6 +33,7 @@ type TargetedSearcher(maxBound, target) =
             base.Update (parent, newStates)
         else
             base.Insert newStates
+
         for state in Seq.append [parent] newStates do
             match x.GetWeight state with
             | None when not state.suspended ->
@@ -73,7 +73,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
             | _ -> k reachingLoc) None locStack id
 
 
-type GuidedSearcher(maxBound, recursionBound : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
+type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
     let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
 
@@ -92,7 +92,7 @@ type GuidedSearcher(maxBound, recursionBound : uint, baseSearcher : IForwardSear
         | Some currLoc ->
             let onVertex = CFG.isVertex currLoc.method currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
-            onVertex && level > recursionBound
+            onVertex && level > threshold
         | _ -> false
 
     let mkTargetedSearcher target = TargetedSearcher(maxBound, target)
