@@ -11,6 +11,7 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract Map : (term -> term) -> (symbolicType -> symbolicType) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
+    abstract SubTerms : seq<term>
 
 type regionSort =
     | HeapFieldSort of fieldId
@@ -63,6 +64,8 @@ type heapAddressKey =
             newReg, {address = mapTerm x.address}
         override x.IsUnion = isUnion x.address
         override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr}))
+        override x.SubTerms = Seq.singleton x.address
+        
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -84,6 +87,8 @@ type heapArrayIndexKey =
             reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; indices = List.map mapTerm x.indices}
         override x.IsUnion = isUnion x.address
         override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; indices = x.indices}))  // TODO: if x.indices is the union of concrete values, then unguard indices as well
+        override x.SubTerms = x.address :: x.indices |> List.toSeq
+        
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -108,6 +113,7 @@ type heapVectorIndexKey =
             reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; index = mapTerm x.index}
         override x.IsUnion = isUnion x.address
         override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; index = x.index}))  // TODO: if x.index is the union of concrete values, then unguard index as well
+        override x.SubTerms = [x.address; x.index] |> List.toSeq
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -134,6 +140,8 @@ type stackBufferIndexKey =
             match x.index.term with
             | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
             | _ -> [(True, x)]
+        override x.SubTerms = Seq.singleton x.index
+        
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -151,6 +159,8 @@ type symbolicTypeKey =
             reg.Map mapper, {typ = mapper x.typ}
         override x.IsUnion = false
         override x.Unguard = [(True, x)]
+        override x.SubTerms = Seq.empty
+        
     override x.ToString() = x.typ.ToString()
 
 type updateTreeKey<'key, 'value when 'key : equality> =

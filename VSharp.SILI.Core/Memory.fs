@@ -206,7 +206,11 @@ module internal Memory =
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
         {picker : regionPicker<'key, 'reg>; key : 'key; memoryObject : memoryRegion<'key, 'reg>; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms =
+                let addKeySubTerms _ (regionKey : updateTreeKey<'key, term>) acc =
+                    Seq.fold PersistentSet.add acc regionKey.key.SubTerms
+                RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
+                    |> PersistentSet.toSeq
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
             override x.IndependentWith otherSource =
