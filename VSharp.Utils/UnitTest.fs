@@ -19,6 +19,8 @@ type testInfo = {
     thisArg : obj
     args : obj array
     isError : bool
+    // TODO: move to TestRunner args?
+    resultCheck : bool
     expectedResult : obj
     throwsException : typeRepr
     classTypeParameters : typeRepr array
@@ -35,6 +37,7 @@ with
         args = null
         isError = false
         expectedResult = null
+        resultCheck = true
         classTypeParameters = Array.empty
         methodTypeParameters = Array.empty
         throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
@@ -78,6 +81,12 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         and set r =
             let t = typeof<testInfo>
             let p = t.GetProperty("expectedResult")
+            p.SetValue(info, r)
+    member x.ResultCheck
+        with get() = info.resultCheck
+        and set (r : bool) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("resultCheck")
             p.SetValue(info, r)
 
     member x.Exception

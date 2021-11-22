@@ -159,8 +159,11 @@ void StackFrame::setLoc(unsigned index, bool value)
 
 bool StackFrame::dup()
 {
-    bool concreteness = peek0();
-    push1(concreteness);
+    bool concreteness = pop1();
+    if (concreteness) {
+        push1(concreteness);
+        push1(concreteness);
+    }
     return concreteness;
 }
 

@@ -198,8 +198,7 @@ module public CFG =
     let private build (methodBase : MethodBase) =
         let methodBody = methodBase.GetMethodBody()
         assert (methodBody <> null)
-        let ilBytes = methodBody.GetILAsByteArray()
-        assert (ilBytes <> null)
+        let ilBytes = Instruction.getILBytes methodBase
         let interimData, cfgData = createData methodBase methodBody ilBytes
         let used = HashSet<offset>()
         dfsComponent methodBase interimData used ilBytes 0

@@ -58,7 +58,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         ThreadID result;
         HRESULT hr = corProfilerInfo->GetCurrentThreadID(&result);
         if (hr != S_OK) {
-            ERROR(tout << "getting current thread failed with HRESULT = " << hr);
+            ERROR(tout << "getting current thread failed with HRESULT = " << std::hex <<hr);
         }
         return result;
     };
@@ -415,7 +415,6 @@ bool corElementTypeIsPrimitive(CorElementType corElementType) {
     }
 }
 
-// TODO: union resolveType and serialize type in one function?
 // TODO: use tree of type and store it in the heap
 void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::vector<bool> &isArray, std::vector<std::pair<CorElementType, int>> &arrayTypes, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes)
 {
@@ -496,7 +495,7 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
     auto assemblyNamesSize = (INT32)assemblyNames.size();
     auto assemblySizesSize = (INT32)assemblySizes.size();
     assert(tokensSize == typeArgsCountSize && typeArgsCountSize == moduleSizesSize && moduleSizesSize == assemblySizesSize);
-    typeLength = isValidSize * sizeof(bool) + isArraySize * sizeof(bool) + arrayTypesSize * (sizeof(CorElementType) + sizeof(int)) + tokensSize * sizeof(mdTypeDef) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
+    typeLength = isValidSize * sizeof(BYTE) + isArraySize * sizeof(BYTE) + arrayTypesSize * (sizeof(BYTE) + sizeof(INT32)) + tokensSize * sizeof(INT32) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
     type = new char[typeLength];
     char *begin = type;
     auto moduleNamesPtr = (char *) moduleNames.data();
@@ -505,18 +504,18 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
     int validObjectIndex = 0;
     int tokenIndex = 0;
     for (bool valid: isValid) {
-        auto checkValidPtr = (bool *)type;
-        *checkValidPtr = valid; type += sizeof(bool);
-        if (valid) {
-            auto arrayCheckPtr = (bool *)type;
+        auto checkValidPtr = (BYTE *)type;
+        *checkValidPtr = (BYTE) valid; type += sizeof(BYTE);
+        if (valid) { // TODO: delete valid option! #do
+            auto arrayCheckPtr = (BYTE *)type;
             bool arrayCheck = isArray[validObjectIndex];
-            *arrayCheckPtr = arrayCheck; type += sizeof(bool);
+            *arrayCheckPtr = (BYTE) arrayCheck; type += sizeof(BYTE);
             if (arrayCheck) {
                 auto arrayType = arrayTypes[arrayTypeIndex];
-                auto corElemTypePtr = (char *)type;
-                *corElemTypePtr = (char) arrayType.first; type += sizeof(char);
-                auto rankPtr = (int *)type;
-                *rankPtr = arrayType.second; type += sizeof(int);
+                auto corElemTypePtr = (BYTE *)type;
+                *corElemTypePtr = (BYTE) arrayType.first; type += sizeof(BYTE);
+                auto rankPtr = (INT32 *)type;
+                *rankPtr = arrayType.second; type += sizeof(INT32);
                 arrayTypeIndex++;
             } else {
                 auto tokenPtr = (mdTypeDef *)type;
@@ -532,11 +531,13 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
                 *moduleSizePtr = moduleSize; type += sizeof(INT32);
                 memcpy(type, moduleNamesPtr, moduleSize); type += moduleSize; moduleNamesPtr += moduleSize;
 
-                auto typeArgsCountPtr = (int *)type;
+                auto typeArgsCountPtr = (INT32 *)type;
                 *typeArgsCountPtr = typeArgsCount[tokenIndex]; type += sizeof(INT32);
                 tokenIndex++;
             }
             validObjectIndex++;
+        } else {
+            FAIL_LOUD("Invalid!");
         }
     }
     assert(tokenIndex == tokensSize && validObjectIndex == isArraySize);

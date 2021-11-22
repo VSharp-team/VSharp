@@ -11,7 +11,7 @@ bool Protocol::readConfirmation() {
     char *buffer = new char[1];
     int bytesRead = m_communicator.read(buffer, 1);
     if (bytesRead != 1 || buffer[0] != Confirmation) {
-        ERROR(tout << "Communication with server: could not get the confirmation message. Instead read"
+        ERROR(tout << "Communication with server: could not get the confirmation message. Instead read "
                    << bytesRead << " bytes with message [";
               for (int i = 0; i < bytesRead; ++i) tout << buffer[i] << " ";
               tout << "].");
@@ -61,7 +61,15 @@ bool Protocol::readBuffer(char *&buffer, int &count) {
     }
     if (!writeConfirmation()) return false;
     buffer = new char[count];
-    int bytesRead = m_communicator.read(buffer, count);
+    char *bufferBeginning = buffer;
+    int bytesRead = 0;
+    while (bytesRead < count) {
+        int newBytesCount = m_communicator.read(buffer, count);
+        if (newBytesCount == 0) break;
+        bytesRead += newBytesCount;
+        buffer += bytesRead;
+    }
+    buffer = bufferBeginning;
     if (bytesRead != count) {
         ERROR(tout << "Communication with server: expected " << count << " bytes, but read " << bytesRead << " bytes");
         delete[] buffer;

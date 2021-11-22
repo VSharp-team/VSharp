@@ -16,7 +16,12 @@ type public SILI(options : SiliOptions) =
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
-    let interpreter = ILInterpreter()
+    let isConcolicMode =
+        match options.executionMode with
+        | ConcolicMode -> true
+        | SymbolicMode -> false
+    let interpreter = ILInterpreter(isConcolicMode)
+
     let mutable entryIP : ip = Exit null
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
@@ -88,7 +93,9 @@ type public SILI(options : SiliOptions) =
 
     member private x.FormInitialStates (method : MethodBase) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
-        interpreter.InitializeStatics cilState method.DeclaringType List.singleton
+        match options.executionMode with
+        | ConcolicMode -> List.singleton cilState
+        | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
         // TODO: update pobs when visiting new methods; use coverageZone
@@ -156,7 +163,6 @@ type public SILI(options : SiliOptions) =
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
-            __notImplemented'__ "Concolic mode"
             initialStates |> List.iter (fun initialState ->
                 let machine = ClientMachine(entryPoint, (fun _ -> ()), initialState)
                 if not <| machine.Spawn() then

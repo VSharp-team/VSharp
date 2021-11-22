@@ -9,23 +9,24 @@
 
 using namespace icsharp;
 
-#define FIFO_FILE "/tmp/concolic_fifo"
-
 int fd;
 
 bool reportError() {
     ERROR(tout << strerror(errno));
     return false;
 }
+
 bool Communicator::open() {
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) 
+    if (fd < 0)
         return reportError();
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, FIFO_FILE, sizeof(addr.sun_path)-1);
-    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) 
+    std::string pipeEnvVar = "CONCOLIC_PIPE";
+    auto pipeFile = getenv(pipeEnvVar.c_str());
+    strncpy(addr.sun_path, pipeFile, strlen(pipeFile));
+    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
         return reportError();
     return true;
 }

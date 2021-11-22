@@ -105,7 +105,8 @@ module internal InstructionsSet =
 
     // ------------------------------- Environment interaction -------------------------------
 
-    let rec internalCall (methodInfo : MethodInfo) (argsAndThis : term list) (s : state) (k : state list -> 'a) =
+    let rec internalCall (methodInfo : MethodInfo) (argsAndThis : term list) cilState k =
+        let s = cilState.state
         let parameters : obj [] =
             // Sometimes F# compiler merges tuple with the rest arguments!
             match methodInfo.GetParameters().Length with
@@ -126,13 +127,16 @@ module internal InstructionsSet =
                 Logger.trace "InternalCall got exception %s" e.Message
                 reraise()
 
-        let pushOnEvaluationStack (term : term, state : state) =
+        let pushOnEvaluationStack (term : term, cilState : cilState) =
             match term.term with
             | Nop -> ()
-            | _ -> state.evaluationStack <- EvaluationStack.Push term state.evaluationStack
+            | _ -> push term cilState
         match result with
-        | :? term as r -> pushOnEvaluationStack(r, s); k [s]
-        | :? ((term * state) list) as r -> List.iter pushOnEvaluationStack r; k (r |> List.unzip |> snd)
+        | :? term as r ->
+            let cilState = changeState cilState s
+            pushOnEvaluationStack(r, cilState); k [cilState]
+        | :? ((term * state) list) as r ->
+            r |> List.map (fun (t, s) -> let s' = changeState cilState s in pushOnEvaluationStack(t, s'); s') |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
     // ------------------------------- CIL instructions -------------------------------
@@ -536,7 +540,7 @@ module internal InstructionsSet =
 
 open InstructionsSet
 
-type internal ILInterpreter() as this =
+type internal ILInterpreter(isConcolicMode : bool) as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
         Map.ofList [
@@ -896,24 +900,30 @@ type internal ILInterpreter() as this =
             // [NOTE] else current method non method
             if currentMethod cilState = methodBase then
                 setCurrentIp (Exit methodBase) cilState
+                // [NOTE] in concolic case frame of internal call should be popped
+                if isConcolicMode then
+                    let states = x.MakeStep cilState
+                    assert(List.length states = 1)
+                    List.head states
+                else cilState
+            else cilState
         if Map.containsKey fullMethodName cilStateImplementations then
             let states = cilStateImplementations.[fullMethodName] cilState thisOption args
-            List.iter moveIpToExit states
-            k states
+            List.map moveIpToExit states |> k
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then
             let thisAndArguments = optCons args thisOption
             let moveIp states =
-                moveIpToExit cilState
-                List.map (changeState cilState) states |> k
-            internalCall Loader.FSharpImplementations.[fullMethodName] thisAndArguments cilState.state moveIp
+                List.map moveIpToExit states |> k
+            internalCall Loader.FSharpImplementations.[fullMethodName] thisAndArguments cilState moveIp
         elif Map.containsKey fullMethodName Loader.CSharpImplementations then
             x.InvokeCSharpImplementation cilState fullMethodName thisOption args |> k
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet methodBase then
             let cilStates = x.InvokeArrayGetOrSet cilState methodBase thisOption args
-            List.iter moveIpToExit cilStates
-            k cilStates
-        elif x.IsExternalMethod methodBase then internalfailf "new extern method: %s" fullMethodName
+            List.map moveIpToExit cilStates |> k
+        elif x.IsExternalMethod methodBase then
+            let stackTrace = Memory.StackTrace cilState.state.stack
+            internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif x.IsNotImplementedIntrinsic methodBase fullMethodName then internalfailf "new intrinsic method: %s" fullMethodName
         elif methodBase.GetMethodBody() <> null then cilState |> List.singleton |> k
         else internalfailf "non-extern method %s without body!" (Reflection.getFullMethodName methodBase)
@@ -1095,10 +1105,12 @@ type internal ILInterpreter() as this =
 
     member x.Call (cfg : cfg) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
-        x.InitializeStatics cilState calledMethod.DeclaringType (fun cilState ->
-        let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
-        x.InitFunctionFrameCIL cilState calledMethod this (Some args)
-        x.CommonCall calledMethod cilState id)
+        let getArgsAndCall cilState =
+            let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
+            x.InitFunctionFrameCIL cilState calledMethod this (Some args)
+            x.CommonCall calledMethod cilState id
+        if isConcolicMode then getArgsAndCall cilState
+        else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethodBase
         let call (cilState : cilState) k =

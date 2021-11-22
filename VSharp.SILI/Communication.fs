@@ -432,8 +432,7 @@ type commandForConcolic =
     | ReadMethodBody
     | ReadString
 
-type Communicator() =
-    let pipeFile = Path.GetTempPath() + "concolic_fifo" // TODO: use pid also
+type Communicator(pipeFile) =
 
     let confirmationByte = byte(0x55)
     let instrumentCommandByte = byte(0x56)
@@ -521,6 +520,9 @@ type Communicator() =
         let s = readString ()
         if s <> expectedMessage then
             fail "Communication with CLR: handshake failed: got %s instead of %s" s expectedMessage
+
+    override x.Finalize() =
+        server.Close()
 
     member private x.Deserialize<'a> (bytes : byte array, startIndex : int) =
         let result = Reflection.createObject typeof<'a> :?> 'a
@@ -651,7 +653,7 @@ type Communicator() =
                     let content = BitConverter.ToInt64(dynamicBytes, offset)
                     offset <- offset + sizeof<int64>
                     NumericOp(evalStackArgType, content)
-                | _ -> __unreachable__())
+                | _ -> internalfailf "unexpected evaluation stack argument type %O" evalStackArgType)
             let newAddresses = Array.init (int staticPart.newAddressesCount) (fun _ ->
                 let res = x.ToUIntPtr dynamicBytes offset in offset <- offset + IntPtr.Size; res)
             let newAddressesTypesLengths = Array.init (int staticPart.newAddressesCount) (fun _ ->
@@ -679,10 +681,11 @@ type Communicator() =
                             offset <- offset + sizeof<int>
                             let assemblySize = BitConverter.ToInt32(dynamicBytes, offset)
                             offset <- offset + sizeof<int>
-                            let assemblyBytes = dynamicBytes.[offset .. offset + assemblySize - 1]
+                            // NOTE: truncating null terminator
+                            let assemblyBytes = dynamicBytes.[offset .. offset + assemblySize - 3]
                             offset <- offset + assemblySize
                             let assemblyName = Encoding.Unicode.GetString(assemblyBytes)
-                            let assembly = System.Reflection.Assembly.Load(assemblyName)
+                            let assembly = Reflection.loadAssembly assemblyName
                             let moduleSize = BitConverter.ToInt32(dynamicBytes, offset)
                             offset <- offset + sizeof<int>
                             let moduleBytes = dynamicBytes.[offset .. offset + moduleSize - 1]
@@ -710,7 +713,6 @@ type Communicator() =
     member x.SendExecResponse ops lastPush (framesCount : int) =
         let mutable index = 0
         let writeFirstPart count =
-            let count = count + sizeof<int>
             let count =
                 match lastPush with
                 | Some _ -> count + 2
@@ -732,7 +734,7 @@ type Communicator() =
             let count = ops |> List.sumBy (fun (_, typ) ->
                 if Types.IsValueType typ then sizeof<int> + sizeof<int64>
                 else sizeof<int> + 2 * sizeof<int64>)
-            let bytes = writeFirstPart count
+            let bytes = writeFirstPart (count + sizeof<int>)
             let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), ops.Length) in assert success
             index <- index + sizeof<int>
             ops |> List.iter (fun (obj : obj, typ) ->
@@ -742,8 +744,9 @@ type Communicator() =
                             if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8, unbox obj
                             else evalStackArgType.OpI4, (unbox obj |> int64)
                         elif Types.IsReal typ then
-                            if Types.SizeOf typ = sizeof<double> then evalStackArgType.OpR8, (unbox obj |> int64)
-                            else evalStackArgType.OpR4, (unbox obj |> int64)
+                            if Types.SizeOf typ = sizeof<double> then
+                                evalStackArgType.OpR8, BitConverter.DoubleToInt64Bits (obj :?> double)
+                            else evalStackArgType.OpR4, BitConverter.DoubleToInt64Bits (obj :?> float |> double)
                         else
                             // TODO: support structs
                             __notImplemented__()

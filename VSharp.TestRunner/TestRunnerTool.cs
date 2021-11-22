@@ -118,7 +118,7 @@ namespace VSharp.TestRunner
                                     fi.Name, ex);
                                 return false;
                             }
-                            if (!CompareObjects(test.Expected, result))
+                            if (test.ResultCheck && !CompareObjects(test.Expected, result))
                             {
                                 // TODO: use NUnit?
                                 Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,

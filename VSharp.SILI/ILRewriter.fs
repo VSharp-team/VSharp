@@ -222,9 +222,9 @@ module private EvaluationStackTyper =
     let typeShiftOp (s : stackState) =
         // TODO: implement fully #do
         // See ECMA-335, sec. III.1.5, table III.6
-        let t1, s = Stack.pop s
+        let _, s = Stack.pop s
         let t2, s = Stack.pop s
-        Stack.push s t1
+        Stack.push s t2
 
 //    let REMOVE_ME (m : Reflection.MethodBase) (instr : ilInstr) =
 //        let instr, arg =
@@ -420,7 +420,7 @@ module private EvaluationStackTyper =
             | OpCodeValues.Ldobj -> Stack.push (Stack.drop 1 s) evaluationStackCellType.Struct
             | OpCodeValues.Ldstr -> Stack.push s evaluationStackCellType.Ref
             | OpCodeValues.Unbox -> Stack.push s evaluationStackCellType.I
-            | OpCodeValues.Throw -> Stack.drop 1 s
+            | OpCodeValues.Throw -> Stack.empty
 
             | OpCodeValues.Ldsfld ->
                 let fieldInfo = Reflection.resolveField m instr.Arg32
@@ -510,10 +510,7 @@ module private EvaluationStackTyper =
 //       Logger.trace "typer after: %O" res.Length
 //       res
 
-    let validate (m : Reflection.MethodBase) (startInstr : ilInstr) =
-        let emptyState = Stack.empty
-        assert(startInstr.stackState = None)
-        startInstr.stackState <- Some emptyState
+    let private createStackState (m : Reflection.MethodBase) (startInstr : ilInstr) =
         let q = System.Collections.Generic.Queue<ilInstr>()
         q.Enqueue(startInstr)
         while q.Count > 0 do
@@ -535,7 +532,7 @@ module private EvaluationStackTyper =
                         match instr.arg with
                         | Target tgt ->
                             [instr.next; tgt]
-                            | _ -> [instr.next]
+                        | _ -> [instr.next]
                 | SwitchArg -> [instr.next; instr.Target]
             next |> Seq.iter (fun nxt ->
                 match nxt.stackState with
@@ -545,11 +542,23 @@ module private EvaluationStackTyper =
                 | Some s' ->
                     nxt.stackState <- Some (mergeStackStates s s'))
 
+    let createBodyStackState (m : Reflection.MethodBase) (startInstr : ilInstr) =
+        assert(startInstr.stackState = None)
+        startInstr.stackState <- Some Stack.empty
+        createStackState m startInstr
+
+    let createEHStackState (m : Reflection.MethodBase) (flags : int) (startInstr : ilInstr) =
+        let catchFlags = LanguagePrimitives.EnumToValue System.Reflection.ExceptionHandlingClauseOptions.Clause
+        if flags = catchFlags then // NOTE: is catch
+            startInstr.stackState <- Some [evaluationStackCellType.Ref] // TODO: finially and filter! #do
+        else startInstr.stackState <- Some Stack.empty
+        createStackState m startInstr
+
 [<AllowNullLiteral>]
 type ILRewriter(body : rawMethodBody) =
     // If this line throws exception, we should improve resolving assemblies by names. Probably we should track assemblies from the directory of executed assembly
     let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
-    let code = body.il
+    let code = body.il // TODO: do we need to get il bytes? mb get them using m.GetMethodBody().GetAsILBytes()? (unify SILI getILBytes and import from concolic) #do
     let codeSize = Array.length code
     let mutable instrCount = 0u
     let mutable maxStackSize = body.properties.maxStackSize
@@ -586,11 +595,11 @@ type ILRewriter(body : rawMethodBody) =
                         | Arg64 a -> probes.AddressToString a
                         | Target t ->
                             match t.opcode with
-                            | OpCode op -> sprintf "(%d) %s" t.offset op.Name
+                            | OpCode op -> sprintf "(%x) %s" t.offset op.Name
                             | SwitchArg _ -> "<SwitchArg>"
                 op.Name, arg
             | SwitchArg -> "<SwitchArg>", ""
-        sprintf "[%d] %s %s" instr.offset opcode arg
+        sprintf "[%x] %s %s" instr.offset opcode arg
 
     member x.InstrEq instr1 instr2 =
         Microsoft.FSharp.Core.LanguagePrimitives.PhysicalEquality instr1 instr2
@@ -689,16 +698,8 @@ type ILRewriter(body : rawMethodBody) =
         let mutable offset = 0
         while offset < codeSize do
             let startOffset = offset
-            let opcode = int16 code.[offset]
-            offset <- offset + 1
-
-            let op =
-                if opcode = OpCodes.Prefix1.Value then
-                    if offset >= codeSize then invalidProgram "IL stream unexpectedly ended!"
-                    offset <- offset + 1
-                    Instruction.twoBytesOpCodes.[int code.[offset - 1]]
-                else
-                    Instruction.singleByteOpCodes.[int opcode]
+            let op = OpCodeOperations.getOpCode code offset
+            offset <- offset + op.Size
 
             let size =
                 match op.OperandType with
@@ -789,7 +790,7 @@ type ILRewriter(body : rawMethodBody) =
                         instr.arg <- Target <| x.InstrFromOffset offset
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
-        EvaluationStackTyper.validate m il.next
+        EvaluationStackTyper.createBodyStackState m il.next
         x.TraverseProgram (fun instr ->
             match instr.opcode with
             | OpCode op ->
@@ -818,12 +819,60 @@ type ILRewriter(body : rawMethodBody) =
                 | _ -> ()
             | _ -> ())
 
+    member private x.RecalculateOffsets() =
+        let mutable branch = false
+        let mutable tryAgain = true
+        let mutable offset = 0
+        while tryAgain do
+            offset <- 0
+            x.TraverseProgram (fun instr ->
+                instr.offset <- uint32 offset
+
+                match instr.opcode with
+                | OpCode op ->
+                    offset <- offset + op.Size
+                    match instr.arg with
+                    | NoArg -> ()
+                    | Arg8 _ -> offset <- offset + sizeof<int8>
+                    | Arg16 _ -> offset <- offset + sizeof<int16>
+                    | Arg32 _ -> offset <- offset + sizeof<int32>
+                    | Arg64 _ -> offset <- offset + sizeof<int64>
+                    | Target _ ->
+                        match op.OperandType with
+                        | OperandType.ShortInlineBrTarget -> offset <- offset + 1
+                        | OperandType.InlineBrTarget -> offset <- offset + 4
+                        | _ -> __unreachable__()
+                        branch <- true
+                | SwitchArg ->
+                    branch <- true
+                    offset <- offset + sizeof<int32>)
+
+            tryAgain <- false
+            if branch then
+                x.TraverseProgram (fun instr ->
+                    match instr.opcode, instr.arg with
+                    | OpCode op, Target tgt when op.OperandType = OperandType.ShortInlineBrTarget ->
+                        let delta = int tgt.offset - int instr.next.offset
+                        if delta < int SByte.MinValue || delta > int SByte.MaxValue then
+                            if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
+                            else
+                                assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
+                                let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
+                                assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
+                                instr.opcode <- OpCode op
+                            tryAgain <- true
+                    | _ -> ())
+        uint32 offset
+
     member private x.ImportEH() =
         let parseEH (raw : rawExceptionHandler) = {
             flags = raw.flags
             tryBegin = x.InstrFromOffset <| int raw.tryOffset
             tryEnd = x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)
-            handlerBegin = x.InstrFromOffset <| int raw.handlerOffset
+            handlerBegin =
+                let start = x.InstrFromOffset <| int raw.handlerOffset
+                EvaluationStackTyper.createEHStackState m raw.flags start
+                start
             handlerEnd = (x.InstrFromOffset <| int (raw.handlerOffset + raw.handlerLength)).prev
             matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else Filter (x.InstrFromOffset <| int raw.matcher)
         }
@@ -831,7 +880,8 @@ type ILRewriter(body : rawMethodBody) =
 
     member x.Import() =
         x.ImportIL()
-        x.ImportEH()
+        x.ImportEH() // TODO: replaceBranchAlias in eh! #do
+        x.RecalculateOffsets() |> ignore
         maxStackSize <- body.properties.maxStackSize
 
     member x.Export() =
@@ -909,7 +959,7 @@ type ILRewriter(body : rawMethodBody) =
                                     if op = OpCodes.Leave_S then instr.opcode <- OpCode OpCodes.Leave
                                     else
                                         assert(op.Value >= OpCodes.Br_S.Value && op.Value <= OpCodes.Blt_Un_S.Value)
-                                        let op = Instruction.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
+                                        let op = OpCodeOperations.singleByteOpCodes.[op.Value - OpCodes.Br_S.Value + OpCodes.Br.Value |> int];
                                         assert(op.Value >= OpCodes.Br.Value && op.Value <= OpCodes.Blt_Un.Value)
                                         instr.opcode <- OpCode op
                                     tryAgain <- true

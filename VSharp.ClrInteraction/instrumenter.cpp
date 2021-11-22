@@ -233,7 +233,7 @@ HRESULT Instrumenter::importIL()
 
 HRESULT Instrumenter::importEH(const COR_ILMETHOD_SECT_EH* pILEH, unsigned nEH)
 {
-    assert(m_pEH == NULL);
+    assert(m_pEH == nullptr);
 
     m_nEH = nEH;
 

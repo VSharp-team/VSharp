@@ -18,6 +18,16 @@ module public Reflection =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
 
+    // ------------------------------- Assemblies -------------------------------
+
+    let loadAssembly (assemblyName : string) =
+        let assemblies = AppDomain.CurrentDomain.GetAssemblies()
+        let dynamicAssemblies = assemblies |> Array.filter (fun a -> a.IsDynamic)
+        let dynamicOption = dynamicAssemblies |> Array.tryFind (fun a -> a.FullName.Contains(assemblyName))
+        match dynamicOption with
+        | Some a -> a
+        | None -> Assembly.Load(assemblyName)
+
     // --------------------------- Metadata Resolving ---------------------------
 
     let resolveModule (assemblyName : string) (moduleName : string) =
@@ -166,6 +176,10 @@ module public Reflection =
         let genericArgs = Array.append mArgs tArgs
         let genericDefs = Array.append mParams tParams
         genericMethod, genericArgs, genericDefs
+
+    let fullGenericMethodName (methodBase : MethodBase) =
+        let genericMethod = generalizeMethodBase methodBase |> fst3
+        getFullMethodName genericMethod
 
     // --------------------------------- Concretization ---------------------------------
 

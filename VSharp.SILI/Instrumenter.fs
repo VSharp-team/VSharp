@@ -38,6 +38,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         dupInstr.arg <- arg
         x.rewriter.InsertAfter(afterInstr, dupInstr)
 
+    member private x.AppendNop (afterInstr : ilInstr) =
+        x.AppendInstr OpCodes.Nop NoArg afterInstr
+        afterInstr.next
+
     member private x.PrependDup(beforeInstr : ilInstr byref) = x.PrependInstr(OpCodes.Dup, NoArg, &beforeInstr)
     member private x.AppendDup afterInstr = x.AppendInstr OpCodes.Dup NoArg afterInstr
 
@@ -68,7 +72,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         result
 
     member private x.PrependProbeWithOffset(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, signature, beforeInstr : ilInstr byref) =
-        x.PrependProbe(methodAddress, List.append args [(OpCodes.Ldc_I4, beforeInstr.offset |> int32 |> Arg32)], signature, &beforeInstr)
+        x.PrependProbe(methodAddress, List.append args [(OpCodes.Ldc_I4, beforeInstr.offset |> int32 |> Arg32)], signature, &beforeInstr) // TODO: offset may be wrong?! #do
 
     member private x.AppendProbe(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, signature, afterInstr : ilInstr) =
         let mutable newInstr = afterInstr
@@ -235,6 +239,21 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             x.PrependProbeWithOffset(probes.leave, args, x.tokens.void_u1_offset_sig, &instr) |> ignore
 
     member x.MethodName with get() = x.m.Name
+
+    member private x.PrependLdcDefault(t : System.Type, instr : ilInstr byref) =
+        match t with
+        | _ when not t.IsValueType -> x.PrependInstr(OpCodes.Ldnull, NoArg, &instr)
+        | _ when t = typeof<int8> -> x.PrependInstr(OpCodes.Ldc_I4_0, NoArg, &instr)
+        | _ when t = typeof<uint8> -> x.PrependInstr(OpCodes.Ldc_I4_0,NoArg, &instr)
+        | _ when t = typeof<int16> -> x.PrependInstr(OpCodes.Ldc_I4_0, NoArg, &instr)
+        | _ when t = typeof<uint16> -> x.PrependInstr(OpCodes.Ldc_I4_0, NoArg, &instr)
+        | _ when t = typeof<int> -> x.PrependInstr(OpCodes.Ldc_I4_0, NoArg, &instr)
+        | _ when t = typeof<uint> -> x.PrependInstr(OpCodes.Ldc_I4_0, NoArg, &instr)
+        | _ when t = typeof<int64> -> x.PrependInstr(OpCodes.Ldc_I8, (Arg64 0L), &instr)
+        | _ when t = typeof<uint64> -> x.PrependInstr(OpCodes.Ldc_I8, (Arg64 0L), &instr)
+        | _ when t = typeof<single> -> x.PrependInstr(OpCodes.Ldc_R4, (Arg32 0), &instr)
+        | _ when t = typeof<double> -> x.PrependInstr(OpCodes.Ldc_R8, (Arg64 0L), &instr)
+        | _ -> __unreachable__()
 
     member private x.SizeOfIndirection = function
         | OpCodeValues.Ldind_I1
@@ -1031,6 +1050,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                     match instr.arg with
                     | Arg32 token ->
+                        // TODO: if method is F# internal call, instr.arg <- token of static ctor of type #do
+                        // TODO: if method is C# internal call, instr.arg <- token of C# implementation #do
                         let callee = Reflection.resolveMethod x.m token
                         let hasThis = callee.CallingConvention.HasFlag(CallingConventions.HasThis)
                         let argsCount = callee.GetParameters().Length
@@ -1043,25 +1064,36 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 let t = types.[i]
                                 unmems.Add(x.MemUnmemForType(t, argsCount - i - 1, i, &prependTarget))
                         | None -> internalfail "unexpected stack state"
-                        for i = argsCount - 1 downto 0 do
-                            let probe, token = unmems.[i]
-                            x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
                         let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                         x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                        let isInternalCall = Map.containsKey (Reflection.fullGenericMethodName callee) Loader.FSharpImplementations // TODO: add other cases
+                        if isInternalCall then
+                            x.PrependLdcDefault(Reflection.getMethodReturnType callee, &instr)
+                        let br = x.PrependBranch(OpCodes.Br, &prependTarget)
+
+                        x.PrependInstr(OpCodes.Nop, NoArg, &prependTarget)
+                        let callStart = prependTarget.prev
+                        br_true.arg <- Target callStart
+                        for i = argsCount - 1 downto 0 do
+                            let probe, token = unmems.[i]
+                            x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
                         let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let args = [(OpCodes.Ldc_I4, Arg32 token)
                                     (OpCodes.Ldc_I4, Arg32 expectedToken)
                                     (OpCodes.Ldc_I4, Arg32 (if opcodeValue = OpCodeValues.Newobj then 1 else 0))
                                     (OpCodes.Ldc_I4, Arg32 argsCount)]
-                        let pushFrame = x.PrependProbeWithOffset(probes.pushFrame, args, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget)
-                        br_true.arg <- Target pushFrame
+                        x.PrependProbeWithOffset(probes.pushFrame, args, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
                         if opcodeValue = OpCodeValues.Newobj then
                             x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr)
                             x.AppendInstr OpCodes.Conv_I NoArg instr
                             x.AppendDup(instr)
                         let returnValues = if Reflection.hasNonVoidResult callee then 1 else 0
+                        let nop = x.AppendNop instr
                         x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
+
+                        if isInternalCall then br.arg <- Target nop
+                        else br.arg <- Target callStart
                     | _ -> __unreachable__()
                 | OpCodeValues.Calli -> __notImplemented__()
 

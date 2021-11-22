@@ -17,7 +17,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
     let pathToClient = "libicsharpConcolic" + extension
-    let tempTest = Path.GetTempPath() + "start.vst" // TODO: use unique id
+    let tempTest (id : int) = Path.GetTempPath() + "start" + id.ToString() + ".vst"
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
@@ -53,13 +53,16 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif Types.IsArrayType t then CSharpUtils.LayoutUtils.ArrayElementsOffset
         else 0
 
+    static let mutable id = 0
+
     let mutable mainReached = false
     let mutable poppedSymbolics : list<_> = List.Empty
-    let environment (method : MethodBase) =
+    let environment (method : MethodBase) pipeFile =
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
         result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- Directory.GetCurrentDirectory() + "/" + pathToClient
+        result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipeFile
         result.WorkingDirectory <- Directory.GetCurrentDirectory()
         result.FileName <- "dotnet"
         result.UseShellExecute <- false
@@ -69,17 +72,20 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             result.Arguments <- method.Module.Assembly.Location
         else
             let runnerPath = "./VSharp.TestRunner.dll"
-            result.Arguments <- runnerPath + " " + tempTest
+            result.Arguments <- runnerPath + " " + (tempTest id)
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
         assert(entryPoint <> null)
         let test = UnitTest(entryPoint)
-        test.Serialize(tempTest)
-        let env = environment entryPoint
-        x.communicator <- new Communicator()
+        test.Serialize(tempTest id)
+
+        let pipeFile = sprintf "%sconcolic_fifo_%d" (Path.GetTempPath()) id
+        let env = environment entryPoint pipeFile
         let proc = Process.Start env
+        x.communicator <- new Communicator(pipeFile)
+        id <- id + 1
         proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
         proc.ErrorDataReceived.Add <| fun args -> Logger.trace "CONCOLIC ERROR: %s" args.Data
         proc.BeginOutputReadLine()
@@ -95,7 +101,6 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
         assert(Memory.CallStackSize cilState.state > 0)
         let initFrame state token =
-            // TODO: can topMethod be from another module? (mb it's iterative (frame over frame)) #do
             let topMethod = Memory.GetCurrentExploringFunction state
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame state method
@@ -114,7 +119,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | evalStackArgType.OpI4 ->
                     Concrete (int content) TypeUtils.int32Type
                 | evalStackArgType.OpI8 ->
-                    Concrete content TypeUtils.int32Type
+                    Concrete content TypeUtils.int64Type
                 | evalStackArgType.OpR4 ->
                     Concrete (BitConverter.Int32BitsToSingle (int content)) TypeUtils.float32Type
                 | evalStackArgType.OpR8 ->
