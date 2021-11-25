@@ -209,8 +209,11 @@ module internal Memory =
             override x.SubTerms =
                 let addKeySubTerms _ (regionKey : updateTreeKey<'key, term>) acc =
                     Seq.fold PersistentSet.add acc regionKey.key.SubTerms
-                RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
+                let subterms =
+                    RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
                     |> PersistentSet.toSeq
+                    |> Seq.append x.key.SubTerms
+                subterms
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
             override x.IndependentWith otherSource =
@@ -661,7 +664,8 @@ module internal Memory =
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         let keepIndependentWith pc cond =
-            PC.fragments pc
+            let fragments = PC.fragments pc
+            fragments
             |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
             |> function
                 | Some(fragment) -> fragment

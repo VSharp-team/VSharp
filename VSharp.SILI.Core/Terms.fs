@@ -649,6 +649,10 @@ module internal Terms =
             doFold folder state indent
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state |> foldSeq folder vs
+        | Slice(t1, t2, t3, t4) ->
+            foldSeq folder [t1; t2; t3; t4] state
+        | Union(terms) ->
+            foldSeq folder (List.unzip terms |> (fun (l1, l2) -> List.append l1 l2)) state
         | _ -> state
 
     and doFold folder state term =
