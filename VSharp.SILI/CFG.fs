@@ -222,6 +222,26 @@ module public CFG =
                     queue.Enqueue children
         dist
 
+    let incrementalSourcedDijkstraAlgo source (graph : genericGraph<'a>) (allPairDist : Dictionary<'a, Dictionary<'a, uint>>) =
+        let dist = Dictionary<'a, uint>()
+        dist.Add (source, 0u)
+        let queue = Queue<_>()
+        queue.Enqueue source
+        while not <| Seq.isEmpty queue do
+            let parent = queue.Dequeue()
+            if allPairDist.ContainsKey parent then
+                for parentDist in allPairDist.[parent] do
+                    if not <| dist.ContainsKey parentDist.Key then
+                        dist.Add (parentDist.Key, dist.[parent] + parentDist.Value)
+            else
+                for children in graph.[parent] do
+                    if dist.ContainsKey children && dist.[parent] + 1u < dist.[children] then
+                        dist.Remove children |> ignore
+                    if not <| dist.ContainsKey children then
+                        dist.Add (children, dist.[parent] + 1u)
+                        queue.Enqueue children
+        dist
+
     let dijkstraAlgo nodes (graph : genericGraph<'a>) =
         let dist = Dictionary<'a * 'a, uint>()
         for i in nodes do
@@ -264,7 +284,7 @@ module public CFG =
     let findDistanceFrom cfg node =
         let cfgDist = Dict.getValueOrUpdate cfgDistanceFrom cfg (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = sourcedDijkstraAlgo node cfg.graph
+        let dist = incrementalSourcedDijkstraAlgo node cfg.graph cfgDist
         let distFromNode = Dictionary<offset, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -274,7 +294,7 @@ module public CFG =
     let findDistanceTo cfg node =
         let cfgDist = Dict.getValueOrUpdate cfgDistanceTo cfg (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = sourcedDijkstraAlgo node cfg.reverseGraph
+        let dist = incrementalSourcedDijkstraAlgo node cfg.reverseGraph cfgDist
         let distToNode = Dictionary<offset, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -415,7 +435,7 @@ module public CFG =
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
         let callGraph = findCallGraph assembly method
-        let dist = sourcedDijkstraAlgo method callGraph.graph
+        let dist = incrementalSourcedDijkstraAlgo method callGraph.graph callGraphDist
         let distFromNode = Dictionary<MethodBase, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -427,7 +447,7 @@ module public CFG =
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
         let callGraph = findCallGraph assembly method
-        let dist = sourcedDijkstraAlgo method callGraph.reverseGraph
+        let dist = incrementalSourcedDijkstraAlgo method callGraph.reverseGraph callGraphDist
         let distToNode = Dictionary<MethodBase, uint>()
         for i in dist do
             if i.Value <> infinity then
