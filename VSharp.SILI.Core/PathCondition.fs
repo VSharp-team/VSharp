@@ -93,29 +93,29 @@ module internal PC =
     /// one path condition are independent with constants contained in another one 
     /// </summary>
     let public fragments pc =
+        let groupConditionsByUnionFindParent groups cond constant =
+            let parent =
+                constant
+                |> function
+                    | Some(someConst) -> PersistentUnionFind.tryFind someConst pc.constants
+                    | None -> None
+            let updatedGroup =
+                PersistentDict.tryFind groups parent
+                |> function
+                    | Some(condSet) -> PersistentSet.add condSet cond
+                    | None -> PersistentSet.add PersistentSet.empty cond
+            PersistentDict.add parent updatedGroup groups
+        
+        let conditionsGroupToPathCondition (parent, conds) =
+            let fragmentConstants =
+                match parent with
+                | Some(parent) -> PersistentUnionFind.subset parent pc.constants
+                | None -> PersistentUnionFind.empty
+            let fragmentConditionsWithConstants =
+                PersistentSet.fold (fun dict cond -> PersistentDict.add cond parent dict) PersistentDict.empty conds
+            {constants = fragmentConstants; conditionsWithConstants = fragmentConditionsWithConstants}
+        
         pc.conditionsWithConstants
-        |> PersistentDict.fold
-            (fun groups cond constant ->
-                let parent =
-                    constant
-                    |> function
-                        | Some(someConst) -> PersistentUnionFind.tryFind someConst pc.constants
-                        | None -> None
-                let updatedGroup =
-                    PersistentDict.tryFind groups parent
-                    |> function
-                        | Some(condSet) -> PersistentSet.add condSet cond
-                        | None -> PersistentSet.add PersistentSet.empty cond
-                PersistentDict.add parent updatedGroup groups
-            ) PersistentDict.empty
+        |> PersistentDict.fold groupConditionsByUnionFindParent PersistentDict.empty
         |> PersistentDict.toSeq
-        |> Seq.map
-            (fun (parent, conds) ->
-                let fragmentConstants =
-                    match parent with
-                    | Some(parent) -> PersistentUnionFind.subset parent pc.constants
-                    | None -> PersistentUnionFind.empty
-                let fragmentConditionsWithConstants =
-                    PersistentSet.fold (fun dict cond -> PersistentDict.add cond parent dict) PersistentDict.empty conds
-                {constants = fragmentConstants; conditionsWithConstants = fragmentConditionsWithConstants}
-            ) 
+        |> Seq.map conditionsGroupToPathCondition

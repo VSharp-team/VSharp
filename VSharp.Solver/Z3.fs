@@ -673,7 +673,6 @@ module internal Z3 =
             if (Memory.IsStackEmpty targetModel.state) then
                 Memory.NewStackFrame targetModel.state null List.empty
             
-            // Check that stack is not empty 
             stackEntries |> Seq.iter (fun kvp ->
                     let key = kvp.Key
                     let term = !kvp.Value
@@ -707,9 +706,7 @@ module internal Z3 =
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                                 HeapRef address t
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        // Seems that it's ok to use it with existing state
                         let states = Memory.WriteSafe targetModel.state (Ref address) value
-                        // And that also will be true?
                         assert(states.Length = 1 && states.[0] = targetModel.state)
                     elif arr.IsConst then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
@@ -717,7 +714,6 @@ module internal Z3 =
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
                 let constantValue = !kvp.Value
-                // Also ok?
                 Memory.FillRegion targetModel.state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
@@ -725,7 +721,6 @@ module internal Z3 =
                 let addr = kvp.Value
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr targetModel.state.allocatedTypes then
                     targetModel.state.allocatedTypes <- PersistentDict.add addr typ targetModel.state.allocatedTypes)
-            // Vector.time min of [encodingCache.lastSymbolicAddress - 1] and current starting time
             targetModel.state.startingTime <- VectorTime.min targetModel.state.startingTime [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()

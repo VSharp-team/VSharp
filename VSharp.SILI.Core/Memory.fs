@@ -210,11 +210,9 @@ module internal Memory =
             override x.SubTerms =
                 let addKeySubTerms _ (regionKey : updateTreeKey<'key, term>) acc =
                     Seq.fold PersistentSet.add acc regionKey.key.SubTerms
-                let subterms =
-                    RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
-                    |> PersistentSet.toSeq
-                    |> Seq.append x.key.SubTerms
-                subterms
+                RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
+                |> PersistentSet.toSeq
+                |> Seq.append x.key.SubTerms
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
             override x.IndependentWith otherSource =
@@ -664,13 +662,13 @@ module internal Memory =
         commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let keepIndependentWith pc cond =
-            let fragments = PC.fragments pc
-            fragments
+        // Returns PC containing only constraints dependent with cond
+        let keepDependentWith pc cond =
+            PC.fragments pc
             |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
             |> function
                 | Some(fragment) -> fragment
-                | None -> pc                
+                | None -> pc          
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
             thenBranch thenState (fun thenResult ->
@@ -680,9 +678,9 @@ module internal Memory =
         let negatedCondition = !!condition
         let thenPc = PC.add state.pc condition
         let elsePc = PC.add state.pc negatedCondition
-        let independentThenPc = keepIndependentWith thenPc condition
-        // Unnecessary
-        let independentElsePc = keepIndependentWith elsePc negatedCondition 
+        let independentThenPc = keepDependentWith thenPc condition
+        // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
+        let independentElsePc = keepDependentWith elsePc negatedCondition 
         if PC.isFalse independentThenPc then
             conditionState.pc <- elsePc
             elseBranch conditionState (List.singleton >> k)
@@ -713,11 +711,11 @@ module internal Memory =
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat model2 ->
+                | SolverInteraction.SmtSat model ->
                     conditionState.pc <- elsePc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
-                    elseState.model <- Some model2.mdl
+                    elseState.model <- Some model.mdl
                     thenState.pc <- thenPc
                     execution thenState elseState condition k)
 
