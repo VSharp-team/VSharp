@@ -1308,15 +1308,13 @@ namespace IntegrationTests
     {
         private Customerrr _customer;
 
-        // [TestSvm(100, 2)]
-        // // [Ignore("Hangs up")]
-        // public bool ListContainsOurCustomer(LinkedList<Customerrr> l)
-        // {
-        //     return l.Contains(_customer);
-        // }
+        [TestSvm(100, 2)]
+        public bool ListContainsOurCustomer(LinkedList<Customerrr> l)
+        {
+            return l.Contains(_customer);
+        }
 
-        [Ignore("")]
-        // [TestSvm]
+        [TestSvm(100, 3)]
         public bool ArrayContainsOurCustomer(Customerrr[] customers)
         {
             foreach (var other in customers)

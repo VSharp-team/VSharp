@@ -62,7 +62,7 @@ module internal TypeUtils =
     let (|Float|_|) t = if Terms.TypeOf t |> isFloatTermType then Some() else None
 
     module Char =
-        let Zero = MakeNumber '\000'
+        let Zero = MakeNumber Unchecked.defaultof<char>
     module Int8 =
         let Zero = MakeNumber 0y
     module UInt8 =

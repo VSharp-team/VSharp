@@ -71,7 +71,7 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder)
+        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null)
         {
             var maxBound = 15u;
             var options =
@@ -84,7 +84,7 @@ namespace VSharp
             {
                 if (method == method.Module.Assembly.EntryPoint)
                 {
-                    explorer.InterpretEntryPoint(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                    explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                         e => throw e);
                 }
                 else
@@ -144,56 +144,62 @@ namespace VSharp
         }
 
         /// <summary>
-        /// Generates test coverage for the specified assembly.
+        /// Generates test coverage for all public methods of all public classes in the specified assembly.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="allPublicMethods">If true, then the engine will try to generate tests for all public methods.
-        /// If false, the engine will try to generate tests starting from the entry point of assembly (assembly should contain Main method).
-        /// </param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>Summary of tests generation process.</returns>
-        /// <exception cref="ArgumentException">If allPublicMethods is true, then thrown if no public methods found in assembly.
-        /// Otherwise thrown if assembly does not contain entry point.
+        /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, bool allPublicMethods, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, string outputDirectory = "")
         {
             List<MethodBase> methods;
-            if (allPublicMethods)
+            BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
+                                        BindingFlags.DeclaredOnly;
+            methods = new List<MethodBase>();
+            foreach (var t in assembly.GetTypes())
             {
-                var entryPoint = assembly.EntryPoint;
-                if (entryPoint == null)
+                if (t.IsPublic)
                 {
-                    throw new ArgumentException("I've not found entry point in assembly");
-                }
-                methods = new List<MethodBase> { entryPoint };
-            }
-            else
-            {
-                BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
-                                            BindingFlags.DeclaredOnly;
-                methods = new List<MethodBase>();
-                foreach (var t in assembly.GetTypes())
-                {
-                    if (t.IsPublic)
+                    foreach (var m in t.GetMethods(bindingFlags))
                     {
-                        foreach (var m in t.GetMethods(bindingFlags))
-                        {
-                            methods.Add(m);
-                        }
+                        methods.Add(m);
                     }
                 }
+            }
 
-                if (methods.Count == 0)
-                {
-                    throw new ArgumentException("I've not found any public method in assembly");
-                }
+            if (methods.Count == 0)
+            {
+                throw new ArgumentException("I've not found any public method in assembly");
             }
 
             return StartExploration(methods, outputDirectory);
         }
 
         /// <summary>
-        /// Generates test coverage for the specified assembly and runs all tests.
+        /// Generates test coverage for the entry point of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">Assembly to be covered with tests.</param>
+        /// <param name="args">Command line arguments of entry point</param>
+        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <returns>Summary of tests generation process.</returns>
+        /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
+        /// </exception>
+        public static Statistics Cover(Assembly assembly, string[] args, string outputDirectory = "")
+        {
+            List<MethodBase> methods;
+            var entryPoint = assembly.EntryPoint;
+            if (entryPoint == null)
+            {
+                throw new ArgumentException("I've not found entry point in assembly");
+            }
+            methods = new List<MethodBase> { entryPoint };
+
+            return StartExploration(methods, outputDirectory, args);
+        }
+
+        /// <summary>
+        /// Generates test coverage for the specified method and runs all tests.
         /// </summary>
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
@@ -205,7 +211,7 @@ namespace VSharp
         }
 
         /// <summary>
-        /// Generates test coverage for the specified assembly and runs all tests.
+        /// Generates test coverage for the specified type and runs all tests.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
@@ -218,20 +224,30 @@ namespace VSharp
         }
 
         /// <summary>
-        /// Generates test coverage for the specified assembly and runs all tests.
+        /// Generates test coverage for all public methods of all public classes of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="allPublicMethods">If true, then the engine will try to generate tests for all public methods.
-        /// If false, the engine will try to generate tests starting from the entry point of assembly (assembly should contain Main method).
-        /// </param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        /// <exception cref="ArgumentException">If allPublicMethods is true, then thrown if no public methods found in assembly.
-        /// Otherwise thrown if assembly does not contain entry point.
+        /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(Assembly assembly, bool allPublicMethods, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, string outputDirectory = "")
         {
-            var stats = Cover(assembly, allPublicMethods, outputDirectory);
+            var stats = Cover(assembly, outputDirectory);
+            return Reproduce(stats.OutputDir);
+        }
+
+        /// <summary>
+        /// Generates test coverage for entry point of the specified assembly and runs all tests.
+        /// </summary>
+        /// <param name="assembly">Assembly to be covered with tests.</param>
+        /// <param name="args">Command line arguments of entry point</param>
+        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <returns>True if all generated tests have passed.</returns>
+        /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
+        public static bool CoverAndRun(Assembly assembly, string[] args, string outputDirectory = "")
+        {
+            var stats = Cover(assembly, args, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 

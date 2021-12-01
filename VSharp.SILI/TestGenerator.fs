@@ -149,7 +149,7 @@ module TestGenerator =
         // NOTE: irrelevant case, because exploring branch must be valid
         | SolverInteraction.SmtUnsat _ -> __unreachable__()
 
-    let model2test (test : UnitTest) isError hasException indices m model cilState =
+    let model2test (test : UnitTest) isError hasException indices m model cmdArgs cilState =
         match solveTypes m model cilState with
         | None -> None
         | Some(typesOfAddresses, classParams, methodParams) ->
@@ -160,10 +160,17 @@ module TestGenerator =
                 if t.IsValueType then
                     model.state.boxedLocations <- PersistentDict.add addr (t |> Types.FromDotNetType |> Memory.DefaultOf) model.state.boxedLocations)
 
-            m.GetParameters() |> Seq.iter (fun pi ->
-                let value = Memory.ReadArgument model.state pi |> model.Complete
-                let concreteValue : obj = term2obj model cilState.state indices test value
-                test.AddArg pi concreteValue)
+            let parametersInfo = m.GetParameters()
+            match cmdArgs with
+            | Some args ->
+                // NOTE: entry point with specified args case
+                assert(Array.length parametersInfo = 1)
+                test.AddArg (Array.head parametersInfo) args
+            | None ->
+                parametersInfo |> Seq.iter (fun pi ->
+                    let value = Memory.ReadArgument model.state pi |> model.Complete
+                    let concreteValue : obj = term2obj model cilState.state indices test value
+                    test.AddArg pi concreteValue)
 
             if Reflection.hasThis m then
                 let value = Memory.ReadThis model.state m |> model.Complete
@@ -175,7 +182,7 @@ module TestGenerator =
                 test.Expected <- term2obj model cilState.state indices test retVal
             Some test
 
-    let state2test isError (m : MethodBase) (cilState : cilState) =
+    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
         test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
@@ -190,7 +197,7 @@ module TestGenerator =
 
         match cilState.state.model with
         | Some model ->
-            model2test test isError hasException indices m model cilState
+            model2test test isError hasException indices m model cmdArgs cilState
         | None when cilState.state.pc = EmptyPathCondition ->
             // NOTE: case when no branches occured
             let emptyState = Memory.EmptyState()
@@ -209,9 +216,14 @@ module TestGenerator =
                     (ThisKey m, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
                 else parameters
             Memory.NewStackFrame emptyState m parametersAndThis
-            m.GetParameters() |> Seq.iter (fun pi ->
-                let defaultValue = TypeUtils.defaultOf pi.ParameterType
-                test.AddArg pi defaultValue)
+            let parametersInfo = m.GetParameters()
+            match cmdArgs with
+            | Some args ->
+                // NOTE: entry point with specified args case
+                assert(Array.length parametersInfo = 1)
+                test.AddArg (Array.head parametersInfo) args
+            | None ->
+                parametersInfo |> Seq.iter (fun pi -> test.AddArg pi (TypeUtils.defaultOf pi.ParameterType))
             let emptyModel = {subst = Dictionary<_,_>(); state = emptyState; complete = true}
             match solveTypes m emptyModel cilState with
             | None -> None
@@ -231,5 +243,5 @@ module TestGenerator =
             // NOTE: case when branch occured, but we have no model, so trying to get it
             match tryGetModel cilState.state with
             | Some model ->
-                model2test test isError hasException indices m model cilState
+                model2test test isError hasException indices m model cmdArgs cilState
             | None -> None
