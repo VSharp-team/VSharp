@@ -29,7 +29,7 @@ module internal PC =
          conditionsWithConstants = PersistentDict.add False None PersistentDict.empty}
        
     let public isFalse pc =
-        let isFalsePC = PersistentDict.contains False pc.conditionsWithConstants
+        let isFalsePC = pc.conditionsWithConstants |> PersistentDict.keys |> Seq.contains False 
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
             
