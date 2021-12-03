@@ -80,8 +80,8 @@ module internal PC =
         | False -> falsePC
         | _ when isFalse pc -> falsePC
         | _ when PersistentDict.contains !!cond pc.conditionsWithConstants -> falsePC
-        | _ -> addWithMerge pc cond            
-            
+        | _ -> addWithMerge pc cond
+        
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =
             let acc' = mapper cond |> add acc

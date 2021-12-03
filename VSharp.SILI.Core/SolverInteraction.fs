@@ -41,9 +41,8 @@ module public SolverInteraction =
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
         | Some s ->
-            let model =
-                match state.model with
-                | Some(m) -> m
-                | None -> { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
+            let model = 
+                state.model
+                |> Option.defaultValue { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
             s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""
