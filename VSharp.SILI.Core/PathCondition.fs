@@ -35,47 +35,52 @@ module internal PC =
             
     let private someSetElement = PersistentSet.toSeq >> Seq.tryHead
     
+    let private constSourcesIndependent =
+        function
+            | ConstantT(_, oneSrc, _), ConstantT(_, anotherSrc, _) -> oneSrc.IndependentWith anotherSrc
+            | _ -> true
+    
+    let private addWithMerge pc cond : pathCondition =
+        let condConsts = discoverConstants [cond] |> PersistentSet.ofSeq
+        
+        let pufWithNewConsts =
+            condConsts
+            |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind t pc.constants)
+            |> PersistentSet.fold PersistentUnionFind.add pc.constants
+            
+        // Merge sets of constants dependent in terms of ISymbolicConstantSource 
+        let pufMergedByConstantSource =
+            Seq.allPairs
+                (condConsts |> PersistentSet.toSeq)
+                (pc.constants |> PersistentUnionFind.toSeq)
+            |> Seq.filter (constSourcesIndependent >> not)
+            |> Seq.fold (fun puf (const1, const2) -> PersistentUnionFind.union const1 const2 puf) pufWithNewConsts
+            
+        (*
+            Merge sets of constants dependent in terms of reachability in graph where
+            edge between constants means that they are contained in the same condition
+        *) 
+        let pufMergedByDependentCondition =
+            condConsts
+            |> someSetElement
+            |> function
+                | Some(parent) ->
+                    PersistentSet.fold (fun puf t -> PersistentUnionFind.union t parent puf) pufMergedByConstantSource condConsts
+                | None -> pufMergedByConstantSource
+                
+        {constants = pufMergedByDependentCondition
+         conditionsWithConstants =
+             condConsts
+             |> someSetElement
+             |> (fun head -> PersistentDict.add cond head pc.conditionsWithConstants)}
+    
     let public add pc cond : pathCondition =
         match cond with
         | True -> pc
         | False -> falsePC
         | _ when isFalse pc -> falsePC
         | _ when PersistentDict.contains !!cond pc.conditionsWithConstants -> falsePC
-        | _ ->
-            let condConsts = discoverConstants [cond] |> PersistentSet.ofSeq
-            let pufWithNewConsts =
-                condConsts
-                |> PersistentSet.filter (fun t -> None = PersistentUnionFind.tryFind t pc.constants)
-                |> PersistentSet.fold PersistentUnionFind.add pc.constants
-            let constsWithSources =
-                Seq.map
-                    (function
-                    | ConstantT(_, src, _) as constant -> constant, src
-                    | _ -> __unreachable__()
-                    )
-            // Merge sets of constants dependent in terms of ISymbolicConstantSource 
-            let pufMergedByConstantSource =
-                Seq.allPairs
-                    (condConsts |> PersistentSet.toSeq |> constsWithSources)
-                    (pc.constants |> PersistentUnionFind.toSeq |> constsWithSources)
-                |> Seq.filter (fun ((_, src1), (_, src2)) -> not <| src1.IndependentWith src2)
-                |> Seq.fold (fun puf ((const1, _), (const2, _)) -> PersistentUnionFind.union const1 const2 puf) pufWithNewConsts
-            (*
-                Merge sets of constants dependent in terms of reachability in graph where
-                edge between constants means that they are contained in the same condition
-            *) 
-            let pufMergedByDependentCondition =
-                condConsts
-                |> someSetElement
-                |> function
-                    | Some(parent) ->
-                        PersistentSet.fold (fun puf t -> PersistentUnionFind.union t parent puf) pufMergedByConstantSource condConsts
-                    | None -> pufMergedByConstantSource
-            {constants = pufMergedByDependentCondition
-             conditionsWithConstants =
-                 condConsts
-                 |> someSetElement
-                 |> (fun head -> PersistentDict.add cond head pc.conditionsWithConstants)}
+        | _ -> addWithMerge pc cond            
             
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =
@@ -94,11 +99,7 @@ module internal PC =
     /// </summary>
     let public fragments pc =
         let groupConditionsByUnionFindParent groups cond constant =
-            let parent =
-                constant
-                |> function
-                    | Some(someConst) -> PersistentUnionFind.tryFind someConst pc.constants
-                    | None -> None
+            let parent = constant |> Option.bind (fun constant -> PersistentUnionFind.tryFind constant pc.constants)
             let updatedGroup =
                 PersistentDict.tryFind groups parent
                 |> function

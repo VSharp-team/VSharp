@@ -666,9 +666,7 @@ module internal Memory =
         let keepDependentWith pc cond =
             PC.fragments pc
             |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
-            |> function
-                | Some(fragment) -> fragment
-                | None -> pc          
+            |> Option.defaultValue pc
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
             thenBranch thenState (fun thenResult ->
