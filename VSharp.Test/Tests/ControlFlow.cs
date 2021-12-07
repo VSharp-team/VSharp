@@ -377,7 +377,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm(78)]
+        [TestSvm(78, 15)]
         public static int NestedForsHard(int x)
         {
             for (int i = 0; i < x; i++)

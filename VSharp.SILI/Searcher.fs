@@ -49,12 +49,6 @@ type IpStackComparer() =
             let res = (List.length x.ipStack).CompareTo(List.length y.ipStack)
             res
 
-type cilStateComparer(comparer) =
-    interface IComparer<cilState> with
-        override _.Compare(x : cilState, y : cilState) =
-            comparer x y
-
-
 [<AbstractClass>]
 type SimpleForwardSearcher(maxBound) =
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
@@ -90,12 +84,11 @@ type IWeighter =
     abstract member Weight : cilState -> uint option
     abstract member Next : unit -> uint
 
-type WeightedSearcher(maxBound, weighter : IWeighter) =
-    let dpdf = DiscretePDF(cilStateComparer(fun a b -> a.GetHashCode().CompareTo(b.GetHashCode())))
+type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState>) =
     let suspended = HashSet<cilState>()
     let modMax n =
-        if DiscretePDF.maxWeight dpdf = 0u then 0u
-        else n % DiscretePDF.maxWeight dpdf
+        if storage.MaxPriority = 0u then 0u
+        else n % storage.MaxPriority
     let isStopped s = isStopped s || violatesLevel s maxBound
     let optionWeight s =
         option {
@@ -108,29 +101,29 @@ type WeightedSearcher(maxBound, weighter : IWeighter) =
         let weight = optionWeight s
         match weight with
         | Some w ->
-            assert(not <| DiscretePDF.contains dpdf s)
-            DiscretePDF.insert dpdf s w
+            assert(not <| storage.Contains s)
+            storage.Insert s w
         | None -> ()
     let update s =
         let weight = optionWeight s
         match weight with
         | Some w ->
-            if suspended.Contains s || not <| DiscretePDF.contains dpdf s then
+            if suspended.Contains s || not <| storage.Contains s then
                 if suspended.Contains s then suspended.Remove s |> ignore
-                assert(not <| DiscretePDF.contains dpdf s)
-                DiscretePDF.insert dpdf s w
-            else DiscretePDF.update dpdf s w
+                assert(not <| storage.Contains s)
+                storage.Insert s w
+            else storage.Update s w
         | None ->
             if not <| suspended.Contains s then
-                assert(DiscretePDF.contains dpdf s)
-                DiscretePDF.remove dpdf s
+                assert(storage.Contains s)
+                storage.Remove s
 
     abstract member Insert : cilState seq -> unit
     default x.Insert states =
         Seq.iter add states
 
     member x.Pick() =
-        DiscretePDF.choose dpdf (modMax <| weighter.Next())
+        storage.Choose (modMax <| weighter.Next())
 
     abstract member Update : cilState * cilState seq -> unit
     default x.Update (parent, newStates) =
@@ -143,5 +136,8 @@ type WeightedSearcher(maxBound, weighter : IWeighter) =
         override x.Update (parent, newStates) = x.Update (parent, newStates)
 
     member x.Weighter = weighter
-    member x.GetWeight state = DiscretePDF.tryGetWeight dpdf state
-    member x.ToSeq() = DiscretePDF.toSeq dpdf
+    member x.TryGetWeight state = storage.TryGetPriority state
+    member x.ToSeq() = storage.ToSeq
+
+type SampledWeightedSearcher(maxBound, weighter : IWeighter) =
+    inherit WeightedSearcher(maxBound, weighter, DiscretePDF(CilStateOperations.mkCilStateHashComparer))

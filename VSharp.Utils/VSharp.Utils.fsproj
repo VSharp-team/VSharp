@@ -20,11 +20,12 @@
         <Compile Include="Logger.fs" />
         <Compile Include="WeakDictionary.fs" />
         <Compile Include="Prelude.fs" />
-        <Compile Include="DiscretePDF.fs" />
         <Compile Include="Collections.fs" />
         <Compile Include="MappedStack.fs" />
         <Compile Include="PersistentDictionary.fs" />
         <Compile Include="Cps.fs" />
+        <Compile Include="PriorityCollection.fs" />
+        <Compile Include="DiscretePDF.fs" />
         <Compile Include="TypeUtils.fs" />
         <Compile Include="Reflection.fs" />
         <Compile Include="Persistent.fs" />
@@ -33,8 +34,6 @@
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />
         <Compile Include="PrettyPrinting.fs" />
-        <Compile Include="PriorityQueue.fs" />
-        <Compile Include="FrontQueue.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />

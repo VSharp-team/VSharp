@@ -6,7 +6,7 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL.CilStateOperations
 
-type ShortestDistancetWeighter(target : codeLocation) =
+type ShortestDistanceWeighter(target : codeLocation) =
     let infinity = UInt32.MaxValue
     let handleInfinity n = if n = infinity then None else Some n
     let logarithmicScale weight =
@@ -62,10 +62,11 @@ type ShortestDistancetWeighter(target : codeLocation) =
             option {
                 let! currLoc = tryCurrentLoc state
                 let! callWeight = calculateCallWeight state
-                return!
+                let! weight =
                     match callWeight with
                     | 0u, _ -> targetWeight currLoc
                     | _, 0u -> preTargetWeight currLoc
                     | _ -> postTargetWeight currLoc
+                return weight * logarithmicScale state.stepsNumber
             }
         override x.Next() = 0u

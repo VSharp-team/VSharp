@@ -56,16 +56,17 @@ type public SILIStatistics() =
         let infinity = UInt32.MaxValue
         let method = currentLoc.method
         let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        let suitable offset distance =
+            let loc = { offset = offset; method = method }
+            let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
+            distance <> infinity && distance <> 0u && numberOfVisit = 0u
+
         match optVertex with
         | Some vertex ->
             let cfg = CFG.findCfg method
             CFG.findDistanceFrom cfg vertex
          |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-         |> Seq.filter (fun offsetDistancePair ->
-            let loc = { offset = offsetDistancePair.Key; method = method }
-            let distance = offsetDistancePair.Value
-            let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
-            distance <> infinity && distance <> 0u && numberOfVisit = 0u)
+         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
          |> Seq.tryHead
          |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         | None -> None
@@ -74,55 +75,57 @@ type public SILIStatistics() =
         let infinity = UInt32.MaxValue
         let method = currentLoc.method
         let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        let suitable offset distance =
+            let loc = { offset = offset; method = method }
+            let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
+            let validDistance = distance <> infinity && distance <> 0u
+            let emptyHistory = totalHistory.Count = 0
+            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
+            validDistance && (emptyHistory || nontrivialHistory)
+
         match optVertex with
         | Some vertex ->
             let cfg = CFG.findCfg method
             CFG.findDistanceFrom cfg vertex
          |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-         |> Seq.filter (fun offsetDistancePair ->
-            let loc = { offset = offsetDistancePair.Key; method = method }
-            let distance = offsetDistancePair.Value
-            let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
-            let validDistance = distance <> infinity && distance <> 0u
-            let emptyHistory = totalHistory.Count = 0
-            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
-            validDistance && (emptyHistory || nontrivialHistory))
+         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
          |> Seq.tryHead
          |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         | None -> None
 
     let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
         if isHeadOfBasicBlock current then
-            let mutable totalRef = ref 0u
-            if not <| totalVisited.TryGetValue(current, totalRef) then
-                totalRef <- ref 0u
-                totalVisited.Add(current, 0u)
-            totalVisited.[current] <- !totalRef + 1u
-
-            let mutable historyRef = ref null
-            if not <| visitedWithHistory.TryGetValue(current, historyRef) then
-                historyRef <- ref <| HashSet<_>()
-                visitedWithHistory.Add(current, !historyRef)
-            (!historyRef).UnionWith visited
-
             let mutable startRefDict = ref null
             if not <| startIp2currentIp.TryGetValue(start, startRefDict) then
                 startRefDict <- ref (Dictionary<codeLocation, uint>())
-                startIp2currentIp.Add(start, !startRefDict)
-            let startDict = !startRefDict
+                startIp2currentIp.Add(start, startRefDict.Value)
+            let startDict = startRefDict.Value
 
             let mutable currentRef = ref 0u
             if not <| startDict.TryGetValue(current, currentRef) then
                 currentRef <- ref 0u
                 startDict.Add(current, 0u)
-            startDict.[current] <- !currentRef + 1u
+            startDict.[current] <- currentRef.Value + 1u
+
+            let mutable totalRef = ref 0u
+            if not <| totalVisited.TryGetValue(current, totalRef) then
+                totalRef <- ref 0u
+                totalVisited.Add(current, 0u)
+            totalVisited.[current] <- totalRef.Value + 1u
+
+            let mutable historyRef = ref null
+            if not <| visitedWithHistory.TryGetValue(current, historyRef) then
+                historyRef <- ref <| HashSet<_>()
+                visitedWithHistory.Add(current, historyRef.Value)
+            (historyRef.Value).UnionWith visited
 
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
         let visited = history s
         match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc -> rememberForward startLoc currentLoc visited
+        | Some startLoc, Some currentLoc ->
+            rememberForward startLoc currentLoc visited
         | _ -> ()
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =

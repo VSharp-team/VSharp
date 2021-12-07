@@ -3,18 +3,19 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 
 open VSharp
+open VSharp.Utils
 open VSharp.Core
 open CilStateOperations
 
 type TargetedSearcher(maxBound, target) =
-    inherit WeightedSearcher(maxBound, ShortestDistancetWeighter(target))
+    inherit WeightedSearcher(maxBound, ShortestDistanceWeighter(target), BidictionaryPriorityQueue())
 
     let isStopped s = isStopped s || violatesLevel s maxBound
 
     override x.Insert states =
         base.Insert states
         for state in states do
-            match x.GetWeight state with
+            match x.TryGetWeight state with
             | None when not state.suspended ->
                 removeTarget state target
             | _ -> ()
@@ -35,7 +36,7 @@ type TargetedSearcher(maxBound, target) =
             base.Insert newStates
 
         for state in Seq.append [parent] newStates do
-            match x.GetWeight state with
+            match x.TryGetWeight state with
             | None when not state.suspended ->
                 removeTarget state target
             | _ -> ()
@@ -43,14 +44,14 @@ type TargetedSearcher(maxBound, target) =
     member x.TargetedInsert states : cilState list =
         x.Insert states
         states |> Seq.fold (fun reachedStates state ->
-        match x.GetWeight state with
+        match x.TryGetWeight state with
         | Some 0u -> state::reachedStates
         | _ -> reachedStates) []
 
     member x.TargetedUpdate (parent, newStates) =
         x.Update (parent, newStates)
         Seq.append [parent] newStates |> Seq.fold (fun reachedStates state ->
-        match x.GetWeight state with
+        match x.TryGetWeight state with
         | Some 0u -> state::reachedStates
         | _ -> reachedStates) []
 
@@ -76,6 +77,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
 type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
     let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
+    let reachedOrUnreachableTargets = HashSet<codeLocation> ()
 
     let calculateTarget (state : cilState): codeLocation option =
         targetCalculator.CalculateTarget state
@@ -101,6 +103,27 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
     let mutable index = 1
 
+    let insertInTargetedSearcher state target =
+        let targetedSearcher = getTargetedSearcher target
+        targetedSearcher.Insert [state] |> ignore
+
+    let addReturnTarget state =
+        let startingLoc = startingLoc state
+        let startingMethod = startingLoc.method
+        let cfg = CFG.findCfg startingMethod
+
+        for retOffset in cfg.retOffsets do
+            let target = {offset = retOffset; method = startingMethod}
+
+            match state.targets with
+            | Some targets ->
+                state.targets <- Some <| Set.add target targets
+                if not <| Set.contains target targets then
+                    insertInTargetedSearcher state target
+            | None ->
+                state.targets <-Some (Set.add target Set.empty)
+                insertInTargetedSearcher state target
+
     let updateTargetedSearchers parent (newStates : cilState seq) =
         let addedCilStates = Dictionary<codeLocation, cilState list>()
         let updateParentTargets = getTargets parent
@@ -121,15 +144,22 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
         addedCilStates |> Seq.iter (fun kvpair ->
         let targetedSearcher = getTargetedSearcher kvpair.Key
-        let reachedStates  =
+        let reachedStates =
             match updateParentTargets with
             | Some targets when targets.Contains kvpair.Key ->
             targetedSearcher.TargetedUpdate (parent, kvpair.Value)
             | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
+
         if not <| List.isEmpty reachedStates then
-            for state in targetedSearcher.ToSeq () do
-                removeTarget state kvpair.Key 
-            targetedSearchers.Remove kvpair.Key |> ignore)
+            reachedOrUnreachableTargets.Add kvpair.Key |> ignore
+            for state in reachedStates do
+                addReturnTarget state)
+
+    let deleteTargetedSearcher target =
+        let targetedSearcher = getTargetedSearcher target
+        for state in targetedSearcher.ToSeq () do
+            removeTarget state target
+        targetedSearchers.Remove target |> ignore
 
     let insertInTargetedSearchers states =
         states
@@ -138,8 +168,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             let! sTargets = getTargets state
             sTargets
          |> Seq.iter (fun target ->
-            let targetedSearcher = getTargetedSearcher target
-            targetedSearcher.Insert [state] |> ignore)
+            insertInTargetedSearcher state target)
         } |> ignore)
 
     let update parent newStates =
@@ -150,34 +179,38 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         match calculateTarget state with
         | Some target ->
             addTarget state target
-            insertInTargetedSearchers [state]
+            insertInTargetedSearcher state target
         | None ->
             state.targets <- None
             suspend state
 
-    let rec pick () =
-        let size = targetedSearchers.Count
-        index <- (index + 1) % (size + 1)
-        let pickFromBaseSearcher () =
-            option {
-                let! state = baseSearcher.Pick()
+    let rec pick' k =
+        let pickFromBaseSearcher k =
+            match baseSearcher.Pick() with
+            | Some state ->
                 match state.targets with
                 | None when violatesRecursionLevel state ->
                     setTargetOrSuspend state
-                    return! pick ()
-                | _ -> return state
-            }
-        let pickFromTargetedSearcher () =
+                    pick' k
+                | _ -> k <| Some state
+            | None -> k None
+        let pickFromTargetedSearcher k =
             let targetSearcher = targetedSearchers |> Seq.item index
-            let state = targetSearcher.Value.Pick()
-            if Option.isSome state then state
-            else
-                targetedSearchers.Remove targetSearcher.Key |> ignore
-                pick ()
+            let optState = targetSearcher.Value.Pick()
 
+            if Option.isNone optState then
+                reachedOrUnreachableTargets.Add targetSearcher.Key |> ignore
+            if reachedOrUnreachableTargets.Contains targetSearcher.Key then
+                deleteTargetedSearcher targetSearcher.Key
+            if Option.isSome optState then k <| optState else pick' k
+        let size = targetedSearchers.Count
+
+        index <- (index + 1) % (size + 1)
         if index <> size
-            then pickFromTargetedSearcher ()
-            else pickFromBaseSearcher ()
+            then pickFromTargetedSearcher k
+            else pickFromBaseSearcher k
+
+    let pick () = pick' id
 
     interface IForwardSearcher with
         override x.Init states =

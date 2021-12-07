@@ -14,11 +14,6 @@ type private node<'a when 'a : equality> =
       mutable SumWeight : uint
     }
 
-    member x.SetSum() =
-        let leftWeight = x.Left |> Option.map (fun n -> n.SumWeight) |> Option.defaultValue 0u
-        let rightWeight = x.Right |> Option.map (fun n -> n.SumWeight) |> Option.defaultValue 0u
-        x.SumWeight <- x.Weight + leftWeight + rightWeight
-
 type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     let less a b = comparer.Compare(a, b) = -1
     let mutable root = None : node<'a> option
@@ -31,7 +26,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
           Key = key
           Height = 1u
           Weight = weight
-          SumWeight = 0u
+          SumWeight = weight
         }
 
     let height nOpt =
@@ -135,7 +130,6 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
 
     let rec insert nOpt item weight =
         maxWeight <- max maxWeight weight
-        count <- count + 1u
         match nOpt with
         | Some n when n.Key = item -> nOpt
         | Some n ->
@@ -246,7 +240,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             return n.Weight
         }
 
-    member x.MaxWeight() = maxWeight
+    member x.MaxWeight = maxWeight
 
     member x.Update(item : 'a, weight) =
         let res = option {
@@ -272,15 +266,25 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             return! choose root scaledW
         }
 
-    member x.ToSeq() = enumerate root
+    member x.ToSeq = enumerate root
     member x.Count = count
+
+    interface IPriorityCollection<'a> with
+        override x.Insert item priority = x.Insert(item, priority)
+        override x.Remove item = x.Remove(item)
+        override x.Update item priority = x.Update(item, priority)
+        override x.Choose priority = x.Choose(priority)
+        override x.Contains item = x.Contains(item)
+        override x.TryGetPriority item = x.TryGetWeight(item)
+        override x.MaxPriority = x.MaxWeight
+        override x.ToSeq = x.ToSeq
 
 module public DiscretePDF =
     let insert (dpdf: DiscretePDF<'a>) item weight = dpdf.Insert(item, weight)
     let remove (dpdf: DiscretePDF<'a>) item = dpdf.Remove(item)
     let update (dpdf: DiscretePDF<'a>) item weight = dpdf.Update(item, weight)
     let choose (dpdf: DiscretePDF<'a>) weight = dpdf.Choose weight
-    let maxWeight (dpdf: DiscretePDF<'a>) = dpdf.MaxWeight()
+    let maxWeight (dpdf: DiscretePDF<'a>) = dpdf.MaxWeight
     let contains (dpdf: DiscretePDF<'a>) item = dpdf.Contains(item)
     let tryGetWeight (dpdf: DiscretePDF<'a>) item = dpdf.TryGetWeight item
-    let toSeq (dpdf: DiscretePDF<'a>) = dpdf.ToSeq ()
+    let toSeq (dpdf: DiscretePDF<'a>) = dpdf.ToSeq

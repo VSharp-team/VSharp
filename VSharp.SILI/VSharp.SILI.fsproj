@@ -32,9 +32,6 @@
         <Compile Include="DistanceWeighter.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
-        <Compile Include="RandomSearcher.fs" />
-        <Compile Include="StackTraceEstimator.fs" />
-        <Compile Include="StackTraceSearcher.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
         <Compile Include="TestGenerator.fs" />

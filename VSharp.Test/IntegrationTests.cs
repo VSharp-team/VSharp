@@ -49,7 +49,7 @@ namespace VSharp.Test
         //       if it wasn't mentioned -- dotCover will not be started
         //       if it was -- dotCover will be started
         private int? _expectedCoverage = null;
-        private uint _maxBoundForTest = 15u;
+        private uint _maxBoundForTest = UInt32.MaxValue;
         private uint _thresholdForTest = 0u;
         private bool _concolicMode = false;
 

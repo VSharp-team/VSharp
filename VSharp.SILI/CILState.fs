@@ -36,6 +36,11 @@ type cilState =
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 
+type cilStateComparer(comparer) =
+    interface IComparer<cilState> with
+        override _.Compare(x : cilState, y : cilState) =
+            comparer x y
+
 module internal CilStateOperations =
 
     let makeCilState curV initialEvaluationStackSize state =
@@ -55,6 +60,8 @@ module internal CilStateOperations =
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
+
+    let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
 
     let isIIEState (s : cilState) = Option.isSome s.iie
 
