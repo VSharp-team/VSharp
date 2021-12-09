@@ -194,7 +194,7 @@ module internal CilStateOperations =
 
     let pushNewObjForValueTypes (afterCall : cilState) =
         let ref = pop afterCall
-        let value = Memory.ReadSafe afterCall.state ref
+        let value = Memory.Read afterCall.state ref
         push value afterCall
 
     // ------------------------------- Helper functions for cilState -------------------------------

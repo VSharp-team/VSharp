@@ -15,4 +15,4 @@ module ByReference =
         assert(Array.length fields = 1)
         let field = Array.head fields |> fst
         let fieldRef = Memory.ReferenceField state this field
-        Memory.WriteSafe state fieldRef ref |> List.map (withFst Nop)
+        Memory.Write state fieldRef ref |> List.map (withFst Nop)

@@ -16,7 +16,7 @@ module Substitution =
         | ArrayLowerBound(addr, dim, (typ, d, isVector)) -> ArrayLowerBound(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
 
     let substitutePointerBase termSubst typeSubst = function
-        | HeapLocation loc -> HeapLocation (termSubst loc)
+        | HeapLocation(loc, typ) -> HeapLocation(termSubst loc, typeSubst typ)
         | StaticLocation loc -> StaticLocation (typeSubst loc)
         | StackLocation _ as sl -> sl
 

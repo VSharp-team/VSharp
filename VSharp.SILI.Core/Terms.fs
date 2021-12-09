@@ -176,7 +176,7 @@ and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of t
 
 and pointerBase =
     | StackLocation of stackKey
-    | HeapLocation of heapAddress // Null or virtual address
+    | HeapLocation of heapAddress * symbolicType // Null or virtual address * sight type of address
     | StaticLocation of symbolicType
     member x.Zone() =
         match x with
@@ -374,7 +374,11 @@ module internal Terms =
             | Vector -> (elementType, 1, true)
             | ConcreteDimension d -> (elementType, d, false)
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
-        | typ -> internalfailf "Expected array type, but got %O" typ
+        | typ -> internalfailf "symbolicTypeToArrayType: expected array type, but got %O" typ
+
+    let arrayTypeToSymbolicType (elemType, dim, isVector) =
+        if isVector then ArrayType(elemType, Vector)
+        else ArrayType(elemType, ConcreteDimension dim)
 
     let sizeOf term =
         let typ = typeOf term
@@ -454,7 +458,7 @@ module internal Terms =
         Concrete n (Numeric(Id(n.GetType())))
 
     let makeNullPtr typ =
-        Ptr (HeapLocation zeroAddress) typ (makeNumber 0)
+        Ptr (HeapLocation(zeroAddress, Null)) typ (makeNumber 0)
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
@@ -672,7 +676,7 @@ module internal Terms =
         | StackBufferIndex(_, idx) -> doFold folder state idx
 
     and foldPointerBase folder state = function
-        | HeapLocation heapAddress -> doFold folder state heapAddress
+        | HeapLocation(heapAddress, _) -> doFold folder state heapAddress
         | StackLocation _
         | StaticLocation _ -> state
 

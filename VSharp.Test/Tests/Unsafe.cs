@@ -591,6 +591,65 @@ namespace IntegrationTests
                 return true;
         }
 
+        public class ClassA
+        {
+            public int x;
+        }
+
+        public class ClassB
+        {
+            public int y;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs1()
+        {
+            var b = new ClassA();
+            var a = System.Runtime.CompilerServices.Unsafe.As<ClassA, ClassB>(ref b);
+            a.y = 10;
+            return b.x;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs2()
+        {
+            var b = new ClassA[]{ new ClassA(), new ClassA(), new ClassA() };
+            var a = System.Runtime.CompilerServices.Unsafe.As<ClassA[], ClassB[]>(ref b);
+            b[0].x = 42;
+            return a[0].y;
+        }
+
+        [TestSvm(75)]
+        public static int UnsafeAs3()
+        {
+            var b = new ClassA[]{ new ClassA(), new ClassA(), new ClassA() };
+            var a = System.Runtime.CompilerServices.Unsafe.As<ClassA[], ClassB[]>(ref b);
+            a[0] = new ClassB();
+            return 1;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs4(object o)
+        {
+            if (o is ClassA)
+            {
+                var a = o as ClassA;
+                a.x = 42;
+                var b = System.Runtime.CompilerServices.Unsafe.As<ClassA, ClassB>(ref a);
+                return b.y;
+            }
+
+            if (o is ClassB)
+            {
+                var b = o as ClassB;
+                b.y = 12;
+                var a = System.Runtime.CompilerServices.Unsafe.As<ClassB, ClassA>(ref b);
+                return a.x;
+            }
+            return 331;
+        }
+
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {

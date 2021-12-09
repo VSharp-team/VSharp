@@ -123,13 +123,13 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | PointerOp(baseAddress, offset) ->
                 // TODO: what about StackLocation and StaticLocation? #do
                 let address = ConcreteHeapAddress [int32 baseAddress]
+                let typ = TypeOfAddress cilState.state address
                 if offset = 0UL then
-                    let typ = TypeOfAddress cilState.state address
                     HeapRef address typ
                 else
                     let offset = int offset - metadataSizeOfAddress cilState.state address
                     let offset = Concrete offset Types.TLength
-                    Ptr (HeapLocation address) Void offset)
+                    Ptr (HeapLocation(address, typ)) Void offset)
         let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
         poppedSymbolics <- ps
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
@@ -171,7 +171,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 // TODO: fix style #style
                 let makeObjFromBaseAndOffset baseAddress offset =
                     match baseAddress, offset.term with
-                    | HeapLocation ({term = ConcreteHeapAddress [address]} as a), Concrete(offset, _) ->
+                    | HeapLocation({term = ConcreteHeapAddress [address]} as a, _), Concrete(offset, _) ->
                         (address, uint64 (offset :?> int + metadataSizeOfAddress cilState'.state a)) :> obj
                     // TODO: stack and statics location #do
                     | _ -> allConcrete <- false; null

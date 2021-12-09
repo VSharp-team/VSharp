@@ -543,8 +543,16 @@ module internal Z3 =
         member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
             let result = ref vectorTime.Empty
+            let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
+            let charArray = ArrayType(Types.Char, Vector)
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif encodingCache.heapAddresses.TryGetValue((typ, expr), result) then !result
+            elif checkAndGet (typ, expr) then result.Value
+            elif typ = Types.String && checkAndGet (charArray, expr) then
+                // NOTE: storing most concrete type for string
+                encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
+                encodingCache.heapAddresses.Add((typ, expr), result.Value)
+                result.Value
+            elif typ = charArray && checkAndGet (Types.String, expr) then result.Value
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
@@ -707,7 +715,7 @@ module internal Z3 =
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                                 HeapRef address t
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.WriteSafe state (Ref address) value
+                        let states = Memory.Write state (Ref address) value
                         assert(states.Length = 1 && states.[0] = state)
                     elif arr.IsConst then ()
                     else internalfailf "Unexpected array expression in model: %O" arr

@@ -154,10 +154,12 @@ module internal TypeCasting =
         | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
-        | Ptr(HeapLocation address, _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
+        | Ptr(HeapLocation(address, _), _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
         // CASE: pointer from concolic
         | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
-        | Ptr _, ByRef _ -> internalfailf "Casting nonnull ptr to ByRef type %O" targetType
+        | Ptr _, ByRef _ ->
+            Logger.trace "Casting nonnull ptr to ByRef type %O" targetType
+            term
         | Ref _, ByRef _ -> term
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
@@ -165,7 +167,12 @@ module internal TypeCasting =
         | Ref _, _ ->
             // TODO: can this happen? Ref points to primitive type!
             internalfailf "casting ref %O to type %O" term targetType
-        | HeapRef(addr, _), _ -> HeapRef addr targetType
+        | HeapRef(addr, sightType), _ when isAssignable sightType targetType || isAssignable targetType sightType ->
+            HeapRef addr targetType
+        | HeapRef _, _ ->
+            Logger.trace "unsafe cast in safe context: address %O, type %O" term targetType
+            term
+//            Ptr (HeapLocation addr) typ (makeNumber 0)
         | Struct _, _ -> internalfailf "Casting struct to %O" targetType
         | _ -> internalfailf "Can't cast %O to type %O" term targetType
 

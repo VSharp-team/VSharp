@@ -77,12 +77,12 @@ module TestGenerator =
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             let eval address =
-                address |> Ref |> Memory.ReadSafe model.state |> model.Complete |> term2obj model state indices test
+                address |> Ref |> Memory.Read model.state |> model.Complete |> term2obj model state indices test
             let typ = model.state.allocatedTypes.[addr]
             obj2test eval indices test addr typ
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let eval address =
-                address |> Ref |> Memory.ReadSafe state |> model.Eval |> term2obj model state indices test
+                address |> Ref |> Memory.Read state |> model.Eval |> term2obj model state indices test
             let typ = state.allocatedTypes.[addr]
             obj2test eval indices test addr typ
         | _ -> __notImplemented__()

@@ -161,7 +161,8 @@ module internal Memory =
         let locationType = typeOfHeapLocation state address
         if isAssignable locationType sightType then locationType
         else
-            assert(isAssignable sightType locationType)
+            if isAssignable sightType locationType |> not then
+                Logger.trace "mostConcreteTypeOfHeapRef: Sight type (%O) of address %O differs from type in heap (%O)" sightType address locationType
             sightType
 
     let baseTypeOfAddress state address =
@@ -387,6 +388,8 @@ module internal Memory =
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
             match tryTermToObj state value with
+            // field was not found in the structure, skipping it
+            | _ when fieldInfo = null -> k ()
             // field can be converted to obj, so continue
             | Some v -> fieldInfo.SetValue(structObj, v) |> k
             // field can not be converted to obj, so break and return None
@@ -402,7 +405,114 @@ module internal Memory =
         | _ when hasValue = False -> Some null
         | _ -> None
 
-// ------------------------------- Reading -------------------------------
+    // ------------------------------- Merging -------------------------------
+
+    let rec findCommonSuffix common pc1 pc2 =
+        match pc1, pc2 with
+        | [], [] -> [], [], common
+        | [], rest2 -> [], rest2, common
+        | rest1, [] -> rest1, [], common
+        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
+        | _ -> pc1, pc2, common
+
+    let private merge2StatesInternal state1 state2 =
+        if state1.stack <> state2.stack then None
+        else
+            // TODO: implement it! See InterpreterBase::interpret::merge
+            None
+
+    let merge2States state1 state2 =
+        match merge2StatesInternal state1 state2 with
+        | Some state -> [state]
+        | None -> [state1; state2]
+
+    let merge2Results (term1 : term, state1) (term2, state2) =
+        match merge2StatesInternal state1 state2 with
+        | Some _ -> __notImplemented__()
+        | None -> [(term1, state1); (term2, state2)]
+
+    let mergeStates states =
+        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
+        states
+
+    let mergeResults (results : (term * state) list) =
+        // TODO
+        results
+
+    let commonGuardedStatedApplyk f state term mergeResults k =
+        match term.term with
+        | Union gvs ->
+            let filterUnsat (g, v) k =
+                let pc = PC.add state.pc g
+                if PC.isFalse pc then k None
+                else Some (pc, v) |> k
+            Cps.List.choosek filterUnsat gvs (fun pcs ->
+            match pcs with
+            | [] -> k []
+            | (pc, v)::pcs ->
+                let copyState (pc, v) k = f (copy state pc) v k
+                Cps.List.mapk copyState pcs (fun results ->
+                    state.pc <- pc
+                    f state v (fun r ->
+                    r::results |> mergeResults |> k)))
+        | _ -> f state term (List.singleton >> k)
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
+    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
+
+    let guardedStatedMap mapper state term =
+        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
+
+    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let execution thenState elseState condition k =
+            assert (condition <> True && condition <> False)
+            thenBranch thenState (fun thenResult ->
+            elseBranch elseState (fun elseResult ->
+            merge2Results thenResult elseResult |> k))
+        conditionInvocation state (fun (condition, conditionState) ->
+        let thenPc = PC.add state.pc condition
+        let elsePc = PC.add state.pc (!!condition)
+        if PC.isFalse thenPc then
+            conditionState.pc <- elsePc
+            elseBranch conditionState (List.singleton >> k)
+        elif PC.isFalse elsePc then
+            conditionState.pc <- thenPc
+            thenBranch conditionState (List.singleton >> k)
+        else
+            conditionState.pc <- thenPc
+            match SolverInteraction.checkSat conditionState with
+            | SolverInteraction.SmtUnknown _ ->
+                conditionState.pc <- elsePc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    __insufficientInformation__ "Unable to witness branch"
+                | SolverInteraction.SmtSat model ->
+                    conditionState.model <- Some model.mdl
+                    elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtUnsat _ ->
+                conditionState.pc <- elsePc
+                elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtSat model ->
+                conditionState.pc <- elsePc
+                conditionState.model <- Some model.mdl
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- thenPc
+                    thenBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat model ->
+                    let thenState = conditionState
+                    let elseState = copy conditionState elsePc
+                    elseState.model <- Some model.mdl
+                    thenState.pc <- thenPc
+                    execution thenState elseState condition k)
+
+    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
+    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
+        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
+
+// ------------------------------- Safe reading -------------------------------
 
     let private accessRegion (dict : pdict<'a, memoryRegion<'key, 'reg>>) key typ =
         match PersistentDict.tryFind dict key with
@@ -568,134 +678,7 @@ module internal Memory =
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
-// --------------------------- General safe reading ---------------------------
-
-    // TODO: take type of heap address
-    let rec read state reference =
-        match reference.term with
-        | Ref address -> readSafe state address
-        | Ptr _ -> internalfailf "reading ptr %O from safe context" reference
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
-        | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
-
-    let isTypeInitialized state (typ : symbolicType) =
-        let key : symbolicTypeKey = {typ=typ}
-        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
-        match matchingTypes with
-        | [x] when x = key -> True
-        | _ ->
-            let name = sprintf "%O_initialized" typ
-            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
-            Constant name source Bool
-
-// ------------------------------- Merging -------------------------------
-
-    let rec findCommonSuffix common pc1 pc2 =
-        match pc1, pc2 with
-        | [], [] -> [], [], common
-        | [], rest2 -> [], rest2, common
-        | rest1, [] -> rest1, [], common
-        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
-        | _ -> pc1, pc2, common
-
-    let private merge2StatesInternal state1 state2 =
-        if state1.stack <> state2.stack then None
-        else
-            // TODO: implement it! See InterpreterBase::interpret::merge
-            None
-
-    let merge2States state1 state2 =
-        match merge2StatesInternal state1 state2 with
-        | Some state -> [state]
-        | None -> [state1; state2]
-
-    let merge2Results (term1 : term, state1) (term2, state2) =
-        match merge2StatesInternal state1 state2 with
-        | Some _ -> __notImplemented__()
-        | None -> [(term1, state1); (term2, state2)]
-
-    let mergeStates states =
-        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
-        states
-
-    let mergeResults (results : (term * state) list) =
-        // TODO
-        results
-
-    let commonGuardedStatedApplyk f state term mergeResults k =
-        match term.term with
-        | Union gvs ->
-            let filterUnsat (g, v) k =
-                let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
-                else Some (pc, v) |> k
-            Cps.List.choosek filterUnsat gvs (fun pcs ->
-            match pcs with
-            | [] -> k []
-            | (pc, v)::pcs ->
-                let copyState (pc, v) k = f (copy state pc) v k
-                Cps.List.mapk copyState pcs (fun results ->
-                    state.pc <- pc
-                    f state v (fun r ->
-                    r::results |> mergeResults |> k)))
-        | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
-    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
-
-    let guardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
-
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let execution thenState elseState condition k =
-            assert (condition <> True && condition <> False)
-            thenBranch thenState (fun thenResult ->
-            elseBranch elseState (fun elseResult ->
-            merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->
-        let thenPc = PC.add state.pc condition
-        let elsePc = PC.add state.pc (!!condition)
-        if PC.isFalse thenPc then
-            conditionState.pc <- elsePc
-            elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse elsePc then
-            conditionState.pc <- thenPc
-            thenBranch conditionState (List.singleton >> k)
-        else
-            conditionState.pc <- thenPc
-            match SolverInteraction.checkSat conditionState with
-            | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- elsePc
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    __insufficientInformation__ "Unable to witness branch"
-                | SolverInteraction.SmtSat model ->
-                    conditionState.model <- Some model.mdl
-                    elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtUnsat _ ->
-                conditionState.pc <- elsePc
-                elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat model ->
-                conditionState.pc <- elsePc
-                conditionState.model <- Some model.mdl
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    conditionState.pc <- thenPc
-                    thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat model ->
-                    let thenState = conditionState
-                    let elseState = copy conditionState elsePc
-                    elseState.model <- Some model.mdl
-                    thenState.pc <- thenPc
-                    execution thenState elseState condition k)
-
-    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
-    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
-        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
-
-    // ------------------------------- Unsafe reading -------------------------------
+// ------------------------------- Unsafe reading -------------------------------
 
     let private reportErrorIfNeed state reportError failCondition =
         commonStatedConditionalExecutionk state
@@ -727,7 +710,7 @@ module internal Memory =
         | Concrete _
         | Constant _
         | Expression _ -> Slice term startByte endByte startByte |> List.singleton
-        | _ -> __unreachable__()
+        | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
@@ -762,9 +745,9 @@ module internal Memory =
             let endByte = sub endByte fieldOffset
             fieldId, fieldValue, startByte, endByte
         match startByte.term, endByte.term with
-        | Concrete(:? int as o, _), Concrete(:? int as s, _) ->
+        | Concrete(:? int as s, _), Concrete(:? int as e, _) ->
             let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
+                if (e > fieldOffset && s < fieldOffset + fieldSize) then
                     getField field :: affectedFields
                 else affectedFields
             List.foldBack concreteGetField allFields List.empty
@@ -783,6 +766,12 @@ module internal Memory =
         let readField fieldId = readClassField state address fieldId
         readFieldsUnsafe state reportError readField false classType offset endByte
 
+    let arrayIndicesToOffset state address (elementType, dim, _ as arrayType) indices =
+        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
+        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
+        let linearIndex = linearizeArrayIndex lens lbs indices
+        mul linearIndex (sizeOf elementType |> makeNumber)
+
     let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset viewSize =
         let concreteElementSize = sizeOf elementType
         let elementSize = makeNumber concreteElementSize
@@ -794,7 +783,7 @@ module internal Memory =
         let elementOffset = rem offset elementSize
         let countToRead =
             match elementOffset.term with
-            | Concrete(:? int as i, _) when i = 0 -> (viewSize / concreteElementSize)
+            | Concrete(:? int as i, _) when (i + viewSize) % concreteElementSize = 0 -> (i + viewSize) / concreteElementSize
             // NOTE: if offset inside element > 0 then one more element is needed
             | _ -> (viewSize / concreteElementSize) + 1
         let getElement currentOffset i =
@@ -831,8 +820,8 @@ module internal Memory =
         let viewSize = sizeOf sightType
         let slices =
             match baseAddress with
-            | HeapLocation loc ->
-                let typ = typeOfHeapLocation state loc
+            | HeapLocation(loc, sightType) ->
+                let typ = mostConcreteTypeOfHeapRef state loc sightType
                 match typ with
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
@@ -843,11 +832,24 @@ module internal Memory =
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
         combine slices sightType
 
-    let rec readIndirection state reportError reference =
+// --------------------------- General reading ---------------------------
+
+    let isTypeInitialized state (typ : symbolicType) =
+        let key : symbolicTypeKey = {typ=typ}
+        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
+        match matchingTypes with
+        | [x] when x = key -> True
+        | _ ->
+            let name = sprintf "%O_initialized" typ
+            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
+            Constant name source Bool
+
+    // TODO: take type of heap address
+    let rec read state reportError reference =
         match reference.term with
         | Ref address -> readSafe state address
         | Ptr(baseAddress, sightType, offset) -> readUnsafe state reportError baseAddress offset sightType
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state reportError v)) |> Merging.merge
         | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
 // ------------------------------- Writing -------------------------------
@@ -1024,7 +1026,7 @@ module internal Memory =
                 let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte)
                 let right = Slice term (add startByte valueSize) termSize zero
                 combine ([left] @ valueSlices @ [right]) termType
-        | _ -> __unreachable__()
+        | _ -> internalfailf "writeTermUnsafe: unexpected term %O" term
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
@@ -1078,8 +1080,8 @@ module internal Memory =
     let private writeUnsafe state reportError baseAddress offset sightType value =
         assert(sightType = symbolicType.Void && isConcrete offset || sizeOf sightType = Terms.sizeOf value)
         match baseAddress with
-        | HeapLocation loc ->
-            let typ = typeOfHeapLocation state loc
+        | HeapLocation(loc, sightType) ->
+            let typ = mostConcreteTypeOfHeapRef state loc sightType
             match typ with
             | StringType -> writeStringUnsafe state reportError loc offset value
             | ClassType _ -> writeClassUnsafe state reportError loc typ offset value
@@ -1121,17 +1123,7 @@ module internal Memory =
         | ArrayLength(address, dimension, typ) -> writeLengthSymbolic state address dimension typ value
         | ArrayLowerBound(address, dimension, typ) -> writeLowerBoundSymbolic state address dimension typ value
 
-    let write state reference value =
-        guardedStatedMap
-            (fun state reference ->
-                match reference.term with
-                | Ref address -> writeSafe state address value
-                | Ptr _ -> internalfailf "writing by ptr %O from safe context" reference
-                | _ -> internalfailf "Writing: expected reference, but got %O" reference
-                state)
-            state reference
-
-    let writeIndirection state reportError reference value =
+    let write state reportError reference value =
         guardedStatedMap
             (fun state reference ->
                 match reference.term with

@@ -27,6 +27,9 @@ module API =
 
     val IsValid : state -> SolverInteraction.smtResult
 
+    val ConfigureErrorReporter : (state -> unit) -> unit
+    val ErrorReporter : unit -> (state -> unit)
+
     [<AutoOpen>]
     module Terms =
         val Nop : term
@@ -204,28 +207,26 @@ module API =
         val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> unit
         val NewTypeVariables : state -> (typeId * symbolicType) list -> unit
 
+        val ReferenceArrayIndex : state -> term -> term list -> symbolicType option -> term
         val ReferenceField : state -> term -> fieldId -> term
-        val ReferenceArrayIndex : term -> term list -> term
 
-        val ReadSafe : state -> term -> term
-        val ReadUnsafe : state -> (state -> unit) -> term -> term
+        val Read : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> MethodBase -> term
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
-        val ReadArrayIndex : state -> term -> term list -> term
+        val ReadArrayIndex : state -> term -> term list -> symbolicType option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> symbolicType -> fieldId -> term
         val ReadDelegate : state -> term -> term
 
         val InitializeArray : state -> term -> term -> unit
 
-        val WriteSafe : state -> term -> term -> state list
-        val WriteUnsafe : state -> (state -> unit) -> term -> term -> state list
+        val Write : state -> term -> term -> state list
         val WriteLocalVariable : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
-        val WriteArrayIndex : state -> term -> term list -> term -> state list
+        val WriteArrayIndex : state -> term -> term list -> term -> symbolicType option -> state list
         val WriteStaticField : state -> symbolicType -> fieldId -> term -> unit
 
         val DefaultOf : symbolicType -> term
