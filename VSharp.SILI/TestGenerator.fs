@@ -85,7 +85,10 @@ module TestGenerator =
                 address |> Ref |> Memory.Read state |> model.Eval |> term2obj model state indices test
             let typ = state.allocatedTypes.[addr]
             obj2test eval indices test addr typ
-        | _ -> __notImplemented__()
+        | Combined(terms, t) ->
+            let slices = List.map model.Eval terms
+            ReinterpretConcretes slices t
+        | term -> internalfailf "creating object from term: unexpected term %O" term
 
     let private solveTypes (m : MethodBase) (model : model) (cilState : cilState) =
         let typeOfAddress addr =

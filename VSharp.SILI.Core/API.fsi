@@ -39,6 +39,7 @@ module API =
         val Struct : pdict<fieldId, term> -> symbolicType -> term
         val Ref : address -> term
         val Ptr : pointerBase -> symbolicType -> term -> term
+        val Slice : term -> term -> term -> term -> term
         val HeapRef : heapAddress -> symbolicType -> term
         val Union : (term * term) list -> term
 
@@ -60,6 +61,8 @@ module API =
 
         val GetHashCode : term -> term
 
+        val ReinterpretConcretes : term list -> symbolicType -> obj
+
         val IsStruct : term -> bool
         val IsReference : term -> bool
         val IsPtr : term -> bool
@@ -67,6 +70,8 @@ module API =
         val IsNullReference : term -> term
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
+
+        val (|Combined|_|) : term -> (term list * symbolicType) option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option

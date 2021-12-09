@@ -649,6 +649,14 @@ namespace IntegrationTests
             return 331;
         }
 
+        [TestSvm]
+        public static long UnsafeAs5()
+        {
+            var b = new long[]{ 0, 1, 2 };
+            var a = System.Runtime.CompilerServices.Unsafe.As<long[], int[]>(ref b);
+            a[0] = 10;
+            return b[0];
+        }
 
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)

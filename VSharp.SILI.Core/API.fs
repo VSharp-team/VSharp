@@ -55,6 +55,7 @@ module API =
         let Struct fields typ = Struct fields typ
         let Ref address = Ref address
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
+        let Slice term first termSize pos = Slice term first termSize pos
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
@@ -94,7 +95,11 @@ module API =
 
         let GetHashCode term = Memory.getHashCode term
 
+        let ReinterpretConcretes terms t = reinterpretConcretes terms t
+
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
+
+        let (|Combined|_|) t = (|Combined|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
