@@ -458,15 +458,15 @@ module internal InstructionsSet =
         let m = cfg.methodBase
         let dst = unconditionalBranchTarget m offset
         let ehcs =
-            m.GetMethodBody().ExceptionHandlingClauses
+            getEHSBytes m
             |> Seq.filter isFinallyClause
             |> Seq.filter (shouldExecuteFinallyClause offset dst)
-            |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.HandlerOffset - ehc2.HandlerOffset)
+            |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.handlerOffset - ehc2.handlerOffset)
             |> List.ofSeq
         let currentIp =
             match ehcs with
             | [] -> Instruction(dst, m)
-            | e :: ehcs -> leave (Instruction(e.HandlerOffset, m)) ehcs dst m
+            | e :: ehcs -> leave (Instruction(e.handlerOffset, m)) ehcs dst m
         setCurrentIp currentIp cilState
     let rethrow (cilState : cilState) =
         let state = cilState.state
@@ -1913,7 +1913,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | Some _ -> acc
             | None ->
                 // NOTE: check that this block protects current ip
-                if x.TryOffset < offset && x.TryOffset + x.TryLength > offset then Some x else None
+                if x.tryOffset < offset && x.tryOffset + x.tryLength > offset then Some x else None
         Seq.fold findBlock None ehcs
 
     member x.MakeStep (cilState : cilState) =
@@ -1954,8 +1954,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 clearEvaluationStackLastFrame cilState
                 k [cilState]
             | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
-                assert(ehc.Flags = ExceptionHandlingClauseOptions.Finally || ehc.Flags = ExceptionHandlingClauseOptions.Fault)
-                let ip' = ipOperations.leave (instruction m ehc.HandlerOffset) ehcs dst m
+                assert(isFinallyClause ehc)
+                let ip' = ipOperations.leave (instruction m ehc.handlerOffset) ehcs dst m
                 setCurrentIp ip' cilState
                 clearEvaluationStackLastFrame cilState
                 k [cilState]
@@ -1978,18 +1978,20 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->
                 let method = location.method
-                let body = method.GetMethodBody()
-                let ehcs = if body = null then System.Collections.Generic.List<_>() :> System.Collections.Generic.IList<_> else body.ExceptionHandlingClauses
-                let filter = ehcs |> Seq.filter (fun ehc -> ehc.Flags = ExceptionHandlingClauseOptions.Filter) // TODO: use
-                let catchBlocks = ehcs |> Seq.filter (fun ehc -> ehc.Flags = ExceptionHandlingClauseOptions.Clause)
+                let ehcs = getEHSBytes method
+                let filter = ehcs |> Seq.filter isFilterClause // TODO: use
                 let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError()) |> Types.ToDotNetType
-                let suitableBlocks = catchBlocks |> Seq.filter (fun ehc -> ehc.CatchType = exceptionType)
+                let isSuitable ehc =
+                    match ehc.ehcType with
+                    | Catch t -> t = exceptionType
+                    | _ -> false
+                let suitableCatchBlocks = ehcs |> Seq.filter isSuitable
                 let isNarrower (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
-                    y.HandlerOffset < x.HandlerOffset && y.HandlerOffset + y.HandlerLength > x.HandlerOffset + x.HandlerLength
-                let neededBlock = x.FindNeededEHCBlock location.offset isNarrower suitableBlocks
+                    y.handlerOffset < x.handlerOffset && y.handlerOffset + y.handlerLength > x.handlerOffset + x.handlerLength
+                let neededBlock = x.FindNeededEHCBlock location.offset isNarrower suitableCatchBlocks
                 match neededBlock with
                 | Some ehc ->
-                    let ip = SecondBypass(None, framesToPop, {method = method; offset = ehc.HandlerOffset})
+                    let ip = SecondBypass(None, framesToPop, {method = method; offset = ehc.handlerOffset})
                     cilState.state.exceptionsRegister <- cilState.state.exceptionsRegister.TransformToCaught()
                     setCurrentIp ip cilState
                 | None ->
@@ -2015,12 +2017,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 List.iter makeIp states
                 k states)
             | SecondBypass(None, location :: otherLocations, codeLocation) ->
-                let ehcs = location.method.GetMethodBody().ExceptionHandlingClauses
-                let finallyBlocks = ehcs |> Seq.filter (fun ehc -> ehc.Flags = ExceptionHandlingClauseOptions.Finally || ehc.Flags = ExceptionHandlingClauseOptions.Fault)
+                let ehcs = getEHSBytes location.method
+                let finallyBlocks = ehcs |> Seq.filter isFinallyClause
                 let isWider (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
-                    x.HandlerOffset < y.HandlerOffset && x.HandlerOffset + x.HandlerLength > y.HandlerOffset + y.HandlerLength
+                    x.handlerOffset < y.handlerOffset && x.handlerOffset + x.handlerLength > y.handlerOffset + y.handlerLength
                 let neededBlock = x.FindNeededEHCBlock location.offset isWider finallyBlocks
-                let finallyHandlerIp = neededBlock |> Option.map (fun b -> Instruction(b.HandlerOffset, location.method))
+                let finallyHandlerIp = neededBlock |> Option.map (fun b -> Instruction(b.handlerOffset, location.method))
                 let ip = SecondBypass(finallyHandlerIp, otherLocations, codeLocation)
                 clearEvaluationStackLastFrame cilState
                 popFrameOf cilState

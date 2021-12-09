@@ -7,6 +7,8 @@ open System.Collections.Generic
 open System.Reflection.Emit
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
+open VSharp.Interpreter.IL
 
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
@@ -21,7 +23,7 @@ module public CFG =
             sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
             graph : graph
             reverseGraph : graph
-            clauses : ExceptionHandlingClause list
+            clauses : ExceptionHandlingClause []
             offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
         }
         interface IComparable with
@@ -49,7 +51,7 @@ module public CFG =
                 x.edges.[src].Add dst
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
 
-    let private createData (methodBase : MethodBase) (methodBody : MethodBody) (ilBytes : byte []) =
+    let private createData (methodBase : MethodBase) (ilBytes : byte []) ehsBytes =
         let size = ilBytes.Length
         let interim = {
             fallThroughOffset = Array.init size (fun _ -> None)
@@ -66,7 +68,7 @@ module public CFG =
             sccOut = Dictionary<_,_>()
             graph = Dictionary<_, _>()
             reverseGraph = Dictionary<_,_>()
-            clauses = List.ofSeq methodBody.ExceptionHandlingClauses
+            clauses = ehsBytes
             offsetsDemandingCall = Dictionary<_,_>()
         }
         interim, cfg
@@ -155,9 +157,10 @@ module public CFG =
         dfs methodBase data used ilBytes startOffset
 
     let private dfsExceptionHandlingClause methodBase (data : interimData) used (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
-        if ehc.Flags = ExceptionHandlingClauseOptions.Filter
-        then dfsComponent methodBase data used ilBytes ehc.FilterOffset
-        dfsComponent methodBase data used ilBytes ehc.HandlerOffset // some catch handlers may be nested
+        match ehc.ehcType with
+        | Filter offset -> dfsComponent methodBase data used ilBytes offset
+        | _ -> ()
+        dfsComponent methodBase data used ilBytes ehc.handlerOffset // some catch handlers may be nested
 
     let orderEdges (used : HashSet<offset>) (cfg : cfgData) : unit =
         let rec bypass acc (u : offset) =
@@ -196,13 +199,12 @@ module public CFG =
         dist
 
     let private build (methodBase : MethodBase) =
-        let methodBody = methodBase.GetMethodBody()
-        assert (methodBody <> null)
         let ilBytes = Instruction.getILBytes methodBase
-        let interimData, cfgData = createData methodBase methodBody ilBytes
+        let ehs = Instruction.getEHSBytes methodBase
+        let interimData, cfgData = createData methodBase ilBytes ehs
         let used = HashSet<offset>()
         dfsComponent methodBase interimData used ilBytes 0
-        Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) methodBody.ExceptionHandlingClauses
+        Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) ehs
         let cfg = addVerticesAndEdges cfgData interimData
         orderEdges (HashSet<offset>()) cfg
         cfg

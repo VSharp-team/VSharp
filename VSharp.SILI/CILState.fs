@@ -90,8 +90,9 @@ module internal CilStateOperations =
     let offsetOf = function
         | Instruction(offset, _) -> Some offset
         | Exit _
-        | Leave _ -> None
-        | _ -> __notImplemented__()
+        | Leave _
+        | SearchingForHandler _ -> None
+        | ip -> internalfailf "offsetOf: unexpected ip %O" ip
 
     // [NOTE] Obtaining exploring method
     let currentMethod = currentIp >> methodOf

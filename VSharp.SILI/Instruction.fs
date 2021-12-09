@@ -111,10 +111,15 @@ module internal Instruction =
     let isDemandingCallOpCode (opCode : OpCode) =
         isCallOpCode opCode || isNewObjOpCode opCode
     let isFinallyClause (ehc : ExceptionHandlingClause) =
-        ehc.Flags = ExceptionHandlingClauseOptions.Finally
+        match ehc.ehcType with Finally -> true | _ -> false
+    let isFilterClause (ehc : ExceptionHandlingClause) =
+        match ehc.ehcType with Filter _ -> true | _ -> false
+    let isCatchClause (ehc : ExceptionHandlingClause) =
+        match ehc.ehcType with Catch _ -> true | _ -> false
+
     let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
 //        let srcOffset, dstOffset = src.Offset(), dst.Offset()
-        let isInside offset = ehc.TryOffset <= offset && offset < ehc.TryOffset + ehc.TryLength
+        let isInside offset = ehc.tryOffset <= offset && offset < ehc.tryOffset + ehc.tryLength
         isInside src && not <| isInside dst
 
     let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
@@ -124,34 +129,59 @@ module internal Instruction =
     let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
-    let private ilBytesCache = System.Collections.Generic.Dictionary<MethodBase, byte []>()
+    let private methodBytesCache = System.Collections.Generic.Dictionary<MethodBase, byte [] * ExceptionHandlingClause []>()
 
-    let private rewriteILBytes (m : MethodBase) =
+    let private rewriteMethodBytes (m : MethodBase) =
         let methodBody = m.GetMethodBody()
-        let ilBytes = methodBody.GetILAsByteArray()
-        let methodModule = m.Module
-        let moduleName = methodModule.FullyQualifiedName
-        let assemblyName = methodModule.Assembly.FullName
-        let props : VSharp.Concolic.rawMethodProperties =
-            {token = uint m.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBody.MaxStackSize; signatureTokensLength = 0u}
-        let signatureTokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<VSharp.Concolic.signatureTokens>) :?> VSharp.Concolic.signatureTokens
-        let body : VSharp.Concolic.rawMethodBody =
-            {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = signatureTokens; il = ilBytes; ehs = Array.empty}
-        let rewriter = VSharp.Concolic.ILRewriter(body)
-        rewriter.Import()
-        rewriter.Export().il
-
-    let getILBytes (m : MethodBase) =
-        let result : ref<byte []> = ref null
-        if ilBytesCache.TryGetValue(m, result) then !result
+        if methodBody = null then Array.empty, Array.empty
         else
-            let ilBytes = rewriteILBytes m
-            assert(ilBytes <> null)
-            ilBytesCache.Add(m, ilBytes)
-            ilBytes
+            let ilBytes = methodBody.GetILAsByteArray()
+            let methodModule = m.Module
+            let moduleName = methodModule.FullyQualifiedName
+            let assemblyName = methodModule.Assembly.FullName
+            let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
+            let props : VSharp.Concolic.rawMethodProperties =
+                {token = uint m.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBody.MaxStackSize; signatureTokensLength = 0u}
+            let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<VSharp.Concolic.signatureTokens>) :?> VSharp.Concolic.signatureTokens
+            let createEH (eh : System.Reflection.ExceptionHandlingClause) : VSharp.Concolic.rawExceptionHandler =
+                let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
+                ehcs.Add(matcher, eh)
+                {flags = int eh.Flags; tryOffset = uint eh.TryOffset; tryLength = uint eh.TryLength; handlerOffset = uint eh.HandlerOffset; handlerLength = uint eh.HandlerLength; matcher = uint matcher}
+            let ehs = methodBody.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
+            let body : VSharp.Concolic.rawMethodBody =
+                {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
+            let rewriter = VSharp.Concolic.ILRewriter(body)
+            rewriter.Import()
+            let result = rewriter.Export()
+            let parseEH (eh : VSharp.Concolic.rawExceptionHandler) =
+                let oldEH = ehcs.[int eh.matcher]
+                let ehcType =
+                    if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then Filter (int eh.matcher)
+                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault || oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
+                    else Catch oldEH.CatchType
+                {tryOffset = int eh.tryOffset; tryLength = int eh.tryLength; handlerOffset = int eh.handlerOffset; handlerLength = int eh.handlerLength; ehcType = ehcType }
+            result.il, Array.map parseEH result.ehs
+
+    let getILBytes (m : MethodBase) : byte [] =
+        let result : ref<byte [] * ExceptionHandlingClause []> = ref (null, null)
+        if methodBytesCache.TryGetValue(m, result) then fst result.Value
+        else
+            let ilBytes = rewriteMethodBytes m
+            assert(ilBytes <> (null, null))
+            methodBytesCache.Add(m, ilBytes)
+            fst ilBytes
+
+    let getEHSBytes (m : MethodBase) =
+        let result : ref<byte [] * ExceptionHandlingClause []> = ref (null, null)
+        if methodBytesCache.TryGetValue(m, result) then snd result.Value
+        else
+            let ilBytes = rewriteMethodBytes m
+            assert(ilBytes <> (null, null))
+            methodBytesCache.Add(m, ilBytes)
+            snd ilBytes
 
     let parseInstruction (m : MethodBase) pos =
-        let ilBytes = getILBytes m
+        let ilBytes : byte [] = getILBytes m
         OpCodeOperations.getOpCode ilBytes pos
 
     let (|EndFinally|_|) = function
