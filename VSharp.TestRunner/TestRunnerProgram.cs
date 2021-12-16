@@ -13,9 +13,15 @@ namespace VSharp.TestRunner
             return 2;
         }
 
-        public static int Main(string[] args)
+        public static int Main(string[] args) // TODO: add another arg (disable check result) #do
         {
-            if (args.Length != 1)
+            bool checkResult = true;
+            if (args.Length == 2)
+            {
+                if (!Boolean.TryParse(args[1], out checkResult))
+                    return ShowUsage();
+            }
+            else if (args.Length < 1 || args.Length > 2)
             {
                 return ShowUsage();
             }
@@ -23,6 +29,7 @@ namespace VSharp.TestRunner
             string path = args[0];
             if (Directory.Exists(path))
             {
+                if (!checkResult) return ShowUsage();
                 var dir = new DirectoryInfo(path);
                 var result = TestRunner.ReproduceTests(dir);
                 return result ? 0 : 1;
@@ -31,7 +38,7 @@ namespace VSharp.TestRunner
             if (File.Exists(path))
             {
                 var fi = new FileInfo(path);
-                var result = TestRunner.ReproduceTest(fi);
+                var result = TestRunner.ReproduceTest(fi, checkResult);
                 return result ? 0 : 1;
             }
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.Serialization;
@@ -88,7 +89,7 @@ namespace VSharp.TestRunner
             return StructurallyEqual(expected, got);
         }
 
-        private static bool ReproduceTests(IEnumerable<FileInfo> tests, bool shouldReproduceError)
+        private static bool ReproduceTests(IEnumerable<FileInfo> tests, bool shouldReproduceError, bool checkResult)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
@@ -98,12 +99,14 @@ namespace VSharp.TestRunner
                 {
                     using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
                     {
-                        UnitTest test = UnitTest.Deserialize(stream);
-                        _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
+                        testInfo ti = UnitTest.DeserializeTestInfo(stream);
+                        _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
+                        UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+                        // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                         var method = test.Method;
 
-                        Console.WriteLine("Starting test reproducing for method {0}", method);
+                        Console.Error.WriteLine("Starting test reproducing for method {0}", method);
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
                         var ex = test.Exception;
@@ -118,7 +121,7 @@ namespace VSharp.TestRunner
                                     fi.Name, ex);
                                 return false;
                             }
-                            if (test.ResultCheck && !CompareObjects(test.Expected, result))
+                            if (checkResult && !CompareObjects(test.Expected, result))
                             {
                                 // TODO: use NUnit?
                                 Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
@@ -152,9 +155,9 @@ namespace VSharp.TestRunner
             return true;
         }
 
-        public static bool ReproduceTest(FileInfo file)
+        public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
-            return ReproduceTests(new[] {file}, true);
+            return ReproduceTests(new[] {file}, true, checkResult);
         }
 
         public static bool ReproduceTests(DirectoryInfo testsDir)
@@ -163,7 +166,7 @@ namespace VSharp.TestRunner
             var testsList = tests.ToList();
             if (testsList.Count > 0)
             {
-                return ReproduceTests(testsList, false);
+                return ReproduceTests(testsList, false, true);
             }
 
             Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
