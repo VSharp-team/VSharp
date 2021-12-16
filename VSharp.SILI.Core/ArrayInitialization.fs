@@ -26,7 +26,7 @@ module internal ArrayInitialization =
         rawData.[index] |> sbyte |> makeNumber
 
     let charTermCreator (rawData : byte []) index =
-        rawData.[index] |> char |> makeNumber
+        BitConverter.ToChar(rawData, index) |> makeNumber
 
     let int32TermCreator (rawData : byte []) index =
         BitConverter.ToInt32(rawData, index) |> makeNumber
@@ -65,21 +65,13 @@ module internal ArrayInitialization =
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-        let dimensionsNumber = Types.rankOf typeOfArray
+        let dims = Types.rankOf typeOfArray
         let arrayType = symbolicTypeToArrayType typeOfArray
-        let rec helper currentDimension (multiIndex : term list) j =
-            if currentDimension = dimensionsNumber then
-                let valueTerm = termCreator rawData (j * size)
-                Memory.writeArrayIndex state address multiIndex arrayType valueTerm
-                j + 1
-            else
-                let currentLengthTerm = Memory.readLength state address (makeNumber currentDimension) arrayType
-                let currentLength = extractIntFromTerm currentLengthTerm
-                List.init currentLength id |>
-                List.fold (fun j i ->
-                    let indexTerm = makeNumber i
-                    helper (currentDimension + 1) (List.append multiIndex [indexTerm]) j) j
-        helper 0 [] 0 |> ignore
+        let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
+        let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
+        let allIndices = Memory.allIndicesOfArray lbs lens
+        let indicesAndValues = allIndices |> Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) // TODO: sort if need
+        Memory.initializeArray state address indicesAndValues arrayType
 
     let initializeArray state arrayRef handleTerm =
         match arrayRef.term, handleTerm.term with

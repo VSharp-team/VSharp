@@ -14,3 +14,6 @@ module internal Globalization =
 
     [<Implements("System.Globalization.CompareInfo System.Globalization.CultureInfo.get_CompareInfo(this)")>]
     val internal get_CompareInfo : state -> term list -> term
+
+    [<Implements("System.Boolean System.Globalization.GlobalizationMode.get_Invariant()")>]
+    val internal get_Invariant : state -> term list -> term

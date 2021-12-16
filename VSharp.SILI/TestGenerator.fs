@@ -61,6 +61,7 @@ module TestGenerator =
         | {term = Concrete(v, t)} when Types.IsEnum t -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
+        | {term = Constant _ } as c -> model.Eval c |> term2obj model state indices test
         | {term = Struct(fields, t)} when Types.IsNullable t ->
             let t = Types.ToDotNetType t
             let valueField, hasValueField = Reflection.fieldsOfNullable t
@@ -188,7 +189,6 @@ module TestGenerator =
     let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
-        test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled e ->

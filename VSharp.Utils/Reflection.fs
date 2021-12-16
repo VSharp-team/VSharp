@@ -220,11 +220,15 @@ module public Reflection =
 
     // --------------------------------- Fields ---------------------------------
 
+    // TODO: add cache: map from wrapped field to unwrapped
+
     let wrapField (field : FieldInfo) =
         {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
 
     let getFieldInfo (field : fieldId) =
-        field.declaringType.GetField(field.name, instanceBindingFlags)
+        let result = field.declaringType.GetField(field.name, allBindingFlags)
+        if result <> null then result
+        else field.declaringType.GetRuntimeField(field.name)
 
     let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
@@ -287,7 +291,7 @@ module public Reflection =
         if t.IsValueType |> not then true
         else
             t.GetFields(allBindingFlags)
-            |> Array.exists (fun field -> isReferenceOrContainsReferencesHelper field.FieldType)
+            |> Array.exists (fun field -> field.FieldType = t || isReferenceOrContainsReferencesHelper field.FieldType)
 
     let isReferenceOrContainsReferences (t : Type) =
         let result = ref false

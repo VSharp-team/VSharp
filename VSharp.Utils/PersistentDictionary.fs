@@ -8,12 +8,18 @@ open VSharp
 // TODO: We do not really need equality of 'value, but PersistentHashMap requires it
 [<CustomEquality;NoComparison>]
 type public pdict<'key, 'value> when 'key : equality and 'value : equality =
-    private {impl : PersistentHashMap<'key, 'value>}
-    static member Empty() = {impl = PersistentHashMap<'key, 'value>.Empty()}
+    private {impl : PersistentHashMap<'key, 'value>; mutable hash : int option}
+    static member Empty() = {impl = PersistentHashMap<'key, 'value>.Empty(); hash = None}
     member x.Item
         with get key = x.impl.[key]
 
-    override x.GetHashCode() = x.impl :> seq<'key * 'value> |> List.ofSeq |> fun l -> l.GetHashCode() // TODO: use set instead of list
+    override x.GetHashCode() =
+        let createHash() =
+//            let hash = x.impl :> seq<'key * 'value> |> List.ofSeq |> fun l -> l.GetHashCode()
+            let hash = x.impl :> seq<'key * 'value> |> Seq.fold (fun acc x -> System.HashCode.Combine(acc, x)) (System.HashCode().ToHashCode())
+            x.hash <- Some hash
+            hash
+        Option.defaultWith createHash x.hash
 
     override x.Equals(o : obj) =
         match o with
@@ -22,18 +28,18 @@ type public pdict<'key, 'value> when 'key : equality and 'value : equality =
 
 module public PersistentDict =
 
-    let public empty<'a, 'b when 'a : equality and 'b : equality> : pdict<'a, 'b> = { impl = PersistentHashMap<'a, 'b>.Empty() }
+    let public empty<'a, 'b when 'a : equality and 'b : equality> : pdict<'a, 'b> = pdict.Empty()
     let public isEmpty d = PersistentHashMap.length d.impl = 0
 
-    let public ofSeq s = {impl = PersistentHashMap<'a, 'b>.ofSeq s }
+    let public ofSeq s = {impl = PersistentHashMap<'a, 'b>.ofSeq s; hash = None}
     let public toSeq (d : pdict<'a, 'b>) = d.impl :> seq<'a * 'b>
 
     let public contains (key : 'a) (d : pdict<'a, 'b>) = d.impl.ContainsKey key
     let public find (d : pdict<'a, 'b>) (key : 'a) = d.impl.[key]
 
     // [NOTE] if PersistentDict already contains key, 'add' will replace it with new value
-    let public add (key : 'a) (value : 'b) (d : pdict<'a, 'b>) = {impl = d.impl.Add(key, value)}
-    let public remove key (d : pdict<'a, 'b>) = {impl = d.impl.Remove key}
+    let public add (key : 'a) (value : 'b) (d : pdict<'a, 'b>) = {impl = d.impl.Add(key, value); hash = None}
+    let public remove key (d : pdict<'a, 'b>) = {impl = d.impl.Remove key; hash = None}
     let public tryFind (d : pdict<'a, 'b>) key =
         // TODO: speed it up by scanning only once! Perhaps we should migrate to System.Collections.Immutable to support this
         if d.impl.ContainsKey key then d.impl.[key] |> Some

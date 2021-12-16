@@ -57,13 +57,20 @@ namespace IntegrationTests
 //            return a > 3;
 //        }
 
-        [Ignore("Byref is not implemented")]
+        [TestSvm]
         public bool Construct()
         {
             var a = new List<int>(4) {1, 2, 3, 4};
             var b = new int[4, 1];
             var c = new int[4] {5, 6, 7, 8};
             return a.Count == b.Length && b.Length == c.Length && c.Length == c[3] - 4;
+        }
+
+        [TestSvm]
+        public int SymbolicInitialize(int a)
+        {
+            var arr = new int[4] {a, 6, 7, 8};
+            return arr[0];
         }
 
         [Ignore("Exceptions handling")]

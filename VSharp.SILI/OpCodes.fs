@@ -2,6 +2,7 @@ namespace VSharp.Interpreter.IL
 
 open System.Reflection
 open System.Reflection.Emit
+open VSharp
 
 exception IncorrectCIL of string
 
@@ -235,8 +236,8 @@ type OpCodeValues =
 
 module internal OpCodeOperations =
 
-    let private isSingleByteOpCodeValue = (<) 0
-    let private isSingleByteOpCode = (<>) OpCodes.Prefix1.Value
+    let isSingleByteOpCodeValue (opCode : OpCode) = opCode.Size = 1
+    let isSingleByteOpCode = (<>) OpCodes.Prefix1.Value
 
     let private equalSizeOpCodesCount = 0x100
     let singleByteOpCodes = Array.create equalSizeOpCodesCount OpCodes.Nop;
@@ -247,7 +248,7 @@ module internal OpCodeOperations =
         let resolve (field : FieldInfo) =
             match field.GetValue() with
             | :? OpCode as opCode -> let value = int opCode.Value
-                                     if isSingleByteOpCodeValue value then singleByteOpCodes.[value] <- opCode
+                                     if isSingleByteOpCodeValue opCode then singleByteOpCodes.[value] <- opCode
                                      else twoBytesOpCodes.[value &&& 0xFF] <- opCode
             | _ -> ()
         typeof<OpCodes>.GetRuntimeFields() |> Seq.iter resolve
@@ -257,3 +258,10 @@ module internal OpCodeOperations =
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
         elif offset + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[offset + 1]]
+
+    let writeOpCode (ilBytes : byte []) offset opCode =
+        if isSingleByteOpCodeValue opCode then
+            ilBytes.[offset] <- byte (opCode.Value &&& 0xFFs)
+        else
+            ilBytes.[offset] <- byte OpCodes.Prefix1.Value
+            ilBytes.[offset + 1] <- byte (opCode.Value &&& 0xFFs)

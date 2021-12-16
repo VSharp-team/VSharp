@@ -221,8 +221,8 @@ module public CFG =
         let mutable refSet = ref null
         if not (dict.TryGetValue(k, refSet)) then
             refSet <- ref (HashSet<_>())
-            dict.Add(k, !refSet)
-        (!refSet).Add(v) |> ignore
+            dict.Add(k, refSet.Value)
+        refSet.Value.Add(v) |> ignore
 
     let private addCall methodsReachability inverseMethodsReachability caller callee =
         addToDict methodsReachability caller callee

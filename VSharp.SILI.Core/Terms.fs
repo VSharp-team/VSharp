@@ -365,7 +365,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> typeOfRef term |> ByRef
             | Ptr _ -> sightTypeOfPtr term |> Pointer
-            | _ -> __unreachable__()
+            | _ -> internalfailf "getting type of unexpected term %O" term
         commonTypeOf getType
 
     let symbolicTypeToArrayType = function

@@ -854,6 +854,9 @@ module internal Memory =
 
 // ------------------------------- Writing -------------------------------
 
+    let allIndicesOfArray lbs lens =
+        List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
+
     let rec private ensureConcreteType typ =
         if isOpenType typ then __insufficientInformation__ "Cannot write value of generic type %O" typ
 
@@ -879,6 +882,14 @@ module internal Memory =
         let mr = accessRegion state.arrays arrayType elementType
         let key = {address = address; indices = indices}
         let mr' = MemoryRegion.write mr key value
+        state.arrays <- PersistentDict.add arrayType mr' state.arrays
+
+    let initializeArray state address indicesAndValues arrayType =
+        let elementType = fst3 arrayType
+        ensureConcreteType elementType
+        let mr = accessRegion state.arrays arrayType elementType
+        let keysAndValues = Seq.map (fun (i, v) -> {address = address; indices = i}, v) indicesAndValues
+        let mr' = MemoryRegion.memset mr keysAndValues
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
     let writeStaticField state typ (field : fieldId) value =
@@ -939,7 +950,7 @@ module internal Memory =
             let value = array.GetValue(Array.ofList indices) |> objToTerm state (toDotNetType elemType)
             let termIndices = List.map makeNumber indices
             writeArrayIndexSymbolic state address termIndices arrayType value
-        let allIndices = List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
+        let allIndices = allIndicesOfArray lbs lens
         Seq.iter (writeIndex state) allIndices
         let termLBs = List.map (objToTerm state typeof<int>) lbs
         let termLens = List.map (objToTerm state typeof<int>) lens

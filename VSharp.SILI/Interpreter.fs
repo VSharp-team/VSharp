@@ -139,6 +139,7 @@ module internal InstructionsSet =
             r |> List.map (fun (t, s) -> let s' = changeState cilState s in pushOnEvaluationStack(t, s'); s') |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
+    let isFSharpInternalCall method = Map.containsKey (Reflection.fullGenericMethodName method) Loader.FSharpImplementations
     // ------------------------------- CIL instructions -------------------------------
 
     let referenceLocalVariable index (methodBase : MethodBase) =
@@ -149,8 +150,7 @@ module internal InstructionsSet =
         let pi = methodBase.GetParameters().[index]
         PrimitiveStackLocation (ParameterKey pi) |> Ref
 
-    let castUnchecked typ term : term =
-        Types.Cast term typ
+    let castUnchecked typ term : term = Types.Cast term typ
     let ldc numberCreator t (cfg : cfg) shiftedOffset (cilState : cilState) =
         let num = numberCreator cfg.ilBytes shiftedOffset
         let termType = Types.FromDotNetType t
@@ -230,7 +230,7 @@ module internal InstructionsSet =
         let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
         if resultTyp <> Void then
             let res = pop cilState
-            let castedResult = castUnchecked resultTyp res
+            let castedResult = Types.Cast res resultTyp
             push castedResult cilState
         match cilState.ipStack with
         | _ :: ips -> cilState.ipStack <- (Exit cfg.methodBase) :: ips
@@ -322,9 +322,7 @@ module internal InstructionsSet =
         let parameters, evaluationStack = EvaluationStack.PopMany paramsNumber cilState.state.evaluationStack
         let castParameter parameter (parInfo : ParameterInfo) =
             if Reflection.isDelegateConstructor methodBase && TypeUtils.isPointer parInfo.ParameterType then parameter
-            else
-                let typ = Types.FromDotNetType parInfo.ParameterType
-                castUnchecked typ parameter
+            else Types.FromDotNetType parInfo.ParameterType |> Types.Cast parameter
         setEvaluationStack evaluationStack cilState
         Seq.map2 castParameter (List.rev parameters) (methodBase.GetParameters()) |> List.ofSeq
 
@@ -444,7 +442,7 @@ module internal InstructionsSet =
         ConfigureErrorReporter (changeState cilState >> reportError)
         let states = Memory.Write cilState.state dest value
         states |> List.map (changeState cilState)
-    let stind valueCast reportError (cilState : cilState) =
+    let stind valueCast reportError (cilState : cilState) = // TODO: do like ldind #do
         let value, address = pop2 cilState
         let value = valueCast value
         ConfigureErrorReporter (changeState cilState >> reportError)
@@ -912,8 +910,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             List.map moveIpToExit states |> k
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then
             let thisAndArguments = optCons args thisOption
-            let moveIp states =
-                List.map moveIpToExit states |> k
+            let moveIp states = List.map moveIpToExit states |> k
             internalCall Loader.FSharpImplementations.[fullMethodName] thisAndArguments cilState moveIp
         elif Map.containsKey fullMethodName Loader.CSharpImplementations then
             x.InvokeCSharpImplementation cilState fullMethodName thisOption args |> k
@@ -924,7 +921,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsExternalMethod methodBase then
             let stackTrace = Memory.StackTrace cilState.state.stack
             internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
-        elif x.IsNotImplementedIntrinsic methodBase fullMethodName then internalfailf "new intrinsic method: %s" fullMethodName
+        elif x.IsNotImplementedIntrinsic methodBase fullMethodName then
+            let stackTrace = Memory.StackTrace cilState.state.stack
+            internalfailf "new intrinsic method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif methodBase.GetMethodBody() <> null then cilState |> List.singleton |> k
         else internalfailf "non-extern method %s without body!" (Reflection.getFullMethodName methodBase)
 
@@ -1066,7 +1065,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.ConvOvfUn unsignedSightType targetType (cilState : cilState) =
         let t = pop cilState
-        let unsignedT = castUnchecked unsignedSightType t
+        let unsignedT = Types.Cast t unsignedSightType
         push unsignedT cilState
         x.ConvOvf targetType cilState
 
@@ -1264,7 +1263,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let fieldId = Reflection.wrapField fieldInfo
         let value = pop cilState
         let fieldType = Types.FromDotNetType fieldInfo.FieldType
-        let value = castUnchecked fieldType value
+        let value = Types.Cast value fieldType
         Memory.WriteStaticField cilState.state declaringTermType fieldId value
         setCurrentIp newIp cilState
         [cilState])
@@ -1293,7 +1292,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let value, targetRef = pop2 cilState
         let storeWhenTargetIsNotNull (cilState : cilState) k =
             let fieldType = Types.FromDotNetType fieldInfo.FieldType
-            let value = castUnchecked fieldType value
+            let value = Types.Cast value fieldType
             let reference =
                 if TypeUtils.isPointer fieldInfo.DeclaringType then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
@@ -1514,11 +1513,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let integerCase (cilState : cilState) x y minusOne minValue =
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Arithmetics.IsZero y, state))
-                (this.Raise this.InvalidCastException)
+                (this.Raise this.DivideByZeroException)
                 (fun cilState ->
                     StatedConditionalExecutionCIL cilState
                         (fun state k -> k ((x === minValue) &&& (y === minusOne), state))
-                        (this.Raise this.InvalidCastException)
+                        (this.Raise this.ArithmeticException)
                         (fun cilState k ->
                             push (performAction x y) cilState
                             k [cilState]))

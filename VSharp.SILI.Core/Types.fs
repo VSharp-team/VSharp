@@ -278,8 +278,8 @@ module internal Types =
 
     let isString = (=) String
 
+    let isPrimitive = toDotNetType >> TypeUtils.isPrimitive
     let isInteger = toDotNetType >> TypeUtils.isIntegral
-
     let isReal = toDotNetType >> TypeUtils.isReal
 
     let isValueType = function
