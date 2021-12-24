@@ -9,7 +9,7 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-
+    
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -84,6 +84,9 @@ module internal Z3 =
 
         member x.Reset() =
             encodingCache <- freshCache()
+            
+        member x.ClearT2E() =
+            encodingCache.t2e.Clear()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -646,7 +649,6 @@ module internal Z3 =
                     Memory.DefaultOf structureType |> ref)
                 structureRef := x.WriteFields !structureRef value fields
 
-
         member x.UpdateModel (z3Model : Model) (targetModel : model) =
             let stackEntries = Dictionary<stackKey, term ref>()
             encodingCache.t2e |> Seq.iter (fun kvp ->
@@ -797,10 +799,13 @@ module internal Z3 =
 //                            pathAtoms
 //                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
 //                            |> Seq.map (fun atom -> paths.[atom])
+                        builder.ClearT2E()
                         SmtSat { mdl = updatedModel; usedPaths = [](*usedPaths*) }
                     | Status.UNSATISFIABLE ->
+                        builder.ClearT2E()
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
+                        builder.ClearT2E()
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
                 with

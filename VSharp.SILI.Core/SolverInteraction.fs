@@ -44,5 +44,7 @@ module public SolverInteraction =
             let model = 
                 state.model
                 |> Option.defaultValue { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
+            StatedLogger.log state.id $"Counter: %s{counter.ToString()}"
             s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""
+        

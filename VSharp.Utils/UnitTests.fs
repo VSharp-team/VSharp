@@ -32,6 +32,8 @@ type UnitTests(outputDir : string) =
 
     member x.GenerateTest (test : UnitTest) =
         testNumber <- testNumber + 1u
+        if test.StateId.IsSome then
+            StatedLogger.saveLog test.StateId.Value $"%s{currentDir.FullName}%c{Path.DirectorySeparatorChar}info%s{testNumber.ToString()}.txt"
         generateTest test ("test" + testNumber.ToString())
 
     member x.GenerateError (test : UnitTest) =

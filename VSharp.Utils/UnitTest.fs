@@ -55,8 +55,16 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
     let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = []
+    
+    let mutable stateId : string option = None
+    
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
+        
+    member x.StateId
+        with get() = stateId
+        and set id =
+            stateId <- id
 
     member x.Method with get() = m
     member x.ThisArg

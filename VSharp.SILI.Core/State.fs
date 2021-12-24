@@ -115,6 +115,7 @@ with
 and
     [<ReferenceEquality>]
     state = {
+    id : string
     mutable pc : pathCondition
     mutable evaluationStack : evaluationStack
     mutable stack : callStack                                          // Arguments and local variables
@@ -145,6 +146,7 @@ and
 module public State =
     
     let makeEmpty() = {
+        id = Guid.NewGuid().ToString()
         pc = PC.empty
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException

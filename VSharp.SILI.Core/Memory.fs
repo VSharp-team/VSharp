@@ -30,7 +30,7 @@ module internal Memory =
             match memoryMode with
             | ConcreteMemory -> ConcreteMemory.deepCopy state
             | SymbolicMemory -> state
-        { state with pc = newPc }
+        { state with pc = newPc; id = Guid.NewGuid().ToString() }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -672,7 +672,7 @@ module internal Memory =
             thenBranch thenState (fun thenResult ->
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->            
+        conditionInvocation state (fun (condition, conditionState) ->        
         let negatedCondition = !!condition
         let thenPc = PC.add state.pc condition
         let elsePc = PC.add state.pc negatedCondition
@@ -695,26 +695,36 @@ module internal Memory =
                 | SolverInteraction.SmtUnknown _ ->
                     __insufficientInformation__ "Unable to witness branch"
                 | SolverInteraction.SmtSat model ->
-                    conditionState.pc <- thenPc
+                    conditionState.pc <- elsePc
                     conditionState.model <- Some model.mdl
+                    StatedLogger.log conditionState.id $"Model stack: %s{model.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
+                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat model ->
+            | SolverInteraction.SmtSat thenModel ->
                 conditionState.pc <- independentElsePc
-                conditionState.model <- Some model.mdl
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
+                    conditionState.model <- Some thenModel.mdl
+                    StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat model ->
-                    conditionState.pc <- elsePc
+                | SolverInteraction.SmtSat elseModel ->
+                    conditionState.pc <- thenPc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
-                    elseState.model <- Some model.mdl
-                    thenState.pc <- thenPc
+                    StatedLogger.copy thenState.id elseState.id
+                    StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                    elseState.model <- Some elseModel.mdl
+                    thenState.model <- Some thenModel.mdl
                     execution thenState elseState condition k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
@@ -1509,6 +1519,7 @@ module internal Memory =
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
+                    id = Guid.NewGuid().ToString()
                     pc = if isTrue g then pc else PC.add pc g
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister

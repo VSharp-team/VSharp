@@ -185,6 +185,7 @@ module TestGenerator =
     let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
+        test.StateId <- Some cilState.state.id
         test.AddExtraAssemblySearchPath (Directory.GetCurrentDirectory())
         let hasException =
             match cilState.state.exceptionsRegister with
