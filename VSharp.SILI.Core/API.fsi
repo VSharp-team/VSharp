@@ -196,7 +196,7 @@ module API =
         val EmptyStack : evaluationStack
 
     module public Memory =
-        val EmptyState : unit -> state
+        val EmptyState : state option -> state
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
@@ -231,6 +231,7 @@ module API =
 
         val MakeSymbolicThis : MethodBase -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+        val FillWithParametersAndThis : state -> MethodBase -> unit
 
         val CallStackContainsFunction : state -> MethodBase -> bool
         val CallStackSize : state -> int

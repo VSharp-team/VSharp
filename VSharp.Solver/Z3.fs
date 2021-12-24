@@ -72,7 +72,7 @@ module internal Z3 =
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
-        let emptyState = Memory.EmptyState()
+        let emptyState = Memory.EmptyState None
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null

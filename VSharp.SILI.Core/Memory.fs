@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -349,6 +350,20 @@ module internal Memory =
         let declaringType = fromDotNetType m.DeclaringType
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
+        
+    let fillWithParametersAndThis state (method : MethodBase) =
+        let parameters = method.GetParameters() |> Seq.map (fun param ->
+            (ParameterKey param, None, fromDotNetType param.ParameterType)) |> List.ofSeq
+        let parametersAndThis =
+            if Reflection.hasThis method then
+                let t = fromDotNetType method.DeclaringType
+                let addr = [-1]
+                let thisRef = HeapRef (ConcreteHeapAddress addr) t
+                state.allocatedTypes <- PersistentDict.add addr t state.allocatedTypes
+                state.startingTime <- [-2]
+                (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+            else parameters
+        newStackFrame state method parametersAndThis
 
 // =============== Marshalling/unmarshalling without state changing ===============
 

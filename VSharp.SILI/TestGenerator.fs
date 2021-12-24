@@ -201,22 +201,12 @@ module TestGenerator =
             model2test test isError hasException indices m model cmdArgs cilState
         | None when cilState.state.pc = EmptyPathCondition ->
             // NOTE: case when no branches occured
-            let emptyState = Memory.EmptyState()
+            let emptyState = Memory.EmptyState None
             emptyState.allocatedTypes <- cilState.state.allocatedTypes
-            let parameters = m.GetParameters() |> Seq.map (fun param ->
-                (ParameterKey param, None, Types.FromDotNetType param.ParameterType)) |> List.ofSeq
-            let parametersAndThis =
-                if Reflection.hasThis m then
-                    let this = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(m.DeclaringType)
-                    test.ThisArg <- this
-                    let t = Types.FromDotNetType m.DeclaringType
-                    let addr = [-1]
-                    let thisRef = HeapRef (ConcreteHeapAddress addr) t
-                    emptyState.allocatedTypes <- PersistentDict.add addr t emptyState.allocatedTypes
-                    emptyState.startingTime <- [-2]
-                    (ThisKey m, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
-                else parameters
-            Memory.NewStackFrame emptyState m parametersAndThis
+            if Reflection.hasThis m then
+                let this = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(m.DeclaringType)
+                test.ThisArg <- this
+            Memory.FillWithParametersAndThis emptyState m
             let parametersInfo = m.GetParameters()
             match cmdArgs with
             | Some args ->

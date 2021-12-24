@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Reflection
 open FSharpx.Collections
 open VSharp
 
@@ -237,7 +238,7 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = State.makeEmpty()
+        let EmptyState modelState = State.makeEmpty modelState
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -339,6 +340,7 @@ module API =
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
+        let FillWithParametersAndThis state method = Memory.fillWithParametersAndThis state method
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack

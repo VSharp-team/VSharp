@@ -15,7 +15,7 @@ type public SILI(options : SiliOptions) =
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
-    let emptyState = Memory.EmptyState()
+    let emptyState = Memory.EmptyState None
     let interpreter = ILInterpreter()
     let mutable entryIP : ip = Exit null
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
@@ -72,7 +72,9 @@ type public SILI(options : SiliOptions) =
         action.Invoke e
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
-        let initialState = Memory.EmptyState()
+        let modelState = Memory.EmptyState None
+        Memory.FillWithParametersAndThis modelState method
+        let initialState = Memory.EmptyState (Some modelState)
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -188,7 +190,9 @@ type public SILI(options : SiliOptions) =
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
-        let state = Memory.EmptyState()
+        let modelState = Memory.EmptyState None
+        Memory.FillWithParametersAndThis modelState method
+        let state = Memory.EmptyState (Some modelState)
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = Types.FromDotNetType typeof<string>

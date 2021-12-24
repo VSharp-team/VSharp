@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open VSharp
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
@@ -144,8 +145,7 @@ and
         abstract Compose : state -> term
         
 module public State =
-    
-    let makeEmpty() = {
+    let makeEmpty modelState = {
         id = Guid.NewGuid().ToString()
         pc = PC.empty
         evaluationStack = EvaluationStack.empty
@@ -166,5 +166,7 @@ module public State =
         delegates = PersistentDict.empty
         currentTime = [1]
         startingTime = VectorTime.zero
-        model = None
+        model =
+            Option.bind (fun state -> Some {subst = Dictionary<_,_>(); state = state; complete = true}) modelState
     }
+
