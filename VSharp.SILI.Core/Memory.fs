@@ -2,7 +2,6 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
-open System.Reflection
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -351,7 +350,7 @@ module internal Memory =
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
         
-    let fillWithParametersAndThis state (method : MethodBase) =
+    let fillWithParametersAndThis state (method : System.Reflection.MethodBase) =
         let parameters = method.GetParameters() |> Seq.map (fun param ->
             (ParameterKey param, None, fromDotNetType param.ParameterType)) |> List.ofSeq
         let parametersAndThis =
