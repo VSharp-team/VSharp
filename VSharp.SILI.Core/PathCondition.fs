@@ -29,7 +29,7 @@ module internal PC =
          conditionsWithConstants = PersistentDict.add False None PersistentDict.empty}
        
     let public isFalse pc =
-        let isFalsePC = pc.conditionsWithConstants |> PersistentDict.keys |> Seq.contains False 
+        let isFalsePC = pc |> toSeq |> Seq.contains False 
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
             
@@ -79,7 +79,7 @@ module internal PC =
         | True -> pc
         | False -> falsePC
         | _ when isFalse pc -> falsePC
-        | _ when PersistentDict.contains !!cond pc.conditionsWithConstants -> falsePC
+        | _ when pc |> toSeq |> Seq.contains !!cond -> falsePC
         | _ -> addWithMerge pc cond
         
     let public mapPC mapper (pc : pathCondition) : pathCondition =
