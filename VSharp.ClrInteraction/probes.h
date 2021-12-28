@@ -231,10 +231,10 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     ExecCommand command;
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
-    freeCommand(command);
     StackFrame &top = icsharp::topFrame();
     int framesCount;
-    auto internalCallResult = EvalStackOperand {OpSymbolic, 0};
+    EvalStackOperand internalCallResult = EvalStackOperand {OpSymbolic, 0};
+    unsigned oldOpsCount = opsCount;
     bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
     if (opsConcretized && opsCount > 0) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
@@ -247,9 +247,10 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
         }
     }
     if (internalCallResult.typ != OpSymbolic)
-        updateMemory(internalCallResult, opsCount);
+        updateMemory(internalCallResult, oldOpsCount);
 
     icsharp::stack().resetPopsTracking(framesCount);
+    freeCommand(command);
     return opsConcretized;
 }
 

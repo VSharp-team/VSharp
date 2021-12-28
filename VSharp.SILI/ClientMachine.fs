@@ -57,7 +57,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     let mutable callIsSkipped = false
     let mutable mainReached = false
-    let mutable poppedSymbolics : list<_> = List.Empty
+    let mutable operands : list<_> = List.Empty
     let environment (method : MethodBase) pipeFile =
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
@@ -136,8 +136,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                     let offset = int offset - metadataSizeOfAddress cilState.state address
                     let offset = Concrete offset Types.TLength
                     Ptr (HeapLocation(address, typ)) Void offset)
-        let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
-        poppedSymbolics <- ps
+        let _, evalStack = EvaluationStack.PopMany maxIndex evalStack
+        operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
@@ -190,11 +190,11 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     member private x.EvalOperands cilState =
         match TryGetModel cilState.state with
         | Some model ->
-            let concretizedSymbolics = poppedSymbolics |> List.choose (model.Eval >> x.ConcreteToObj)
-            if List.length poppedSymbolics <> List.length concretizedSymbolics then None
+            let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
+            if List.length operands <> List.length concretizedOps then None
             else
                 bindNewCilState cilState
-                Some concretizedSymbolics
+                Some concretizedOps
         | None -> None
 
     member x.StepDone (steppedStates : cilState list) =

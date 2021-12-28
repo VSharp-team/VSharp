@@ -417,7 +417,7 @@ type execCommand = {
     callStackFramesPops : uint32
     evaluationStackPops : uint32
     newCallStackFrames : int32 array
-    evaluationStackPushes : evalStackOperand array
+    evaluationStackPushes : evalStackOperand array // NOTE: operands for executing instruction
     newAddresses : UIntPtr array
     newAddressesTypes : Type array
     // TODO: add deleted addresses
@@ -721,18 +721,35 @@ type Communicator(pipeFile) =
         if Types.IsValueType typ then sizeof<int> + sizeof<int64>
         else sizeof<int> + 2 * sizeof<int64>
 
+    member private x.IntegerBytesToLong (obj : obj) =
+        let extended =
+            match obj with
+            | :? byte as v -> int64 v |> BitConverter.GetBytes
+            | :? sbyte as v -> int64 v |> BitConverter.GetBytes
+            | :? int16 as v -> int64 v |> BitConverter.GetBytes
+            | :? uint16 as v -> int64 v |> BitConverter.GetBytes
+            | :? char as v -> int64 v |> BitConverter.GetBytes
+            | :? int32 as v -> int64 v |> BitConverter.GetBytes
+            | :? uint32 as v -> uint64 v |> BitConverter.GetBytes
+            | :? int64 as v -> BitConverter.GetBytes v
+            | :? uint64 as v -> BitConverter.GetBytes v
+            | _ -> internalfailf "IntegerBytesToLong: unexpected object %O" obj
+        BitConverter.ToInt64 extended
+
     member private x.SerializeConcrete (obj : obj, typ : Core.symbolicType) =
         let bytes = x.SizeOfConcrete typ |> Array.zeroCreate
         let mutable index = 0
         if Types.IsValueType typ then
             let opType, (content : int64) =
                 if Types.IsInteger typ then
-                    if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8, unbox obj
-                    else evalStackArgType.OpI4, (unbox obj |> int64)
+                    let typ = if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8 else evalStackArgType.OpI4
+                    typ, x.IntegerBytesToLong obj
                 elif Types.IsReal typ then
                     if Types.SizeOf typ = sizeof<double> then
                         evalStackArgType.OpR8, BitConverter.DoubleToInt64Bits (obj :?> double)
                     else evalStackArgType.OpR4, BitConverter.DoubleToInt64Bits (obj :?> float |> double)
+                elif Types.IsBool typ then
+                    evalStackArgType.OpI4, if obj :?> bool then 1L else 0L
                 else
                     // TODO: support structs
                     __notImplemented__()
