@@ -64,10 +64,10 @@ bool Protocol::readBuffer(char *&buffer, int &count) {
     char *bufferBeginning = buffer;
     int bytesRead = 0;
     while (bytesRead < count) {
-        int newBytesCount = m_communicator.read(buffer, count);
+        int newBytesCount = m_communicator.read(buffer, count - bytesRead);
         if (newBytesCount == 0) break;
         bytesRead += newBytesCount;
-        buffer += bytesRead;
+        buffer += newBytesCount;
     }
     buffer = bufferBeginning;
     if (bytesRead != count) {
