@@ -112,7 +112,7 @@ type ehClauseMatcher =
 type ehClause = {
     flags : int
     tryBegin : ilInstr
-    tryEnd : ilInstr
+    mutable tryEnd : ilInstr
     handlerBegin : ilInstr
     mutable handlerEnd : ilInstr
     matcher : ehClauseMatcher
@@ -419,7 +419,9 @@ module private EvaluationStackTyper =
             | OpCodeValues.Ldobj -> Stack.push (Stack.drop 1 s) evaluationStackCellType.Struct
             | OpCodeValues.Ldstr -> Stack.push s evaluationStackCellType.Ref
             | OpCodeValues.Unbox -> Stack.push s evaluationStackCellType.I
-            | OpCodeValues.Throw -> Stack.empty
+            | OpCodeValues.Throw
+            | OpCodeValues.Leave_S
+            | OpCodeValues.Leave -> Stack.empty
 
             | OpCodeValues.Ldsfld ->
                 let fieldInfo = Reflection.resolveField m instr.Arg32
@@ -654,6 +656,8 @@ type ILRewriter(body : rawMethodBody) =
         what.next.prev <- what
         what.prev.next <- what
         for eh in ehs do
+            if x.InstrEq eh.tryEnd where then
+                eh.tryEnd <- what
             if x.InstrEq eh.handlerEnd where then
                 eh.handlerEnd <- what
         adjustState what
@@ -867,7 +871,7 @@ type ILRewriter(body : rawMethodBody) =
         let parseEH (raw : rawExceptionHandler) = {
             flags = raw.flags
             tryBegin = x.InstrFromOffset <| int raw.tryOffset
-            tryEnd = x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)
+            tryEnd = (x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)).prev
             handlerBegin =
                 let start = x.InstrFromOffset <| int raw.handlerOffset
                 EvaluationStackTyper.createEHStackState m raw.flags start
@@ -883,7 +887,7 @@ type ILRewriter(body : rawMethodBody) =
         x.RecalculateOffsets() |> ignore
         maxStackSize <- body.properties.maxStackSize
 
-    member x.Export() =
+    member x.Export() = // TODO: refactor export #do
         // One instruction produces 2 + sizeof(native int) bytes in the worst case which can be 10 bytes for 64-bit.
         // For simplification we just use 10 here.
         let maxSize = int instrCount * 10
@@ -973,7 +977,7 @@ type ILRewriter(body : rawMethodBody) =
         let encodeEH (eh : ehClause) = {
             flags = eh.flags
             tryOffset = eh.tryBegin.offset
-            tryLength = eh.tryEnd.offset - eh.tryBegin.offset
+            tryLength = eh.tryEnd.next.offset - eh.tryBegin.offset
             handlerOffset = eh.handlerBegin.offset
             handlerLength = eh.handlerEnd.next.offset - eh.handlerBegin.offset
             matcher =
@@ -981,5 +985,18 @@ type ILRewriter(body : rawMethodBody) =
                 | ClassToken tok -> tok
                 | Filter instr -> instr.offset
         }
-        let ehs = Array.map encodeEH ehs
+        let probes = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<probes>) :?> probes
+        let ehs = Array.map (fun eh ->
+            Logger.trace "flags: %d" eh.flags
+            Logger.trace "matcher: %O" eh.matcher
+            Logger.trace "try begin: %s" <| x.ILInstrToString probes eh.tryBegin
+            Logger.trace "try end: %s" <| x.ILInstrToString probes eh.tryEnd
+            Logger.trace "try end next: %s" <| x.ILInstrToString probes eh.tryEnd.next
+            Logger.trace "try length: %d" <| eh.tryEnd.next.offset - eh.tryBegin.offset
+            Logger.trace "handler begin: %s" <| x.ILInstrToString probes eh.handlerBegin
+            Logger.trace "handler end: %s" <| x.ILInstrToString probes eh.handlerEnd
+            Logger.trace "handler end next: %s" <| x.ILInstrToString probes eh.handlerEnd.next
+            Logger.trace "handler length: %d" <| eh.handlerEnd.next.offset - eh.handlerBegin.offset
+            encodeEH eh) ehs
+//        let ehs = Array.map encodeEH ehs
         {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}
