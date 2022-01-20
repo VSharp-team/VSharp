@@ -112,7 +112,7 @@ module API =
             | Some _ -> SolverInteraction.SmtSat {satInfo with mdl = model}
         | result -> result
 
-    let TryGetModel state = // TODO: need to construct empty model? (when pc is empty) #do
+    let TryGetModel state =
         match state.model with
         | Some model -> Some model
         | None ->

@@ -51,6 +51,12 @@ namespace IntegrationTests
             return false;
         }
 
+        [TestSvm(100)]
+        public static bool SymbolicStringCharEq(string s)
+        {
+            return s[1] == 'A';
+        }
+
         [TestSvm]
         public static char GetCharOfString()
         {

@@ -550,6 +550,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm1
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
+            "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
         ]
 
     member x.ConfigureErrorReporter reporter =
@@ -727,6 +728,19 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
         let dstLB = Memory.ArrayLowerBoundByDimension state src zero
         x.CommonCopyArray cilState src srcLB dst dstLB length
+
+    member private x.GetChars (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1)
+        match this with
+        | Some this ->
+            let index = List.item 0 args
+            let length = Memory.StringLength cilState.state this
+            let getChar cilState k =
+                let char = Memory.ReadStringChar cilState.state this index
+                push char cilState
+                List.singleton cilState |> k
+            x.AccessArray getChar cilState length index id
+        | None -> internalfailf "String.GetChars: unexpected this %O" this
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName

@@ -788,6 +788,9 @@ module internal Terms =
         match typ with
         | Bool -> False
         | Numeric(Id t) when t.IsEnum -> castConcrete (Activator.CreateInstance t) t
+        // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
+        // TODO: change serializer
+        | Numeric(Id t) when t = typeof<char> -> makeNumber (char 33)
         | Numeric(Id t) -> castConcrete 0 t
         | ByRef _
         | ArrayType _
