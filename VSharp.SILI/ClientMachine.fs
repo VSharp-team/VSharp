@@ -55,6 +55,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     static let mutable id = 0
 
+    let mutable callIsSkipped = false
     let mutable mainReached = false
     let mutable poppedSymbolics : list<_> = List.Empty
     let environment (method : MethodBase) pipeFile =
@@ -83,8 +84,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
         let pipeFile = sprintf "%sconcolic_fifo_%d" (Path.GetTempPath()) id
         let env = environment entryPoint pipeFile
-        let proc = Process.Start env
         x.communicator <- new Communicator(pipeFile)
+        let proc = Process.Start env
         id <- id + 1
         proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
         proc.ErrorDataReceived.Add <| fun args -> Logger.trace "CONCOLIC ERROR: %s" args.Data
@@ -167,44 +168,57 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             Logger.trace "Got terminate command!"
             false
 
+    member private x.ConcreteToObj term =
+        let evalRefType baseAddress offset typ =
+            match baseAddress, offset.term with
+            | HeapLocation({term = ConcreteHeapAddress [address]} as a, _), Concrete(offset, _) ->
+                let obj = (address, uint64 (offset :?> int + metadataSizeOfAddress cilState.state a)) :> obj
+                Some (obj, typ)
+            // TODO: stack and statics location #do
+            | _ -> None
+        match term.term with
+        | Concrete(obj, typ) -> Some (obj, typ)
+        | _ when term = NullRef -> Some (null, Null)
+        | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
+        | Ref address ->
+            let baseAddress, offset = AddressToBaseAndOffset address
+            evalRefType baseAddress offset (TypeOf term)
+        | Ptr(baseAddress, sightType, offset) ->
+            evalRefType baseAddress offset (Pointer sightType)
+        | _ -> None
+
+    member private x.EvalOperands cilState =
+        match cilState.state.model with
+        | Some model ->
+            let concretizedSymbolics = poppedSymbolics |> List.choose (model.Eval >> x.ConcreteToObj)
+            if List.length poppedSymbolics <> List.length concretizedSymbolics then None
+            else
+                bindNewCilState cilState
+                Some concretizedSymbolics
+        | None -> None
+
     member x.StepDone (steppedStates : cilState list) =
-        let concretizedOps = steppedStates |> List.tryPick (fun cilState' ->
-            match cilState'.state.model with
-            | None -> None
-            | Some model ->
-                let mutable allConcrete = true
-                // TODO: fix style #style
-                let makeObjFromBaseAndOffset baseAddress offset =
-                    match baseAddress, offset.term with
-                    | HeapLocation({term = ConcreteHeapAddress [address]} as a, _), Concrete(offset, _) ->
-                        (address, uint64 (offset :?> int + metadataSizeOfAddress cilState'.state a)) :> obj
-                    // TODO: stack and statics location #do
-                    | _ -> allConcrete <- false; null
-                let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
-                    let concretizedTerm = model.Eval term
-                    match concretizedTerm.term with
-                    | Concrete(obj, typ) -> (obj, typ)
-                    | _ when concretizedTerm = NullRef -> (null, Null)
-                    | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
-                    | Ref address ->
-                        let baseAddress, offset = AddressToBaseAndOffset address
-                        makeObjFromBaseAndOffset baseAddress offset, TypeOf concretizedTerm
-                    | Ptr(baseAddress, sightType, offset) ->
-                        makeObjFromBaseAndOffset baseAddress offset, Pointer sightType
-                    | _ -> allConcrete <- false; (null, Null))
-                if allConcrete then
-                    bindNewCilState cilState'
-                    Some concretizedSymbolics
-                else None)
-        cilState.suspended <- true
-        let lastPushInfo = // TODO: fix style #style
-            match cilState.lastPushInfo with
-            | Some x ->
-                if IsConcrete x && CilStateOperations.currentIp cilState <> Exit entryPoint then
+        if CilStateOperations.currentMethod cilState |> InstructionsSet.isFSharpInternalCall then
+            callIsSkipped <- true
+            cilState
+        else
+            let concretizedOps =
+                if callIsSkipped then Some List.empty
+                else steppedStates |> List.tryPick x.EvalOperands
+            cilState.suspended <- true
+            let lastPushInfo =
+                match cilState.lastPushInfo with
+                | Some x when IsConcrete x && CilStateOperations.currentIp cilState <> Exit entryPoint ->
                     CilStateOperations.pop cilState |> ignore
                     Some true
-                else Some false
-            | None -> None
-        let framesCount = Memory.CallStackSize cilState.state
-        x.communicator.SendExecResponse concretizedOps lastPushInfo framesCount
-        cilState
+                | Some _ -> Some false
+                | None -> None
+            let internalCallResult =
+                match cilState.lastPushInfo with
+                | Some res when callIsSkipped ->
+                    x.ConcreteToObj res
+                | _ -> None
+            let framesCount = Memory.CallStackSize cilState.state
+            x.communicator.SendExecResponse concretizedOps internalCallResult lastPushInfo framesCount
+            callIsSkipped <- false
+            cilState

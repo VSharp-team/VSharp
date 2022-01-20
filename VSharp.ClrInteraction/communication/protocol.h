@@ -46,7 +46,7 @@ public:
         delete[] bytes;
         return result;
     }
-    bool waitExecResult(char *&message, int &messageLength);
+    void acceptExecResult(char *&bytes, int &messageLength);
     bool shutdown();
 };
 

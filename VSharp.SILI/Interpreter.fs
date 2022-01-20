@@ -898,13 +898,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             // [NOTE] else current method non method
             if currentMethod cilState = methodBase then
                 setCurrentIp (Exit methodBase) cilState
-                // [NOTE] in concolic case frame of internal call should be popped
-                if isConcolicMode then
-                    let states = x.MakeStep cilState
-                    assert(List.length states = 1)
-                    List.head states
-                else cilState
-            else cilState
+            cilState
         if Map.containsKey fullMethodName cilStateImplementations then
             let states = cilStateImplementations.[fullMethodName] cilState thisOption args
             List.map moveIpToExit states |> k

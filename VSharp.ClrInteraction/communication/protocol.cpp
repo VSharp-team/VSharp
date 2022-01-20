@@ -191,11 +191,11 @@ bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxS
     return true;
 }
 
-bool Protocol::waitExecResult(char *&message, int &messageLength) {
-    if (!readBuffer(message, messageLength)) {
-        FAIL_LOUD("Exec responce validation failed!");
+void Protocol::acceptExecResult(char *&bytes, int &messageLength) {
+    if (!readBuffer(bytes, messageLength)) {
+        FAIL_LOUD("Exec response validation failed!");
     }
-    return true;
+    assert(messageLength >= 5);
 }
 
 bool Protocol::connect() {

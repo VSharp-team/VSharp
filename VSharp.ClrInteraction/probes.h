@@ -166,33 +166,35 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     command.newAddressesTypes = begin;
 }
 
-bool readExecResponse(StackFrame &top, EvalStackOperand *&ops, unsigned count, int &framesCount) {
+bool readExecResponse(StackFrame &top, EvalStackOperand *ops, unsigned &count, int &framesCount, EvalStackOperand &result) {
     char *bytes; int messageLength;
-    if (!protocol->waitExecResult(bytes, messageLength)) {
-        return false;
-    }
-    assert(messageLength >= 5);
-    int index = 0;
-    framesCount = *(int*)bytes; index += sizeof(int);
-    bool returnsValue = bytes[index] > 0; index += 1;
-    if (returnsValue) {
-        assert(messageLength >= 6);
-        bool returnValueIsConcrete = bytes[index] > 0; index += 1;
-        tout << "returnValueIsConcrete = " << returnValueIsConcrete << std::endl;
+    protocol->acceptExecResult(bytes, messageLength);
+    char *start = bytes;
+    framesCount = *(int*)bytes; bytes += sizeof(int);
+    char lastPush = *(char*)bytes; bytes += sizeof(char);
+    int opsLength = *(int*)bytes; bytes += sizeof(int);
+    bool hasInternalCallResult = *(char*)bytes > 0; bytes += sizeof(char);
+    bool opsConcretized = opsLength > -1;
+    if (lastPush > 0) {
+        bool returnValueIsConcrete = lastPush == 2;
         top.push1(returnValueIsConcrete);
     }
-    bytes += index;
 
-    bool opsConcretized = false;
-    if (messageLength > index) {
-        assert(messageLength >= 5);
-        opsConcretized = true;
-        count = *((unsigned *)bytes);
-        bytes += sizeof(unsigned);
-        for (unsigned i = 0; i < count; ++i) {
+    if (opsConcretized) {
+        // NOTE: if internal call with symbolic arguments has concrete result, no arguments concretization is needed, so opsLength = 0
+        assert(opsLength == count || opsLength == 0);
+        for (unsigned i = 0; i < opsLength; ++i)
             ops[i].deserialize(bytes);
-        }
     }
+    count = opsLength;
+
+    if (hasInternalCallResult) {
+        // NOTE: internal call with symbolic arguments but concrete result
+        result.deserialize(bytes);
+    }
+    assert(bytes - start == messageLength);
+
+    delete start;
     return opsConcretized;
 }
 
@@ -204,6 +206,27 @@ void freeCommand(ExecCommand &command) {
     delete[] command.newAddressesTypes;
 }
 
+void updateMemory(EvalStackOperand &op, unsigned int idx) {
+    switch (op.typ) {
+        case OpI4:
+            update_i4((INT32) op.content.number, (INT8) idx);
+            break;
+        case OpI8:
+            update_i8((INT64) op.content.number, (INT8) idx);
+            break;
+        case OpR4:
+            update_f4(op.content.number, (INT8) idx);
+            break;
+        case OpR8:
+            update_f8(op.content.number, (INT8) idx);
+            break;
+        case OpRef:
+            update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
+            break;
+        case OpSymbolic:
+            FAIL_LOUD("updateMemory: unexpected symbolic value after concretization!");
+    }
+}
 bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     ExecCommand command;
     initCommand(offset, false, opsCount, ops, command);
@@ -211,35 +234,23 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     freeCommand(command);
     StackFrame &top = icsharp::topFrame();
     int framesCount;
-    bool allConcrete = readExecResponse(top, ops, opsCount, framesCount);
-    if (allConcrete) {
+    auto internalCallResult = EvalStackOperand {OpSymbolic, 0};
+    bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
+    if (opsConcretized && opsCount > 0) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (const auto &poppedSymb : poppedSymbs) {
             assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
             unsigned idx = opsCount - poppedSymb.second - 1;
             assert(idx < opsCount);
             EvalStackOperand op = ops[idx];
-            switch (op.typ) {
-            case OpI4:
-                update_i4((INT32) op.content.number, (INT8) idx);
-                break;
-            case OpI8:
-                update_i8((INT64) op.content.number, (INT8) idx);
-                break;
-            case OpR4:
-                update_f4((FLOAT) (INT32) op.content.number, (INT8) idx);
-                break;
-            case OpR8:
-                update_f8((DOUBLE) op.content.number, (INT8) idx);
-                break;
-            case OpRef:
-                update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
-                break;
-            }
+            updateMemory(op, idx);
         }
     }
+    if (internalCallResult.typ != OpSymbolic)
+        updateMemory(internalCallResult, opsCount);
+
     icsharp::stack().resetPopsTracking(framesCount);
-    return allConcrete;
+    return opsConcretized;
 }
 
 bool sendCommand0(OFFSET offset) { return sendCommand(offset, 0, nullptr); }
