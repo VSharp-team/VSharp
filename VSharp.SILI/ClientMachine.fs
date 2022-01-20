@@ -188,7 +188,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         | _ -> None
 
     member private x.EvalOperands cilState =
-        match cilState.state.model with
+        match TryGetModel cilState.state with
         | Some model ->
             let concretizedSymbolics = poppedSymbolics |> List.choose (model.Eval >> x.ConcreteToObj)
             if List.length poppedSymbolics <> List.length concretizedSymbolics then None
