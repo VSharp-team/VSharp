@@ -180,6 +180,7 @@ module API =
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
         let ElementType arrayType = Types.elementType arrayType
+        let ArrayTypeToSymbolicType arrayType = arrayTypeToSymbolicType arrayType
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
@@ -404,6 +405,11 @@ module API =
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
         let CreateStringFromChar state char = Memory.createStringFromChar state char
+
+        let LinearizeArrayIndex state address indices (_, dim, _ as arrayType) =
+            let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
+            let lbs = List.init dim (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType)
+            Memory.linearizeArrayIndex lens lbs indices
 
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with

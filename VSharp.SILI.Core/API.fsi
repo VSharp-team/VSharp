@@ -134,6 +134,7 @@ module API =
         val (|StringType|_|) : symbolicType -> unit option
 
         val ElementType : symbolicType -> symbolicType
+        val ArrayTypeToSymbolicType : arrayType -> symbolicType
 
         val TypeIsType : symbolicType -> symbolicType -> term
         val IsNullable : symbolicType -> bool
@@ -256,6 +257,8 @@ module API =
         val AllocateEmptyString : state -> term -> term
         val AllocateDelegate : state -> term -> term
         val CreateStringFromChar : state -> term -> term
+
+        val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 
         val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
