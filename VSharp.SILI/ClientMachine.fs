@@ -73,7 +73,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             result.Arguments <- method.Module.Assembly.Location
         else
             let runnerPath = "./VSharp.TestRunner.dll"
-            result.Arguments <- runnerPath + " " + (tempTest id)
+            result.Arguments <- sprintf "%s %s %O" runnerPath (tempTest id) false
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
@@ -94,6 +94,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Logger.info "Successfully spawned pid %d, working dir \"%s\"" proc.Id env.WorkingDirectory
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
+            x.communicator.SendEntryPoint entryPoint
             x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
         else false
@@ -188,6 +189,9 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         | _ -> None
 
     member private x.EvalOperands cilState =
+        // NOTE: if there are no branching, TryGetModel forces solver to create model
+        // NOTE: this made to check communication between Concolic and SILI
+        // TODO: after all checks, change this to 'cilState.state.model'
         match TryGetModel cilState.state with
         | Some model ->
             let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)

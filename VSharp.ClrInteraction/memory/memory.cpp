@@ -279,7 +279,7 @@ INT_PTR icsharp::unmem_p(INT8 idx) {
 
 bool _mainEntered = false;
 
-void icsharp::mainEntered() {
+void icsharp::mainEntered() { // TODO: need this? (we already have m_mainReached) #do
     _mainEntered = true;
 }
 

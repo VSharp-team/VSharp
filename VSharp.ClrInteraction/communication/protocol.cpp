@@ -129,6 +129,14 @@ bool Protocol::sendProbes() {
     return writeBuffer((char*)ProbesAddresses.data(), bytesCount);
 }
 
+void Protocol::acceptEntryPoint(char *&entryPointBytes, int &length) {
+    if (!readBuffer(entryPointBytes, length)) {
+        FAIL_LOUD("Exec response validation failed!");
+    }
+    LOG(tout << "Entry point accepted" << std::endl);
+    assert(length >= 0);
+}
+
 bool Protocol::acceptCommand(CommandType &command)
 {
     char *message;

@@ -13,7 +13,7 @@ namespace VSharp.TestRunner
             return 2;
         }
 
-        public static int Main(string[] args) // TODO: add another arg (disable check result) #do
+        public static int Main(string[] args)
         {
             bool checkResult = true;
             if (args.Length == 2)
