@@ -441,6 +441,7 @@ module internal Z3 =
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
 
+        // NOTE: temporary generating string with 0 <= length <= 20
         member private x.GenerateLengthAssumptions encodingResult =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
@@ -449,6 +450,8 @@ module internal Z3 =
             // TODO: this limits length < 20, delete when model normalization is complete
             { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
 
+        // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
+        // TODO: use another serializer
         member private x.GenerateCharAssumptions encodingResult =
             // TODO: use stringRepr for serialization of strings
             let expr = encodingResult.expr :?> BitVecExpr
