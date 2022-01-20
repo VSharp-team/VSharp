@@ -107,7 +107,7 @@ with
                 x.Complete value
             | { term = Constant(_, source, typ) } ->
                 let value = ref Nop
-                if x.subst.TryGetValue(source, value) then !value
+                if x.subst.TryGetValue(source, value) then value.Value
                 elif x.complete then makeDefaultValue typ
                 else term
             | _ -> term) id id term

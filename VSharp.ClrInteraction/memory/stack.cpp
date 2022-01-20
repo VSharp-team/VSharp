@@ -24,11 +24,11 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     resetPopsTracking();
 }
 
-//StackFrame::~StackFrame()
-//{
-//    // TODO: why double free?
-//    delete [] concreteness;
-//}
+StackFrame::~StackFrame()
+{
+    // TODO: why double free? check #do
+    delete [] m_concreteness;
+}
 
 void StackFrame::configure(unsigned maxStackSize, unsigned localsCount)
 {
@@ -103,7 +103,7 @@ bool StackFrame::pop1()
     unsigned cell = m_concreteness[m_concretenessTop];
     if (cell != CONCRETE) {
         --m_symbolsCount;
-        m_lastPoppedSymbolics.push_back(std::make_pair(cell, 0u));
+        m_lastPoppedSymbolics.emplace_back(cell, 0u);
         return false;
     }
     return true;

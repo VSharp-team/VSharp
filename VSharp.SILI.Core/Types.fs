@@ -309,7 +309,7 @@ module internal Types =
         | Void, _ | _, Void -> certainK false
         | ArrayType _, ClassType(Id obj, _) -> obj = typedefof<obj> |> certainK
         | Numeric (Id t), Numeric (Id enum)
-        | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && enum.GetEnumUnderlyingType() = t -> certainK true
+        | Numeric (Id enum), Numeric (Id t) when enum.IsEnum && TypeUtils.numericSizeOf enum = TypeUtils.numericSizeOf t -> certainK true
         // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
         // NOTE: Numeric zero may may be treated as ref or ptr
         | Numeric _, Pointer _
@@ -328,6 +328,7 @@ module internal Types =
         | Pointer t1, ByRef t2 -> commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK
         | ArrayType _, ArrayType(_, SymbolicDimension) -> certainK true
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
+            // TODO: check 'is' for int[] and long[] (it must be false) #do
             if d1 = d2 then commonConcreteCanCast canCast nullCase t1 t2 certainK uncertainK else certainK false
         | ComplexType, ComplexType ->
             let lType = toDotNetType leftType

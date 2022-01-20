@@ -652,8 +652,7 @@ module internal Z3 =
             | _ ->
                 let structureRef = Dict.getValueOrUpdate dict key (fun () ->
                     Memory.DefaultOf structureType |> ref)
-                structureRef := x.WriteFields !structureRef value fields
-
+                structureRef.Value <- x.WriteFields structureRef.Value value fields
 
         member x.MkModel (m : Model) =
             let subst = Dictionary<ISymbolicConstantSource, term>()

@@ -141,8 +141,7 @@ module private EvaluationStackTyper =
 
     let abstractType (typ : Type) =
         if typ.IsValueType then
-            let typ =
-                if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
+            let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
             let result = ref evaluationStackCellType.I1
             if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then !result
             else evaluationStackCellType.Struct

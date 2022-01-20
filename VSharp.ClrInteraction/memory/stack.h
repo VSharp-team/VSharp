@@ -28,7 +28,7 @@ private:
 
 public:
     StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
-//    ~StackFrame();
+    ~StackFrame();
 
     void configure(unsigned maxStackSize, unsigned localsCount);
 

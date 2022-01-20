@@ -236,7 +236,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_p, [], x.tokens.void_i_offset_sig, &instr) |> ignore
             x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
-        | _ -> __unreachable__()
+        | _ -> internalfailf "PrependValidLeaveMain: unexpected stack state! %O" instr.stackState
 
     member private x.PlaceLeaveProbe(instr : ilInstr byref) =
         if x.m = entryPoint then
@@ -324,7 +324,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable atLeastOneReturnFound = false
         let mutable hasPrefix = false
         let mutable prefix : ilInstr byref = &instructions.[0]
-        x.PlaceEnterProbe(&instructions.[0])  |> ignore
+        x.PlaceEnterProbe(&instructions.[0]) |> ignore
         for i in 0 .. instructions.Length - 1 do
             let instr = &instructions.[i]
             if not hasPrefix then prefix <- instr
@@ -460,7 +460,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                     // Mem and get exec with unmem
                     let execProbe, execSig, unmem1Probe, unmem1Sig, unmem2Probe, unmem2Sig =
-                        match instr.stackState with
+                        match instr.stackState with // TODO: unify getting stackState #do
                         | Some (evaluationStackCellType.I4 :: evaluationStackCellType.I4 :: _)
                         | Some (evaluationStackCellType.I1 :: evaluationStackCellType.I1 :: _)
                         | Some (evaluationStackCellType.I1 :: evaluationStackCellType.I2 :: _)

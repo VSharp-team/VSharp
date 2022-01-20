@@ -438,7 +438,7 @@ module API =
         let WriteArrayIndex state reference indices value valueType =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value =
-                if isPtr ref then value
+                if isPtr ref then Option.fold (fun _ -> Types.Cast value) value valueType
                 else MostConcreteTypeOfHeapRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
             Write state ref value
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
@@ -602,7 +602,6 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
-
 
     module Print =
         let Dump state = Memory.dump state
