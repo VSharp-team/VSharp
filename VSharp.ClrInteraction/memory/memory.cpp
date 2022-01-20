@@ -190,14 +190,19 @@ void icsharp::update_i8(INT64 value, INT8 idx) {
     update((char *) &value, sizeof(INT64), idx);
 }
 
-void icsharp::update_f4(FLOAT value, INT8 idx) {
-    LOG(tout << "update_f4 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
-    update((char *) &value, sizeof(FLOAT), idx);
+void icsharp::update_f4(long long value, INT8 idx) {
+    DOUBLE tmp;
+    std::memcpy(&tmp, &value, sizeof(DOUBLE));
+    auto result = (FLOAT) tmp;
+    LOG(tout << "update_f4 " << result << " (index = " << (int)idx << ")" << std::endl);
+    update((char *) &result, sizeof(FLOAT), idx);
 }
 
-void icsharp::update_f8(DOUBLE value, INT8 idx) {
-    LOG(tout << "update_f8 " << (INT64) value << " (index = " << (int)idx << ")" << std::endl);
-    update((char *) &value, sizeof(DOUBLE), idx);
+void icsharp::update_f8(long long value, INT8 idx) {
+    DOUBLE result;
+    std::memcpy(&result, &value, sizeof(DOUBLE));
+    LOG(tout << "update_f8 " << result << " (index = " << (int)idx << ")" << std::endl);
+    update((char *) &result, sizeof(DOUBLE), idx);
 }
 
 void icsharp::update_p(INT_PTR value, INT8 idx) {
@@ -261,7 +266,6 @@ DOUBLE icsharp::unmem_f8(INT8 idx) {
     auto result = *((DOUBLE*) (ptr + sizeof(CorElementType)));
     LOG(tout << "unmem_f8(" << (int)idx << ") returned " << result);
     return result;
-    return *((DOUBLE*) (data.data() + dataPtrs[idx]));
 }
 
 INT_PTR icsharp::unmem_p(INT8 idx) {
