@@ -724,7 +724,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      x.PrependProbeWithOffset(probes.ldobj, [], x.tokens.void_i_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldstr ->
                      x.AppendProbe(probes.ldstr, [], x.tokens.void_i_sig, instr)
-                     x.AppendDup instr
+                     x.AppendInstr OpCodes.Conv_I NoArg instr
+                     x.AppendInstr OpCodes.Dup NoArg instr
                 | OpCodeValues.Castclass ->
                      x.PrependDup &prependTarget
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
