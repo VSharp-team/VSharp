@@ -56,4 +56,26 @@
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.so">
+            <Link>libicsharpConcolic.dylib</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dylib">
+            <Link>libicsharpConcolic.dylib</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dll">
+            <Link>libicsharpConcolic.dylib</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+
 </Project>
