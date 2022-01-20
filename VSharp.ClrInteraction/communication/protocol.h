@@ -32,6 +32,7 @@ public:
     bool connect();
     bool sendProbes();
     bool startSession();
+    void acceptEntryPoint(char *&entryPointBytes, int &length);
     bool acceptCommand(CommandType &command);
     bool acceptString(char *&string);
     bool sendStringsPoolIndex(unsigned index);

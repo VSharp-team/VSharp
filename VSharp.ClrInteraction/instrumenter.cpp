@@ -154,20 +154,26 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
 }
 
 
-Instrumenter::Instrumenter(ICorProfilerInfo9 &profilerInfo)
+Instrumenter::Instrumenter(ICorProfilerInfo9 &profilerInfo, Protocol &protocol)
     : m_profilerInfo(profilerInfo)
+    , m_protocol(protocol)
     , m_methodMalloc(nullptr)
     , m_moduleId(0)
     , m_signatureTokens(nullptr)
     , m_generateTinyHeader(false)
     , m_pEH(nullptr)
+    , m_reJitInstrumentedStarted(false)
+    , m_mainModuleName(nullptr)
+    , m_mainModuleSize(0)
+    , m_mainMethod(0)
+    , m_mainReached(false)
 {
 }
 
 Instrumenter::~Instrumenter()
 {
-    if (m_signatureTokens)
-        delete[] m_signatureTokens;
+    delete[] m_signatureTokens;
+    delete[] m_mainModuleName;
 }
 
 unsigned Instrumenter::codeSize() const
@@ -195,7 +201,7 @@ unsigned Instrumenter::maxStackSize() const
     return m_maxStack;
 }
 
-HRESULT Instrumenter::setILFunctionBody(LPBYTE pBody)
+HRESULT Instrumenter::setILFunctionBody(LPCBYTE pBody)
 {
     return m_profilerInfo.SetILFunctionBody(m_moduleId, m_jittedToken, pBody);
 }
@@ -206,6 +212,29 @@ LPBYTE Instrumenter::allocateILMemory(unsigned size)
         return nullptr;
 
     return (LPBYTE)m_methodMalloc->Alloc(size);
+}
+
+void Instrumenter::configureEntryPoint() {
+    char *bytes; int messageLength;
+    m_protocol.acceptEntryPoint(bytes, messageLength);
+    char *start = bytes;
+    m_mainModuleSize = *(INT32*) bytes; bytes += sizeof(INT32);
+    m_mainMethod = *(INT32*) bytes; bytes += sizeof(INT32);
+    m_mainModuleName = new WCHAR[m_mainModuleSize];
+    unsigned bytesCount = m_mainModuleSize * sizeof(WCHAR);
+    memcpy(m_mainModuleName, bytes, m_mainModuleSize * sizeof(WCHAR)); bytes += bytesCount;
+    assert(bytes - start == messageLength);
+    delete[] start;
+}
+
+bool Instrumenter::currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const {
+    // NOTE: decrementing 'moduleSize', because of null terminator
+    if (m_mainModuleSize != moduleSize - 1 || m_mainMethod != method)
+        return false;
+    bool modulesAreEq = true;
+    for (int i = 0; i < m_mainModuleSize; i++)
+        modulesAreEq = modulesAreEq && m_mainModuleName[i] == moduleName[i];
+    return modulesAreEq;
 }
 
 HRESULT Instrumenter::importIL()
@@ -314,16 +343,47 @@ HRESULT Instrumenter::exportIL(char *bytecode, unsigned codeLength, unsigned max
     return S_OK;
 }
 
-HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
+HRESULT Instrumenter::startReJitInstrumented() {
+    LOG(tout << "ReJIT of instrumented methods is started" << std::endl);
+    m_reJitInstrumentedStarted = true;
+    ULONG count = instrumentedFunctions.size();
+    auto *modules = new ModuleID[count];
+    auto *methods = new mdMethodDef[count];
+    int i = 0;
+    for (const auto &it : instrumentedFunctions) {
+        modules[i] = it.first.first;
+        methods[i] = it.first.second;
+        i++;
+    }
+    HRESULT hr = m_profilerInfo.RequestReJIT(count, modules, methods);
+    delete[] modules;
+    delete[] methods;
+    return hr;
+}
+
+HRESULT Instrumenter::startReJitSkipped() {
+    LOG(tout << "ReJIT of skipped methods is started" << std::endl);
+    ULONG count = skippedBeforeMain.size();
+    auto *modules = new ModuleID[count];
+    auto *methods = new mdMethodDef[count];
+    int i = 0;
+    for (const auto &it : skippedBeforeMain) {
+        modules[i] = it.first;
+        methods[i] = it.second;
+        i++;
+    }
+    HRESULT hr = m_profilerInfo.RequestReJIT(count, modules, methods);
+    delete[] modules;
+    delete[] methods;
+    return hr;
+}
+
+HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, WCHAR *assemblyName, ULONG assemblyNameLength, WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
-    ModuleID oldModuleId = m_moduleId;
     CComPtr<IMetaDataImport> metadataImport;
     CComPtr<IMetaDataEmit> metadataEmit;
-    ClassID classId;
-    IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
     IfFailRet(m_profilerInfo.GetModuleMetaData(m_moduleId, ofRead | ofWrite, IID_IMetaDataImport, reinterpret_cast<IUnknown **>(&metadataImport)));
     IfFailRet(metadataImport->QueryInterface(IID_IMetaDataEmit, reinterpret_cast<void **>(&metadataEmit)));
-    assert((m_jittedToken & 0xFF000000L) == mdtMethodDef);
 
     // TODO: analyze the IL code instead to understand that we've injected functions?
     if (instrumentedFunctions.find({m_moduleId, m_jittedToken}) != instrumentedFunctions.end()) {
@@ -331,27 +391,14 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
         return S_OK;
     }
     if (mainLeft()) {
+        if (!m_reJitInstrumentedStarted)
+            IfFailRet(startReJitInstrumented());
         LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
         return S_OK;
     }
-    instrumentedFunctions.insert({m_moduleId, m_jittedToken});
-
-    LPCBYTE baseLoadAddress;
-    ULONG moduleNameLength;
-    AssemblyID assembly;
-    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, 0, &moduleNameLength, nullptr, &assembly));
-    WCHAR *moduleName = new WCHAR[moduleNameLength];
-    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, moduleNameLength, &moduleNameLength, moduleName, &assembly));
-    ULONG assemblyNameLength;
-    AppDomainID appDomainId;
-    ModuleID startModuleId;
-    IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, 0, &assemblyNameLength, nullptr, &appDomainId, &startModuleId));
-    WCHAR *assemblyName = new WCHAR[assemblyNameLength];
-    IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
     if (oldModuleId != m_moduleId) {
-        if (m_signatureTokens)
-            delete[] m_signatureTokens;
+        delete[] m_signatureTokens;
         std::vector<mdSignature> *tokens = new std::vector<mdSignature>;
         initTokens(metadataEmit, *tokens);
         m_signatureTokensLength = tokens->size() * sizeof(mdSignature);
@@ -361,6 +408,15 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
     LOG(tout << "Instrumenting token " << HEX(m_jittedToken) << "..." << std::endl);
 
     IfFailRet(importIL());
+
+    unsigned codeLength = codeSize();
+    char *bytes = new char[codeLength];
+    char *ehcs = new char[ehCount()];
+    memcpy(bytes, code(), codeLength);
+    memcpy(ehcs, ehs(), ehCount());
+    MethodInfo mi = MethodInfo{.token = m_jittedToken, .bytecode = bytes, .codeLength = codeLength, .ehs = ehcs, .ehsLength = ehCount()};
+    instrumentedFunctions[{m_moduleId, m_jittedToken}] = mi;
+
     MethodBodyInfo info{
         (unsigned)m_jittedToken,
         (unsigned)codeSize(),
@@ -375,19 +431,19 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
         code(),
         (char*)ehs()
     };
-    if (!protocol.sendSerializable(InstrumentCommand, info)) return false;
+    if (!m_protocol.sendSerializable(InstrumentCommand, info)) return false;
     LOG(tout << "Successfully sent method body!");
     char *bytecode; int length; unsigned maxStackSize; char *ehs; unsigned ehsLength;
 #ifdef _DEBUG
     CommandType command;
     do {
-        if (!protocol.acceptCommand(command)) return false;
+        if (!m_protocol.acceptCommand(command)) return false;
         switch (command) {
             case ReadString: {
                 char *string;
-                if (!protocol.acceptString(string)) return false;
+                if (!m_protocol.acceptString(string)) return false;
                 unsigned index = allocateString(string);
-                if (!protocol.sendStringsPoolIndex(index)) return false;
+                if (!m_protocol.sendStringsPoolIndex(index)) return false;
                 break;
             }
             default:
@@ -396,9 +452,74 @@ HRESULT Instrumenter::instrument(FunctionID functionId, Protocol &protocol) {
     } while (command != ReadMethodBody);
 #endif
     LOG(tout << "Reading method body back...");
-    if (!protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) return false;
+    if (!m_protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) return false;
     LOG(tout << "Exporting " << length << " IL bytes!");
     IfFailRet(exportIL(bytecode, length, maxStackSize, ehs, ehsLength));
 
     return S_OK;
+}
+
+HRESULT Instrumenter::instrument(FunctionID functionId) {
+    HRESULT hr;
+    ModuleID oldModuleId = m_moduleId;
+    ClassID classId;
+    IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
+    assert((m_jittedToken & 0xFF000000L) == mdtMethodDef);
+
+    LPCBYTE baseLoadAddress;
+    ULONG moduleNameLength;
+    AssemblyID assembly;
+    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, 0, &moduleNameLength, nullptr, &assembly));
+    WCHAR *moduleName = new WCHAR[moduleNameLength];
+    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, moduleNameLength, &moduleNameLength, moduleName, &assembly));
+    ULONG assemblyNameLength;
+    AppDomainID appDomainId;
+    ModuleID startModuleId;
+    IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, 0, &assemblyNameLength, nullptr, &appDomainId, &startModuleId));
+    WCHAR *assemblyName = new WCHAR[assemblyNameLength];
+    IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
+
+    if (!m_mainReached) {
+        if (currentMethodIsMain(moduleName, (int) moduleNameLength, m_jittedToken)) {
+            m_mainReached = true;
+            IfFailRet(startReJitSkipped());
+        }
+    }
+
+    if (m_mainReached) {
+        LOG(tout << "Main function reached!" << std::endl);
+        doInstrumentation(oldModuleId, assemblyName, assemblyNameLength, moduleName, moduleNameLength);
+    } else {
+        LOG(tout << "Instrumentation of token " << HEX(m_jittedToken) << " is skipped" << std::endl);
+        skippedBeforeMain.insert({m_moduleId, m_jittedToken});
+    }
+
+    delete[] moduleName;
+    delete[] assemblyName;
+
+    return S_OK;
+}
+
+HRESULT Instrumenter::undoInstrumentation(FunctionID functionId) {
+    HRESULT hr;
+    ClassID classId;
+    IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
+    assert((m_jittedToken & 0xFF000000L) == mdtMethodDef);
+    const auto instrumented = instrumentedFunctions.find({m_moduleId, m_jittedToken});
+    if (instrumented != instrumentedFunctions.end()) {
+        MethodInfo mi = instrumented->second;
+        LOG(tout << "Undo instrumentation token " << HEX(m_jittedToken) << "..." << std::endl);
+        IfFailRet(exportIL(mi.bytecode, mi.codeLength, mi.maxStackSize, mi.ehs, mi.ehsLength));
+        instrumentedFunctions.erase(instrumented);
+    }
+    return S_OK;
+}
+
+HRESULT Instrumenter::reInstrument(FunctionID functionId) {
+    // NOTE: if main is left, rejit needs to delete probes
+    // NOTE: otherwise, rejit needs to place probes
+    if (mainLeft())
+        return undoInstrumentation(functionId);
+    else
+        return instrument(functionId);
 }

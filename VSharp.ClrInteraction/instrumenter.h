@@ -3,6 +3,7 @@
 
 #include <set>
 #include "corProfiler.h"
+#include "cComPtr.h"
 
 struct COR_ILMETHOD_SECT_EH;
 struct IMAGE_COR_ILMETHOD_SECT_EH_CLAUSE_FAT;
@@ -13,10 +14,26 @@ class Protocol;
 class ILRewriter;
 struct ILInstr;
 
+struct MethodInfo {
+    unsigned token;
+    char *bytecode;
+    unsigned codeLength;
+    unsigned maxStackSize;
+    char *ehs;
+    unsigned ehsLength;
+};
+
 class Instrumenter {
 private:
     ICorProfilerInfo9 &m_profilerInfo;  // Does not have ownership
     IMethodMalloc *m_methodMalloc;  // Does not have ownership
+
+    Protocol &m_protocol;
+
+    WCHAR *m_mainModuleName;
+    int m_mainModuleSize;
+    mdMethodDef m_mainMethod;
+    bool m_mainReached;
 
     mdMethodDef m_jittedToken;
     ModuleID m_moduleId;
@@ -35,7 +52,10 @@ private:
     char *m_code;
     unsigned    m_codeSize;
 
-    std::set<std::pair<ModuleID, mdMethodDef>> instrumentedFunctions;
+    std::map<std::pair<ModuleID, mdMethodDef>, MethodInfo> instrumentedFunctions;
+    std::set<std::pair<ModuleID, mdMethodDef>> skippedBeforeMain;
+
+    bool m_reJitInstrumentedStarted;
 
     unsigned codeSize() const;
     char *code() const;
@@ -43,22 +63,31 @@ private:
     IMAGE_COR_ILMETHOD_SECT_EH_CLAUSE_FAT *ehs() const;
     unsigned maxStackSize() const;
 
-    HRESULT setILFunctionBody(LPBYTE pBody);
+    HRESULT setILFunctionBody(LPCBYTE pBody);
     LPBYTE allocateILMemory(unsigned size);
 
     HRESULT importIL();
     HRESULT importEH(const COR_ILMETHOD_SECT_EH* pILEH, unsigned nEH);
     HRESULT exportIL(char *bytecode, unsigned codeLength, unsigned maxStackSize, char *ehs, unsigned ehsLength);
 
+    HRESULT startReJitInstrumented();
+    HRESULT startReJitSkipped();
+    HRESULT undoInstrumentation(FunctionID functionId);
+    HRESULT doInstrumentation(ModuleID oldModuleId, WCHAR *assemblyName, ULONG assemblyNameLength, WCHAR *moduleName, ULONG moduleNameLength);
+
+    bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
 
 public:
-    explicit Instrumenter(ICorProfilerInfo9 &profilerInfo);
+    explicit Instrumenter(ICorProfilerInfo9 &profilerInfo, Protocol &protocol);
     ~Instrumenter();
 
     const char *signatureTokens() const { return m_signatureTokens; }
     unsigned signatureTokensLength() const { return m_signatureTokensLength; }
 
-    HRESULT instrument(FunctionID functionId, Protocol &protocol);
+    void configureEntryPoint();
+
+    HRESULT instrument(FunctionID functionId);
+    HRESULT reInstrument(FunctionID functionId);
 };
 
 }

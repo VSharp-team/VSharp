@@ -45,7 +45,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         COR_PRF_DISABLE_INLINING |
         COR_PRF_MONITOR_GC |
         COR_PRF_ENABLE_OBJECT_ALLOCATED |
-        COR_PRF_MONITOR_OBJECT_ALLOCATED;
+        COR_PRF_MONITOR_OBJECT_ALLOCATED |
+        COR_PRF_ENABLE_REJIT;
 
     // TODO: place IfFailRet here, log fails!
     auto hr = this->corProfilerInfo->SetEventMask(eventMask);
@@ -64,10 +65,11 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     };
     currentThread = currentThreadGetter;
 
-    instrumenter = new Instrumenter(*corProfilerInfo);
-
     protocol = new icsharp::Protocol();
     if (!protocol->startSession()) return E_FAIL;
+
+    instrumenter = new Instrumenter(*corProfilerInfo, *protocol);
+    instrumenter->configureEntryPoint();
 
     return S_OK;
 }
@@ -221,7 +223,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID function
 //    std::cout << __FUNCTION__ << " " << std::hex << pToken << std::dec << std::endl;
     UNUSED(fIsSafeToBlock);
 
-    return instrumenter->instrument(functionId, *protocol);
+    return instrumenter->instrument(functionId);
 //    return S_OK;
 }
 
@@ -857,7 +859,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ReJITCompilationStarted(FunctionID functi
     UNUSED(functionId);
     UNUSED(rejitId);
     UNUSED(fIsSafeToBlock);
-    return S_OK;
+    return instrumenter->reInstrument(functionId);
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::GetReJITParameters(ModuleID moduleId, mdMethodDef methodId, ICorProfilerFunctionControl *pFunctionControl)
