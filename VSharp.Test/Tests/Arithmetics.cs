@@ -380,7 +380,13 @@ namespace IntegrationTests
         [TestSvm]
         public static int BigSum(int x)
         {
-            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+        }
+
+        [TestSvm]
+        public static int SmallBigSum(int x)
+        {
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
         }
 
         [TestSvm]
@@ -493,6 +499,12 @@ namespace IntegrationTests
             int x = 2000000000;
             int y = x;
             return checked (x + x1 + y);
+        }
+
+        [Ignore("Exception handling in concolic")]
+        public static int DivisionTest1(int a, int b)
+        {
+            return a / b;
         }
 
         // Expecting a
@@ -980,6 +992,15 @@ namespace IntegrationTests
         public static double AbsMethod(double x)
         {
             return Math.Abs(x);
+        }
+
+        [TestSvm]
+        public static double AbsMethod2(double x)
+        {
+            double a = 42;
+            if (x == 4)
+                a = Math.Abs(x);
+            return a;
         }
 
         // 5.9
