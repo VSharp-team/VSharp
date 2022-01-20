@@ -25,7 +25,9 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
+    val SolveTypes : model -> state -> (System.Type[] * System.Type[]) option
     val IsValid : state -> SolverInteraction.smtResult
+    val TryGetModel : state -> model option
 
     val ConfigureErrorReporter : (state -> unit) -> unit
     val ErrorReporter : unit -> (state -> unit)
