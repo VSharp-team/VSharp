@@ -49,7 +49,7 @@
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="CoverageTool.fs" />
+        <Compile Include="TestResultsChecker.fs" />
         <Compile Include="AssemblyManager.fs" />
         <Compile Include="TypeSolver.fs" />
     </ItemGroup>

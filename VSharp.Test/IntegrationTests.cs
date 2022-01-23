@@ -98,19 +98,14 @@ namespace VSharp.Test
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
-                        var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName,
-                            Directory.GetCurrentDirectory());
-                        coverageTool.Run(unitTests.TestDirectory);
-                        int coverage = coverageTool.GetCoverage(methodInfo);
-                        if (coverage != _expectedCoverage)
-                        {
-                            context.CurrentResult.SetResult(ResultState.Failure,
-                                "Incomplete coverage! Expected " + _expectedCoverage + ", but got " + coverage);
-                        }
-                        else
-                        {
+                        // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
+                        //       to enable coverage check use _expectedCoverage
+                        var testChecker = new TestResultsChecker(unitTests.TestDirectory,
+                            Directory.GetCurrentDirectory(), null);
+                        if (testChecker.Check(methodInfo))
                             context.CurrentResult.SetResult(ResultState.Success);
-                        }
+                        else
+                            context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
                     }
                     else
                     {
