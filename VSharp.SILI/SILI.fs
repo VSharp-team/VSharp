@@ -171,11 +171,11 @@ type public SILI(options : SiliOptions) =
             let machine =
                 if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
                 else __notImplemented'__ "Forking in concolic mode"
-            while machine.State.suspended && machine.ExecCommand() do // TODO: make better interaction between concolic and SILI #do
+            while machine.State.suspended && machine.ExecCommand() do
                 x.BidirectionalSymbolicExecution entryIP
-            // TODO: need to report? #do
-//            Logger.error "result state = %O" machine.State
-//            reportFinished.Invoke machine.State
+            // NOTE: if SILI ended method exploration,
+            // but concolic is still running (IIE occured, for example), terminating it
+            if machine.IsRunning then machine.Terminate()
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution entryIP
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->

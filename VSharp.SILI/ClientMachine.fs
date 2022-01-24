@@ -79,6 +79,10 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
+
+    let mutable concolicProcess = new Process()
+    let mutable isRunning = false
+
     member x.Spawn() =
         assert(entryPoint <> null)
         let test = UnitTest(entryPoint)
@@ -94,19 +98,25 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 pipeFile, pipeFile
         let env = environment entryPoint pipePath
         x.communicator <- new Communicator(pipe)
-        let proc = Process.Start env
+        concolicProcess <- Process.Start env
+        isRunning <- true
         id <- id + 1
-        proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
-        proc.ErrorDataReceived.Add <| fun args -> Logger.trace "CONCOLIC ERROR: %s" args.Data
-        proc.BeginOutputReadLine()
-        proc.BeginErrorReadLine()
-        Logger.info "Successfully spawned pid %d, working dir \"%s\"" proc.Id env.WorkingDirectory
+        concolicProcess.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
+        concolicProcess.ErrorDataReceived.Add <| fun args -> Logger.trace "CONCOLIC ERROR: %s" args.Data
+        concolicProcess.BeginOutputReadLine()
+        concolicProcess.BeginErrorReadLine()
+        Logger.info "Successfully spawned pid %d, working dir \"%s\"" concolicProcess.Id env.WorkingDirectory
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
             x.communicator.SendEntryPoint entryPoint
             x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
         else false
+
+    member x.Terminate() =
+        concolicProcess.Kill()
+
+    member x.IsRunning = isRunning
 
     member x.SynchronizeStates (c : execCommand) =
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
@@ -176,6 +186,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             true
         | Terminate ->
             Logger.trace "Got terminate command!"
+            isRunning <- false
             false
 
     member private x.ConcreteToObj term =
