@@ -37,11 +37,11 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
     let mkForwardSearcher coverageZone = function
-        | BFSMode -> BFSSearcher(options.bound) :> IForwardSearcher
-        | DFSMode -> DFSSearcher(options.bound) :> IForwardSearcher
+        | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
+        | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | GuidedMode ->
-            let baseSearcher = DFSSearcher(options.bound) :> IForwardSearcher
-            GuidedSearcher(options.bound, options.threshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
+            let baseSearcher = BFSSearcher(infty) :> IForwardSearcher
+            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
 
     let searcher : IBidirectionalSearcher =
         match options.explorationMode with

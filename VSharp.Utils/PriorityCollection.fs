@@ -13,6 +13,7 @@ type IPriorityCollection<'a> =
     abstract member Contains : 'a -> bool
     abstract member TryGetPriority : 'a -> uint option
     abstract member MaxPriority : uint
+    abstract member Count : uint
     abstract member ToSeq : 'a seq
 
 type BidictionaryPriorityQueue<'a when 'a : equality>() =
@@ -68,5 +69,6 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         override x.Contains item = contains item
         override x.TryGetPriority item = tryGetPriority item
         override x.MaxPriority = maxPriority ()
+        override x.Count = uint valuesToPriority.Count
         override x.ToSeq = valuesToPriority.Keys |> seq
 

@@ -101,13 +101,14 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100, 2)]
+        [TestSvm(100)]
+        // [Ignore("Incorrect result")]
         public static bool OwnImplementationTest4(string pattern)
         {
             return RegExImplementation.Match(pattern, "Hello");
         }
 
-        // [TestSvm(100, 2)]
+        // [TestSvm(100)]
         [Ignore("need more external method implementations")]
         public static MatchCollection SmallSystemImplementationTest()
         {

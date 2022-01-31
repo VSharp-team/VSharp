@@ -92,7 +92,7 @@ namespace IntegrationTests
             return game.HasAnyValidMoves(Player.Black);
         }
 
-        [TestSvm(100, 1000u, 1000u)]
+        [TestSvm(100)]
         public static bool ApplyMoveAndCheckOtherValidMoves()
         {
             var game = new ChessGame();
@@ -109,7 +109,7 @@ namespace IntegrationTests
             return p1 == p2;
         }
 
-        [TestSvm(100, 1000u)]
+        [TestSvm(100)]
         public static bool ApplyMoveAndCheckValid()
         {
             var game = new ChessGame();
@@ -155,7 +155,7 @@ namespace IntegrationTests
             return data;
         }
 
-        [TestSvm(100, 1000u, 1000u)]
+        [TestSvm(100)]
         public static bool CheckMate1(bool f)
         {
             var data = CreateDataForCheckMate();
@@ -182,7 +182,7 @@ namespace IntegrationTests
             return game.IsCheckmated(Player.Black);
         }
 
-        [TestSvm(100, 1000u, 1000u)]
+        [TestSvm(100)]
         public static bool CheckMoveIsValidAndApply()
         {
             var game = new ChessGame();

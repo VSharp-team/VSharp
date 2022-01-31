@@ -277,6 +277,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         override x.Contains item = x.Contains(item)
         override x.TryGetPriority item = x.TryGetWeight(item)
         override x.MaxPriority = x.MaxWeight
+        override x.Count = x.Count
         override x.ToSeq = x.ToSeq
 
 module public DiscretePDF =

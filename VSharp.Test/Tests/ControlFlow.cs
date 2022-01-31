@@ -273,8 +273,7 @@ namespace IntegrationTests
 //            return x;
 //        }
 
-
-        [Ignore("Path explosion problem, when MaxBound = 10u, because we have about 2^45 different paths")]
+        [TestSvm(100)]
         public static int ForsWithContinueAndBreak(int x)
         {
             int sum = 0;
@@ -377,7 +376,8 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm(78, 15)]
+        [Ignore("Looping due to non-terminating paths")]
+//       [TestSvm(78)]
         public static int NestedForsHard(int x)
         {
             for (int i = 0; i < x; i++)

@@ -56,10 +56,10 @@ type SimpleForwardSearcher(maxBound) =
 //    let mutable startedFromMain = false
     let forPropagation = List<cilState>()
     let isStopped s = isStopped s || violatesLevel s maxBound
-    let add (s : cilState) =
+    let add (states : List<cilState>) (s : cilState) =
         if not <| isStopped s then
-            assert(forPropagation.Contains s |> not)
-            forPropagation.Add(s)
+            assert(states.Contains s |> not)
+            states.Add(s)
 
     interface IForwardSearcher with
         override x.Init states =
@@ -67,15 +67,30 @@ type SimpleForwardSearcher(maxBound) =
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update (parent, newStates) =
-            if isStopped parent then
-                forPropagation.Remove(parent) |> ignore
-            Seq.iter add newStates
+            x.Insert forPropagation (parent, newStates)
     abstract member Choose : seq<cilState> -> cilState option
     default x.Choose states = Seq.tryLast states
+    abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
+    default x.Insert states (parent, newStates) =
+        if isStopped parent then
+            states.Remove(parent) |> ignore
+        Seq.iter (add states) newStates
 
 type BFSSearcher(maxBound) =
     inherit SimpleForwardSearcher(maxBound) with
+        let isStopped s = isStopped s || violatesLevel s maxBound
+        let add (states : List<cilState>) (s : cilState) =
+            if not <| isStopped s then
+                assert(states.Contains s |> not)
+                states.Add(s)
         override x.Choose states = Seq.tryHead states
+        override x.Insert states (parent, newStates) =
+            if isStopped parent then
+                states.Remove(parent) |> ignore
+            else if not <| Seq.isEmpty newStates then
+                states.Remove(parent) |> ignore
+                states.Add(parent)
+            Seq.iter (add states) newStates
 
 type DFSSearcher(maxBound) =
     inherit SimpleForwardSearcher(maxBound)

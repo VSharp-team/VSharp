@@ -88,7 +88,6 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         state.suspended <- false
     let violatesRecursionLevel s =
         let startingLoc = startingLoc s
-        let inCoverageZone loc = inCoverageZone coverageZone startingLoc loc
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->

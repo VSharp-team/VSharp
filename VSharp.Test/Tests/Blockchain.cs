@@ -91,7 +91,7 @@ namespace IntegrationTests
         }
 
 
-        [TestSvm(100, 15u)]
+        [TestSvm(100)]
         public static int test2(long time)
         {
             var a = new BlockMiner();
@@ -100,7 +100,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100, 15u)]
+        [TestSvm(100)]
         public static int test6(long time, bool f)
         {
             var a = new BlockMiner();
@@ -114,7 +114,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100, 15u)]
+        [TestSvm(100)]
         public static int test3(long time)
         {
             var a = new BlockMiner();
@@ -123,7 +123,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100, 15u)]
+        [TestSvm(126)]
         public static long test4(long time)
         {
             var a = new BlockMiner();

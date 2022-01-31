@@ -15,16 +15,39 @@ type ShortestDistanceWeighter(target : codeLocation) =
         else double weight |> Math.Log2 |> Math.Ceiling |> uint
 
     let callGraphDistanceToTarget = CFG.findCallGraphDistanceTo target.method
-    let calculateCallWeight (state : cilState) =
-        let frameWeight frameMethod frameNumber =
-            let callGraphDistance = Dict.tryGetValue callGraphDistanceToTarget frameMethod infinity
+    let frameWeight frameMethod frameOffset frameNumber =
+        let frameMethodCFG = CFG.findCfg frameMethod
+        let vertexFrameOffset = CFG.vertexOf frameMethod frameOffset |> Option.get
+        let frameDist = CFG.findDistanceFrom frameMethodCFG vertexFrameOffset
+        let checkDist () = Dict.tryGetValue frameDist target.offset infinity <> infinity
+        let callWeight callMethod =
+            let callGraphDistance = Dict.tryGetValue callGraphDistanceToTarget callMethod infinity
             if callGraphDistance = infinity then infinity
-            else 2u * callGraphDistance + frameNumber
-        state.ipStack
-     |> Seq.map methodOf
-     |> Seq.mapi (fun number method -> frameWeight method (uint number), uint number)
-     |> Seq.minBy fst
-     |> fun (w, n) -> if w = infinity then None else Some (w, n)
+            else 2u * (callGraphDistance + 1u) + frameNumber
+
+        match () with
+        | _ when frameMethod = target.method && checkDist () -> frameNumber
+        | _ when Seq.isEmpty frameMethodCFG.offsetsDemandingCall -> infinity
+        | _ ->
+            frameMethodCFG.offsetsDemandingCall |> Seq.map (fun kvp ->
+            if Dict.tryGetValue frameDist kvp.Key infinity = infinity then infinity
+            else callWeight (snd kvp.Value))
+         |> Seq.min
+
+    let calculateCallWeight (state : cilState) =
+        let frameWeights =
+            state.ipStack
+         |> Seq.choose (fun ip ->
+            let optOffset = offsetOf ip
+            if Option.isSome optOffset
+                then Some (methodOf ip, optOffset |> Option.get)
+                else None)
+         |> Seq.mapi (fun number (method, offset) -> frameWeight method offset (uint number), uint number)
+
+        if Seq.isEmpty frameWeights then None
+        else
+            let w, n = Seq.minBy fst frameWeights
+            if w = infinity then None else Some (w, n)
 
     let localWeight loc (tagets : codeLocation seq) =
         option {

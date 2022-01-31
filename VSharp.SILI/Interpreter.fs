@@ -2281,8 +2281,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Throw -> this.Throw cilState
             | _ -> __unreachable__()
 
-        let originLevel = levelToUnsignedInt cilState.level
-        assert(List.forall (fun s -> levelToUnsignedInt s.level = originLevel) newSts)
         let renewInstructionsInfo cilState =
             if not <| isUnhandledError cilState then
                 x.IncrementLevelIfNeeded cfg offset cilState
