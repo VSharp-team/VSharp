@@ -217,10 +217,10 @@ namespace icsharp {
     }
 
     void Heap::dump() const {
-        tout << "-------------- HEAP DUMP --------------" << std::endl;
+        LOG(tout << "-------------- HEAP DUMP --------------" << std::endl);
         std::string dump = tree.dumpObjects();
-        tout << dump.c_str() << std::endl;
-        tout << "-------------- DUMP END ---------------" << std::endl;
+        LOG(tout << dump.c_str() << std::endl);
+        LOG(tout << "-------------- DUMP END ---------------" << std::endl);
     }
 
     VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {

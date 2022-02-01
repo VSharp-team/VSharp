@@ -749,7 +749,6 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
-    tout << "argsCount = " << argsCount << std::endl;
     auto ops = createOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
@@ -846,6 +845,7 @@ PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return unmem_f8(idx); }
 PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return unmem_p(idx); }
 
 PROBE(void, DumpInstruction, (UINT32 index)) {
+#ifdef _DEBUG
     const char *&s = stringsPool[index];
     if (!s) {
         ERROR(tout << "Pool doesn't contain string with index " << index);
@@ -853,6 +853,7 @@ PROBE(void, DumpInstruction, (UINT32 index)) {
         StackFrame &top = icsharp::topFrame();
         LOG(tout << "[Frame " << icsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
     }
+#endif
 }
 
 }
