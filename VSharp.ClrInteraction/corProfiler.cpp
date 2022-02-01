@@ -1,12 +1,10 @@
 #include "corProfiler.h"
 #include "corhlpr.h"
-#include "cComPtr.h"
 #include "profiler_pal.h"
 #include "logging.h"
 #include "instrumenter.h"
 #include "communication/protocol.h"
 #include "memory/memory.h"
-#include <string>
 
 #define UNUSED(x) (void)x
 
@@ -27,7 +25,7 @@ CorProfiler::~CorProfiler()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk)
 {
-    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo9), reinterpret_cast<void **>(&this->corProfilerInfo));
+    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo8), reinterpret_cast<void **>(&this->corProfilerInfo));
 
     if (FAILED(queryInterfaceResult))
     {
@@ -59,7 +57,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         ThreadID result;
         HRESULT hr = corProfilerInfo->GetCurrentThreadID(&result);
         if (hr != S_OK) {
-            ERROR(tout << "getting current thread failed with HRESULT = " << std::hex <<hr);
+            LOG_ERROR(tout << "getting current thread failed with HRESULT = " << std::hex << hr);
         }
         return result;
     };
@@ -434,7 +432,7 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
     } else {
         ModuleID moduleId;
         ClassID parent;
-        ULONG typeArgsNum;
+        ULONG32 typeArgsNum;
         mdTypeDef token;
         auto *typeArgs = new ClassID[0];
         hr = this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs);

@@ -3,7 +3,7 @@
 
 #include <map>
 #include <vector>
-#include "memory/intervalTree.h"
+#include "intervalTree.h"
 #include "cor.h"
 #include "corprof.h"
 #include "corhdr.h"
@@ -71,7 +71,7 @@ public:
     void write(SIZE offset, SIZE size, bool vConcreteness);
 };
 
-typedef IntervalTree<Interval, Shift, ADDR> IntervalTree;
+typedef IntervalTree<Interval, Shift, ADDR> Intervals;
 
 struct VirtualAddress
 {
@@ -81,7 +81,7 @@ struct VirtualAddress
 
 class Heap {
 private:
-    IntervalTree tree;
+    Intervals tree;
     // TODO: store new addresses or get them from tree? #do
     std::map<OBJID, std::pair<char*, unsigned long>> newAddresses;
     std::vector<OBJID> deletedAddresses;

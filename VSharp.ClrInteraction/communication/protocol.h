@@ -1,7 +1,7 @@
 #ifndef PROTOCOL_H_
 #define PROTOCOL_H_
 
-#include "communication/communicator.h"
+#include "communicator.h"
 
 namespace icsharp {
 

@@ -1,4 +1,4 @@
-LIBRARY "VSharp.ClrInteraction.Dll"
+LIBRARY "libicsharpConcolic.Dll"
 
 EXPORTS
     DllCanUnloadNow PRIVATE

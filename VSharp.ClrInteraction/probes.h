@@ -27,12 +27,14 @@ enum EvalStackArgType {
     OpRef = 6
 };
 
+union OperandContent {
+    long long number;
+    VirtualAddress address;
+};
+
 struct EvalStackOperand {
     EvalStackArgType typ;
-    union {
-        long long number;
-        VirtualAddress address;
-    } content;
+    OperandContent content;
 
     size_t size() const {
         if (typ == OpRef)
@@ -264,16 +266,20 @@ EvalStackOperand mkop_f4(FLOAT op) {
     auto tmp = (DOUBLE) op;
     assert(sizeof(DOUBLE) == sizeof(long long));
     long long result;
-    std::memcpy(&result, &tmp, sizeof(long long));
+    memcpy(&result, &tmp, sizeof(long long));
     return {OpR4, result };
 }
 EvalStackOperand mkop_f8(DOUBLE op) {
     assert(sizeof(DOUBLE) == sizeof(long long));
     long long result;
-    std::memcpy(&result, &op, sizeof(long long));
+    memcpy(&result, &op, sizeof(long long));
     return {OpR8, result};
 }
-EvalStackOperand mkop_p(INT_PTR op) { return {.typ = OpRef, .content = {.address = resolve(op)}}; }
+EvalStackOperand mkop_p(INT_PTR op) {
+    OperandContent content;
+    content.address = resolve(op);
+    return {OpRef, content};
+}
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
 
 EvalStackOperand* createOps(int opsCount) {
@@ -749,7 +755,6 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
-    tout << "argsCount = " << argsCount << std::endl;
     auto ops = createOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
@@ -846,13 +851,15 @@ PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return unmem_f8(idx); }
 PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return unmem_p(idx); }
 
 PROBE(void, DumpInstruction, (UINT32 index)) {
+#ifdef _DEBUG
     const char *&s = stringsPool[index];
     if (!s) {
-        ERROR(tout << "Pool doesn't contain string with index " << index);
+        LOG_ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
         StackFrame &top = icsharp::topFrame();
         LOG(tout << "[Frame " << icsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
     }
+#endif
 }
 
 }

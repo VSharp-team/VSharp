@@ -17,7 +17,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
     let pathToClient = "libicsharpConcolic" + extension
-    let tempTest (id : int) = Path.GetTempPath() + "start" + id.ToString() + ".vst"
+    let pathToTmp = sprintf "%s%c" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar
+    let tempTest (id : int) = sprintf "%sstart%d.vst" pathToTmp id
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
@@ -58,12 +59,13 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     let mutable callIsSkipped = false
     let mutable mainReached = false
     let mutable operands : list<_> = List.Empty
-    let environment (method : MethodBase) pipeFile =
+    let environment (method : MethodBase) pipePath =
         let result = ProcessStartInfo()
+        let profiler = sprintf "%s%c%s" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar pathToClient
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
-        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- Directory.GetCurrentDirectory() + "/" + pathToClient
-        result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipeFile
+        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- profiler
+        result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipePath
         result.WorkingDirectory <- Directory.GetCurrentDirectory()
         result.FileName <- "dotnet"
         result.UseShellExecute <- false
@@ -72,7 +74,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
             result.Arguments <- method.Module.Assembly.Location
         else
-            let runnerPath = "./VSharp.TestRunner.dll"
+            let runnerPath = "VSharp.TestRunner.dll"
             result.Arguments <- sprintf "%s %s %O" runnerPath (tempTest id) false
         result
 
@@ -82,9 +84,16 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let test = UnitTest(entryPoint)
         test.Serialize(tempTest id)
 
-        let pipeFile = sprintf "%sconcolic_fifo_%d" (Path.GetTempPath()) id
-        let env = environment entryPoint pipeFile
-        x.communicator <- new Communicator(pipeFile)
+        let pipe, pipePath =
+            if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+                let pipe = sprintf "concolic_fifo_%d.pipe" id
+                let pipePath = sprintf "\\\\.\\pipe\\%s" pipe
+                pipe, pipePath
+            else
+                let pipeFile = sprintf "%sconcolic_fifo_%d.pipe" pathToTmp id
+                pipeFile, pipeFile
+        let env = environment entryPoint pipePath
+        x.communicator <- new Communicator(pipe)
         let proc = Process.Start env
         id <- id + 1
         proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data

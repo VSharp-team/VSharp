@@ -1,6 +1,5 @@
-#include "memory/memory.h"
-#include "memory/stack.h"
-#include "logging.h"
+#include "memory.h"
+#include "stack.h"
 
 using namespace icsharp;
 
@@ -192,7 +191,7 @@ void icsharp::update_i8(INT64 value, INT8 idx) {
 
 void icsharp::update_f4(long long value, INT8 idx) {
     DOUBLE tmp;
-    std::memcpy(&tmp, &value, sizeof(DOUBLE));
+    memcpy(&tmp, &value, sizeof(DOUBLE));
     auto result = (FLOAT) tmp;
     LOG(tout << "update_f4 " << result << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &result, sizeof(FLOAT), idx);
@@ -200,7 +199,7 @@ void icsharp::update_f4(long long value, INT8 idx) {
 
 void icsharp::update_f8(long long value, INT8 idx) {
     DOUBLE result;
-    std::memcpy(&result, &value, sizeof(DOUBLE));
+    memcpy(&result, &value, sizeof(DOUBLE));
     LOG(tout << "update_f8 " << result << " (index = " << (int)idx << ")" << std::endl);
     update((char *) &result, sizeof(DOUBLE), idx);
 }

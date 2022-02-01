@@ -1,10 +1,15 @@
-image: Visual Studio 2019
+image: Visual Studio 2022
 
 before_build:
   - dotnet tool restore
   - dotnet restore
+  - git submodule update --init z3
+  - git submodule update --init runtime
 
 configuration: Release
+
+build:
+  project: VSharp.sln
 
 test_script:
   - dotnet test -c Release --logger:Appveyor

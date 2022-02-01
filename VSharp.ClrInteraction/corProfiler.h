@@ -2,7 +2,7 @@
 #define CORPROFILER_H_
 
 #include <atomic>
-#include <memory/heap.h>
+#include "memory/heap.h"
 #include "cor.h"
 #include "corprof.h"
 
@@ -15,7 +15,7 @@ class CorProfiler : public ICorProfilerCallback8
 {
 private:
     std::atomic<int> refCount;
-    ICorProfilerInfo9 *corProfilerInfo;
+    ICorProfilerInfo8 *corProfilerInfo;
     Instrumenter *instrumenter;
     Protocol *protocol;
 

@@ -1,18 +1,17 @@
-#include "communication/communicator.h"
-#include "logging.h"
-#include <stdio.h>
+#include "communicator.h"
+#include "../logging.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
+#include <cstring>
+#include <cerrno>
 
 using namespace icsharp;
 
 int fd;
 
 bool reportError() {
-    ERROR(tout << strerror(errno));
+    LOG_ERROR(tout << strerror(errno));
     return false;
 }
 

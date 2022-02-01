@@ -1,8 +1,7 @@
-#include "memory/stack.h"
-
-#include "logging.h"
+#include "stack.h"
+#include "../logging.h"
 #include <cstring>
-#include <assert.h>
+#include <cassert>
 
 using namespace icsharp;
 
@@ -20,7 +19,7 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     , m_enteredMarker(false)
     , m_spontaneous(false)
 {
-    std::memcpy(m_args, args, argsCount);
+    memcpy(m_args, args, argsCount);
     resetPopsTracking();
 }
 
