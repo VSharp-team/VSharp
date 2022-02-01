@@ -50,8 +50,6 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCov
                 let code, _, error = runDotnet <| sprintf " %s%cVSharp.TestRunner.dll %s" runnerDir Path.DirectorySeparatorChar directory.FullName
                 code = 0, error
 
-    let mutable doc : XmlDocument = null
-
     let rec typeName4Dotcover (typ : Type) =
         if typ.IsGenericType then
             let args = typ.GetGenericArguments()
@@ -95,6 +93,10 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCov
         let returnType = m.ReturnType |> typeName4Dotcover
         let methodName = sprintf "%s(%s):%s" m.Name parametersTypes returnType
         let xpath = sprintf "/Root/Assembly[@Name='%s']/Namespace[@Name='%s']%s/Method[@Name='%s']/@CoveragePercent" assemblyName namespaceName typeSection methodName
+        let doc = XmlDocument()
+        let docPath = sprintf "%s%cdotCover.Output.xml" testDir.FullName Path.DirectorySeparatorChar
+        assert(File.Exists(docPath))
+        doc.Load(docPath)
         let nodes = doc.DocumentElement.SelectNodes(xpath)
         match nodes.Count with
         | 0 -> raise (InvalidOperationException <| sprintf "Coverage results for %O not found!" m)

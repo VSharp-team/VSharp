@@ -51,7 +51,7 @@ namespace IntegrationTests
             return addition;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int TryWith2Leaves(bool f)
         {
             int res = 0;
@@ -131,7 +131,7 @@ namespace IntegrationTests
             return globalMemory;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int CallInsideFinally(bool f)
         {
             int res = 0;

@@ -28,7 +28,7 @@ namespace IntegrationTests
             return s.Length;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static string HopHeyCharArray(char[] a)
         {
             return new string(a);
@@ -81,7 +81,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [TestSvm]
+        [Ignore("constraints solving takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";

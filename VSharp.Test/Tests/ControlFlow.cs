@@ -11,7 +11,7 @@ namespace IntegrationTests
     // unrolling recursion cycles
     public class ControlFlow
     {
-        [TestSvm]
+        [TestSvm(100)]
         public static int SwitchWithSequentialCases(int x)
         {
             switch (x)
@@ -31,7 +31,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int ForSimple(int x)
         {
             int sum = 0;
@@ -43,7 +43,7 @@ namespace IntegrationTests
         }
 
         // x * (x + 1) * (x + 2) / 6
-        [TestSvm]
+        [TestSvm(100)]
         public static int NestedFors2(int x)
         {
             int sum = 0;
@@ -186,7 +186,7 @@ namespace IntegrationTests
 //        }
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int GotoWithinWhile(int x)
         {
             int i = 2 * x;
@@ -215,7 +215,7 @@ namespace IntegrationTests
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int AcyclicGotos(int x)
         {
             if (x > 100)
@@ -301,7 +301,7 @@ namespace IntegrationTests
             return sum;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int ForWithBreak(int x)
         {
             int sum = 0;
@@ -319,7 +319,7 @@ namespace IntegrationTests
             return sum;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SequentialIfsHard(int x)
         {
             if (2 * x == 50)
@@ -340,7 +340,7 @@ namespace IntegrationTests
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SequentialIfsSimple(int x)
         {
             int res =  0;
@@ -362,7 +362,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int NestedForsSimple(int x)
         {
             int res = 0;

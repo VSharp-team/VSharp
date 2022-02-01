@@ -44,7 +44,11 @@ namespace VSharp.Test
             Logger.ConfigureWriter(TestContext.Progress);
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
-        private int _expectedCoverage = 100;
+
+        // NOTE: expected coverage field in TestSVM attribute indicates dotCover needs to be run:
+        //       if it wasn't mentioned -- dotCover will not be started
+        //       if it was -- dotCover will be started
+        private int? _expectedCoverage = null;
         private uint _maxBoundForTest = 15u;
 
 
@@ -68,9 +72,9 @@ namespace VSharp.Test
 
         private class TestSvmCommand : DelegatingTestCommand
         {
-            private int _expectedCoverage;
+            private int? _expectedCoverage;
             private uint _maxBoundForTest;
-            public TestSvmCommand(TestCommand innerCommand, int expectedCoverage, uint maxBoundForTest) : base(innerCommand)
+            public TestSvmCommand(TestCommand innerCommand, int? expectedCoverage, uint maxBoundForTest) : base(innerCommand)
             {
                 _expectedCoverage = expectedCoverage;
                 _maxBoundForTest = maxBoundForTest;
@@ -101,7 +105,7 @@ namespace VSharp.Test
                         // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
                         //       to enable coverage check use _expectedCoverage
                         var testChecker = new TestResultsChecker(unitTests.TestDirectory,
-                            Directory.GetCurrentDirectory(), null);
+                            Directory.GetCurrentDirectory(), _expectedCoverage);
                         if (testChecker.Check(methodInfo))
                             context.CurrentResult.SetResult(ResultState.Success);
                         else

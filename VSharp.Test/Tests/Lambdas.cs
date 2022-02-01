@@ -37,7 +37,7 @@ namespace IntegrationTests
 
         // Expecting always true
         // [Ignore("ThisKey for lambda function is not in stack")]
-        [TestSvm]
+        [TestSvm(100)]
         public static bool DoubleValue(int n, bool flag)
         {
             int a = 0, b = 0, c = 0;
@@ -77,14 +77,14 @@ namespace IntegrationTests
             return x > 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool FuncFromFunction(int x)
         {
             var func = new Func<int, bool>(FunctionInsideFunc);
             return func.Invoke(x);
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool FuncFromLambda(int x)
         {
             var func = new Func<int, bool>(i => i <= 0);
@@ -99,7 +99,7 @@ namespace IntegrationTests
             return nullAction;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool SymbolicLambdaInvoke(Func<int, bool> f)
         {
             return f.Invoke(42);

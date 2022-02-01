@@ -628,7 +628,7 @@ namespace IntegrationTests
             return 1;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int UnsafeAs4(object o)
         {
             if (o is ClassA)

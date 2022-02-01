@@ -49,7 +49,7 @@ namespace IntegrationTests
 
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int NRE_TEST(ClassWithOneField c)
         {
             return c.x;
@@ -136,7 +136,7 @@ namespace IntegrationTests
             return array[5];
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static ClassWithOneField NewObjWithBranching(bool f)
         {
             ClassWithOneField classWithOneField = new ClassWithOneField();
@@ -150,7 +150,7 @@ namespace IntegrationTests
             return classWithOneField;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int NewarrWithBranching(bool f)
         {
             int[] array = new int[10];
@@ -250,7 +250,7 @@ namespace IntegrationTests
             public int x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int ReadFieldOfCLass1(ClassWithOneField a, ClassWithOneField b)
         {
             var c1 = new ClassWithOneField();
@@ -329,7 +329,7 @@ namespace IntegrationTests
         }
 
         // expecting System.ArrayTypeMismatchException
-        [TestSvm]
+        [TestSvm(100)]
         public static void LdelemaTest2(bool f)
         {
             var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
@@ -352,7 +352,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool AbsPpEqualsAbs(int x)
         {
             int y = Abs(x);
@@ -505,7 +505,7 @@ namespace IntegrationTests
         }
 
         // expecting f -> 100; !f -> 42
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestAllocatedType_4(bool f)
         {
             ClassWithOneField classWithOneField;
@@ -571,7 +571,7 @@ namespace IntegrationTests
         }
 
         // expecting f -> 100, !f -> 20
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestLengths_6(bool f)
         {
             Array array = new int[4, 5];
@@ -594,7 +594,7 @@ namespace IntegrationTests
         }
 
         // expecting 0
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestLowerBound_2(bool f)
         {
             Array array = new int[100];
@@ -639,7 +639,7 @@ namespace IntegrationTests
             return x + g;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int BreakCallSitesCompositionRecursion(int n)
         {
             int sum = D(n);
@@ -652,7 +652,7 @@ namespace IntegrationTests
             return sum + restSum;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int BreakCallSitesCompositionCycle(int n)
         {
             int sum = 0;
@@ -751,7 +751,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int Gotos1(int x)
         {
             if (x <= 10)
@@ -1063,14 +1063,14 @@ namespace IntegrationTests
             return x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static long Conv_Ovf_short_int(long a)
         {
             return checked((int) a);
         }
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public static long Many_Conversions(short a)
         {
             long tmp = a;
