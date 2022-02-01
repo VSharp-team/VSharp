@@ -642,7 +642,7 @@ namespace IntegrationTests
         }
 
         // Expecting 0
-        [TestSvm]
+        [TestSvm(concolicMode:true)]
         public static int MultiplyShifts1(int a, int c)
         {
             return ((a + a) << 14) * (c << 17);
@@ -909,7 +909,7 @@ namespace IntegrationTests
         }
 
         // arctan(x - y)
-        [TestSvm]
+        [TestSvm(concolicMode:true)]
         public static double AtanMethod(double x, double y)
         {
             return Math.Atan(x - y);
@@ -981,14 +981,14 @@ namespace IntegrationTests
         }
 
         // 7
-        [TestSvm]
+        [TestSvm(concolicMode:true)]
         public static double RoundMethod()
         {
             return Math.Round(6.7);
         }
 
         // abs(x)
-        [TestSvm]
+        [TestSvm(concolicMode:true)]
         public static double AbsMethod(double x)
         {
             return Math.Abs(x);
@@ -1018,7 +1018,7 @@ namespace IntegrationTests
         }
 
         // NaN
-        [TestSvm]
+        [TestSvm(concolicMode:true)]
         public static double Atan2Method2(double x)
         {
             return Math.Atan2(Double.PositiveInfinity, x);
