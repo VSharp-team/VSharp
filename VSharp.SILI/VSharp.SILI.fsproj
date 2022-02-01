@@ -53,8 +53,8 @@
             cd ../VSharp.ClrInteraction
             mkdir -p cmake-build-debug
             cd cmake-build-debug
-            cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Debug ../
-            ninja -j 6'/>
+            cmake -G "Unix Makefiles" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Debug ../
+            make -j 6'/>
     </Target>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">

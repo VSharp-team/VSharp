@@ -1,15 +1,14 @@
 image: Visual Studio 2022
 
+install:
+  - cinst make
+  - cmd: clang++ --help
+
 before_build:
   - dotnet tool restore
   - dotnet restore
   - git submodule update --init z3
   - git submodule update --init runtime
-  - set PATH=c:\MinGW\bin;%PATH%
-  - set СХХ=c:\MinGW\bin\gcc.exe
-  - set СC=c:\MinGW\bin\gcc.exe
-  - set CMAKE_CXX_COMPILER=c:\MinGW\bin\gcc.exe
-  - set CMAKE_MAKE_PROGRAM=c:\MinGW\bin\make.exe
 
 configuration: Release
 
