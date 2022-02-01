@@ -53,8 +53,8 @@
             cd ../VSharp.ClrInteraction
             mkdir -p cmake-build-debug
             cd cmake-build-debug
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ../
-            cmake --build . --target icsharpConcolic -j 6'/>
+            cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Debug ../
+            ninja -j 6'/>
     </Target>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">

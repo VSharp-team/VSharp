@@ -37,8 +37,8 @@
             cd ../z3
             mkdir -p build
             cd build
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=true -DZ3_INSTALL_DOTNET_BINDINGS=true ../
-            cmake --build . -j 6'/>
+            cmake -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=true -DZ3_INSTALL_DOTNET_BINDINGS=true ../
+            ninja -j 6'/>
     </Target>
 
     <ItemGroup>
