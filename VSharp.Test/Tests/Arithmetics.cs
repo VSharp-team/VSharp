@@ -1047,7 +1047,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int PossibleBug(int n) {
             if (n <= 0 && -n < 0) {
                 throw new Exception("Possible Impossible bug");

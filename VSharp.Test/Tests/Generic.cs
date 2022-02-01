@@ -287,7 +287,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class GenericMethod
     {
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestFoo(Foo<int, Piece> f)
         {
             if (f == null) return 0;
@@ -327,7 +327,7 @@ namespace IntegrationTests
             return obj;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int RetWorked(Object obj, int a)
         {
             if (obj as BlackPawn != null)

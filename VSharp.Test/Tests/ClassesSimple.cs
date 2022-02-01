@@ -293,7 +293,7 @@ namespace IntegrationTests
             public int x;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static object MergingClassesFieldsTest(object o)
         {
             if (o is A)

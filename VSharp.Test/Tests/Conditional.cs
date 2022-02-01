@@ -12,7 +12,7 @@ namespace IntegrationTests
             return Math.Max(x, Math.Max(y, z));
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool IsMaxEven(int x, int y, int z)
         {
             return Max3(2 * x, 2 * y, z) % 2 == 0;
@@ -150,7 +150,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int DeclareAfterReturn(bool flag, bool f, int x)
         {
             if (f)

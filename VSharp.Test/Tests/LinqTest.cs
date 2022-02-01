@@ -104,7 +104,7 @@ namespace IntegrationTests
             public char City { get; set; }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SymbolicLinqTest2(int x, int y, int z)
         {
             // TODO: use group by and so on
@@ -204,7 +204,7 @@ namespace IntegrationTests
             yield return "ace";
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static IEnumerable<int> SelectTest(string x)
         {
             var newList = Suits().Select(id => id);

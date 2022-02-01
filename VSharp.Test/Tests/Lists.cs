@@ -107,7 +107,7 @@ namespace IntegrationTests
             return c.GetUpperBound(0);
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public int ArrayLength(int f)
         {
             int[] tmp;
@@ -134,7 +134,7 @@ namespace IntegrationTests
             return c.Rank;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int[] RetOneDArray1(bool flag1, bool flag2)
         {
             int[] arr = new int[5];
@@ -174,7 +174,7 @@ namespace IntegrationTests
             return a[2];
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int[] CopyConcreteToSymbolicArray(int[] a)
         {
             int[] arr = new int[5] {1, 2, 3, 4, 5};
@@ -182,7 +182,7 @@ namespace IntegrationTests
             return a;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int[] CopyAndThenWrite(int[] a)
         {
             int[] arr = new int[5] {1, 2, 3, 4, 5};
@@ -191,7 +191,7 @@ namespace IntegrationTests
             return a;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int[] WriteAndThenCopy(int[] a)
         {
             int[] arr = new int[5] {1, 2, 3, 4, 5};
@@ -215,7 +215,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int MakeDefaultAndWrite(int k)
         {
             int[] arr = new int[5];
@@ -223,7 +223,7 @@ namespace IntegrationTests
             return arr[2];
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SymbolicWriteAfterConcreteWrite(int k)
         {
             int[] arr = new int[5];
@@ -232,7 +232,7 @@ namespace IntegrationTests
             return arr[2];
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SymbolicWriteAfterConcreteWrite2(int[] a, int k)
         {
             a[2] = 42;
@@ -240,7 +240,7 @@ namespace IntegrationTests
             return a[2];
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SolverTestArrayKey(int[] a, int x)
         {
             a[1] = 12;
@@ -290,7 +290,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int[] RetOneDArray2(int n)
         {
             int[] arr = new int[n];
@@ -630,7 +630,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestStack(Second b)
         {
             if (b != null)
@@ -657,7 +657,7 @@ namespace IntegrationTests
             return l;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int FirstElementOfLinkedList(LinkedList<int> l)
         {
             if (l == null) return 0;
@@ -667,7 +667,7 @@ namespace IntegrationTests
 
         // Test on tracking current heap address during access to heap for filtering possible locations
         // [Ignore("Exceptions handling")]
-        [TestSvm]
+        [TestSvm(100)]
         public static int MemoryTest(LinkedList<int> l)
         {
             LinkedListNode<int> n = new LinkedListNode<int>(10);
@@ -676,7 +676,7 @@ namespace IntegrationTests
             return x.Value;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int ArithmeticalProgression(LinkedList<int> list)
         {
             int sum = 0;
@@ -1335,7 +1335,7 @@ namespace IntegrationTests
             return false;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public bool ContainsOurCustomer(Customerrr other)
         {
             if (other.Equals(_customer))
