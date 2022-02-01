@@ -1,18 +1,20 @@
 image: Visual Studio 2022
 
-install:
-  - call C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat
-
 before_build:
   - dotnet tool restore
   - dotnet restore
   - git submodule update --init z3
   - git submodule update --init runtime
+  - set PATH=c:\MinGW\bin;%PATH%
+  - set СХХ=c:\MinGW\bin\gcc.exe
+  - set СC=c:\MinGW\bin\gcc.exe
+  - set CMAKE_CXX_COMPILER=c:\MinGW\bin\gcc.exe
+  - set CMAKE_MAKE_PROGRAM=c:\MinGW\bin\make.exe
+
+configuration: Release
 
 build:
   project: VSharp.sln
-
-configuration: Release
 
 test_script:
   - dotnet test -c Release --logger:Appveyor
