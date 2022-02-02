@@ -22,6 +22,8 @@ include_directories(.
 
 add_definitions(-D_MIDL_USE_GUIDDEF_)
 
+add_definitions(-DBIT64 -DHOST_64BIT -DHOST_AMD64)
+
 if (UNIX)
     add_definitions(-DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
 endif()
