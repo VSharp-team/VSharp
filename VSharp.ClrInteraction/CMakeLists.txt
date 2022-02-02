@@ -5,7 +5,11 @@ project(VSharp.ClrInteraction LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
+if (UNIX)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
+else()
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fms-extensions")
+endif()
 
 set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
 set(CORECLR_PATH ../runtime/src/coreclr)
@@ -16,7 +20,25 @@ include_directories(.
     ${CORECLR_PATH}/pal/inc
     ${CORECLR_PATH}/inc)
 
-add_definitions(-DBIT64 -DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
+add_definitions(-D_MIDL_USE_GUIDDEF_)
+
+if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL x86_64 OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL amd64)
+    add_definitions(-DBIT64 -DHOST_64BIT -DHOST_AMD64)
+endif()
+
+if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL arm64)
+    add_definitions(-DBIT64 -DHOST_64BIT -DHOST_ARM64)
+endif()
+
+# TODO: add other architecture cases
+
+if (UNIX)
+    add_definitions(-DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
+endif()
+
+if (WIN32)
+    add_definitions(-DPLATFORM_WINDOWS)
+endif()
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -24,20 +46,27 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-D_DEBUG)
     message("Logging enabled")
 endif()
-add_definitions(-DHOST_64BIT)
-add_definitions(-D_MIDL_USE_GUIDDEF_)
 
-add_library(icsharpConcolic SHARED
+set(sources
     classFactory.cpp
     corProfiler.cpp
     dllmain.cpp
     logging.cpp
     instrumenter.cpp
-    communication/unixFifoCommunicator.cpp
     communication/protocol.cpp
     memory/memory.cpp
     memory/stack.cpp
     memory/heap.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
+
+if (UNIX)
+    list(APPEND sources communication/unixFifoCommunicator.cpp)
+endif()
+
+if (WIN32)
+    list(APPEND sources communication/windowsFifoCommunicator.cpp)
+endif()
+
+add_library(icsharpConcolic SHARED ${sources})
 
 add_link_options(--unresolved-symbols=ignore-in-object-files)
