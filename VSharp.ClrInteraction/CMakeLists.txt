@@ -22,16 +22,6 @@ include_directories(.
 
 add_definitions(-D_MIDL_USE_GUIDDEF_)
 
-if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL x86_64 OR CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL amd64)
-    add_definitions(-DBIT64 -DHOST_64BIT -DHOST_AMD64)
-endif()
-
-if(CMAKE_HOST_SYSTEM_PROCESSOR STREQUAL arm64)
-    add_definitions(-DBIT64 -DHOST_64BIT -DHOST_ARM64)
-endif()
-
-# TODO: add other architecture cases
-
 if (UNIX)
     add_definitions(-DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
 endif()
