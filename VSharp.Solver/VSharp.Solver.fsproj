@@ -37,8 +37,10 @@
             cd ../z3
             mkdir -p build
             cd build
-            cmake -G "Unix Makefiles" -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=true -DZ3_INSTALL_DOTNET_BINDINGS=true -DCMAKE_POSITION_INDEPENDENT_CODE=OFF ../
-            make -j 6'/>
+            set CXX=clang++
+            set CC=clang
+            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=true -DZ3_INSTALL_DOTNET_BINDINGS=true ../
+            cmake --build . -j 6'/>
     </Target>
 
     <ItemGroup>

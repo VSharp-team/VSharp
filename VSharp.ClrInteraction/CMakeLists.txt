@@ -5,11 +5,7 @@ project(VSharp.ClrInteraction LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if (UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
-else()
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fms-extensions")
-endif()
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
 
 set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
 set(CORECLR_PATH ../runtime/src/coreclr)
@@ -22,10 +18,7 @@ include_directories(.
 
 add_definitions(-D_MIDL_USE_GUIDDEF_)
 add_definitions(-DBIT64 -DHOST_64BIT)
-
-if (UNIX)
-    add_definitions(-DPAL_STDCPP_COMPAT)
-endif()
+add_definitions(-DPAL_STDCPP_COMPAT)
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -41,18 +34,11 @@ set(sources
     logging.cpp
     instrumenter.cpp
     communication/protocol.cpp
+    communication/unixFifoCommunicator.cpp
     memory/memory.cpp
     memory/stack.cpp
     memory/heap.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
-
-if (UNIX)
-    list(APPEND sources communication/unixFifoCommunicator.cpp)
-endif()
-
-if (WIN32)
-    list(APPEND sources communication/windowsFifoCommunicator.cpp)
-endif()
 
 add_library(icsharpConcolic SHARED ${sources})
 

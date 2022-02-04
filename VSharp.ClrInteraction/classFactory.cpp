@@ -1,14 +1,6 @@
 #include "classFactory.h"
 #include "corProfiler.h"
 
-#ifdef __amd64__
-#error ------------------------ Arch AMD64 ------------------------
-#endif
-
-#ifdef __clang__
-#error ------------------------ Arch x86_64 ------------------------
-#endif
-
 using namespace icsharp;
 
 ClassFactory::ClassFactory() : refCount(0)
