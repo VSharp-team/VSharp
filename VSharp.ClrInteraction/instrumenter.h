@@ -25,7 +25,7 @@ struct MethodInfo {
 
 class Instrumenter {
 private:
-    ICorProfilerInfo9 &m_profilerInfo;  // Does not have ownership
+    ICorProfilerInfo8 &m_profilerInfo;  // Does not have ownership
     IMethodMalloc *m_methodMalloc;  // Does not have ownership
 
     Protocol &m_protocol;
@@ -78,7 +78,7 @@ private:
     bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
 
 public:
-    explicit Instrumenter(ICorProfilerInfo9 &profilerInfo, Protocol &protocol);
+    explicit Instrumenter(ICorProfilerInfo8 &profilerInfo, Protocol &protocol);
     ~Instrumenter();
 
     const char *signatureTokens() const { return m_signatureTokens; }

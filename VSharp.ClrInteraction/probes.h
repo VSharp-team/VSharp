@@ -273,7 +273,7 @@ EvalStackOperand mkop_f8(DOUBLE op) {
     std::memcpy(&result, &op, sizeof(long long));
     return {OpR8, result};
 }
-EvalStackOperand mkop_p(INT_PTR op) { return {.typ = OpRef, .content = {.address = resolve(op)}}; }
+EvalStackOperand mkop_p(INT_PTR op) { return {OpRef, {.address = resolve(op)}}; }
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
 
 EvalStackOperand* createOps(int opsCount) {

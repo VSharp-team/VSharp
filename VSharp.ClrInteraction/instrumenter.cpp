@@ -5,7 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <corhlpr.cpp>
-#include <memory/memory.h>
+#include "memory/memory.h"
 
 using namespace icsharp;
 
@@ -31,8 +31,8 @@ struct MethodBodyInfo {
     unsigned ehsLength;
     unsigned signatureTokensLength;
     char *signatureTokens;
-    char16_t *assemblyName;
-    char16_t *moduleName;
+    WCHAR *assemblyName;
+    WCHAR *moduleName;
     char *bytecode;
     char *ehs;
 
@@ -154,7 +154,7 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
 }
 
 
-Instrumenter::Instrumenter(ICorProfilerInfo9 &profilerInfo, Protocol &protocol)
+Instrumenter::Instrumenter(ICorProfilerInfo8 &profilerInfo, Protocol &protocol)
     : m_profilerInfo(profilerInfo)
     , m_protocol(protocol)
     , m_methodMalloc(nullptr)
@@ -414,7 +414,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, WCHAR *assemblyNam
     char *ehcs = new char[ehCount()];
     memcpy(bytes, code(), codeLength);
     memcpy(ehcs, ehs(), ehCount());
-    MethodInfo mi = MethodInfo{.token = m_jittedToken, .bytecode = bytes, .codeLength = codeLength, .ehs = ehcs, .ehsLength = ehCount()};
+    MethodInfo mi = MethodInfo{m_jittedToken, bytes, codeLength, maxStackSize(), ehcs, ehCount()};
     instrumentedFunctions[{m_moduleId, m_jittedToken}] = mi;
 
     MethodBodyInfo info{

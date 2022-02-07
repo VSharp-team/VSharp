@@ -27,7 +27,7 @@ CorProfiler::~CorProfiler()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk)
 {
-    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo9), reinterpret_cast<void **>(&this->corProfilerInfo));
+    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo8), reinterpret_cast<void **>(&this->corProfilerInfo));
 
     if (FAILED(queryInterfaceResult))
     {

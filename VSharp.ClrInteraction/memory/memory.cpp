@@ -1,6 +1,5 @@
-#include "memory/memory.h"
-#include "memory/stack.h"
-#include "logging.h"
+#include "memory.h"
+#include "stack.h"
 
 using namespace icsharp;
 

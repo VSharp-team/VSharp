@@ -2,7 +2,7 @@
 
 #include "logging.h"
 #include <cstring>
-#include <assert.h>
+#include <cassert>
 
 using namespace icsharp;
 
