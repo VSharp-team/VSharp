@@ -1,8 +1,10 @@
 #ifndef INTERVALTREE_H_
 #define INTERVALTREE_H_
 
-#include "logging.h"
+#include "../logging.h"
 #include <cassert>
+
+namespace icsharp {
 
 template<typename Interval, typename Shift, typename Point>
 class IntervalTree {
@@ -75,4 +77,5 @@ public:
     }
 };
 
+}
 #endif // INTERVALTREE_H_

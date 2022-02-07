@@ -1,6 +1,6 @@
 #include "memory/stack.h"
 
-#include "logging.h"
+#include "../logging.h"
 #include <cstring>
 #include <cassert>
 

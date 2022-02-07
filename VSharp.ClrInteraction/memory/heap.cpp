@@ -1,6 +1,6 @@
 #include <iostream>
 #include <algorithm>
-#include "memory/heap.h"
+#include "heap.h"
 
 namespace icsharp {
 

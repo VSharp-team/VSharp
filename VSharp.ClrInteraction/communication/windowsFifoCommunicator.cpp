@@ -1,5 +1,5 @@
-#include "communication/communicator.h"
-#include "logging.h"
+#include "communicator.h"
+#include "../logging.h"
 #include <windows.h>
 #include <stdio.h>
 #include <conio.h>
