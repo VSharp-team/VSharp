@@ -434,7 +434,7 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
     } else {
         ModuleID moduleId;
         ClassID parent;
-        ULONG typeArgsNum;
+        ULONG32 typeArgsNum;
         mdTypeDef token;
         auto *typeArgs = new ClassID[0];
         hr = this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs);

@@ -7,7 +7,7 @@
 #endif
 #include <fstream>
 
-#define HEX(x) std::hex << "0x" << x << std::dec
+#define HEX(x) std::hex << "0x" << (x) << std::dec
 
 #ifdef _LOGGING
 extern std::ofstream tout; 
@@ -29,6 +29,6 @@ static inline void close_log() {}
 //#define CLOG(COND, CODE) LOG_CODE(if (COND) { tout << "---------------- " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush(); })
 #define CLOG(COND, CODE) LOG_CODE(if (COND) { CODE ; tout << "\n"; tout.flush(); })
 #define ERROR(CODE) LOG_CODE(tout << "-------- [ERROR] " << __FUNCTION__ << " " << __FILE__ << ":" << __LINE__ << " ---------\n"; CODE ; tout << "------------------------------------------------\n"; tout.flush();)
-#define FAIL_LOUD(x) {ERROR(tout << x); throw std::logic_error(x);}
+#define FAIL_LOUD(x) {ERROR(tout << (x)); throw std::logic_error(x);}
 
 #endif // LOGGING_H_

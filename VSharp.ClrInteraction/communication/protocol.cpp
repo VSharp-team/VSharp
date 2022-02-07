@@ -1,6 +1,6 @@
-#include "communication/protocol.h"
-#include "logging.h"
-#include "probes.h"
+#include "protocol.h"
+#include "../logging.h"
+#include "../probes.h"
 
 #include <cstring>
 #include <iostream>
