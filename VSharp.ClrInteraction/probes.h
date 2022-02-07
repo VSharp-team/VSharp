@@ -27,12 +27,14 @@ enum EvalStackArgType {
     OpRef = 6
 };
 
+union OperandContent {
+    long long number;
+    VirtualAddress address;
+};
+
 struct EvalStackOperand {
     EvalStackArgType typ;
-    union {
-        long long number;
-        VirtualAddress address;
-    } content;
+    OperandContent content;
 
     size_t size() const {
         if (typ == OpRef)
@@ -273,7 +275,11 @@ EvalStackOperand mkop_f8(DOUBLE op) {
     std::memcpy(&result, &op, sizeof(long long));
     return {OpR8, result};
 }
-EvalStackOperand mkop_p(INT_PTR op) { return {OpRef, {.address = resolve(op)}}; }
+EvalStackOperand mkop_p(INT_PTR op) {
+    OperandContent content;
+    content.address = resolve(op);
+    return {OpRef, content};
+}
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
 
 EvalStackOperand* createOps(int opsCount) {

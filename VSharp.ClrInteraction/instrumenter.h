@@ -11,8 +11,6 @@ struct IMAGE_COR_ILMETHOD_SECT_EH_CLAUSE_FAT;
 namespace icsharp {
 
 class Protocol;
-class ILRewriter;
-struct ILInstr;
 
 struct MethodInfo {
     unsigned token;

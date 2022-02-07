@@ -11,14 +11,14 @@ using namespace icsharp;
 HANDLE hPipe;
 
 bool reportError() {
-    ERROR(tout << strerror(errno));
+    LOG_ERROR(tout << strerror(errno));
     return false;
 }
 
 bool Communicator::open() {
-    std::string pipeEnvVar = "CONCOLIC_PIPE";
-    auto pipeFile = getenv(pipeEnvVar.c_str());
-    hPipe = CreateFile(TEXT(pipeFile), GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+    std::wstring pipeEnvVar = L"CONCOLIC_PIPE";
+    const wchar_t *pipeFile = _wgetenv(pipeEnvVar.c_str());
+    hPipe = CreateFile(pipeFile, GENERIC_READ | GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) reportError();
 //    DWORD dwMode = PIPE_TYPE_MESSAGE;
 //    BOOL fSuccess = SetNamedPipeHandleState(hPipe, &dwMode, NULL, NULL);

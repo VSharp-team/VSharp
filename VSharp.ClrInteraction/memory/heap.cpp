@@ -1,6 +1,10 @@
 #include <iostream>
 #include <algorithm>
+#include <string>
 #include "heap.h"
+
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
 
 namespace icsharp {
 
@@ -43,7 +47,7 @@ namespace icsharp {
 
     Interval Interval::intersect(const Interval &other) const {
         assert(intersects(other));
-        return Interval(std::max(left, other.left), std::min(right, other.right));
+        return Interval(max(left, other.left), min(right, other.right));
     }
 
     void Interval::move(const Shift &shift) {

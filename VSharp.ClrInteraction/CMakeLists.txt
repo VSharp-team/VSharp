@@ -19,6 +19,7 @@ include_directories(.
 add_definitions(-D_MIDL_USE_GUIDDEF_)
 add_definitions(-DBIT64 -DHOST_64BIT)
 add_definitions(-DPAL_STDCPP_COMPAT)
+add_definitions(-DNOMINMAX)
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
