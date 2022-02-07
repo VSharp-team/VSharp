@@ -59,7 +59,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         ThreadID result;
         HRESULT hr = corProfilerInfo->GetCurrentThreadID(&result);
         if (hr != S_OK) {
-            ERROR(tout << "getting current thread failed with HRESULT = " << std::hex <<hr);
+            LOG_ERROR(tout << "getting current thread failed with HRESULT = " << std::hex << hr);
         }
         return result;
     };

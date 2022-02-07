@@ -848,7 +848,7 @@ PROBE(void, DumpInstruction, (UINT32 index)) {
 #ifdef _DEBUG
     const char *&s = stringsPool[index];
     if (!s) {
-        ERROR(tout << "Pool doesn't contain string with index " << index);
+        LOG_ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
         StackFrame &top = icsharp::topFrame();
         LOG(tout << "[Frame " << icsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);

@@ -12,7 +12,7 @@ using namespace icsharp;
 int fd;
 
 bool reportError() {
-    ERROR(tout << strerror(errno));
+    LOG_ERROR(tout << strerror(errno));
     return false;
 }
 
