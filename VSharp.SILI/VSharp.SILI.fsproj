@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp6.0</TargetFramework>
+        <TargetFramework>net6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
         <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
@@ -60,7 +60,7 @@
     <Target Name="BuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
         <Exec Command='
             cd ../VSharp.ClrInteraction
-            mkdir -p cmake-build-debug
+            mkdir cmake-build-debug
             cd cmake-build-debug
             msbuild ../VSharp.ClrInteraction.vcxproj /p:Configuration="Debug" /p:BuildOS="Windows_NT" /p:BuildType="Debug" /p:BuildArch="x64" /p:CORECLR_PATH="runtime/src/coreclr"'/>
     </Target>

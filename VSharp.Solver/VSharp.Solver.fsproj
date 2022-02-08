@@ -1,9 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netcoreapp6.0</TargetFramework>
+        <TargetFramework>net6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
         <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
@@ -32,10 +35,10 @@
         <Z3>..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</Z3>
     </PropertyGroup>
 
-    <Target Name="BuildZ3" AfterTargets="BeforeBuild" Condition=" !Exists('$(Z3)') ">
+    <Target Name="BuildZ3" AfterTargets="BeforeBuild" Condition=" !Exists('$(Z3)') And $([MSBuild]::IsOSPlatform('OSX')) ">
         <Exec Command='
             cd ../z3
-            mkdir -p build
+            mkdir build
             cd build
             set CXX=clang++
             set CC=clang
@@ -43,29 +46,16 @@
             cmake --build . -j 6'/>
     </Target>
 
-    <ItemGroup>
+    <ItemGroup Condition=" ! $([MSBuild]::IsOSPlatform('OSX')) ">
+        <PackageReference Include="Microsoft.Z3" Version="4.8.11" />
+    </ItemGroup>
+
+    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
         <Reference Include="Microsoft.Z3, Version=4.8.11.0, Culture=neutral, PublicKeyToken=null">
             <HintPath>..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</HintPath>
         </Reference>
-    </ItemGroup>
-
-    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <Content Include="$(Z3BuildDir)\libz3.so">
-            <Link>libz3.so</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <Content Include="$(Z3BuildDir)\libz3.dylib">
             <Link>libz3.dylib</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <Content Include="$(Z3BuildDir)\libz3.dll">
-            <Link>libz3.dll</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
