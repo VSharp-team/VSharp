@@ -64,21 +64,21 @@
     </Target>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.so">
+        <Content Include="..\VSharp.ClrInteraction\build\libicsharpConcolic.so">
             <Link>libicsharpConcolic.so</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dylib">
+        <Content Include="..\VSharp.ClrInteraction\build\libicsharpConcolic.dylib">
             <Link>libicsharpConcolic.dylib</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dll">
+        <Content Include="..\VSharp.ClrInteraction\build\libicsharpConcolic.dll">
             <Link>libicsharpConcolic.dll</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
