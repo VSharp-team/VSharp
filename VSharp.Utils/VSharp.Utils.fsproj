@@ -28,6 +28,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Stopwatch.fs" />
         <Compile Include="Logger.fs" />
         <Compile Include="WeakDictionary.fs" />
         <Compile Include="Prelude.fs" />

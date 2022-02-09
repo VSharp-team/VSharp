@@ -116,6 +116,8 @@ namespace VSharp.Test
                     {
                         context.CurrentResult.SetResult(ResultState.Success);
                     }
+                    
+                    Stopwatch.saveCurrentResults(unitTests.TestDirectory.FullName);
                 }
                 catch (Exception e)
                 {
