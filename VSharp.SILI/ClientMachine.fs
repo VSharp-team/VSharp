@@ -17,7 +17,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
     let pathToClient = "libicsharpConcolic" + extension
-    let tempTest (id : int) = Path.GetTempPath() + "start" + id.ToString() + ".vst"
+    let pathToTmp = sprintf "%s%c" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar
+    let tempTest (id : int) = sprintf "%sstart%d.vst" pathToTmp id
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
@@ -82,7 +83,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let test = UnitTest(entryPoint)
         test.Serialize(tempTest id)
 
-        let pipeFile = sprintf "%sconcolic_fifo_%d" (Path.GetTempPath()) id
+        let pipeFile = sprintf "%sconcolic_fifo_%d" pathToTmp id
         let env = environment entryPoint pipeFile
         x.communicator <- new Communicator(pipeFile)
         let proc = Process.Start env
