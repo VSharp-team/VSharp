@@ -2,9 +2,19 @@ image: Visual Studio 2022
 
 install:
   - cinst make
+  - cmd: pwd
+
+environment:
+  APPVEYOR_RDP_PASSWORD: Keka_121212
+
+init:
+  - ps: iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
+
+on_finish:
+  - ps: $blockRdp = $true; iex ((new-object net.webclient).DownloadString('https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-rdp.ps1'))
 
 before_build:
-  - set PATH=C:/MinWG/bin;C:/MinWG/include;C:/MinWG;%PATH%
+  - set PATH=C:/MinWG/bin;C:/MinWG/include;C:/MinWG;"C:/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Microsoft/VC/v170";%PATH%
   - dotnet tool restore
   - dotnet restore
   - git submodule update --init z3
