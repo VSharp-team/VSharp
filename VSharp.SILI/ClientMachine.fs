@@ -63,7 +63,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let result = ProcessStartInfo()
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
-        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- Directory.GetCurrentDirectory() + "/" + pathToClient
+        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- sprintf "%s%c%s" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar pathToClient
         result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipeFile
         result.WorkingDirectory <- Directory.GetCurrentDirectory()
         result.FileName <- "dotnet"
@@ -73,7 +73,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
             result.Arguments <- method.Module.Assembly.Location
         else
-            let runnerPath = "./VSharp.TestRunner.dll"
+            let runnerPath = "VSharp.TestRunner.dll"
             result.Arguments <- sprintf "%s %s %O" runnerPath (tempTest id) false
         result
 
@@ -83,7 +83,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let test = UnitTest(entryPoint)
         test.Serialize(tempTest id)
 
-        let pipeFile = sprintf "%sconcolic_fifo_%d" pathToTmp id
+        let pipeFile = sprintf "%sconcolic_fifo_%d.pipe" pathToTmp id
         let env = environment entryPoint pipeFile
         x.communicator <- new Communicator(pipeFile)
         let proc = Process.Start env
