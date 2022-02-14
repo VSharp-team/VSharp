@@ -789,7 +789,10 @@ module internal Z3 =
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
+                    let result =
+                        Stopwatch.runMeasuringTime "Z3_check_sat" (fun () ->
+                            optCtx.Check assumptions
+                        )                
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model

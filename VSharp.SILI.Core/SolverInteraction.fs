@@ -38,8 +38,5 @@ module public SolverInteraction =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s ->
-            Stopwatch.runMeasuringTime "checkSat" (fun () ->
-                s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
-            )            
+        | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }            
         | None -> SmtUnknown ""
