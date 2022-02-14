@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using Microsoft.FSharp.Core;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -86,7 +87,11 @@ namespace VSharp.Test
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
-                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    Stopwatch.runMeasuringTime("total_interpretation", FuncConvert.FromAction(() =>
+                    {
+                        explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError,
+                        _ => { }, e => throw e);
+                    }));
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
