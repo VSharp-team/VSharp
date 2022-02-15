@@ -96,3 +96,5 @@ module Stopwatch =
         use csvWriter = new CsvWriter(streamWriter, configuration)
         
         csvWriter.WriteRecords(records)
+        
+    let public clear () = measurements.Clear() 

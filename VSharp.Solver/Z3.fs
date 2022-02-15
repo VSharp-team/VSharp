@@ -822,8 +822,10 @@ module internal Z3 =
                     else
                         let levelAtom = getLevelAtom lvl
                         ctx.MkImplies(levelAtom, encoded)
-                optCtx.Assert(leveled)
-
+                Stopwatch.runMeasuringTime "Z3_assert" (fun () ->
+                    optCtx.Assert(leveled)
+                )
+                
             member x.AddPath encCtx (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
                 printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
