@@ -62,7 +62,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     let environment (method : MethodBase) pipePath =
         let result = ProcessStartInfo()
         let profiler = sprintf "%s%c%s" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar pathToClient
-        result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
+        result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
         result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- profiler
         result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipePath
