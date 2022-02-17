@@ -54,14 +54,14 @@ namespace VSharp.Test
 
         public TestSvmAttribute(int expectedCoverage=-1, uint maxBoundForTest=15u, bool concolicMode=false)
         {
-            if (expectedCoverage == -1)
+            if (expectedCoverage < 0)
                 _expectedCoverage = null;
-            else
-                _expectedCoverage = expectedCoverage;
+            else if (expectedCoverage > 100)
+                _expectedCoverage = 100;
+            else _expectedCoverage = expectedCoverage;
             _maxBoundForTest = maxBoundForTest;
             _concolicMode = concolicMode;
         }
-
 
         public virtual TestCommand Wrap(TestCommand command)
         {
