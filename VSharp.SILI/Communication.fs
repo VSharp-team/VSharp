@@ -512,8 +512,10 @@ type Communicator(pipeFile) =
         | None -> unexpectedlyTerminated()
         | Some buffer -> Encoding.ASCII.GetString(buffer)
 
+    // NOTE: all strings, sent to concolic should end with null terminator
     let writeString (str : string) =
-        let buffer = Encoding.ASCII.GetBytes(str)
+        // NOTE: adding null terminator
+        let buffer = Encoding.ASCII.GetBytes(str + Char.MinValue.ToString())
         writeBuffer buffer
 
     let waitClient () =

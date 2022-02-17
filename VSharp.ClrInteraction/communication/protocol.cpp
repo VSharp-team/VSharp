@@ -159,10 +159,8 @@ bool Protocol::acceptString(char *&string) {
         LOG_ERROR(tout << "Reading instrumented method body failed!");
         return false;
     }
-    string = new char[messageLength + 2];
+    string = new char[messageLength];
     memcpy(string, message, messageLength);
-    string[messageLength] = '\0';
-    string[messageLength + 1] = '\0';
 //    LOG(tout << "Successfully accepted string: " << string);
     delete[] message;
     return true;
