@@ -25,7 +25,6 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
 
 StackFrame::~StackFrame()
 {
-    // TODO: why double free? check #do
     delete [] m_concreteness;
 }
 

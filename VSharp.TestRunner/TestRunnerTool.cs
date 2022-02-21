@@ -107,9 +107,7 @@ namespace VSharp.TestRunner
                         var method = test.Method;
 
                         Console.Out.WriteLine("Starting test reproducing for method {0}", method);
-                        if (checkResult)
-                            Console.Out.WriteLine("Result check is enabled");
-                        else
+                        if (!checkResult)
                             Console.Out.WriteLine("Result check is disabled");
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();

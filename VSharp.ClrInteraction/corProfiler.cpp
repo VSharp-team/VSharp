@@ -537,7 +537,7 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
             }
             validObjectIndex++;
         } else {
-            FAIL_LOUD("Invalid!");
+            FAIL_LOUD("Type serialization: type was not resolved!");
         }
     }
     assert(tokenIndex == tokensSize && validObjectIndex == isArraySize);

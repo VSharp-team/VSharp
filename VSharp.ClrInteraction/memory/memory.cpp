@@ -278,7 +278,7 @@ INT_PTR vsharp::unmem_p(INT8 idx) {
 
 bool _mainEntered = false;
 
-void vsharp::mainEntered() { // TODO: need this? (we already have m_mainReached) #do
+void vsharp::mainEntered() {
     _mainEntered = true;
 }
 

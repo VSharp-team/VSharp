@@ -71,7 +71,7 @@ private:
     HRESULT startReJitInstrumented();
     HRESULT startReJitSkipped();
     HRESULT undoInstrumentation(FunctionID functionId);
-    HRESULT doInstrumentation(ModuleID oldModuleId, WCHAR *assemblyName, ULONG assemblyNameLength, WCHAR *moduleName, ULONG moduleNameLength);
+    HRESULT doInstrumentation(ModuleID oldModuleId, const WCHAR *assemblyName, ULONG assemblyNameLength, const WCHAR *moduleName, ULONG moduleNameLength);
 
     bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
 

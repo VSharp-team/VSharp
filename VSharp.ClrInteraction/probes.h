@@ -178,7 +178,7 @@ bool readExecResponse(StackFrame &top, EvalStackOperand *ops, unsigned &count, i
     bool hasInternalCallResult = *(char*)bytes > 0; bytes += sizeof(char);
     bool opsConcretized = opsLength > -1;
     if (lastPush > 0) {
-        bool returnValueIsConcrete = lastPush == 2;
+        bool returnValueIsConcrete = (lastPush == 2);
         top.push1(returnValueIsConcrete);
     }
 

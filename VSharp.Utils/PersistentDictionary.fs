@@ -15,7 +15,6 @@ type public pdict<'key, 'value> when 'key : equality and 'value : equality =
 
     override x.GetHashCode() =
         let createHash() =
-//            let hash = x.impl :> seq<'key * 'value> |> List.ofSeq |> fun l -> l.GetHashCode()
             let hash = x.impl :> seq<'key * 'value> |> Seq.fold (fun acc x -> System.HashCode.Combine(acc, x)) (System.HashCode().ToHashCode())
             x.hash <- Some hash
             hash

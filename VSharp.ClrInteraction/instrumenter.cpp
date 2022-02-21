@@ -31,10 +31,10 @@ struct MethodBodyInfo {
     unsigned ehsLength;
     unsigned signatureTokensLength;
     char *signatureTokens;
-    WCHAR *assemblyName;
-    WCHAR *moduleName;
-    char *bytecode;
-    char *ehs;
+    const WCHAR *assemblyName;
+    const WCHAR *moduleName;
+    const char *bytecode;
+    const char *ehs;
 
     void serialize(char *&bytes, unsigned &count) const {
         count = codeLength + 6 * sizeof(unsigned) + ehsLength + assemblyNameLength + moduleNameLength + signatureTokensLength;
@@ -231,10 +231,9 @@ bool Instrumenter::currentMethodIsMain(const WCHAR *moduleName, int moduleSize, 
     // NOTE: decrementing 'moduleSize', because of null terminator
     if (m_mainModuleSize != moduleSize - 1 || m_mainMethod != method)
         return false;
-    bool modulesAreEq = true;
     for (int i = 0; i < m_mainModuleSize; i++)
-        modulesAreEq = modulesAreEq && m_mainModuleName[i] == moduleName[i];
-    return modulesAreEq;
+        if (m_mainModuleName[i] != moduleName[i]) return false;
+    return true;
 }
 
 HRESULT Instrumenter::importIL()
@@ -378,7 +377,7 @@ HRESULT Instrumenter::startReJitSkipped() {
     return hr;
 }
 
-HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, WCHAR *assemblyName, ULONG assemblyNameLength, WCHAR *moduleName, ULONG moduleNameLength) {
+HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assemblyName, ULONG assemblyNameLength, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;
     CComPtr<IMetaDataEmit> metadataEmit;

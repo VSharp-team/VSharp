@@ -24,6 +24,7 @@ bool Communicator::open() {
     addr.sun_family = AF_UNIX;
     std::string pipeEnvVar = "CONCOLIC_PIPE";
     auto pipeFile = getenv(pipeEnvVar.c_str());
+    if (strlen(pipeFile) < 1) FAIL_LOUD("Invalid pipe environment variable!");
     strncpy(addr.sun_path, pipeFile, strlen(pipeFile));
     if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
         return reportError();

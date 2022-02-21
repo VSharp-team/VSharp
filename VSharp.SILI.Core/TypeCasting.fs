@@ -154,7 +154,7 @@ module internal TypeCasting =
         | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
-        | Ptr(HeapLocation(address, _), _, offset), ByRef _ when address = zeroAddress && offset = makeNumber 0 -> nullRef
+        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef _ when address = zeroAddress && offset = 0 -> nullRef
         // CASE: pointer from concolic
         | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
         | Ptr _, ByRef _ ->

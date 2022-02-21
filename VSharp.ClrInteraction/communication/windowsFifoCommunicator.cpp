@@ -19,6 +19,8 @@ bool reportError() {
 bool Communicator::open() {
     std::wstring pipeEnvVar = L"CONCOLIC_PIPE";
     const wchar_t *pipeFile = _wgetenv(pipeEnvVar.c_str());
+    std::wstring pipe(pipeFile);
+    if (pipe.size() < 1) FAIL_LOUD("Invalid pipe environment variable!");
     hPipe = CreateFile(pipeFile, GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
     if (hPipe == INVALID_HANDLE_VALUE) return reportError();
     return true;
