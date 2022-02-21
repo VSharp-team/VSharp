@@ -21,6 +21,13 @@ type public codeLocation = {offset : offset; method : MethodBase}
             | :? codeLocation as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
             | _ -> -1
 
+type ehcType =
+    | Filter of int
+    | Catch of System.Type
+    | Finally
+
+type public ExceptionHandlingClause = { tryOffset : int; tryLength : int; handlerOffset : int; handlerLength : int; ehcType : ehcType }
+
 [<CustomEquality; CustomComparison>]
 type ip =
     | Exit of MethodBase
@@ -99,6 +106,7 @@ type ip =
         | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
         | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
         | SearchingForHandler(toObserve, checkFinally) -> sprintf "SearchingForHandler(%O, %O)" toObserve checkFinally
+        | SecondBypass(ip, restFrames, handler) -> sprintf "SecondBypass(%O, %O, %O)" ip restFrames handler
         | _ -> __notImplemented__()
 
 and ipStack = ip list

@@ -16,8 +16,9 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
-    let pathToClient = "libicsharpConcolic" + extension
-    let tempTest = Path.GetTempPath() + "start.vst" // TODO: use unique id
+    let pathToClient = "libvsharpConcolic" + extension
+    let pathToTmp = sprintf "%s%c" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar
+    let tempTest (id : int) = sprintf "%sstart%d.vst" pathToTmp id
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
@@ -47,13 +48,24 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             newState.suspended <- true
             cilState <- newState
 
+    let metadataSizeOfAddress state address =
+        let t = TypeOfAddress state address
+        if t = Types.String then CSharpUtils.LayoutUtils.StringElementsOffset
+        elif Types.IsArrayType t then CSharpUtils.LayoutUtils.ArrayElementsOffset
+        else 0
+
+    static let mutable id = 0
+
+    let mutable callIsSkipped = false
     let mutable mainReached = false
-    let mutable poppedSymbolics : list<_> = List.Empty
-    let environment (method : MethodBase) =
+    let mutable operands : list<_> = List.Empty
+    let environment (method : MethodBase) pipePath =
         let result = ProcessStartInfo()
-        result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{cf0d821e-299b-5307-a3d8-b283c03916dd}"
+        let profiler = sprintf "%s%c%s" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar pathToClient
+        result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}"
         result.EnvironmentVariables.["CORECLR_ENABLE_PROFILING"] <- "1"
-        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- Directory.GetCurrentDirectory() + "/" + pathToClient
+        result.EnvironmentVariables.["CORECLR_PROFILER_PATH"] <- profiler
+        result.EnvironmentVariables.["CONCOLIC_PIPE"] <- pipePath
         result.WorkingDirectory <- Directory.GetCurrentDirectory()
         result.FileName <- "dotnet"
         result.UseShellExecute <- false
@@ -62,18 +74,28 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
             result.Arguments <- method.Module.Assembly.Location
         else
-            let runnerPath = "./VSharp.TestRunner.dll"
-            result.Arguments <- runnerPath + " " + tempTest
+            let runnerPath = "VSharp.TestRunner.dll"
+            result.Arguments <- sprintf "%s %s %O" runnerPath (tempTest id) false
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
         assert(entryPoint <> null)
         let test = UnitTest(entryPoint)
-        test.Serialize(tempTest)
-        let env = environment entryPoint
-        x.communicator <- new Communicator()
+        test.Serialize(tempTest id)
+
+        let pipe, pipePath =
+            if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then
+                let pipe = sprintf "concolic_fifo_%d.pipe" id
+                let pipePath = sprintf "\\\\.\\pipe\\%s" pipe
+                pipe, pipePath
+            else
+                let pipeFile = sprintf "%sconcolic_fifo_%d.pipe" pathToTmp id
+                pipeFile, pipeFile
+        let env = environment entryPoint pipePath
+        x.communicator <- new Communicator(pipe)
         let proc = Process.Start env
+        id <- id + 1
         proc.OutputDataReceived.Add <| fun args -> Logger.trace "CONCOLIC OUTPUT: %s" args.Data
         proc.ErrorDataReceived.Add <| fun args -> Logger.trace "CONCOLIC ERROR: %s" args.Data
         proc.BeginOutputReadLine()
@@ -81,6 +103,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Logger.info "Successfully spawned pid %d, working dir \"%s\"" proc.Id env.WorkingDirectory
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
+            x.communicator.SendEntryPoint entryPoint
             x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
         else false
@@ -89,7 +112,6 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
         assert(Memory.CallStackSize cilState.state > 0)
         let initFrame state token =
-            // TODO: can topMethod be from another module? (mb it's iterative (frame over frame)) #do
             let topMethod = Memory.GetCurrentExploringFunction state
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame state method
@@ -108,7 +130,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | evalStackArgType.OpI4 ->
                     Concrete (int content) TypeUtils.int32Type
                 | evalStackArgType.OpI8 ->
-                    Concrete content TypeUtils.int32Type
+                    Concrete content TypeUtils.int64Type
                 | evalStackArgType.OpR4 ->
                     Concrete (BitConverter.Int32BitsToSingle (int content)) TypeUtils.float32Type
                 | evalStackArgType.OpR8 ->
@@ -117,14 +139,15 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | PointerOp(baseAddress, offset) ->
                 // TODO: what about StackLocation and StaticLocation? #do
                 let address = ConcreteHeapAddress [int32 baseAddress]
+                let typ = TypeOfAddress cilState.state address
                 if offset = 0UL then
-                    let typ = TypeOfAddress cilState.state address
                     HeapRef address typ
                 else
-                    let offset = Concrete (int offset) Types.TLength
-                    Ptr (HeapLocation address) Void offset)
-        let ps, evalStack = EvaluationStack.PopMany maxIndex evalStack
-        poppedSymbolics <- ps
+                    let offset = int offset - metadataSizeOfAddress cilState.state address
+                    let offset = Concrete offset Types.TLength
+                    Ptr (HeapLocation(address, typ)) Void offset)
+        let _, evalStack = EvaluationStack.PopMany maxIndex evalStack
+        operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
         cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
@@ -155,44 +178,60 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             Logger.trace "Got terminate command!"
             false
 
+    member private x.ConcreteToObj term =
+        let evalRefType baseAddress offset typ =
+            match baseAddress, offset.term with
+            | HeapLocation({term = ConcreteHeapAddress [address]} as a, _), Concrete(offset, _) ->
+                let obj = (address, uint64 (offset :?> int + metadataSizeOfAddress cilState.state a)) :> obj
+                Some (obj, typ)
+            // TODO: stack and statics location #do
+            | _ -> None
+        match term.term with
+        | Concrete(obj, typ) -> Some (obj, typ)
+        | _ when term = NullRef -> Some (null, Null)
+        | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
+        | Ref address ->
+            let baseAddress, offset = AddressToBaseAndOffset address
+            evalRefType baseAddress offset (TypeOf term)
+        | Ptr(baseAddress, sightType, offset) ->
+            evalRefType baseAddress offset (Pointer sightType)
+        | _ -> None
+
+    member private x.EvalOperands cilState =
+        // NOTE: if there are no branching, TryGetModel forces solver to create model
+        // NOTE: this made to check communication between Concolic and SILI
+        // TODO: after all checks, change this to 'cilState.state.model'
+        match TryGetModel cilState.state with
+        | Some model ->
+            let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
+            if List.length operands <> List.length concretizedOps then None
+            else
+                bindNewCilState cilState
+                Some concretizedOps
+        | None -> None
+
     member x.StepDone (steppedStates : cilState list) =
-        let concretizedOps = steppedStates |> List.tryPick (fun cilState' ->
-            match cilState'.state.model with
-            | None -> None
-            | Some model ->
-                let mutable allConcrete = true
-                // TODO: fix style #style
-                let makeObjFromBaseAndOffset baseAddress offset =
-                    match baseAddress, offset.term with
-                    | HeapLocation {term = ConcreteHeapAddress [address]}, Concrete(offset, _) ->
-                        (address, offset :?> uint64) :> obj
-                    // TODO: stack and statics location #do
-                    | _ -> allConcrete <- false; null
-                let concretizedSymbolics = poppedSymbolics |> List.map (fun term ->
-                    let concretizedTerm = model.Eval term
-                    match concretizedTerm.term with
-                    | Concrete(obj, typ) -> (obj, typ)
-                    | _ when concretizedTerm = NullRef -> (null, Null)
-                    | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
-                    | Ref address ->
-                        let baseAddress, offset = AddressToBaseAndOffset address
-                        makeObjFromBaseAndOffset baseAddress offset, TypeOf concretizedTerm
-                    | Ptr(baseAddress, sightType, offset) ->
-                        makeObjFromBaseAndOffset baseAddress offset, Pointer sightType
-                    | _ -> allConcrete <- false; (null, Null))
-                if allConcrete then
-                    bindNewCilState cilState'
-                    Some concretizedSymbolics
-                else None)
-        cilState.suspended <- true
-        let lastPushInfo = // TODO: fix style #style
-            match cilState.lastPushInfo with
-            | Some x ->
-                if IsConcrete x && CilStateOperations.currentIp cilState <> Exit entryPoint then
+        if CilStateOperations.currentMethod cilState |> InstructionsSet.isFSharpInternalCall then
+            callIsSkipped <- true
+            cilState
+        else
+            let concretizedOps =
+                if callIsSkipped then Some List.empty
+                else steppedStates |> List.tryPick x.EvalOperands
+            cilState.suspended <- true
+            let lastPushInfo =
+                match cilState.lastPushInfo with
+                | Some x when IsConcrete x && CilStateOperations.currentIp cilState <> Exit entryPoint ->
                     CilStateOperations.pop cilState |> ignore
                     Some true
-                else Some false
-            | None -> None
-        let framesCount = Memory.CallStackSize cilState.state
-        x.communicator.SendExecResponse concretizedOps lastPushInfo framesCount
-        cilState
+                | Some _ -> Some false
+                | None -> None
+            let internalCallResult =
+                match cilState.lastPushInfo with
+                | Some res when callIsSkipped ->
+                    x.ConcreteToObj res
+                | _ -> None
+            let framesCount = Memory.CallStackSize cilState.state
+            x.communicator.SendExecResponse concretizedOps internalCallResult lastPushInfo framesCount
+            callIsSkipped <- false
+            cilState

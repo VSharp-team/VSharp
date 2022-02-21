@@ -1,8 +1,12 @@
 #include <iostream>
 #include <algorithm>
-#include "memory/heap.h"
+#include <string>
+#include "heap.h"
 
-namespace icsharp {
+#define min(a,b) (((a) < (b)) ? (a) : (b))
+#define max(a,b) (((a) > (b)) ? (a) : (b))
+
+namespace vsharp {
 
 // --------------------------- Shift ---------------------------
 
@@ -43,7 +47,7 @@ namespace icsharp {
 
     Interval Interval::intersect(const Interval &other) const {
         assert(intersects(other));
-        return Interval(std::max(left, other.left), std::min(right, other.right));
+        return Interval(max(left, other.left), min(right, other.right));
     }
 
     void Interval::move(const Shift &shift) {
@@ -217,10 +221,10 @@ namespace icsharp {
     }
 
     void Heap::dump() const {
-        tout << "-------------- HEAP DUMP --------------" << std::endl;
+        LOG(tout << "-------------- HEAP DUMP --------------" << std::endl);
         std::string dump = tree.dumpObjects();
-        tout << dump.c_str() << std::endl;
-        tout << "-------------- DUMP END ---------------" << std::endl;
+        LOG(tout << dump.c_str() << std::endl);
+        LOG(tout << "-------------- DUMP END ---------------" << std::endl);
     }
 
     VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {

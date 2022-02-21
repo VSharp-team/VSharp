@@ -22,3 +22,7 @@ module internal Globalization =
         assert(List.length args = 1)
         let cultureType = Types.FromDotNetType typeof<System.Globalization.CompareInfo>
         Memory.AllocateDefaultClass state cultureType
+
+    let get_Invariant (_ : state) (args : term list) : term =
+        assert(List.length args = 0)
+        True

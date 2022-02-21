@@ -34,7 +34,7 @@ module internal SystemArray =
         | HeapRef({term = ConcreteHeapAddress _}, _) ->
             let checkOneElement acc i =
                 let index = Concrete i Types.IndexType
-                let elem = Memory.ReadArrayIndex state this [index]
+                let elem = Memory.ReadArrayIndex state this [index] None
                 acc ||| (elem === char)
             let length = Memory.ArrayLengthByDimension state this (MakeNumber 0)
             match length.term with
@@ -53,4 +53,4 @@ module internal SystemArray =
     let GetItem (state : state) (args : term list) =
         assert(List.length args = 3)
         let this, index = args.[0], args.[2]
-        Memory.ReadArrayIndex state this [index]
+        Memory.ReadArrayIndex state this [index] None

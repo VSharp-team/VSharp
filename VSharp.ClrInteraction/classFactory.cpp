@@ -1,7 +1,7 @@
 #include "classFactory.h"
 #include "corProfiler.h"
 
-using namespace icsharp;
+using namespace vsharp;
 
 ClassFactory::ClassFactory() : refCount(0)
 {

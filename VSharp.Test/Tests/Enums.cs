@@ -14,7 +14,7 @@ namespace IntegrationTests
             , Yellow
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int Color2Int(Color c)
         {
             switch (c)
@@ -25,7 +25,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int SymbolicColor2Int(Color c, int v)
         {
             Color x = (Color) v;

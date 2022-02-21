@@ -417,10 +417,18 @@ type execCommand = {
     callStackFramesPops : uint32
     evaluationStackPops : uint32
     newCallStackFrames : int32 array
-    evaluationStackPushes : evalStackOperand array
+    evaluationStackPushes : evalStackOperand array // NOTE: operands for executing instruction
     newAddresses : UIntPtr array
     newAddressesTypes : Type array
     // TODO: add deleted addresses
+}
+
+[<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
+type execResponseStaticPart = {
+    framesCount : uint32
+    lastPush : byte
+    opsLength : int // -1 if operands were not concretized, length otherwise
+    hasResult : byte
 }
 
 type commandFromConcolic =
@@ -432,8 +440,7 @@ type commandForConcolic =
     | ReadMethodBody
     | ReadString
 
-type Communicator() =
-    let pipeFile = Path.GetTempPath() + "concolic_fifo" // TODO: use pid also
+type Communicator(pipeFile) =
 
     let confirmationByte = byte(0x55)
     let instrumentCommandByte = byte(0x56)
@@ -505,8 +512,10 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
         | Some buffer -> Encoding.ASCII.GetString(buffer)
 
+    // NOTE: all strings, sent to concolic should end with null terminator
     let writeString (str : string) =
-        let buffer = Encoding.ASCII.GetBytes(str)
+        // NOTE: adding null terminator
+        let buffer = Encoding.ASCII.GetBytes(str + Char.MinValue.ToString())
         writeBuffer buffer
 
     let waitClient () =
@@ -521,6 +530,9 @@ type Communicator() =
         let s = readString ()
         if s <> expectedMessage then
             fail "Communication with CLR: handshake failed: got %s instead of %s" s expectedMessage
+
+    override x.Finalize() =
+        server.Close()
 
     member private x.Deserialize<'a> (bytes : byte array, startIndex : int) =
         let result = Reflection.createObject typeof<'a> :?> 'a
@@ -567,6 +579,14 @@ type Communicator() =
         | None -> unexpectedlyTerminated()
 
     member x.ReadProbes() = x.ReadStructure<probes>()
+
+    member x.SendEntryPoint (m : Reflection.MethodBase) =
+        let moduleName = m.Module.FullyQualifiedName
+        let moduleNameBytes = Encoding.Unicode.GetBytes moduleName
+        let moduleSize = BitConverter.GetBytes moduleName.Length
+//        let moduleID = BitConverter.GetBytes m.Module.MetadataToken
+        let methodDef = BitConverter.GetBytes m.MetadataToken
+        Array.concat [moduleSize; methodDef; moduleNameBytes] |> writeBuffer
 
     member x.SendCommand (command : commandForConcolic) =
         let bytes = x.SerializeCommand command
@@ -651,7 +671,7 @@ type Communicator() =
                     let content = BitConverter.ToInt64(dynamicBytes, offset)
                     offset <- offset + sizeof<int64>
                     NumericOp(evalStackArgType, content)
-                | _ -> __unreachable__())
+                | _ -> internalfailf "unexpected evaluation stack argument type %O" evalStackArgType)
             let newAddresses = Array.init (int staticPart.newAddressesCount) (fun _ ->
                 let res = x.ToUIntPtr dynamicBytes offset in offset <- offset + IntPtr.Size; res)
             let newAddressesTypesLengths = Array.init (int staticPart.newAddressesCount) (fun _ ->
@@ -679,10 +699,11 @@ type Communicator() =
                             offset <- offset + sizeof<int>
                             let assemblySize = BitConverter.ToInt32(dynamicBytes, offset)
                             offset <- offset + sizeof<int>
-                            let assemblyBytes = dynamicBytes.[offset .. offset + assemblySize - 1]
+                            // NOTE: truncating null terminator
+                            let assemblyBytes = dynamicBytes.[offset .. offset + assemblySize - 3]
                             offset <- offset + assemblySize
                             let assemblyName = Encoding.Unicode.GetString(assemblyBytes)
-                            let assembly = System.Reflection.Assembly.Load(assemblyName)
+                            let assembly = Reflection.loadAssembly assemblyName
                             let moduleSize = BitConverter.ToInt32(dynamicBytes, offset)
                             offset <- offset + sizeof<int>
                             let moduleBytes = dynamicBytes.[offset .. offset + moduleSize - 1]
@@ -706,72 +727,95 @@ type Communicator() =
               newAddressesTypes = newAddressesTypes }
         | None -> unexpectedlyTerminated()
 
-    // TODO: send struct via serialize
-    member x.SendExecResponse ops lastPush (framesCount : int) =
+    member private x.SizeOfConcrete (typ : Core.symbolicType) =
+        if Types.IsValueType typ then sizeof<int> + sizeof<int64>
+        else sizeof<int> + 2 * sizeof<int64>
+
+    member private x.IntegerBytesToLong (obj : obj) =
+        let extended =
+            match obj with
+            | :? byte as v -> int64 v |> BitConverter.GetBytes
+            | :? sbyte as v -> int64 v |> BitConverter.GetBytes
+            | :? int16 as v -> int64 v |> BitConverter.GetBytes
+            | :? uint16 as v -> int64 v |> BitConverter.GetBytes
+            | :? char as v -> int64 v |> BitConverter.GetBytes
+            | :? int32 as v -> int64 v |> BitConverter.GetBytes
+            | :? uint32 as v -> uint64 v |> BitConverter.GetBytes
+            | :? int64 as v -> BitConverter.GetBytes v
+            | :? uint64 as v -> BitConverter.GetBytes v
+            | _ -> internalfailf "IntegerBytesToLong: unexpected object %O" obj
+        BitConverter.ToInt64 extended
+
+    member private x.SerializeConcrete (obj : obj, typ : Core.symbolicType) =
+        let bytes = x.SizeOfConcrete typ |> Array.zeroCreate
         let mutable index = 0
-        let writeFirstPart count =
-            let count = count + sizeof<int>
-            let count =
-                match lastPush with
-                | Some _ -> count + 2
-                | None -> count + 1
-            let bytes = Array.zeroCreate (count + sizeof<int>)
-            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), framesCount) in assert success
-            index <- index + sizeof<int>
-            match lastPush with
-            | Some concreteness ->
-                bytes.[index] <- 1uy
-                bytes.[index + 1] <- if concreteness then 1uy else 0uy
-                index <- index + 2
-            | None ->
-                bytes.[index] <- 0uy
-                index <- index + 1
-            bytes
-        match ops with
-        | Some ops ->
-            let count = ops |> List.sumBy (fun (_, typ) ->
-                if Types.IsValueType typ then sizeof<int> + sizeof<int64>
-                else sizeof<int> + 2 * sizeof<int64>)
-            let bytes = writeFirstPart count
-            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), ops.Length) in assert success
-            index <- index + sizeof<int>
-            ops |> List.iter (fun (obj : obj, typ) ->
-                if Types.IsValueType typ then
-                    let opType, (content : int64) =
-                        if Types.IsInteger typ then
-                            if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8, unbox obj
-                            else evalStackArgType.OpI4, (unbox obj |> int64)
-                        elif Types.IsReal typ then
-                            if Types.SizeOf typ = sizeof<double> then evalStackArgType.OpR8, (unbox obj |> int64)
-                            else evalStackArgType.OpR4, (unbox obj |> int64)
-                        else
-                            // TODO: support structs
-                            __notImplemented__()
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue opType) in assert success
-                    index <- index + sizeof<int>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), content) in assert success
-                    index <- index + sizeof<int64>
-                elif isNull obj then
-                    // NOTE: null refs handling
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
-                    index <- index + sizeof<int>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
-                    index <- index + sizeof<uint64>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
-                    index <- index + sizeof<uint64>
+        if Types.IsValueType typ then
+            let opType, (content : int64) =
+                if Types.IsInteger typ then
+                    let typ = if Types.SizeOf typ = sizeof<int64> then evalStackArgType.OpI8 else evalStackArgType.OpI4
+                    typ, x.IntegerBytesToLong obj
+                elif Types.IsReal typ then
+                    if Types.SizeOf typ = sizeof<double> then
+                        evalStackArgType.OpR8, BitConverter.DoubleToInt64Bits (obj :?> double)
+                    else evalStackArgType.OpR4, BitConverter.DoubleToInt64Bits (obj :?> float |> double)
+                elif Types.IsBool typ then
+                    evalStackArgType.OpI4, if obj :?> bool then 1L else 0L
                 else
-                    // NOTE: nonnull refs handling
-                    let address, offset = obj :?> uint32 * uint64
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
-                    index <- index + sizeof<int>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), uint64 address) in assert success
-                    index <- index + sizeof<int64>
-                    let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), offset) in assert success
-                    index <- index + sizeof<int64>)
-            writeBuffer bytes
-        | None ->
-            let bytes = writeFirstPart 0
-            writeBuffer bytes
+                    // TODO: support structs
+                    __notImplemented__()
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue opType) in assert success
+            index <- index + sizeof<int>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int64>), content) in assert success
+            index <- index + sizeof<int64>
+        elif isNull obj then
+            // NOTE: null refs handling
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
+            index <- index + sizeof<int>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
+            index <- index + sizeof<uint64>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), 0UL) in assert success
+            index <- index + sizeof<uint64>
+        else
+            // NOTE: nonnull refs handling
+            let address, offset = obj :?> uint32 * uint64
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
+            index <- index + sizeof<int>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), uint64 address) in assert success
+            index <- index + sizeof<int64>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), offset) in assert success
+            index <- index + sizeof<int64>
+        bytes
+
+    member private x.SerializeOperands (ops : (obj * Core.symbolicType) list) =
+        let mutable index = 0
+        let bytesCount = ops |> List.sumBy (snd >> x.SizeOfConcrete)
+        let bytes = Array.zeroCreate bytesCount
+        ops |> List.iter (fun concrete ->
+            let op = x.SerializeConcrete concrete
+            let size = op.Length
+            Array.blit op 0 bytes index size
+            index <- index + size)
+        bytes
+
+    member x.SendExecResponse (ops : (obj * Core.symbolicType) list option) (result : (obj * Core.symbolicType) option) lastPush (framesCount : int) =
+        let lastPush =
+            match lastPush with
+            | Some isConcrete when isConcrete -> 2uy
+            | Some _ -> 1uy
+            | None -> 0uy
+        let len, opsBytes =
+            match ops with
+            | Some ops -> ops.Length, x.SerializeOperands ops
+            | None -> -1, Array.empty
+        let hasInternalCallResult, resultBytes =
+            match result with
+            | Some r -> 1uy, x.SerializeConcrete r
+            | None -> 0uy, Array.empty
+        let staticPart = { framesCount = uint framesCount; lastPush = lastPush; opsLength = len; hasResult = hasInternalCallResult }
+        let staticPartBytes = x.Serialize<execResponseStaticPart> staticPart
+        let message = Array.concat [staticPartBytes; opsBytes; resultBytes]
+        Logger.trace "Sending exec response! Total %d bytes" message.Length
+        writeBuffer message
 
     member x.SendMethodBody (mb : instrumentedMethodBody) =
         x.SendCommand ReadMethodBody

@@ -1,20 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <TargetFramework>netcoreapp6.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
     <PropertyGroup>
+        <TargetFramework>netcoreapp6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
+        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -28,7 +18,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="OpCodes.fs" />
         <Compile Include="Communication.fs" />
+        <Compile Include="ILRewriter.fs" />
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
         <Compile Include="CILState.fs" />
@@ -41,7 +33,6 @@
         <Compile Include="RandomSearcher.fs" />
         <Compile Include="StackTraceEstimator.fs" />
         <Compile Include="StackTraceSearcher.fs" />
-        <Compile Include="ILRewriter.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
         <Compile Include="Options.fs" />
@@ -54,5 +45,45 @@
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
+
+<!--Building concolic every project build, to disable this, uncomment line bellow-->
+<!--    <Target Name="BuildConcolic" AfterTargets="BeforeBuild" Condition =" !Exists('../VSharp.ClrInteraction/cmake-build-debug') ">-->
+    <Target Name="UnixBuildConcolic" AfterTargets="BeforeBuild" Condition="! $([MSBuild]::IsOSPlatform('Windows')) ">
+        <Exec Command='
+            cd ../VSharp.ClrInteraction
+            mkdir cmake-build-debug
+            cd cmake-build-debug
+            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ../
+            cmake --build . --target vsharpConcolic -j 6'/>
+    </Target>
+
+    <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
+        <Exec Command='
+            cd ../VSharp.ClrInteraction
+            mkdir build
+            msbuild VSharp.ClrInteraction.vcxproj /p:Configuration="Debug" /p:BuildOS="Windows_NT" /p:BuildType="Debug" /p:BuildArch="x64" /p:Platform="x64"'/>
+    </Target>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.so">
+            <Link>libvsharpConcolic.so</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.dylib">
+            <Link>libvsharpConcolic.dylib</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+        <Content Include="..\VSharp.ClrInteraction\build\libvsharpConcolic.dll">
+            <Link>libvsharpConcolic.dll</Link>
+            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+        </Content>
+    </ItemGroup>
+
 
 </Project>

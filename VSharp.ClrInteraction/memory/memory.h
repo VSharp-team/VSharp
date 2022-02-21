@@ -9,7 +9,7 @@
 
 typedef UINT_PTR ThreadID;
 
-namespace icsharp {
+namespace vsharp {
 
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
@@ -46,8 +46,8 @@ void update_i1(INT8 value, INT8 idx);
 void update_i2(INT16 value, INT8 idx);
 void update_i4(INT32 value, INT8 idx);
 void update_i8(INT64 value, INT8 idx);
-void update_f4(FLOAT value, INT8 idx);
-void update_f8(DOUBLE value, INT8 idx);
+void update_f4(long long value, INT8 idx);
+void update_f8(long long value, INT8 idx);
 void update_p(INT_PTR value, INT8 idx);
 CorElementType unmemType(INT8 idx);
 INT8 unmem_i1(INT8 idx);

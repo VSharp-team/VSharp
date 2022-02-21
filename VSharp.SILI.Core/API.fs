@@ -1,5 +1,7 @@
 namespace VSharp.Core
 
+open System
+open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 
@@ -36,7 +38,97 @@ module API =
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let IsValid state = SolverInteraction.checkSat state
+    let SolveTypes (model : model) (state : state) =
+        // TODO: where should we call this?
+        // TODO: find module in SILI.Core for it
+        let m = CallStack.getCurrentFunc state.stack
+        let typeOfAddress addr =
+            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
+            else state.allocatedTypes.[addr]
+        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let addresses = HashSet<concreteHeapAddress>()
+        let add dict address typ =
+            match model.Eval address with
+            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
+                addresses.Add addr |> ignore
+                let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
+                let typ = Types.toDotNetType typ
+                if not <| list.Contains typ then
+                    list.Add typ
+                Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
+                    let list = List<Type>()
+                    addr |> typeOfAddress |> Types.toDotNetType |> list.Add
+                    list)
+                |> ignore
+            | {term = ConcreteHeapAddress _} -> ()
+            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
+
+        PC.toSeq state.pc |> Seq.iter (term >> function
+            | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
+            | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
+            | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
+            | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> __notImplemented__()
+            | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> __notImplemented__()
+            | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
+            | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
+            | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> __notImplemented__()
+            | _ -> ())
+        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
+            let l = Dict.tryGetValue d addr null
+            if l = null then [] else List.ofSeq l
+        let addresses = List.ofSeq addresses
+        let inputConstraints =
+            addresses
+            |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
+                                     notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
+            |> List.ofSeq
+        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
+        let methodGenericParameters = m.GetGenericArguments()
+        let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
+        match solverResult with
+        | TypeSat(refsTypes, typeParams) ->
+            let refineTypes addr (t : Type) =
+                let typ = Types.Constructor.fromDotNetType t
+                model.state.allocatedTypes <- PersistentDict.add addr typ model.state.allocatedTypes
+                if t.IsValueType then
+                    let value = makeDefaultValue typ
+                    model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
+            Seq.iter2 refineTypes addresses refsTypes
+            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+            Some(Array.ofList classParams, Array.ofList methodParams)
+        | TypeUnsat -> None
+        | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
+        | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
+
+    let IsValid state =
+        match SolverInteraction.checkSat state with
+        | SolverInteraction.SmtSat satInfo ->
+            let model = satInfo.mdl
+            match SolveTypes model state with // TODO: need to solve types here? #do
+            | None -> SolverInteraction.SmtUnsat {core = Array.empty}
+            | Some _ -> SolverInteraction.SmtSat {satInfo with mdl = model}
+        | result -> result
+
+    let TryGetModel state =
+        match state.model with
+        | Some model -> Some model
+        | None ->
+            match IsValid state with
+            | SolverInteraction.SmtSat model -> Some model.mdl
+            | SolverInteraction.SmtUnknown _ -> None
+            // NOTE: irrelevant case, because exploring branch must be valid
+            | SolverInteraction.SmtUnsat _ -> __unreachable__()
+
+    let mutable private reportError = fun _ -> ()
+    let ConfigureErrorReporter errorReporter =
+        reportError <- errorReporter
+    let ErrorReporter() =
+        let result = reportError
+        reportError <- fun _ -> ()
+        result
 
     [<AutoOpen>]
     module public Terms =
@@ -47,6 +139,7 @@ module API =
         let Struct fields typ = Struct fields typ
         let Ref address = Ref address
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
+        let Slice term first termSize pos = Slice term first termSize pos
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
@@ -69,12 +162,14 @@ module API =
             let getType ref =
                 match ref.term with
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
+                | Ptr(_, t, _) -> t
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
         let TypeOfAddress state address = Memory.typeOfHeapLocation state address
 
         let IsStruct term = isStruct term
         let IsReference term = isReference term
+        let IsPtr term = isPtr term
         let IsConcrete term =
             match term.term with
             | Concrete _ -> true
@@ -84,7 +179,11 @@ module API =
 
         let GetHashCode term = Memory.getHashCode term
 
+        let ReinterpretConcretes terms t = reinterpretConcretes terms t
+
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
+
+        let (|Combined|_|) t = (|Combined|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -95,7 +194,7 @@ module API =
             | {term = HeapRef(addr, _)} when addr = zeroAddress -> Some()
             | _ -> None
         let (|NullPtr|_|) = function
-            | {term = Ptr(HeapLocation addr, _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
+            | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
             | _ -> None
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
@@ -165,6 +264,7 @@ module API =
         let (|StringType|_|) t = Types.(|StringType|_|) t
 
         let ElementType arrayType = Types.elementType arrayType
+        let ArrayTypeToSymbolicType arrayType = arrayTypeToSymbolicType arrayType
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
@@ -244,41 +344,56 @@ module API =
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
-        let rec ReferenceArrayIndex arrayRef indices =
+        let rec ReferenceArrayIndex state arrayRef indices (valueType : symbolicType option) =
             match arrayRef.term with
-            | HeapRef(addr, typ) -> ArrayIndex(addr, indices, symbolicTypeToArrayType typ) |> Ref
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex v indices)) |> Merging.merge
+            | HeapRef(addr, typ) ->
+                let elemType, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
+                assert(dim = List.length indices)
+                match valueType with
+                | Some valueType when not (Types.canCastImplicitly valueType elemType && Types.sizeOf elemType = Types.sizeOf valueType) ->
+                    Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
+                | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
+            | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->
+                assert(Types.IsArrayType t)
+                let elemType, _, _ as arrayType = symbolicTypeToArrayType t
+                let indexOffset = Memory.arrayIndicesToOffset state address arrayType indices
+                Ptr baseAddress elemType (add offset indexOffset)
+            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex state v indices valueType)) |> Merging.merge
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
+
         let rec ReferenceField state reference fieldId =
+            let isSuitableField address typ =
+                let typ = Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType
+                fieldId.declaringType.IsAssignableFrom typ
             match reference.term with
+            | HeapRef(address, typ) when isSuitableField address typ |> not ->
+                Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
+                let offset = Reflection.getFieldOffset fieldId |> MakeNumber
+                Ptr (HeapLocation(address, typ)) (Types.FromDotNetType fieldId.typ) offset
             | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
-//                assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                assert(isSuitableField address typ)
                 ReferenceField state (HeapReferenceToBoxReference reference) fieldId
             | HeapRef(address, typ) ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
-                //assert(Memory.mostConcreteTypeOfHeapRef state address typ |> Types.ToDotNetType |> fieldId.declaringType.IsAssignableFrom)
+                assert(isSuitableField address typ)
                 ClassField(address, fieldId) |> Ref
             | Ref address ->
                 assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
                 StructField(address, fieldId) |> Ref
+            | Ptr(baseAddress, t, offset) ->
+                let fieldOffset = Reflection.getFieldOffset fieldId |> makeNumber
+                Ptr baseAddress (Types.FromDotNetType fieldId.typ) (add offset fieldOffset)
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
             | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
-        let ReadSafe state reference =
-            let reference =
-                // TODO: check if reference is BoxedLocation
-                match reference.term with
-                | HeapRef _ -> HeapReferenceToBoxReference reference
-                | _ -> reference
-            Memory.read state reference
-        let ReadUnsafe state (reportError : state -> unit) reference = // TODO: fix style #style
-            let reference =
-                // TODO: check if reference is BoxedLocation
-                match reference.term with
-                | HeapRef _ -> HeapReferenceToBoxReference reference
-                | _ -> reference
-            Memory.readIndirection state reportError reference
+        let private transformBoxedRef ref =
+            match ref.term with
+            | HeapRef _ -> HeapReferenceToBoxReference ref
+            | _ -> ref
+
+        let Read state reference =
+            transformBoxedRef reference |> Memory.read state (ErrorReporter())
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -286,19 +401,18 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
-                | Ref _ -> ReferenceField state target field |> Memory.read state
+                | Ref _ -> ReferenceField state target field |> Memory.read state (ErrorReporter())
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 
-        let rec ReadArrayIndex state reference indices =
-            match reference.term with
-            | HeapRef(addr, typ) ->
-                let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
-                assert(dim = List.length indices)
-                Memory.readArrayIndex state addr indices arrayType
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadArrayIndex state v indices)) |> Merging.merge
-            | _ -> internalfailf "Reading array index: expected reference, but got %O" reference
+        let rec ReadArrayIndex state reference indices valueType =
+            let ref = ReferenceArrayIndex state reference indices valueType
+            let value = Read state ref
+            match valueType with
+            | Some valueType when isReference ref -> Types.Cast value valueType
+            | _ -> value
+
         let rec ReadStringChar state reference index =
             match reference.term with
             | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = Types.String ->
@@ -311,8 +425,7 @@ module API =
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
-        let WriteSafe state reference value = Memory.write state reference value
-        let WriteUnsafe state reportError reference value = Memory.writeIndirection state reportError reference value
+        let Write state reference value = Memory.write state (ErrorReporter()) reference value
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
             Memory.guardedStatedMap
@@ -322,17 +435,12 @@ module API =
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
                     state)
                 state reference
-        let WriteArrayIndex state reference indices value =
-            Memory.guardedStatedMap
-                (fun state reference ->
-                    match reference.term with
-                    | HeapRef(addr, typ) ->
-                        let (_, dim, _) as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
-                        assert(dim = List.length indices)
-                        Memory.writeArrayIndex state addr indices arrayType value
-                    | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
-                    state)
-                state reference
+        let WriteArrayIndex state reference indices value valueType =
+            let ref = ReferenceArrayIndex state reference indices valueType
+            let value =
+                if isPtr ref then Option.fold (fun _ -> Types.Cast value) value valueType
+                else MostConcreteTypeOfHeapRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
+            Write state ref value
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
         let DefaultOf typ = makeDefaultValue typ
@@ -381,6 +489,11 @@ module API =
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
         let CreateStringFromChar state char = Memory.createStringFromChar state char
+
+        let LinearizeArrayIndex state address indices (_, dim, _ as arrayType) =
+            let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
+            let lbs = List.init dim (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType)
+            Memory.linearizeArrayIndex lens lbs indices
 
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
@@ -489,7 +602,6 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
-
 
     module Print =
         let Dump state = Memory.dump state

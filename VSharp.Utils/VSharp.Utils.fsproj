@@ -1,18 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <TargetFramework>netcoreapp6.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
     <PropertyGroup>
+        <TargetFramework>netcoreapp6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -49,7 +38,7 @@
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="CoverageTool.fs" />
+        <Compile Include="TestResultsChecker.fs" />
         <Compile Include="AssemblyManager.fs" />
         <Compile Include="TypeSolver.fs" />
     </ItemGroup>

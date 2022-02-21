@@ -45,6 +45,11 @@ namespace VSharp.CSharpUtils
             return GetFieldDescForFieldInfo(fi)->Offset;
         }
 
+        public static int ClassSize(Type t)
+        {
+            return Marshal.ReadInt32(t.TypeHandle.Value, 4);
+        }
+
         // NOTE: first 16 bytes contain array meta info
         public const int ArrayElementsOffset = 16;
         public static readonly int StringElementsOffset = RuntimeHelpers.OffsetToStringData;

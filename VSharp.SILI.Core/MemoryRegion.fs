@@ -179,9 +179,12 @@ module private UpdateTree =
             | _ -> makeSymbolic (Node d)
         else makeSymbolic (Node d)
 
+    let memset (keyAndValues : seq<'key * 'value>) (tree : updateTree<'key, 'value, 'reg>) =
+        let keyAndRegions = keyAndValues |> Seq.map (fun (key, value) -> key.Region, {key=key; value=value})
+        RegionTree.memset keyAndRegions tree
+
     let write (key : 'key) (value : 'value) (tree : updateTree<'key, 'value, 'reg>) =
-        let reg = key.Region
-        RegionTree.write reg {key=key; value=value} tree
+        RegionTree.write key.Region {key=key; value=value} tree
 
     let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) =
         RegionTree.map (fun reg {key=k; value=v} -> let reg', k' = mapKey reg k in (reg', k'.Region, {key=k'; value=mapValue v})) tree
@@ -235,6 +238,9 @@ module MemoryRegion =
     let validateWrite value cellType =
         let typ = typeOf value
         Types.canCastImplicitly typ cellType
+
+    let memset mr keysAndValues =
+        {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue}
 
     let write mr key value =
         assert(validateWrite value mr.typ)

@@ -61,6 +61,7 @@ type ForwardSearcher(maxBound) =
 //    let mutable startedFromMain = false
     let forPropagation = List<cilState>()
     let violatesLevel (s : cilState) =
+        // TODO: report states which violate level as incomplete
         levelToUnsignedInt s.level > maxBound
     let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
     let add (s : cilState) =

@@ -54,7 +54,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
     let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
     let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
-    let mutable extraAssemblyLoadDirs : string list = []
+    let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
 
@@ -120,13 +120,19 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let p = t.GetProperty("extraAssemblyLoadDirs")
         p.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let serializer = XmlSerializer t
-        use stream = new FileStream(destination, FileMode.OpenOrCreate, FileAccess.Write)
+        use stream = File.Create(destination)
         serializer.Serialize(stream, info)
 
-    static member Deserialize(stream : FileStream) =
+    static member DeserializeTestInfo(stream : FileStream) = // TODO: fix style #style
         let serializer = XmlSerializer(typeof<testInfo>)
         try
-            let ti = serializer.Deserialize(stream) :?> testInfo
+            serializer.Deserialize(stream) :?> testInfo
+        with child ->
+            let exn = InvalidDataException("Input test is incorrect", child)
+            raise exn
+
+    static member DeserializeFromTestInfo(ti : testInfo) =
+        try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
             let tp = ti.classTypeParameters |> Array.map Serialization.decodeType
@@ -159,6 +165,10 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         with child ->
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
+
+    static member Deserialize(stream : FileStream) =
+        let testInfo = UnitTest.DeserializeTestInfo(stream)
+        UnitTest.DeserializeFromTestInfo(testInfo)
 
     static member Deserialize(source : string) =
         use stream = new FileStream(source, FileMode.Open, FileAccess.Read)

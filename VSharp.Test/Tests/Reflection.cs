@@ -8,7 +8,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class Reflection
     {
-        [TestSvm]
+        [TestSvm(100)]
         public static string TestGetTypeName(object o)
         {
             var handle = Type.GetTypeHandle(o);

@@ -1,9 +1,9 @@
 #ifndef PROTOCOL_H_
 #define PROTOCOL_H_
 
-#include "communication/communicator.h"
+#include "communicator.h"
 
-namespace icsharp {
+namespace vsharp {
 
 enum CommandType {
     Confirmation = 0x55,
@@ -32,6 +32,7 @@ public:
     bool connect();
     bool sendProbes();
     bool startSession();
+    void acceptEntryPoint(char *&entryPointBytes, int &length);
     bool acceptCommand(CommandType &command);
     bool acceptString(char *&string);
     bool sendStringsPoolIndex(unsigned index);
@@ -46,7 +47,7 @@ public:
         delete[] bytes;
         return result;
     }
-    bool waitExecResult(char *&message, int &messageLength);
+    void acceptExecResult(char *&bytes, int &messageLength);
     bool shutdown();
 };
 
