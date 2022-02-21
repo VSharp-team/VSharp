@@ -1,6 +1,8 @@
 #include "corProfiler.h"
 #include "corhlpr.h"
-#include "profiler_pal.h"
+#ifdef UNIX
+#include "profiler_unix.h" // TODO: test on mac: need this? #do
+#endif
 #include "logging.h"
 #include "instrumenter.h"
 #include "communication/protocol.h"
@@ -440,7 +442,6 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
             isValid.push_back(true);
             isArray.push_back(false);
 
-            delete[] typeArgs;
             typeArgs = new ClassID[typeArgsNum];
             if (FAILED(this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, typeArgsNum, &typeArgsNum, typeArgs))) FAIL_LOUD("getting generic type info failed!");
             tokens.push_back(token);
@@ -451,7 +452,6 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
             auto moduleName = new WCHAR[0];
             AssemblyID assemblyId;
             if (FAILED(this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, 0, &moduleSize, moduleName, &assemblyId))) FAIL_LOUD("getting module info failed");
-            delete[] moduleName;
             moduleName = new WCHAR[moduleSize];
             if (FAILED(this->corProfilerInfo->GetModuleInfo(moduleId, &pBaseLoadAddress, moduleSize, &moduleSize, moduleName, &assemblyId))) FAIL_LOUD("getting module info failed");
             moduleSizes.push_back((int) moduleSize * (int) sizeof(WCHAR));
@@ -464,7 +464,6 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
             AppDomainID appDomainId;
             ModuleID assemblyModuleId;
             if (FAILED(this->corProfilerInfo->GetAssemblyInfo(assemblyId, 0, &assemblySize, assemblyName, &appDomainId, &assemblyModuleId))) FAIL_LOUD("getting assembly info failed");
-            delete[] assemblyName;
             assemblyName = new WCHAR[assemblySize];
             if (FAILED(this->corProfilerInfo->GetAssemblyInfo(assemblyId, assemblySize, &assemblySize, assemblyName, &appDomainId, &assemblyModuleId))) FAIL_LOUD("getting assembly info failed");
             assemblySizes.push_back((int) assemblySize * (int) sizeof(WCHAR));
@@ -498,14 +497,14 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
     typeLength = isValidSize * sizeof(BYTE) + isArraySize * sizeof(BYTE) + arrayTypesSize * (sizeof(BYTE) + sizeof(INT32)) + tokensSize * sizeof(INT32) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
     type = new char[typeLength];
     char *begin = type;
-    auto moduleNamesPtr = (char *) moduleNames.data();
-    auto assemblyNamesPtr = (char *) assemblyNames.data();
+    char *moduleNamesPtr = (char *) moduleNames.data();
+    char *assemblyNamesPtr = (char *) assemblyNames.data();
     int arrayTypeIndex = 0;
     int validObjectIndex = 0;
     int tokenIndex = 0;
     for (bool valid: isValid) {
         auto checkValidPtr = (BYTE *)type;
-        *checkValidPtr = (BYTE) valid; type += sizeof(BYTE);
+        *checkValidPtr = (BYTE) (valid ? 1 : 0); type += sizeof(BYTE);
         if (valid) { // TODO: delete valid option! #do
             auto arrayCheckPtr = (BYTE *)type;
             bool arrayCheck = isArray[validObjectIndex];

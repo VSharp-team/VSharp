@@ -24,9 +24,12 @@ module public Reflection =
         let assemblies = AppDomain.CurrentDomain.GetAssemblies()
         let dynamicAssemblies = assemblies |> Array.filter (fun a -> a.IsDynamic)
         let dynamicOption = dynamicAssemblies |> Array.tryFind (fun a -> a.FullName.Contains(assemblyName))
-        match dynamicOption with
-        | Some a -> a
-        | None -> Assembly.Load(assemblyName)
+        try
+            match dynamicOption with
+            | Some a -> a
+            | None -> Assembly.Load(assemblyName)
+        with
+        | _ as e -> internalfail ""
 
     // --------------------------- Metadata Resolving ---------------------------
 

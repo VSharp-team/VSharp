@@ -38,19 +38,18 @@ struct EvalStackOperand {
 
     size_t size() const {
         if (typ == OpRef)
-            return sizeof(EvalStackArgType) + sizeof(unsigned long) + sizeof(unsigned long);
-        return sizeof(EvalStackArgType) + sizeof(long long);
+            return sizeof(EvalStackArgType) + sizeof(UINT_PTR) + sizeof(UINT_PTR);
+        return sizeof(EvalStackArgType) + sizeof(INT64);
     }
 
     void serialize(char *&buffer) const {
         *(EvalStackArgType *)buffer = typ;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            *(unsigned long *)buffer = content.address.obj; buffer += sizeof(unsigned long);
-            *(unsigned long *)buffer = content.address.offset; buffer += sizeof(unsigned long);
+            *(UINT_PTR *)buffer = content.address.obj; buffer += sizeof(UINT_PTR);
+            *(UINT_PTR *)buffer = content.address.offset; buffer += sizeof(UINT_PTR);
         } else {
-            *(long long *)buffer = content.number;
-            buffer += sizeof(long long);
+            *(INT64 *)buffer = (INT64) content.number; buffer += sizeof(INT64);
         }
     }
 
@@ -58,11 +57,10 @@ struct EvalStackOperand {
         typ = *(EvalStackArgType *)buffer;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            content.address.obj = (OBJID) *(unsigned long *)buffer; buffer += sizeof(unsigned long);
-            content.address.offset = (SIZE) *(unsigned long *)buffer; buffer += sizeof(unsigned long);
+            content.address.obj = (OBJID) *(UINT_PTR *)buffer; buffer += sizeof(UINT_PTR);
+            content.address.offset = (SIZE) *(UINT_PTR *)buffer; buffer += sizeof(UINT_PTR);
         } else {
-            content.number = *(long long *)buffer;
-            buffer += sizeof(long long);
+            content.number = *(INT64 *)buffer; buffer += sizeof(INT64);
         }
     }
 };
@@ -79,7 +77,7 @@ struct ExecCommand {
     EvalStackOperand *evaluationStackPushes;
     // TODO: add deleted addresses
     OBJID *newAddresses;
-    unsigned long *newAddressesTypeLengths;
+    UINT64 *newAddressesTypeLengths;
     char *newAddressesTypes;
 
     void serialize(char *&bytes, unsigned &count) const {
@@ -87,8 +85,8 @@ struct ExecCommand {
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
             count += evaluationStackPushes[i].size();
         count += sizeof(UINT_PTR) * newAddressesCount;
-        count += newAddressesCount * sizeof(unsigned long);
-        unsigned long fullTypesSize = 0;
+        count += newAddressesCount * sizeof(UINT64);
+        UINT64 fullTypesSize = 0;
         for (int i = 0; i < newAddressesCount; ++i)
             fullTypesSize += newAddressesTypeLengths[i];
         count += fullTypesSize;
@@ -109,7 +107,7 @@ struct ExecCommand {
         }
         size = newAddressesCount * sizeof(UINT_PTR);
         memcpy(buffer, (char*)newAddresses, size); buffer += size;
-        size = newAddressesCount * sizeof(unsigned long);
+        size = newAddressesCount * sizeof(UINT64);
         memcpy(buffer, (char*)newAddressesTypeLengths, size); buffer += size;
         memcpy(buffer, newAddressesTypes, fullTypesSize); buffer += fullTypesSize;
     }
@@ -139,7 +137,7 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
         unsigned idx = opsCount - pair.second - 1;
         assert(idx < opsCount);
         ops[idx].typ = OpSymbolic;
-        ops[idx].content.number = (long long)(currentSymbs - pair.first);
+        ops[idx].content.number = (INT64) (currentSymbs - pair.first);
     }
     command.evaluationStackPushesCount = opsCount;
     command.evaluationStackPops = top.evaluationStackPops();
@@ -152,14 +150,14 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     for (const auto &newAddress : newAddresses)
         fullTypesSize += newAddress.second.second;
     command.newAddressesTypes = new char[fullTypesSize];
-    command.newAddressesTypeLengths = new unsigned long[addressesSize];
+    command.newAddressesTypeLengths = new UINT64[addressesSize];
     auto begin = command.newAddressesTypes;
     int i = 0;
     for (const auto &newAddress : newAddresses) {
         command.newAddresses[i] = newAddress.first;
         auto pair = newAddress.second;
         auto typeSize = pair.second;
-        command.newAddressesTypeLengths[i] = typeSize;
+        command.newAddressesTypeLengths[i] = (UINT64) typeSize;
         if (typeSize != 0) memcpy(command.newAddressesTypes, pair.first, typeSize);
         command.newAddressesTypes += typeSize;
         delete pair.first;

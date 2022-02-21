@@ -480,13 +480,13 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
 
     if (!m_mainReached) {
         if (currentMethodIsMain(moduleName, (int) moduleNameLength, m_jittedToken)) {
+            LOG(tout << "Main function reached!" << std::endl);
             m_mainReached = true;
             IfFailRet(startReJitSkipped());
         }
     }
 
     if (m_mainReached) {
-        LOG(tout << "Main function reached!" << std::endl);
         doInstrumentation(oldModuleId, assemblyName, assemblyNameLength, moduleName, moduleNameLength);
     } else {
         LOG(tout << "Instrumentation of token " << HEX(m_jittedToken) << " is skipped" << std::endl);

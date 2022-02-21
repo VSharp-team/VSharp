@@ -82,7 +82,7 @@ namespace VSharp.Test
             {
                 _expectedCoverage = expectedCoverage;
                 _maxBoundForTest = maxBoundForTest;
-                _executionMode = execMode;
+                _executionMode = executionMode.ConcolicMode;
             }
 
             private TestResult Explore(TestExecutionContext context)

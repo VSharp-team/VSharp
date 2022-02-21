@@ -1,5 +1,5 @@
-#ifndef PROFILER_PAL_H_
-#define PROFILER_PAL_H_
+#ifndef PROFILER_UNIX_H_
+#define PROFILER_UNIX_H_
 
 #ifndef WIN32
 #include <cstdlib>
@@ -17,4 +17,4 @@
 #define UINT_PTR_FORMAT "llx"
 #endif
 
-#endif // PROFILER_PAL_H_
+#endif // PROFILER_UNIX_H_

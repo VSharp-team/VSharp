@@ -37,7 +37,6 @@ int Communicator::read(char *buffer, int count) {
 int Communicator::write(char *message, int count) {
     DWORD cbWritten;
     BOOL fSuccess = WriteFile(hPipe, message, count, &cbWritten, NULL);
-
     if (!fSuccess || cbWritten < 0) reportError();
     return cbWritten;
 }

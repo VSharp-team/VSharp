@@ -72,8 +72,8 @@ void vsharp::clear_mem() {
     LOG(tout << "clear_mem()" << std::endl);
     entries_count = 0; data_ptr = 0;
     memSize = 3;
-    dataPtrs.reserve(memSize);
-    data.reserve(memSize * (sizeof(DOUBLE) + sizeof(CorElementType)));
+    dataPtrs.resize(memSize);
+    data.resize(memSize * (sizeof(DOUBLE) + sizeof(CorElementType)));
 }
 
 void mem(char *value, CorElementType t, size_t size, INT8 idx) {

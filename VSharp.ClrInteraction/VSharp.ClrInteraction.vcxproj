@@ -146,7 +146,7 @@
     <ClInclude Include="logging.h" />
     <ClInclude Include="instrumenter.h" />
     <ClInclude Include="probes.h" />
-    <ClInclude Include="profiler_pal.h" />
+    <ClInclude Include="profiler_win.h" />
     <ClInclude Include="sigparse.h" />
     <ClInclude Include="communication/communicator.h" />
     <ClInclude Include="communication/protocol.h" />
