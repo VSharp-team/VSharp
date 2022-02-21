@@ -8,7 +8,7 @@
 #include "corprof.h"
 #include "corhdr.h"
 
-namespace icsharp {
+namespace vsharp {
 
 #define ADDR UINT_PTR
 #define SIZE UINT_PTR

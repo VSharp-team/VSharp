@@ -1,4 +1,4 @@
-LIBRARY "libicsharpConcolic.Dll"
+LIBRARY "libvsharpConcolic.Dll"
 
 EXPORTS
     DllCanUnloadNow PRIVATE

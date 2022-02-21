@@ -54,7 +54,7 @@
             mkdir cmake-build-debug
             cd cmake-build-debug
             cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ../
-            cmake --build . --target icsharpConcolic -j 6'/>
+            cmake --build . --target vsharpConcolic -j 6'/>
     </Target>
 
     <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
@@ -65,22 +65,22 @@
     </Target>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.so">
-            <Link>libicsharpConcolic.so</Link>
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.so">
+            <Link>libvsharpConcolic.so</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libicsharpConcolic.dylib">
-            <Link>libicsharpConcolic.dylib</Link>
+        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.dylib">
+            <Link>libvsharpConcolic.dylib</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <Content Include="..\VSharp.ClrInteraction\build\libicsharpConcolic.dll">
-            <Link>libicsharpConcolic.dll</Link>
+        <Content Include="..\VSharp.ClrInteraction\build\libvsharpConcolic.dll">
+            <Link>libvsharpConcolic.dll</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>

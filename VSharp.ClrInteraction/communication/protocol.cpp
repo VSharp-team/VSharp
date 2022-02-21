@@ -5,7 +5,7 @@
 #include <cstring>
 #include <iostream>
 
-using namespace icsharp;
+using namespace vsharp;
 
 bool Protocol::readConfirmation() {
     char *buffer = new char[1];

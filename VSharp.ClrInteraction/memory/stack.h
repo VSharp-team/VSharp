@@ -4,7 +4,7 @@
 #include <vector>
 #include <stack>
 
-namespace icsharp {
+namespace vsharp {
 
 class StackFrame {
 private:

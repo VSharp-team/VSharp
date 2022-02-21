@@ -6,7 +6,7 @@
 #include <cstring>
 #include <cerrno>
 
-using namespace icsharp;
+using namespace vsharp;
 
 int fd;
 

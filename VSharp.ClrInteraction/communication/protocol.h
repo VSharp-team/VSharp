@@ -3,7 +3,7 @@
 
 #include "communicator.h"
 
-namespace icsharp {
+namespace vsharp {
 
 enum CommandType {
     Confirmation = 0x55,

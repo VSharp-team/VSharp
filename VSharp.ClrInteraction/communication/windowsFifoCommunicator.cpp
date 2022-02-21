@@ -7,7 +7,7 @@
 #include <strsafe.h>
 #include <string>
 
-using namespace icsharp;
+using namespace vsharp;
 
 HANDLE hPipe;
 

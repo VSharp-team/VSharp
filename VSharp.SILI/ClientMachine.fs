@@ -16,7 +16,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.OSX) then ".dylib"
         else __notImplemented__()
-    let pathToClient = "libicsharpConcolic" + extension
+    let pathToClient = "libvsharpConcolic" + extension
     let pathToTmp = sprintf "%s%c" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar
     let tempTest (id : int) = sprintf "%sstart%d.vst" pathToTmp id
     [<DefaultValue>] val mutable probes : probes

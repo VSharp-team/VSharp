@@ -4,7 +4,7 @@
 #include "unknwn.h"
 #include <atomic>
 
-namespace icsharp {
+namespace vsharp {
 
 class ClassFactory : public IClassFactory
 {

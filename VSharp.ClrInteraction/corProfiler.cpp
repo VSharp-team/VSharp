@@ -8,7 +8,7 @@
 
 #define UNUSED(x) (void)x
 
-using namespace icsharp;
+using namespace vsharp;
 
 CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr), instrumenter(nullptr)
 {
@@ -63,7 +63,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     };
     currentThread = currentThreadGetter;
 
-    protocol = new icsharp::Protocol();
+    protocol = new vsharp::Protocol();
     if (!protocol->startSession()) return E_FAIL;
 
     instrumenter = new Instrumenter(*corProfilerInfo, *protocol);

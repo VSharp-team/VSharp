@@ -9,7 +9,7 @@
 
 typedef UINT_PTR ThreadID;
 
-namespace icsharp {
+namespace vsharp {
 
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;

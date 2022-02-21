@@ -7,7 +7,7 @@
 #include <corhlpr.cpp>
 #include "memory/memory.h"
 
-using namespace icsharp;
+using namespace vsharp;
 
 
 #define TOKENPASTE(x, y) x ## y

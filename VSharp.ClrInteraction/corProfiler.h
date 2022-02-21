@@ -6,7 +6,7 @@
 #include "cor.h"
 #include "corprof.h"
 
-namespace icsharp {
+namespace vsharp {
 
 class Instrumenter;
 class Protocol;

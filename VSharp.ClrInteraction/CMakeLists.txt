@@ -44,6 +44,6 @@ set(sources
     memory/heap.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
 
-add_library(icsharpConcolic SHARED ${sources})
+add_library(vsharpConcolic SHARED ${sources})
 
 add_link_options(--unresolved-symbols=ignore-in-object-files)

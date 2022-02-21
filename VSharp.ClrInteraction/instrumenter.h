@@ -8,7 +8,7 @@
 struct COR_ILMETHOD_SECT_EH;
 struct IMAGE_COR_ILMETHOD_SECT_EH_CLAUSE_FAT;
 
-namespace icsharp {
+namespace vsharp {
 
 class Protocol;
 

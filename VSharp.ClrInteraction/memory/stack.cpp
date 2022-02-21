@@ -3,7 +3,7 @@
 #include <cstring>
 #include <cassert>
 
-using namespace icsharp;
+using namespace vsharp;
 
 #define CONCRETE UINT32_MAX
 
