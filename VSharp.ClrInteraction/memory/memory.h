@@ -21,8 +21,8 @@ extern std::map<unsigned, const char*> stringsPool;
 Stack &stack();
 StackFrame &topFrame();
 
-void mainEntered();
-bool mainLeft();
+void mainLeft();
+bool isMainLeft();
 
 unsigned allocateString(const char *s);
 

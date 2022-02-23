@@ -389,7 +389,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
         LOG(tout << "Duplicate jitting of " << HEX(m_jittedToken) << std::endl);
         return S_OK;
     }
-    if (mainLeft()) {
+    if (isMainLeft()) {
         if (!m_reJitInstrumentedStarted)
             IfFailRet(startReJitInstrumented());
         LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
@@ -430,19 +430,19 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
         code(),
         (char*)ehs()
     };
-    if (!m_protocol.sendSerializable(InstrumentCommand, info)) return false;
+    if (!m_protocol.sendSerializable(InstrumentCommand, info)) FAIL_LOUD("Instrumenting: serialization of method failed!");
     LOG(tout << "Successfully sent method body!");
     char *bytecode; int length; unsigned maxStackSize; char *ehs; unsigned ehsLength;
 #ifdef _DEBUG
     CommandType command;
     do {
-        if (!m_protocol.acceptCommand(command)) return false;
+        if (!m_protocol.acceptCommand(command)) FAIL_LOUD("Instrumenting: accepting command failed!");
         switch (command) {
             case ReadString: {
                 char *string;
-                if (!m_protocol.acceptString(string)) return false;
+                if (!m_protocol.acceptString(string)) FAIL_LOUD("Instrumenting: accepting string failed!");
                 unsigned index = allocateString(string);
-                if (!m_protocol.sendStringsPoolIndex(index)) return false;
+                if (!m_protocol.sendStringsPoolIndex(index)) FAIL_LOUD("Instrumenting: sending strings internal pool index failed!");
                 break;
             }
             default:
@@ -451,7 +451,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
     } while (command != ReadMethodBody);
 #endif
     LOG(tout << "Reading method body back...");
-    if (!m_protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) return false;
+    if (!m_protocol.acceptMethodBody(bytecode, length, maxStackSize, ehs, ehsLength)) FAIL_LOUD("Instrumenting: accepting method body failed!");
     LOG(tout << "Exporting " << length << " IL bytes!");
     IfFailRet(exportIL(bytecode, length, maxStackSize, ehs, ehsLength));
 
@@ -459,7 +459,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
 }
 
 HRESULT Instrumenter::instrument(FunctionID functionId) {
-    HRESULT hr;
+    HRESULT hr = S_OK;
     ModuleID oldModuleId = m_moduleId;
     ClassID classId;
     IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
@@ -487,7 +487,7 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     }
 
     if (m_mainReached) {
-        doInstrumentation(oldModuleId, assemblyName, assemblyNameLength, moduleName, moduleNameLength);
+        hr = doInstrumentation(oldModuleId, assemblyName, assemblyNameLength, moduleName, moduleNameLength);
     } else {
         LOG(tout << "Instrumentation of token " << HEX(m_jittedToken) << " is skipped" << std::endl);
         skippedBeforeMain.insert({m_moduleId, m_jittedToken});
@@ -496,7 +496,7 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     delete[] moduleName;
     delete[] assemblyName;
 
-    return S_OK;
+    return hr;
 }
 
 HRESULT Instrumenter::undoInstrumentation(FunctionID functionId) {
@@ -517,7 +517,7 @@ HRESULT Instrumenter::undoInstrumentation(FunctionID functionId) {
 HRESULT Instrumenter::reInstrument(FunctionID functionId) {
     // NOTE: if main is left, rejit needs to delete probes
     // NOTE: otherwise, rejit needs to place probes
-    if (mainLeft())
+    if (isMainLeft())
         return undoInstrumentation(functionId);
     else
         return instrument(functionId);

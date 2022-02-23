@@ -276,14 +276,14 @@ INT_PTR vsharp::unmem_p(INT8 idx) {
 //    return *((INT_PTR*) (data.data() + dataPtrs[idx]));
 }
 
-bool _mainEntered = false;
+bool _mainLeft = false;
 
-void vsharp::mainEntered() {
-    _mainEntered = true;
+void vsharp::mainLeft() {
+    _mainLeft = true;
 }
 
-bool vsharp::mainLeft() {
-    return _mainEntered && stack().isEmpty();
+bool vsharp::isMainLeft() {
+    return _mainLeft;
 }
 
 VirtualAddress vsharp::resolve(INT_PTR p) {

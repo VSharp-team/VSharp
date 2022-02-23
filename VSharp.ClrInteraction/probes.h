@@ -677,7 +677,6 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
 }
 
 PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
-    mainEntered();
     Stack &stack = vsharp::stack();
     assert(stack.isEmpty());
     auto args = new bool[argsCount];
@@ -714,6 +713,7 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
 }
 
 void leaveMain(OFFSET offset, UINT8 opsCount, EvalStackOperand *ops) {
+    mainLeft();
     Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
     LOG(tout << "Main left!");
