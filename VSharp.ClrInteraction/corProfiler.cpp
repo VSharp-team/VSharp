@@ -214,6 +214,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
 #include<iostream>
 #include <vector>
 
+bool jitInProcess = false;
+
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
 //    ClassID pClassId;
@@ -222,8 +224,11 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID function
 //    this->corProfilerInfo->GetFunctionInfo(functionId, &pClassId, &pModuleId, &pToken);
 //    std::cout << __FUNCTION__ << " " << std::hex << pToken << std::dec << std::endl;
     UNUSED(fIsSafeToBlock);
-
-    return instrumenter->instrument(functionId);
+    if (jitInProcess) FAIL_LOUD("Handling JIT event, when previous was not finished!");
+    jitInProcess = true;
+    HRESULT hr = instrumenter->instrument(functionId);
+    jitInProcess = false;
+    return hr;
 //    return S_OK;
 }
 
