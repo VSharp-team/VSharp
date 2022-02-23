@@ -797,7 +797,9 @@ module internal Z3 =
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
                         let updatedModel = {q.currentModel with state = {q.currentModel.state with model = q.currentModel.state.model}}
-                        builder.UpdateModel z3Model updatedModel
+                        Stopwatch.runMeasuringTime "update_model_after_check" (fun () ->
+                            builder.UpdateModel z3Model updatedModel
+                        )                        
 //                        let usedPaths =
 //                            pathAtoms
 //                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
