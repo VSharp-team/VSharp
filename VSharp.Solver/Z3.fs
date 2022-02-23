@@ -789,7 +789,10 @@ module internal Z3 =
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
+                    let result =
+                        Stopwatch.runMeasuringTime "Z3_check_sat" (fun () ->
+                            optCtx.Check assumptions
+                        )                
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
@@ -823,8 +826,10 @@ module internal Z3 =
                     else
                         let levelAtom = getLevelAtom lvl
                         ctx.MkImplies(levelAtom, encoded)
-                optCtx.Assert(leveled)
-
+                Stopwatch.runMeasuringTime "Z3_assert" (fun () ->
+                    optCtx.Assert(leveled)
+                )
+                
             member x.AddPath encCtx (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
                 printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
