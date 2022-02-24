@@ -123,7 +123,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(126)]
         public static long test4(long time)
         {
             var a = new BlockMiner();

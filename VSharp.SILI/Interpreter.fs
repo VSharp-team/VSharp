@@ -1900,13 +1900,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) =
-        let isRecursiveVertex offset =
-            if cfg.dfsOut.ContainsKey offset then
-                let t1 = cfg.dfsOut.[offset]
-                cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
-            else false
-        if offset = 0 || isRecursiveVertex offset then
+        let isVertex offset = cfg.sortedOffsets.BinarySearch(offset) >= 0
+        if offset = 0 || CFG.isRecursiveVertex cfg.methodBase offset then
             incrementLevel cilState {offset = offset; method = cfg.methodBase}
+        if CFG.hasSiblings cfg.methodBase offset then
+            addIntoHistory cilState {offset = offset; method = cfg.methodBase}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
         let key = {offset = 0; method = method}
@@ -2283,8 +2281,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Throw -> this.Throw cilState
             | _ -> __unreachable__()
 
-        let originLevel = levelToUnsignedInt cilState.level
-        assert(List.forall (fun s -> levelToUnsignedInt s.level = originLevel) newSts)
         let renewInstructionsInfo cilState =
             if not <| isUnhandledError cilState then
                 x.IncrementLevelIfNeeded cfg offset cilState

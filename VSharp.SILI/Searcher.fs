@@ -3,8 +3,9 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
-open CilStateOperations
+open VSharp.Utils
 open VSharp.Core
+open CilStateOperations
 
 type action =
     | GoFront of cilState
@@ -20,8 +21,8 @@ type IBidirectionalSearcher =
     abstract member Statuses : unit -> seq<pob * pobStatus>
 
 type IForwardSearcher =
-    abstract member Init : cilState list -> unit
-    abstract member Update : cilState -> cilState seq -> unit
+    abstract member Init : cilState seq -> unit
+    abstract member Update : cilState * cilState seq -> unit
     abstract member Pick : unit -> cilState option
 
 type ITargetedSearcher =
@@ -48,42 +49,110 @@ type IpStackComparer() =
             let res = (List.length x.ipStack).CompareTo(List.length y.ipStack)
             res
 
-type cilStateComparer(comparer) =
-    interface IComparer<cilState> with
-        override _.Compare(x : cilState, y : cilState) =
-            comparer x y
-
-
 [<AbstractClass>]
-type ForwardSearcher(maxBound) =
+type SimpleForwardSearcher(maxBound) =
 //    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
 //    let mutable mainMethod = null
 //    let mutable startedFromMain = false
     let forPropagation = List<cilState>()
-    let violatesLevel (s : cilState) =
-        // TODO: report states which violate level as incomplete
-        levelToUnsignedInt s.level > maxBound
-    let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s)) || violatesLevel s
-    let add (s : cilState) =
+    let isStopped s = isStopped s || violatesLevel s maxBound
+    let add (states : List<cilState>) (s : cilState) =
         if not <| isStopped s then
-            assert(forPropagation.Contains s |> not)
-            forPropagation.Add(s)
+            assert(states.Contains s |> not)
+            states.Add(s)
 
     interface IForwardSearcher with
-        override x.Init state =
-            forPropagation.AddRange(state)
+        override x.Init states =
+            forPropagation.AddRange(states)
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
-        override x.Update parent newStates =
-            if isStopped parent then
-                forPropagation.Remove(parent) |> ignore
-            Seq.iter add newStates
+        override x.Update (parent, newStates) =
+            x.Insert forPropagation (parent, newStates)
     abstract member Choose : seq<cilState> -> cilState option
     default x.Choose states = Seq.tryLast states
+    abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
+    default x.Insert states (parent, newStates) =
+        if isStopped parent then
+            states.Remove(parent) |> ignore
+        Seq.iter (add states) newStates
 
 type BFSSearcher(maxBound) =
-    inherit ForwardSearcher(maxBound) with
+    inherit SimpleForwardSearcher(maxBound) with
+        let isStopped s = isStopped s || violatesLevel s maxBound
+        let add (states : List<cilState>) (s : cilState) =
+            if not <| isStopped s then
+                assert(states.Contains s |> not)
+                states.Add(s)
         override x.Choose states = Seq.tryHead states
+        override x.Insert states (parent, newStates) =
+            if isStopped parent then
+                states.Remove(parent) |> ignore
+            else if not <| Seq.isEmpty newStates then
+                states.Remove(parent) |> ignore
+                states.Add(parent)
+            Seq.iter (add states) newStates
 
 type DFSSearcher(maxBound) =
-    inherit ForwardSearcher(maxBound)
+    inherit SimpleForwardSearcher(maxBound)
+
+type IWeighter =
+    abstract member Weight : cilState -> uint option
+    abstract member Next : unit -> uint
+
+type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState>) =
+    let suspended = HashSet<cilState>()
+    let modMax n =
+        if storage.MaxPriority = 0u then 0u
+        else n % storage.MaxPriority
+    let isStopped s = isStopped s || violatesLevel s maxBound
+    let optionWeight s =
+        option {
+            if s.suspended then
+                suspended.Add s |> ignore
+            elif not <| isStopped s then
+                return! weighter.Weight s
+        }
+    let add (s : cilState) =
+        let weight = optionWeight s
+        match weight with
+        | Some w ->
+            assert(not <| storage.Contains s)
+            storage.Insert s w
+        | None -> ()
+    let update s =
+        let weight = optionWeight s
+        match weight with
+        | Some w ->
+            if suspended.Contains s || not <| storage.Contains s then
+                if suspended.Contains s then suspended.Remove s |> ignore
+                assert(not <| storage.Contains s)
+                storage.Insert s w
+            else storage.Update s w
+        | None ->
+            if not <| suspended.Contains s then
+                assert(storage.Contains s)
+                storage.Remove s
+
+    abstract member Insert : cilState seq -> unit
+    default x.Insert states =
+        Seq.iter add states
+
+    member x.Pick() =
+        storage.Choose (modMax <| weighter.Next())
+
+    abstract member Update : cilState * cilState seq -> unit
+    default x.Update (parent, newStates) =
+        update parent
+        x.Insert newStates
+
+    interface IForwardSearcher with
+        override x.Init states = x.Insert states
+        override x.Pick() = x.Pick()
+        override x.Update (parent, newStates) = x.Update (parent, newStates)
+
+    member x.Weighter = weighter
+    member x.TryGetWeight state = storage.TryGetPriority state
+    member x.ToSeq() = storage.ToSeq
+
+type SampledWeightedSearcher(maxBound, weighter : IWeighter) =
+    inherit WeightedSearcher(maxBound, weighter, DiscretePDF(CilStateOperations.mkCilStateHashComparer))
