@@ -385,19 +385,8 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
     IfFailRet(m_profilerInfo.GetModuleMetaData(m_moduleId, ofRead | ofWrite, IID_IMetaDataImport, reinterpret_cast<IUnknown **>(&metadataImport)));
     IfFailRet(metadataImport->QueryInterface(IID_IMetaDataEmit, reinterpret_cast<void **>(&metadataEmit)));
 
-    // TODO: analyze the IL code instead to understand that we've injected functions?
-    if (instrumentedFunctions.find({m_moduleId, m_jittedToken}) != instrumentedFunctions.end()) {
-        LOG(tout << "Duplicate jitting of " << HEX(m_jittedToken) << std::endl);
-        return S_OK;
-    }
-    if (isMainLeft()) {
-        if (!m_reJitInstrumentedStarted)
-            IfFailRet(startReJitInstrumented());
-        LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
-        return S_OK;
-    }
-
     if (oldModuleId != m_moduleId) {
+        tout << "module changed!" << std::endl;
         delete[] m_signatureTokens;
         std::vector<mdSignature> *tokens = new std::vector<mdSignature>;
         initTokens(metadataEmit, *tokens);
@@ -493,9 +482,9 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
 
 HRESULT Instrumenter::instrument(FunctionID functionId) {
     HRESULT hr = S_OK;
-    ModuleID oldModuleId = m_moduleId;
+    ModuleID newModuleId;
     ClassID classId;
-    IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
+    IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &newModuleId, &m_jittedToken));
     assert((m_jittedToken & 0xFF000000L) == mdtMethodDef);
 
     if (!instrumentingEnabled()) {
@@ -511,9 +500,9 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     LPCBYTE baseLoadAddress;
     ULONG moduleNameLength;
     AssemblyID assembly;
-    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, 0, &moduleNameLength, nullptr, &assembly));
+    IfFailRet(m_profilerInfo.GetModuleInfo(newModuleId, &baseLoadAddress, 0, &moduleNameLength, nullptr, &assembly));
     WCHAR *moduleName = new WCHAR[moduleNameLength];
-    IfFailRet(m_profilerInfo.GetModuleInfo(m_moduleId, &baseLoadAddress, moduleNameLength, &moduleNameLength, moduleName, &assembly));
+    IfFailRet(m_profilerInfo.GetModuleInfo(newModuleId, &baseLoadAddress, moduleNameLength, &moduleNameLength, moduleName, &assembly));
     ULONG assemblyNameLength;
     AppDomainID appDomainId;
     ModuleID startModuleId;
@@ -530,10 +519,23 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     }
 
     if (m_mainReached) {
+        // TODO: analyze the IL code instead to understand that we've injected functions?
+        if (instrumentedFunctions.find({newModuleId, m_jittedToken}) != instrumentedFunctions.end()) {
+            LOG(tout << "Duplicate jitting of " << HEX(m_jittedToken) << std::endl);
+            return S_OK;
+        }
+        if (isMainLeft()) {
+            if (!m_reJitInstrumentedStarted)
+                IfFailRet(startReJitInstrumented());
+            LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
+            return S_OK;
+        }
+        ModuleID oldModuleId = m_moduleId;
+        m_moduleId = newModuleId;
         hr = doInstrumentation(oldModuleId, assemblyName, assemblyNameLength, moduleName, moduleNameLength);
     } else {
         LOG(tout << "Instrumentation of token " << HEX(m_jittedToken) << " is skipped" << std::endl);
-        skippedBeforeMain.insert({m_moduleId, m_jittedToken});
+        skippedBeforeMain.insert({newModuleId, m_jittedToken});
     }
 
     delete[] moduleName;

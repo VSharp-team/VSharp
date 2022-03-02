@@ -1209,10 +1209,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
     member x.Skip (body : rawMethodBody) =
         { properties = {ilCodeSize = body.properties.ilCodeSize; maxStackSize = body.properties.maxStackSize}; il = body.il; ehs = body.ehs}
 
-    member private x.NeedToSkip =
-        let objConstructors = typeof<obj>.GetConstructors() |> Array.map Reflection.methodToString
-        let stringGetLength = typeof<System.String>.GetMethod("get_Length") |> Reflection.methodToString
-        Array.append objConstructors [|stringGetLength|]
+    member private x.NeedToSkip = Array.empty
 
     member x.Instrument(body : rawMethodBody) =
         assert(x.rewriter = null)
