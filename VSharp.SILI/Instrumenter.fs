@@ -1103,7 +1103,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // calli pushFrame
                     // call callee
                     // calli finalizeCall
-                    // if callee is insteranl call {
+                    // if callee is internal call {
                     //    B: nop
                     // } else {
                     //    nop
