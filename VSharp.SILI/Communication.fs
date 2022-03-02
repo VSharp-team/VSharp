@@ -293,6 +293,7 @@ type signatureTokens = {
     mutable void_token_i_r4_offset_sig : uint32
     mutable void_token_i_r8_offset_sig : uint32
     mutable void_token_token_bool_u2_offset_sig : uint32
+    mutable void_token_u4_u4_u4_i1_sig : uint32
 }
 with
     member private x.SigToken2str =

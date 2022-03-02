@@ -756,12 +756,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             methodBase.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
-    member private x.IsExternalMethod (methodBase : MethodBase) =
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let isInternalCall = methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall
-        let isPInvokeImpl = methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
-        int isInternalCall <> 0 || isPInvokeImpl
-
     member private x.InstantiateThisIfNeed state thisOption (methodBase : MethodBase) =
         match thisOption with
         | Some this ->
@@ -926,7 +920,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsArrayGetOrSet methodBase then
             let cilStates = x.InvokeArrayGetOrSet cilState methodBase thisOption args
             List.map moveIpToExit cilStates |> k
-        elif x.IsExternalMethod methodBase then
+        elif Reflection.isExternalMethod methodBase then
             let stackTrace = Memory.StackTrace cilState.state.stack
             internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif x.IsNotImplementedIntrinsic methodBase fullMethodName then

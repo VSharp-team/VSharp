@@ -108,6 +108,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 0)], token, &prependTarget) |> ignore
 
     member private x.PlaceEnterProbe (firstInstr : ilInstr byref) =
+        let isSpontaneous = if Reflection.isExternalMethod x.m || Reflection.isStaticConstructor x.m then 1 else 0
         let localsCount =
             match x.m.GetMethodBody() with
             | null -> 0
@@ -126,8 +127,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
                         (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)
                         (OpCodes.Ldc_I4, Arg32 argsCount)
-                        (OpCodes.Ldc_I4, Arg32 localsCount)]
-            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_sig, &firstInstr)
+                        (OpCodes.Ldc_I4, Arg32 localsCount)
+                        (OpCodes.Ldc_I4, Arg32 isSpontaneous)]
+            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr)
 
     member private x.PrependMem_p(idx, order, instr : ilInstr byref) =
         x.PrependInstr(OpCodes.Conv_I, NoArg, &instr)

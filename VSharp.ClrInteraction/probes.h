@@ -654,12 +654,12 @@ PROBE(void, Track_Mkrefany, ()) {
     topFrame().pop1();
 }
 
-PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount)) {
+PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
     Stack &stack = vsharp::stack();
     assert(!stack.isEmpty());
     StackFrame *top = &stack.topFrame();
     unsigned expected = top->resolvedToken();
-    if (!expected || expected == token) {
+    if (expected == token || !expected && !isSpontaneous) {
         LOG(tout << "Frame " << stack.framesCount() <<
                     ": entering token " << HEX(token) <<
                     ", expected token is " << HEX(expected) << std::endl);
@@ -685,7 +685,7 @@ PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConc
     auto args = new bool[argsCount];
     memset(args, argsConcreteness, argsCount);
     stack.pushFrame(token, token, args, argsCount);
-    Track_Enter(token, maxStackSize, argsCount, localsCount);
+    Track_Enter(token, maxStackSize, argsCount, localsCount, 0);
     stack.resetPopsTracking(1);
 }
 
