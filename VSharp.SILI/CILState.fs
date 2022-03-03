@@ -225,6 +225,14 @@ module internal CilStateOperations =
             (fun state term k -> f (mkCilState state) term k)
             cilState.state term id (List.concat >> k)
 
+    let GuardedApply2CIL (cilState : cilState) term1 term2 (f : cilState -> term -> term -> ('a -> 'b) -> 'b) (k : 'a list -> 'b) =
+        let mkCilState state =
+            if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
+            else {cilState with state = state}
+        GuardedStatedApply2k
+            (fun state term1 term2 k -> f (mkCilState state) term1 term2 k)
+            cilState.state term1 term2 id k
+
     let StatedConditionalExecutionCIL (cilState : cilState) conditionInvocation thenBranch elseBranch k =
         let origCilState = {cilState with state = cilState.state}
         let mkCilState state =

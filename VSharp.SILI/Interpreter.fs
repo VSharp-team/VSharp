@@ -628,8 +628,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (<<=) = Arithmetics.(<<=)
         let check = srcLength <<= (Arithmetics.Sub destLength destPos)
         let copy (cilState : cilState) k =
-            Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
-            k [cilState]
+            GuardedApply2CIL cilState src dest (fun cilState src dest k ->
+                Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
+                k cilState) k
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (check, state))
             copy
@@ -642,8 +643,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (>>) = API.Arithmetics.(>>)
         let (<<) = API.Arithmetics.(<<)
         let clearCase (cilState : cilState) k =
-            Memory.ClearArray cilState.state array index length
-            k [cilState]
+            GuardedApplyCIL cilState array (fun cilState array k ->
+                Memory.ClearArray cilState.state array index length
+                k [cilState]) k
         let nonNullCase (cilState : cilState) k =
             let zero = MakeNumber 0
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
@@ -673,8 +675,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let srcNumOfAllElements = Memory.CountOfArrayElements state src
         let dstNumOfAllElements = Memory.CountOfArrayElements state dst
         let defaultCase (cilState : cilState) k =
-            Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
-            k [cilState]
+            GuardedApply2CIL cilState src dst (fun cilState src dst k ->
+                Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
+                k cilState) k
         let lengthCheck (cilState : cilState) =
             let check = ((add srcIndex length) >> srcNumOfAllElements) ||| ((add dstIndex length) >> dstNumOfAllElements)
             StatedConditionalExecutionCIL cilState

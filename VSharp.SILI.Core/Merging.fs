@@ -67,8 +67,8 @@ module internal Merging =
 
     and merge (gvs : (term * term) list) : term =
         match compress (simplify (|UnionT|_|) gvs) with
-        | [(True, v)] -> v
-        | [(g, v)] when Terms.isBool v -> g &&& v
+        | [(g, v)] when isBool v -> g &&& v
+        | [(_, v)] -> v
         | gvs' -> Union gvs'
 
     let merge2Terms g h u v =

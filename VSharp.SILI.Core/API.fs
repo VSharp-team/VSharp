@@ -25,7 +25,7 @@ module API =
         BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
     let BranchExpressions condition thenBranch elseExpression k =
         Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
-    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : (state -> (state list -> 'a) -> 'a)) elseBranch k =
+    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : state -> (state list -> 'a) -> 'a) elseBranch k =
         Memory.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
     let StatedConditionalExecution = Memory.commonStatedConditionalExecutionk
 
@@ -34,6 +34,13 @@ module API =
     let GuardedStatedApplyStatementK state term f k = Memory.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
         Memory.commonGuardedStatedApplyk f state term mergeStates k
+    let GuardedStatedApply2k f state term1 term2 mergeStates k =
+        let mutable result = []
+        Memory.commonGuardedStatedApplyk (fun state term1 k1 ->
+            Memory.commonGuardedStatedApplyk
+                (fun state term2 k2 -> f state term1 term2 k2) state term2 mergeStates
+                (fun states -> result <- states::result; List.head (List.head result) |> k1))
+            state term1 mergeStates (fun _ -> result |> List.concat |> k)
 
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
@@ -381,7 +388,7 @@ module API =
             | Ref address ->
                 assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
                 StructField(address, fieldId) |> Ref
-            | Ptr(baseAddress, t, offset) ->
+            | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldOffset fieldId |> makeNumber
                 Ptr baseAddress (Types.FromDotNetType fieldId.typ) (add offset fieldOffset)
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
@@ -510,7 +517,8 @@ module API =
                 assert(Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType = Types.String)
                 let stringArrayType = (Types.Char, 1, true)
                 Copying.copyArray state srcAddress srcIndex stringArrayType dstAddress dstIndex stringArrayType length
-            | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
+            | _ ->
+                internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
         let ClearArray state array index length =
             match array.term with
