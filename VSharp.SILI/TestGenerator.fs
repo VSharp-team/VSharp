@@ -199,7 +199,7 @@ module TestGenerator =
         match cilState.state.model with
         | Some model ->
             model2test test isError hasException indices m model cmdArgs cilState
-        | None when cilState.state.pc = EmptyPathCondition ->
+        | None when cilState.state.pc.IsEmpty ->
             // NOTE: case when no branches occured
             let emptyState = Memory.EmptyState None
             emptyState.allocatedTypes <- cilState.state.allocatedTypes

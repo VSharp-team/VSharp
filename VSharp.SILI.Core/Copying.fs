@@ -24,7 +24,11 @@ module internal Copying =
         let constant = Constant "i" source Types.Int32
         let leftBound = simplifyLessOrEqual lowerBound constant id
         let rightBound = simplifyLessOrEqual constant upperBound id
-        let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
+        let pcWithBounds = 
+            let copy = state.pc.Copy()
+            copy.Add leftBound
+            copy.Add rightBound
+            copy
         state.pc <- pcWithBounds
         constant
 

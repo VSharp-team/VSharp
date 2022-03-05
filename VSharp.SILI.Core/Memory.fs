@@ -36,7 +36,7 @@ module internal Memory =
         x = VectorTime.zero
 
     let addConstraint (s : state) cond =
-        s.pc <- PC.add s.pc cond
+        s.pc.Add cond
 
     let delinearizeArrayIndex ind lens lbs =
         let detachOne (acc, lens) lb =
@@ -656,8 +656,9 @@ module internal Memory =
         match term.term with
         | Union gvs ->
             let filterUnsat (g, v) k =
-                let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
+                let pc = state.pc.Copy()
+                pc.Add g
+                if pc.IsTrivialFalse then k None
                 else Some (pc, v) |> k
             Cps.List.choosek filterUnsat gvs (fun pcs ->
             match pcs with
@@ -677,9 +678,9 @@ module internal Memory =
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         // Returns PC containing only constraints dependent with cond
-        let keepDependentWith pc cond =
-            PC.fragments pc
-            |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
+        let keepDependentWith (pc : PC2.PathCondition) cond =
+            pc.Fragments
+            |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
             |> Option.defaultValue pc
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
@@ -688,15 +689,15 @@ module internal Memory =
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->        
         let negatedCondition = !!condition
-        let thenPc = PC.add state.pc condition
-        let elsePc = PC.add state.pc negatedCondition
+        let thenPc = PC2.add state.pc condition
+        let elsePc = PC2.add state.pc negatedCondition
         let independentThenPc = keepDependentWith thenPc condition
         // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
         let independentElsePc = keepDependentWith elsePc negatedCondition 
-        if PC.isFalse independentThenPc then
+        if independentThenPc.IsTrivialFalse then
             conditionState.pc <- elsePc
             elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse independentElsePc then
+        elif independentElsePc.IsTrivialFalse then
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
@@ -712,11 +713,11 @@ module internal Memory =
                     conditionState.pc <- elsePc
                     conditionState.model <- Some model.mdl
                     StatedLogger.log conditionState.id $"Model stack: %s{model.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
-                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat thenModel ->
                 conditionState.pc <- independentElsePc
@@ -726,7 +727,7 @@ module internal Memory =
                     conditionState.pc <- thenPc
                     conditionState.model <- Some thenModel.mdl
                     StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
                     conditionState.pc <- thenPc
@@ -735,8 +736,8 @@ module internal Memory =
                     StatedLogger.copy thenState.id elseState.id
                     StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
                     StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
-                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
                     elseState.model <- Some elseModel.mdl
                     thenState.model <- Some thenModel.mdl
                     execution thenState elseState condition k)
@@ -832,7 +833,7 @@ module internal Memory =
         let classSize = TypeUtils.internalSizeOf t |> int |> makeNumber
         let failCondition = simplifyGreater (add offset viewSize) classSize id ||| simplifyLess offset (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+        state.pc <- PC2.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
         checkUnsafeRead state reportError failCondition
 
     // TODO: Add undefined behaviour:
@@ -853,7 +854,7 @@ module internal Memory =
         let arraySize = List.fold mul elementSize lens
         let failCondition = simplifyGreater (Option.get size |> makeNumber |> add offset) arraySize id ||| simplifyLess offset (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        state.pc <- PC2.add state.pc (makeExpressionNoOvf failCondition id)
         checkUnsafeRead state reportError failCondition
         let firstElement = div offset elementSize
         let elementOffset = rem offset elementSize
@@ -916,7 +917,7 @@ module internal Memory =
                 let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
                 let viewSize = nonVoidType |> Option.get |> sizeOf |> int |> makeNumber
                 let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-                state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+                state.pc <- PC2.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
                 checkUnsafeRead state reportError failCondition
                 let endByte = Option.map (sizeOf >> makeNumber >> add offset) nonVoidType
                 readTermUnsafe term offset endByte
@@ -1168,7 +1169,7 @@ module internal Memory =
             let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
             let viewSize = value |> Terms.sizeOf |> int |> makeNumber
             let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-            state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
+            state.pc <- PC2.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
             checkUnsafeRead state reportError failCondition
             let updatedTerm = writeTermUnsafe term offset value
             writeStackLocation state loc updatedTerm
@@ -1511,7 +1512,7 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
+            let pc = (state'.pc.Map (fillHoles state)).UnionWith state.pc
             // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
@@ -1534,7 +1535,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     id = Guid.NewGuid().ToString()
-                    pc = if isTrue g then pc else PC.add pc g
+                    pc = if isTrue g then pc else PC2.add pc g
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack
@@ -1607,7 +1608,7 @@ module internal Memory =
         // TODO: print lower bounds?
         let sortBy sorter = Seq.sortBy (fst >> sorter)
         let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
+        let sb = if s.pc.IsEmpty then sb else s.pc.ToString() |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Concrete memory" sortVectorTime VectorTime.print toString sb (s.concreteMemory |> Seq.map (fun kvp -> (kvp.Key, kvp.Value)) |> PersistentDict.ofSeq)
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays

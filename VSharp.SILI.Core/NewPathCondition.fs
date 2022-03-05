@@ -3,7 +3,7 @@ open VSharp
 open VSharp.Utils
 open System.Collections.Generic
 
-module internal PC2 =
+module public PC2 =
 
     type private node =
         | Tail of term * term pset
@@ -16,7 +16,7 @@ module internal PC2 =
         | Node(term) -> term
         | Empty -> invalidOp "Cannot unwrap empty node"
     
-    type PathCondition private(
+    type public PathCondition private(
         constants : Dictionary<term, node>,
         constraints : HashSet<term>,
         isTrivialFalse : bool
@@ -112,14 +112,14 @@ module internal PC2 =
                 | _ -> ()
             | _ -> ()
 
-        let copy() = 
-            PathCondition(Dictionary(constants), HashSet(constraints), isTrivialFalse)
-
         new() =
             PathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
             Seq.map toString constraints |> Seq.sort |> join " /\ "
+
+        member this.Copy() = 
+            PathCondition(Dictionary(constants), HashSet(constraints), isTrivialFalse)
 
         member this.IsTrivialFalse = isTrivialFalse
 
@@ -143,7 +143,7 @@ module internal PC2 =
             mapped
 
         member this.UnionWith (anotherPc : PathCondition) =
-            let union = copy()
+            let union = this.Copy()
             anotherPc.ToSeq() |> Seq.iter union.Add
             union
 
@@ -160,4 +160,11 @@ module internal PC2 =
                         Some(PathCondition(constants, constraints, false))
                     | _ -> None
                 Seq.choose getSubsetByRepresentative constants.Values
+
+    let public add (pc : PathCondition) newConstraint =
+        let copy = pc.Copy()
+        copy.Add newConstraint
+        copy
+
+    let public toSeq (pc : PathCondition) = pc.ToSeq()
             

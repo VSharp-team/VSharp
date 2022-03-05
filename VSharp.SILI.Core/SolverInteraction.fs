@@ -38,7 +38,7 @@ module public SolverInteraction =
 
     let checkSat state =
         let ctx = getEncodingContext state
-        let formula = PC.toSeq state.pc |> conjunction
+        let formula = state.pc.ToSeq() |> conjunction
         match solver with
         | Some s ->
             let model = 

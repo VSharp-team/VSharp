@@ -117,7 +117,7 @@ and
     [<ReferenceEquality>]
     state = {
     id : string
-    mutable pc : pathCondition
+    mutable pc : PC2.PathCondition
     mutable evaluationStack : evaluationStack
     mutable stack : callStack                                          // Arguments and local variables
     mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
@@ -147,7 +147,7 @@ and
 module public State =
     let makeEmpty modelState = {
         id = Guid.NewGuid().ToString()
-        pc = PC.empty
+        pc = PC2.PathCondition()
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException
         stack = CallStack.empty

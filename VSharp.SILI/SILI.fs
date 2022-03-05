@@ -44,7 +44,7 @@ type public SILI(options : SiliOptions) =
     let coveragePobsForMethod (method : MethodBase) =
         let cfg = CFG.findCfg method
         cfg.sortedOffsets |> Seq.map (fun offset ->
-            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
+            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition()})
         |> List.ofSeq
 
     let reportState reporter isError method cmdArgs state =

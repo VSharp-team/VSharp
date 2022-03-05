@@ -131,10 +131,13 @@ module API =
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
         let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
-        let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
-        let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
-        let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
-        let EmptyPathCondition = PC.empty
+        let IsFalsePathCondition conditionState = conditionState.pc.IsTrivialFalse
+        let Contradicts state condition = 
+            let copy = state.pc.Copy()
+            copy.Add condition
+            copy.IsTrivialFalse
+        let PathConditionToSeq (pc : PC2.PathCondition) = pc.ToSeq()
+        let EmptyPathCondition() = PC2.PathCondition()
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -470,7 +473,7 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
         let ComposeStates state state' = Memory.composeStates state state'
-        let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
+        let WLP state (pc' : PC2.PathCondition) = (pc'.Map (Memory.fillHoles state)).UnionWith state.pc
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
@@ -498,4 +501,4 @@ module API =
 
     module Print =
         let Dump state = Memory.dump state
-        let PrintPC pc = PC.toString pc
+        let PrintPC (pc : PC2.PathCondition) = pc.ToString()
