@@ -16,11 +16,8 @@ module public PC2 =
         | Node(term) -> term
         | Empty -> invalidOp "Cannot unwrap empty node"
     
-    type public PathCondition private(
-        constants : Dictionary<term, node>,
-        constraints : HashSet<term>,
-        isTrivialFalse : bool
-    ) =
+    type public PathCondition private(constants : Dictionary<term, node>, constraints : HashSet<term>, isTrivialFalse : bool) =
+        
         let mutable isTrivialFalse = isTrivialFalse
 
         let nextNode term =
@@ -30,7 +27,7 @@ module public PC2 =
         
         let rec findPrevious term =            
             match nextNode term with
-            | Tail(_, _) -> Some(term)
+            | Tail _ -> Some(term)
             | Node nextTerm -> findPrevious nextTerm
             | Empty -> None
 
@@ -49,7 +46,7 @@ module public PC2 =
                         let constraintsUnion = PersistentSet.union oneConstraints anotherConstraints
                         constants.[onePrevious] <- Tail(anotherRepresentative, constraintsUnion)
                         constants.[anotherPrevious] <- Node(oneRepresentative)
-                | _ -> __unreachable__()
+                | _ -> ()
             | _ -> invalidOp "Constant not found in dictionary"
 
         let subset constantInSubset =
@@ -75,16 +72,21 @@ module public PC2 =
             isTrivialFalse <- true
 
         let addSubset (constants : Dictionary<term, node>) constantsToAdd constraintsToAdd =
+            if Seq.isEmpty constantsToAdd then
+                Logger.info "lolkek"
             let firstConstant = constantsToAdd |> Seq.head
-            constantsToAdd 
-            |> Seq.pairwise 
-            |> Seq.iteri (fun i (previous, next) ->
-                    if (i <> Seq.length constantsToAdd - 2) then
-                        constants.[previous] <- Node(next)
-                    else
-                        constants.[previous] <- Tail(next, constraintsToAdd)
-                        constants.[next] <- Node(firstConstant)
-                )
+            if Seq.length constantsToAdd = 1 then
+                constants.[firstConstant] <- Tail(firstConstant, constraintsToAdd)
+            else
+                constantsToAdd 
+                |> Seq.pairwise 
+                |> Seq.iteri (fun i (previous, next) ->
+                        if (i <> Seq.length constantsToAdd - 2) then
+                            constants.[previous] <- Node(next)
+                        else
+                            constants.[previous] <- Tail(next, constraintsToAdd)
+                            constants.[next] <- Node(firstConstant)
+                    )
 
         let constSourcesIndependent =
             function
@@ -93,11 +95,12 @@ module public PC2 =
 
         let addNewConstraintWithMerge newConstraint = 
             let constraintConstants = discoverConstants [newConstraint]
-            let (oldConstants, newConstants) = 
+            let oldConstants, newConstants = 
                 constraintConstants
                     |> Seq.splitBy (fun c -> constants.ContainsKey(c))
-
-            addSubset constants newConstants (PersistentSet.add PersistentSet.empty newConstraint)
+            
+            // are there constraints without constants at all?
+            addSubset constants constraintConstants (PersistentSet.add PersistentSet.empty newConstraint)
             constraints.Add(newConstraint) |> ignore
 
             Seq.allPairs newConstants constants.Keys
@@ -106,7 +109,7 @@ module public PC2 =
 
             match (Seq.tryHead oldConstants) with
             | Some(someOldConstant) -> 
-                Seq.iter (fun constant -> union someOldConstant constant) oldConstants
+                Seq.iter (union someOldConstant) oldConstants
                 match (Seq.tryHead newConstants) with
                 | Some(someNewConstant) -> union someNewConstant someOldConstant
                 | _ -> ()

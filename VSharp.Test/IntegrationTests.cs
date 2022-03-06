@@ -106,7 +106,7 @@ namespace VSharp.Test
                         var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName,
                             Directory.GetCurrentDirectory());
                         coverageTool.Run(unitTests.TestDirectory);
-                        /*int coverage = coverageTool.GetCoverage(methodInfo);
+                        int coverage = coverageTool.GetCoverage(methodInfo);
                         if (coverage != _expectedCoverage)
                         {
                             context.CurrentResult.SetResult(ResultState.Failure,
@@ -115,9 +115,7 @@ namespace VSharp.Test
                         else
                         {
                             context.CurrentResult.SetResult(ResultState.Success);
-                        }*/
-                        
-                        context.CurrentResult.SetResult(ResultState.Success);
+                        }
                     }
                     else
                     {
