@@ -31,12 +31,6 @@ module public PC2 =
             | Node nextTerm -> findPrevious nextTerm
             | Empty -> None
 
-        let rec find term = 
-            match nextNode term with
-            | Tail(representative, constraints) -> Some(representative, constraints)
-            | Node nextTerm -> find nextTerm
-            | Empty -> None
-
         let union oneConstant anotherConstant =
             match (findPrevious oneConstant), (findPrevious anotherConstant) with
             | Some(onePrevious), Some(anotherPrevious) ->
@@ -73,7 +67,7 @@ module public PC2 =
 
         let addSubset (constants : Dictionary<term, node>) constantsToAdd constraintsToAdd =
             if Seq.isEmpty constantsToAdd then
-                Logger.info "lolkek"
+                Logger.info "kek"
             let firstConstant = constantsToAdd |> Seq.head
             if Seq.length constantsToAdd = 1 then
                 constants.[firstConstant] <- Tail(firstConstant, constraintsToAdd)
@@ -87,6 +81,16 @@ module public PC2 =
                             constants.[previous] <- Tail(next, constraintsToAdd)
                             constants.[next] <- Node(firstConstant)
                     )
+                
+        let addConstraintsToSubset subsetConstant constraintsToAdd =
+            match findPrevious subsetConstant with
+            | Some(previous) ->
+                match nextNode previous with
+                | Tail(representative, constraints) ->
+                        let constraintsUnion = PersistentSet.union constraints constraintsToAdd
+                        constants.[previous] <- Tail(representative, constraintsUnion)
+                | _ -> __unreachable__()
+            | _ -> __unreachable__()
 
         let constSourcesIndependent =
             function
@@ -97,10 +101,16 @@ module public PC2 =
             let constraintConstants = discoverConstants [newConstraint]
             let oldConstants, newConstants = 
                 constraintConstants
-                    |> Seq.splitBy (fun c -> constants.ContainsKey(c))
+                    |> Seq.splitBy constants.ContainsKey
             
             // are there constraints without constants at all?
-            addSubset constants constraintConstants (PersistentSet.add PersistentSet.empty newConstraint)
+            // answer: yes, in ArrayConcreteUnsafeRead, is it ok?
+            let newConstraintSet = PersistentSet.add PersistentSet.empty newConstraint
+            if Seq.isEmpty newConstants |> not then
+                addSubset constants newConstants newConstraintSet
+            else if Seq.isEmpty oldConstants |> not then
+                addConstraintsToSubset (Seq.head oldConstants) newConstraintSet
+                
             constraints.Add(newConstraint) |> ignore
 
             Seq.allPairs newConstants constants.Keys
