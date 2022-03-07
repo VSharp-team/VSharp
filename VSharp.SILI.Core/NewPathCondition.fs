@@ -131,8 +131,10 @@ module public PC2 =
         override this.ToString() =
             Seq.map toString constraints |> Seq.sort |> join " /\ "
 
-        member this.Copy() = 
-            PathCondition(Dictionary(constants), HashSet(constraints), isTrivialFalse)
+        member this.Copy() =
+            let inner() =
+                PathCondition(Dictionary(constants), HashSet(constraints), isTrivialFalse)
+            Stopwatch.runMeasuringTime "PC_Copy" inner
 
         member this.IsTrivialFalse = isTrivialFalse
 
@@ -141,14 +143,16 @@ module public PC2 =
         member this.ToSeq() = seq constraints
 
         member this.Add newConstraint =
-            match newConstraint with
-            | True -> ()
-            | False -> becomeTrivialFalse()
-            | _ when isTrivialFalse -> ()
-            | _ when constraints.Contains(newConstraint) -> ()
-            // what if constraint is not equal to newConstraint structurally, but is equal logically?
-            | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
-            | _ -> addNewConstraintWithMerge newConstraint
+            let inner() = 
+                match newConstraint with
+                | True -> ()
+                | False -> becomeTrivialFalse()
+                | _ when isTrivialFalse -> ()
+                | _ when constraints.Contains(newConstraint) -> ()
+                // what if constraint is not equal to newConstraint structurally, but is equal logically?
+                | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
+                | _ -> addNewConstraintWithMerge newConstraint
+            Stopwatch.runMeasuringTime "PC_Add" inner
 
         member this.Map mapper =
             let mapped = PathCondition()
@@ -161,18 +165,20 @@ module public PC2 =
             union
 
         member this.Fragments =
-            if isTrivialFalse then
-                Seq.singleton this
-            else
-                let getSubsetByRepresentative =
-                    function
-                    | Tail(representative, constraints) ->
-                        let constants = Dictionary<term, node>()
-                        addSubset constants (subset  representative) constraints
-                        let constraints = HashSet(PersistentSet.toSeq constraints)
-                        Some(PathCondition(constants, constraints, false))
-                    | _ -> None
-                Seq.choose getSubsetByRepresentative constants.Values
+            let inner() = 
+                if isTrivialFalse then
+                    Seq.singleton this
+                else
+                    let getSubsetByRepresentative =
+                        function
+                        | Tail(representative, constraints) ->
+                            let constants = Dictionary<term, node>()
+                            addSubset constants (subset  representative) constraints
+                            let constraints = HashSet(PersistentSet.toSeq constraints)
+                            Some(PathCondition(constants, constraints, false))
+                        | _ -> None
+                    Seq.choose getSubsetByRepresentative constants.Values
+            Stopwatch.runMeasuringTime "PC_Fragments" inner
 
     let public add (pc : PathCondition) newConstraint =
         let copy = pc.Copy()
