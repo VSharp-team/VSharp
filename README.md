@@ -2,6 +2,14 @@
 
 V# is the symbolic execution engine for .NET binaries, performing completely automated and unassisted test generation for .NET assemblies. It is cross-platform and supports .NET Core.
 
+## Requirements
+
+- For Windows:
+    - Visual C++ Build Tools 2022 or Visual Studio 2022
+- For Unix:
+    - CMake, Make
+    - Recomended C/C++ compiler --- Clang/Clang++
+
 ## How to build
 
 Clone the repository and run `dotnet build --configuration Release`. After build finishes, run `dotnet publish  --configuration Release`.

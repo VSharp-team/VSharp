@@ -2,11 +2,11 @@
 #define CORPROFILER_H_
 
 #include <atomic>
-#include <memory/heap.h>
+#include "memory/heap.h"
 #include "cor.h"
 #include "corprof.h"
 
-namespace icsharp {
+namespace vsharp {
 
 class Instrumenter;
 class Protocol;
@@ -15,7 +15,7 @@ class CorProfiler : public ICorProfilerCallback8
 {
 private:
     std::atomic<int> refCount;
-    ICorProfilerInfo9 *corProfilerInfo;
+    ICorProfilerInfo8 *corProfilerInfo;
     Instrumenter *instrumenter;
     Protocol *protocol;
 

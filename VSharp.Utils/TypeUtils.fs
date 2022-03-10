@@ -164,7 +164,7 @@ module TypeUtils =
 
     let private getConv fromType toType = // TODO: initialize once all cases
         let result : convType ref = ref null
-        if convs.TryGetValue((fromType, toType), result) then !result
+        if convs.TryGetValue((fromType, toType), result) then result.Value
         else
             let conv = createNumericConv fromType toType
             convs.Add((fromType, toType), conv)

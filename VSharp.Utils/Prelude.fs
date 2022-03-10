@@ -65,6 +65,16 @@ module public Prelude =
        member o.Zero() = List.empty
     let list = ListMonad()
 
+    type OptionMonad() =
+       member o.Bind(opt, binder) =
+           match opt with
+           | Some value -> binder value
+           | None -> None
+       member o.Return x = Some x
+       member o.ReturnFrom x = x
+       member o.Zero() = None
+    let option = OptionMonad()
+
 [<CustomEquality;CustomComparison>]
 type 'a transparent =
     { v : 'a }

@@ -36,6 +36,11 @@ module RegionTree =
 
     let localize reg tree = splitNode (always false) reg tree |> fst
 
+    // NOTE: [ATTENTION] must be used only if 'reg' were not added earlier and keys are disjoint
+    // NOTE: used for fast initialization of new array
+    let memset regionsAndKeys (Node tree) =
+        regionsAndKeys |> Seq.fold (fun acc (reg, k) -> PersistentDict.add reg (k, Node PersistentDict.empty) acc) tree |> Node
+
     let write reg key tree =
         let included, disjoint = splitNode (fun key' -> (key :> IRegionTreeKey<_>).Hides key') reg tree
         Node(PersistentDict.add reg (key, Node included) disjoint)

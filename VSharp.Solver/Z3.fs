@@ -444,6 +444,7 @@ module internal Z3 =
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
 
+        // NOTE: temporary generating string with 0 <= length <= 20
         member private x.GenerateLengthAssumptions encodingResult =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
@@ -452,6 +453,8 @@ module internal Z3 =
             // TODO: this limits length < 20, delete when model normalization is complete
             { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
 
+        // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
+        // TODO: use another serializer
         member private x.GenerateCharAssumptions encodingResult =
             // TODO: use stringRepr for serialization of strings
             let expr = encodingResult.expr :?> BitVecExpr
@@ -546,8 +549,16 @@ module internal Z3 =
         member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
             let result = ref vectorTime.Empty
+            let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
+            let charArray = ArrayType(Types.Char, Vector)
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif encodingCache.heapAddresses.TryGetValue((typ, expr), result) then !result
+            elif checkAndGet (typ, expr) then result.Value
+            elif typ = Types.String && checkAndGet (charArray, expr) then
+                // NOTE: storing most concrete type for string
+                encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
+                encodingCache.heapAddresses.Add((typ, expr), result.Value)
+                result.Value
+            elif typ = charArray && checkAndGet (Types.String, expr) then result.Value
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
@@ -647,7 +658,7 @@ module internal Z3 =
             | _ ->
                 let structureRef = Dict.getValueOrUpdate dict key (fun () ->
                     Memory.DefaultOf structureType |> ref)
-                structureRef := x.WriteFields !structureRef value fields
+                structureRef.Value <- x.WriteFields structureRef.Value value fields
 
         member x.UpdateModel (z3Model : Model) (targetModel : model) =
             let stackEntries = Dictionary<stackKey, term ref>()

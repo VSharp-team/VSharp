@@ -31,12 +31,6 @@ module internal String =
         assert(List.length args = 1)
         Memory.StringLength state (List.head args)
 
-    // TODO: add IndexOutOfRangeException case
-    let GetChars (state : state) (args : term list) =
-        assert(List.length args = 2)
-        let this, index = List.item 0 args, List.item 1 args
-        Memory.ReadStringChar state this index
-
     let ToUpperInvariant (state : state) (args : term list) =
         assert(List.length args = 1)
         let this = List.head args

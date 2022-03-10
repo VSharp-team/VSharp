@@ -7,16 +7,16 @@ open VSharp.Core
 module internal Interlocked =
 
     let exchange state location value =
-        let currentValue = Memory.ReadSafe state location
-        let state' = Memory.WriteSafe state location value
+        let currentValue = Memory.Read state location
+        let state' = Memory.Write state location value
         List.map (withFst currentValue) state'
 
     let compareExchange state location value compared =
-        let currentValue = Memory.ReadSafe state location
+        let currentValue = Memory.Read state location
         let state' =
             StatedConditionalExecutionAppendResults state
                 (fun state k -> k (currentValue === compared, state))
-                (fun state k -> k (Memory.WriteSafe state location value))
+                (fun state k -> k (Memory.Write state location value))
                 (fun state k -> k (List.singleton state))
                 id
         List.map (withFst currentValue) state'

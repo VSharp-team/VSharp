@@ -202,7 +202,7 @@ module internal Propositional =
             | Negation x -> k x
             | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l Bool |> k)
             | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l Bool |> k)
-            | Terms.GuardedValues(gs, vs) ->
+            | GuardedValues(gs, vs) ->
                 Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
             | _ -> makeUnary OperationType.LogicalNot x Bool |> k
 

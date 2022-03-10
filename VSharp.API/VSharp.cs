@@ -73,10 +73,10 @@ namespace VSharp
     {
         private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null)
         {
-            var maxBound = 15u;
+            var recThreshold = 0u;
             var options =
-                new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode),
-                    executionMode.SymbolicMode, maxBound);
+                new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
+                    executionMode.SymbolicMode, recThreshold);
             SILI explorer = new SILI(options);
             UnitTests unitTests = new UnitTests(resultsFolder);
             Core.API.ConfigureSolver(SolverPool.mkSolver());

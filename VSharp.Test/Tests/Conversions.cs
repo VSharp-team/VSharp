@@ -193,7 +193,7 @@ namespace IntegrationTests
             return number;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int TestNarrowingConv(sbyte number)
         {
             int x = number;

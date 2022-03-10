@@ -49,7 +49,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             let loc = ipOperations.ip2codeLocation parent.startingIP
             match loc with
             | Some loc when loc.method = mainMethod && loc.offset = 0x0 ->
-                forward.Update parent children
+                forward.Update (parent, children)
                 backward.AddBranch parent |> ignore
                 Seq.iter (backward.AddBranch >> ignore) children
             | _ ->
@@ -177,7 +177,7 @@ type BackwardSearcher() =
                 // TODO: need this?
                 internalfail "olololo!"
 
-module TargetedSearcher =
+module DummyTargetedSearcher =
     open CilStateOperations
 
     type DummyTargetedSearcher() =

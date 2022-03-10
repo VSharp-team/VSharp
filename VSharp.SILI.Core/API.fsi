@@ -25,7 +25,12 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
+    val SolveTypes : model -> state -> (System.Type[] * System.Type[]) option
     val IsValid : state -> SolverInteraction.smtResult
+    val TryGetModel : state -> model option
+
+    val ConfigureErrorReporter : (state -> unit) -> unit
+    val ErrorReporter : unit -> (state -> unit)
 
     [<AutoOpen>]
     module Terms =
@@ -36,6 +41,7 @@ module API =
         val Struct : pdict<fieldId, term> -> symbolicType -> term
         val Ref : address -> term
         val Ptr : pointerBase -> symbolicType -> term -> term
+        val Slice : term -> term -> term -> term -> term
         val HeapRef : heapAddress -> symbolicType -> term
         val Union : (term * term) list -> term
 
@@ -57,12 +63,17 @@ module API =
 
         val GetHashCode : term -> term
 
+        val ReinterpretConcretes : term list -> symbolicType -> obj
+
         val IsStruct : term -> bool
         val IsReference : term -> bool
+        val IsPtr : term -> bool
         val IsConcrete : term -> bool
         val IsNullReference : term -> term
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
+
+        val (|Combined|_|) : term -> (term list * symbolicType) option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
@@ -125,6 +136,7 @@ module API =
         val (|StringType|_|) : symbolicType -> unit option
 
         val ElementType : symbolicType -> symbolicType
+        val ArrayTypeToSymbolicType : arrayType -> symbolicType
 
         val TypeIsType : symbolicType -> symbolicType -> term
         val IsNullable : symbolicType -> bool
@@ -203,28 +215,26 @@ module API =
         val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> unit
         val NewTypeVariables : state -> (typeId * symbolicType) list -> unit
 
+        val ReferenceArrayIndex : state -> term -> term list -> symbolicType option -> term
         val ReferenceField : state -> term -> fieldId -> term
-        val ReferenceArrayIndex : term -> term list -> term
 
-        val ReadSafe : state -> term -> term
-        val ReadUnsafe : state -> (state -> unit) -> term -> term
+        val Read : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> MethodBase -> term
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
-        val ReadArrayIndex : state -> term -> term list -> term
+        val ReadArrayIndex : state -> term -> term list -> symbolicType option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> symbolicType -> fieldId -> term
         val ReadDelegate : state -> term -> term
 
         val InitializeArray : state -> term -> term -> unit
 
-        val WriteSafe : state -> term -> term -> state list
-        val WriteUnsafe : state -> (state -> unit) -> term -> term -> state list
+        val Write : state -> term -> term -> state list
         val WriteLocalVariable : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
-        val WriteArrayIndex : state -> term -> term list -> term -> state list
+        val WriteArrayIndex : state -> term -> term list -> term -> symbolicType option -> state list
         val WriteStaticField : state -> symbolicType -> fieldId -> term -> unit
 
         val DefaultOf : symbolicType -> term
@@ -252,6 +262,8 @@ module API =
         val AllocateDelegate : state -> term -> term
         val CreateStringFromChar : state -> term -> term
 
+        val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
+
         val CopyArray : state -> term -> term -> symbolicType -> term -> term -> symbolicType -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
 
@@ -278,7 +290,6 @@ module API =
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
-
 
         val FillRegion : state -> term -> regionSort -> unit
         

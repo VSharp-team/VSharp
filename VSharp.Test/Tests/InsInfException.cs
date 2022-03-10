@@ -259,7 +259,7 @@ namespace IntegrationTests
         // TESTS THAT SHOULD NOT HANDLE IIE
 
         // expecting IIE
-        [TestSvm]
+        [TestSvm(100)]
         public static int CallVirtualMethod_IIE_1(VirtualC virtualC)
         {
             if (virtualC == null) return 0;

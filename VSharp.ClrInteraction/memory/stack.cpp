@@ -1,10 +1,9 @@
-#include "memory/stack.h"
-
-#include "logging.h"
+#include "stack.h"
+#include "../logging.h"
 #include <cstring>
-#include <assert.h>
+#include <cassert>
 
-using namespace icsharp;
+using namespace vsharp;
 
 #define CONCRETE UINT32_MAX
 
@@ -20,15 +19,14 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     , m_enteredMarker(false)
     , m_spontaneous(false)
 {
-    std::memcpy(m_args, args, argsCount);
+    memcpy(m_args, args, argsCount);
     resetPopsTracking();
 }
 
-//StackFrame::~StackFrame()
-//{
-//    // TODO: why double free?
-//    delete [] concreteness;
-//}
+StackFrame::~StackFrame()
+{
+    delete [] m_concreteness;
+}
 
 void StackFrame::configure(unsigned maxStackSize, unsigned localsCount)
 {
@@ -103,7 +101,7 @@ bool StackFrame::pop1()
     unsigned cell = m_concreteness[m_concretenessTop];
     if (cell != CONCRETE) {
         --m_symbolsCount;
-        m_lastPoppedSymbolics.push_back(std::make_pair(cell, 0u));
+        m_lastPoppedSymbolics.emplace_back(cell, 0u);
         return false;
     }
     return true;
@@ -159,8 +157,11 @@ void StackFrame::setLoc(unsigned index, bool value)
 
 bool StackFrame::dup()
 {
-    bool concreteness = peek0();
-    push1(concreteness);
+    bool concreteness = pop1();
+    if (concreteness) {
+        push1(concreteness);
+        push1(concreteness);
+    }
     return concreteness;
 }
 

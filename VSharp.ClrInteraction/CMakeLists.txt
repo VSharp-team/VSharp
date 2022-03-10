@@ -7,12 +7,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-invalid-noreturn -Wno-pragma-pack -fPIC -fms-extensions")
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
+if (APPLE)
     set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
-    set(CORECLR_PATH ../runtime/src/coreclr)
-else()
-    set(CORECLR_PATH ../runtime/src/coreclr/src)
 endif()
+
+set(CORECLR_PATH ../runtime/src/coreclr)
 
 include_directories(.
     ${CORECLR_PATH}/pal/inc/rt
@@ -20,7 +19,10 @@ include_directories(.
     ${CORECLR_PATH}/pal/inc
     ${CORECLR_PATH}/inc)
 
-add_definitions(-DBIT64 -DPAL_STDCPP_COMPAT -DPLATFORM_UNIX)
+add_definitions(-D_MIDL_USE_GUIDDEF_)
+add_definitions(-DBIT64 -DHOST_64BIT)
+add_definitions(-DPAL_STDCPP_COMPAT)
+add_definitions(-DNOMINMAX)
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 if(CMAKE_BUILD_TYPE MATCHES Debug)
@@ -28,20 +30,20 @@ if(CMAKE_BUILD_TYPE MATCHES Debug)
     add_definitions(-D_DEBUG)
     message("Logging enabled")
 endif()
-add_definitions(-DHOST_64BIT)
-add_definitions(-D_MIDL_USE_GUIDDEF_)
 
-add_library(icsharpConcolic SHARED
+set(sources
     classFactory.cpp
     corProfiler.cpp
     dllmain.cpp
     logging.cpp
     instrumenter.cpp
-    communication/unixFifoCommunicator.cpp
     communication/protocol.cpp
+    communication/unixFifoCommunicator.cpp
     memory/memory.cpp
     memory/stack.cpp
     memory/heap.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
+
+add_library(vsharpConcolic SHARED ${sources})
 
 add_link_options(--unresolved-symbols=ignore-in-object-files)

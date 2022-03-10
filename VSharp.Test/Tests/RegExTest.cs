@@ -50,8 +50,8 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class RegExTest
     {
-        [TestSvm]
-        public static string OwnImplementationTest1(char c1, char c2, char c3, char c4, char c5, char c6)
+        [TestSvm(100)]
+        public static string OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
         {
             string pattern = new string(new char[] {c1, c2, c3});
             string result = "";
@@ -74,8 +74,8 @@ namespace IntegrationTests
             return result;
         }
 
-        [Ignore("need more external method implementations")]
-        [TestSvm]
+        // [Ignore("need more external method implementations")]
+        [TestSvm(100)]
         public static bool OwnImplementationTest2(char c1, char c2, char c3, char c4, char c5, char c6)
         {
             string text = new string(new char[] {c1, c2, c3});
@@ -101,14 +101,14 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100, 2)]
+        [TestSvm(100)]
         // [Ignore("Incorrect result")]
         public static bool OwnImplementationTest4(string pattern)
         {
             return RegExImplementation.Match(pattern, "Hello");
         }
 
-        // [TestSvm(100, 2)]
+        // [TestSvm(100)]
         [Ignore("need more external method implementations")]
         public static MatchCollection SmallSystemImplementationTest()
         {

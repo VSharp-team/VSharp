@@ -1,18 +1,18 @@
-#include "communication/protocol.h"
-#include "logging.h"
-#include "probes.h"
+#include "protocol.h"
+#include "../logging.h"
+#include "../probes.h"
 
 #include <cstring>
 #include <iostream>
 
-using namespace icsharp;
+using namespace vsharp;
 
 bool Protocol::readConfirmation() {
     char *buffer = new char[1];
     int bytesRead = m_communicator.read(buffer, 1);
     if (bytesRead != 1 || buffer[0] != Confirmation) {
-        ERROR(tout << "Communication with server: could not get the confirmation message. Instead read"
-                   << bytesRead << " bytes with message [";
+        LOG_ERROR(tout << "Communication with server: could not get the confirmation message. Instead read "
+                       << bytesRead << " bytes with message [";
               for (int i = 0; i < bytesRead; ++i) tout << buffer[i] << " ";
               tout << "].");
         delete[] buffer;
@@ -25,8 +25,8 @@ bool Protocol::readConfirmation() {
 bool Protocol::writeConfirmation() {
     int bytesWritten = m_communicator.write(new char[1] {Confirmation}, 1);
     if (bytesWritten != 1) {
-        ERROR(tout << "Communication with server: could not send the confirmation message. Instead sent"
-                   << bytesWritten << " bytes.");
+        LOG_ERROR(tout << "Communication with server: could not send the confirmation message. Instead sent"
+                       << bytesWritten << " bytes.");
         return false;
     }
     return true;
@@ -35,7 +35,7 @@ bool Protocol::writeConfirmation() {
 bool Protocol::readCount(int &count) {
     int countCount = m_communicator.read((char*)(&count), 4);
     if (countCount != 4) {
-        ERROR(tout << "Communication with server: could not get the amount of bytes of the next message. Instead read " << countCount << " bytes");
+        LOG_ERROR(tout << "Communication with server: could not get the amount of bytes of the next message. Instead read " << countCount << " bytes");
         return false;
     }
 
@@ -45,7 +45,7 @@ bool Protocol::readCount(int &count) {
 bool Protocol::writeCount(int count) {
     int bytesWritten = m_communicator.write((char*)(&count), 4);
     if (bytesWritten != 4) {
-        ERROR(tout << "Communication with server: could not sent the amount of bytes of the next message. Instead sent " << bytesWritten << " bytes");
+        LOG_ERROR(tout << "Communication with server: could not sent the amount of bytes of the next message. Instead sent " << bytesWritten << " bytes");
         return false;
     }
     return true;
@@ -56,20 +56,28 @@ bool Protocol::readBuffer(char *&buffer, int &count) {
         return false;
     }
     if (count <= 0) {
-        ERROR(tout << "Communication with server: the amount of bytes is unexpectedly non-positive (count = " << count << ") ");
+        LOG_ERROR(tout << "Communication with server: the amount of bytes is unexpectedly non-positive (count = " << count << ") ");
         return false;
     }
     if (!writeConfirmation()) return false;
     buffer = new char[count];
-    int bytesRead = m_communicator.read(buffer, count);
+    char *bufferBeginning = buffer;
+    int bytesRead = 0;
+    while (bytesRead < count) {
+        int newBytesCount = m_communicator.read(buffer, count - bytesRead);
+        if (newBytesCount == 0) break;
+        bytesRead += newBytesCount;
+        buffer += newBytesCount;
+    }
+    buffer = bufferBeginning;
     if (bytesRead != count) {
-        ERROR(tout << "Communication with server: expected " << count << " bytes, but read " << bytesRead << " bytes");
+        LOG_ERROR(tout << "Communication with server: expected " << count << " bytes, but read " << bytesRead << " bytes");
         delete[] buffer;
         buffer = nullptr;
         return false;
     }
     if (!writeConfirmation()) {
-        ERROR(tout << "Communication with server: I've got the message, but could not confirm it.");
+        LOG_ERROR(tout << "Communication with server: I've got the message, but could not confirm it.");
         delete[] buffer;
         buffer = nullptr;
         return false;
@@ -83,11 +91,11 @@ bool Protocol::writeBuffer(char *buffer, int count) {
     }
     int bytesWritten = m_communicator.write(buffer, count);
     if (bytesWritten != count) {
-        ERROR(tout << "Communication with server: could not sent the message. Instead sent " << bytesWritten << " bytes");
+        LOG_ERROR(tout << "Communication with server: could not sent the message. Instead sent " << bytesWritten << " bytes");
         return false;
     }
     if (!readConfirmation()) {
-        ERROR(tout << "Communication with server: message sent, but no confirmation.");
+        LOG_ERROR(tout << "Communication with server: message sent, but no confirmation.");
         return false;
     }
     return true;
@@ -107,7 +115,7 @@ bool Protocol::handshake() {
         }
         delete[] message;
     }
-    ERROR(tout << "Communication with server: handshake failed!");
+    LOG_ERROR(tout << "Communication with server: handshake failed!");
     return false;
 }
 
@@ -121,12 +129,20 @@ bool Protocol::sendProbes() {
     return writeBuffer((char*)ProbesAddresses.data(), bytesCount);
 }
 
+void Protocol::acceptEntryPoint(char *&entryPointBytes, int &length) {
+    if (!readBuffer(entryPointBytes, length)) {
+        FAIL_LOUD("Exec response validation failed!");
+    }
+    LOG(tout << "Entry point accepted" << std::endl);
+    assert(length >= 0);
+}
+
 bool Protocol::acceptCommand(CommandType &command)
 {
     char *message;
     int messageLength;
     if (!readBuffer(message, messageLength)) {
-        ERROR(tout << "Reading command failed!");
+        LOG_ERROR(tout << "Reading command failed!");
         return false;
     }
     command = (CommandType) *message;
@@ -140,13 +156,11 @@ bool Protocol::acceptString(char *&string) {
     char *message;
     int messageLength;
     if (!readBuffer(message, messageLength)) {
-        ERROR(tout << "Reading instrumented method body failed!");
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
         return false;
     }
-    string = new char[messageLength + 2];
+    string = new char[messageLength];
     memcpy(string, message, messageLength);
-    string[messageLength] = '\0';
-    string[messageLength + 1] = '\0';
 //    LOG(tout << "Successfully accepted string: " << string);
     delete[] message;
     return true;
@@ -165,7 +179,7 @@ bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxS
     char *message;
     int messageLength;
     if (!readBuffer(message, messageLength)) {
-        ERROR(tout << "Reading instrumented method body failed!");
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
         return false;
     }
     char *origMessage = message;
@@ -183,11 +197,11 @@ bool Protocol::acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxS
     return true;
 }
 
-bool Protocol::waitExecResult(char *&message, int &messageLength) {
-    if (!readBuffer(message, messageLength)) {
-        FAIL_LOUD("Exec responce validation failed!");
+void Protocol::acceptExecResult(char *&bytes, int &messageLength) {
+    if (!readBuffer(bytes, messageLength)) {
+        FAIL_LOUD("Exec response validation failed!");
     }
-    return true;
+    assert(messageLength >= 5);
 }
 
 bool Protocol::connect() {

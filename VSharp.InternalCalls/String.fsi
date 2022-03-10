@@ -17,12 +17,8 @@ module internal String =
     [<Implements("System.Int32 System.String.get_Length(this)")>]
     val GetLength : state -> term list -> term
 
-    [<Implements("System.Char System.String.get_Chars(this, System.Int32)")>]
-    val GetChars : state -> term list -> term
-
 //    [<Implements("System.String System.String.ToUpperInvariant(this)")>]
     // NOTE: this works only for fully concrete strings
-    // TODO: delete this and explore .NET code (unsafe is needed)
     val ToUpperInvariant : state -> term list -> term
 
     [<Implements("System.String System.String.CreateFromChar(System.Char)")>]

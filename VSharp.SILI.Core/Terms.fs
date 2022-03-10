@@ -176,7 +176,7 @@ and heapAddress = term // only Concrete(:? concreteHeapAddress) or Constant of t
 
 and pointerBase =
     | StackLocation of stackKey
-    | HeapLocation of heapAddress // Null or virtual address
+    | HeapLocation of heapAddress * symbolicType // Null or virtual address * sight type of address
     | StaticLocation of symbolicType
     member x.Zone() =
         match x with
@@ -366,7 +366,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> typeOfRef term |> ByRef
             | Ptr _ -> sightTypeOfPtr term |> Pointer
-            | _ -> __unreachable__()
+            | _ -> internalfailf "getting type of unexpected term %O" term
         commonTypeOf getType
 
     let symbolicTypeToArrayType = function
@@ -375,7 +375,11 @@ module internal Terms =
             | Vector -> (elementType, 1, true)
             | ConcreteDimension d -> (elementType, d, false)
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
-        | typ -> internalfailf "Expected array type, but got %O" typ
+        | typ -> internalfailf "symbolicTypeToArrayType: expected array type, but got %O" typ
+
+    let arrayTypeToSymbolicType (elemType, dim, isVector) =
+        if isVector then ArrayType(elemType, Vector)
+        else ArrayType(elemType, ConcreteDimension dim)
 
     let sizeOf term =
         let typ = typeOf term
@@ -455,7 +459,7 @@ module internal Terms =
         Concrete n (Numeric(Id(n.GetType())))
 
     let makeNullPtr typ =
-        Ptr (HeapLocation zeroAddress) typ (makeNumber 0)
+        Ptr (HeapLocation(zeroAddress, Null)) typ (makeNumber 0)
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
@@ -608,16 +612,86 @@ module internal Terms =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
+    let rec private concreteToBytes (obj : obj) =
+        match obj with
+        | _ when obj = null -> TypeUtils.internalSizeOf typeof<obj> |> int |> Array.zeroCreate
+        | :? byte as o -> Array.singleton o
+        | :? sbyte as o -> Array.singleton (byte o)
+        | :? int16 as o -> BitConverter.GetBytes o
+        | :? uint16 as o -> BitConverter.GetBytes o
+        | :? int as o -> BitConverter.GetBytes o
+        | :? uint32 as o -> BitConverter.GetBytes o
+        | :? int64 as o -> BitConverter.GetBytes o
+        | :? uint64 as o -> BitConverter.GetBytes o
+        | :? float32 as o -> BitConverter.GetBytes o
+        | :? double as o -> BitConverter.GetBytes o
+        | :? bool as o -> BitConverter.GetBytes o
+        | :? char as o -> BitConverter.GetBytes o
+        | _ when obj.GetType().IsEnum ->
+            let i = Convert.ChangeType(obj, obj.GetType().GetEnumUnderlyingType())
+            concreteToBytes i
+        | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
+
+    let rec private bytesToObj (bytes : byte[]) t =
+        let span = ReadOnlySpan<byte>(bytes)
+        match t with
+        | _ when t = typeof<byte> -> Array.head bytes :> obj
+        | _ when t = typeof<sbyte> -> sbyte (Array.head bytes) :> obj
+        | _ when t = typeof<int16> -> BitConverter.ToInt16 span :> obj
+        | _ when t = typeof<uint16> -> BitConverter.ToUInt16 span :> obj
+        | _ when t = typeof<int> -> BitConverter.ToInt32 span :> obj
+        | _ when t = typeof<uint32> -> BitConverter.ToUInt32 span :> obj
+        | _ when t = typeof<int64> -> BitConverter.ToInt64 span :> obj
+        | _ when t = typeof<uint64> -> BitConverter.ToUInt64 span :> obj
+        | _ when t = typeof<float32> -> BitConverter.ToSingle span :> obj
+        | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
+        | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
+        | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
+        | _ when t.IsEnum ->
+            let i = t.GetEnumUnderlyingType() |> bytesToObj bytes
+            Enum.ToObject(t, i)
+        | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
+
+    let rec reinterpretConcretes (sliceTerms : term list) t =
+        let bytes : byte array = Types.sizeOf t |> int |> Array.zeroCreate
+        let folder bytes slice =
+            match slice.term with
+            | Slice(term, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, {term = Concrete(:? int as pos, _)}) ->
+                let o = slicingTerm term
+                let sliceBytes = concreteToBytes o
+                let sliceStart = max s 0
+                // NOTE: 'pos = 0' is write case
+                let termStart = if pos = 0 then s else max (-s) 0
+                let e = min e (Array.length sliceBytes)
+                let count = e - sliceStart
+                if count > 0 then Array.blit sliceBytes sliceStart bytes termStart count
+                bytes
+            | _ -> internalfailf "expected concrete slice, but got %O" slice
+        let bytes = List.fold folder bytes sliceTerms
+        bytesToObj bytes (Types.toDotNetType t)
+
+    and private slicingTerm term =
+        match term with
+        | {term = Concrete(o, _)} -> o
+        | Combined(slices, t) -> reinterpretConcretes slices t
+        | _ -> internalfail "getting slicing term: unexpected term %O" term
+
+    let rec private allSlicesAreConcrete slices =
+        let rec sliceIsConcrete = function
+            | {term = Slice({term = Concrete _}, {term = Concrete _}, {term = Concrete _}, {term = Concrete _})} -> true
+            | Combined(slices, _) -> allSlicesAreConcrete slices
+            | _ -> false
+        List.forall sliceIsConcrete slices
+
     let combine terms t =
+        let defaultCase() = Expression Combine terms t
         assert(List.isEmpty terms |> not)
-        let concat = function
-            | Combined(terms, _) -> terms
-            | term -> List.singleton term
-        let terms = List.collect concat terms
-        // TODO: add heuristics: if all are concrete, reinterpret concretes
         match terms with
+        | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
         | [{term = Slice(t, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, _)}] when s = 0 && e = sizeOf t -> t
-        | _ -> Expression Combine terms t
+        | [{term = Slice _ }] -> defaultCase()
+        | [nonSliceTerm] -> nonSliceTerm
+        | _ -> defaultCase()
 
     let rec timeOf (address : heapAddress) =
         match address.term with
@@ -649,8 +723,11 @@ module internal Terms =
             doFold folder state indent
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state |> foldSeq folder vs
-        | Slice(term, first, termSize, pos) ->
-            foldSeq folder [term; first; termSize; pos] state
+        | Slice(t, s, e, pos) ->
+            let state = folder state t
+            let state = folder state s
+            let state = folder state e
+            folder state pos
         | Union(terms) ->
             foldSeq folder (List.unzip terms |> (fun (l1, l2) -> List.append l1 l2)) state
         | _ -> state
@@ -675,7 +752,7 @@ module internal Terms =
         | StackBufferIndex(_, idx) -> doFold folder state idx
 
     and foldPointerBase folder state = function
-        | HeapLocation heapAddress -> doFold folder state heapAddress
+        | HeapLocation(heapAddress, _) -> doFold folder state heapAddress
         | StackLocation _
         | StaticLocation _ -> state
 
@@ -718,6 +795,9 @@ module internal Terms =
         match typ with
         | Bool -> False
         | Numeric(Id t) when t.IsEnum -> castConcrete (Activator.CreateInstance t) t
+        // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
+        // TODO: change serializer
+        | Numeric(Id t) when t = typeof<char> -> makeNumber (char 33)
         | Numeric(Id t) -> castConcrete 0 t
         | ByRef _
         | ArrayType _

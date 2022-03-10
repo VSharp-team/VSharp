@@ -1,18 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <TargetFramework>netcoreapp6.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
     <PropertyGroup>
+        <TargetFramework>netcoreapp6.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <RootNamespace>VSharp.Runner</RootNamespace>
     </PropertyGroup>

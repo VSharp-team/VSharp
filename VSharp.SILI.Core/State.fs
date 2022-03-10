@@ -94,9 +94,9 @@ with
     member x.Complete value =
         if x.complete then
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
-            match value with
-            | {term = Constant(_, _, typ)} -> makeDefaultValue typ
-            | {term = HeapRef({term = Constant _}, _)} -> nullRef
+            match value.term with
+            | Constant(_, _, typ) -> makeDefaultValue typ
+            | HeapRef({term = Constant _}, _) -> nullRef
             | _ -> value
         else value
 
@@ -108,7 +108,7 @@ with
                 x.Complete value
             | { term = Constant(_, source, typ) } ->
                 let value = ref Nop
-                if x.subst.TryGetValue(source, value) then !value
+                if x.subst.TryGetValue(source, value) then value.Value
                 elif x.complete then makeDefaultValue typ
                 else term
             | _ -> term) id id term

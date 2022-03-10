@@ -9,7 +9,7 @@
 #define COND INT_PTR
 #define OFFSET UINT32
 
-namespace icsharp {
+namespace vsharp {
 
 /// ------------------------------ Commands ---------------------------
 
@@ -27,12 +27,14 @@ enum EvalStackArgType {
     OpRef = 6
 };
 
+union OperandContent {
+    long long number;
+    VirtualAddress address;
+};
+
 struct EvalStackOperand {
     EvalStackArgType typ;
-    union {
-        long long number;
-        VirtualAddress address;
-    } content;
+    OperandContent content;
 
     size_t size() const {
         if (typ == OpRef)
@@ -114,7 +116,7 @@ struct ExecCommand {
 };
 
 void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOperand *ops, ExecCommand &command) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
     command.offset = offset;
     command.isBranch = isBranch ? 1 : 0;
@@ -166,33 +168,36 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     command.newAddressesTypes = begin;
 }
 
-bool readExecResponse(StackFrame &top, EvalStackOperand *&ops, unsigned count, int &framesCount) {
+bool readExecResponse(StackFrame &top, EvalStackOperand *ops, unsigned &count, int &framesCount, EvalStackOperand &result) {
     char *bytes; int messageLength;
-    if (!protocol->waitExecResult(bytes, messageLength)) {
-        return false;
+    protocol->acceptExecResult(bytes, messageLength);
+    char *start = bytes;
+    framesCount = *(int*)bytes; bytes += sizeof(int);
+    char lastPush = *(char*)bytes; bytes += sizeof(char);
+    int opsLength = *(int*)bytes; bytes += sizeof(int);
+    bool hasInternalCallResult = *(char*)bytes > 0; bytes += sizeof(char);
+    bool opsConcretized = opsLength > -1;
+    if (lastPush > 0) {
+        bool returnValueIsConcrete = (lastPush == 2);
+        top.push1(returnValueIsConcrete);
     }
-    assert(messageLength >= 1);
-    int index = 0;
-    framesCount = *(int*)bytes; index += sizeof(int);
-    bool returnsValue = bytes[index] > 0; index += 1;
-    bool allConcrete = false;
-    if (returnsValue) {
-        assert(messageLength >= 2);
-        allConcrete = bytes[index] > 0; index += 1;
-        tout << "allConcrete = " << allConcrete << std::endl;
-        top.push1(allConcrete);
-    }
-    bytes += index;
 
-    if (messageLength > 2) {
-        assert(messageLength >= 5);
-        count = *((unsigned *)bytes);
-        bytes += sizeof(unsigned);
-        for (unsigned i = 0; i < count; ++i) {
+    if (opsConcretized) {
+        // NOTE: if internal call with symbolic arguments has concrete result, no arguments concretization is needed, so opsLength = 0
+        assert(opsLength == count || opsLength == 0);
+        for (unsigned i = 0; i < opsLength; ++i)
             ops[i].deserialize(bytes);
-        }
     }
-    return allConcrete;
+    count = opsLength;
+
+    if (hasInternalCallResult) {
+        // NOTE: internal call with symbolic arguments but concrete result
+        result.deserialize(bytes);
+    }
+    assert(bytes - start == messageLength);
+
+    delete start;
+    return opsConcretized;
 }
 
 void freeCommand(ExecCommand &command) {
@@ -203,42 +208,52 @@ void freeCommand(ExecCommand &command) {
     delete[] command.newAddressesTypes;
 }
 
+void updateMemory(EvalStackOperand &op, unsigned int idx) {
+    switch (op.typ) {
+        case OpI4:
+            update_i4((INT32) op.content.number, (INT8) idx);
+            break;
+        case OpI8:
+            update_i8((INT64) op.content.number, (INT8) idx);
+            break;
+        case OpR4:
+            update_f4(op.content.number, (INT8) idx);
+            break;
+        case OpR8:
+            update_f8(op.content.number, (INT8) idx);
+            break;
+        case OpRef:
+            update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
+            break;
+        case OpSymbolic:
+            FAIL_LOUD("updateMemory: unexpected symbolic value after concretization!");
+    }
+}
 bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     ExecCommand command;
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
-    freeCommand(command);
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     int framesCount;
-    bool allConcrete = readExecResponse(top, ops, opsCount, framesCount);
-    if (allConcrete) {
+    EvalStackOperand internalCallResult = EvalStackOperand {OpSymbolic, 0};
+    unsigned oldOpsCount = opsCount;
+    bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
+    if (opsConcretized && opsCount > 0) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (const auto &poppedSymb : poppedSymbs) {
             assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
             unsigned idx = opsCount - poppedSymb.second - 1;
             assert(idx < opsCount);
             EvalStackOperand op = ops[idx];
-            switch (op.typ) {
-            case OpI4:
-                update_i4((INT32) op.content.number, (INT8) idx);
-                break;
-            case OpI8:
-                update_i8((INT64) op.content.number, (INT8) idx);
-                break;
-            case OpR4:
-                update_f4((FLOAT) (INT32) op.content.number, (INT8) idx);
-                break;
-            case OpR8:
-                update_f8((DOUBLE) op.content.number, (INT8) idx);
-                break;
-            case OpRef:
-                update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
-                break;
-            }
+            updateMemory(op, idx);
         }
     }
-    icsharp::stack().resetPopsTracking(framesCount);
-    return allConcrete;
+    if (internalCallResult.typ != OpSymbolic)
+        updateMemory(internalCallResult, oldOpsCount);
+
+    vsharp::stack().resetPopsTracking(framesCount);
+    freeCommand(command);
+    return opsConcretized;
 }
 
 bool sendCommand0(OFFSET offset) { return sendCommand(offset, 0, nullptr); }
@@ -247,10 +262,60 @@ bool sendCommand1(OFFSET offset) { return sendCommand(offset, 1, new EvalStackOp
 // TODO:
 EvalStackOperand mkop_4(INT32 op) { return {OpI4, (long long)op}; }
 EvalStackOperand mkop_8(INT64 op) { return {OpI8, (long long)op}; }
-EvalStackOperand mkop_f4(FLOAT op) { return {OpR4, (long long)op}; }
-EvalStackOperand mkop_f8(DOUBLE op) { return {OpR8, (long long)op}; }
-EvalStackOperand mkop_p(INT_PTR op) { return {.typ = OpRef, .content = {.address = resolve(op)}}; }
+EvalStackOperand mkop_f4(FLOAT op) {
+    auto tmp = (DOUBLE) op;
+    assert(sizeof(DOUBLE) == sizeof(long long));
+    long long result;
+    memcpy(&result, &tmp, sizeof(long long));
+    return {OpR4, result };
+}
+EvalStackOperand mkop_f8(DOUBLE op) {
+    assert(sizeof(DOUBLE) == sizeof(long long));
+    long long result;
+    memcpy(&result, &op, sizeof(long long));
+    return {OpR8, result};
+}
+EvalStackOperand mkop_p(INT_PTR op) {
+    OperandContent content;
+    content.address = resolve(op);
+    return {OpRef, content};
+}
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
+
+EvalStackOperand* createOps(int opsCount) {
+    auto ops = new EvalStackOperand[opsCount];
+    for (int i = 0; i < opsCount; ++i) {
+        CorElementType type = unmemType((INT8) i);
+        switch (type) {
+            case ELEMENT_TYPE_I1:
+                ops[i] = mkop_4(unmem_i1((INT8) i));
+                break;
+            case ELEMENT_TYPE_I2:
+                ops[i] = mkop_4(unmem_i2((INT8) i));
+                break;
+            case ELEMENT_TYPE_I4:
+                ops[i] = mkop_4(unmem_i4((INT8) i));
+                break;
+            case ELEMENT_TYPE_I8:
+                ops[i] = mkop_8(unmem_i8((INT8) i));
+                break;
+            case ELEMENT_TYPE_R4:
+                ops[i] = mkop_f4(unmem_f4((INT8) i));
+                break;
+            case ELEMENT_TYPE_R8:
+                ops[i] = mkop_f8(unmem_f8((INT8) i));
+                break;
+            case ELEMENT_TYPE_PTR:
+                ops[i] = mkop_p(unmem_p((INT8) i));
+                break;
+            default:
+                LOG(tout << "type = " << type << std::endl);
+                FAIL_LOUD("Exec_Call: not implemented");
+                break;
+        }
+    }
+    return ops;
+}
 
 /// ------------------------------ Probes declarations ---------------------------
 
@@ -267,7 +332,7 @@ int registerProbe(unsigned long long probe) {
     RETTYPE STDMETHODCALLTYPE NAME ARGS
 
 inline bool ldarg(INT16 idx) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     top.pop0();
     bool concreteness = top.arg(idx);
     if (concreteness) {
@@ -284,7 +349,7 @@ PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCom
 PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
 
 inline bool ldloc(INT16 idx) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     top.pop0();
     bool concreteness = top.loc(idx);
     if (concreteness) {
@@ -301,7 +366,7 @@ PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCom
 PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
 
 inline bool starg(INT16 idx) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool concreteness = top.pop1();
     top.setArg(idx, concreteness);
     return concreteness;
@@ -311,7 +376,7 @@ PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCom
 
 inline bool stloc(INT16 idx) {
     // TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool concreteness = top.pop1();
     top.setLoc(idx, concreteness);
     return concreteness;
@@ -324,7 +389,12 @@ PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCo
 PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
-PROBE(void, Track_Dup, (OFFSET offset)) { if (!topFrame().dup()) sendCommand1(offset); }
+PROBE(void, Track_Dup, (OFFSET offset)) {
+    if (!topFrame().dup()) {
+        sendCommand1(offset);
+        topFrame().push1(false);
+    }
+}
 PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
 
 inline bool branch(OFFSET offset) {
@@ -342,7 +412,7 @@ PROBE(void, Switch, (OFFSET offset)) {
 }
 
 PROBE(void, Track_UnOp, (UINT16 op, OFFSET offset)) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool concreteness = top.pop1();
     if (concreteness)
         top.push1Concrete();
@@ -350,7 +420,7 @@ PROBE(void, Track_UnOp, (UINT16 op, OFFSET offset)) {
         sendCommand1(offset);
 }
 PROBE(COND, Track_BinOp, ()) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool concreteness = top.pop(2);
     if (concreteness)
         top.push1Concrete();
@@ -394,7 +464,7 @@ PROBE(void, Exec_Stind_R8, (INT_PTR ptr, DOUBLE value, OFFSET offset)) { sendCom
 PROBE(void, Exec_Stind_ref, (INT_PTR ptr, INT_PTR value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) }); }
 
 inline void conv(OFFSET offset) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool concreteness = top.pop1();
     if (concreteness)
         top.push1Concrete();
@@ -469,7 +539,7 @@ PROBE(void, Track_Isinst, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*T
 
 PROBE(void, Track_Box, (INT_PTR ptr, OFFSET offset)) {
     // TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     top.pop1();
     top.push1Concrete();
 }
@@ -477,7 +547,7 @@ PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TO
 PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 
 inline bool ldfld(INT_PTR fieldPtr, INT32 fieldSize) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     bool ptrIsConcrete = top.pop1();
     bool fieldIsConcrete = false;
     if (ptrIsConcrete) fieldIsConcrete = heap.read(fieldPtr, fieldSize);
@@ -489,13 +559,13 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
     if (!ldfld(objPtr + fieldOffset, fieldSize)) {
         sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(objPtr) });
     } else {
-        icsharp::topFrame().push1Concrete();
+        vsharp::topFrame().push1Concrete();
     }
 }
 PROBE(void, Track_Ldflda, (INT_PTR fieldPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
 
 inline bool stfld(mdToken fieldToken, INT_PTR ptr) {
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     // TODO: check concreteness of memory referenced by ptr
     return top.pop(2);
 }
@@ -544,12 +614,12 @@ PROBE(void, Track_Stsfld, (mdToken fieldToken, OFFSET offset)) {
 
 PROBE(COND, Track_Ldelema, (INT_PTR ptr, INT_PTR index)) {
     // TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     return top.pop1() && top.peek0();
 }
 PROBE(COND, Track_Ldelem, (INT_PTR ptr, INT_PTR index)) {
     // TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     return top.pop1() && top.peek0();
 }
 PROBE(void, Exec_Ldelema, (INT_PTR ptr, INT_PTR index, OFFSET offset)) { /*send command*/ }
@@ -557,7 +627,7 @@ PROBE(void, Exec_Ldelem, (INT_PTR ptr, INT_PTR index, OFFSET offset)) { /*send c
 
 PROBE(COND, Track_Stelem, (INT_PTR ptr, INT_PTR index)) {
     // TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     return top.pop(3);
 }
 PROBE(void, Exec_Stelem_I, (INT_PTR ptr, INT_PTR index, INT_PTR value, OFFSET offset)) { /*send command*/ }
@@ -584,7 +654,7 @@ PROBE(void, Track_Mkrefany, ()) {
 }
 
 PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount)) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     assert(!stack.isEmpty());
     StackFrame *top = &stack.topFrame();
     unsigned expected = top->resolvedToken();
@@ -610,7 +680,7 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
 
 PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
     mainEntered();
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     assert(stack.isEmpty());
     auto args = new bool[argsCount];
     memset(args, argsConcreteness, argsCount);
@@ -620,7 +690,7 @@ PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConc
 }
 
 PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
 #ifdef _DEBUG
     assert(returnValues == 0 || returnValues == 1);
@@ -646,7 +716,7 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
 }
 
 void leaveMain(OFFSET offset, UINT8 opsCount, EvalStackOperand *ops) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
     LOG(tout << "Main left!");
     if (opsCount > 0) {
@@ -667,7 +737,7 @@ PROBE(void, Track_LeaveMain_f8, (DOUBLE returnValue, OFFSET offset)) { leaveMain
 PROBE(void, Track_LeaveMain_p, (INT_PTR returnValue, OFFSET offset)) { leaveMain(offset, 1, new EvalStackOperand[1] { mkop_p(returnValue) }); }
 
 PROBE(void, Finalize_Call, (UINT8 returnValues)) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     if (!stack.topFrame().hasEntered()) {
         // Extern has been called, should pop its frame and push return result onto stack
         stack.popFrame();
@@ -685,44 +755,15 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
-    auto ops = new EvalStackOperand[argsCount];
-    for (int i = 0; i < argsCount; ++i) {
-        CorElementType type = unmemType((INT8) i);
-        switch (type) {
-            case ELEMENT_TYPE_I1:
-                ops[i] = mkop_4(unmem_i1((INT8) i));
-                break;
-            case ELEMENT_TYPE_I2:
-                ops[i] = mkop_4(unmem_i2((INT8) i));
-                break;
-            case ELEMENT_TYPE_I4:
-                ops[i] = mkop_4(unmem_i4((INT8) i));
-                break;
-            case ELEMENT_TYPE_I8:
-                ops[i] = mkop_8(unmem_i8((INT8) i));
-                break;
-            case ELEMENT_TYPE_R4:
-                ops[i] = mkop_f4(unmem_f4((INT8) i));
-                break;
-            case ELEMENT_TYPE_R8:
-                ops[i] = mkop_f8(unmem_f8((INT8) i));
-                break;
-            case ELEMENT_TYPE_PTR:
-                ops[i] = mkop_p(unmem_p((INT8) i));
-                break;
-            default:
-                LOG(tout << "type = " << type << std::endl);
-                FAIL_LOUD("Exec_Call: not implemented");
-        }
-    }
+    auto ops = createOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
 PROBE(COND, Track_Call, (UINT16 argsCount)) {
-    return icsharp::stack().topFrame().pop(argsCount);
+    return vsharp::stack().topFrame().pop(argsCount);
 }
 
 PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
-    Stack &stack = icsharp::stack();
+    Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
     argsCount = newobj ? argsCount + 1 : argsCount;
     bool *argsConcreteness = new bool[argsCount];
@@ -734,7 +775,7 @@ PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
              << "\t\tbalance after pop: " << top.count() << "; pushing frame " << stack.framesCount() + 1 << std::endl);
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     for (auto &pair : poppedSymbs) {
-        assert((int)argsCount - (int)pair.second - 1 > 0);
+        assert((int)argsCount - (int)pair.second - 1 >= 0);
         unsigned idx = argsCount - pair.second - 1;
         assert(idx < argsCount);
         argsConcreteness[idx] = false;
@@ -757,7 +798,7 @@ PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
 
 PROBE(void, Track_Throw, (OFFSET offset)) {
     //TODO
-    StackFrame &top = icsharp::topFrame();
+    StackFrame &top = vsharp::topFrame();
     top.pop1();
 }
 PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
@@ -810,13 +851,15 @@ PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return unmem_f8(idx); }
 PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return unmem_p(idx); }
 
 PROBE(void, DumpInstruction, (UINT32 index)) {
+#ifdef _DEBUG
     const char *&s = stringsPool[index];
     if (!s) {
-        ERROR(tout << "Pool doesn't contain string with index " << index);
+        LOG_ERROR(tout << "Pool doesn't contain string with index " << index);
     } else {
-        StackFrame &top = icsharp::topFrame();
-        LOG(tout << "[Frame " << icsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
+        StackFrame &top = vsharp::topFrame();
+        LOG(tout << "[Frame " << vsharp::stack().framesCount() << "] Executing " << s << " (stack balance before = " << top.count() << ")" << std::endl);
     }
+#endif
 }
 
 }
