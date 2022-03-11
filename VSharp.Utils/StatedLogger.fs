@@ -7,7 +7,7 @@ open System.Text
 
 module StatedLogger =    
     let stateLogs = Dictionary<string, StringBuilder>()
-    let public log stateId message =
+    let public log stateId (message : string) =
         if not <| stateLogs.ContainsKey(stateId) then stateLogs.Add(stateId, StringBuilder())
         stateLogs.[stateId].AppendLine(message) |> ignore
         

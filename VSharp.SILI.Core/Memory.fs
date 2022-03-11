@@ -473,8 +473,8 @@ module internal Memory =
         match term.term with
         | Union gvs ->
             let filterUnsat (g, v) k =
-                let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
+                let pc = PC2.add state.pc g
+                if pc.IsTrivialFalse then k None
                 else Some (pc, v) |> k
             Cps.List.choosek filterUnsat gvs (fun pcs ->
             match pcs with
@@ -491,50 +491,71 @@ module internal Memory =
 
     let guardedStatedMap mapper state term =
         commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
-
+        
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        // Returns PC containing only constraints dependent with cond
+        let keepDependentWith (pc : PC2.PathCondition) cond =
+            pc.Fragments
+            |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
+            |> Option.defaultValue pc
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
             thenBranch thenState (fun thenResult ->
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->
-        let thenPc = PC.add state.pc condition
-        let elsePc = PC.add state.pc (!!condition)
-        if PC.isFalse thenPc then
+        conditionInvocation state (fun (condition, conditionState) ->        
+        let negatedCondition = !!condition
+        let thenPc = PC2.add state.pc condition
+        let elsePc = PC2.add state.pc negatedCondition
+        let independentThenPc = keepDependentWith thenPc condition
+        // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
+        let independentElsePc = keepDependentWith elsePc negatedCondition 
+        if independentThenPc.IsTrivialFalse then
             conditionState.pc <- elsePc
             elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse elsePc then
+        elif independentElsePc.IsTrivialFalse then
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
-            conditionState.pc <- thenPc
+            conditionState.pc <- independentThenPc
             match SolverInteraction.checkSat conditionState with
             | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- elsePc
+                conditionState.pc <- independentElsePc
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
                     __insufficientInformation__ "Unable to witness branch"
                 | SolverInteraction.SmtSat model ->
+                    conditionState.pc <- elsePc
                     conditionState.model <- Some model.mdl
+                    StatedLogger.log conditionState.id $"Model stack: %s{model.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
+                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat model ->
-                conditionState.pc <- elsePc
-                conditionState.model <- Some model.mdl
+            | SolverInteraction.SmtSat thenModel ->
+                conditionState.pc <- independentElsePc
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
+                    conditionState.model <- Some thenModel.mdl
+                    StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat model ->
+                | SolverInteraction.SmtSat elseModel ->
+                    conditionState.pc <- thenPc
                     let thenState = conditionState
                     let elseState = copy conditionState elsePc
-                    elseState.model <- Some model.mdl
-                    thenState.pc <- thenPc
+                    StatedLogger.copy thenState.id elseState.id
+                    StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
+                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
+                    elseState.model <- Some elseModel.mdl
+                    thenState.model <- Some thenModel.mdl
                     execution thenState elseState condition k)
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
@@ -721,74 +742,8 @@ module internal Memory =
     let private checkBlockBounds state reportError blockSize startByte endByte =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        state.pc.Add (makeExpressionNoOvf failCondition id)
         reportErrorIfNeed state reportError failCondition
-
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        // Returns PC containing only constraints dependent with cond
-        let keepDependentWith (pc : PC2.PathCondition) cond =
-            pc.Fragments
-            |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
-            |> Option.defaultValue pc
-        let execution thenState elseState condition k =
-            assert (condition <> True && condition <> False)
-            thenBranch thenState (fun thenResult ->
-            elseBranch elseState (fun elseResult ->
-            merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->        
-        let negatedCondition = !!condition
-        let thenPc = PC2.add state.pc condition
-        let elsePc = PC2.add state.pc negatedCondition
-        let independentThenPc = keepDependentWith thenPc condition
-        // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
-        let independentElsePc = keepDependentWith elsePc negatedCondition 
-        if independentThenPc.IsTrivialFalse then
-            conditionState.pc <- elsePc
-            elseBranch conditionState (List.singleton >> k)
-        elif independentElsePc.IsTrivialFalse then
-            conditionState.pc <- thenPc
-            thenBranch conditionState (List.singleton >> k)
-        else
-            conditionState.pc <- independentThenPc
-            match SolverInteraction.checkSat conditionState with
-            | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    __insufficientInformation__ "Unable to witness branch"
-                | SolverInteraction.SmtSat model ->
-                    conditionState.pc <- elsePc
-                    conditionState.model <- Some model.mdl
-                    StatedLogger.log conditionState.id $"Model stack: %s{model.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
-                    elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtUnsat _ ->
-                conditionState.pc <- elsePc
-                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
-                elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat thenModel ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    conditionState.pc <- thenPc
-                    conditionState.model <- Some thenModel.mdl
-                    StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
-                    thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat elseModel ->
-                    conditionState.pc <- thenPc
-                    let thenState = conditionState
-                    let elseState = copy conditionState elsePc
-                    StatedLogger.copy thenState.id elseState.id
-                    StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
-                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
-                    elseState.model <- Some elseModel.mdl
-                    thenState.model <- Some thenModel.mdl
-                    execution thenState elseState condition k)
 
     let private readAddressUnsafe address startByte endByte =
         let size = Terms.sizeOf address
@@ -810,7 +765,7 @@ module internal Memory =
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe (makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte endByte
+        readFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
     and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
@@ -1137,7 +1092,7 @@ module internal Memory =
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe (makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 

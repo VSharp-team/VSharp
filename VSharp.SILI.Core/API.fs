@@ -66,7 +66,7 @@ module API =
             | {term = ConcreteHeapAddress _} -> ()
             | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
 
-        PC.toSeq state.pc |> Seq.iter (term >> function
+        state.pc.ToSeq() |> Seq.iter (term >> function
             | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
             | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
             | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ

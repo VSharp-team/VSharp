@@ -719,7 +719,7 @@ module internal Z3 =
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                                 HeapRef address t
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.WriteSafe targetModel.state (Ref address) value
+                        let states = Memory.Write targetModel.state (Ref address) value
                         assert(states.Length = 1 && states.[0] = targetModel.state)
                     elif arr.IsConst then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
