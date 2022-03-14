@@ -772,10 +772,15 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      x.PrependDup &prependTarget
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
                      x.PrependProbeWithOffset(probes.unbox, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
+                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
                 | OpCodeValues.Unbox_Any ->
                      x.PrependDup &prependTarget
+                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.unboxAny, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
+                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
                 | OpCodeValues.Ldfld ->
                      x.PrependMem_p(0, 0, &prependTarget)
                      x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
@@ -869,6 +874,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Stobj -> __notImplemented__() // ?????????????????
                 | OpCodeValues.Box ->
                     x.AppendProbeWithOffset(probes.box, [], x.tokens.void_i_offset_sig, instr)
+                    x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Ldlen ->
                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
@@ -1142,11 +1148,18 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
                         if isInternalCall then
                             // TODO: if internal call raised exception, raise it in concolic
-                            let retType = Reflection.getMethodReturnType callee
-                            x.PrependLdcDefault(retType, &instr)
-                            let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, argsCount, &prependTarget)
+                            let hasResult = Reflection.hasNonVoidResult callee
+                            let unmem =
+                                if not hasResult then None
+                                else
+                                    let retType = Reflection.getMethodReturnType callee
+                                    x.PrependLdcDefault(retType, &instr)
+                                    let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, argsCount, &prependTarget)
+                                    Some (probe, token)
                             x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
-                            x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
+                            match unmem with
+                            | None -> ()
+                            | Some(probe, token) -> x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
                         else x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                         let br = x.PrependBranch(OpCodes.Br, &prependTarget)
 

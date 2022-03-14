@@ -22,7 +22,11 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
-    let initSymbolicFrame state (method : MethodBase) =
+    let mutable cilState : cilState =
+        cilState.suspended <- true
+        cilState
+
+    let initSymbolicFrame (method : MethodBase) = // TODO: unify with InitFunctionFrame
         let parameters = method.GetParameters() |> Seq.map (fun param ->
             (ParameterKey param, None, Types.FromDotNetType param.ParameterType)) |> List.ofSeq
         let locals =
@@ -36,11 +40,10 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             if Reflection.hasThis method then
                 (ThisKey method, None, Types.FromDotNetType method.DeclaringType) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
-        Memory.NewStackFrame state method (parametersAndThis @ locals)
-
-    let mutable cilState : cilState =
-        cilState.suspended <- true
-        cilState
+        Memory.NewStackFrame cilState.state method (parametersAndThis @ locals)
+        // NOTE: initializing all ipStack frames with -1 offset, because real offset of previous frames is unknown,
+        //       but length of ipStack must be equal to length of stack frames
+        CilStateOperations.pushToIp (ipOperations.instruction method -1) cilState
 
     let bindNewCilState newState =
         if not <| LanguagePrimitives.PhysicalEquality cilState newState then
@@ -119,13 +122,16 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     member x.IsRunning = isRunning
 
     member x.SynchronizeStates (c : execCommand) =
-        Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
+        let toPop = int c.callStackFramesPops
+        if toPop > 0 then CilStateOperations.popFramesOf toPop cilState
         assert(Memory.CallStackSize cilState.state > 0)
-        let initFrame state token =
-            let topMethod = Memory.GetCurrentExploringFunction state
+        let initFrame token =
+            let topMethod = Memory.GetCurrentExploringFunction cilState.state
             let method = Reflection.resolveMethod topMethod token
-            initSymbolicFrame state method
-        Array.iter (initFrame cilState.state) c.newCallStackFrames
+            initSymbolicFrame method
+        Array.iter initFrame c.newCallStackFrames
+        let topMethod = Memory.GetCurrentExploringFunction cilState.state
+        cilState.ipStack <- Instruction(int c.offset, topMethod) :: List.tail cilState.ipStack
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
         let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
         cilState.state.allocatedTypes <- allocatedTypes
@@ -142,7 +148,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | evalStackArgType.OpI8 ->
                     Concrete content TypeUtils.int64Type
                 | evalStackArgType.OpR4 ->
-                    Concrete (BitConverter.Int32BitsToSingle (int content)) TypeUtils.float32Type
+                    Concrete (BitConverter.Int64BitsToDouble content |> float32) TypeUtils.float32Type
                 | evalStackArgType.OpR8 ->
                     Concrete (BitConverter.Int64BitsToDouble content) TypeUtils.float64Type
                 | _ -> __unreachable__()
@@ -160,7 +166,6 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
-        cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
 
     member x.State with get() = cilState
@@ -222,8 +227,9 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         | None -> None
 
     member x.StepDone (steppedStates : cilState list) =
-        if CilStateOperations.currentMethod cilState |> InstructionsSet.isFSharpInternalCall then
-            callIsSkipped <- true
+        if CilStateOperations.methodEnded cilState then
+            let method = CilStateOperations.currentMethod cilState
+            if InstructionsSet.isFSharpInternalCall method then callIsSkipped <- true
             cilState
         else
             let concretizedOps =

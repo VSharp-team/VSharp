@@ -136,6 +136,7 @@ module public Reflection =
         match t with
         | _ when t = typeof<String> -> String.Empty :> obj
         | _ when TypeUtils.isNullable t -> null
+        | _ when t.IsArray -> null
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     // --------------------------------- Substitute generics ---------------------------------

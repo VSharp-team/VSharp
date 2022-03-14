@@ -86,7 +86,7 @@ module API =
                                      notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
             |> List.ofSeq
         let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = m.GetGenericArguments()
+        let methodGenericParameters = if m.IsGenericMethod then m.GetGenericArguments() else Array.empty
         let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
         | TypeSat(refsTypes, typeParams) ->

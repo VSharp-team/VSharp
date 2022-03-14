@@ -293,10 +293,15 @@ unsigned Stack::minTopSinceLastSent() const
     return m_minTopSinceLastSent;
 }
 
+void Stack::resetMinTop()
+{
+    m_minTopSinceLastSent = m_frames.size();
+}
+
 void Stack::resetPopsTracking(int framesCount)
 {
     m_lastSentTop = framesCount;
-    m_minTopSinceLastSent = m_frames.size();
+    resetMinTop();
     if (!m_frames.empty()) {
         m_frames.back().resetPopsTracking();
     }

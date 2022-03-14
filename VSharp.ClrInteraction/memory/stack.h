@@ -89,6 +89,7 @@ public:
 
     unsigned unsentPops() const;
     unsigned minTopSinceLastSent() const;
+    void Stack::resetMinTop();
     void resetPopsTracking(int framesCount);
 };
 

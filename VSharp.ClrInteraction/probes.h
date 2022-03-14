@@ -700,12 +700,19 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
 #endif
     if (returnValues) {
         bool returnValue = top.pop1();
-        stack.popFrame();
         if (!stack.isEmpty()) {
-            if (!top.isSpontaneous())
+            if (!top.isSpontaneous()) {
+                if (!returnValue) {
+                    sendCommand1(offset);
+                    // NOTE: popping return value from SILI
+                    top.pop1();
+                }
+                stack.popFrame();
                 stack.topFrame().push1(returnValue);
-            else
+            } else {
+                stack.popFrame();
                 LOG(tout << "Ignoring return type because of internal execution in unmanaged context..." << std::endl);
+            }
         } else {
             FAIL_LOUD("Function returned result, but there is no frame to push return value!")
         }
@@ -774,18 +781,21 @@ PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
     memset(newobj ? argsConcreteness + 1 : argsConcreteness, true, argsCount);
     LOG(tout << "Call: resolved_token = " << HEX(resolvedToken) << ", unresolved_token = " << HEX(unresolvedToken) << "\n"
              << "\t\tbalance after pop: " << top.count() << "; pushing frame " << stack.framesCount() + 1 << std::endl);
+    bool callHasSymbolicArgs = false;
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
     for (auto &pair : poppedSymbs) {
         assert((int)argsCount - (int)pair.second - 1 >= 0);
         unsigned idx = argsCount - pair.second - 1;
         assert(idx < argsCount);
         argsConcreteness[idx] = false;
+        callHasSymbolicArgs = true;
     }
     LOG(tout << "Args concreteness: ";
         for (unsigned i = 0; i < argsCount; ++i)
             tout << argsConcreteness[i];);
 
     stack.pushFrame(resolvedToken, unresolvedToken, argsConcreteness, argsCount);
+    if (callHasSymbolicArgs) stack.resetMinTop();
     delete[] argsConcreteness;
 }
 
