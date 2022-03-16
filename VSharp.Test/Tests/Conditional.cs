@@ -13,7 +13,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static bool IsMaxEven(int x, int y, int z)
+        public static bool IsMaxEven(int x, int y, int z) // TODO: need forks
         {
             return Max3(2 * x, 2 * y, z) % 2 == 0;
         }

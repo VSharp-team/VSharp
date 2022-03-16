@@ -253,7 +253,7 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static S UnboxAnyInterfaceToStructValid() {
+        public static S UnboxAnyInterfaceToStructValid() { // TODO: need struct support
             return UnboxAny<I, S>(new S());
         }
 

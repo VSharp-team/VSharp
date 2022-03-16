@@ -42,7 +42,7 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static B UnboxAny1()
+        public static B UnboxAny1() // TODO: need struct support
         {
             var b = new B(5);
             return Cast<B>(b);
@@ -63,14 +63,14 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static object UnboxAny4()
+        public static object UnboxAny4() // TODO: need concrete memory transport from concolic to SILI
         {
             var a = new A();
             return Cast<A>(a);
         }
 
         [TestSvm]
-        public static uint[] UnboxAny5()
+        public static uint[] UnboxAny5() // TODO: need struct support (to initilaizeArray with RuntimeFieldHandle -- struct)
         {
             var a = new int[] {1, 2, 3};
             return Cast<uint[]>(a);

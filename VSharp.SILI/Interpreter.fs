@@ -1224,6 +1224,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 callConstructor cilState ref (List.map (fun afterCall -> modifyValueResultIfConstructorWasCalled stackSizeBefore afterCall; afterCall))
             else
                 let ref = Memory.AllocateDefaultClass cilState.state constructedTermType
+                // TODO: if concolic mode, ref should not be pushed, concolic will do this
                 push ref cilState // NOTE: ref is used as result afterCall
                 callConstructor cilState ref id
 

@@ -34,7 +34,7 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static int NullLength()
+        public static int NullLength() // TODO: support exceptions
         {
             string s = null;
             return s.Length;
@@ -70,7 +70,7 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static char GetCharOfString()
+        public static char GetCharOfString() // TODO: TypeSpec doesn't have Char[] in it, so emit token in AcceptTypeToken
         {
             char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
             string str = new string(a);
