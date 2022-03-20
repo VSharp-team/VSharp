@@ -36,7 +36,6 @@
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />
         <Compile Include="PrettyPrinting.fs" />
-        <Compile Include="PersistentUnionFind.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
