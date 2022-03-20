@@ -1,31 +1,32 @@
-#include "communication/communicator.h"
-#include "logging.h"
-#include <stdio.h>
+#include "communicator.h"
+#include "../logging.h"
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <unistd.h>
-#include <string.h>
-#include <errno.h>
+#include <cstring>
+#include <cerrno>
 
-using namespace icsharp;
-
-#define FIFO_FILE "/tmp/concolic_fifo"
+using namespace vsharp;
 
 int fd;
 
 bool reportError() {
-    ERROR(tout << strerror(errno));
+    LOG_ERROR(tout << strerror(errno));
     return false;
 }
+
 bool Communicator::open() {
     fd = socket(AF_UNIX, SOCK_STREAM, 0);
-    if (fd < 0) 
+    if (fd < 0)
         return reportError();
     struct sockaddr_un addr;
     memset(&addr, 0, sizeof(addr));
     addr.sun_family = AF_UNIX;
-    strncpy(addr.sun_path, FIFO_FILE, sizeof(addr.sun_path)-1);
-    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0) 
+    std::string pipeEnvVar = "CONCOLIC_PIPE";
+    auto pipeFile = getenv(pipeEnvVar.c_str());
+    if (strlen(pipeFile) < 1) FAIL_LOUD("Invalid pipe environment variable!");
+    strncpy(addr.sun_path, pipeFile, strlen(pipeFile));
+    if (connect(fd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
         return reportError();
     return true;
 }

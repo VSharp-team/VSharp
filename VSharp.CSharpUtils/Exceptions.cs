@@ -40,6 +40,18 @@ namespace VSharp.CSharpUtils
             throw new ArgumentException();
         }
 
+        [Implements("System.Void System.DivideByZeroException..ctor(this)")]
+        public static void DivideByZeroException()
+        {
+            throw new ArgumentException();
+        }
+
+        [Implements("System.Void System.ArithmeticException..ctor(this)")]
+        public static void ArithmeticException()
+        {
+            throw new ArgumentException();
+        }
+
         [Implements("System.Void System.ArrayTypeMismatchException..ctor(this)")]
         public static void CreateArrayTypeMismatchException()
         {

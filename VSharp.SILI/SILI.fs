@@ -16,7 +16,12 @@ type public SILI(options : SiliOptions) =
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState None
-    let interpreter = ILInterpreter()
+    let isConcolicMode =
+        match options.executionMode with
+        | ConcolicMode -> true
+        | SymbolicMode -> false
+    let interpreter = ILInterpreter(isConcolicMode)
+
     let mutable entryIP : ip = Exit null
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
@@ -31,20 +36,23 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtSat _
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
-    let mkForwardSearcher = function
-        | BFSMode -> BFSSearcher(options.bound) :> IForwardSearcher
-        | DFSMode -> DFSSearcher(options.bound) :> IForwardSearcher
+    let mkForwardSearcher coverageZone = function
+        | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
+        | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
+        | GuidedMode ->
+            let baseSearcher = BFSSearcher(infty) :> IForwardSearcher
+            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
 
     let searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(coverageZone, searchMode) ->
-            BidirectionalSearcher(mkForwardSearcher searchMode, BackwardSearcher(), TargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
+            BidirectionalSearcher(mkForwardSearcher coverageZone searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
     let coveragePobsForMethod (method : MethodBase) =
         let cfg = CFG.findCfg method
         cfg.sortedOffsets |> Seq.map (fun offset ->
-            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
+            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition()})
         |> List.ofSeq
 
     let reportState reporter isError method cmdArgs state =
@@ -90,7 +98,9 @@ type public SILI(options : SiliOptions) =
 
     member private x.FormInitialStates (method : MethodBase) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
-        interpreter.InitializeStatics cilState method.DeclaringType List.singleton
+        match options.executionMode with
+        | ConcolicMode -> List.singleton cilState
+        | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
         // TODO: update pobs when visiting new methods; use coverageZone
@@ -158,7 +168,6 @@ type public SILI(options : SiliOptions) =
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
-            __notImplemented'__ "Concolic mode"
             initialStates |> List.iter (fun initialState ->
                 let machine = ClientMachine(entryPoint, (fun _ -> ()), initialState)
                 if not <| machine.Spawn() then
@@ -167,7 +176,7 @@ type public SILI(options : SiliOptions) =
             let machine =
                 if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
                 else __notImplemented'__ "Forking in concolic mode"
-            while machine.ExecCommand() do
+            while machine.State.suspended && machine.ExecCommand() do // TODO: make better interaction between concolic and SILI #do
                 x.BidirectionalSymbolicExecution entryIP
             // TODO: need to report? #do
 //            Logger.error "result state = %O" machine.State

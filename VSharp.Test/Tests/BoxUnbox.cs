@@ -94,7 +94,7 @@ namespace IntegrationTests
             return obj;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static object TrickyBox(int x)
         {
             if (x == 5)

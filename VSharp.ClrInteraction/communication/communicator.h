@@ -1,7 +1,7 @@
 #ifndef COMMUNICATOR_H_
 #define COMMUNICATOR_H_
 
-namespace icsharp {
+namespace vsharp {
 
 class Communicator {
 public:

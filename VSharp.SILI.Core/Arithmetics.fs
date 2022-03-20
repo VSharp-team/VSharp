@@ -142,7 +142,24 @@ module Calculator1 =
         let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
         compare.Invoke(x, y)
 
-    let IsZero x = Compare(x, 0) = 0
+    type unaryToIntDelegateType = delegate of obj -> int
+
+    let IsZero x =
+        assert(TypeUtils.isNumeric <| x.GetType())
+        let args = [| typeof<obj> |]
+        let isZero = DynamicMethod("IsZero", typeof<int>, args)
+        let il = isZero.GetILGenerator(256)
+        let zeroCase = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Brfalse, zeroCase)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(zeroCase)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        let isZero = isZero.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
+        isZero.Invoke(x) = 1
 
 [<AutoOpen>]
 module internal Arithmetics =

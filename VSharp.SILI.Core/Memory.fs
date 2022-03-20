@@ -36,7 +36,7 @@ module internal Memory =
         x = VectorTime.zero
 
     let addConstraint (s : state) cond =
-        s.pc <- PC.add s.pc cond
+        s.pc.Add cond
 
     let delinearizeArrayIndex ind lens lbs =
         let detachOne (acc, lens) lb =
@@ -138,7 +138,8 @@ module internal Memory =
         let locationType = typeOfHeapLocation state address
         if isAssignable locationType sightType then locationType
         else
-            assert(isAssignable sightType locationType)
+            if isAssignable sightType locationType |> not then
+                Logger.trace "mostConcreteTypeOfHeapRef: Sight type (%O) of address %O differs from type in heap (%O)" sightType address locationType
             sightType
 
     let baseTypeOfAddress state address =
@@ -153,7 +154,7 @@ module internal Memory =
         {object : term}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time = VectorTime.zero            
+            override x.Time = VectorTime.zero
             override x.IndependentWith otherSource =
                 match otherSource with
                 | :? hashCodeSource as otherHashCodeSource ->
@@ -417,6 +418,8 @@ module internal Memory =
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
             match tryTermToObj state value with
+            // field was not found in the structure, skipping it
+            | _ when fieldInfo = null -> k ()
             // field can be converted to obj, so continue
             | Some v -> fieldInfo.SetValue(structObj, v) |> k
             // field can not be converted to obj, so break and return None
@@ -432,7 +435,123 @@ module internal Memory =
         | _ when hasValue = False -> Some null
         | _ -> None
 
-// ------------------------------- Reading -------------------------------
+    // ------------------------------- Merging -------------------------------
+
+    let rec findCommonSuffix common pc1 pc2 =
+        match pc1, pc2 with
+        | [], [] -> [], [], common
+        | [], rest2 -> [], rest2, common
+        | rest1, [] -> rest1, [], common
+        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
+        | _ -> pc1, pc2, common
+
+    let private merge2StatesInternal state1 state2 =
+        if state1.stack <> state2.stack then None
+        else
+            // TODO: implement it! See InterpreterBase::interpret::merge
+            None
+
+    let merge2States state1 state2 =
+        match merge2StatesInternal state1 state2 with
+        | Some state -> [state]
+        | None -> [state1; state2]
+
+    let merge2Results (term1 : term, state1) (term2, state2) =
+        match merge2StatesInternal state1 state2 with
+        | Some _ -> __notImplemented__()
+        | None -> [(term1, state1); (term2, state2)]
+
+    let mergeStates states =
+        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
+        states
+
+    let mergeResults (results : (term * state) list) =
+        // TODO
+        results
+
+    let commonGuardedStatedApplyk f state term mergeResults k =
+        match term.term with
+        | Union gvs ->
+            let filterUnsat (g, v) k =
+                let pc = PC.add g state.pc
+                if pc.IsFalse then k None
+                else Some (pc, v) |> k
+            Cps.List.choosek filterUnsat gvs (fun pcs ->
+            match pcs with
+            | [] -> k []
+            | (pc, v)::pcs ->
+                let copyState (pc, v) k = f (copy state pc) v k
+                Cps.List.mapk copyState pcs (fun results ->
+                    state.pc <- pc
+                    f state v (fun r ->
+                    r::results |> mergeResults |> k)))
+        | _ -> f state term (List.singleton >> k)
+    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
+    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
+
+    let guardedStatedMap mapper state term =
+        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
+
+    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let keepDependentWith (pc : PC.PathCondition) cond =
+            pc.Fragments
+            |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
+            |> Option.defaultValue pc
+        let execution thenState elseState condition k =
+            assert (condition <> True && condition <> False)
+            thenBranch thenState (fun thenResult ->
+            elseBranch elseState (fun elseResult ->
+            merge2Results thenResult elseResult |> k))
+        conditionInvocation state (fun (condition, conditionState) ->
+        let negatedCondition = !!condition
+        let thenPc = PC.add condition state.pc
+        let elsePc = PC.add negatedCondition state.pc
+        let independentThenPc = keepDependentWith thenPc condition
+        // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
+        let independentElsePc = keepDependentWith elsePc negatedCondition
+        if thenPc.IsFalse then
+            conditionState.pc <- elsePc
+            elseBranch conditionState (List.singleton >> k)
+        elif elsePc.IsFalse then
+            conditionState.pc <- thenPc
+            thenBranch conditionState (List.singleton >> k)
+        else
+            conditionState.pc <- independentThenPc
+            match SolverInteraction.checkSat conditionState with
+            | SolverInteraction.SmtUnknown _ ->
+                conditionState.pc <- independentElsePc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    __insufficientInformation__ "Unable to witness branch"
+                | SolverInteraction.SmtSat elseModel ->
+                    conditionState.pc <- elsePc
+                    conditionState.model <- Some elseModel.mdl
+                    elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtUnsat _ ->
+                conditionState.pc <- elsePc
+                elseBranch conditionState (List.singleton >> k)
+            | SolverInteraction.SmtSat thenModel ->
+                conditionState.pc <- independentElsePc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- thenPc
+                    thenBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat elseModel ->
+                    conditionState.model <- Some thenModel.mdl
+                    let thenState = conditionState
+                    let elseState = copy conditionState elsePc
+                    elseState.model <- Some elseModel.mdl
+                    thenState.pc <- thenPc
+                    execution thenState elseState condition k)
+
+    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
+        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
+    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
+        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
+
+// ------------------------------- Safe reading -------------------------------
 
     let private accessRegion (dict : pdict<'a, memoryRegion<'key, 'reg>>) key typ =
         match PersistentDict.tryFind dict key with
@@ -598,162 +717,26 @@ module internal Memory =
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
-// ------------------------------- General reading -------------------------------
+// ------------------------------- Unsafe reading -------------------------------
 
-    // TODO: take type of heap address
-    let rec read state reference =
-        match reference.term with
-        | Ref address -> readSafe state address
-        | Ptr _ -> internalfailf "reading ptr %O from safe context" reference
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
-        | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
+    let private reportErrorIfNeed state reportError failCondition =
+        commonStatedConditionalExecutionk state
+            (fun state k -> k (!!failCondition, state))
+            (fun _ k -> k ())
+            (fun state k -> k (reportError state))
+            (fun _ _ -> [])
+            ignore
 
-    let isTypeInitialized state (typ : symbolicType) =
-        let key : symbolicTypeKey = {typ=typ}
-        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
-        match matchingTypes with
-        | [x] when x = key -> True
-        | _ ->
-            let name = sprintf "%O_initialized" typ
-            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
-            Constant name source Bool
-
-// ------------------------------- Merging -------------------------------
-
-    let rec findCommonSuffix common pc1 pc2 =
-        match pc1, pc2 with
-        | [], [] -> [], [], common
-        | [], rest2 -> [], rest2, common
-        | rest1, [] -> rest1, [], common
-        | x :: xs, y :: ys when x = y -> findCommonSuffix (y :: common) xs ys
-        | _ -> pc1, pc2, common
-
-    let private merge2StatesInternal state1 state2 =
-        if state1.stack <> state2.stack then None
-        else
-            // TODO: implement it! See InterpreterBase::interpret::merge
-            None
-
-    let merge2States state1 state2 =
-        match merge2StatesInternal state1 state2 with
-        | Some state -> [state]
-        | None -> [state1; state2]
-
-    let merge2Results (term1 : term, state1) (term2, state2) =
-        match merge2StatesInternal state1 state2 with
-        | Some _ -> __notImplemented__()
-        | None -> [(term1, state1); (term2, state2)]
-
-    let mergeStates states =
-        // TODO: implement merging by calling merge2StatesInternal one-by-one for each state
-        states
-
-    let mergeResults (results : (term * state) list) =
-        // TODO
-        results
-
-    let commonGuardedStatedApplyk f state term mergeResults k =
-        match term.term with
-        | Union gvs ->
-            let filterUnsat (g, v) k =
-                let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
-                else Some (pc, v) |> k
-            Cps.List.choosek filterUnsat gvs (fun pcs ->
-            match pcs with
-            | [] -> k []
-            | (pc, v)::pcs ->
-                let copyState (pc, v) k = f (copy state pc) v k
-                Cps.List.mapk copyState pcs (fun results ->
-                    state.pc <- pc
-                    f state v (fun r ->
-                    r::results |> mergeResults |> k)))
-        | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
-    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
-
-    let guardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
-
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        // Returns PC containing only constraints dependent with cond
-        let keepDependentWith pc cond =
-            PC.fragments pc
-            |> Seq.tryFind (PC.toSeq >> Seq.contains cond)
-            |> Option.defaultValue pc
-        let execution thenState elseState condition k =
-            assert (condition <> True && condition <> False)
-            thenBranch thenState (fun thenResult ->
-            elseBranch elseState (fun elseResult ->
-            merge2Results thenResult elseResult |> k))
-        conditionInvocation state (fun (condition, conditionState) ->        
-        let negatedCondition = !!condition
-        let thenPc = PC.add state.pc condition
-        let elsePc = PC.add state.pc negatedCondition
-        let independentThenPc = keepDependentWith thenPc condition
-        // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
-        let independentElsePc = keepDependentWith elsePc negatedCondition 
-        if PC.isFalse independentThenPc then
-            conditionState.pc <- elsePc
-            elseBranch conditionState (List.singleton >> k)
-        elif PC.isFalse independentElsePc then
-            conditionState.pc <- thenPc
-            thenBranch conditionState (List.singleton >> k)
-        else
-            conditionState.pc <- independentThenPc
-            match SolverInteraction.checkSat conditionState with
-            | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    __insufficientInformation__ "Unable to witness branch"
-                | SolverInteraction.SmtSat model ->
-                    conditionState.pc <- elsePc
-                    conditionState.model <- Some model.mdl
-                    StatedLogger.log conditionState.id $"Model stack: %s{model.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
-                    elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtUnsat _ ->
-                conditionState.pc <- elsePc
-                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
-                elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat thenModel ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
-                | SolverInteraction.SmtUnsat _
-                | SolverInteraction.SmtUnknown _ ->
-                    conditionState.pc <- thenPc
-                    conditionState.model <- Some thenModel.mdl
-                    StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
-                    thenBranch conditionState (List.singleton >> k)
-                | SolverInteraction.SmtSat elseModel ->
-                    conditionState.pc <- thenPc
-                    let thenState = conditionState
-                    let elseState = copy conditionState elsePc
-                    StatedLogger.copy thenState.id elseState.id
-                    StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
-                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
-                    elseState.model <- Some elseModel.mdl
-                    thenState.model <- Some thenModel.mdl
-                    execution thenState elseState condition k)
-
-    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
-    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
-        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
-
-    // ------------------------------- Unsafe reading -------------------------------
+    let private checkBlockBounds state reportError blockSize startByte endByte =
+        let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
+        // NOTE: disables overflow in solver
+        state.pc.Add (makeExpressionNoOvf failCondition id)
+        reportErrorIfNeed state reportError failCondition
 
     let private readAddressUnsafe address startByte endByte =
         let size = Terms.sizeOf address
-        match startByte.term, endByte with
-        | Concrete(:? int as s, _), Some({term = Concrete(:? int as e, _)}) when s = 0 && size = e -> List.singleton address
-        // CASE: reading ref (ldind.ref, ldelem.ref ..) by pointer from concolic
-        | Concrete(:? int as s, _), None when s = 0 -> List.singleton address
+        match startByte.term, endByte.term with
+        | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && size = e -> List.singleton address
         | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
 
     // NOTE: returns list of slices
@@ -765,16 +748,17 @@ module internal Memory =
         | Ptr _ -> readAddressUnsafe term startByte endByte
         | Concrete _
         | Constant _
-        | Expression _ -> Slice term startByte (Option.get endByte) startByte |> List.singleton // TODO: fix style #style
-        | _ -> __unreachable__()
+        | Expression _ -> Slice term startByte endByte startByte |> List.singleton
+        | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe readField false structType startByte endByte
+        readFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
-    and private getAffectedFields readField isStatic (blockType : symbolicType) startByte endByte =
+    and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
-        let blockSize = TypeUtils.internalSizeOf t |> int
+        let blockSize = CSharpUtils.LayoutUtils.ClassSize t
+        if isValueType blockType |> not then checkBlockBounds state reportError (makeNumber blockSize) startByte endByte
         let fields = Reflection.fieldsOf isStatic t
         let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
             fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, TypeUtils.internalSizeOf fieldInfo.FieldType |> int
@@ -797,141 +781,120 @@ module internal Memory =
             let fieldValue = readFieldOrZero fieldId
             let fieldOffset = makeNumber fieldOffset
             let startByte = sub startByte fieldOffset
-            let endByte = Option.map (fun endByte -> sub endByte fieldOffset) endByte
+            let endByte = sub endByte fieldOffset
             fieldId, fieldValue, startByte, endByte
-        match startByte.term, endByte with
-        | Concrete(:? int as o, _), Some({term = Concrete(:? int as s, _)}) ->
+        match startByte.term, endByte.term with
+        | Concrete(:? int as s, _), Concrete(:? int as e, _) ->
             let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o + s > fieldOffset && o < fieldOffset + fieldSize) then
-                    getField field :: affectedFields
-                else affectedFields
-            List.foldBack concreteGetField allFields List.empty
-        // TODO: fix style #style
-        | Concrete(:? int as o, _), None ->
-            let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
-                if (o >= fieldOffset && o < fieldOffset + fieldSize) then
+                if (e > fieldOffset && s < fieldOffset + fieldSize) then
                     getField field :: affectedFields
                 else affectedFields
             List.foldBack concreteGetField allFields List.empty
         | _ -> List.map getField allFields
 
-    and private readFieldsUnsafe readField isStatic (blockType : symbolicType) startByte endByte =
-        let affectedFields = getAffectedFields readField isStatic blockType startByte endByte
+    and private readFieldsUnsafe state reportError readField isStatic (blockType : symbolicType) startByte endByte =
+        let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
         List.collect (fun (_, v, s, e) -> readTermUnsafe v s e) affectedFields
-
-    let private checkUnsafeRead state reportError failCondition =
-        commonStatedConditionalExecutionk state
-            (fun state k -> k (!!failCondition, state))
-            (fun _ k -> k ())
-            (fun state k -> k (reportError state))
-            (fun _ _ -> [])
-            ignore
-
-    let private checkClassUnsafeRead state reportError classType offset viewSize =
-        let t = toDotNetType classType
-        let classSize = TypeUtils.internalSizeOf t |> int |> makeNumber
-        let failCondition = simplifyGreater (add offset viewSize) classSize id ||| simplifyLess offset (makeNumber 0) id
-        // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-        checkUnsafeRead state reportError failCondition
 
     // TODO: Add undefined behaviour:
     // TODO: 1. when reading info between fields
     // TODO: 3. when reading info outside block
     // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr
-    let private readClassUnsafe state reportError address classType offset sightType =
-        checkClassUnsafeRead state reportError classType offset (Option.get sightType |> sizeOf |> makeNumber)
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+    let private readClassUnsafe state reportError address classType offset (viewSize : int) =
+        let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readClassField state address fieldId
-        readFieldsUnsafe readField false classType offset endByte
+        readFieldsUnsafe state reportError readField false classType offset endByte
 
-    let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset size =
+    let arrayIndicesToOffset state address (elementType, dim, _ as arrayType) indices =
+        let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
+        let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
+        let linearIndex = linearizeArrayIndex lens lbs indices
+        mul linearIndex (sizeOf elementType |> makeNumber)
+
+    let private getAffectedIndices state reportError address (elementType, dim, _ as arrayType) offset viewSize =
         let concreteElementSize = sizeOf elementType
         let elementSize = makeNumber concreteElementSize
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
         let lbs = List.init dim (fun dim -> readLowerBound state address (makeNumber dim) arrayType)
         let arraySize = List.fold mul elementSize lens
-        let failCondition = simplifyGreater (Option.get size |> makeNumber |> add offset) arraySize id ||| simplifyLess offset (makeNumber 0) id
-        // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
-        checkUnsafeRead state reportError failCondition
+        checkBlockBounds state reportError arraySize offset (makeNumber viewSize |> add offset)
         let firstElement = div offset elementSize
         let elementOffset = rem offset elementSize
         let countToRead =
-            // TODO: fix style #style
-            match elementOffset.term, size with
-            | Concrete(:? int as i, _), Some size when i = 0 -> (size / concreteElementSize)
-            | Concrete(:? int, _), None -> 1
+            match elementOffset.term with
+            | Concrete(:? int as i, _) when (i + viewSize) % concreteElementSize = 0 -> (i + viewSize) / concreteElementSize
             // NOTE: if offset inside element > 0 then one more element is needed
-            | _, Some size -> (size / concreteElementSize) + 1
-            | _ -> internalfail "reading array using pointer Void*"
+            | _ -> (viewSize / concreteElementSize) + 1
         let getElement currentOffset i =
             let linearIndex = makeNumber i |> add firstElement
             let indices = delinearizeArrayIndex linearIndex lens lbs
             let element = readArrayIndex state address indices arrayType
             let startByte = sub offset currentOffset
-            let endByte = Option.map (makeNumber >> add startByte) size
+            let endByte = makeNumber viewSize |> add startByte
             (indices, element, startByte, endByte), add currentOffset elementSize
         List.mapFold getElement (mul firstElement elementSize) [0 .. countToRead - 1] |> fst
 
-    let private readArrayUnsafe state reportError address arrayType offset sightType =
-        let size = Option.map sizeOf sightType
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let indices = getAffectedIndices state reportError address (symbolicTypeToArrayType arrayType) offset size
+    let private readArrayUnsafe state reportError address arrayType offset viewSize =
+        let indices = getAffectedIndices state reportError address (symbolicTypeToArrayType arrayType) offset viewSize
         List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
 
-    let private readStringUnsafe state reportError address offset sightType =
-        let size = Option.map sizeOf sightType
+    let private readStringUnsafe state reportError address offset viewSize =
          // TODO: handle case, when reading string length
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let indices = getAffectedIndices state reportError address (Char, 1, true) offset size
+        let indices = getAffectedIndices state reportError address (Char, 1, true) offset viewSize
         List.collect (fun (_, elem, s, e) -> readTermUnsafe elem s e) indices
 
-    let private readStaticUnsafe state reportError t offset sightType =
-        checkClassUnsafeRead state reportError t offset (Option.get sightType |> sizeOf |> makeNumber)
-        let endByte = Option.map (sizeOf >> makeNumber >> add offset) sightType
+    let private readStaticUnsafe state reportError t offset (viewSize : int) =
+        let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readStaticField state t fieldId
-        readFieldsUnsafe readField true t offset endByte
+        readFieldsUnsafe state reportError readField true t offset endByte
+
+    let private readStackUnsafe state reportError loc offset (viewSize : int) =
+        let term = readStackLocation state loc
+        let locSize = Terms.sizeOf term |> makeNumber
+        let endByte = makeNumber viewSize |> add offset
+        checkBlockBounds state reportError locSize offset endByte
+        readTermUnsafe term offset endByte
 
     let private readUnsafe state reportError baseAddress offset sightType =
-        // TODO: fix style #style
-        let nonVoidType, combine = // TODO: this can be in case of reading ref or ptr, so size will be IntPtr.Size #do
-            match sightType with
-            | Void when isConcrete offset -> None, fun slices -> assert(List.length slices = 1); List.head slices
-            | Void -> internalfail "reading pointer Void* with symbolic offset"
-            | _ -> Some sightType, fun slices -> combine slices sightType
+        let viewSize = sizeOf sightType
         let slices =
             match baseAddress with
-            | HeapLocation loc ->
-                let typ = typeOfHeapLocation state loc
+            | HeapLocation(loc, sightType) ->
+                let typ = mostConcreteTypeOfHeapRef state loc sightType
                 match typ with
-                | StringType -> readStringUnsafe state reportError loc offset nonVoidType
-                | ClassType _ -> readClassUnsafe state reportError loc typ offset nonVoidType
-                | ArrayType _ -> readArrayUnsafe state reportError loc typ offset nonVoidType
+                | StringType -> readStringUnsafe state reportError loc offset viewSize
+                | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
+                | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
                 | StructType _ -> __notImplemented__() // TODO: boxed location?
                 | _ -> internalfailf "expected complex type, but got %O" typ
-            | StackLocation loc ->
-                // TODO: check bounds here #do
-                let term = readStackLocation state loc
-                let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
-                let viewSize = nonVoidType |> Option.get |> sizeOf |> int |> makeNumber
-                let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-                state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-                checkUnsafeRead state reportError failCondition
-                let endByte = Option.map (sizeOf >> makeNumber >> add offset) nonVoidType
-                readTermUnsafe term offset endByte
-            | StaticLocation loc ->
-                readStaticUnsafe state reportError loc offset nonVoidType
-        combine slices
+            | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
+            | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
+        combine slices sightType
 
-    let rec readIndirection state reportError reference =
+// --------------------------- General reading ---------------------------
+
+    let isTypeInitialized state (typ : symbolicType) =
+        let key : symbolicTypeKey = {typ=typ}
+        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
+        match matchingTypes with
+        | [x] when x = key -> True
+        | _ ->
+            let name = sprintf "%O_initialized" typ
+            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
+            Constant name source Bool
+
+    // TODO: take type of heap address
+    let rec read state reportError reference =
         match reference.term with
         | Ref address -> readSafe state address
         | Ptr(baseAddress, sightType, offset) -> readUnsafe state reportError baseAddress offset sightType
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state v)) |> Merging.merge
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state reportError v)) |> Merging.merge
         | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
 
 // ------------------------------- Writing -------------------------------
+
+    let allIndicesOfArray lbs lens =
+        List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
 
     let rec private ensureConcreteType typ =
         if isOpenType typ then __insufficientInformation__ "Cannot write value of generic type %O" typ
@@ -958,6 +921,14 @@ module internal Memory =
         let mr = accessRegion state.arrays arrayType elementType
         let key = {address = address; indices = indices}
         let mr' = MemoryRegion.write mr key value
+        state.arrays <- PersistentDict.add arrayType mr' state.arrays
+
+    let initializeArray state address indicesAndValues arrayType =
+        let elementType = fst3 arrayType
+        ensureConcreteType elementType
+        let mr = accessRegion state.arrays arrayType elementType
+        let keysAndValues = Seq.map (fun (i, v) -> {address = address; indices = i}, v) indicesAndValues
+        let mr' = MemoryRegion.memset mr keysAndValues
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
     let writeStaticField state typ (field : fieldId) value =
@@ -1018,7 +989,7 @@ module internal Memory =
             let value = array.GetValue(Array.ofList indices) |> objToTerm state (toDotNetType elemType)
             let termIndices = List.map makeNumber indices
             writeArrayIndexSymbolic state address termIndices arrayType value
-        let allIndices = List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
+        let allIndices = allIndicesOfArray lbs lens
         Seq.iter (writeIndex state) allIndices
         let termLBs = List.map (objToTerm state typeof<int>) lbs
         let termLens = List.map (objToTerm state typeof<int>) lens
@@ -1102,34 +1073,32 @@ module internal Memory =
                 let termSize = sizeOf termType |> makeNumber
                 let valueSize = Terms.sizeOf value |> makeNumber
                 let left = Slice term zero startByte zero
-                let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte |> Some)
+                let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte)
                 let right = Slice term (add startByte valueSize) termSize zero
                 combine ([left] @ valueSlices @ [right]) termType
-        | _ -> __unreachable__()
+        | _ -> internalfailf "writeTermUnsafe: unexpected term %O" term
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 
-    and private writeFieldsUnsafe readField isStatic (blockType : symbolicType) startByte value =
+    and private writeFieldsUnsafe state reportError readField isStatic (blockType : symbolicType) startByte value =
         let endByte = Terms.sizeOf value |> makeNumber |> add startByte
-        let affectedFields = getAffectedFields readField isStatic blockType startByte (Some endByte)
+        let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
         List.map (fun (id, v, s, _) -> id, writeTermUnsafe v s value) affectedFields
 
     let writeClassUnsafe state reportError address typ offset value =
-        checkClassUnsafeRead state reportError typ offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readClassField state address fieldId
-        let updatedFields = writeFieldsUnsafe readField false typ offset value
+        let updatedFields = writeFieldsUnsafe state reportError readField false typ offset value
         let writeField (fieldId, value) = writeClassField state address fieldId value
         List.iter writeField updatedFields
 
     let writeArrayUnsafe state reportError address arrayType offset value =
         let size = Terms.sizeOf value
         let arrayType = symbolicTypeToArrayType arrayType
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.ArrayElementsOffset)
-        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset size
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
@@ -1138,42 +1107,39 @@ module internal Memory =
     let private writeStringUnsafe state reportError address offset value =
         let size = Terms.sizeOf value
         let arrayType = Char, 1, true
-        let offset = sub offset (makeNumber CSharpUtils.LayoutUtils.StringElementsOffset)
-        let affectedIndices = getAffectedIndices state reportError address arrayType offset (Some size)
+        let affectedIndices = getAffectedIndices state reportError address arrayType offset size
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe element startByte value
             writeArrayIndex state address index arrayType updatedElement
         List.iter writeElement affectedIndices
 
     let writeStaticUnsafe state reportError staticType offset value =
-        checkClassUnsafeRead state reportError staticType offset (value |> Terms.sizeOf |> makeNumber)
         let readField fieldId = readStaticField state staticType fieldId
-        let updatedFields = writeFieldsUnsafe readField true staticType offset value
+        let updatedFields = writeFieldsUnsafe state reportError readField true staticType offset value
         let writeField (fieldId, value) = writeStaticField state staticType fieldId value
         List.iter writeField updatedFields
+
+    let writeStackUnsafe state reportError loc offset value =
+        let term = readStackLocation state loc
+        let locSize = Terms.sizeOf term |> makeNumber
+        let endByte = Terms.sizeOf value |> makeNumber |> add offset
+        checkBlockBounds state reportError locSize offset endByte
+        let updatedTerm = writeTermUnsafe term offset value
+        writeStackLocation state loc updatedTerm
 
     let private writeUnsafe state reportError baseAddress offset sightType value =
         assert(sightType = symbolicType.Void && isConcrete offset || sizeOf sightType = Terms.sizeOf value)
         match baseAddress with
-        | HeapLocation loc ->
-            let typ = typeOfHeapLocation state loc
+        | HeapLocation(loc, sightType) ->
+            let typ = mostConcreteTypeOfHeapRef state loc sightType
             match typ with
             | StringType -> writeStringUnsafe state reportError loc offset value
             | ClassType _ -> writeClassUnsafe state reportError loc typ offset value
             | ArrayType _ -> writeArrayUnsafe state reportError loc typ offset value
             | StructType _ -> __notImplemented__() // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
-        | StackLocation loc ->
-            let term = readStackLocation state loc
-            let locSize = term |> typeOf |> sizeOf |> int |> makeNumber
-            let viewSize = value |> Terms.sizeOf |> int |> makeNumber
-            let failCondition = simplifyGreater (add offset viewSize) locSize id &&& simplifyLess offset (makeNumber 0) id
-            state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id) // TODO: think more about overflow
-            checkUnsafeRead state reportError failCondition
-            let updatedTerm = writeTermUnsafe term offset value
-            writeStackLocation state loc updatedTerm
-        | StaticLocation loc ->
-            writeStaticUnsafe state reportError loc offset value
+        | StackLocation loc -> writeStackUnsafe state reportError loc offset value
+        | StaticLocation loc -> writeStaticUnsafe state reportError loc offset value
 
 // ------------------------------- General writing -------------------------------
 
@@ -1207,17 +1173,7 @@ module internal Memory =
         | ArrayLength(address, dimension, typ) -> writeLengthSymbolic state address dimension typ value
         | ArrayLowerBound(address, dimension, typ) -> writeLowerBoundSymbolic state address dimension typ value
 
-    let write state reference value =
-        guardedStatedMap
-            (fun state reference ->
-                match reference.term with
-                | Ref address -> writeSafe state address value
-                | Ptr _ -> internalfailf "writing by ptr %O from safe context" reference
-                | _ -> internalfailf "Writing: expected reference, but got %O" reference
-                state)
-            state reference
-
-    let writeIndirection state reportError reference value =
+    let write state reportError reference value =
         guardedStatedMap
             (fun state reference ->
                 match reference.term with
@@ -1511,7 +1467,7 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
+            let pc = PC.map (fillHoles state) state'.pc |> PC.unionWith state.pc
             // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
@@ -1534,7 +1490,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     id = Guid.NewGuid().ToString()
-                    pc = if isTrue g then pc else PC.add pc g
+                    pc = if isTrue g then pc else PC.add g pc
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack
@@ -1607,7 +1563,7 @@ module internal Memory =
         // TODO: print lower bounds?
         let sortBy sorter = Seq.sortBy (fst >> sorter)
         let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
+        let sb = if s.pc.IsEmpty then sb else s.pc.ToString() |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Concrete memory" sortVectorTime VectorTime.print toString sb (s.concreteMemory |> Seq.map (fun kvp -> (kvp.Key, kvp.Value)) |> PersistentDict.ofSeq)
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays

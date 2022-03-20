@@ -1,16 +1,14 @@
 #include "corProfiler.h"
 #include "corhlpr.h"
-#include "cComPtr.h"
 #include "profiler_pal.h"
 #include "logging.h"
 #include "instrumenter.h"
 #include "communication/protocol.h"
 #include "memory/memory.h"
-#include <string>
 
 #define UNUSED(x) (void)x
 
-using namespace icsharp;
+using namespace vsharp;
 
 CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr), instrumenter(nullptr)
 {
@@ -27,7 +25,7 @@ CorProfiler::~CorProfiler()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk)
 {
-    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo9), reinterpret_cast<void **>(&this->corProfilerInfo));
+    HRESULT queryInterfaceResult = pICorProfilerInfoUnk->QueryInterface(__uuidof(ICorProfilerInfo8), reinterpret_cast<void **>(&this->corProfilerInfo));
 
     if (FAILED(queryInterfaceResult))
     {
@@ -45,7 +43,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         COR_PRF_DISABLE_INLINING |
         COR_PRF_MONITOR_GC |
         COR_PRF_ENABLE_OBJECT_ALLOCATED |
-        COR_PRF_MONITOR_OBJECT_ALLOCATED;
+        COR_PRF_MONITOR_OBJECT_ALLOCATED |
+        COR_PRF_ENABLE_REJIT;
 
     // TODO: place IfFailRet here, log fails!
     auto hr = this->corProfilerInfo->SetEventMask(eventMask);
@@ -58,16 +57,17 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         ThreadID result;
         HRESULT hr = corProfilerInfo->GetCurrentThreadID(&result);
         if (hr != S_OK) {
-            ERROR(tout << "getting current thread failed with HRESULT = " << hr);
+            LOG_ERROR(tout << "getting current thread failed with HRESULT = " << std::hex << hr);
         }
         return result;
     };
     currentThread = currentThreadGetter;
 
-    instrumenter = new Instrumenter(*corProfilerInfo);
-
-    protocol = new icsharp::Protocol();
+    protocol = new vsharp::Protocol();
     if (!protocol->startSession()) return E_FAIL;
+
+    instrumenter = new Instrumenter(*corProfilerInfo, *protocol);
+    instrumenter->configureEntryPoint();
 
     return S_OK;
 }
@@ -221,7 +221,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID function
 //    std::cout << __FUNCTION__ << " " << std::hex << pToken << std::dec << std::endl;
     UNUSED(fIsSafeToBlock);
 
-    return instrumenter->instrument(functionId, *protocol);
+    return instrumenter->instrument(functionId);
 //    return S_OK;
 }
 
@@ -415,7 +415,6 @@ bool corElementTypeIsPrimitive(CorElementType corElementType) {
     }
 }
 
-// TODO: union resolveType and serialize type in one function?
 // TODO: use tree of type and store it in the heap
 void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::vector<bool> &isArray, std::vector<std::pair<CorElementType, int>> &arrayTypes, std::vector<mdTypeDef> &tokens, std::vector<int> &typeArgsCount, std::vector<WCHAR> &moduleNames, std::vector<int> &moduleSizes, std::vector<WCHAR> &assemblyNames, std::vector<int> &assemblySizes)
 {
@@ -433,7 +432,7 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
     } else {
         ModuleID moduleId;
         ClassID parent;
-        ULONG typeArgsNum;
+        ULONG32 typeArgsNum;
         mdTypeDef token;
         auto *typeArgs = new ClassID[0];
         hr = this->corProfilerInfo->GetClassIDInfo2(classId, &moduleId, &token, &parent, 0, &typeArgsNum, typeArgs);
@@ -496,7 +495,7 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
     auto assemblyNamesSize = (INT32)assemblyNames.size();
     auto assemblySizesSize = (INT32)assemblySizes.size();
     assert(tokensSize == typeArgsCountSize && typeArgsCountSize == moduleSizesSize && moduleSizesSize == assemblySizesSize);
-    typeLength = isValidSize * sizeof(bool) + isArraySize * sizeof(bool) + arrayTypesSize * (sizeof(CorElementType) + sizeof(int)) + tokensSize * sizeof(mdTypeDef) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
+    typeLength = isValidSize * sizeof(BYTE) + isArraySize * sizeof(BYTE) + arrayTypesSize * (sizeof(BYTE) + sizeof(INT32)) + tokensSize * sizeof(INT32) + typeArgsCountSize * sizeof(INT32) + moduleNamesSize * sizeof(WCHAR) + moduleSizesSize * sizeof(INT32) + assemblyNamesSize * sizeof(WCHAR) + assemblySizesSize * sizeof(INT32);
     type = new char[typeLength];
     char *begin = type;
     auto moduleNamesPtr = (char *) moduleNames.data();
@@ -505,18 +504,18 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
     int validObjectIndex = 0;
     int tokenIndex = 0;
     for (bool valid: isValid) {
-        auto checkValidPtr = (bool *)type;
-        *checkValidPtr = valid; type += sizeof(bool);
-        if (valid) {
-            auto arrayCheckPtr = (bool *)type;
+        auto checkValidPtr = (BYTE *)type;
+        *checkValidPtr = (BYTE) valid; type += sizeof(BYTE);
+        if (valid) { // TODO: delete valid option! #do
+            auto arrayCheckPtr = (BYTE *)type;
             bool arrayCheck = isArray[validObjectIndex];
-            *arrayCheckPtr = arrayCheck; type += sizeof(bool);
+            *arrayCheckPtr = (BYTE) arrayCheck; type += sizeof(BYTE);
             if (arrayCheck) {
                 auto arrayType = arrayTypes[arrayTypeIndex];
-                auto corElemTypePtr = (char *)type;
-                *corElemTypePtr = (char) arrayType.first; type += sizeof(char);
-                auto rankPtr = (int *)type;
-                *rankPtr = arrayType.second; type += sizeof(int);
+                auto corElemTypePtr = (BYTE *)type;
+                *corElemTypePtr = (BYTE) arrayType.first; type += sizeof(BYTE);
+                auto rankPtr = (INT32 *)type;
+                *rankPtr = arrayType.second; type += sizeof(INT32);
                 arrayTypeIndex++;
             } else {
                 auto tokenPtr = (mdTypeDef *)type;
@@ -532,11 +531,13 @@ void CorProfiler::serializeType(const std::vector<bool> &isValid, const std::vec
                 *moduleSizePtr = moduleSize; type += sizeof(INT32);
                 memcpy(type, moduleNamesPtr, moduleSize); type += moduleSize; moduleNamesPtr += moduleSize;
 
-                auto typeArgsCountPtr = (int *)type;
+                auto typeArgsCountPtr = (INT32 *)type;
                 *typeArgsCountPtr = typeArgsCount[tokenIndex]; type += sizeof(INT32);
                 tokenIndex++;
             }
             validObjectIndex++;
+        } else {
+            FAIL_LOUD("Type serialization: type was not resolved!");
         }
     }
     assert(tokenIndex == tokensSize && validObjectIndex == isArraySize);
@@ -856,7 +857,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ReJITCompilationStarted(FunctionID functi
     UNUSED(functionId);
     UNUSED(rejitId);
     UNUSED(fIsSafeToBlock);
-    return S_OK;
+    return instrumenter->reInstrument(functionId);
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::GetReJITParameters(ModuleID moduleId, mdMethodDef methodId, ICorProfilerFunctionControl *pFunctionControl)

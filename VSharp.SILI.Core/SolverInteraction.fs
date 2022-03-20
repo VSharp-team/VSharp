@@ -36,9 +36,9 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let checkSat state =
+    let checkSat state = // TODO: need to solve types here? #do
         let ctx = getEncodingContext state
-        let formula = PC.toSeq state.pc |> conjunction
+        let formula = state.pc.ToSeq() |> conjunction
         match solver with
         | Some s ->
             let model = 
@@ -46,4 +46,4 @@ module public SolverInteraction =
                 |> Option.defaultValue { state = State.makeEmpty None; subst = Dictionary<_, _>(); complete = true }
             s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""
-        
+ 

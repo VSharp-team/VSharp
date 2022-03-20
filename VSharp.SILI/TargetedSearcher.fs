@@ -1,334 +1,219 @@
 namespace VSharp.Interpreter.IL
 
-open System
 open System.Collections.Generic
-open System.Reflection
-open FSharpx.Collections
+
 open VSharp
+open VSharp.Utils
 open VSharp.Core
-open ipOperations
+open CilStateOperations
 
- [<CustomComparison; CustomEquality>]
- type reachabilityEvaluation =
-    | Unknown
-    | Reachable of int * int  // cost to go to target and cost to go to exit
-    with
-    override x.Equals y =
-        match y with
-        | :? reachabilityEvaluation as y ->
-            match x, y with
-            | Unknown, Unknown -> true
-            | Reachable(p1, p2), Reachable(p3, p4) -> p1 = p2 && p3 = p4
-            | _ -> false
+type TargetedSearcher(maxBound, target) =
+    inherit WeightedSearcher(maxBound, ShortestDistanceWeighter(target), BidictionaryPriorityQueue())
+
+    let isStopped s = isStopped s || violatesLevel s maxBound
+
+    override x.Insert states =
+        base.Insert states
+        for state in states do
+            match x.TryGetWeight state with
+            | None when not state.suspended ->
+                removeTarget state target
+            | _ -> ()
+
+    override x.Update (parent, newStates) =
+        let needsUpdating state =
+            let onVertex state =
+                let currLoc = tryCurrentLoc state
+                match currLoc with
+                | Some loc -> CFG.isVertex loc.method loc.offset
+                | None -> false
+
+            isStopped state  ||  onVertex state
+
+        if needsUpdating parent then
+            base.Update (parent, newStates)
+        else
+            base.Insert newStates
+
+        for state in Seq.append [parent] newStates do
+            match x.TryGetWeight state with
+            | None when not state.suspended ->
+                removeTarget state target
+            | _ -> ()
+
+    member x.TargetedInsert states : cilState list =
+        x.Insert states
+        states |> Seq.fold (fun reachedStates state ->
+        match x.TryGetWeight state with
+        | Some 0u -> state::reachedStates
+        | _ -> reachedStates) []
+
+    member x.TargetedUpdate (parent, newStates) =
+        x.Update (parent, newStates)
+        Seq.append [parent] newStates |> Seq.fold (fun reachedStates state ->
+        match x.TryGetWeight state with
+        | Some 0u -> state::reachedStates
+        | _ -> reachedStates) []
+
+type ITargetCalculator =
+    abstract member CalculateTarget : cilState -> codeLocation option
+
+type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : coverageZone) =
+    interface ITargetCalculator with
+        override x.CalculateTarget state =
+            let startingLoc = startingLoc state
+            let locStack = state.ipStack |> Seq.choose (ipOperations.ip2codeLocation)
+            let inCoverageZone loc = inCoverageZone coverageZone startingLoc loc
+            Cps.Seq.foldlk (fun reachingLoc loc k ->
+            match reachingLoc with
+            | None when inCoverageZone loc ->
+                    let localHistory = Seq.filter inCoverageZone (history state)
+                    match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
+                    | None -> k None
+                    | Some l -> Some l
+            | _ -> k reachingLoc) None locStack id
+
+
+type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
+    let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
+    let getTargets (state : cilState) = state.targets
+    let reachedOrUnreachableTargets = HashSet<codeLocation> ()
+
+    let calculateTarget (state : cilState): codeLocation option =
+        targetCalculator.CalculateTarget state
+
+    let suspend (state : cilState) : unit =
+        state.suspended <- true
+    let resume (state : cilState) : unit =
+        state.suspended <- false
+    let violatesRecursionLevel s =
+        let startingLoc = startingLoc s
+        let optCurrLoc = tryCurrentLoc s
+        match optCurrLoc with
+        | Some currLoc ->
+            let onVertex = CFG.isVertex currLoc.method currLoc.offset
+            let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
+            onVertex && level > threshold
         | _ -> false
-    override x.GetHashCode() = x.ToString().GetHashCode()
-    interface IComparable with
-        override x.CompareTo y =
-            match y with
-            | :? reachabilityEvaluation as r ->
-                match x, r with
-                | Unknown, Unknown -> 0
-                | Unknown, Reachable _ -> 1
-                | Reachable _, Unknown _ -> -1
-                | Reachable(p1, p2), Reachable(p3, p4) when p1 < p3 || p1 = p3 && p2 < p4 -> -1
-                | Reachable(p1, p2), Reachable(p3, p4) when p1 = p3 && p2 = p4 -> 0
-                | _ -> 1
-            | _ -> -1
 
-type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Dictionary<codeLocation, codeLocation HashSet>, reachableMethods : Dictionary<codeLocation, MethodBase HashSet>,
-                       methodsReachabilityTransitiveClosure : Dictionary<MethodBase, MethodBase HashSet>) =
-    let COST_OF_MANY_CALLS = 3000
-    let COST_OF_CALL = 100
-    let COST_OF_EXIT = 50
-    let REGULAR_COST = 20
-    let COST_TO_GO_TO_ENDFINALLY = 50
-    let UNKNOWN_CONSTANT = Int32.MaxValue
-//    let
+    let mkTargetedSearcher target = TargetedSearcher(maxBound, target)
+    let getTargetedSearcher target =
+        Dict.getValueOrUpdate targetedSearchers target (fun () -> mkTargetedSearcher target)
 
+    let mutable index = 1
 
-    let min(x, y) = if x < y then x else y
+    let insertInTargetedSearcher state target =
+        let targetedSearcher = getTargetedSearcher target
+        targetedSearcher.Insert [state] |> ignore
 
-    let loc2Locs (loc : codeLocation) =
-        match reachableLocations.ContainsKey loc with
-        | true -> reachableLocations.[loc]
-        | _ -> HashSet()
+    let addReturnTarget state =
+        let startingLoc = startingLoc state
+        let startingMethod = startingLoc.method
+        let cfg = CFG.findCfg startingMethod
 
-    let loc2Methods (loc : codeLocation) =
-        match reachableMethods.ContainsKey loc with
-        | true -> reachableMethods.[loc]
-        | _ -> HashSet()
+        for retOffset in cfg.retOffsets do
+            let target = {offset = retOffset; method = startingMethod}
 
-    let method2Methods (m : MethodBase) =
-        match methodsReachabilityTransitiveClosure.ContainsKey m with
-        | true -> methodsReachabilityTransitiveClosure.[m]
-        | _ -> HashSet()
+            match state.targets with
+            | Some targets ->
+                state.targets <- Some <| Set.add target targets
+                if not <| Set.contains target targets then
+                    insertInTargetedSearcher state target
+            | None ->
+                state.targets <-Some (Set.add target Set.empty)
+                insertInTargetedSearcher state target
 
-    let canReachMetrics3 (ip : ip) : reachabilityEvaluation =
-       match ip2codeLocation ip with
-       | Some l when Seq.contains target (loc2Locs l) -> Reachable(20, 0)
-//            let u = l.offset
-//            let v = target.offset
-//            let dist = CFG.findDistance cfg
+    let updateTargetedSearchers parent (newStates : cilState seq) =
+        let addedCilStates = Dictionary<codeLocation, cilState list>()
+        let updateParentTargets = getTargets parent
 
-       | _ -> Reachable(UNKNOWN_CONSTANT, 0)
+        match updateParentTargets with
+        | Some targets ->
+            for target in targets do
+                addedCilStates.Add(target, [])
+        | None -> ()
 
-    let canReachMetrics2 (ip : ip) : reachabilityEvaluation =
-       match ip2codeLocation ip with
-       | Some l when Seq.contains target (loc2Locs l) ->
-            let u = l.offset
-            let v = target.offset
-            let dist = CFG.findDistance cfg
-            Reachable(dist.[u,v], 0)
-       | _ -> Reachable(UNKNOWN_CONSTANT, 0)
-    let canReachMetrics(ipStack : ip list) : reachabilityEvaluation =
-        let helper target acc ip =
-            let currentReachableCost, currentCostToExit =
-                match acc with
-                | Reachable(x, y) -> x, y
-                | Unknown -> UNKNOWN_CONSTANT, 0
-            let findNewCost price =
-                Reachable(min(currentReachableCost, currentCostToExit + price), currentCostToExit + COST_OF_EXIT)
-            match ip2codeLocation ip with
-            | Some loc when not <| reachableLocations.ContainsKey(loc) -> findNewCost COST_TO_GO_TO_ENDFINALLY
-            | Some loc when Seq.contains target (loc2Locs loc) ->
-                let u = loc.offset
-                let v = target.offset
-                let dist = CFG.findDistance cfg
-                if dist.ContainsKey (u,v) |> not then
-                    Logger.warning "FLOYDs DISTANCE is wrong!"
-                    Seq.iter (Logger.warning "%d -> %d" u) cfg.graph.[u]
-                    ()
+        for state in newStates do
+            option {
+                let! sTargets = getTargets state
+                sTargets |> Seq.iter (fun target ->
+                let targets = Dict.getValueOrUpdate addedCilStates target (fun () -> [])
+                addedCilStates.[target] <- state :: targets)
+            } |> ignore
 
-                let price = dist.[u,v]
-//                Logger.warning "FLOYDs DISTANCE from (%s, %s) = %d" (u.ToString("X4")) (v.ToString("X4")) price
-                findNewCost price
-//            | Some loc when Seq.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL
-//            | Some loc when Seq.exists (fun m -> Seq.contains target.method (method2Methods m)) (loc2Methods loc) ->
-//                findNewCost COST_OF_MANY_CALLS
-            | _  -> Reachable(currentReachableCost, currentCostToExit + COST_OF_EXIT)
-        List.fold (helper target) Unknown ipStack
+        addedCilStates |> Seq.iter (fun kvpair ->
+        let targetedSearcher = getTargetedSearcher kvpair.Key
+        let reachedStates =
+            match updateParentTargets with
+            | Some targets when targets.Contains kvpair.Key ->
+            targetedSearcher.TargetedUpdate (parent, kvpair.Value)
+            | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
 
-//    member x.Append (s : cilState) =
-//        if x.CanReach (s.ipStack, []) then
-    member x.CanReach(ipStack, blocked) = true
-//        match canReachMetrics(ipStack, blocked) with
-//        | Unknown -> __unreachable__()
-//        | Reachable(x, _) -> x <> UNKNOWN_CONSTANT
+        if not <| List.isEmpty reachedStates then
+            reachedOrUnreachableTargets.Add kvpair.Key |> ignore
+            for state in reachedStates do
+                addReturnTarget state)
 
-    interface IComparer<cilState> with
-        override x.Compare (a : cilState, b : cilState) =
-//            if a.stepsNumber > 1000u then 1 else
-            let aCanReach = canReachMetrics(a.ipStack)
-            let bCanReach = canReachMetrics(b.ipStack)
-            match aCanReach, bCanReach with
-            | Reachable(x, _), Reachable(y, _) when x < y -> -1
-            | Reachable(x, _), Reachable(y, _) when x = y -> 0
-//                if a.stepsNumber < b.stepsNumber then -1
-//                elif a.stepsNumber = b.stepsNumber then 0
-//                else 1
-            | Reachable(x, _), Reachable(y, _)  -> 1
-            | _ -> __unreachable__()
+    let deleteTargetedSearcher target =
+        let targetedSearcher = getTargetedSearcher target
+        for state in targetedSearcher.ToSeq () do
+            removeTarget state target
+        targetedSearchers.Remove target |> ignore
 
-//type OneTargetedSearcher(target : codeLocation, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure ) =
-//    let comparer = cilstatesComparer(target, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
-//    let priorityQueue  = C5.IntervalHeap<cilState>(comparer)
-//    let mutable stepsNumber = 0u
-//
-//    member x.GetNext() =
-//        match priorityQueue.IsEmpty with
-//        | true -> None
-//        | _ ->
-//            let s = priorityQueue.FindMin()
-//            priorityQueue.DeleteMin() |> ignore
-//            Some s
-//
-//    interface INewSearcher with
-////        override x.AppendNewStates states =
-//////            List.iter (fun s -> if comparer.CanReach(s.ipStack, []) then priorityQueue.Add s |> ignore) states
-////            Seq.iter (fun s -> priorityQueue.Add s |> ignore) states
-//        override x.Reset() =
-//            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
-//            stepsNumber <- 0u
-//        override x.Init(_,_) = ()
-//        override x.ChooseAction(_,_,_) =
-//            __notImplemented__()
-//
-//        override x.PriorityQueue maxBound =
-//            __notImplemented__()
+    let insertInTargetedSearchers states =
+        states
+     |> Seq.iter (fun state ->
+        option {
+            let! sTargets = getTargets state
+            sTargets
+         |> Seq.iter (fun target ->
+            insertInTargetedSearcher state target)
+        } |> ignore)
 
-//type TargetedSearcher() =
-//    let reachableLocations = Dictionary<codeLocation, HashSet<codeLocation>>()
-//    let reachableMethods = Dictionary<codeLocation, HashSet<MethodBase>>()
-//    let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
-//    let methodsReachabilityTransitiveClosure = Dictionary<MethodBase, HashSet<MethodBase>>()
-//
-//    let noLoc = {offset = 0; method = null}
-//    let mutable entryMethod : MethodBase = null
-//    let mutable stepsNumber = 0u
-//    let mutable currentLoc = noLoc
-//    let mutable currentSearcher : OneTargetedSearcher option = None
-////    let searchers = List<OneTargetedSearcher>()
-////    let loc2Searcher = Dictionary<codeLocation, OneTargetedSearcher>()
-//    let appendReachableInfo (cfg : cfg) (reachableLocsForSCC : HashSet<codeLocation>) (reachableMethodsForSCC : HashSet<MethodBase>) (current : offset) =
-//        let currentLoc = {offset = current; method = cfg.methodBase}
-//        reachableLocsForSCC.Add(currentLoc) |> ignore
-//        if cfg.offsetsDemandingCall.ContainsKey current then
-//           let _, calledMethod = cfg.offsetsDemandingCall.[current]
-//           if calledMethod.DeclaringType.Assembly = entryMethod.DeclaringType.Assembly then
-//            reachableMethodsForSCC.Add(calledMethod) |> ignore
-//
-//        let helper (target : offset) =
-//            let loc = {offset = target; method = cfg.methodBase}
-//            if not <| reachableLocations.ContainsKey loc then ()
-//            Seq.iter (reachableLocsForSCC.Add >> ignore) reachableLocations.[loc]
-//            Seq.iter (reachableMethodsForSCC.Add >> ignore) reachableMethods.[loc]
-//        let targets = cfg.graph.[current]
-//        Seq.iter helper targets
-//
-//    let commitReachableInfo (cfg : cfg) (reachableLocsForSCC : HashSet<codeLocation>) (reachableMethodsForSCC : HashSet<MethodBase>) (current : offset) =
-//        let currentLoc = {offset = current; method = cfg.methodBase}
-//        reachableLocations.[currentLoc] <- (reachableLocsForSCC)
-//        reachableMethods.[currentLoc] <- (reachableMethodsForSCC)
-//
-//    let initReachableInfo (cfg : cfg) (current : offset) =
-//        let currentLoc = {offset = current; method = cfg.methodBase}
-//        reachableLocations.Add(currentLoc, HashSet())
-//        reachableMethods.Add(currentLoc, HashSet())
-//    let buildReachabilityInfo (currentMethod : MethodBase) : HashSet<MethodBase> =
-//        let cfg = CFG.findCfg currentMethod
-//        let rec dfsSCC (usedSCC : int list) (v : offset) : int list =
-//            let currentSCC = cfg.sccOut.[v]
-//            if List.contains currentSCC usedSCC then usedSCC
-//            else
-//                let usedSCC = currentSCC :: usedSCC
-//                let currentSCCOffsets = Seq.filter (fun offset -> currentSCC = cfg.sccOut.[offset]) cfg.sortedOffsets
-//                let newUsed = Seq.fold (fun acc u1 -> Seq.fold (fun acc u2 -> dfsSCC acc u2) acc cfg.graph.[u1]) usedSCC currentSCCOffsets
-//                let reachableLocsForSCC = HashSet<codeLocation>()
-//                let reachableMethodsForSCC = HashSet<MethodBase>()
-//                Seq.iter (initReachableInfo cfg) currentSCCOffsets
-//                Seq.iter (appendReachableInfo cfg reachableLocsForSCC reachableMethodsForSCC) currentSCCOffsets
-//                Seq.iter (commitReachableInfo cfg reachableLocsForSCC reachableMethodsForSCC) currentSCCOffsets
-//                newUsed
-//        let _ = dfsSCC [] 0 //TODO: what about EHC?
-//        reachableMethods.[{offset = 0; method = currentMethod}]
-//
-//
-//
-//
-//
-//    let makeTransitiveClosure () =
-//        let findReachableMethodsForMethod (current : MethodBase) =
-//            Logger.info "Iterating for %O" current
-//            methodsReachabilityTransitiveClosure.Add(current, HashSet())
-//            let used = HashSet<MethodBase>()
-//            let rec dfs (v : MethodBase) =
-//                if used.Contains v then ()
-//                else
-//                    used.Add(v) |> ignore
-////                    if List.con
-//                    methodsReachabilityTransitiveClosure.[current].Add(v) |> ignore
-//                    Seq.iter dfs (methodsReachability.[v])
-//            Seq.iter dfs methodsReachability.[current]
-//        Seq.iter findReachableMethodsForMethod (methodsReachability.Keys)
-//    let print () =
-//        Logger.warning "Calculated CFG Reachability\n"
-//        methodsReachabilityTransitiveClosure |> Seq.iter (fun kvp ->
-//            let value = Seq.fold (fun (sb : StringBuilder) m -> sb.AppendFormat("{0}; ", m.ToString())) (StringBuilder()) kvp.Value
-//            Logger.warning "key = %O; Value = %s" kvp.Key (value.ToString()))
-//
-//    interface INewSearcher with
-////            (currentSearcher :> INewSearcher).CanReach()
-////            Seq.fold (fun acc (s : OneTargetedSearcher) -> acc || (s :> INewSearcher).CanReach(ipStack, target, blocked)) false searchers
-////        override x.AppendNewStates states =
-////            let appendStateToSearcher states (s : OneTargetedSearcher) =
-////                let s = s :> INewSearcher
-////                s.AppendNewStates states
-////
-////            let canBePropagated (s : cilState) =
-////                not (isIIEState s || isUnhandledError s) && isExecutable s
-////            let states = states |> Seq.filter canBePropagated
-////            Option.map (appendStateToSearcher states) currentSearcher |> ignore
-//        override x.Init(mainM, locs) =
-//            let createSearcher l =
-//                let cfg = CFG.findCfg l.method
-//                let s = OneTargetedSearcher(l, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
-//                currentSearcher <- Some s
-//
-//            (x :> INewSearcher).Reset()
-//            entryMethod <- mainM
-////            buildReachability ()
-////            makeTransitiveClosure ()
-//            print()
-//            Seq.iter createSearcher locs
-//        override x.Reset() =
-////            Logger.warning "steps number done by TS = %d" stepsNumber
-////            stepsNumber <- 0u
-//            Logger.warning "steps number done by %O = %d" (x.GetType()) stepsNumber
-//            stepsNumber <- 0u
-//            currentSearcher <- None
-//            currentLoc <- noLoc
-////            searchers.Clear()
-//            reachableLocations.Clear()
-//            reachableMethods.Clear()
-//            methodsReachability.Clear()
-//            methodsReachabilityTransitiveClosure.Clear()
-////            loc2Searcher.Clear()
-//            entryMethod <- null
-//
-//        override x.PriorityQueue maxBound =
-//            __notImplemented__()
-//
-//        override x.ChooseAction(qf,qb,pobs) =
-//            let tryFindState () =
-//                match currentSearcher with
-//                | None -> Stop
-//                | Some s ->
-//                    match s.GetNext() with
-//                    | None -> Stop
-//                    | Some s ->
-//                        stepsNumber <- stepsNumber + 1u
-//                        GoForward s
-//
-//
-////            let tryFindState () =
-////                    match priorityQueue.IsEmpty with
-////                    | true -> None
-////                    | _ ->
-////                        let s = priorityQueue.FindMin()
-////
-////                        priorityQueue.DeleteMin() |> ignore
-////                        Some s
-//
-//
-//            match qf.ToSeq(), qb, pobs with
-//            | Seq.Empty, _, _ when stepsNumber = 0u -> Start(Instruction(0, entryMethod))
-//            | _, Seq.Cons(b, _), _ ->
-//                GoBackward(b)
-//            | _, _, Seq.Empty -> Stop
-//            | _, Seq.Empty, Seq.Cons(p, _) ->
-//                if  p.loc = currentLoc then
-//                    tryFindState()
-////                    let s = Seq.fold tryFindAction None searchers
-////                    match s with
-////                    | None -> Stop
-////                    | Some s ->
-////                        stepsNumber <- stepsNumber + 1u
-////                        GoForward s
-//                else
-//                    currentLoc <- p.loc
-//                    let cfg = CFG.findCfg p.loc.method
-//                    let newSearcher = OneTargetedSearcher(p.loc, cfg, reachableLocations, reachableMethods, methodsReachabilityTransitiveClosure)
-////                    (newSearcher :> INewSearcher).AppendNewStates (qf.StatesForPropagation())
-//                    currentSearcher <- Some <| newSearcher
-//                    tryFindState()
-//
-////                let s = tryFindState ()
-////                match s with
-////                | None -> Stop
-////                | Some s ->
-////                    stepsNumber <- stepsNumber + 1u
-////                    GoForward s
-//
-//
-//
-//
+    let update parent newStates =
+        baseSearcher.Update (parent, newStates)
+        updateTargetedSearchers parent newStates
+
+    let setTargetOrSuspend state =
+        match calculateTarget state with
+        | Some target ->
+            addTarget state target
+            insertInTargetedSearcher state target
+        | None ->
+            state.targets <- None
+            suspend state
+
+    let rec pick' k =
+        let pickFromBaseSearcher k =
+            match baseSearcher.Pick() with
+            | Some state ->
+                match state.targets with
+                | None when violatesRecursionLevel state ->
+                    setTargetOrSuspend state
+                    pick' k
+                | _ -> k <| Some state
+            | None -> k None
+        let pickFromTargetedSearcher k =
+            let targetSearcher = targetedSearchers |> Seq.item index
+            let optState = targetSearcher.Value.Pick()
+
+            if Option.isNone optState then
+                reachedOrUnreachableTargets.Add targetSearcher.Key |> ignore
+            if reachedOrUnreachableTargets.Contains targetSearcher.Key then
+                deleteTargetedSearcher targetSearcher.Key
+            if Option.isSome optState then k <| optState else pick' k
+        let size = targetedSearchers.Count
+
+        index <- (index + 1) % (size + 1)
+        if index <> size
+            then pickFromTargetedSearcher k
+            else pickFromBaseSearcher k
+
+    let pick () = pick' id
+
+    interface IForwardSearcher with
+        override x.Init states =
+            baseSearcher.Init states
+            insertInTargetedSearchers states
+        override x.Pick() = pick ()
+        override x.Update (parent, newStates) = update parent newStates

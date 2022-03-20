@@ -82,8 +82,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class Blockchain
     {
-        // TODO: add this test after concolic will be implemented
-        [Ignore("need deep copy for concrete memory or concolic")]
+        [TestSvm(100)]
         public static long test(long time)
         {
             var miner = new BlockMiner();
@@ -92,7 +91,7 @@ namespace IntegrationTests
         }
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int test2(long time)
         {
             var a = new BlockMiner();
@@ -101,7 +100,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int test6(long time, bool f)
         {
             var a = new BlockMiner();
@@ -115,7 +114,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int test3(long time)
         {
             var a = new BlockMiner();
@@ -124,7 +123,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(126)]
         public static long test4(long time)
         {
             var a = new BlockMiner();

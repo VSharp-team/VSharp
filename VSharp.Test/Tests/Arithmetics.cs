@@ -384,6 +384,12 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static int SmallBigSum(int x)
+        {
+            return x + x + x + x + x + x + x + x + x + x + x + x + x + x + x + x;
+        }
+
+        [TestSvm]
         public static int BigSumCycle(int x)
         {
             int res = 0;
@@ -493,6 +499,12 @@ namespace IntegrationTests
             int x = 2000000000;
             int y = x;
             return checked (x + x1 + y);
+        }
+
+        [Ignore("Exception handling in concolic")]
+        public static int DivisionTest1(int a, int b)
+        {
+            return a / b;
         }
 
         // Expecting a
@@ -982,6 +994,15 @@ namespace IntegrationTests
             return Math.Abs(x);
         }
 
+        [TestSvm]
+        public static double AbsMethod2(double x)
+        {
+            double a = 42;
+            if (x == 4)
+                a = Math.Abs(x);
+            return a;
+        }
+
         // 5.9
         [Ignore("GetTypeFromHandle is not implemented #fix")]
         public static float AbsSingleMethod()
@@ -1026,7 +1047,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int PossibleBug(int n) {
             if (n <= 0 && -n < 0) {
                 throw new Exception("Possible Impossible bug");

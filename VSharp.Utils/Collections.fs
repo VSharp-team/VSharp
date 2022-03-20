@@ -31,6 +31,15 @@ module public Seq =
             lenProd <- lenProd * lengths.[i]
         Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
+    let splitBy condition seq =
+        let grouped = Seq.groupBy (fun element -> condition element) seq
+        match (Seq.tryFind (fun (value, _) -> value) grouped),
+            (Seq.tryFind (fun (value, _) -> value |> not) grouped) with
+        | Some(_, trueSeq), Some(_, falseSeq) -> trueSeq, falseSeq
+        | Some(_, trueSeq), None -> trueSeq, Seq.empty
+        | None, Some(_, falseSeq) -> Seq.empty, falseSeq
+        | None, None -> Seq.empty, Seq.empty
+
 module public List =
     let rec private mappedPartitionAcc f left right = function
         | [] -> (List.rev left, List.rev right)
@@ -119,6 +128,10 @@ module public Dict =
             let newVal = fallback()
             dict.Add(key, newVal)
             newVal
+
+    let public setValueOrUpdate (dict : IDictionary<'a, 'b>) key value =
+        if dict.ContainsKey(key) then dict.[key] <- value
+        else dict.Add(key, value)
 
     let public tryGetValue (dict : IDictionary<'a, 'b>) key defaultValue =
         if dict.ContainsKey(key) then dict.[key]

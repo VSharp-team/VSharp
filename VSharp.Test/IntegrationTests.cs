@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using Microsoft.FSharp.Core;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -44,36 +45,52 @@ namespace VSharp.Test
             Logger.ConfigureWriter(TestContext.Progress);
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
-        private int _expectedCoverage = 100;
-        private uint _maxBoundForTest = 15u;
 
+        // NOTE: expected coverage field in TestSVM attribute indicates dotCover needs to be run:
+        //       if it wasn't mentioned -- dotCover will not be started
+        //       if it was -- dotCover will be started
+        private int? _expectedCoverage = null;
+        private uint _recThresholdForTest = 0u;
+        private bool _concolicMode = false;
 
-        public TestSvmAttribute() { }
-
-        public TestSvmAttribute(int expectedCoverage)
+        public TestSvmAttribute(
+            int expectedCoverage = -1,
+            uint recThresholdForTest = 0u,
+            bool concolicMode = false)
         {
-            _expectedCoverage = expectedCoverage;
-        }
-
-        public TestSvmAttribute(int expectedCoverage, uint maxBoundForTest)
-        {
-            _expectedCoverage = expectedCoverage;
-            _maxBoundForTest = maxBoundForTest;
+            if (expectedCoverage < 0)
+                _expectedCoverage = null;
+            else if (expectedCoverage > 100)
+                _expectedCoverage = 100;
+            else _expectedCoverage = expectedCoverage;
+            _recThresholdForTest = recThresholdForTest;
+            _concolicMode = concolicMode;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
         {
-            return new TestSvmCommand(command, _expectedCoverage, _maxBoundForTest);
+            executionMode execMode;
+            if (_concolicMode)
+                execMode = executionMode.ConcolicMode;
+            else
+                execMode = executionMode.SymbolicMode;
+            return new TestSvmCommand(command, _expectedCoverage, _recThresholdForTest, execMode);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
-            private int _expectedCoverage;
-            private uint _maxBoundForTest;
-            public TestSvmCommand(TestCommand innerCommand, int expectedCoverage, uint maxBoundForTest) : base(innerCommand)
+            private int? _expectedCoverage;
+            private uint _recThresholdForTest;
+            private executionMode _executionMode;
+            public TestSvmCommand(
+                TestCommand innerCommand,
+                int? expectedCoverage,
+                uint recThresholdForTest,
+                executionMode execMode) : base(innerCommand)
             {
                 _expectedCoverage = expectedCoverage;
-                _maxBoundForTest = maxBoundForTest;
+                _recThresholdForTest = recThresholdForTest;
+                _executionMode = execMode;
             }
 
             private TestResult Explore(TestExecutionContext context)
@@ -82,12 +99,17 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
-                    _options = new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode), executionMode.SymbolicMode, _maxBoundForTest);
+                    _options = new SiliOptions
+                        (
+                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
+                            _executionMode,
+                            _recThresholdForTest
+                        );
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
                     explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
-
+                    
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
@@ -98,28 +120,25 @@ namespace VSharp.Test
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
-                        var coverageTool = new CoverageTool(unitTests.TestDirectory.FullName,
-                            Directory.GetCurrentDirectory());
-                        coverageTool.Run(unitTests.TestDirectory);
-                        int coverage = coverageTool.GetCoverage(methodInfo);
-                        if (coverage != _expectedCoverage)
-                        {
-                            context.CurrentResult.SetResult(ResultState.Failure,
-                                "Incomplete coverage! Expected " + _expectedCoverage + ", but got " + coverage);
-                        }
-                        else
-                        {
+                        // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
+                        //       to enable coverage check use _expectedCoverage
+                        var testChecker = new TestResultsChecker(unitTests.TestDirectory,
+                            Directory.GetCurrentDirectory(), _expectedCoverage);
+                        if (testChecker.Check(methodInfo))
                             context.CurrentResult.SetResult(ResultState.Success);
-                        }
+                        else
+                            context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
                     }
                     else
                     {
                         context.CurrentResult.SetResult(ResultState.Success);
                     }
+                    
+                    Stopwatch.saveMeasurements(methodInfo.Name);
+                    Stopwatch.clear();
                 }
                 catch (Exception e)
                 {
-                    // TODO: add more info
                     context.CurrentResult.SetResult(ResultState.Error, e.Message);
                 }
 

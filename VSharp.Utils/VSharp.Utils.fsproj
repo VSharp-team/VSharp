@@ -1,18 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-        <TargetFramework>netcoreapp6.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
     <PropertyGroup>
+        <TargetFramework>netcoreapp6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
@@ -28,14 +17,17 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Stopwatch.fs" />
         <Compile Include="Logger.fs" />
-        <Compile Include="StatedLogger.fs" />
+        <Compile Include="TaggedLogger.fs" />
         <Compile Include="WeakDictionary.fs" />
         <Compile Include="Prelude.fs" />
         <Compile Include="Collections.fs" />
         <Compile Include="MappedStack.fs" />
         <Compile Include="PersistentDictionary.fs" />
         <Compile Include="Cps.fs" />
+        <Compile Include="PriorityCollection.fs" />
+        <Compile Include="DiscretePDF.fs" />
         <Compile Include="TypeUtils.fs" />
         <Compile Include="Reflection.fs" />
         <Compile Include="Persistent.fs" />
@@ -44,19 +36,17 @@
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />
         <Compile Include="PrettyPrinting.fs" />
-        <Compile Include="PersistentUnionFind.fs" />
-        <Compile Include="PriorityQueue.fs" />
-        <Compile Include="FrontQueue.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="CoverageTool.fs" />
+        <Compile Include="TestResultsChecker.fs" />
         <Compile Include="AssemblyManager.fs" />
         <Compile Include="TypeSolver.fs" />
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="27.2.1" />
       <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
     </ItemGroup>
 

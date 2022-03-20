@@ -7,12 +7,17 @@ open System.Reflection
 open System.Text
 open System.Xml
 
-type CoverageTool(testDir : string, runnerDir : string) =
+// NOTE: if 'expectedCoverage' is null 'TestResultsChecker' runs all tests and checks results equality
+//       otherwise, it compares expected coverage to computed coverage of tests
+type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCoverage : Nullable<int>) =
+    let expectedCoverage = Option.ofNullable expectedCoverage
+    // NOTE: if 'TestResultsChecker' succeeds, 'resultMessage' is empty, otherwise, it contains failure message
+    let mutable resultMessage = ""
     let runDotnet args =
         let output = StringBuilder()
         let error = StringBuilder()
         let info = ProcessStartInfo()
-        info.WorkingDirectory <- testDir
+        info.WorkingDirectory <- testDir.FullName
         info.FileName <- "dotnet"
         info.Arguments <- args
         info.UseShellExecute <- false
@@ -27,19 +32,23 @@ type CoverageTool(testDir : string, runnerDir : string) =
         proc.ExitCode, output.ToString(), error.ToString()
 
     let run =
-        let _, localTools, _ = runDotnet "tool list"
-        let globalArg =
-            if localTools.Contains "dotcover" then ""
-            else
-                let _, globalTools, _ = runDotnet "tool list -g"
-                if globalTools.Contains "dotcover" then "-g"
-                else raise (InvalidOperationException "JetBrains.DotCover tool not found! Either install it locally by running 'dotnet tool restore' in build directory, or globally by running 'dotnet tool install JetBrains.dotCover.GlobalTool -g'")
-        fun (directory : DirectoryInfo) ->
-            let filters = ["-:module=Microsoft.*"; "-:module=FSharp.*"; "-:class=VSharp.*"; "-:module=VSharp.Utils"]
-            let code, _, error = runDotnet <| sprintf "dotcover --dcFilters=\"%s\" %s%cVSharp.TestRunner.dll %s --dcReportType=DetailedXML %s" (filters |> join ";") runnerDir Path.DirectorySeparatorChar directory.FullName globalArg
-            code = 0, error
-
-    let mutable doc : XmlDocument = null
+        match expectedCoverage with
+        | Some _ ->
+            let _, localTools, _ = runDotnet "tool list"
+            let globalArg =
+                if localTools.Contains "dotcover" then ""
+                else
+                    let _, globalTools, _ = runDotnet "tool list -g"
+                    if globalTools.Contains "dotcover" then "-g"
+                    else raise (InvalidOperationException "JetBrains.DotCover tool not found! Either install it locally by running 'dotnet tool restore' in build directory, or globally by running 'dotnet tool install JetBrains.dotCover.GlobalTool -g'")
+            fun (directory : DirectoryInfo) ->
+                let filters = ["-:module=Microsoft.*"; "-:module=FSharp.*"; "-:class=VSharp.*"; "-:module=VSharp.Utils"]
+                let code, _, error = runDotnet <| sprintf "dotcover --dcFilters=\"%s\" %s%cVSharp.TestRunner.dll %s --dcReportType=DetailedXML %s" (filters |> join ";") runnerDir Path.DirectorySeparatorChar directory.FullName globalArg
+                code = 0, error
+        | None ->
+            fun (directory : DirectoryInfo) ->
+                let code, _, error = runDotnet <| sprintf " %s%cVSharp.TestRunner.dll %s" runnerDir Path.DirectorySeparatorChar directory.FullName
+                code = 0, error
 
     let rec typeName4Dotcover (typ : Type) =
         if typ.IsGenericType then
@@ -70,14 +79,8 @@ type CoverageTool(testDir : string, runnerDir : string) =
             names
         else typ.FullName |> splitTypeName
 
-    member x.Run(testDir : DirectoryInfo) =
-        let success, error = run testDir
-        if not success then
-            raise <| InvalidOperationException ("Running dotCover failed: " + error)
-        doc <- XmlDocument()
-        doc.Load(sprintf "%s%cdotCover.Output.xml" testDir.FullName Path.DirectorySeparatorChar)
-
-    member x.GetCoverage (m : MethodInfo) =
+    let getCoverage (m : MethodInfo) =
+        assert(Option.isSome expectedCoverage)
         if String.IsNullOrEmpty m.DeclaringType.Namespace then
             __notImplemented__() // TODO: does coverage report in this case omit the namespace?
         // TODO: we might also have inner classes and properties
@@ -90,6 +93,10 @@ type CoverageTool(testDir : string, runnerDir : string) =
         let returnType = m.ReturnType |> typeName4Dotcover
         let methodName = sprintf "%s(%s):%s" m.Name parametersTypes returnType
         let xpath = sprintf "/Root/Assembly[@Name='%s']/Namespace[@Name='%s']%s/Method[@Name='%s']/@CoveragePercent" assemblyName namespaceName typeSection methodName
+        let doc = XmlDocument()
+        let docPath = sprintf "%s%cdotCover.Output.xml" testDir.FullName Path.DirectorySeparatorChar
+        assert(File.Exists(docPath))
+        doc.Load(docPath)
         let nodes = doc.DocumentElement.SelectNodes(xpath)
         match nodes.Count with
         | 0 -> raise (InvalidOperationException <| sprintf "Coverage results for %O not found!" m)
@@ -97,3 +104,18 @@ type CoverageTool(testDir : string, runnerDir : string) =
             let elem = nodes.[0]
             (elem :?> XmlAttribute).Value |> Int32.Parse
         | _ -> raise (InvalidOperationException <| sprintf "Invalid query of coverage results for %O!" m)
+
+    member x.Check(methodInfo : MethodInfo) : bool =
+        let success, error = run testDir
+        if not success then
+            raise <| InvalidOperationException ("Running test results checker failed: " + error)
+        match expectedCoverage with
+        | Some expectedCoverage ->
+            let coverage = getCoverage methodInfo
+            if coverage = expectedCoverage then true
+            else
+                resultMessage <- sprintf "Incomplete coverage! Expected %d, but got %d" expectedCoverage coverage
+                false
+        | None -> true
+
+    member x.ResultMessage = resultMessage

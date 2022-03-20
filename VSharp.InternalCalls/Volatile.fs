@@ -11,4 +11,4 @@ module Volatile =
     let Read (state : state) (args : term list) : term =
         assert(List.length args = 2)
         let ref = List.item 1 args
-        Memory.ReadSafe state ref
+        Memory.Read state ref

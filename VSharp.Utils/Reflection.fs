@@ -18,6 +18,16 @@ module public Reflection =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
 
+    // ------------------------------- Assemblies -------------------------------
+
+    let loadAssembly (assemblyName : string) =
+        let assemblies = AppDomain.CurrentDomain.GetAssemblies()
+        let dynamicAssemblies = assemblies |> Array.filter (fun a -> a.IsDynamic)
+        let dynamicOption = dynamicAssemblies |> Array.tryFind (fun a -> a.FullName.Contains(assemblyName))
+        match dynamicOption with
+        | Some a -> a
+        | None -> Assembly.Load(assemblyName)
+
     // --------------------------- Metadata Resolving ---------------------------
 
     let resolveModule (assemblyName : string) (moduleName : string) =
@@ -167,6 +177,10 @@ module public Reflection =
         let genericDefs = Array.append mParams tParams
         genericMethod, genericArgs, genericDefs
 
+    let fullGenericMethodName (methodBase : MethodBase) =
+        let genericMethod = generalizeMethodBase methodBase |> fst3
+        getFullMethodName genericMethod
+
     // --------------------------------- Concretization ---------------------------------
 
     let rec concretizeType (subst : Type -> Type) (typ : Type) =
@@ -206,11 +220,15 @@ module public Reflection =
 
     // --------------------------------- Fields ---------------------------------
 
+    // TODO: add cache: map from wrapped field to unwrapped
+
     let wrapField (field : FieldInfo) =
         {declaringType = field.DeclaringType; name = field.Name; typ = field.FieldType}
 
     let getFieldInfo (field : fieldId) =
-        field.declaringType.GetField(field.name, instanceBindingFlags)
+        let result = field.declaringType.GetField(field.name, allBindingFlags)
+        if result <> null then result
+        else field.declaringType.GetRuntimeField(field.name)
 
     let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
@@ -264,7 +282,7 @@ module public Reflection =
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
     let getFieldOffset fieldId =
-        if fieldId = stringFirstCharField then CSharpUtils.LayoutUtils.StringElementsOffset
+        if fieldId = stringFirstCharField then 0
         else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
 
     let private cachedTypes = Dictionary<Type, bool>()
@@ -273,7 +291,7 @@ module public Reflection =
         if t.IsValueType |> not then true
         else
             t.GetFields(allBindingFlags)
-            |> Array.exists (fun field -> isReferenceOrContainsReferencesHelper field.FieldType)
+            |> Array.exists (fun field -> field.FieldType = t || isReferenceOrContainsReferencesHelper field.FieldType)
 
     let isReferenceOrContainsReferences (t : Type) =
         let result = ref false

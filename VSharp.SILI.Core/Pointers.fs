@@ -25,22 +25,22 @@ module internal Pointers =
     let rec addressToBaseAndOffset (address : address) =
         match address with
         | ClassField(heapAddress, field) ->
-            HeapLocation heapAddress, getFieldOffset field
+            let typ = Types.Constructor.fromDotNetType field.declaringType
+            HeapLocation(heapAddress, typ), getFieldOffset field
         | StructField(address, field) ->
             let baseAddress, structOffset = addressToBaseAndOffset address
             baseAddress, getFieldOffset field |> add structOffset
         | StaticField(symbolicType, field) ->
             StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
-        | ArrayIndex(heapAddress, [index], (elementType, _, true)) ->
+        | ArrayIndex(heapAddress, [index], (elementType, _, true as arrayType)) ->
             let sizeOfElement = Types.sizeOf elementType |> makeNumber
-            let metadataSize = makeNumber LayoutUtils.ArrayElementsOffset
-            let offset = mul index sizeOfElement |> add metadataSize
-            HeapLocation heapAddress, offset
+            let typ = arrayTypeToSymbolicType arrayType
+            HeapLocation(heapAddress, typ), mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
-        | BoxedLocation(concreteHeapAddress, _) ->
-            let baseAddress = ConcreteHeapAddress concreteHeapAddress |> HeapLocation
+        | BoxedLocation(concreteHeapAddress, typ) ->
+            let baseAddress = HeapLocation(ConcreteHeapAddress concreteHeapAddress, typ)
             baseAddress, makeNumber 0
         | StackBufferIndex _ -> __notImplemented__()
         | PrimitiveStackLocation loc ->
@@ -70,7 +70,7 @@ module internal Pointers =
     let rec private comparePointerBase left right =
         match left, right with
         | StackLocation loc1, StackLocation loc2 -> makeBool (loc1 = loc2)
-        | HeapLocation loc1, HeapLocation loc2 -> simplifyEqual loc1 loc2 id
+        | HeapLocation(loc1, _), HeapLocation(loc2, _) -> simplifyEqual loc1 loc2 id
         | StaticLocation _, StaticLocation _ -> __unreachable__()
         | _ -> False
 
@@ -84,8 +84,8 @@ module internal Pointers =
                 | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
                     let addressEq = comparePointerBase address1 address2
                     addressEq &&& simplifyEqual shift1 shift2 id |> k
-                | Concrete(:? int as i, _), Ptr(HeapLocation address, _, shift)
-                | Ptr(HeapLocation address, _, shift), Concrete(:? int as i, _) when i = 0 ->
+                | Concrete(:? int as i, _), Ptr(HeapLocation(address, _), _, shift)
+                | Ptr(HeapLocation(address, _), _, shift), Concrete(:? int as i, _) when i = 0 ->
                     simplifyEqual address zeroAddress id &&& simplifyEqual shift (makeNumber 0) id |> k
                 | Concrete(:? int as i, _), HeapRef(address, _)
                 | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address zeroAddress k
@@ -126,7 +126,7 @@ module internal Pointers =
         match x.term, y.term with
         | Ptr(base1, _, offset1), Ptr(base2, _, offset2) when base1 = base2 ->
             sub offset1 offset2 |> k
-        | Ptr(HeapLocation {term = ConcreteHeapAddress _}, _, _), Ptr(HeapLocation {term = ConcreteHeapAddress _}, _, _) ->
+        | Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _), Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _) ->
             undefinedBehaviour "trying to get pointer difference between different pointer bases"
         | _ -> __insufficientInformation__ "need more information about pointer address for pointer difference"
 

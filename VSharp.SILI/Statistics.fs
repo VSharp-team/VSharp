@@ -12,7 +12,7 @@ open VSharp.Utils
 open CilStateOperations
 open ipOperations
 
-type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
+type pob = {loc : codeLocation; lvl : uint; pc : PC.PathCondition}
     with
     override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
 
@@ -25,13 +25,16 @@ type pobStatus =
 type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
+    let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
-        let cfg = CFG.findCfg codeLocation.method
-        cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        if not codeLocation.method.IsAbstract then
+            let cfg = CFG.findCfg codeLocation.method
+            cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        else false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
         let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
@@ -49,31 +52,80 @@ type public SILIStatistics() =
 //        let sb = PrettyPrinting.appendLine sb
         printDict "\t\t" sb k.Value
 
-    let rememberForward (start : codeLocation, current : codeLocation) =
-        if isHeadOfBasicBlock current then
-            let mutable totalRef = ref 0u
-            if not <| totalVisited.TryGetValue(current, totalRef) then
-                totalRef <- ref 0u
-                totalVisited.Add(current, 0u)
-            totalVisited.[current] <- !totalRef + 1u
+    let pickTotalUnvisitedInCFG (currentLoc : codeLocation) : codeLocation option =
+        let infinity = UInt32.MaxValue
+        let method = currentLoc.method
+        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        let suitable offset distance =
+            let loc = { offset = offset; method = method }
+            let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
+            distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
+        match optVertex with
+        | Some vertex ->
+            let cfg = CFG.findCfg method
+            CFG.findDistanceFrom cfg vertex
+         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+         |> Seq.tryHead
+         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        | None -> None
+
+    let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
+        let infinity = UInt32.MaxValue
+        let method = currentLoc.method
+        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
+        let suitable offset distance =
+            let loc = { offset = offset; method = method }
+            let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
+            let validDistance = distance <> infinity && distance <> 0u
+            let emptyHistory = totalHistory.Count = 0
+            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
+            validDistance && (emptyHistory || nontrivialHistory)
+
+        match optVertex with
+        | Some vertex ->
+            let cfg = CFG.findCfg method
+            CFG.findDistanceFrom cfg vertex
+         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+         |> Seq.tryHead
+         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        | None -> None
+
+    let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
+        if isHeadOfBasicBlock current then
             let mutable startRefDict = ref null
             if not <| startIp2currentIp.TryGetValue(start, startRefDict) then
                 startRefDict <- ref (Dictionary<codeLocation, uint>())
-                startIp2currentIp.Add(start, !startRefDict)
-            let startDict = !startRefDict
+                startIp2currentIp.Add(start, startRefDict.Value)
+            let startDict = startRefDict.Value
 
             let mutable currentRef = ref 0u
             if not <| startDict.TryGetValue(current, currentRef) then
                 currentRef <- ref 0u
                 startDict.Add(current, 0u)
-            startDict.[current] <- !currentRef + 1u
+            startDict.[current] <- currentRef.Value + 1u
+
+            let mutable totalRef = ref 0u
+            if not <| totalVisited.TryGetValue(current, totalRef) then
+                totalRef <- ref 0u
+                totalVisited.Add(current, 0u)
+            totalVisited.[current] <- totalRef.Value + 1u
+
+            let mutable historyRef = ref null
+            if not <| visitedWithHistory.TryGetValue(current, historyRef) then
+                historyRef <- ref <| HashSet<_>()
+                visitedWithHistory.Add(current, historyRef.Value)
+            (historyRef.Value).UnionWith visited
 
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
+        let visited = history s
         match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc -> rememberForward(startLoc, currentLoc)
+        | Some startLoc, Some currentLoc ->
+            rememberForward startLoc currentLoc visited
         | _ -> ()
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
@@ -92,6 +144,9 @@ type public SILIStatistics() =
         x.Clear()
         startTime <- DateTime.Now
 
+    member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
+
+    member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
 
     member x.CurrentExplorationTime with get() = DateTime.Now - startTime
 

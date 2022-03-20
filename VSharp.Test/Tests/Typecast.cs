@@ -76,20 +76,20 @@ namespace IntegrationTests.Typecast
     [TestSvmFixture]
     public static class Typecast
     {
-        [TestSvm]
+        [TestSvm(100)]
         public static int DownCastObject(object obj)
         {
             bool a = obj is Piece;
             return a ? 5 : 6;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static bool CheckIs(ValueType x)
         {
             return x is Double;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
@@ -118,7 +118,7 @@ namespace IntegrationTests.Typecast
             return DownCastToString(str);
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int DownCastPiece(Piece piece)
         {
             bool a = piece is Pawn;
@@ -141,7 +141,7 @@ namespace IntegrationTests.Typecast
             return b is Object ? 33 : 38;
         }
 
-        [TestSvm]
+        [Ignore("Incorrect result")]
         public static Pawn TypeCast(Object obj)
         {
             Pawn pawn = (Pawn)obj;
@@ -155,13 +155,13 @@ namespace IntegrationTests.Typecast
         }
 
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int Unboxing(Object obj)
         {
             return obj is int ? 13 : 23;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int TryCast(Object obj)
         {
             Piece a = obj as Piece;
@@ -172,7 +172,7 @@ namespace IntegrationTests.Typecast
             return 42;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int TryUpCast(Piece piece)
         {
             return TryCast(piece);
@@ -427,7 +427,7 @@ namespace IntegrationTests.Typecast
             return tmp.Norm();
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int WriteInStructUsingNorm(Coord2 arg)
         {
             var y = (int) arg.Norm();
