@@ -724,10 +724,7 @@ module internal Terms =
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state |> foldSeq folder vs
         | Slice(t, s, e, pos) ->
-            let state = folder state t
-            let state = folder state s
-            let state = folder state e
-            folder state pos
+            foldSeq folder [t; s; e; pos] state
         | Union(terms) ->
             foldSeq folder (List.unzip terms |> (fun (l1, l2) -> List.append l1 l2)) state
         | _ -> state
