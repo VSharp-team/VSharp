@@ -34,13 +34,17 @@ module Stopwatch =
             else
                 let newMeasurement = { stopwatch = Stopwatch(); timesCalled = 0 }
                 measurements.[tag] <- newMeasurement
-                newMeasurement      
-        try
-            measurement.stopwatch.Start()
+                newMeasurement
+        if measurement.stopwatch.IsRunning then
             measurement.timesCalled <- measurement.timesCalled + 1
             action()
-        finally
-            measurement.stopwatch.Stop()
+        else
+            try
+                measurement.stopwatch.Start()
+                measurement.timesCalled <- measurement.timesCalled + 1
+                action()
+            finally
+                measurement.stopwatch.Stop()
         
     let public stopAll () =
         measurements
