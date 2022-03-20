@@ -35,5 +35,6 @@ module TaggedLogger =
     /// <param name="tag">Tag to save the logs with</param>
     /// <param name="path">Path of the file to save</param>
     let public saveLog tag path =
-        let log = logs.GetValueOrDefault(tag, StringBuilder()).ToString()
-        File.WriteAllText(path, log)
+        if logs.ContainsKey tag then
+            let log = logs[tag].ToString()
+            File.WriteAllText(path, log)

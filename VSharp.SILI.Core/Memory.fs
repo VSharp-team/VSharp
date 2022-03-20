@@ -527,12 +527,9 @@ module internal Memory =
                 | SolverInteraction.SmtSat elseModel ->
                     conditionState.pc <- elsePc
                     conditionState.model <- Some elseModel.mdl
-                    TaggedLogger.log conditionState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    TaggedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 conditionState.pc <- elsePc
-                TaggedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat thenModel ->
                 conditionState.pc <- independentElsePc
@@ -540,8 +537,6 @@ module internal Memory =
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- thenPc
-                    TaggedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    TaggedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
                     conditionState.model <- Some thenModel.mdl
@@ -549,11 +544,6 @@ module internal Memory =
                     let elseState = copy conditionState elsePc
                     elseState.model <- Some elseModel.mdl
                     thenState.pc <- thenPc
-                    TaggedLogger.copy thenState.id elseState.id
-                    TaggedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    TaggedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    TaggedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
-                    TaggedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     execution thenState elseState condition k)
         
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
