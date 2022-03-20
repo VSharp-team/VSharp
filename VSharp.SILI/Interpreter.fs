@@ -1951,7 +1951,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | Instruction(offset, m) ->
                 if offset = 0 then
                     Logger.printLogLazy Logger.Info "Starting to explore method %O" (lazy Reflection.getFullMethodName m)
-                    StatedLogger.log cilState.state.id $"In method: %O{Reflection.getFullMethodName m}"
+                    TaggedLogger.log cilState.state.id $"In method: %O{Reflection.getFullMethodName m}"
                 x.ExecuteInstruction m offset cilState |> k
             | Exit m ->
                 exit m

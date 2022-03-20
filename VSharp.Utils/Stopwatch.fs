@@ -8,9 +8,12 @@ open System.IO
 open CsvHelper
 open CsvHelper.Configuration
 
+/// <summary>
+/// Contains functions for running code with time measurement and measurement results export
+/// </summary>
 module Stopwatch =
     
-    type private measurement = { stopwatch: Stopwatch; mutable timesCalled: int }
+    type private measurement = { stopwatch: Stopwatch; mutable timesCalled: int }    
     type private csvRecord =
         {
             commitHash: string
@@ -23,10 +26,29 @@ module Stopwatch =
         }
         
     let private csvPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "VSharpBenchmark")
-    let private csvFilename = "benchmark.csv"
-    
+    let private csvFilename = "benchmark.csv"    
     let private measurements = Dictionary<string, measurement>()
     
+    let private getGitCommitHash () =
+        let procStartInfo = ProcessStartInfo("git", "rev-parse --short HEAD")
+
+        procStartInfo.RedirectStandardOutput <- true
+        procStartInfo.UseShellExecute <- false
+        procStartInfo.CreateNoWindow <- true
+        
+        use proc = new Process()
+        proc.StartInfo <- procStartInfo
+        
+        proc.Start() |> ignore        
+        proc.WaitForExit()
+        
+        proc.StandardOutput.ReadLine()
+    
+    /// <summary>
+    /// Runs function saving its execution time
+    /// </summary>
+    /// <param name="tag">Tag to save results with. Results from multiple runs with the same tag are added up</param>
+    /// <param name="action">Function to run</param>
     let public runMeasuringTime tag action =
         let measurement =
             if (measurements.ContainsKey tag) then
@@ -46,28 +68,18 @@ module Stopwatch =
             finally
                 measurement.stopwatch.Stop()
         
+    /// <summary>
+    /// Stops all running measurements
+    /// </summary>
     let public stopAll () =
         measurements
         |> Seq.map (|KeyValue|)
-        |> Seq.iter (fun (_, m) ->
-            m.stopwatch.Stop()
-        )
-        
-    let private getGitCommitHash () =
-        let procStartInfo = ProcessStartInfo("git", "rev-parse --short HEAD")
-
-        procStartInfo.RedirectStandardOutput <- true
-        procStartInfo.UseShellExecute <- false
-        procStartInfo.CreateNoWindow <- true
-        
-        use proc = new Process()
-        proc.StartInfo <- procStartInfo
-        
-        proc.Start() |> ignore        
-        proc.WaitForExit()
-        
-        proc.StandardOutput.ReadLine()
-        
+        |> Seq.iter (fun (_, m) -> m.stopwatch.Stop())
+    
+    /// <summary>
+    /// Saves all current measurement results to .csv file. If the file already exists, appends lines
+    /// </summary>
+    /// <param name="caseName">Additional tag given to the saved measurements</param>
     let public saveMeasurements caseName =
         stopAll()
         
@@ -100,5 +112,8 @@ module Stopwatch =
         use csvWriter = new CsvWriter(streamWriter, configuration)
         
         csvWriter.WriteRecords(records)
-        
+    
+    /// <summary>
+    /// Clears all current measurements
+    /// </summary>
     let public clear () = measurements.Clear() 

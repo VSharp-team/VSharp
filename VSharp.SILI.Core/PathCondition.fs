@@ -12,25 +12,46 @@ module public PC =
 
     let private unwrapNode =
         function
-        | Tail(term, _) -> term
-        | Node(term) -> term
+        | Tail(constant, _) -> constant
+        | Node(constant) -> constant
         | Empty -> invalidOp "Cannot unwrap empty node"
     
+    (*
+        Path condition maintains independent subsets of constants and constraints ("constraint independence")
+        
+        constants -- dictionary used as union-find structure for constants. Constants of one subset are
+            cyclically mapping to each other. There is only one node.Tail in subset and it is the representative
+            element of the subset. Tail also contains the constraints corresponding to the constants subset
+            
+        constraints -- contains all constraints of the PC. Used to avoid picking constraints from subsets each time
+            when the complete PC is needed
+            
+        isFalse -- flag used to determine if the PC is false trivially (i. e. c an !c were added to it).
+            Invariant: PC doesn't contain True or False as elements.
+    *)
     type public PathCondition private(constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
         
         let mutable isFalse = isFalse
 
-        let nextNode term =
+        let nextNode constant =
             let mutable found = Empty
-            constants.TryGetValue(term, &found) |> ignore
+            constants.TryGetValue(constant, &found) |> ignore
             found
         
-        let rec findPrevious term =            
-            match nextNode term with
-            | Tail _ -> Some(term)
+        /// <summary>
+        /// Find operation of the union-find structure. Returns not the representative element, but the element before it
+        /// (for convenience)
+        /// </summary>
+        let rec findPrevious constant =            
+            match nextNode constant with
+            | Tail _ -> Some(constant)
             | Node nextTerm -> findPrevious nextTerm
             | Empty -> None
 
+        /// <summary>
+        /// Union operation of the union-find structure. Subsets containing oneConstant and anotherConstant are merged.
+        /// oneConstant and anotherConstant don't need to be the representatives
+        /// </summary>
         let union oneConstant anotherConstant =
             match (findPrevious oneConstant), (findPrevious anotherConstant) with
             | Some(onePrevious), Some(anotherPrevious) ->
@@ -43,6 +64,9 @@ module public PC =
                 | _ -> ()
             | _ -> invalidOp "Constant not found in dictionary"
 
+        /// <summary>
+        /// Returns union-find subset (of constants) containing the specified constant
+        /// </summary>
         let subset constantInSubset =
             seq {
                 let rec inner currentConstant =
@@ -65,9 +89,13 @@ module public PC =
             constraints.Clear()
             isFalse <- true
 
+        /// <summary>
+        /// Adds a cyclic subset to the union-find structure
+        /// </summary>
+        /// <param name="constants">Union-find structure</param>
+        /// <param name="constantsToAdd">Constants to add as nodes to the subset</param>
+        /// <param name="constraintsToAdd">Constraints to add to the tail</param>
         let addSubset (constants : Dictionary<term, node>) constantsToAdd constraintsToAdd =
-            if Seq.isEmpty constantsToAdd then
-                Logger.info "kek"
             let firstConstant = constantsToAdd |> Seq.head
             if Seq.length constantsToAdd = 1 then
                 constants.[firstConstant] <- Tail(firstConstant, constraintsToAdd)
@@ -164,6 +192,10 @@ module public PC =
             anotherPc.ToSeq() |> Seq.iter union.Add
             union
 
+        /// <summary>
+        /// Returns the sequence of path conditions such that constants contained in
+        /// one path condition are independent with constants contained in another one 
+        /// </summary>
         member this.Fragments =
             let inner() = 
                 if isFalse then
@@ -186,4 +218,3 @@ module public PC =
         copy
 
     let public toSeq (pc : PathCondition) = pc.ToSeq()
-            

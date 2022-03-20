@@ -533,13 +533,13 @@ module internal Memory =
                     Stopwatch.runMeasuringTime "branch_2" id
                     conditionState.pc <- elsePc
                     conditionState.model <- Some elseModel.mdl
-                    StatedLogger.log conditionState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                    TaggedLogger.log conditionState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
+                    TaggedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 Stopwatch.runMeasuringTime "branch_3" id
                 conditionState.pc <- elsePc
-                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                TaggedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat thenModel ->
                 conditionState.pc <- independentElsePc
@@ -548,8 +548,8 @@ module internal Memory =
                 | SolverInteraction.SmtUnknown _ ->
                     Stopwatch.runMeasuringTime "branch_4" id
                     conditionState.pc <- thenPc
-                    StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
+                    TaggedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    TaggedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
                     Stopwatch.runMeasuringTime "branch_5" id
@@ -558,11 +558,11 @@ module internal Memory =
                     let elseState = copy conditionState elsePc
                     elseState.model <- Some elseModel.mdl
                     thenState.pc <- thenPc
-                    StatedLogger.copy thenState.id elseState.id
-                    StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
-                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
+                    TaggedLogger.copy thenState.id elseState.id
+                    TaggedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
+                    TaggedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
+                    TaggedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
+                    TaggedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     execution thenState elseState condition k)
         
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
