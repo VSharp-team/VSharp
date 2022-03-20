@@ -9,7 +9,6 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-    
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -800,7 +799,7 @@ module internal Z3 =
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions              
+                    let result = optCtx.Check assumptions
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
@@ -835,7 +834,7 @@ module internal Z3 =
                         let levelAtom = getLevelAtom lvl
                         ctx.MkImplies(levelAtom, encoded)
                 optCtx.Assert(leveled)
-                
+
             member x.AddPath encCtx (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
                 printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))

@@ -154,7 +154,7 @@ module internal Memory =
         {object : term}
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time = VectorTime.zero            
+            override x.Time = VectorTime.zero
             override x.IndependentWith otherSource =
                 match otherSource with
                 | :? hashCodeSource as otherHashCodeSource ->
@@ -490,8 +490,8 @@ module internal Memory =
     let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
 
     let guardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id        
-    
+        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
+
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         let keepDependentWith (pc : PC.PathCondition) cond =
             pc.Fragments
@@ -511,10 +511,10 @@ module internal Memory =
         let independentElsePc = keepDependentWith elsePc negatedCondition
         if thenPc.IsFalse then
             conditionState.pc <- elsePc
-            elseBranch conditionState (List.singleton >> k)         
+            elseBranch conditionState (List.singleton >> k)
         elif elsePc.IsFalse then
-             conditionState.pc <- thenPc
-             thenBranch conditionState (List.singleton >> k)           
+            conditionState.pc <- thenPc
+            thenBranch conditionState (List.singleton >> k)
         else
             conditionState.pc <- independentThenPc
             match SolverInteraction.checkSat conditionState with
@@ -545,7 +545,7 @@ module internal Memory =
                     elseState.model <- Some elseModel.mdl
                     thenState.pc <- thenPc
                     execution thenState elseState condition k)
-        
+
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
     let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
