@@ -46,4 +46,4 @@ module public SolverInteraction =
                 |> Option.defaultValue { state = State.makeEmpty None; subst = Dictionary<_, _>(); complete = true }
             s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""
-     
+ 
