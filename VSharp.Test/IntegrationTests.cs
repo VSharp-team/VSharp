@@ -108,12 +108,8 @@ namespace VSharp.Test
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
-                    Stopwatch.runMeasuringTime("total_interpretation", FuncConvert.FromAction(() =>
-                    {
-                        explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError,
-                            _ => { }, e => throw e);
-                    }));
-
+                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");

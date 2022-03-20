@@ -800,17 +800,12 @@ module internal Z3 =
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
-                    let result =
-                        Stopwatch.runMeasuringTime "Z3_check_sat" (fun () ->
-                            optCtx.Check assumptions
-                        )                
+                    let result = optCtx.Check assumptions              
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
                         let updatedModel = {q.currentModel with state = {q.currentModel.state with model = q.currentModel.state.model}}
-                        Stopwatch.runMeasuringTime "update_model_after_check" (fun () ->
-                            builder.UpdateModel z3Model updatedModel
-                        )                        
+                        builder.UpdateModel z3Model updatedModel                      
 //                        let usedPaths =
 //                            pathAtoms
 //                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
@@ -839,9 +834,7 @@ module internal Z3 =
                     else
                         let levelAtom = getLevelAtom lvl
                         ctx.MkImplies(levelAtom, encoded)
-                Stopwatch.runMeasuringTime "Z3_assert" (fun () ->
-                    optCtx.Assert(leveled)
-                )
+                optCtx.Assert(leveled)
                 
             member x.AddPath encCtx (p : path) =
                 printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
