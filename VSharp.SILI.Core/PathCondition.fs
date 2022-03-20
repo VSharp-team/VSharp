@@ -3,8 +3,8 @@ open VSharp
 open VSharp.Utils
 open System.Collections.Generic
 
-module public PC2 =
-
+module public PC =
+    
     type private node =
         | Tail of term * term pset
         | Node of term
@@ -16,9 +16,9 @@ module public PC2 =
         | Node(term) -> term
         | Empty -> invalidOp "Cannot unwrap empty node"
     
-    type public PathCondition private(constants : Dictionary<term, node>, constraints : HashSet<term>, isTrivialFalse : bool) =
+    type public PathCondition private(constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
         
-        let mutable isTrivialFalse = isTrivialFalse
+        let mutable isFalse = isFalse
 
         let nextNode term =
             let mutable found = Empty
@@ -63,7 +63,7 @@ module public PC2 =
         let becomeTrivialFalse() =
             constants.Clear()
             constraints.Clear()
-            isTrivialFalse <- true
+            isFalse <- true
 
         let addSubset (constants : Dictionary<term, node>) constantsToAdd constraintsToAdd =
             if Seq.isEmpty constantsToAdd then
@@ -133,10 +133,10 @@ module public PC2 =
 
         member this.Copy() =
             let inner() =
-                PathCondition(Dictionary(constants), HashSet(constraints), isTrivialFalse)
+                PathCondition(Dictionary(constants), HashSet(constraints), isFalse)
             Stopwatch.runMeasuringTime "PC_Copy" inner
 
-        member this.IsTrivialFalse = isTrivialFalse
+        member this.IsFalse = isFalse
 
         member this.IsEmpty = constraints.Count = 0
 
@@ -147,7 +147,7 @@ module public PC2 =
                 match newConstraint with
                 | True -> ()
                 | False -> becomeTrivialFalse()
-                | _ when isTrivialFalse -> ()
+                | _ when isFalse -> ()
                 | _ when constraints.Contains(newConstraint) -> ()
                 // what if constraint is not equal to newConstraint structurally, but is equal logically?
                 | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
@@ -166,7 +166,7 @@ module public PC2 =
 
         member this.Fragments =
             let inner() = 
-                if isTrivialFalse then
+                if isFalse then
                     Seq.singleton this
                 else
                     let getSubsetByRepresentative =
@@ -180,7 +180,7 @@ module public PC2 =
                     Seq.choose getSubsetByRepresentative constants.Values
             Stopwatch.runMeasuringTime "PC_Fragments" inner
 
-    let public add (pc : PathCondition) newConstraint =
+    let public add newConstraint (pc : PathCondition) =
         let copy = pc.Copy()
         copy.Add newConstraint
         copy

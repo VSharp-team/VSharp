@@ -12,7 +12,7 @@ open VSharp.Utils
 open CilStateOperations
 open ipOperations
 
-type pob = {loc : codeLocation; lvl : uint; pc : PC2.PathCondition}
+type pob = {loc : codeLocation; lvl : uint; pc : PC.PathCondition}
     with
     override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
 

@@ -102,11 +102,10 @@ module internal Merging =
     let guardedApplyk f term k = commonGuardedApplyk f term merge k
     let guardedApply f term = guardedApplyk (Cps.ret f) term id
 
-    let commonGuardedMapkWithPC (pc : PC2.PathCondition) mapper gvs merge k =
+    let commonGuardedMapkWithPC (pc : PC.PathCondition) mapper gvs merge k =
         let foldFunc gvs (g, v) k =
-            let pc' = pc.Copy()
-            pc'.Add(g)
-            if pc'.IsTrivialFalse then k gvs
+            let pc' = PC.add g pc
+            if pc'.IsFalse then k gvs
             else mapper v (fun t -> k ((g, t) :: gvs))
         Cps.List.foldlk foldFunc [] gvs (merge >> k)
 

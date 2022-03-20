@@ -473,8 +473,8 @@ module internal Memory =
         match term.term with
         | Union gvs ->
             let filterUnsat (g, v) k =
-                let pc = PC2.add state.pc g
-                if pc.IsTrivialFalse then k None
+                let pc = PC.add g state.pc
+                if pc.IsFalse then k None
                 else Some (pc, v) |> k
             Cps.List.choosek filterUnsat gvs (fun pcs ->
             match pcs with
@@ -493,7 +493,7 @@ module internal Memory =
         commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id        
     
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let keepDependentWith (pc : PC2.PathCondition) cond =
+        let keepDependentWith (pc : PC.PathCondition) cond =
             pc.Fragments
             |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
             |> Option.defaultValue pc
@@ -504,17 +504,17 @@ module internal Memory =
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
         let negatedCondition = !!condition
-        let thenPc = PC2.add state.pc condition
-        let elsePc = PC2.add state.pc negatedCondition
+        let thenPc = PC.add condition state.pc
+        let elsePc = PC.add negatedCondition state.pc
         let independentThenPc = keepDependentWith thenPc condition
         // In fact, this call is redundant because independentElsePc == independentThenPc with negated cond
         let independentElsePc = keepDependentWith elsePc negatedCondition
-        if thenPc.IsTrivialFalse then
+        if thenPc.IsFalse then
             Stopwatch.runMeasuringTime "then_is_trivial_false" (fun () ->
                     conditionState.pc <- elsePc
                     elseBranch conditionState (List.singleton >> k)
                 )            
-        elif elsePc.IsTrivialFalse then
+        elif elsePc.IsFalse then
             Stopwatch.runMeasuringTime "else_is_trivial_false" (fun () ->
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
@@ -534,12 +534,12 @@ module internal Memory =
                     conditionState.pc <- elsePc
                     conditionState.model <- Some elseModel.mdl
                     StatedLogger.log conditionState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtUnsat _ ->
                 Stopwatch.runMeasuringTime "branch_3" id
                 conditionState.pc <- elsePc
-                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
+                StatedLogger.log conditionState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                 elseBranch conditionState (List.singleton >> k)
             | SolverInteraction.SmtSat thenModel ->
                 conditionState.pc <- independentElsePc
@@ -549,7 +549,7 @@ module internal Memory =
                     Stopwatch.runMeasuringTime "branch_4" id
                     conditionState.pc <- thenPc
                     StatedLogger.log conditionState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log conditionState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
                     Stopwatch.runMeasuringTime "branch_5" id
@@ -561,8 +561,8 @@ module internal Memory =
                     StatedLogger.copy thenState.id elseState.id
                     StatedLogger.log thenState.id $"Model stack: %s{thenModel.mdl.state.stack.frames.ToString()}"
                     StatedLogger.log elseState.id $"Model stack: %s{elseModel.mdl.state.stack.frames.ToString()}"
-                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC2.toSeq |> conjunction).ToString()}"
-                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC2.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log thenState.id $"Branching on: %s{(independentThenPc |> PC.toSeq |> conjunction).ToString()}"
+                    StatedLogger.log elseState.id $"Branching on: %s{(independentElsePc |> PC.toSeq |> conjunction).ToString()}"
                     execution thenState elseState condition k)
         
 (*    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
@@ -1629,7 +1629,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     id = Guid.NewGuid().ToString()
-                    pc = if isTrue g then pc else PC2.add pc g
+                    pc = if isTrue g then pc else PC.add g pc
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack

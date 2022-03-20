@@ -18,7 +18,7 @@ module API =
     val StatedConditionalExecutionAppendResults : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (state list -> 'a) -> 'a) -> (state -> (state list -> 'a) -> 'a) -> (state list -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
-    val GuardedApplyExpressionWithPC : PC2.PathCondition -> term -> (term -> term) -> term
+    val GuardedApplyExpressionWithPC : PC.PathCondition -> term -> (term -> term) -> term
     val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
@@ -105,8 +105,8 @@ module API =
         val AddConstraint : state -> term -> unit
         val IsFalsePathCondition : state -> bool
         val Contradicts : state -> term -> bool
-        val PathConditionToSeq : PC2.PathCondition -> term seq
-        val EmptyPathCondition : unit -> PC2.PathCondition
+        val PathConditionToSeq : PC.PathCondition -> term seq
+        val EmptyPathCondition : unit -> PC.PathCondition
 
     module Types =
         val Numeric : System.Type -> symbolicType
@@ -286,7 +286,7 @@ module API =
 
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list
-        val WLP : state -> PC2.PathCondition -> PC2.PathCondition
+        val WLP : state -> PC.PathCondition -> PC.PathCondition
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
@@ -297,7 +297,7 @@ module API =
 
     module Print =
         val Dump : state -> string
-        val PrintPC : PC2.PathCondition -> string
+        val PrintPC : PC.PathCondition -> string
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state
