@@ -1486,7 +1486,7 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let pc = (state'.pc.Map (fillHoles state)).UnionWith state.pc
+            let pc = PC.map (fillHoles state) state'.pc |> PC.unionWith state.pc
             // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister

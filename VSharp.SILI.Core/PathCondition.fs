@@ -218,3 +218,7 @@ module public PC =
         copy
 
     let public toSeq (pc : PathCondition) = pc.ToSeq()
+    
+    let public map mapper (pc : PathCondition) = pc.Map mapper
+    
+    let public unionWith anotherPc (pc : PathCondition) = pc.UnionWith anotherPc

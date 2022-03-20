@@ -584,7 +584,7 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
         let ComposeStates state state' = Memory.composeStates state state'
-        let WLP state (pc' : PC.PathCondition) = (pc'.Map (Memory.fillHoles state)).UnionWith state.pc
+        let WLP state (pc' : PC.PathCondition) = PC.map (Memory.fillHoles state) pc' |> PC.unionWith state.pc
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
