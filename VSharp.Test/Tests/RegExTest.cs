@@ -51,9 +51,9 @@ namespace IntegrationTests
     public class RegExTest
     {
         [TestSvm(100)]
-        public static string OwnImplementationTest111(char c1, char c2, char c3, char c4, char c5, char c6, char c7, char c8, char c9, char c10)
+        public static string OwnImplementationTest(char c1, char c2, char c3, char c4, char c5, char c6)
         {
-            string pattern = new string(new char[] {c1, c2, c3, c4, c5, c6, c7, c8, c9, c10});
+            string pattern = new string(new char[] {c1, c2, c3});
             string result = "";
             if (RegExImplementation.Match(pattern, "hello"))
             {
@@ -108,7 +108,7 @@ namespace IntegrationTests
             return RegExImplementation.Match(pattern, "Hello");
         }
 
-        //[TestSvm(100)]
+        // [TestSvm(100)]
         [Ignore("need more external method implementations")]
         public static MatchCollection SmallSystemImplementationTest()
         {
