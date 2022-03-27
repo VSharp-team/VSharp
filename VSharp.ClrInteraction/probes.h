@@ -24,7 +24,8 @@ enum EvalStackArgType {
     OpI8 = 3,
     OpR4 = 4,
     OpR8 = 5,
-    OpRef = 6
+    OpRef = 6,
+    OpStruct = 7
 };
 
 union OperandContent {
@@ -223,6 +224,8 @@ void updateMemory(EvalStackOperand &op, unsigned int idx) {
         case OpRef:
             update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
             break;
+        case OpStruct:
+            FAIL_LOUD("Not implemented!");
         case OpSymbolic:
             FAIL_LOUD("updateMemory: unexpected symbolic value after concretization!");
     }
@@ -265,7 +268,7 @@ EvalStackOperand mkop_f4(FLOAT op) {
     assert(sizeof(DOUBLE) == sizeof(long long));
     long long result;
     memcpy(&result, &tmp, sizeof(long long));
-    return {OpR4, result };
+    return {OpR4, result};
 }
 EvalStackOperand mkop_f8(DOUBLE op) {
     assert(sizeof(DOUBLE) == sizeof(long long));
@@ -279,6 +282,10 @@ EvalStackOperand mkop_p(INT_PTR op) {
     return {OpRef, content};
 }
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
+EvalStackOperand mkop_refLikeStruct() {
+    OperandContent content;
+    return {OpStruct, content};
+}
 
 EvalStackOperand* createOps(int opsCount) {
     auto ops = new EvalStackOperand[opsCount];
@@ -347,7 +354,14 @@ PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset
 PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
+PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
+    // 2Misha:
+    // OBJID obj = heap.allocateLocal(ptr, size);
+    // Register obj in current stack frame
+    // in StackFrame destructor, clear all objs
+    FAIL_LOUD("Not implemented!")
+    topFrame().push1Concrete();
+}
 
 inline bool ldloc(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
@@ -364,7 +378,14 @@ PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset
 PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx)) { topFrame().push1Concrete(); }
+PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
+    // 2Misha:
+    // OBJID obj = heap.allocateLocal(ptr, size);
+    // Register obj in current stack frame
+    // in StackFrame destructor, clear all objs
+    FAIL_LOUD("Not implemented!")
+    topFrame().push1Concrete();
+}
 
 inline bool starg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
@@ -563,7 +584,7 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
         vsharp::topFrame().push1Concrete();
     }
 }
-PROBE(void, Track_Ldflda, (INT_PTR fieldPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
+PROBE(void, Track_Ldflda, (INT_PTR objPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
 
 inline bool stfld(mdToken fieldToken, INT_PTR ptr) {
     StackFrame &top = vsharp::topFrame();
@@ -601,13 +622,21 @@ PROBE(void, Track_Stfld_struct, (mdToken fieldToken, INT_PTR ptr, INT_PTR value,
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_struct(value) });
     }
 }
-/// TODO: stfld may be called with any value type! :(
+PROBE(void, Track_Stfld_refLikeStruct, (mdToken fieldToken, OFFSET offset)) {
+    INT_PTR ptr = unmem_refLikeStruct();
+    if (!stfld(fieldToken, ptr)) {
+        sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_refLikeStruct() });
+    }
+}
 
 PROBE(void, Track_Ldsfld, (mdToken fieldToken, OFFSET offset)) {
     // TODO
     topFrame().push1Concrete();
 }
-PROBE(void, Track_Ldsflda, (INT_PTR ptr)) { topFrame().push1Concrete(); }
+PROBE(void, Track_Ldsflda, (INT_PTR fieldPtr, SIZE size)) {
+    // 2Misha: allocate object via Heap::allocateStaticField
+    topFrame().push1Concrete();
+}
 PROBE(void, Track_Stsfld, (mdToken fieldToken, OFFSET offset)) {
     // TODO
     topFrame().pop1();
@@ -655,6 +684,7 @@ PROBE(void, Track_Mkrefany, ()) {
 }
 
 PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
+    LOG(tout << "Track_Enter, token = " << HEX(token) << std::endl);
     Stack &stack = vsharp::stack();
     assert(!stack.isEmpty());
     StackFrame *top = &stack.topFrame();
@@ -801,6 +831,10 @@ PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
 
 PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(count); PushFrame(0, 0, false, count, offset); }
 PROBE(void, Track_Newobj, (INT_PTR ptr)) { topFrame().push1Concrete(); }
+PROBE(void, Track_NewobjStruct, (INT_PTR ptr)) {
+    // TODO: concreteness should be tracked in constructor execution and extracted from object referred by 'this'
+    topFrame().push1Concrete();
+}
 PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
     // TODO
     (void)signature;
@@ -837,6 +871,8 @@ PROBE(void, Mem2_8_4, (INT64 arg1, INT32 arg2)) { clear_mem(); mem_i8(arg1); mem
 //PROBE(void, Mem2_p_8, (INT_PTR arg1, INT64 arg2)) { clear_mem(); mem_p(arg1); mem_i8(arg2); }
 //PROBE(void, Mem2_p_f4, (INT_PTR arg1, FLOAT arg2)) { clear_mem(); mem_p(arg1); mem_f4(arg2); }
 //PROBE(void, Mem2_p_f8, (INT_PTR arg1, DOUBLE arg2)) { clear_mem(); mem_p(arg1); mem_f8(arg2); }
+
+PROBE(void, Mem_RefLikeStruct, (INT_PTR arg)) { clear_mem(); mem_refLikeStruct(arg); }
 
 //PROBE(void, Mem3_p_p_p, (INT_PTR arg1, INT_PTR arg2, INT_PTR arg3)) { clear_mem(); mem_p(arg1); mem_p(arg2); mem_p(arg3); }
 //PROBE(void, Mem3_p_p_i1, (INT_PTR arg1, INT_PTR arg2, INT8 arg3)) { clear_mem(); mem_p(arg1); mem_p(arg2); mem_i1(arg3); }

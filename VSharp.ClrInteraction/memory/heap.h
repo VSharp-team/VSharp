@@ -92,6 +92,10 @@ public:
     Heap();
 
     OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
+    // Allocate block of memory controlled by stack
+    OBJID allocateLocal(ADDR address, SIZE size);
+    // Allocate block of static memory
+    OBJID allocateStaticField(ADDR address, SIZE size);
 
     void moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length);
     void markSurvivedObjects(ADDR start, SIZE length);

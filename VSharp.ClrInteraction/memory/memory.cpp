@@ -68,6 +68,8 @@ std::vector<unsigned> dataPtrs;
 
 int memSize = 0;
 
+INT_PTR refLikeStructRef;
+
 void vsharp::clear_mem() {
     LOG(tout << "clear_mem()" << std::endl);
     entries_count = 0; data_ptr = 0;
@@ -167,6 +169,11 @@ void vsharp::mem_p(INT_PTR value) {
 void vsharp::mem_p(INT_PTR value, INT8 idx) {
     LOG(tout << "mem_p " << value << " " << idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_PTR, sizeof(INT_PTR), idx);
+}
+
+void vsharp::mem_refLikeStruct(INT_PTR ref) {
+    LOG(tout << "mem_refLikeStruct " << (INT64) ref << std::endl);
+    refLikeStructRef = ref;
 }
 
 void vsharp::update_i1(INT8 value, INT8 idx) {
@@ -274,6 +281,10 @@ INT_PTR vsharp::unmem_p(INT8 idx) {
     LOG(tout << "unmem_p(" << (int)idx << ") returned " << result);
     return result;
 //    return *((INT_PTR*) (data.data() + dataPtrs[idx]));
+}
+
+INT_PTR vsharp::unmem_refLikeStruct() {
+    return refLikeStructRef;
 }
 
 bool _mainLeft = false;

@@ -108,6 +108,7 @@ type probes = {
     mutable stfld_f8 : uint64
     mutable stfld_p : uint64
     mutable stfld_struct : uint64
+    mutable stfld_refLikeStruct : uint64
 
     mutable ldsfld : uint64
     mutable ldsflda : uint64
@@ -151,6 +152,7 @@ type probes = {
     mutable pushFrame : uint64
     mutable callVirt : uint64
     mutable newobj : uint64
+    mutable newobjStruct : uint64
     mutable calli : uint64
     mutable throw : uint64
     mutable rethrow : uint64
@@ -169,6 +171,7 @@ type probes = {
     mutable mem2_f8 : uint64
 //    mutable mem2_p : uint64
     mutable mem2_8_4 : uint64
+    mutable mem_refLikeStruct : uint64
 //    mutable mem2_4_p : uint64
 //    mutable mem2_p_1 : uint64
 //    mutable mem2_p_2 : uint64
@@ -208,6 +211,7 @@ with
 type signatureTokens = {
     mutable void_sig : uint32
     mutable bool_sig : uint32
+    mutable i_sig : uint32
     mutable void_u1_sig : uint32
     mutable void_u4_sig : uint32
     mutable void_i_sig : uint32
@@ -228,6 +232,7 @@ type signatureTokens = {
     mutable void_i_r4_sig : uint32
     mutable void_i_r8_sig : uint32
     mutable void_i_i_sig : uint32
+    mutable void_i_size_sig : uint32
     mutable void_i4_i4_sig : uint32
     mutable void_i4_i_sig : uint32
     mutable void_i8_i4_sig : uint32
@@ -269,6 +274,7 @@ type signatureTokens = {
     mutable void_i_r8_offset_sig : uint32
     mutable void_i_i_offset_sig : uint32
     mutable void_i_token_offset_sig : uint32
+    mutable void_i_u2_size_sig : uint32
     mutable void_i_i4_i4_offset_sig : uint32
     mutable void_u2_i4_i4_offset_sig : uint32
     mutable void_u2_i4_i_offset_sig : uint32

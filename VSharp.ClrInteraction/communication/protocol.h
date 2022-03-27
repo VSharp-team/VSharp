@@ -2,6 +2,7 @@
 #define PROTOCOL_H_
 
 #include "communicator.h"
+#include "cor.h"
 #include <vector>
 
 #ifdef UNIX

@@ -396,4 +396,46 @@ namespace IntegrationTests
             b.Set(42);
         }
     }
+
+    [TestFixture]
+    public class StructTest
+    {
+        private struct TestStruct
+        {
+            public int x;
+            public int y;
+            public int z;
+        }
+
+        private ref struct TestRefStruct
+        {
+            public int x;
+            public int y;
+            public int z;
+        }
+
+        private static int BranchOnStruct(TestStruct s)
+        {
+            return s.x + s.y + s.z > 0 ? 1 : -1;
+        }
+
+        private static int BranchOnRefStruct(TestRefStruct s)
+        {
+            return s.x + s.y + s.z > 0 ? 1 : -1;
+        }
+
+        [TestSvm]
+        public static int TestStructAsParam(int x, int y)
+        {
+            var s = new TestStruct { x = x, y = y, z = 4 };
+            return BranchOnStruct(s);
+        }
+
+        [TestSvm]
+        public static int TestRefStructAsParam(int x, int y)
+        {
+            return BranchOnRefStruct(new TestRefStruct { x = x, y = y, z = 4 });
+        }
+
+    }
 }

@@ -3,6 +3,8 @@
 #include <cstdlib>
 #include <vector>
 #include <sstream>
+#include <stack>
+#include <algorithm>
 
 using namespace vsharp;
 

@@ -89,6 +89,11 @@ module public Reflection =
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
+    let getMethodArgumentType index (method : MethodBase) =
+        if method.IsStatic then method.GetParameters().[index].ParameterType
+        elif index = 0 then method.DeclaringType
+        else method.GetParameters().[index - 1].ParameterType
+
     let hasNonVoidResult m = (getMethodReturnType m).FullName <> typeof<Void>.FullName
 
     let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)

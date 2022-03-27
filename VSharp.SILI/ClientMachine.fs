@@ -117,6 +117,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         else false
 
     member x.Terminate() =
+        Logger.trace "ClientMachine.Terminate()"
         concolicProcess.Kill()
 
     member x.IsRunning = isRunning
@@ -172,27 +173,35 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     member x.ExecCommand() =
         Logger.trace "Reading next command..."
-        match x.communicator.ReadCommand() with
-        | Instrument methodBody ->
-            if int methodBody.properties.token = entryPoint.MetadataToken && methodBody.moduleName = entryPoint.Module.FullyQualifiedName then
-                mainReached <- true
-            let mb =
-                if mainReached then
-                    Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
-                    x.instrumenter.Instrument methodBody
-                else x.instrumenter.Skip methodBody
-            x.communicator.SendMethodBody mb
-            true
-        | ExecuteInstruction c ->
-            Logger.trace "Got execute instruction command!"
-            x.SynchronizeStates c
-            cilState.suspended <- false
-            requestMakeStep cilState
-            true
-        | Terminate ->
-            Logger.trace "Got terminate command!"
-            isRunning <- false
-            false
+        try
+            match x.communicator.ReadCommand() with
+            | Instrument methodBody ->
+                if int methodBody.properties.token = entryPoint.MetadataToken && methodBody.moduleName = entryPoint.Module.FullyQualifiedName then
+                    mainReached <- true
+                let mb =
+                    if mainReached then
+                        Logger.trace "Got instrument command! bytes count = %d, max stack size = %d, eh count = %d" methodBody.il.Length methodBody.properties.maxStackSize methodBody.ehs.Length
+                        x.instrumenter.Instrument methodBody
+                    else x.instrumenter.Skip methodBody
+                x.communicator.SendMethodBody mb
+                true
+            | ExecuteInstruction c ->
+                Logger.trace "Got execute instruction command!"
+                x.SynchronizeStates c
+                cilState.suspended <- false
+                requestMakeStep cilState
+                true
+            | Terminate ->
+                Logger.trace "Got terminate command!"
+                isRunning <- false
+                false
+        with
+        | :? IOException ->
+            Logger.trace "exception caught in concolic machine, waiting process to terminate..."
+            concolicProcess.WaitForExit()
+            Logger.trace "process terminated, exit code = %d" concolicProcess.ExitCode
+            reraise()
+
 
     member private x.ConcreteToObj term =
         let evalRefType baseAddress offset typ =

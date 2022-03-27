@@ -164,6 +164,17 @@ namespace vsharp {
         return id;
     }
 
+    UINT_PTR Heap::allocateLocal(UINT_PTR address, UINT_PTR size) {
+        // 2Misha
+        FAIL_LOUD("Not implemented");
+    }
+
+    UINT_PTR Heap::allocateStaticField(UINT_PTR address, UINT_PTR size) {
+        // 2Misha:
+        // Don't forget to check if block is already allocated!
+        FAIL_LOUD("Not implemented");
+    }
+
     void Heap::moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length) {
         Interval i(oldLeft, length);
         Shift s{oldLeft, newLeft};
@@ -191,6 +202,7 @@ namespace vsharp {
     }
 
     bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {
+    // 2Misha: now VirtualAddress should be enriched with stack and statics!
         if (address == 0) {
             vAddress = {0, 0};
             return true;
@@ -216,10 +228,7 @@ namespace vsharp {
 
     // TODO: store new addresses or get them from tree? #do
     std::map<OBJID, std::pair<char*, unsigned long>> Heap::flushObjects() {
-//        return tree.flush();
-        std::map<OBJID, std::pair<char*, unsigned long>> result;
-        for (const auto &address : newAddresses)
-            result[address.first] = address.second;
+        std::map<OBJID, std::pair<char*, unsigned long>> result(newAddresses);
         newAddresses.clear();
         return result;
     }

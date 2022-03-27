@@ -53,7 +53,7 @@
             cd ../VSharp.ClrInteraction
             mkdir cmake-build-debug
             cd cmake-build-debug
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ../
+            cmake -G "Unix Makefiles" -DCMAKE_CXX_COMPILER=clang -DCMAKE_BUILD_TYPE=Debug ../
             cmake --build . --target vsharpConcolic -j 6'/>
     </Target>
 
