@@ -110,7 +110,7 @@ namespace VSharp.TestRunner
                         if (!checkResult)
                             Console.Out.WriteLine("Result check is disabled");
                         object[] parameters = test.Args ?? method.GetParameters()
-                            .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
+                            .Select(t => Reflection.createObject(t.ParameterType)).ToArray();
                         var ex = test.Exception;
                         try
                         {

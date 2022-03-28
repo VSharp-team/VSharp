@@ -3,6 +3,9 @@
 #ifdef UNIX
 #include "profiler_unix.h" // TODO: test on mac: need this? #do
 #endif
+#ifdef WIN32
+#include "profiler_win.h"
+#endif
 #include "logging.h"
 #include "instrumenter.h"
 #include "communication/protocol.h"
@@ -244,7 +247,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationFinished(FunctionID functio
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchStarted(FunctionID functionId, BOOL *pbUseCachedFunction)
 {
 //    std::cout << __FUNCTION__ << " (method name "<< instrumenter->temp_fid_toString(functionId) << ")" << std::endl;
-    std::cout << __FUNCTION__ << std::endl;
+    tout << __FUNCTION__ << std::endl;
     UNUSED(functionId);
     UNUSED(pbUseCachedFunction);
     return S_OK;
@@ -252,7 +255,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchStarted(FunctionID
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchFinished(FunctionID functionId, COR_PRF_JIT_CACHE result)
 {
-    std::cout << __FUNCTION__ << std::endl;
+    tout << __FUNCTION__ << std::endl;
     UNUSED(functionId);
     UNUSED(result);
     return S_OK;
@@ -260,14 +263,14 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchFinished(FunctionI
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITFunctionPitched(FunctionID functionId)
 {
-    std::cout << __FUNCTION__ << std::endl;
+    tout << __FUNCTION__ << std::endl;
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL *pfShouldInline)
 {
-    std::cout << __FUNCTION__ << std::endl;
+    tout << __FUNCTION__ << std::endl;
     UNUSED(callerId);
     UNUSED(calleeId);
     UNUSED(pfShouldInline);
@@ -428,7 +431,7 @@ void CorProfiler::resolveType(ClassID classId, std::vector<bool> &isValid, std::
     CorElementType corElementType;
     ClassID elementType;
     ULONG rank;
-    HRESULT hr = this->corProfilerInfo->IsArrayClass(classId, &corElementType, &elementType, &rank);
+    HRESULT hr = corProfilerInfo->IsArrayClass(classId, &corElementType, &elementType, &rank);
     if (hr == S_OK) {
         isValid.push_back(true);
         isArray.push_back(true);

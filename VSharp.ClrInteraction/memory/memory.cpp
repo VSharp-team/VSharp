@@ -286,6 +286,22 @@ bool vsharp::isMainLeft() {
     return _mainLeft;
 }
 
+bool instrumentationEnabled = true;
+
+bool vsharp::instrumentingEnabled() {
+    return instrumentationEnabled;
+}
+
+void vsharp::enabledInstrumentation() {
+    assert(!instrumentationEnabled);
+    instrumentationEnabled = true;
+}
+
+void vsharp::disableInstrumentation() {
+    assert(instrumentationEnabled);
+    instrumentationEnabled = false;
+}
+
 VirtualAddress vsharp::resolve(INT_PTR p) {
     // TODO: add stack and statics case #do
     return heap.physToVirtAddress(p);

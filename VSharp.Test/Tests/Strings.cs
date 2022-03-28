@@ -7,6 +7,18 @@ namespace IntegrationTests
     [TestSvmFixture]
     public sealed class Strings
     {
+        [TestSvm]
+        public static int ConcreteGetLength()
+        {
+            return "empty".Length;
+        }
+
+        [TestSvm]
+        public static int SymbolicGetLength(string s)
+        {
+            return s.Length;
+        }
+
         // Expecting HeapRef on empty string
         [TestSvm]
         public static string EmptyString(int n, int m)

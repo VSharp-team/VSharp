@@ -332,6 +332,20 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             probes.unmem_p, x.tokens.i_i1_sig
         | _ -> __unreachable__()
 
+    member private x.AcceptTypeToken (t : System.Type) =
+        let correctType (t : System.Type) =
+            match t with
+            | _ when t.IsByRef -> t.GetElementType()
+            | _ -> t
+        let str = (correctType t).ToString()
+        match t with
+        | _ when t.Module = x.m.Module && t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
+            t.MetadataToken
+        | _ when t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
+            communicator.SendStringAndParseTypeRef str |> int
+//        | _ when t.IsGenericParameter -> t.MetadataToken
+        | _ -> communicator.SendStringAndParseTypeSpec str |> int
+
     member x.PlaceProbes() =
         let instructions = x.rewriter.CopyInstructions()
         assert(not <| Array.isEmpty instructions)
@@ -745,7 +759,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Castclass ->
                      x.PrependDup &prependTarget
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.castclass, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
+                     x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                 | OpCodeValues.Isinst ->
                      x.PrependDup &prependTarget
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
@@ -1103,21 +1119,27 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         // TODO: if method is F# internal call, instr.arg <- token of static ctor of type #do
                         // TODO: if method is C# internal call, instr.arg <- token of C# implementation #do
                         let callee = Reflection.resolveMethod x.m token
-                        let hasThis = callee.CallingConvention.HasFlag(CallingConventions.HasThis)
-                        let argsCount = callee.GetParameters().Length
-                        let argsCount = if hasThis && opcodeValue <> OpCodeValues.Newobj then argsCount + 1 else argsCount
+//                        let types = communicator.SendMethodTokenAndParseTypes token
+                        let argsTypes = callee.GetParameters() |> Array.map (fun p -> p.ParameterType)
+                        let argsTypes =
+                            if Reflection.hasThis callee && opcodeValue <> OpCodeValues.Newobj
+                                then Array.append [|callee.DeclaringType|] argsTypes
+                                else argsTypes
+                        let argsCount = argsTypes.Length
                         let unmems = List<uint64 * uint32>()
                         match instr.stackState with
                         | Some list ->
                             let types = List.take argsCount list |> Array.ofList
                             for i = 0 to argsCount - 1 do
                                 let t = types.[i]
-                                unmems.Add(x.PrependMemUnmemForType(t, argsCount - i - 1, i, &prependTarget))
+                                let unmem, token = x.PrependMemUnmemForType(t, argsCount - i - 1, i, &prependTarget)
+                                unmems.Add(unmem, token)
                         | None -> internalfail "unexpected stack state"
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
                         let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                         let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
                         if isInternalCall then
+                            // TODO: if internal call raised exception, raise it in concolic
                             let retType = Reflection.getMethodReturnType callee
                             x.PrependLdcDefault(retType, &instr)
                             let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, argsCount, &prependTarget)
@@ -1131,6 +1153,12 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         for i = argsCount - 1 downto 0 do
                             let probe, token = unmems.[i]
                             x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
+                            let t = argsTypes.[argsCount - 1 - i]
+                            if not t.IsValueType && t.IsAssignableTo(typeof<obj>) then
+                                let token = x.AcceptTypeToken t
+                                x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                                x.PrependInstr(OpCodes.Unbox_Any, Arg32 token, &prependTarget)
+                                x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                         let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let args = [(OpCodes.Ldc_I4, Arg32 token)
                                     (OpCodes.Ldc_I4, Arg32 expectedToken)
@@ -1181,14 +1209,23 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
     member x.Skip (body : rawMethodBody) =
         { properties = {ilCodeSize = body.properties.ilCodeSize; maxStackSize = body.properties.maxStackSize}; il = body.il; ehs = body.ehs}
 
+    member private x.NeedToSkip =
+        let objConstructors = typeof<obj>.GetConstructors() |> Array.map Reflection.methodToString
+        let stringGetLength = typeof<System.String>.GetMethod("get_Length") |> Reflection.methodToString
+        Array.append objConstructors [|stringGetLength|]
+
     member x.Instrument(body : rawMethodBody) =
         assert(x.rewriter = null)
         x.tokens <- body.tokens
         x.rewriter <- ILRewriter(body)
         x.m <- x.rewriter.Method
+        let t = x.m.DeclaringType
+        if typeof<System.Exception>.IsAssignableFrom(t) then
+            internalfailf "Incorrect instrumentation: exception %O is thrown!" t
+        let shouldInstrument = Array.contains (Reflection.methodToString x.m) x.NeedToSkip |> not
         let result =
-            if Instrumenter.instrumentedFunctions.Add x.m then
-                Logger.trace "Instrumenting %s (token = %u)" (Reflection.methodToString x.m) body.properties.token
+            if shouldInstrument && Instrumenter.instrumentedFunctions.Add x.m then
+                Logger.trace "Instrumenting %s (token = %X)" (Reflection.methodToString x.m) body.properties.token
                 x.rewriter.Import()
                 x.rewriter.PrintInstructions "before instrumentation" probes
 //                Logger.trace "Placing probes..."
@@ -1197,6 +1234,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 x.rewriter.PrintInstructions "after instrumentation" probes
 //                Logger.trace "Exporting..."
                 let result = x.rewriter.Export()
+//                x.rewriter.PrintInstructions "after export" probes
 //                Logger.trace "Exported!"
                 result
             else

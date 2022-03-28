@@ -61,10 +61,15 @@ namespace IntegrationTests
         }
     }
 
+    public class A<G>
+    {
+        public G x;
+    }
+
     [TestSvmFixture]
     public static class GenericTest<T, U, P, K, N, Z>
         where T : U
-        where U : IKeeper<P>
+        where U : class
         where P : struct, IKeeper<T>
         where K : class, IKeeper<U>
         where N : IKeeper<K>
@@ -127,6 +132,22 @@ namespace IntegrationTests
         public static V RetV(V v)
         {
             return v;
+        }
+
+        [TestSvm]
+        public static A<R> CastToGeneric(object o)
+        {
+            A<R> a = (A<R>)o;
+            a.GetHashCode();
+            return a;
+        }
+
+        [TestSvm]
+        public static R RetU(object o)
+        {
+            R u = (R)o;
+            u.GetHashCode();
+            return u;
         }
     }
 

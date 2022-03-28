@@ -10,6 +10,8 @@ open VSharp.Core.API
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type probes = {
+    mutable enableInstrumentation : uint64
+    mutable disableInstrumentation : uint64
     mutable ldarg_0 : uint64
     mutable ldarg_1 : uint64
     mutable ldarg_2 : uint64
@@ -439,6 +441,9 @@ type commandFromConcolic =
 type commandForConcolic =
     | ReadMethodBody
     | ReadString
+    | ParseTypesInfoFromMethod
+    | ParseTypeRef
+    | ParseTypeSpec
 
 type Communicator(pipeFile) =
 
@@ -447,6 +452,10 @@ type Communicator(pipeFile) =
     let executeCommandByte = byte(0x57)
     let readMethodBodyByte = byte(0x58)
     let readStringByte = byte(0x59)
+    let parseTypesInfoByte = byte(0x60)
+    let parseTypeRefByte = byte(0x61)
+    let parseTypeSpecByte = byte(0x62)
+
     let confirmation = Array.singleton confirmationByte
 
     let server = new NamedPipeServerStream(pipeFile, PipeDirection.InOut)
@@ -479,7 +488,7 @@ type Communicator(pipeFile) =
     let readBuffer () =
         let chunkSize = 8192
         let count = readCount()
-        assert(count <> 0)
+//        assert(count <> 0) // TODO: do we need empty messages? #do
         if count < 0 then None
         else
             writeConfirmation()
@@ -563,6 +572,9 @@ type Communicator(pipeFile) =
             match command with
             | ReadString -> readStringByte
             | ReadMethodBody -> readMethodBodyByte
+            | ParseTypesInfoFromMethod -> parseTypesInfoByte
+            | ParseTypeRef -> parseTypeRefByte
+            | ParseTypeSpec -> parseTypeSpecByte
         Array.singleton byte
 
     member x.Connect() =
@@ -598,6 +610,31 @@ type Communicator(pipeFile) =
         match readBuffer() with
         | Some bytes -> BitConverter.ToUInt32(bytes, 0)
         | None -> unexpectedlyTerminated()
+
+    member x.SendMethodTokenAndParseTypes (methodToken : int) : uint32[] =
+        x.SendCommand ParseTypesInfoFromMethod
+        x.Serialize<int> methodToken |> writeBuffer
+        match readBuffer() with
+        | Some bytes ->
+            let typesSize = Array.length bytes / sizeof<uint32>
+            Array.init typesSize (fun i -> BitConverter.ToUInt32(bytes, i * sizeof<uint32>))
+        | None -> Array.empty
+
+    member private x.SendStringAndParseTypeToken (string : string) : uint32 =
+        Encoding.Unicode.GetBytes string |> writeBuffer
+        match readBuffer() with
+        | Some bytes ->
+            assert(Array.length bytes = sizeof<uint32>)
+            BitConverter.ToUInt32(bytes)
+        | None -> internalfail "expected type token, but got nothing"
+
+    member x.SendStringAndParseTypeRef (string : string) : uint32 =
+        x.SendCommand ParseTypeRef
+        x.SendStringAndParseTypeToken string
+
+    member x.SendStringAndParseTypeSpec (string : string) : uint32 =
+        x.SendCommand ParseTypeSpec
+        x.SendStringAndParseTypeToken string
 
     member x.ReadMethodBody() =
         match readBuffer() with

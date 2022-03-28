@@ -2,6 +2,7 @@
 #include "communication/protocol.h"
 #include "logging.h"
 #include "cComPtr.h"
+#include "reflection.h"
 #include <vector>
 #include <stdexcept>
 #include <corhlpr.cpp>
@@ -445,6 +446,38 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
                 if (!m_protocol.sendStringsPoolIndex(index)) FAIL_LOUD("Instrumenting: sending strings internal pool index failed!");
                 break;
             }
+            case GetTypeTokenFromTypeRef: {
+                WCHAR *wstring;
+                if (!m_protocol.acceptWString(wstring)) return false;
+                auto *reflection = new Reflection(m_profilerInfo);
+                reflection->configure(m_moduleId, m_jittedToken);
+                mdToken typeSpec = reflection->getTypeRefByName(wstring);
+                if (!m_protocol.sendToken(typeSpec)) return false;
+                delete reflection;
+                delete[] wstring;
+                break;
+            }
+            case GetTypeTokenFromTypeSpec: {
+                WCHAR *wstring;
+                if (!m_protocol.acceptWString(wstring)) return false;
+                auto *reflection = new Reflection(m_profilerInfo);
+                reflection->configure(m_moduleId, m_jittedToken);
+                mdToken typeSpec = reflection->getTypeSpecByName(wstring);
+                if (!m_protocol.sendToken(typeSpec)) return false;
+                delete reflection;
+                delete[] wstring;
+                break;
+            }
+            case ParseTypeInfoFromMethod: {
+                mdToken method;
+                if (!m_protocol.acceptToken(method)) return false;
+                auto *reflection = new Reflection(m_profilerInfo);
+                reflection->configure(m_moduleId, m_jittedToken);
+                std::vector<mdToken> types = reflection->getTypeInfoFromMethod(method);
+                delete reflection;
+                if (!m_protocol.sendTypeInfoFromMethod(types)) return false;
+                break;
+            }
             default:
                 break;
         }
@@ -464,6 +497,16 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     ClassID classId;
     IfFailRet(m_profilerInfo.GetFunctionInfo(functionId, &classId, &m_moduleId, &m_jittedToken));
     assert((m_jittedToken & 0xFF000000L) == mdtMethodDef);
+
+    if (!instrumentingEnabled()) {
+        // TODO: unify mainReached and instrumentingEnabled #do
+//        skippedBeforeMain.insert({m_moduleId, m_jittedToken});
+        LOG(tout << "Instrumentation of token " << HEX(m_jittedToken) << " is skipped" << std::endl);
+        return S_OK;
+    } else {
+        // TODO: move this to probes #do
+//        if (!skippedBeforeMain.empty()) IfFailRet(startReJitSkipped());
+    }
 
     LPCBYTE baseLoadAddress;
     ULONG moduleNameLength;

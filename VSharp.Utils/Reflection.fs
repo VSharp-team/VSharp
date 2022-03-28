@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Reflection.Metadata
 
 module public Reflection =
 
@@ -127,8 +128,10 @@ module public Reflection =
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
-        if TypeUtils.isNullable t then null
-        else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+        match t with
+        | _ when t = typeof<String> -> String.Empty :> obj
+        | _ when TypeUtils.isNullable t -> null
+        | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     // --------------------------------- Substitute generics ---------------------------------
 

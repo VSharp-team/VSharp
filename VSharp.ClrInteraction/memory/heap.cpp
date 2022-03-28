@@ -237,6 +237,7 @@ namespace vsharp {
 
     ADDR Heap::virtToPhysAddress(const VirtualAddress &virtAddress) {
         auto object = (Object *)virtAddress.obj;
+        if (object == nullptr) return 0;
         return object->left + virtAddress.offset;
     }
 }

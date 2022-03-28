@@ -135,6 +135,7 @@ private:
 
 public:
     bool Parse(sig_byte *blob, sig_count len);
+    bool ParseType(sig_byte *blob, sig_count len);
 
 private:
     bool ParseByte(sig_byte *pbOut);
@@ -698,6 +699,14 @@ bool SigParser::ParseArrayShape()
 
     NotifyEndArrayShape();
     return true;
+}
+
+bool SigParser::ParseType(sig_byte *pb, sig_count cbBuffer)
+{
+    pbBase = pb;
+    pbCur = pb;
+    pbEnd = pbBase + cbBuffer;
+    return ParseType();
 }
 
 bool SigParser::ParseType()

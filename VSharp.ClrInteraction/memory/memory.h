@@ -24,6 +24,10 @@ StackFrame &topFrame();
 void mainLeft();
 bool isMainLeft();
 
+bool instrumentingEnabled();
+void enabledInstrumentation();
+void disableInstrumentation();
+
 unsigned allocateString(const char *s);
 
 INT8 entriesCount();

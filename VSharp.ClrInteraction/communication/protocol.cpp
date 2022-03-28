@@ -166,10 +166,55 @@ bool Protocol::acceptString(char *&string) {
     return true;
 }
 
+bool Protocol::acceptWString(WCHAR *&wstring) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    wstring = new WCHAR[(messageLength / sizeof(WCHAR)) + 1];
+    memcpy((char *)wstring, message, messageLength);
+    wstring[messageLength / sizeof(WCHAR)] = L'\0';
+    delete[] message;
+    return true;
+}
+
+bool Protocol::acceptToken(mdToken &token) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    assert(messageLength == sizeof(mdToken));
+    token = *(mdToken *) message;
+    delete[] message;
+    return true;
+}
+
 bool Protocol::sendStringsPoolIndex(const unsigned index) {
     unsigned messageLength = sizeof(unsigned);
     char *buffer = new char[messageLength];
     *(unsigned *)buffer = index;
+    bool result = writeBuffer(buffer, (int)messageLength);
+    delete[] buffer;
+    return result;
+}
+
+bool Protocol::sendToken(mdToken token) {
+    unsigned messageLength = sizeof(mdToken);
+    char *buffer = new char[messageLength];
+    *(unsigned *)buffer = token;
+    bool result = writeBuffer(buffer, (int)messageLength);
+    delete[] buffer;
+    return result;
+}
+
+bool Protocol::sendTypeInfoFromMethod(const std::vector<mdToken>& types) {
+    unsigned messageLength = sizeof(mdToken) * types.size();
+    char *buffer = new char[messageLength];
+    memcpy(buffer, types.data(), messageLength);
     bool result = writeBuffer(buffer, (int)messageLength);
     delete[] buffer;
     return result;

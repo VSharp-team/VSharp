@@ -329,6 +329,9 @@ int registerProbe(unsigned long long probe) {
     int NAME##_tmp = registerProbe((unsigned long long)&NAME);\
     RETTYPE STDMETHODCALLTYPE NAME ARGS
 
+PROBE(void, EnableInstrumentation, ()) { enabledInstrumentation(); }
+PROBE(void, DisableInstrumentation, ()) { disableInstrumentation(); }
+
 inline bool ldarg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
     top.pop0();

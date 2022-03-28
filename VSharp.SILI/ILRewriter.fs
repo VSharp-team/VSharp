@@ -551,7 +551,7 @@ module private EvaluationStackTyper =
     let createEHStackState (m : Reflection.MethodBase) (flags : int) (startInstr : ilInstr) =
         let catchFlags = LanguagePrimitives.EnumToValue System.Reflection.ExceptionHandlingClauseOptions.Clause
         if flags = catchFlags then // NOTE: is catch
-            startInstr.stackState <- Some [evaluationStackCellType.Ref] // TODO: finially and filter! #do
+            startInstr.stackState <- Some [evaluationStackCellType.Ref]
         else startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
@@ -583,7 +583,7 @@ type ILRewriter(body : rawMethodBody) =
                         match instr.arg with
                         | Arg32 token ->
                             let callee = Reflection.resolveMethod m token
-                            Reflection.methodToString callee
+                            sprintf "%s [%x]" (Reflection.methodToString callee) token
                         | _ -> __unreachable__()
                     elif op = OpCodes.Calli then
                         body.tokens.TokenToString instr.Arg32
