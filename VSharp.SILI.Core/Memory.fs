@@ -75,7 +75,7 @@ module internal Memory =
         let attachOne acc i =
             let relOffset = sub indices.[i] lbs.[i]
             let prod acc j = mul acc lens.[j]
-            let lensProd = List.fold prod (makeNumber 1) [i .. length - 1]
+            let lensProd = List.fold prod (makeNumber 1) [i + 1 .. length - 1]
             let absOffset = mul relOffset lensProd
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length - 1]

@@ -191,6 +191,10 @@ namespace vsharp {
     }
 
     bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {
+        if (address == 0) {
+            vAddress = {0, 0};
+            return true;
+        }
         if (const Interval *i = tree.find(address)) {
             vAddress.offset = address - i->left;
             vAddress.obj = (OBJID) i;
@@ -229,6 +233,8 @@ namespace vsharp {
 
     VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {
         VirtualAddress vAddress{};
+        if (physAddress == 0)
+            return VirtualAddress {0, 0};
         if (!resolve(physAddress, vAddress)) {
             FAIL_LOUD("unable to resolve physical address!");
         }

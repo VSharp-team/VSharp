@@ -252,7 +252,7 @@ module internal Types =
             | a when a.IsArray ->
                 ArrayType(
                     fromDotNetType (a.GetElementType()),
-                    if a = a.GetElementType().MakeArrayType() then Vector else ConcreteDimension <| a.GetArrayRank())
+                    if a.IsSZArray then Vector else ConcreteDimension <| a.GetArrayRank())
             | s when s.IsValueType && not s.IsGenericParameter -> StructType (getGenericDefinition s) (getGenericArguments s)
             | p when p.IsGenericParameter -> TypeVariable(Id p)
             | c when c.IsClass -> ClassType (getGenericDefinition c) (getGenericArguments c)
