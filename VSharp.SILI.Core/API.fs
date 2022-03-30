@@ -451,6 +451,8 @@ module API =
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
+        let FindParameterByIndex state frame idx = CallStack.findParameterByIndex state.stack frame idx
+        let FindLocalVariableByIndex state frame idx = CallStack.findLocalVariableByIndex state.stack frame idx
 
         let BoxValueType state term =
             let address = Memory.freshAddress state

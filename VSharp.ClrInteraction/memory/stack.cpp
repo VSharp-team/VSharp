@@ -1,5 +1,4 @@
 #include "stack.h"
-#include "../logging.h"
 #include <cstring>
 #include <cassert>
 
@@ -7,7 +6,7 @@ using namespace vsharp;
 
 #define CONCRETE UINT32_MAX
 
-StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount)
+StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Heap &heap)
     : m_concreteness(nullptr)
     , m_capacity(0)
     , m_concretenessTop(0)
@@ -18,13 +17,18 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     , m_unresolvedToken(unresolvedToken)
     , m_enteredMarker(false)
     , m_spontaneous(false)
+    , m_heap(heap)
 {
+    m_localObjects = std::vector<Interval *>();
     memcpy(m_args, args, argsCount);
     resetPopsTracking();
 }
 
 StackFrame::~StackFrame()
 {
+    for (const auto *obj : m_localObjects)
+        delete obj;
+    m_heap.deleteObjects(m_localObjects);
     delete [] m_concreteness;
 }
 
@@ -222,9 +226,18 @@ const std::vector<std::pair<unsigned, unsigned>> &StackFrame::poppedSymbolics() 
     return m_lastPoppedSymbolics;
 }
 
+void StackFrame::addLocalObject(OBJID local) {
+    m_localObjects.push_back((Interval *) local);
+}
+
+Stack::Stack(Heap &heap)
+    : m_heap(heap)
+{
+}
+
 void Stack::pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount)
 {
-    m_frames.push_back(StackFrame(resolvedToken, unresolvedToken, args, argsCount));
+    m_frames.push_back(StackFrame(resolvedToken, unresolvedToken, args, argsCount, m_heap));
 }
 
 

@@ -10,10 +10,23 @@ open VSharp.Interpreter.IL
 type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes : probes) =
     // TODO: should we consider executed assembly build options here?
     let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> VSharp.Concolic.OpCode
+    let mutable currentStaticFieldID = 0
+    let staticFieldIDs = Dictionary<int, FieldInfo>()
+    let registerStaticFieldID (fieldInfo : FieldInfo) =
+        if staticFieldIDs.ContainsValue(fieldInfo) |> not then
+            currentStaticFieldID <- currentStaticFieldID + 1
+            staticFieldIDs.Add(currentStaticFieldID, fieldInfo)
+            currentStaticFieldID
+        else
+            let kvp = staticFieldIDs |> Seq.find (fun kvp -> kvp.Value = fieldInfo)
+            kvp.Key
+
     static member private instrumentedFunctions = HashSet<MethodBase>()
     [<DefaultValue>] val mutable tokens : signatureTokens
     [<DefaultValue>] val mutable rewriter : ILRewriter
     [<DefaultValue>] val mutable m : MethodBase
+
+    member x.StaticFieldByID id = staticFieldIDs[id]
 
     member private x.MkCalli(instr : ilInstr byref, signature : uint32) =
         instr <- x.rewriter.NewInstr OpCodes.Calli
@@ -804,15 +817,31 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      x.PrependProbeWithOffset(probes.unboxAny, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                      x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
                 | OpCodeValues.Ldfld ->
-                    x.PrependMem_p(0, 0, &prependTarget)
-                    x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+                    // TODO: care about ref-like structs #Dima
+                    let isStruct, isRefLikeStruct =
+                        match instr.stackState with
+                        | UnOp evaluationStackCellType.Struct -> true, false
+                        | UnOp evaluationStackCellType.RefLikeStruct -> false, true
+                        | _ -> false, false
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
+                    if isStruct then
+                        let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                        x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
+                    if isRefLikeStruct then
+                        x.PrependInstr(OpCodes.Dup, NoArg, &prependTarget)
+                    else
+                        x.PrependMem_p(0, 0, &prependTarget)
+                        x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
                     let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int32
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
                     x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i4_i4_offset_sig, &prependTarget) |> ignore
-                    x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+                    if not isRefLikeStruct then
+                        x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+                    if isStruct then
+                        let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                        x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget)
                 | OpCodeValues.Ldflda ->
                     x.PrependDup &prependTarget
                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
@@ -835,7 +864,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | UnOp evaluationStackCellType.Struct -> true, false
                         | UnOp evaluationStackCellType.RefLikeStruct -> false, true
                         | _ -> false, false
-                    let typeTokenArg = instr.arg
+                    let fieldInfo = Reflection.resolveField x.m instr.Arg32
+                    let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                    let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
 
                     if isRefLikeStruct then
                         match instr.stackState with
@@ -844,10 +875,19 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 let srcInstr = instructions |> Array.find (fun i -> i.offset = srcOffset)
                                 x.AppendProbe(probes.mem_refLikeStruct, [OpCodes.Dup, NoArg; OpCodes.Conv_I, NoArg], x.tokens.void_i_sig, srcInstr))
                         | _ -> __unreachable__()
-                        x.PrependProbeWithOffset(probes.stfld_refLikeStruct, [OpCodes.Ldc_I4, instr.arg], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
+                        let args = [(OpCodes.Ldc_I4, Arg32 fieldOffset); (OpCodes.Ldc_I4, Arg32 fieldSize)]
+                        x.PrependProbeWithOffset(probes.stfld_refLikeStruct, args, x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
                         if isStruct then
-                            x.PrependInstr(OpCodes.Box, typeTokenArg, &prependTarget)
+                            let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                            // TODO: potential bug test:
+                            //       ldloca
+                            //       stfld symbolicValue
+                            //       ldloc
+                            //       ldfld
+                            // TODO: if ldloca with stfld will use one address of location,
+                            //       but ldloc with ldfld will use another address (because of Box)
+                            x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
                         let probe, signature, unmem2Probe, unmem2Sig =
                             match instr.stackState with
                             | BinOp(evaluationStackCellType.I1, evaluationStackCellType.I)
@@ -857,34 +897,36 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             | BinOp(evaluationStackCellType.I2, evaluationStackCellType.Ref)
                             | BinOp(evaluationStackCellType.I4, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_4 &prependTarget
-                                probes.stfld_4, x.tokens.void_token_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig
+                                probes.stfld_4, x.tokens.void_i4_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig
                             | BinOp(evaluationStackCellType.I8, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.I8, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_8 &prependTarget
-                                probes.stfld_8, x.tokens.void_token_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig
+                                probes.stfld_8, x.tokens.void_i4_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig
                             | BinOp(evaluationStackCellType.R4, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.R4, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_f4 &prependTarget
-                                probes.stfld_f4, x.tokens.void_token_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig
+                                probes.stfld_f4, x.tokens.void_i4_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig
                             | BinOp(evaluationStackCellType.R8, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.R8, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_f8 &prependTarget
-                                probes.stfld_f8, x.tokens.void_token_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
+                                probes.stfld_f8, x.tokens.void_i4_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
                             | BinOp(evaluationStackCellType.I, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.I, evaluationStackCellType.Ref)
                             | BinOp(evaluationStackCellType.Ref, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.Ref, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p &prependTarget
-                                probes.stfld_p, x.tokens.void_token_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                                probes.stfld_p, x.tokens.void_i4_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
                             | BinOp(evaluationStackCellType.Struct, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.Struct, evaluationStackCellType.Ref)
                             | BinOp(evaluationStackCellType.RefLikeStruct, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.RefLikeStruct, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p &prependTarget
-                                probes.stfld_struct, x.tokens.void_token_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                                probes.stfld_struct, x.tokens.void_i4_i4_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
                             | _ -> __unreachable__()
 
-                        x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                        x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
+                        if isStruct then
+                            x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
     //                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
@@ -895,14 +937,17 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         if isStruct then
                             // TODO: ref-like struct!!
-                            x.PrependInstr(OpCodes.Unbox_Any, typeTokenArg, &prependTarget)
+                            let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                            x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget)
                 | OpCodeValues.Ldsfld ->
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
                     x.PrependProbeWithOffset(probes.ldsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldsflda ->
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
                     let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int32
-                    x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_size_sig, instr)
+                    let id = registerStaticFieldID fieldInfo |> int16
+                    x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_i4_i2_sig, instr)
+                    x.AppendInstr OpCodes.Ldc_I4 (Arg16 id) instr
                     x.AppendInstr OpCodes.Ldc_I4 (Arg32 fieldSize) instr
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr

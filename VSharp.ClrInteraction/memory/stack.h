@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <stack>
+#include "heap.h"
 
 namespace vsharp {
 
@@ -24,10 +25,13 @@ private:
     bool m_enteredMarker;
     bool m_spontaneous;
 
+    Heap &m_heap;
+
     std::vector<std::pair<unsigned, unsigned>> m_lastPoppedSymbolics;
+    std::vector<Interval *> m_localObjects;
 
 public:
-    StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
+    StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Heap &heap);
     ~StackFrame();
 
     void configure(unsigned maxStackSize, unsigned localsCount);
@@ -53,6 +57,8 @@ public:
     bool loc(unsigned index) const;
     void setLoc(unsigned index, bool value);
 
+    void addLocalObject(OBJID local);
+
     bool dup();
 
     unsigned count() const;
@@ -76,7 +82,9 @@ private:
     unsigned m_lastSentTop;
     unsigned m_minTopSinceLastSent;
 
+    Heap &m_heap;
 public:
+    Stack(Heap &heap);
     void pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
     void popFrame();
     void popFrameUntracked();
@@ -89,7 +97,7 @@ public:
 
     unsigned unsentPops() const;
     unsigned minTopSinceLastSent() const;
-    void Stack::resetMinTop();
+    void resetMinTop();
     void resetPopsTracking(int framesCount);
 };
 

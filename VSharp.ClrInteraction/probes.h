@@ -39,7 +39,8 @@ struct EvalStackOperand {
 
     size_t size() const {
         if (typ == OpRef)
-            return sizeof(EvalStackArgType) + sizeof(UINT_PTR) + sizeof(UINT_PTR);
+            // NOTE: evaluation stack type * base address * offset * object type * object key
+            return sizeof(EvalStackArgType) + sizeof(UINT_PTR) + sizeof(UINT_PTR) + sizeof(BYTE) + sizeof(BYTE) * 2;
         return sizeof(EvalStackArgType) + sizeof(INT64);
     }
 
@@ -47,8 +48,27 @@ struct EvalStackOperand {
         *(EvalStackArgType *)buffer = typ;
         buffer += sizeof(EvalStackArgType);
         if (typ == OpRef) {
-            *(UINT_PTR *)buffer = content.address.obj; buffer += sizeof(UINT_PTR);
-            *(UINT_PTR *)buffer = content.address.offset; buffer += sizeof(UINT_PTR);
+            VirtualAddress address = content.address;
+            *(UINT_PTR *)buffer = address.obj; buffer += sizeof(UINT_PTR);
+            *(UINT_PTR *)buffer = address.offset; buffer += sizeof(UINT_PTR);
+            ObjectLocation location = address.location;
+            ObjectType type = location.type;
+            *(BYTE *)buffer = type; buffer += sizeof(BYTE);
+            switch (type) {
+                case LocalVariable:
+                case Parameter: {
+                    StackKey key = location.key.stackKey;
+                    *(BYTE *) buffer = key.frame; buffer += sizeof(BYTE);
+                    *(BYTE *) buffer = key.idx; buffer += sizeof(BYTE);
+                    break;
+                }
+                case Statics:
+                    *(INT16 *) buffer = location.key.staticFieldKey; buffer += sizeof(INT16);
+                    break;
+                default:
+                    buffer += sizeof(BYTE) * 2;
+                    break;
+            }
         } else {
             *(INT64 *)buffer = (INT64) content.number; buffer += sizeof(INT64);
         }
@@ -60,6 +80,7 @@ struct EvalStackOperand {
         if (typ == OpRef) {
             content.address.obj = (OBJID) *(UINT_PTR *)buffer; buffer += sizeof(UINT_PTR);
             content.address.offset = (SIZE) *(UINT_PTR *)buffer; buffer += sizeof(UINT_PTR);
+            // NOTE: deserialization of object location is not needed, because updateMemory needs only address and offset
         } else {
             content.number = *(INT64 *)buffer; buffer += sizeof(INT64);
         }
@@ -355,15 +376,22 @@ PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset
 PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
-    // 2Misha:
-    // OBJID obj = heap.allocateLocal(ptr, size);
+    unsigned frame = stack().framesCount();
+    ObjectLocation location = {Parameter, frame, idx};
+    OBJID obj = heap.allocateLocal(ptr, size, location);
     // Register obj in current stack frame
-    // in StackFrame destructor, clear all objs
-    FAIL_LOUD("Not implemented!")
+    topFrame().addLocalObject(obj);
     topFrame().push1Concrete();
 }
 
 inline bool ldloc(INT16 idx) {
+    // TODO: potential bug test:
+    //       ldloca
+    //       stfld symbolicValue
+    //       ldloc
+    //       ldfld
+    // TODO: if location was loaded via ldloca, and then symbolic value was stored in it,
+    //       all ldloc instructions for this location should return symbolic
     StackFrame &top = vsharp::topFrame();
     top.pop0();
     bool concreteness = top.loc(idx);
@@ -379,11 +407,11 @@ PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset
 PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
-    // 2Misha:
-    // OBJID obj = heap.allocateLocal(ptr, size);
+    unsigned frame = stack().framesCount();
+    ObjectLocation location = {LocalVariable, frame, idx};
+    OBJID obj = heap.allocateLocal(ptr, size, location);
     // Register obj in current stack frame
-    // in StackFrame destructor, clear all objs
-    FAIL_LOUD("Not implemented!")
+    topFrame().addLocalObject(obj);
     topFrame().push1Concrete();
 }
 
@@ -586,45 +614,53 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
 }
 PROBE(void, Track_Ldflda, (INT_PTR objPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
 
-inline bool stfld(mdToken fieldToken, INT_PTR ptr) {
+inline bool stfld(INT32 fieldOffset, INT32 fieldSize, INT_PTR ptr) {
     StackFrame &top = vsharp::topFrame();
-    // TODO: check concreteness of memory referenced by ptr
-    return top.pop(2);
+    bool value = top.peek0();
+    bool obj = top.peek1();
+    UINT_PTR address = ptr + fieldOffset;
+    bool memory = false;
+    if (obj) memory = heap.read(address, fieldSize);
+    if (memory) {
+        heap.write(address, fieldSize, value);
+    }
+    top.pop(2);
+    return value && obj && memory;
 }
 
-PROBE(void, Track_Stfld_4, (mdToken fieldToken, INT_PTR ptr, INT32 value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_4, (INT32 fieldOffset, INT_PTR ptr, INT32 value, OFFSET offset)) {
+    if (!stfld(fieldOffset, 4, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) });
     }
 }
-PROBE(void, Track_Stfld_8, (mdToken fieldToken, INT_PTR ptr, INT64 value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_8, (INT32 fieldOffset, INT_PTR ptr, INT64 value, OFFSET offset)) {
+    if (!stfld(fieldOffset, 8, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_8(value) });
     }
 }
-PROBE(void, Track_Stfld_f4, (mdToken fieldToken, INT_PTR ptr, FLOAT value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_f4, (INT32 fieldOffset, INT_PTR ptr, FLOAT value, OFFSET offset)) {
+    if (!stfld(fieldOffset, sizeof(FLOAT), ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f4(value) });
     }
 }
-PROBE(void, Track_Stfld_f8, (mdToken fieldToken, INT_PTR ptr, DOUBLE value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_f8, (INT32 fieldOffset, INT_PTR ptr, DOUBLE value, OFFSET offset)) {
+    if (!stfld(fieldOffset, sizeof(DOUBLE), ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f8(value) });
     }
 }
-PROBE(void, Track_Stfld_p, (mdToken fieldToken, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_p, (INT32 fieldOffset, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldOffset, sizeof(INT_PTR), ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) });
     }
 }
-PROBE(void, Track_Stfld_struct, (mdToken fieldToken, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
-    if (!stfld(fieldToken, ptr)) {
+PROBE(void, Track_Stfld_struct, (INT32 fieldOffset, INT32 fieldSize, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldOffset, fieldSize, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_struct(value) });
     }
 }
-PROBE(void, Track_Stfld_refLikeStruct, (mdToken fieldToken, OFFSET offset)) {
+PROBE(void, Track_Stfld_refLikeStruct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
     INT_PTR ptr = unmem_refLikeStruct();
-    if (!stfld(fieldToken, ptr)) {
+    if (!stfld(fieldOffset, fieldSize, ptr)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_refLikeStruct() });
     }
 }
@@ -633,8 +669,8 @@ PROBE(void, Track_Ldsfld, (mdToken fieldToken, OFFSET offset)) {
     // TODO
     topFrame().push1Concrete();
 }
-PROBE(void, Track_Ldsflda, (INT_PTR fieldPtr, SIZE size)) {
-    // 2Misha: allocate object via Heap::allocateStaticField
+PROBE(void, Track_Ldsflda, (INT_PTR fieldPtr, INT32 size, INT16 id)) {
+    OBJID obj = heap.allocateStaticField(fieldPtr, size, id);
     topFrame().push1Concrete();
 }
 PROBE(void, Track_Stsfld, (mdToken fieldToken, OFFSET offset)) {

@@ -13,12 +13,14 @@ public:
         objects.push_back(&node);
     }
 
-    const Interval *find(const Point &p) const {
+    bool find(const Point &p, const Interval *&result) const {
         for (const Interval *obj : objects) {
-            if (obj->contains(p))
-                return obj;
+            if (obj->contains(p)) {
+                result = obj;
+                return true;
+            }
         }
-        FAIL_LOUD("Unbound pointer!");
+        return false;
     }
 
     void moveAndMark(const Interval &interval, const Shift &shift) {
@@ -55,6 +57,16 @@ public:
             }
         objects = marked;
         return unmarked;
+    }
+
+    void deleteIntervals(const std::vector<Interval *> &intervals) {
+        std::remove_if(
+            objects.begin(),
+            objects.end(),
+            [&intervals](Interval *i) {
+                return std::find(intervals.begin(), intervals.end(), i) != intervals.end();
+            }
+        );
     }
 
     std::vector<Interval*> flush() {

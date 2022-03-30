@@ -256,6 +256,7 @@ type signatureTokens = {
     mutable void_r4_i1_i1_sig : uint32
     mutable void_r8_i1_i1_sig : uint32
     mutable void_i_i1_i1_sig : uint32
+    mutable void_i_i4_i2_sig : uint32
     mutable void_token_u2_bool_u4_u4_sig : uint32
     mutable void_offset_sig : uint32
     mutable void_u1_offset_sig : uint32
@@ -266,6 +267,7 @@ type signatureTokens = {
     mutable void_r8_offset_sig : uint32
     mutable void_i_offset_sig : uint32
     mutable void_token_offset_sig : uint32
+    mutable void_i4_i4_offset_sig : uint32
     mutable void_i_i1_offset_sig : uint32
     mutable void_i_i2_offset_sig : uint32
     mutable void_i_i4_offset_sig : uint32
@@ -292,12 +294,18 @@ type signatureTokens = {
     mutable void_i_i_r4_offset_sig : uint32
     mutable void_i_i_r8_offset_sig : uint32
     mutable void_i_i1_i_offset_sig : uint32
+    mutable void_i4_i_i4_offset_sig : uint32
+    mutable void_i4_i_i8_offset_sig : uint32
+    mutable void_i4_i_r4_offset_sig : uint32
+    mutable void_i4_i_r8_offset_sig : uint32
+    mutable void_i4_i_i_offset_sig : uint32
     mutable void_token_u4_u4_u4_sig : uint32
     mutable void_token_i_i_offset_sig : uint32
     mutable void_token_i_i4_offset_sig : uint32
     mutable void_token_i_i8_offset_sig : uint32
     mutable void_token_i_r4_offset_sig : uint32
     mutable void_token_i_r8_offset_sig : uint32
+    mutable void_i4_i4_i_i_offset_sig : uint32
     mutable void_token_token_bool_u2_offset_sig : uint32
     mutable void_token_u4_u4_u4_i1_sig : uint32
 }
@@ -406,9 +414,15 @@ type evalStackArgType =
     | OpR8 = 5
     | OpRef = 6
 
+type ConcolicAddressKey =
+    | ReferenceType
+    | LocalVariable of byte * byte // frame number * idx
+    | Parameter of byte * byte // frame number * idx
+    | Statics of int16 // static field id
+
 type evalStackOperand =
     | NumericOp of evalStackArgType * int64
-    | PointerOp of UIntPtr * UIntPtr
+    | PointerOp of UIntPtr * UIntPtr * ConcolicAddressKey
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type private execCommandStatic = {
@@ -701,12 +715,31 @@ type Communicator(pipeFile) =
                 offset <- offset + sizeof<int32>
                 let evalStackArgType = LanguagePrimitives.EnumOfValue evalStackArgTypeNum
                 match evalStackArgType with
-                | evalStackArgType.OpRef -> // TODO: mb use UIntPtr? #do
+                | evalStackArgType.OpRef ->
+                    let parseFrameAndIdx() =
+                        let frame = dynamicBytes[offset]
+                        offset <- offset + 1
+                        let idx = dynamicBytes[offset]
+                        offset <- offset + 1
+                        frame, idx
+                    let parseStaticFieldId() =
+                        let id = BitConverter.ToInt16(dynamicBytes, offset)
+                        offset <- offset + 2
+                        id
                     let baseAddr = x.ToUIntPtr dynamicBytes offset
                     offset <- offset + UIntPtr.Size
                     let shift = x.ToUIntPtr dynamicBytes offset
                     offset <- offset + UIntPtr.Size
-                    PointerOp(baseAddr, shift)
+                    let locationType = dynamicBytes[offset]
+                    offset <- offset + 1
+                    let key =
+                        match locationType with
+                        | 1uy -> offset <- offset + 2; ReferenceType
+                        | 2uy -> LocalVariable(parseFrameAndIdx())
+                        | 3uy -> Parameter(parseFrameAndIdx())
+                        | 4uy -> Statics(parseStaticFieldId())
+                        | _ -> internalfailf "ReadExecuteCommand: unexpected object location type: %O" locationType
+                    PointerOp(baseAddr, shift, key)
                 | evalStackArgType.OpSymbolic
                 | evalStackArgType.OpI4
                 | evalStackArgType.OpI8
@@ -821,13 +854,13 @@ type Communicator(pipeFile) =
             index <- index + sizeof<uint64>
         else
             // NOTE: nonnull refs handling
-            let address, offset = obj :?> uint32 * uint64
+            let address, offset = obj :?> UIntPtr * UIntPtr
             let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<int>), LanguagePrimitives.EnumToValue evalStackArgType.OpRef) in assert success
             index <- index + sizeof<int>
-            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), uint64 address) in assert success
-            index <- index + sizeof<int64>
-            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<uint64>), offset) in assert success
-            index <- index + sizeof<int64>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<UIntPtr>), uint64 address) in assert success
+            index <- index + sizeof<uint64>
+            let success = BitConverter.TryWriteBytes(Span(bytes, index, sizeof<UIntPtr>), uint64 offset) in assert success
+            index <- index + sizeof<uint64>
         bytes
 
     member private x.SerializeOperands (ops : (obj * Core.symbolicType) list) =

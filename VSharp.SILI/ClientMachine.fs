@@ -1,6 +1,7 @@
 namespace VSharp.Concolic
 
 open System
+open System.Collections.Generic
 open System.Diagnostics
 open System.IO
 open System.Reflection
@@ -85,6 +86,13 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     let mutable concolicProcess = new Process()
     let mutable isRunning = false
+    let concolicStackKeys = Dictionary<stackKey, UIntPtr>()
+    let registerStackKeyAddress stackKey (address : UIntPtr) =
+        if concolicStackKeys.ContainsKey stackKey then
+            assert(concolicStackKeys[stackKey] = address)
+        else concolicStackKeys.Add(stackKey, address)
+    let getStackKeyAddress stackKey =
+        concolicStackKeys[stackKey]
 
     member x.Spawn() =
         assert(entryPoint <> null)
@@ -122,6 +130,33 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     member x.IsRunning = isRunning
 
+    member private x.MarshallRefFromConcolic baseAddress offset key =
+        match key with
+        | ReferenceType ->
+            let address = ConcreteHeapAddress [int32 baseAddress]
+            let typ = TypeOfAddress cilState.state address
+            if offset = UIntPtr.Zero then HeapRef address typ
+            else
+                let offset = int offset - metadataSizeOfAddress cilState.state address
+                let offset = Concrete offset Types.TLength
+                Ptr (HeapLocation(address, typ)) Void offset
+        | LocalVariable(frame, idx) ->
+            let stackKey = Memory.FindLocalVariableByIndex cilState.state (int frame) (int idx)
+            registerStackKeyAddress stackKey baseAddress
+            let offset = int offset |> MakeNumber
+            Ptr (StackLocation stackKey) Void offset
+        | Parameter(frame, idx) ->
+            let stackKey = Memory.FindParameterByIndex cilState.state (int frame) (int idx)
+            registerStackKeyAddress stackKey baseAddress
+            let offset = int offset |> MakeNumber
+            Ptr (StackLocation stackKey) Void offset
+        | Statics(staticFieldID) ->
+            let fieldInfo = x.instrumenter.StaticFieldByID (int staticFieldID)
+            let typ = fieldInfo.DeclaringType |> Types.FromDotNetType
+            let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+            let offset = MakeNumber (fieldOffset + int offset)
+            Ptr (StaticLocation typ) Void offset
+
     member x.SynchronizeStates (c : execCommand) =
         let toPop = int c.callStackFramesPops
         if toPop > 0 then CilStateOperations.popFramesOf toPop cilState
@@ -153,16 +188,9 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
                 | evalStackArgType.OpR8 ->
                     Concrete (BitConverter.Int64BitsToDouble content) TypeUtils.float64Type
                 | _ -> __unreachable__()
-            | PointerOp(baseAddress, offset) ->
+            | PointerOp(baseAddress, offset, key) ->
                 // TODO: what about StackLocation and StaticLocation? #do
-                let address = ConcreteHeapAddress [int32 baseAddress]
-                let typ = TypeOfAddress cilState.state address
-                if offset = UIntPtr.Zero then
-                    HeapRef address typ
-                else
-                    let offset = int offset - metadataSizeOfAddress cilState.state address
-                    let offset = Concrete offset Types.TLength
-                    Ptr (HeapLocation(address, typ)) Void offset)
+                x.MarshallRefFromConcolic baseAddress offset key)
         let _, evalStack = EvaluationStack.PopMany maxIndex evalStack
         operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
@@ -202,14 +230,21 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             Logger.trace "process terminated, exit code = %d" concolicProcess.ExitCode
             reraise()
 
-
     member private x.ConcreteToObj term =
         let evalRefType baseAddress offset typ =
+            // NOTE: deserialization of object location is not needed, because Concolic needs only address and offset
             match baseAddress, offset.term with
             | HeapLocation({term = ConcreteHeapAddress [address]} as a, _), Concrete(offset, _) ->
-                let obj = (address, uint64 (offset :?> int + metadataSizeOfAddress cilState.state a)) :> obj
+                let offset = offset :?> int + metadataSizeOfAddress cilState.state a
+                assert(offset > 0)
+                let obj = (uint address |> UIntPtr, uint offset |> UIntPtr) :> obj
                 Some (obj, typ)
-            // TODO: stack and statics location #do
+            | StackLocation stackKey, Concrete(offset, _) ->
+                let address = getStackKeyAddress stackKey
+                let obj = (address, offset :?> int |> uint |> UIntPtr) :> obj
+                Some (obj, typ)
+            | StaticLocation _, Concrete _ ->
+                internalfail "unmarshalling for ptr on static location is not implemented!"
             | _ -> None
         match term.term with
         | Concrete(obj, typ) -> Some (obj, typ)

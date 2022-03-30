@@ -84,10 +84,11 @@ namespace vsharp {
 
 // --------------------------- Object ---------------------------
 
-    Object::Object(ADDR address, SIZE size)
+    Object::Object(ADDR address, SIZE size, ObjectLocation location)
         : Interval(address, size)
     {
         assert(size > 0);
+        m_location = location;
         SIZE squashedSize = (size + sizeofCell - 1) / sizeofCell;
         concreteness = new cell[squashedSize];
         // NOTE: all contents are concrete at the beginning
@@ -152,27 +153,46 @@ namespace vsharp {
         }
     }
 
+    ObjectLocation Object::getLocation() const {
+        return m_location;
+    }
+
 // --------------------------- Heap ---------------------------
 
     Heap::Heap() = default;
 
     OBJID Heap::allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength) {
-        auto *obj = new Object(address, size);
+        ObjectKey key;
+        key.none = nullptr;
+        ObjectLocation location = {ReferenceType, key};
+        auto *obj = new Object(address, size, location);
         tree.add(*obj);
         auto id = (OBJID) obj;
         newAddresses[id] = std::make_pair(type, typeLength);
         return id;
     }
 
-    UINT_PTR Heap::allocateLocal(UINT_PTR address, UINT_PTR size) {
-        // 2Misha
-        FAIL_LOUD("Not implemented");
+    UINT_PTR Heap::allocateLocal(UINT_PTR address, UINT_PTR size, ObjectLocation location) {
+        const Interval *i;
+        if (!tree.find(address, i)) {
+            auto *obj = new Object(address, size, location);
+            tree.add(*obj);
+            return (OBJID) obj;
+        }
+        return (OBJID) i;
     }
 
-    UINT_PTR Heap::allocateStaticField(UINT_PTR address, UINT_PTR size) {
-        // 2Misha:
-        // Don't forget to check if block is already allocated!
-        FAIL_LOUD("Not implemented");
+    UINT_PTR Heap::allocateStaticField(ADDR address, INT32 size, INT16 id) {
+        ObjectKey key;
+        key.staticFieldKey = id;
+        const Interval *i;
+        if (!tree.find(address, i)) {
+            ObjectLocation location = {Statics, key};
+            auto *obj = new Object(address, size, location);
+            tree.add(*obj);
+            return (OBJID) obj;
+        }
+        return (OBJID) i;
     }
 
     void Heap::moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length) {
@@ -202,14 +222,18 @@ namespace vsharp {
     }
 
     bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {
-    // 2Misha: now VirtualAddress should be enriched with stack and statics!
         if (address == 0) {
-            vAddress = {0, 0};
+            ObjectKey key{};
+            key.none = nullptr;
+            vAddress = {0, 0, ReferenceType, key};
             return true;
         }
-        if (const Interval *i = tree.find(address)) {
-            vAddress.offset = address - i->left;
-            vAddress.obj = (OBJID) i;
+        const Interval *i;
+        if (tree.find(address, i)) {
+            const auto *obj = dynamic_cast<const Object *>(i);
+            vAddress.offset = address - obj->left;
+            vAddress.obj = (OBJID) obj;
+            vAddress.location = obj->getLocation();
             return true;
         }
         return false;
@@ -242,8 +266,11 @@ namespace vsharp {
 
     VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {
         VirtualAddress vAddress{};
-        if (physAddress == 0)
-            return VirtualAddress {0, 0};
+        if (physAddress == 0) {
+            ObjectKey key{};
+            key.none = nullptr;
+            return VirtualAddress{0, 0, ReferenceType, key};
+        }
         if (!resolve(physAddress, vAddress)) {
             FAIL_LOUD("unable to resolve physical address!");
         }
@@ -254,5 +281,9 @@ namespace vsharp {
         auto object = (Object *)virtAddress.obj;
         if (object == nullptr) return 0;
         return object->left + virtAddress.offset;
+    }
+
+    void Heap::deleteObjects(const std::vector<Interval *> &objects) {
+        tree.deleteIntervals(objects);
     }
 }

@@ -24,7 +24,7 @@ inline void switchContext() {
     if (tid != lastThreadID) {
         lastThreadID = tid;
         Stack *&s = stacks[tid];
-        if (!s) s = new Stack();
+        if (!s) s = new Stack(heap);
         currentStack = s;
     }
 }

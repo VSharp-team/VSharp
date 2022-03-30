@@ -56,6 +56,29 @@ public:
 
 typedef char cell;
 
+struct StackKey {
+    char frame;
+    char idx;
+};
+
+union ObjectKey {
+    StackKey stackKey;
+    INT16 staticFieldKey;
+    void *none;
+};
+
+enum ObjectType {
+    ReferenceType = 1,
+    LocalVariable = 2,
+    Parameter = 3,
+    Statics = 4
+};
+
+struct ObjectLocation {
+    ObjectType type;
+    ObjectKey key;
+};
+
 class Object : public Interval {
 private:
     // NOTE: each bit corresponds of concreteness of memory byte
@@ -63,12 +86,14 @@ private:
     const cell max = 0xFF;
     const cell min = 0x00;
     const size_t sizeofCell = sizeof(cell) * 8;
+    ObjectLocation m_location;
 public:
-    Object(ADDR address, SIZE size);
+    Object(ADDR address, SIZE size, ObjectLocation location);
     ~Object() override;
     std::string toString() const override;
     bool read(SIZE offset, SIZE size) const;
     void write(SIZE offset, SIZE size, bool vConcreteness);
+    ObjectLocation getLocation() const;
 };
 
 typedef IntervalTree<Interval, Shift, ADDR> Intervals;
@@ -77,6 +102,7 @@ struct VirtualAddress
 {
     OBJID obj;
     SIZE offset;
+    ObjectLocation location;
 };
 
 class Heap {
@@ -93,13 +119,15 @@ public:
 
     OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
     // Allocate block of memory controlled by stack
-    OBJID allocateLocal(ADDR address, SIZE size);
+    OBJID allocateLocal(ADDR address, SIZE size, ObjectLocation location);
     // Allocate block of static memory
-    OBJID allocateStaticField(ADDR address, SIZE size);
+    OBJID allocateStaticField(ADDR address, INT32 size, INT16 id);
 
     void moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length);
     void markSurvivedObjects(ADDR start, SIZE length);
     void clearAfterGC();
+
+    void deleteObjects(const std::vector<Interval *> &objects);
 
     std::map<OBJID, std::pair<char*, unsigned long>> flushObjects();
 

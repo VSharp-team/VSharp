@@ -32,6 +32,9 @@ module internal CallStack =
     let popFrames (stack : callStack) count : callStack =
         {frames = Stack.drop count stack.frames}
 
+    let private findEntryOnFrameByPred (frame : frame) pred =
+        PersistentDict.toSeq frame.entries |> Seq.find pred
+
     let private tryFindEntryOnFrame (frame : frame) key : entry option =
         PersistentDict.tryFind frame.entries key
 
@@ -135,3 +138,22 @@ module internal CallStack =
 
     let stackTrace (stack : callStack) =
         Stack.map (fun f -> Reflection.getFullMethodName f.func) stack.frames |> join "\n"
+
+    let private findEntry (stack : callStack) (frame : int) entryMatcher =
+        assert(frame > 0)
+        let frame = Stack.middle (frame - 1) stack.frames
+        findEntryOnFrameByPred frame entryMatcher |> fst
+
+    let findParameterByIndex (stack : callStack) (frame : int) (idx : int) =
+        let findByIndex (key : stackKey, _) =
+            match key with
+            | ParameterKey info -> info.Position = idx
+            | _ -> false
+        findEntry stack frame findByIndex
+
+    let findLocalVariableByIndex (stack : callStack) (frame : int) (idx : int) =
+        let findByIndex (key : stackKey, _) =
+            match key with
+            | LocalVariableKey(info, _) -> info.LocalIndex = idx
+            | _ -> false
+        findEntry stack frame findByIndex
