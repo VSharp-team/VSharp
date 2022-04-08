@@ -442,7 +442,7 @@ module internal InstructionsSet =
         ConfigureErrorReporter (changeState cilState >> reportError)
         let states = Memory.Write cilState.state dest value
         states |> List.map (changeState cilState)
-    let stind valueCast reportError (cilState : cilState) = // TODO: do like ldind #do
+    let stind valueCast reportError (cilState : cilState) =
         let value, address = pop2 cilState
         let value = valueCast value
         ConfigureErrorReporter (changeState cilState >> reportError)

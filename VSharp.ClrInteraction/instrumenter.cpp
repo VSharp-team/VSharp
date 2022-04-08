@@ -1,5 +1,4 @@
 #include "instrumenter.h"
-#include "communication/protocol.h"
 #include "logging.h"
 #include "cComPtr.h"
 #include "reflection.h"
@@ -97,6 +96,7 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x02, ELEMENT_TYPE_VOID, ELEMENT_TYPE_R8, ELEMENT_TYPE_R8)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x02, ELEMENT_TYPE_COND, ELEMENT_TYPE_I, ELEMENT_TYPE_I4)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x02, ELEMENT_TYPE_COND, ELEMENT_TYPE_I, ELEMENT_TYPE_I)
+    SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x03, ELEMENT_TYPE_COND, ELEMENT_TYPE_I, ELEMENT_TYPE_I, ELEMENT_TYPE_I4)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x03, ELEMENT_TYPE_VOID, ELEMENT_TYPE_I, ELEMENT_TYPE_I, ELEMENT_TYPE_I)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x03, ELEMENT_TYPE_VOID, ELEMENT_TYPE_I, ELEMENT_TYPE_I, ELEMENT_TYPE_I1)
     SIG_DEF(IMAGE_CEE_CS_CALLCONV_STDCALL, 0x03, ELEMENT_TYPE_VOID, ELEMENT_TYPE_I, ELEMENT_TYPE_I, ELEMENT_TYPE_I2)
@@ -391,6 +391,55 @@ HRESULT Instrumenter::startReJitSkipped() {
     return hr;
 }
 
+CommandType Instrumenter::getAndHandleCommand() {
+    CommandType command;
+    if (!m_protocol.acceptCommand(command)) FAIL_LOUD("Instrumenting: accepting command failed!");
+    switch (command) {
+        case ReadString: {
+            char *string;
+            if (!m_protocol.acceptString(string)) FAIL_LOUD("Instrumenting: accepting string failed!");
+            unsigned index = allocateString(string);
+            if (!m_protocol.sendStringsPoolIndex(index)) FAIL_LOUD("Instrumenting: sending strings internal pool index failed!");
+            break;
+        }
+        case GetTypeTokenFromTypeRef: {
+            WCHAR *wstring;
+            if (!m_protocol.acceptWString(wstring)) FAIL_LOUD("Instrumenting: accepting name of typeRef failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeRefByName(wstring);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeRef token failed!");
+            delete reflection;
+            delete[] wstring;
+            break;
+        }
+        case GetTypeTokenFromTypeSpec: {
+            WCHAR *wstring;
+            if (!m_protocol.acceptWString(wstring)) FAIL_LOUD("Instrumenting: accepting name of typeSpec failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeSpecByName(wstring);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
+            delete reflection;
+            delete[] wstring;
+            break;
+        }
+        case ParseTypeInfoFromMethod: {
+            mdToken method;
+            if (!m_protocol.acceptToken(method)) FAIL_LOUD("Instrumenting: accepting token of method to parse failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            std::vector<mdToken> types = reflection->getTypeInfoFromMethod(method);
+            delete reflection;
+            if (!m_protocol.sendTypeInfoFromMethod(types)) FAIL_LOUD("Instrumenting: sending type info of method failed!");
+            break;
+        }
+        default:
+            break;
+    }
+    return command;
+}
+
 HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assemblyName, ULONG assemblyNameLength, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;
@@ -438,50 +487,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
 #ifdef _DEBUG
     CommandType command;
     do {
-        if (!m_protocol.acceptCommand(command)) FAIL_LOUD("Instrumenting: accepting command failed!");
-        switch (command) {
-            case ReadString: {
-                char *string;
-                if (!m_protocol.acceptString(string)) FAIL_LOUD("Instrumenting: accepting string failed!");
-                unsigned index = allocateString(string);
-                if (!m_protocol.sendStringsPoolIndex(index)) FAIL_LOUD("Instrumenting: sending strings internal pool index failed!");
-                break;
-            }
-            case GetTypeTokenFromTypeRef: {
-                WCHAR *wstring;
-                if (!m_protocol.acceptWString(wstring)) return false;
-                auto *reflection = new Reflection(m_profilerInfo);
-                reflection->configure(m_moduleId, m_jittedToken);
-                mdToken typeSpec = reflection->getTypeRefByName(wstring);
-                if (!m_protocol.sendToken(typeSpec)) return false;
-                delete reflection;
-                delete[] wstring;
-                break;
-            }
-            case GetTypeTokenFromTypeSpec: {
-                WCHAR *wstring;
-                if (!m_protocol.acceptWString(wstring)) return false;
-                auto *reflection = new Reflection(m_profilerInfo);
-                reflection->configure(m_moduleId, m_jittedToken);
-                mdToken typeSpec = reflection->getTypeSpecByName(wstring);
-                if (!m_protocol.sendToken(typeSpec)) return false;
-                delete reflection;
-                delete[] wstring;
-                break;
-            }
-            case ParseTypeInfoFromMethod: {
-                mdToken method;
-                if (!m_protocol.acceptToken(method)) return false;
-                auto *reflection = new Reflection(m_profilerInfo);
-                reflection->configure(m_moduleId, m_jittedToken);
-                std::vector<mdToken> types = reflection->getTypeInfoFromMethod(method);
-                delete reflection;
-                if (!m_protocol.sendTypeInfoFromMethod(types)) return false;
-                break;
-            }
-            default:
-                break;
-        }
+        command = getAndHandleCommand();
     } while (command != ReadMethodBody);
 #endif
     LOG(tout << "Reading method body back...");
@@ -538,9 +544,11 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
             return S_OK;
         }
         if (isMainLeft()) {
-            if (!m_reJitInstrumentedStarted)
-                IfFailRet(startReJitInstrumented());
-            LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
+            // NOTE: main left, further instrumentation is not needed, so doing nothing
+            while (true) { }
+//            if (!m_reJitInstrumentedStarted)
+//                IfFailRet(startReJitInstrumented());
+//            LOG(tout << "Main left! Skipping instrumentation of " << HEX(m_jittedToken) << std::endl);
             return S_OK;
         }
         ModuleID oldModuleId = m_moduleId;

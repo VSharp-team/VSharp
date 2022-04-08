@@ -32,7 +32,6 @@
         <Compile Include="EvaluationStack.fs" />
         <Compile Include="CallStack.fs" />
         <Compile Include="State.fs" />
-        <Compile Include="ConcreteMemory.fs" />
         <Compile Include="Database.fs" />
         <Compile Include="SolverInteraction.fs" />
         <Compile Include="Memory.fs" />

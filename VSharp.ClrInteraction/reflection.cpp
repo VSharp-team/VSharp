@@ -433,6 +433,7 @@ mdToken Reflection::getTypeRefByName(WCHAR *typeName) const {
     FAIL_LOUD("typeRef not found");
 }
 
+// TODO: array type may not be in typeSpecs, so need to emit it (test StringOfConcreteCharArray)
 mdToken Reflection::getTypeSpecByName(WCHAR *typeName) const {
     TypeSpecPrinter *typeSpecPrinter = new TypeSpecPrinter(metadataImport);
     std::wstring_convert<std::codecvt_utf8_utf16<char16_t>,char16_t> convert;

@@ -75,9 +75,6 @@ module internal ArrayInitialization =
 
     let initializeArray state arrayRef handleTerm =
         match arrayRef.term, handleTerm.term with
-        | HeapRef({term = ConcreteHeapAddress address}, _), Concrete (:? RuntimeFieldHandle as rfh, _)
-            when ConcreteMemory.contains state.concreteMemory address ->
-                ConcreteMemory.initializeArray state address rfh
         | HeapRef(address, sightType), Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
             let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType

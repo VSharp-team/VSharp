@@ -5,6 +5,24 @@ using VSharp.Test;
 
 namespace IntegrationTests
 {
+    public class A
+    {
+        public int x;
+        public A(int n)
+        {
+            x = n;
+        }
+    }
+
+    public class ClassWithClassInside
+    {
+        public A obj;
+        public ClassWithClassInside(int n)
+        {
+            obj = new A(n);
+        }
+    }
+
     internal class ClassesSimpleA
     {
         private int _intField = 100500;
@@ -204,12 +222,43 @@ namespace IntegrationTests
     public static class ClassesSimple
     {
         [TestSvm]
-        public static bool Test1(int n)
+        // TODO: need to fix newobj for concolic: pushing this on previous frame #do
+        public static bool SymbolicClassFieldInteraction(int n)
         {
             ClassesSimpleA a = new ClassesSimpleA(n);
             a.IncN();
             a.DecN();
             return n == a.GetN();
+        }
+
+        [TestSvm]
+        public static ClassWithClassInside ReturnConcreteClass()
+        {
+            ClassWithClassInside obj = new ClassWithClassInside(42);
+            return obj;
+        }
+
+        [TestSvm]
+        public static ClassWithClassInside WriteSymbolicToConcreteClass(int a)
+        {
+            ClassWithClassInside obj = new ClassWithClassInside(42);
+            obj.obj.x = a;
+            return obj;
+        }
+
+        [TestSvm]
+        public static ClassWithClassInside ReturnSymbolicClass(int n)
+        {
+            ClassWithClassInside obj = new ClassWithClassInside(n);
+            return obj;
+        }
+
+        [TestSvm]
+        public static Array ReturnConcreteArrayWithRefs()
+        {
+            ClassWithClassInside[] obj = new ClassWithClassInside[3];
+            obj[1] = new ClassWithClassInside(42);
+            return obj;
         }
 
         struct MyStruct

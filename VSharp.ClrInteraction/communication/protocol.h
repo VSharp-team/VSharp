@@ -2,6 +2,7 @@
 #define PROTOCOL_H_
 
 #include "communicator.h"
+#include "../memory/heap.h"
 #include "cor.h"
 #include <vector>
 
@@ -24,7 +25,11 @@ enum CommandType {
     ReadString = 0x59,
     ParseTypeInfoFromMethod = 0x60,
     GetTypeTokenFromTypeRef = 0x61,
-    GetTypeTokenFromTypeSpec = 0x62
+    GetTypeTokenFromTypeSpec = 0x62,
+    ReadHeapBytes = 0x63,
+    ReadExecResponse = 0x64,
+    Unmarshall = 0x65,
+    ReadWholeObject = 0x66
 };
 
 class Protocol {
@@ -51,7 +56,10 @@ public:
     bool acceptString(char *&string);
     bool acceptWString(WCHAR *&string);
     bool acceptToken(mdToken &token);
+    bool acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets);
+    bool acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef);
     bool sendToken(mdToken token);
+    bool sendBytes(char *bytes, int size);
     bool sendStringsPoolIndex(unsigned index);
     bool sendTypeInfoFromMethod(const std::vector<mdToken>& types);
     bool acceptMethodBody(char *&bytecode, int &codeLength, unsigned &maxStackSize, char *&ehs, unsigned &ehsLength);

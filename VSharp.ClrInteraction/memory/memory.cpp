@@ -314,6 +314,5 @@ void vsharp::disableInstrumentation() {
 }
 
 VirtualAddress vsharp::resolve(INT_PTR p) {
-    // TODO: add stack and statics case #do
     return heap.physToVirtAddress(p);
 }

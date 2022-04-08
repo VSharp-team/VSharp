@@ -3,6 +3,7 @@
 
 #include <set>
 #include "corProfiler.h"
+#include "communication/protocol.h"
 #include "cComPtr.h"
 
 struct COR_ILMETHOD_SECT_EH;
@@ -72,6 +73,8 @@ private:
     HRESULT startReJitSkipped();
     HRESULT undoInstrumentation(FunctionID functionId);
     HRESULT doInstrumentation(ModuleID oldModuleId, const WCHAR *assemblyName, ULONG assemblyNameLength, const WCHAR *moduleName, ULONG moduleNameLength);
+
+    CommandType getAndHandleCommand();
 
     bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
 

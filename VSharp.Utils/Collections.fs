@@ -18,6 +18,18 @@ module public Seq =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)
 
+module public ArrayModule =
+
+    let linearizeArrayIndex indices (lens : int array) (lbs : int array) =
+        let length = List.length indices
+        let attachOne acc i =
+            let relOffset = indices.[i] - lbs.[i]
+            let prod acc j = acc * lens.[j]
+            let lensProd = List.fold prod 1 [i + 1 .. length - 1]
+            let absOffset = relOffset * lensProd
+            acc + absOffset
+        List.fold attachOne 0 [0 .. length - 1]
+
     let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
         let detachOne (acc, lensProd) dim =
             let curOffset = acc / lensProd

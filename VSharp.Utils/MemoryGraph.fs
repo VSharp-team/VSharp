@@ -132,7 +132,7 @@ type MemoryGraph(repr : memoryRepr) =
             let arr = obj :?> Array
             repr.contents |> Array.iteri (fun i r ->
                 let value = decodeValue r
-                let indices = Seq.delinearizeArrayIndex i lens lbs
+                let indices = ArrayModule.delinearizeArrayIndex i lens lbs
                 arr.SetValue(value, indices))
 
     and decodeObject (repr : obj) obj =

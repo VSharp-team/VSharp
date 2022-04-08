@@ -193,6 +193,43 @@ bool Protocol::acceptToken(mdToken &token) {
     return true;
 }
 
+bool Protocol::acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    assert(messageLength == sizeof(UINT_PTR) + sizeof(INT32) * 2 + 1);
+    char *start = message;
+    address.obj = (OBJID) *(UINT_PTR *)message; message += sizeof(UINT_PTR);
+    address.offset = (SIZE) *(INT32 *)message; message += sizeof(INT32);
+    size = *(INT32 *) message; message += sizeof(INT32);
+    isRef = *(BYTE *) message; message += sizeof(BYTE);
+    delete[] start;
+    return true;
+}
+
+bool Protocol::acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    char *start = message;
+    objID = (OBJID) *(UINT_PTR *)message; message += sizeof(UINT_PTR);
+    char isArrayByte = *(char *)message; message += sizeof(char);
+    if (isArrayByte == 1) isArray = true;
+    else isArray = false;
+    refOffsetsLength = *(INT32 *)message; message += sizeof(INT32);
+    refOffsets = new int[refOffsetsLength];
+    memcpy(refOffsets, message, refOffsetsLength * sizeof(INT32));
+    assert(messageLength == sizeof(UINT_PTR) + sizeof(char) + sizeof(INT32) + sizeof(INT32) * refOffsetsLength);
+    delete[] start;
+    return true;
+}
+
 bool Protocol::sendStringsPoolIndex(const unsigned index) {
     unsigned messageLength = sizeof(unsigned);
     char *buffer = new char[messageLength];
@@ -208,6 +245,12 @@ bool Protocol::sendToken(mdToken token) {
     *(unsigned *)buffer = token;
     bool result = writeBuffer(buffer, (int)messageLength);
     delete[] buffer;
+    return result;
+}
+
+bool Protocol::sendBytes(char *bytes, int size) {
+    bool result = writeBuffer(bytes, size);
+    delete[] bytes;
     return result;
 }
 

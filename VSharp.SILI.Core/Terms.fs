@@ -627,26 +627,6 @@ module internal Terms =
             concreteToBytes i
         | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
-    let rec private bytesToObj (bytes : byte[]) t =
-        let span = ReadOnlySpan<byte>(bytes)
-        match t with
-        | _ when t = typeof<byte> -> Array.head bytes :> obj
-        | _ when t = typeof<sbyte> -> sbyte (Array.head bytes) :> obj
-        | _ when t = typeof<int16> -> BitConverter.ToInt16 span :> obj
-        | _ when t = typeof<uint16> -> BitConverter.ToUInt16 span :> obj
-        | _ when t = typeof<int> -> BitConverter.ToInt32 span :> obj
-        | _ when t = typeof<uint32> -> BitConverter.ToUInt32 span :> obj
-        | _ when t = typeof<int64> -> BitConverter.ToInt64 span :> obj
-        | _ when t = typeof<uint64> -> BitConverter.ToUInt64 span :> obj
-        | _ when t = typeof<float32> -> BitConverter.ToSingle span :> obj
-        | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
-        | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
-        | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
-        | _ when t.IsEnum ->
-            let i = t.GetEnumUnderlyingType() |> bytesToObj bytes
-            Enum.ToObject(t, i)
-        | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
-
     let rec reinterpretConcretes (sliceTerms : term list) t =
         let bytes : byte array = Types.sizeOf t |> int |> Array.zeroCreate
         let folder bytes slice =
@@ -663,7 +643,7 @@ module internal Terms =
                 bytes
             | _ -> internalfailf "expected concrete slice, but got %O" slice
         let bytes = List.fold folder bytes sliceTerms
-        bytesToObj bytes (Types.toDotNetType t)
+        Reflection.bytesToObj bytes (Types.toDotNetType t)
 
     and private slicingTerm term =
         match term with
@@ -757,6 +737,9 @@ module internal Terms =
 
     let iter action term =
         doFold (fun () -> action) () term
+
+    let isFullyConcrete term =
+        doFold (fun acc x -> acc && isConcrete x) true term
 
     let discoverConstants terms =
         let result = HashSet<term>()

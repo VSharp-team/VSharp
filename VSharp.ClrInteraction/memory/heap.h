@@ -91,8 +91,9 @@ public:
     Object(ADDR address, SIZE size, ObjectLocation location);
     ~Object() override;
     std::string toString() const override;
-    bool read(SIZE offset, SIZE size) const;
-    void write(SIZE offset, SIZE size, bool vConcreteness);
+    bool readConcreteness(SIZE offset, SIZE size) const;
+    void writeConcreteness(SIZE offset, SIZE size, bool vConcreteness);
+    char *readBytes(SIZE offset, SIZE size) const;
     ObjectLocation getLocation() const;
 };
 
@@ -113,6 +114,7 @@ private:
     std::vector<OBJID> deletedAddresses;
 
     bool resolve(ADDR address, VirtualAddress &vAddress) const;
+    void resolveRefInHeapBytes(char *bytes) const;
 
 public:
     Heap();
@@ -134,8 +136,11 @@ public:
     VirtualAddress physToVirtAddress(ADDR physAddress) const;
     static ADDR virtToPhysAddress(const VirtualAddress &virtAddress);
 
-    bool read(ADDR address, SIZE sizeOfPtr) const;
-    void write(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const;
+    bool readConcreteness(ADDR address, SIZE sizeOfPtr) const;
+    void writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const;
+    char *readBytes(VirtualAddress address, SIZE sizeOfPtr, BYTE isRef) const;
+    void readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const;
+    void unmarshall(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const;
 
     void dump() const;
 };

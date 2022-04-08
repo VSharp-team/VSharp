@@ -103,7 +103,7 @@ namespace vsharp {
         return Interval::toString();
     }
 
-    bool Object::read(SIZE offset, SIZE size) const {
+    bool Object::readConcreteness(SIZE offset, SIZE size) const {
         assert(size > 0);
         auto startOffset = offset % sizeofCell;
         auto startIndex = offset / sizeofCell;
@@ -126,7 +126,14 @@ namespace vsharp {
         return true;
     }
 
-    void Object::write(SIZE offset, SIZE size, bool vConcreteness) {
+    char* Object::readBytes(SIZE offset, SIZE size) const {
+        assert(size > 0);
+        char *buffer = new char[size];
+        memcpy(buffer, (char *)left + offset, size);
+        return buffer;
+    }
+
+    void Object::writeConcreteness(SIZE offset, SIZE size, bool vConcreteness) {
         assert(size > 0);
         auto startOffset = offset % sizeofCell;
         auto startIndex = offset / sizeofCell;
@@ -201,24 +208,76 @@ namespace vsharp {
         tree.moveAndMark(i, s);
     }
 
-    bool Heap::read(ADDR address, SIZE sizeOfPtr) const {
+    bool Heap::readConcreteness(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
             return false;
         }
 
         auto *obj = (Object *) vAddress.obj;
-        return obj->read(vAddress.offset, sizeOfPtr);
+        return obj->readConcreteness(vAddress.offset, sizeOfPtr);
     }
 
-    void Heap::write(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
+    void Heap::writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
-            FAIL_LOUD("Writing to heap: unable to resolve address");
+            FAIL_LOUD("Writing concreteness to heap: unable to resolve address");
         }
 
         auto *obj = (Object *) vAddress.obj;
-        obj->write(vAddress.offset, sizeOfPtr, vConcreteness);
+        obj->writeConcreteness(vAddress.offset, sizeOfPtr, vConcreteness);
+    }
+
+    char *Heap::readBytes(VirtualAddress address, SIZE sizeOfPtr, BYTE isRef) const {
+        Object *obj = (Object *) address.obj;
+        char *bytes = obj->readBytes(address.offset, sizeOfPtr);
+        if (isRef) {
+            assert(sizeOfPtr == sizeof(UINT_PTR));
+            UINT_PTR ref = *(UINT_PTR *) bytes;
+            VirtualAddress vAddress;
+            resolve(ref, vAddress);
+            assert(vAddress.offset == 0);
+            memcpy(bytes, &vAddress.obj, sizeof(UINT_PTR));
+        }
+        return bytes;
+    }
+
+    void Heap::resolveRefInHeapBytes(char *bytes) const {
+        UINT_PTR ref;
+        memcpy(&ref, bytes, sizeof(UINT_PTR));
+        VirtualAddress vAddress{};
+        resolve(ref, vAddress);
+        assert(vAddress.offset == 0); // TODO: can ptr with offset be inside class?
+        memcpy(bytes, &vAddress.obj, sizeof(UINT_PTR));
+    }
+
+    void Heap::readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
+        Object *obj = (Object *) objID;
+        size = obj->right - obj->left;
+        VirtualAddress vAddress = {objID, 0};
+        buffer = readBytes(vAddress, size, false);
+        if (isArray && refOffsetsLength > 0) { // TODO: implement for non-vector array
+            char *array = buffer + sizeof(UINT_PTR);
+            INT64 length;
+            memcpy(&length, array, sizeof(INT64)); array += sizeof(INT64);
+            for (int j = 0; j < length; j++) {
+                resolveRefInHeapBytes(array);
+                array += sizeof(UINT_PTR);
+            }
+        } else {
+            char *type = buffer + sizeof(UINT_PTR);
+            for (int i = 0; i < refOffsetsLength; i++) {
+                char *refAddress = type + refOffsets[i];
+                resolveRefInHeapBytes(refAddress);
+            }
+        }
+
+    }
+
+    void Heap::unmarshall(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
+        Object *obj = (Object *) objID;
+        readWholeObject(objID, buffer, size, isArray, refOffsetsLength, refOffsets);
+        obj->writeConcreteness(0, size, false);
     }
 
     bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {

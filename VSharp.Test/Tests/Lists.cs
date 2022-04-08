@@ -67,10 +67,48 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        // TODO: check that in concolic this will not be array, but class
+        public Array CreateSystemArray()
+        {
+            var a = Array.CreateInstance(typeof(int), new[] { 1, 2, 3 }, new[] { 1, 2, 3 });
+            a.SetValue(42, new[] { 1, 2, 3 });
+            return a;
+        }
+
+        [TestSvm]
+        public int[] ConcreteInitialize()
+        {
+            var arr = new int[1];
+            arr[0] = Int32.MaxValue;
+            return arr;
+        }
+
+        [TestSvm]
         public int SymbolicInitialize(int a)
         {
             var arr = new int[4] {a, 6, 7, 8};
             return arr[0];
+        }
+
+        [TestSvm]
+        public int WriteSymbolicValueToConcreteArray(int a)
+        {
+            var arr = new int[4];
+            arr[0] = 1;
+            arr[2] = 3;
+            arr[0] = a;
+            return arr[0];
+        }
+
+        [TestSvm]
+        public int ReadSymbolicIndexFromConcreteArray(int i)
+        {
+            var arr = new int[4];
+            arr[0] = 1;
+            arr[1] = 2;
+            arr[2] = 3;
+            arr[3] = 4;
+            return arr[i];
         }
 
         [Ignore("Exceptions handling")]

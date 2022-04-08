@@ -1,7 +1,7 @@
 #include "corProfiler.h"
 #include "corhlpr.h"
 #ifdef UNIX
-#include "profiler_unix.h" // TODO: test on mac: need this? #do
+#include "profiler_unix.h"
 #endif
 #ifdef WIN32
 #include "profiler_win.h"

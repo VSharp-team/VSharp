@@ -25,12 +25,9 @@ module public Reflection =
         let assemblies = AppDomain.CurrentDomain.GetAssemblies()
         let dynamicAssemblies = assemblies |> Array.filter (fun a -> a.IsDynamic)
         let dynamicOption = dynamicAssemblies |> Array.tryFind (fun a -> a.FullName.Contains(assemblyName))
-        try
-            match dynamicOption with
-            | Some a -> a
-            | None -> Assembly.Load(assemblyName)
-        with
-        | _ as e -> internalfail ""
+        match dynamicOption with
+        | Some a -> a
+        | None -> Assembly.Load(assemblyName)
 
     // --------------------------- Metadata Resolving ---------------------------
 
@@ -143,6 +140,32 @@ module public Reflection =
         | _ when TypeUtils.isNullable t -> null
         | _ when t.IsArray -> null
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+
+    let BitConverterToUIntPtr =
+        if IntPtr.Size = 4 then fun (bytes : byte[]) index -> BitConverter.ToUInt32(bytes, index) |> UIntPtr
+        else fun (bytes : byte[]) index -> BitConverter.ToUInt64(bytes, index) |> UIntPtr
+
+    let rec bytesToObj (bytes : byte[]) t =
+        assert(bytes.Length = (TypeUtils.internalSizeOf t |> int))
+        let span = ReadOnlySpan<byte>(bytes)
+        match t with
+        | _ when t = typeof<byte> -> Array.head bytes :> obj
+        | _ when t = typeof<sbyte> -> sbyte (Array.head bytes) :> obj
+        | _ when t = typeof<int16> -> BitConverter.ToInt16 span :> obj
+        | _ when t = typeof<uint16> -> BitConverter.ToUInt16 span :> obj
+        | _ when t = typeof<int> -> BitConverter.ToInt32 span :> obj
+        | _ when t = typeof<uint32> -> BitConverter.ToUInt32 span :> obj
+        | _ when t = typeof<int64> -> BitConverter.ToInt64 span :> obj
+        | _ when t = typeof<uint64> -> BitConverter.ToUInt64 span :> obj
+        | _ when t = typeof<float32> -> BitConverter.ToSingle span :> obj
+        | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
+        | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
+        | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
+        | _ when t.IsEnum ->
+            let i = t.GetEnumUnderlyingType() |> bytesToObj bytes
+            Enum.ToObject(t, i)
+        | _ when not t.IsValueType -> BitConverterToUIntPtr bytes 0
+        | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
 
     // --------------------------------- Substitute generics ---------------------------------
 
@@ -298,9 +321,7 @@ module public Reflection =
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
-    let getFieldOffset fieldId =
-        if fieldId = stringFirstCharField then 0
-        else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
+    // --------------------------------- Types ---------------------------------
 
     let private cachedTypes = Dictionary<Type, bool>()
 
@@ -317,3 +338,20 @@ module public Reflection =
             let result = isReferenceOrContainsReferencesHelper t
             cachedTypes.Add(t, result)
             result
+
+    // --------------------------------- Offsets ---------------------------------
+
+    let relativeFieldOffset fieldId =
+        if fieldId = stringFirstCharField then 0
+        else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
+
+    let memoryFieldOffset (fieldInfo : FieldInfo) =
+        match fieldInfo with
+        | _ when fieldInfo.DeclaringType <> typeof<String> ->
+            let metadataSize = CSharpUtils.LayoutUtils.MetadataSize fieldInfo.DeclaringType
+            metadataSize + CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+        | _ when fieldInfo.Name.Contains("length", StringComparison.OrdinalIgnoreCase) ->
+            CSharpUtils.LayoutUtils.StringLengthOffset
+        | _ when fieldInfo.Name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) ->
+            CSharpUtils.LayoutUtils.StringElementsOffset
+        | _ -> __unreachable__()

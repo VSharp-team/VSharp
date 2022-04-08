@@ -50,8 +50,26 @@ namespace VSharp.CSharpUtils
             return Marshal.ReadInt32(t.TypeHandle.Value, 4);
         }
 
-        // NOTE: first 16 bytes contain array meta info
-        public const int ArrayElementsOffset = 16;
+        public static int ArrayLengthOffset(bool isVector, int dim)
+        {
+            if (isVector && dim == 0)
+                return sizeof(IntPtr);
+            throw new NotImplementedException();
+        }
+
+        // TODO: research about length bitness
+        // NOTE: first 16 bytes contain array meta info: MethodTable ptr * length
+        public static readonly int ArrayElementsOffset = sizeof(IntPtr) + sizeof(Int64);
+
+        public static readonly int StringLengthOffset = sizeof(IntPtr);
         public static readonly int StringElementsOffset = RuntimeHelpers.OffsetToStringData;
+
+        public static int MetadataSize(Type t)
+        {
+            if (t == typeof(String)) return StringElementsOffset;
+            if (t.IsArray) return ArrayElementsOffset;
+            if (t.IsValueType) return 0;
+            return sizeof(IntPtr);
+        }
     }
 }

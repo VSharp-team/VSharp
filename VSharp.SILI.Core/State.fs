@@ -12,18 +12,6 @@ type stackBufferKey = concreteHeapAddress
 
 type offset = int
 
-[<CustomEquality;NoComparison>]
-type physicalAddress = {object : obj}
-    with
-    override x.GetHashCode() = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(x.object)
-    override x.Equals(o : obj) =
-        match o with
-        | :? physicalAddress as other -> x.object.Equals(other.object)
-        | _ -> false
-    override x.ToString() = PrettyPrinting.printConcrete x.object
-
-type concreteMemory = Dictionary<concreteHeapAddress, physicalAddress>
-
 // last fields are determined by above fields
 // TODO: remove it when CFA is gone #Kostya
 [<CustomEquality;CustomComparison>]
@@ -87,6 +75,18 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
+type IConcreteMemory =
+    abstract Allocate : UIntPtr -> Lazy<concreteHeapAddress> -> unit // physical address * virtual address
+    abstract Contains : concreteHeapAddress -> bool
+    abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
+    abstract ReadArrayIndex : concreteHeapAddress -> int list -> arrayType -> bool -> obj
+    abstract ReadArrayLowerBound : concreteHeapAddress -> int -> arrayType-> obj
+    abstract ReadArrayLength : concreteHeapAddress -> int -> arrayType -> obj
+    abstract GetAllArrayData : concreteHeapAddress -> arrayType -> seq<int list * obj>
+    abstract GetPhysicalAddress : concreteHeapAddress -> UIntPtr
+    abstract GetVirtualAddress : UIntPtr -> concreteHeapAddress
+    abstract Unmarshall : concreteHeapAddress -> Type -> obj
+
 type model =
     { state : state; subst : IDictionary<ISymbolicConstantSource, term>; complete : bool }
 with
@@ -126,8 +126,7 @@ and
     mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
     mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
     mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-    concreteMemory : concreteMemory                                    // Fully concrete objects
-    mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
+    mutable concreteMemory : IConcreteMemory                           // Fully concrete objects
     mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
     mutable typeVariables : typeVariables                              // Type variables assignment in the current state
     mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap

@@ -62,19 +62,14 @@ module internal Copying =
         | _ -> copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
 
     let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress =
-        let cm = state.concreteMemory
-        match arrayAddress.term with
-        | ConcreteHeapAddress concreteAddress when ConcreteMemory.contains cm concreteAddress ->
-            ConcreteMemory.copyCharArrayToString state concreteAddress stringConcreteAddress
-        | _ ->
-            let arrayType = (Types.Char, 1, true)
-            let length = readLength state arrayAddress (makeNumber 0) arrayType
-            let lengthPlus1 = add length (makeNumber 1)
-            let stringAddress = ConcreteHeapAddress stringConcreteAddress
-            copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType length
-            writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
-            writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' Types.Char)
-            writeClassField state stringAddress Reflection.stringLengthField length
+        let arrayType = (Types.Char, 1, true)
+        let length = readLength state arrayAddress (makeNumber 0) arrayType
+        let lengthPlus1 = add length (makeNumber 1)
+        let stringAddress = ConcreteHeapAddress stringConcreteAddress
+        copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType length
+        writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
+        writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' Types.Char)
+        writeClassField state stringAddress Reflection.stringLengthField length
 
     // TODO: add heuristic for concrete memory
     let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =

@@ -111,12 +111,16 @@ namespace VSharp.TestRunner
                             Console.Out.WriteLine("Result check is disabled");
                         object[] parameters = test.Args ?? method.GetParameters()
                             .Select(t => Reflection.createObject(t.ParameterType)).ToArray();
+                        object thisArg = test.ThisArg;
+                        if (thisArg == null && !method.IsStatic)
+                            thisArg = Reflection.createObject(method.DeclaringType);
+
                         var ex = test.Exception;
                         try
                         {
                             object result = null;
                             if (!test.IsError || shouldReproduceError)
-                                result = method.Invoke(test.ThisArg, parameters);
+                                result = method.Invoke(thisArg, parameters);
                             if (ex != null)
                             {
                                 Console.Error.WriteLine("Test {0} failed! The expected exception {1} was not thrown",

@@ -20,7 +20,7 @@ module internal Pointers =
         | _ -> __unreachable__()
 
     let private getFieldOffset fieldId =
-        Reflection.getFieldOffset fieldId |> makeNumber
+        Reflection.relativeFieldOffset fieldId |> makeNumber
 
     let rec addressToBaseAndOffset (address : address) =
         match address with
@@ -39,6 +39,9 @@ module internal Pointers =
             HeapLocation(heapAddress, typ), mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
+        | ArrayLength _ ->
+            // TODO: use offset according to start of array elements (offset < 0)
+            internalfail "offset of array length is not implemented!"
         | BoxedLocation(concreteHeapAddress, typ) ->
             let baseAddress = HeapLocation(ConcreteHeapAddress concreteHeapAddress, typ)
             baseAddress, makeNumber 0

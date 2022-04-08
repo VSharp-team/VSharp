@@ -47,6 +47,12 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static string ReturnConcreteString()
+        {
+            return "dead beef";
+        }
+
+        [TestSvm]
         public static string StringOfConcreteCharArray()
         {
             char[] a = new char[5] {'a', 'b', 'c', 'd', 'e'};
