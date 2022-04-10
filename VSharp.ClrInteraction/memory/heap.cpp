@@ -211,6 +211,7 @@ namespace vsharp {
     bool Heap::readConcreteness(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
+            // TODO: throw unbound pointer?
             return false;
         }
 

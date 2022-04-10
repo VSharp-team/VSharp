@@ -101,6 +101,7 @@ type probes = {
     mutable unboxAny : uint64
 
     mutable ldfld : uint64
+    mutable ldfld_struct : uint64
     mutable ldflda : uint64
     mutable stfld_4 : uint64
     mutable stfld_8 : uint64

@@ -443,7 +443,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Sizeof -> x.AppendProbe(probes.sizeof, [], x.tokens.void_sig, instr)
 
                 // Branchings
-                // TODO: need mem/unmem for branchings? #Dima
                 | OpCodeValues.Brfalse_S
                 | OpCodeValues.Brfalse -> x.PrependMemUnmemAndProbeWithOffset(probes.brfalse, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Brtrue_S
@@ -451,7 +450,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Switch -> x.PrependMemUnmemAndProbeWithOffset(probes.switch, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
 
                 // Symbolic stack instructions
-                // TODO: add mem/unmem? #Dima
                 | OpCodeValues.Ldarg_0 -> x.AppendProbeWithOffset(probes.ldarg_0, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Ldarg_1 -> x.AppendProbeWithOffset(probes.ldarg_1, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Ldarg_2 -> x.AppendProbeWithOffset(probes.ldarg_2, [], x.tokens.void_offset_sig, instr)
@@ -460,26 +458,18 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Ldloc_1 -> x.AppendProbeWithOffset(probes.ldloc_1, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Ldloc_2 -> x.AppendProbeWithOffset(probes.ldloc_2, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Ldloc_3 -> x.AppendProbeWithOffset(probes.ldloc_3, [], x.tokens.void_offset_sig, instr)
-//                | OpCodeValues.Stloc_0 -> x.AppendProbeWithOffsetMemUnmem(probes.stloc_0, [], x.tokens.void_offset_sig, &prependTarget, instr)
-//                | OpCodeValues.Stloc_1 -> x.AppendProbeWithOffsetMemUnmem(probes.stloc_1, [], x.tokens.void_offset_sig, &prependTarget, instr)
-//                | OpCodeValues.Stloc_2 -> x.AppendProbeWithOffsetMemUnmem(probes.stloc_2, [], x.tokens.void_offset_sig, &prependTarget, instr)
-//                | OpCodeValues.Stloc_3 -> x.AppendProbeWithOffsetMemUnmem(probes.stloc_3, [], x.tokens.void_offset_sig, &prependTarget, instr)
                 | OpCodeValues.Stloc_0 -> x.AppendProbeWithOffset(probes.stloc_0, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Stloc_1 -> x.AppendProbeWithOffset(probes.stloc_1, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Stloc_2 -> x.AppendProbeWithOffset(probes.stloc_2, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Stloc_3 -> x.AppendProbeWithOffset(probes.stloc_3, [], x.tokens.void_offset_sig, instr)
                 | OpCodeValues.Ldarg_S -> x.AppendProbeWithOffset(probes.ldarg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, instr)
-//                | OpCodeValues.Starg_S -> x.AppendProbeWithOffsetMemUnmem(probes.starg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, &prependTarget, instr)
                 | OpCodeValues.Starg_S -> x.AppendProbeWithOffset(probes.starg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, instr)
                 | OpCodeValues.Ldloc_S -> x.AppendProbeWithOffset(probes.ldloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, instr)
-//                | OpCodeValues.Stloc_S -> x.AppendProbeWithOffsetMemUnmem(probes.stloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, &prependTarget, instr)
                 | OpCodeValues.Stloc_S -> x.AppendProbeWithOffset(probes.stloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], x.tokens.void_u1_offset_sig, instr)
                 | OpCodeValues.Ldarg -> x.AppendProbeWithOffset(probes.ldarg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
                 | OpCodeValues.Starg -> x.AppendProbeWithOffset(probes.starg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
                 | OpCodeValues.Ldloc -> x.AppendProbeWithOffset(probes.ldloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
-//                | OpCodeValues.Stloc -> x.AppendProbeWithOffsetMemUnmem(probes.stloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, &prependTarget, instr)
                 | OpCodeValues.Stloc -> x.AppendProbeWithOffset(probes.stloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], x.tokens.void_u2_offset_sig, instr)
-//                | OpCodeValues.Dup -> x.AppendProbeWithOffsetMemUnmem(probes.dup, [], x.tokens.void_offset_sig, &prependTarget, instr)
                 | OpCodeValues.Dup -> x.AppendProbeWithOffset(probes.dup, [], x.tokens.void_offset_sig, instr)
 
                 | OpCodeValues.Add
@@ -825,31 +815,24 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      x.PrependProbeWithOffset(probes.unboxAny, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                      x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
                 | OpCodeValues.Ldfld ->
-                    // TODO: care about ref-like structs #Dima
-                    let isStruct, isRefLikeStruct =
+                    let isStruct =
                         match instr.stackState with
-                        | UnOp evaluationStackCellType.Struct -> true, false
-                        | UnOp evaluationStackCellType.RefLikeStruct -> false, true
-                        | _ -> false, false
+                        | UnOp evaluationStackCellType.Struct
+                        | UnOp evaluationStackCellType.RefLikeStruct -> true
+                        | _ -> false
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
-                    if isStruct then
-                        let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
-                        x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
-                    if isRefLikeStruct then
-                        x.PrependInstr(OpCodes.Dup, NoArg, &prependTarget)
-                    else
+                    if not isStruct then
                         x.PrependMem_p(0, 0, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
                     let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int32
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
-                    x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i4_i4_offset_sig, &prependTarget) |> ignore
-                    if not isRefLikeStruct then
-                        x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
                     if isStruct then
-                        let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
-                        x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget)
+                        x.PrependProbeWithOffset(probes.ldfld_struct, [], x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
+                    else
+                        x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i4_i4_offset_sig, &prependTarget) |> ignore
+                        x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
                 | OpCodeValues.Ldflda ->
                     x.PrependDup &prependTarget
                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
@@ -936,12 +919,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         if isStruct then
                             x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-    //                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         x.PrependProbeWithOffset(probe, [], signature, &prependTarget) |> ignore
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-    //                    let field = Reflection.resolveField x.m instr.Arg32
-    //                    x.PrependInstr(OpCodes.Mkrefany, Arg32 field.FieldType.MetadataToken, &prependTarget)
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         if isStruct then
                             // TODO: ref-like struct!!

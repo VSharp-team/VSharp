@@ -294,7 +294,7 @@ CommandType getAndHandleCommand() {
     return command;
 }
 
-bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
+bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops, bool mightFork = true) {
     ExecCommand command;
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
@@ -310,7 +310,7 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     EvalStackOperand internalCallResult = EvalStackOperand {OpSymbolic, 0};
     unsigned oldOpsCount = opsCount;
     bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
-    if (opsConcretized && opsCount > 0) {
+    if (mightFork && opsConcretized && opsCount > 0) {
         const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
         for (const auto &poppedSymb : poppedSymbs) {
             assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
@@ -427,7 +427,7 @@ PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCo
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     unsigned frame = stack().framesCount();
-    ObjectLocation location = {Parameter, frame, idx};
+    ObjectLocation location{Parameter, frame, idx};
     OBJID obj = heap.allocateLocal(ptr, size, location);
     // Register obj in current stack frame
     topFrame().addLocalObject(obj);
@@ -458,7 +458,7 @@ PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCo
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     unsigned frame = stack().framesCount();
-    ObjectLocation location = {LocalVariable, frame, idx};
+    ObjectLocation location{LocalVariable, frame, idx};
     OBJID obj = heap.allocateLocal(ptr, size, location);
     // Register obj in current stack frame
     topFrame().addLocalObject(obj);
@@ -471,8 +471,8 @@ inline bool starg(INT16 idx) {
     top.setArg(idx, concreteness);
     return concreteness;
 }
-PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand1(offset); }
-PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand1(offset); }
+PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 
 inline bool stloc(INT16 idx) {
     // TODO
@@ -481,17 +481,17 @@ inline bool stloc(INT16 idx) {
     top.setLoc(idx, concreteness);
     return concreteness;
 }
-PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand1(offset); }
-PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand1(offset); }
-PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand1(offset); }
-PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand1(offset); }
-PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
-PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand1(offset); }
+PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
 PROBE(void, Track_Dup, (OFFSET offset)) {
     if (!topFrame().dup()) {
-        sendCommand1(offset);
+        sendCommand(offset, 1, new EvalStackOperand[1], false);
         topFrame().push1(false);
     }
 }
@@ -649,9 +649,8 @@ PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { 
 inline bool ldfld(INT_PTR fieldPtr, INT32 fieldSize) {
     StackFrame &top = vsharp::topFrame();
     bool ptrIsConcrete = top.pop1();
-    bool fieldIsConcrete = false;
-    if (ptrIsConcrete) fieldIsConcrete = heap.readConcreteness(fieldPtr, fieldSize);
-    return ptrIsConcrete && fieldIsConcrete;
+    bool fieldIsConcrete = ptrIsConcrete && heap.readConcreteness(fieldPtr, fieldSize);
+    return fieldIsConcrete;
 }
 
 // TODO: if objPtr = null, it's static field
@@ -660,6 +659,15 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
         sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(objPtr) });
     } else {
         vsharp::topFrame().push1Concrete();
+    }
+}
+PROBE(void, Track_Ldfld_Struct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
+    StackFrame &top = vsharp::topFrame();
+    // 2Misha: track concreteness of fields instead of concreteness of the whole struct
+    if (!top.pop1()) {
+        sendCommand1(offset);
+    } else {
+        top.push1Concrete();
     }
 }
 PROBE(void, Track_Ldflda, (INT_PTR objPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }

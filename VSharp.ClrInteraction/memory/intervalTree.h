@@ -60,7 +60,7 @@ public:
     }
 
     void deleteIntervals(const std::vector<Interval *> &intervals) {
-        std::remove_if(
+        remove_if(
             objects.begin(),
             objects.end(),
             [&intervals](Interval *i) {
