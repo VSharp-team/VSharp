@@ -743,11 +743,13 @@ module internal Z3 =
 
     type internal Z3Solver() =
 //        let optCtx = ctx.MkOptimize()
+        // Why Solver is named optCtx?
         let optCtx = ctx.MkSolver()
         let levelAtoms = List<BoolExpr>()
         let mutable pathsCount = 0u
         let pathAtoms = Dictionary<level, List<BoolExpr>>()
         let paths = Dictionary<BoolExpr, path>()
+        let assumptionNames = HashSet<string>()
 
         let getLevelAtom (lvl : level) =
             assert (not <| Level.isInf lvl)
@@ -839,6 +841,32 @@ module internal Z3 =
                 let encodedWithAssumptions = Seq.append assumptions encoded |> Array.ofSeq
                 let encoded = builder.MkAnd encodedWithAssumptions
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
+                
+            member x.AssertAssumption encCtx name formula =
+                if (assumptionNames.Contains name |> not) then
+                    printLog Trace $"SOLVER: assert: %s{name} => %s{formula.ToString()}"
+                    assumptionNames.Add name |> ignore
+                    let from = ctx.MkBoolConst name
+                    let encoded = builder.EncodeTerm encCtx formula
+                    let implication = ctx.MkImplies (from, encoded.expr :?> BoolExpr)
+                    optCtx.Assert implication
+                
+            member x.CheckAssumptions names =
+                let assumptions = names |> Seq.distinct |> Seq.map ctx.MkBoolConst
+                let amp = " & "
+                printLog Trace $"SOLVER: check: %s{join amp names}"
+                let result = optCtx.Check assumptions
+                match result with
+                | Status.SATISFIABLE ->
+                    let z3Model = optCtx.Model
+                    let model = builder.MkModel z3Model
+                    SmtSat { mdl = model; usedPaths = [] }
+                | Status.UNSATISFIABLE ->
+                    SmtUnsat { core = Array.empty }
+                | Status.UNKNOWN ->
+                    SmtUnknown optCtx.ReasonUnknown
+                | _ -> __unreachable__()
+                
 
     let reset() =
         builder.Reset()

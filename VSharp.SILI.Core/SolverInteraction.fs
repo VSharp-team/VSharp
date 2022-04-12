@@ -22,6 +22,8 @@ module public SolverInteraction =
         abstract CheckSat : encodingContext -> query -> smtResult
         abstract Assert : encodingContext -> level -> formula -> unit
         abstract AddPath : encodingContext -> path -> unit
+        abstract AssertAssumption : encodingContext -> string -> formula -> unit
+        abstract CheckAssumptions : string seq -> smtResult
 
     let mutable private solver : ISolver option = None
 
@@ -35,8 +37,19 @@ module public SolverInteraction =
         { addressOrder = orderWithNull }
 
     let checkSat state = // TODO: need to solve types here? #do
-        let ctx = getEncodingContext state
+(*        let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
         | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
+        | None -> SmtUnknown ""*)
+        let names = PC.toSeq state.pc |> Seq.map (fun t -> t.GetHashCode().ToString())
+        match solver with
+        | Some s -> s.CheckAssumptions names
         | None -> SmtUnknown ""
+        
+    let assertAssumption state condition =
+        let ctx = getEncodingContext state
+        let name = condition.GetHashCode().ToString()
+        match solver with
+        | Some s -> s.AssertAssumption ctx name condition
+        | None -> ()
