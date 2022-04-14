@@ -463,6 +463,18 @@ namespace IntegrationTests
             public int z;
         }
 
+        private struct GenericStruct<T>
+        {
+            private T x;
+            private int y;
+
+            public void F(T z)
+            {
+                x = z;
+                y = 42;
+            }
+        }
+
         private static int BranchOnStruct(TestStruct s)
         {
             return s.x + s.y + s.z > 0 ? 1 : -1;
@@ -486,5 +498,19 @@ namespace IntegrationTests
             return BranchOnRefStruct(new TestRefStruct { x = x, y = y, z = 4 });
         }
 
+        [TestSvm]
+        public static void TestGenericLayoutAndSize()
+        {
+            var s1 = new GenericStruct<TestStruct>();
+            var p1 = new TestStruct();
+            var s2 = new GenericStruct<int>();
+            var s3 = new GenericStruct<string>();
+            var s4 = new GenericStruct<object>();
+            s1.F(p1);
+            s2.F(42);
+            s3.F(null);
+            s4.F(null);
+            s2.F(43);
+        }
     }
 }

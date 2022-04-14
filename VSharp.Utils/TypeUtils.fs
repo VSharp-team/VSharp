@@ -30,7 +30,7 @@ module TypeUtils =
     // ---------------------------------- Basic type predicates ----------------------------------
 
     let isGround (x : Type) =
-        (not x.IsGenericType && not x.IsGenericParameter) || (x.IsConstructedGenericType)
+        (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral = integralTypes.Contains
@@ -98,6 +98,7 @@ module TypeUtils =
             else null
 
     let internalSizeOf (typ: Type) : uint32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+        assert(isGround typ)
         let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
         let gen = meth.GetILGenerator()
         gen.Emit(OpCodes.Sizeof, typ)

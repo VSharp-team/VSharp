@@ -358,6 +358,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 0)], token, &beforeInstr) |> ignore
         | s -> internalfailf "PrependMemUnmemAndProbeWithOffset: unexpected stack state %O" s
         x.PrependProbeWithOffset(methodAddress, args, signature, &beforeInstr)
+
     member private x.AcceptTypeToken (t : System.Type) =
         let correctType (t : System.Type) =
             match t with
@@ -371,6 +372,14 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             communicator.SendStringAndParseTypeRef str |> int
 //        | _ when t.IsGenericParameter -> t.MetadataToken
         | _ -> communicator.SendStringAndParseTypeSpec str |> int
+
+    member private x.TypeSizeInstr (t : System.Type) =
+        if TypeUtils.isGround t then
+            let size = TypeUtils.internalSizeOf t
+            OpCodes.Ldc_I4, Arg32 (int size)
+        else
+            let typeToken = x.AcceptTypeToken t
+            OpCodes.Sizeof, Arg32 typeToken
 
     member x.PlaceProbes() =
         let instructions = x.rewriter.CopyInstructions()
@@ -402,23 +411,23 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 // Concrete instructions
                 | OpCodeValues.Ldarga_S ->
                     let index = int instr.Arg8
-                    let size = x.m |> Reflection.getMethodArgumentType index |> TypeUtils.internalSizeOf |> int32
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                    let argSizeInstr = x.m |> Reflection.getMethodArgumentType index |> x.TypeSizeInstr
+                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); argSizeInstr], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca_S ->
                     let index = int instr.Arg8
-                    let size = x.m.GetMethodBody().LocalVariables.[index].LocalType |> TypeUtils.internalSizeOf |> int32
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                    let locSizeInstr = x.m.GetMethodBody().LocalVariables.[index].LocalType |> x.TypeSizeInstr
+                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); locSizeInstr], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldarga ->
                     let index = int instr.Arg16
-                    let size = x.m |> Reflection.getMethodArgumentType index |> TypeUtils.internalSizeOf |> int32
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                    let argSizeInstr = x.m |> Reflection.getMethodArgumentType index |> x.TypeSizeInstr
+                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); argSizeInstr], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca ->
                     let index = int instr.Arg16
-                    let size = x.m.GetMethodBody().LocalVariables.[index].LocalType |> TypeUtils.internalSizeOf |> int32
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                    let locSizeInstr = x.m.GetMethodBody().LocalVariables.[index].LocalType |> x.TypeSizeInstr
+                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); locSizeInstr], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldnull
                 | OpCodeValues.Ldc_I4_M1
@@ -826,10 +835,12 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     if not isStruct then
                         x.PrependMem_p(0, 0, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+                    // TODO: here we potentially could calculate offsets inside open generic type! Should do this at
+                    //       runtime, rather than at instrumentation step
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
-                    let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int32
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
+                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType
+                    x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
                     if isStruct then
                         x.PrependProbeWithOffset(probes.ldfld_struct, [], x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
@@ -858,8 +869,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | UnOp evaluationStackCellType.RefLikeStruct -> false, true
                         | _ -> false, false
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
+                    // TODO: here we potentially could calculate offsets inside open generic type! Should do this at
+                    //       runtime, rather than at instrumentation step
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                    let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+                    let fieldSizeOpcode, fieldSizeArg as sizeInstr = x.TypeSizeInstr fieldInfo.FieldType
 
                     if isRefLikeStruct then
                         match instr.stackState with
@@ -868,7 +881,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 let srcInstr = instructions |> Array.find (fun i -> i.offset = srcOffset)
                                 x.AppendProbe(probes.mem_refLikeStruct, [OpCodes.Dup, NoArg; OpCodes.Conv_I, NoArg], x.tokens.void_i_sig, srcInstr))
                         | _ -> __unreachable__()
-                        let args = [(OpCodes.Ldc_I4, Arg32 fieldOffset); (OpCodes.Ldc_I4, Arg32 fieldSize)]
+                        let args = [(OpCodes.Ldc_I4, Arg32 fieldOffset); sizeInstr]
                         x.PrependProbeWithOffset(probes.stfld_refLikeStruct, args, x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
                         if isStruct then
@@ -912,7 +925,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                         x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
                         if isStruct then
-                            x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
+                            x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         x.PrependProbeWithOffset(probe, [], signature, &prependTarget) |> ignore
@@ -927,11 +940,11 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbeWithOffset(probes.ldsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldsflda ->
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
-                    let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int32
+                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType
                     let id = registerStaticFieldID fieldInfo |> int16
                     x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_i4_i2_sig, instr)
                     x.AppendInstr OpCodes.Ldc_I4 (Arg16 id) instr
-                    x.AppendInstr OpCodes.Ldc_I4 (Arg32 fieldSize) instr
+                    x.AppendInstr fieldSizeOpcode fieldSizeArg instr
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Stsfld ->
@@ -976,19 +989,20 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // calli exec
                     // A: ldelem(a)
 
-                    let elemSize =
+                    let elemSizeOpcode, elemSizeArg =
                         match opcodeValue with
                         | OpCodeValues.Ldelem_I
-                        | OpCodeValues.Ldelem_Ref -> sizeof<System.IntPtr>
-                        | OpCodeValues.Ldelem_I1 -> sizeof<int8>
-                        | OpCodeValues.Ldelem_I2 -> sizeof<int16>
-                        | OpCodeValues.Ldelem_I4 -> sizeof<int32>
-                        | OpCodeValues.Ldelem_I8 -> sizeof<int64>
-                        | OpCodeValues.Ldelem_R4 -> sizeof<float>
-                        | OpCodeValues.Ldelem_R8 -> sizeof<double>
+                        | OpCodeValues.Ldelem_Ref -> OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>
+                        | OpCodeValues.Ldelem_I1 -> OpCodes.Ldc_I4, Arg32 sizeof<int8>
+                        | OpCodeValues.Ldelem_I2 -> OpCodes.Ldc_I4, Arg32 sizeof<int16>
+                        | OpCodeValues.Ldelem_I4 -> OpCodes.Ldc_I4, Arg32 sizeof<int32>
+                        | OpCodeValues.Ldelem_I8 -> OpCodes.Ldc_I4, Arg32 sizeof<int64>
+                        | OpCodeValues.Ldelem_R4 -> OpCodes.Ldc_I4, Arg32 sizeof<float>
+                        | OpCodeValues.Ldelem_R8 -> OpCodes.Ldc_I4, Arg32 sizeof<double>
                         | OpCodeValues.Ldelem
                         | OpCodeValues.Ldelema ->
-                            Reflection.resolveType x.m instr.Arg32 |> TypeUtils.internalSizeOf |> int
+                            let typ = Reflection.resolveType x.m instr.Arg32
+                            x.TypeSizeInstr typ
                         | _ -> __unreachable__()
 
                     x.PrependMem2_p &prependTarget
@@ -996,7 +1010,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 elemSize, &prependTarget)
+                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget)
                     x.PrependProbe(track, [], x.tokens.bool_i_i_i4_sig, &prependTarget) |> ignore
                     let br = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
@@ -1047,54 +1061,46 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     if isStruct then
                         x.PrependInstr(OpCodes.Box, typeTokenArg, &prependTarget)
 
-                    let mutable elemSize = 0
-                    let execProbe, execSig, unmem3Probe, unmem3Sig =
+                    let execProbe, execSig, unmem3Probe, unmem3Sig, elemSizeOpcode, elemSizeArg =
                         match opcodeValue, instr.stackState with
                         | OpCodeValues.Stelem_I, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_p(2, 0, &prependTarget)
-                            elemSize <- sizeof<System.IntPtr>
-                            probes.execStelem_Ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                            probes.execStelem_Ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>
                         | OpCodeValues.Stelem_Ref, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.Ref, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_p(2, 0, &prependTarget)
-                            elemSize <- sizeof<System.IntPtr>
-                            probes.execStelem_Ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                            probes.execStelem_Ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>
                         | OpCodeValues.Stelem_I1, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I1, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_i1(2, 0, &prependTarget)
-                            elemSize <- sizeof<int8>
-                            probes.execStelem_I1, x.tokens.void_i_i_i1_offset_sig, probes.unmem_1, x.tokens.i1_i1_sig
+                            probes.execStelem_I1, x.tokens.void_i_i_i1_offset_sig, probes.unmem_1, x.tokens.i1_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<int8>
                         | OpCodeValues.Stelem_I2, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I2, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_i2(2, 0, &prependTarget)
-                            elemSize <- sizeof<int16>
-                            probes.execStelem_I2, x.tokens.void_i_i_i2_offset_sig, probes.unmem_2, x.tokens.i2_i1_sig
+                            probes.execStelem_I2, x.tokens.void_i_i_i2_offset_sig, probes.unmem_2, x.tokens.i2_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<int16>
                         | OpCodeValues.Stelem_I4, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I4, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_i4(2, 0, &prependTarget)
-                            elemSize <- sizeof<int32>
-                            probes.execStelem_I4, x.tokens.void_i_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig
+                            probes.execStelem_I4, x.tokens.void_i_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<int32>
                         | OpCodeValues.Stelem_I8, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I8, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_i8(2, 0, &prependTarget)
-                            elemSize <- sizeof<int64>
-                            probes.execStelem_I8, x.tokens.void_i_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig
+                            probes.execStelem_I8, x.tokens.void_i_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<int64>
                         | OpCodeValues.Stelem_R4, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.R4, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_f4(2, 0, &prependTarget)
-                            elemSize <- sizeof<float>
-                            probes.execStelem_R4, x.tokens.void_i_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig
+                            probes.execStelem_R4, x.tokens.void_i_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<float>
                         | OpCodeValues.Stelem_R8, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.R8, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_f8(2, 0, &prependTarget)
-                            elemSize <- sizeof<double>
-                            probes.execStelem_R8, x.tokens.void_i_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
+                            probes.execStelem_R8, x.tokens.void_i_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig, OpCodes.Ldc_I4, Arg32 sizeof<double>
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.Struct, _, evaluationStackCellType.Ref)
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.RefLikeStruct, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_p(2, 0, &prependTarget)
-                            elemSize <- Reflection.resolveType x.m instr.Arg32 |> TypeUtils.internalSizeOf |> int
-                            probes.execStelem_Struct, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                            let typ = Reflection.resolveType x.m instr.Arg32
+                            let elemSizeOpcode, elemSizeArg = x.TypeSizeInstr typ
+                            probes.execStelem_Struct, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig, elemSizeOpcode, elemSizeArg
                         | _ -> __unreachable__()
 
                     x.PrependMem_p(1, 1, &prependTarget)
@@ -1102,7 +1108,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 elemSize, &prependTarget)
+                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget)
                     x.PrependProbe(probes.stelem, [], x.tokens.bool_i_i_i4_sig, &prependTarget) |> ignore
                     let brtrue = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
