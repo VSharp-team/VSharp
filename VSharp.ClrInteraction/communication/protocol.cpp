@@ -193,6 +193,47 @@ bool Protocol::acceptToken(mdToken &token) {
     return true;
 }
 
+bool Protocol::acceptInt32(INT32 &value) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    assert(messageLength == sizeof(INT32));
+    value = *(INT32 *) message;
+    delete[] message;
+    return true;
+}
+
+bool Protocol::acceptTokenAndInt32(mdToken &token, INT32 &value) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    assert(messageLength == sizeof(mdToken) + sizeof(INT32));
+    token = *(mdToken *) message; message += sizeof(mdToken);
+    value = *(INT32 *) message;
+    delete[] message;
+    return true;
+}
+
+bool Protocol::accept2Tokens(mdToken &token1, mdToken &token2) {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Reading instrumented method body failed!");
+        return false;
+    }
+    assert(messageLength == sizeof(mdToken) * 2);
+    token1 = *(mdToken *) message; message += sizeof(mdToken);
+    token2 = *(mdToken *) message;
+    delete[] message;
+    return true;
+}
+
 bool Protocol::acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef) {
     char *message;
     int messageLength;

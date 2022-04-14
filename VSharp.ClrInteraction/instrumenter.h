@@ -48,7 +48,7 @@ private:
     unsigned    m_nEH;
     IMAGE_COR_ILMETHOD_SECT_EH_CLAUSE_FAT *m_pEH;
 
-    char *m_code;
+    char        *m_code;
     unsigned    m_codeSize;
 
     std::map<std::pair<ModuleID, mdMethodDef>, MethodInfo> instrumentedFunctions;

@@ -128,14 +128,16 @@ typedef unsigned int sig_mem_number;
 
 class SigParser
 {
-private:
+public:
     sig_byte *pbBase;
     sig_byte *pbCur;
     sig_byte *pbEnd;
 
-public:
     bool Parse(sig_byte *blob, sig_count len);
     bool ParseType(sig_byte *blob, sig_count len);
+    bool ParseField(sig_byte *pb, sig_count cbBuffer);
+    bool ParseMethod(sig_byte *pb, sig_count cbBuffer);
+    bool ParseLocals(sig_byte *pb, sig_count cbBuffer);
 
 private:
     bool ParseByte(sig_byte *pbOut);
@@ -707,6 +709,30 @@ bool SigParser::ParseType(sig_byte *pb, sig_count cbBuffer)
     pbCur = pb;
     pbEnd = pbBase + cbBuffer;
     return ParseType();
+}
+
+bool SigParser::ParseField(sig_byte *pb, sig_count cbBuffer)
+{
+    pbBase = pb;
+    pbCur = pb;
+    pbEnd = pbBase + cbBuffer;
+    return ParseField(*pb);
+}
+
+bool SigParser::ParseMethod(sig_byte *pb, sig_count cbBuffer)
+{
+    pbBase = pb;
+    pbCur = pb;
+    pbEnd = pbBase + cbBuffer;
+    return ParseMethod(*pbCur);
+}
+
+bool SigParser::ParseLocals(sig_byte *pb, sig_count cbBuffer)
+{
+    pbBase = pb;
+    pbCur = pb;
+    pbEnd = pbBase + cbBuffer;
+    return ParseLocals(*pbCur);
 }
 
 bool SigParser::ParseType()

@@ -29,7 +29,11 @@ enum CommandType {
     ReadHeapBytes = 0x63,
     ReadExecResponse = 0x64,
     Unmarshall = 0x65,
-    ReadWholeObject = 0x66
+    ReadWholeObject = 0x66,
+    ParseFieldRefTypeToken = 0x67,
+    ParseFieldDefTypeToken = 0x69,
+    ParseArgTypeToken = 0x70,
+    ParseLocalTypeToken = 0x71
 };
 
 class Protocol {
@@ -56,6 +60,9 @@ public:
     bool acceptString(char *&string);
     bool acceptWString(WCHAR *&string);
     bool acceptToken(mdToken &token);
+    bool acceptInt32(INT32 &value);
+    bool acceptTokenAndInt32(mdToken &token, INT32 &value);
+    bool accept2Tokens(mdToken &token1, mdToken &token2);
     bool acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets);
     bool acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef);
     bool sendToken(mdToken token);

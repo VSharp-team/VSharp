@@ -434,6 +434,49 @@ CommandType Instrumenter::getAndHandleCommand() {
             if (!m_protocol.sendTypeInfoFromMethod(types)) FAIL_LOUD("Instrumenting: sending type info of method failed!");
             break;
         }
+        case ParseFieldRefTypeToken: {
+            mdToken fieldRef;
+            if (!m_protocol.acceptToken(fieldRef)) FAIL_LOUD("Instrumenting: accepting fieldRef token to parse failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeTokenFromFieldRef(fieldRef);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
+            delete reflection;
+            break;
+        }
+
+        case ParseFieldDefTypeToken: {
+            mdToken typeDef;
+            mdToken fieldDef;
+            if (!m_protocol.accept2Tokens(typeDef, fieldDef)) FAIL_LOUD("Instrumenting: accepting typeDef and fieldDef tokens to parse failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeTokenFromFieldDef(typeDef, fieldDef);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
+            delete reflection;
+            break;
+        }
+        case ParseArgTypeToken: {
+            mdToken method;
+            INT32 argIndex;
+            if (!m_protocol.acceptTokenAndInt32(method, argIndex)) FAIL_LOUD("Instrumenting: accepting argument index failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeTokenFromParameter(method, argIndex);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
+            delete reflection;
+            break;
+        }
+        case ParseLocalTypeToken: {
+            INT32 localIndex;
+            if (!m_protocol.acceptInt32(localIndex)) FAIL_LOUD("Instrumenting: accepting local index failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeSpec = reflection->getTypeTokenFromLocal(m_tkLocalVarSig, localIndex);
+            if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
+            delete reflection;
+            break;
+        }
         default:
             break;
     }
