@@ -3,13 +3,28 @@
 
 #include <vector>
 #include <stack>
-#include "heap.h"
+#include "storage.h"
 
 namespace vsharp {
 
+struct StructOptional {
+    bool isStruct;
+    OBJID obj;
+};
+
+struct StackCell {
+    unsigned content;
+    StructOptional obj;
+};
+
+struct LocalCell {
+    bool concreteness;
+    StructOptional obj;
+};
+
 class StackFrame {
 private:
-    unsigned *m_concreteness;
+    StackCell *m_concreteness;
     unsigned m_capacity;
     unsigned m_concretenessTop;
 
@@ -17,21 +32,22 @@ private:
     unsigned m_lastSentSymbolsCount;
     unsigned m_minSymbsCountSinceLastSent;
 
-    bool *m_args;
-    bool *m_locals;
+    LocalCell *m_args;
+    unsigned m_argsCount;
+    LocalCell *m_locals;
+    unsigned m_localsCount;
 
     unsigned m_resolvedToken;
     unsigned m_unresolvedToken;
     bool m_enteredMarker;
     bool m_spontaneous;
 
-    Heap &m_heap;
+    Storage &m_heap;
 
     std::vector<std::pair<unsigned, unsigned>> m_lastPoppedSymbolics;
-    std::vector<Interval *> m_localObjects;
 
 public:
-    StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Heap &heap);
+    StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Storage &heap);
     ~StackFrame();
 
     void configure(unsigned maxStackSize, unsigned localsCount);
@@ -42,22 +58,23 @@ public:
     bool peek0() const;
     bool peek1() const;
     bool peek2() const;
-    bool peek(unsigned idx) const;
+    const StructOptional &peekStruct(unsigned idx) const;
 
     void pop0();
     bool pop1();
     bool pop(unsigned count);
     void pop1Async(); // Does not track the popped symbolics, but tracks the total amount of such pops.
 
-    void push1(bool isConcrete);
+    void push1(bool isConcrete, const StructOptional &obj);
+    void pushPrimitive(bool isConcrete);
     void push1Concrete();
 
-    bool arg(unsigned index) const;
-    void setArg(unsigned index, bool value);
-    bool loc(unsigned index) const;
-    void setLoc(unsigned index, bool value);
-
-    void addLocalObject(OBJID local);
+    const LocalCell &arg(unsigned index) const;
+    bool argConcreteness(unsigned index) const;
+    void setArg(unsigned index, const LocalCell &value);
+    const LocalCell &loc(unsigned index) const;
+    bool locConcreteness(unsigned index) const;
+    void setLoc(unsigned index, const LocalCell &value);
 
     bool dup();
 
@@ -82,9 +99,9 @@ private:
     unsigned m_lastSentTop;
     unsigned m_minTopSinceLastSent;
 
-    Heap &m_heap;
+    Storage &m_heap;
 public:
-    Stack(Heap &heap);
+    Stack(Storage &heap);
     void pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
     void popFrame();
     void popFrameUntracked();

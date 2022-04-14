@@ -3,7 +3,7 @@
 
 #include "cor.h"
 #include "stack.h"
-#include "heap.h"
+#include "storage.h"
 #include <functional>
 #include <map>
 
@@ -13,7 +13,7 @@ namespace vsharp {
 
 extern std::function<ThreadID()> currentThread;
 static std::map<ThreadID, Stack *> stacks;
-extern Heap heap;
+extern Storage heap;
 #ifdef _DEBUG
 extern std::map<unsigned, const char*> stringsPool;
 #endif

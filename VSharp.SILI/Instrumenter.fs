@@ -645,7 +645,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // calli track_ldind
                     // ldind
                     x.PrependDup &prependTarget
-                    x.PrependProbeWithOffset(probes.ldind, [], x.tokens.void_i_offset_sig, &prependTarget) |> ignore
+                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget)
+                    x.PrependProbeWithOffset(probes.ldind, [], x.tokens.void_i_i4_offset_sig, &prependTarget) |> ignore
 
                 | OpCodeValues.Stind_Ref
                 | OpCodeValues.Stind_I1
@@ -657,6 +658,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Stind_I ->
                     // calli mem2
                     // calli unmem 0
+                    // ldc sizeOfPtr
                     // calli track_stind
                     // branch_true A
                     // calli unmem 0
@@ -871,13 +873,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     else
                         if isStruct then
                             let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
-                            // TODO: potential bug test:
-                            //       ldloca
-                            //       stfld symbolicValue
-                            //       ldloc
-                            //       ldfld
-                            // TODO: if ldloca with stfld will use one address of location,
-                            //       but ldloc with ldfld will use another address (because of Box)
                             x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
                         let probe, signature, unmem2Probe, unmem2Sig =
                             match instr.stackState with
@@ -1064,7 +1059,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.Ref, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_p(2, 0, &prependTarget)
                             elemSize <- sizeof<System.IntPtr>
-                            probes.execStind_ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                            probes.execStelem_Ref, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
                         | OpCodeValues.Stelem_I1, _
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.I1, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_i1(2, 0, &prependTarget)

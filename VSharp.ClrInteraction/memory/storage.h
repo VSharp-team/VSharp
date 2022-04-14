@@ -74,6 +74,7 @@ enum ObjectType {
     Statics = 4
 };
 
+// TODO: use 'ObjectLocation' with 'new' and pointers
 struct ObjectLocation {
     ObjectType type;
     ObjectKey key;
@@ -92,6 +93,8 @@ public:
     ~Object() override;
     std::string toString() const override;
     bool readConcreteness(SIZE offset, SIZE size) const;
+    bool isFullyConcrete() const;
+    void writeConcretenessWholeObject(bool vConcreteness);
     void writeConcreteness(SIZE offset, SIZE size, bool vConcreteness);
     char *readBytes(SIZE offset, SIZE size) const;
     ObjectLocation getLocation() const;
@@ -99,6 +102,7 @@ public:
 
 typedef IntervalTree<Interval, Shift, ADDR> Intervals;
 
+// TODO: use 'VirtualAddress' with 'new' and pointers
 struct VirtualAddress
 {
     OBJID obj;
@@ -106,7 +110,7 @@ struct VirtualAddress
     ObjectLocation location;
 };
 
-class Heap {
+class Storage {
 private:
     Intervals tree;
     // TODO: store new addresses or get them from tree? #do
@@ -117,11 +121,11 @@ private:
     void resolveRefInHeapBytes(char *bytes) const;
 
 public:
-    Heap();
+    Storage();
 
     OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
     // Allocate block of memory controlled by stack
-    OBJID allocateLocal(ADDR address, SIZE size, ObjectLocation location);
+    OBJID allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness);
     // Allocate block of static memory
     OBJID allocateStaticField(ADDR address, INT32 size, INT16 id);
 
@@ -138,7 +142,7 @@ public:
 
     bool readConcreteness(ADDR address, SIZE sizeOfPtr) const;
     void writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const;
-    char *readBytes(VirtualAddress address, SIZE sizeOfPtr, BYTE isRef) const;
+    char *readBytes(const VirtualAddress &address, SIZE sizeOfPtr, BYTE isRef) const;
     void readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const;
     void unmarshall(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const;
 

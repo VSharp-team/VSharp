@@ -6,38 +6,67 @@ using namespace vsharp;
 
 #define CONCRETE UINT32_MAX
 
-StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Heap &heap)
+StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount, Storage &heap)
     : m_concreteness(nullptr)
     , m_capacity(0)
     , m_concretenessTop(0)
     , m_symbolsCount(0)
-    , m_args(new bool[argsCount])
+    , m_args(new LocalCell[argsCount])
+    , m_argsCount(argsCount)
     , m_locals(nullptr)
+    , m_localsCount(0)
     , m_resolvedToken(resolvedToken)
     , m_unresolvedToken(unresolvedToken)
     , m_enteredMarker(false)
     , m_spontaneous(false)
     , m_heap(heap)
 {
-    m_localObjects = std::vector<Interval *>();
-    memcpy(m_args, args, argsCount);
+    for (int i = 0; i < argsCount; i++)
+        m_args[i] = {args[i], false, 0};
     resetPopsTracking();
+}
+
+inline void copyUniqueLocalObjects(LocalCell *array, unsigned count, std::vector<Interval *> &objects) {
+    for (int i = 0; i < count; i++) {
+        StructOptional obj = array[i].obj;
+        if (obj.isStruct) {
+            auto *p = (Interval *) obj.obj;
+            if (std::find(objects.begin(), objects.end(), p) == objects.end())
+                objects.push_back(p);
+        }
+    }
 }
 
 StackFrame::~StackFrame()
 {
-    for (const auto *obj : m_localObjects)
+    // NOTE: copying args and local objects to vector
+    std::vector<Interval *> objects;
+    copyUniqueLocalObjects(m_args, m_argsCount, objects);
+    copyUniqueLocalObjects(m_locals, m_localsCount, objects);
+
+    // NOTE: free memory of frame objects (structs)
+    for (const auto *obj : objects)
         delete obj;
-    m_heap.deleteObjects(m_localObjects);
+
+    // NOTE: removing objects from storage tree
+    m_heap.deleteObjects(objects);
+
+    // NOTE: free other frame specific memory
     delete [] m_concreteness;
+    if (m_localsCount > 0)
+        delete [] m_locals;
+    if (m_argsCount > 0)
+        delete [] m_args;
 }
 
 void StackFrame::configure(unsigned maxStackSize, unsigned localsCount)
 {
     m_capacity = maxStackSize;
-    m_concreteness = new unsigned[maxStackSize];
-    m_locals = new bool[localsCount];
-    memset(m_locals, true, localsCount);
+    m_concreteness = new StackCell[maxStackSize];
+    m_locals = new LocalCell[localsCount];
+    m_localsCount = localsCount;
+    for (int i = 0; i < localsCount; i++)
+        m_locals[i] = {true, false, 0};
 }
 
 bool StackFrame::isEmpty() const
@@ -52,22 +81,22 @@ bool StackFrame::isFull() const
 
 bool StackFrame::peek0() const
 {
-    return m_concreteness[m_concretenessTop - 1] == CONCRETE;
+    return m_concreteness[m_concretenessTop - 1].content == CONCRETE;
 }
 
 bool StackFrame::peek1() const
 {
-    return m_concreteness[m_concretenessTop - 2] == CONCRETE;
+    return m_concreteness[m_concretenessTop - 2].content == CONCRETE;
 }
 
 bool StackFrame::peek2() const
 {
-    return m_concreteness[m_concretenessTop - 3] == CONCRETE;
+    return m_concreteness[m_concretenessTop - 3].content == CONCRETE;
 }
 
-bool StackFrame::peek(unsigned idx) const
+const StructOptional &StackFrame::peekStruct(unsigned idx) const
 {
-    return m_concreteness[m_concretenessTop - idx - 1] == CONCRETE;
+    return m_concreteness[m_concretenessTop - idx - 1].obj;
 }
 
 void StackFrame::pop0()
@@ -75,7 +104,7 @@ void StackFrame::pop0()
     m_lastPoppedSymbolics.clear();
 }
 
-void StackFrame::push1(bool isConcrete)
+void StackFrame::push1(bool isConcrete, const StructOptional &obj)
 {
 #ifdef _DEBUG
     if (isFull()) {
@@ -84,12 +113,19 @@ void StackFrame::push1(bool isConcrete)
         FAIL_LOUD("Stack overflow!");
     }
 #endif
-    m_concreteness[m_concretenessTop++] = isConcrete ? CONCRETE : ++m_symbolsCount;
+    unsigned content = isConcrete ? CONCRETE : ++m_symbolsCount;
+    m_concreteness[m_concretenessTop++] = {content, obj};
+}
+
+void StackFrame::pushPrimitive(bool isConcrete)
+{
+    StructOptional obj{false, 0};
+    push1(isConcrete, obj);
 }
 
 void StackFrame::push1Concrete()
 {
-    push1(true);
+    pushPrimitive(true);
 }
 
 bool StackFrame::pop1()
@@ -102,10 +138,10 @@ bool StackFrame::pop1()
 #endif
     m_lastPoppedSymbolics.clear();
     --m_concretenessTop;
-    unsigned cell = m_concreteness[m_concretenessTop];
-    if (cell != CONCRETE) {
+    unsigned content = m_concreteness[m_concretenessTop].content;
+    if (content != CONCRETE) {
         --m_symbolsCount;
-        m_lastPoppedSymbolics.emplace_back(cell, 0u);
+        m_lastPoppedSymbolics.emplace_back(content, 0u);
         return false;
     }
     return true;
@@ -123,10 +159,10 @@ bool StackFrame::pop(unsigned count)
     m_lastPoppedSymbolics.clear();
     m_concretenessTop -= count;
     for (unsigned i = m_concretenessTop + count; i > m_concretenessTop; --i) {
-        unsigned cell = m_concreteness[i - 1];
-        if (cell != CONCRETE) {
+        unsigned content = m_concreteness[i - 1].content;
+        if (content != CONCRETE) {
             --m_symbolsCount;
-            m_lastPoppedSymbolics.emplace_back(cell, m_concretenessTop + count - i);
+            m_lastPoppedSymbolics.emplace_back(content, m_concretenessTop + count - i);
         }
     }
     return m_lastPoppedSymbolics.empty();
@@ -139,32 +175,43 @@ void StackFrame::pop1Async()
         m_minSymbsCountSinceLastSent = m_symbolsCount;
 }
 
-bool StackFrame::arg(unsigned index) const
+const LocalCell &StackFrame::arg(unsigned index) const
 {
     return m_args[index];
 }
 
-void StackFrame::setArg(unsigned index, bool value)
+bool StackFrame::argConcreteness(unsigned int index) const
+{
+    return m_args[index].concreteness;
+}
+
+void StackFrame::setArg(unsigned index, const LocalCell &value)
 {
     m_args[index] = value;
 }
 
-bool StackFrame::loc(unsigned index) const
+const LocalCell &StackFrame::loc(unsigned index) const
 {
     return m_locals[index];
 }
 
-void StackFrame::setLoc(unsigned index, bool value)
+bool StackFrame::locConcreteness(unsigned index) const
+{
+    return m_locals[index].concreteness;
+}
+
+void StackFrame::setLoc(unsigned index, const LocalCell &value)
 {
     m_locals[index] = value;
 }
 
 bool StackFrame::dup()
 {
+    const StructOptional &obj = peekStruct(0);
     bool concreteness = pop1();
     if (concreteness) {
-        push1(concreteness);
-        push1(concreteness);
+        push1(concreteness, obj);
+        push1(concreteness, obj);
     }
     return concreteness;
 }
@@ -226,18 +273,14 @@ const std::vector<std::pair<unsigned, unsigned>> &StackFrame::poppedSymbolics() 
     return m_lastPoppedSymbolics;
 }
 
-void StackFrame::addLocalObject(OBJID local) {
-    m_localObjects.push_back((Interval *) local);
-}
-
-Stack::Stack(Heap &heap)
+Stack::Stack(Storage &heap)
     : m_heap(heap)
 {
 }
 
 void Stack::pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount)
 {
-    m_frames.push_back(StackFrame(resolvedToken, unresolvedToken, args, argsCount, m_heap));
+    m_frames.emplace_back(resolvedToken, unresolvedToken, args, argsCount, m_heap);
 }
 
 

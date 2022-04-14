@@ -1,7 +1,7 @@
 #include <iostream>
 #include <algorithm>
 #include <string>
-#include "heap.h"
+#include "storage.h"
 
 #define min(a,b) (((a) < (b)) ? (a) : (b))
 #define max(a,b) (((a) > (b)) ? (a) : (b))
@@ -86,9 +86,9 @@ namespace vsharp {
 
     Object::Object(ADDR address, SIZE size, ObjectLocation location)
         : Interval(address, size)
+        , m_location(location)
     {
         assert(size > 0);
-        m_location = location;
         SIZE squashedSize = (size + sizeofCell - 1) / sizeofCell;
         concreteness = new cell[squashedSize];
         // NOTE: all contents are concrete at the beginning
@@ -133,6 +133,14 @@ namespace vsharp {
         return buffer;
     }
 
+    bool Object::isFullyConcrete() const {
+        return readConcreteness(0, right - left);
+    }
+
+    void Object::writeConcretenessWholeObject(bool vConcreteness) {
+        writeConcreteness(0, right - left, vConcreteness);
+    }
+
     void Object::writeConcreteness(SIZE offset, SIZE size, bool vConcreteness) {
         assert(size > 0);
         auto startOffset = offset % sizeofCell;
@@ -166,12 +174,12 @@ namespace vsharp {
 
 // --------------------------- Heap ---------------------------
 
-    Heap::Heap() = default;
+    Storage::Storage() = default;
 
-    OBJID Heap::allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength) {
+    OBJID Storage::allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength) {
         ObjectKey key;
         key.none = nullptr;
-        ObjectLocation location = {ReferenceType, key};
+        ObjectLocation location{ReferenceType, key};
         auto *obj = new Object(address, size, location);
         tree.add(*obj);
         auto id = (OBJID) obj;
@@ -179,22 +187,23 @@ namespace vsharp {
         return id;
     }
 
-    UINT_PTR Heap::allocateLocal(UINT_PTR address, UINT_PTR size, ObjectLocation location) {
+    UINT_PTR Storage::allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness) {
         const Interval *i;
         if (!tree.find(address, i)) {
             auto *obj = new Object(address, size, location);
             tree.add(*obj);
+            obj->writeConcretenessWholeObject(concreteness);
             return (OBJID) obj;
         }
         return (OBJID) i;
     }
 
-    UINT_PTR Heap::allocateStaticField(ADDR address, INT32 size, INT16 id) {
+    UINT_PTR Storage::allocateStaticField(ADDR address, INT32 size, INT16 id) {
         ObjectKey key;
         key.staticFieldKey = id;
         const Interval *i;
         if (!tree.find(address, i)) {
-            ObjectLocation location = {Statics, key};
+            ObjectLocation location{Statics, key};
             auto *obj = new Object(address, size, location);
             tree.add(*obj);
             return (OBJID) obj;
@@ -202,13 +211,13 @@ namespace vsharp {
         return (OBJID) i;
     }
 
-    void Heap::moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length) {
+    void Storage::moveAndMark(ADDR oldLeft, ADDR newLeft, SIZE length) {
         Interval i(oldLeft, length);
         Shift s{oldLeft, newLeft};
         tree.moveAndMark(i, s);
     }
 
-    bool Heap::readConcreteness(ADDR address, SIZE sizeOfPtr) const {
+    bool Storage::readConcreteness(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
             // TODO: throw unbound pointer?
@@ -219,7 +228,7 @@ namespace vsharp {
         return obj->readConcreteness(vAddress.offset, sizeOfPtr);
     }
 
-    void Heap::writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
+    void Storage::writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
             FAIL_LOUD("Writing concreteness to heap: unable to resolve address");
@@ -229,7 +238,7 @@ namespace vsharp {
         obj->writeConcreteness(vAddress.offset, sizeOfPtr, vConcreteness);
     }
 
-    char *Heap::readBytes(VirtualAddress address, SIZE sizeOfPtr, BYTE isRef) const {
+    char *Storage::readBytes(const VirtualAddress &address, SIZE sizeOfPtr, BYTE isRef) const {
         Object *obj = (Object *) address.obj;
         char *bytes = obj->readBytes(address.offset, sizeOfPtr);
         if (isRef) {
@@ -243,7 +252,7 @@ namespace vsharp {
         return bytes;
     }
 
-    void Heap::resolveRefInHeapBytes(char *bytes) const {
+    void Storage::resolveRefInHeapBytes(char *bytes) const {
         UINT_PTR ref;
         memcpy(&ref, bytes, sizeof(UINT_PTR));
         VirtualAddress vAddress{};
@@ -252,7 +261,7 @@ namespace vsharp {
         memcpy(bytes, &vAddress.obj, sizeof(UINT_PTR));
     }
 
-    void Heap::readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
+    void Storage::readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
         Object *obj = (Object *) objID;
         size = obj->right - obj->left;
         VirtualAddress vAddress = {objID, 0};
@@ -275,13 +284,13 @@ namespace vsharp {
 
     }
 
-    void Heap::unmarshall(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
+    void Storage::unmarshall(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
         Object *obj = (Object *) objID;
         readWholeObject(objID, buffer, size, isArray, refOffsetsLength, refOffsets);
         obj->writeConcreteness(0, size, false);
     }
 
-    bool Heap::resolve(ADDR address, VirtualAddress &vAddress) const {
+    bool Storage::resolve(ADDR address, VirtualAddress &vAddress) const {
         if (address == 0) {
             ObjectKey key{};
             key.none = nullptr;
@@ -299,32 +308,32 @@ namespace vsharp {
         return false;
     }
 
-    void Heap::markSurvivedObjects(ADDR start, SIZE length) {
+    void Storage::markSurvivedObjects(ADDR start, SIZE length) {
         Interval i(start, length);
         tree.mark(i);
     }
 
-    void Heap::clearAfterGC() {
+    void Storage::clearAfterGC() {
         auto deleted = tree.clearUnmarked();
         for (Interval *address : deleted)
             deletedAddresses.push_back((OBJID) address);
     }
 
     // TODO: store new addresses or get them from tree? #do
-    std::map<OBJID, std::pair<char*, unsigned long>> Heap::flushObjects() {
+    std::map<OBJID, std::pair<char*, unsigned long>> Storage::flushObjects() {
         std::map<OBJID, std::pair<char*, unsigned long>> result(newAddresses);
         newAddresses.clear();
         return result;
     }
 
-    void Heap::dump() const {
+    void Storage::dump() const {
         LOG(tout << "-------------- HEAP DUMP --------------" << std::endl);
         std::string dump = tree.dumpObjects();
         LOG(tout << dump.c_str() << std::endl);
         LOG(tout << "-------------- DUMP END ---------------" << std::endl);
     }
 
-    VirtualAddress Heap::physToVirtAddress(ADDR physAddress) const {
+    VirtualAddress Storage::physToVirtAddress(ADDR physAddress) const {
         VirtualAddress vAddress{};
         if (physAddress == 0) {
             ObjectKey key{};
@@ -337,13 +346,13 @@ namespace vsharp {
         return vAddress;
     }
 
-    ADDR Heap::virtToPhysAddress(const VirtualAddress &virtAddress) {
+    ADDR Storage::virtToPhysAddress(const VirtualAddress &virtAddress) {
         auto object = (Object *)virtAddress.obj;
         if (object == nullptr) return 0;
         return object->left + virtAddress.offset;
     }
 
-    void Heap::deleteObjects(const std::vector<Interval *> &objects) {
+    void Storage::deleteObjects(const std::vector<Interval *> &objects) {
         tree.deleteIntervals(objects);
     }
 }

@@ -9,7 +9,7 @@ ThreadID currentThreadNotConfigured() {
 
 std::function<ThreadID()> vsharp::currentThread(&currentThreadNotConfigured);
 
-Heap vsharp::heap = Heap();
+Storage vsharp::heap = Storage();
 
 #ifdef _DEBUG
 std::map<unsigned, const char*> vsharp::stringsPool;

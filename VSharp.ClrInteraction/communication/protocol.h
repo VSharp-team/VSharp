@@ -2,7 +2,7 @@
 #define PROTOCOL_H_
 
 #include "communicator.h"
-#include "../memory/heap.h"
+#include "../memory/storage.h"
 #include "cor.h"
 #include <vector>
 

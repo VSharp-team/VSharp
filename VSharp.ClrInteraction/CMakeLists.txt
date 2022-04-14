@@ -43,7 +43,7 @@ set(sources
     communication/unixFifoCommunicator.cpp
     memory/memory.cpp
     memory/stack.cpp
-    memory/heap.cpp
+        memory/storage.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp)
 
 add_library(vsharpConcolic SHARED ${sources})

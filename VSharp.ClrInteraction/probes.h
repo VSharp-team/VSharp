@@ -199,7 +199,8 @@ bool readExecResponse(StackFrame &top, EvalStackOperand *ops, unsigned &count, i
     bool opsConcretized = opsLength > -1;
     if (lastPush > 0) {
         bool returnValueIsConcrete = (lastPush == 2);
-        top.push1(returnValueIsConcrete);
+        // TODO: implement lastPush is struct case
+        top.pushPrimitive(returnValueIsConcrete);
     }
 
     if (opsConcretized) {
@@ -243,7 +244,7 @@ void updateMemory(EvalStackOperand &op, unsigned int idx) {
             update_f8(op.content.number, (INT8) idx);
             break;
         case OpRef:
-            update_p((INT_PTR) Heap::virtToPhysAddress(op.content.address), (INT8) idx);
+            update_p((INT_PTR) Storage::virtToPhysAddress(op.content.address), (INT8) idx);
             break;
         case OpStruct:
             FAIL_LOUD("Not implemented!");
@@ -413,9 +414,10 @@ PROBE(void, DisableInstrumentation, ()) { disableInstrumentation(); }
 inline bool ldarg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
     top.pop0();
-    bool concreteness = top.arg(idx);
+    LocalCell cell = top.arg(idx);
+    bool concreteness = cell.concreteness;
     if (concreteness) {
-        top.push1Concrete();
+        top.push1(true, cell.obj);
     }
     return concreteness;
 }
@@ -427,26 +429,23 @@ PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCo
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    bool concreteness = top.argConcreteness(idx);
     ObjectLocation location{Parameter, frame, idx};
-    OBJID obj = heap.allocateLocal(ptr, size, location);
+    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
     // Register obj in current stack frame
-    topFrame().addLocalObject(obj);
-    topFrame().push1Concrete();
+    LocalCell cell{concreteness, true, obj};
+    top.setArg(idx, cell);
+    top.push1Concrete();
 }
 
 inline bool ldloc(INT16 idx) {
-    // TODO: potential bug test:
-    //       ldloca
-    //       stfld symbolicValue
-    //       ldloc
-    //       ldfld
-    // TODO: if location was loaded via ldloca, and then symbolic value was stored in it,
-    //       all ldloc instructions for this location should return symbolic
     StackFrame &top = vsharp::topFrame();
     top.pop0();
-    bool concreteness = top.loc(idx);
+    LocalCell cell = top.loc(idx);
+    bool concreteness = cell.concreteness;
     if (concreteness) {
-        top.push1Concrete();
+        top.push1(true, cell.obj);
     }
     return concreteness;
 }
@@ -458,27 +457,33 @@ PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCo
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    bool concreteness = top.locConcreteness(idx);
     ObjectLocation location{LocalVariable, frame, idx};
-    OBJID obj = heap.allocateLocal(ptr, size, location);
+    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
     // Register obj in current stack frame
-    topFrame().addLocalObject(obj);
-    topFrame().push1Concrete();
+    LocalCell cell{concreteness, true, obj};
+    top.setLoc(idx, cell);
+    top.push1Concrete();
 }
 
 inline bool starg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
+    const StructOptional &obj = top.peekStruct(0);
     bool concreteness = top.pop1();
-    top.setArg(idx, concreteness);
+    LocalCell localCell{concreteness, obj};
+    top.setArg(idx, localCell);
     return concreteness;
 }
 PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 
 inline bool stloc(INT16 idx) {
-    // TODO
     StackFrame &top = vsharp::topFrame();
+    const StructOptional &obj = top.peekStruct(0);
     bool concreteness = top.pop1();
-    top.setLoc(idx, concreteness);
+    LocalCell localCell{concreteness, obj};
+    top.setLoc(idx, localCell);
     return concreteness;
 }
 PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
@@ -490,9 +495,11 @@ PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCom
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
 PROBE(void, Track_Dup, (OFFSET offset)) {
-    if (!topFrame().dup()) {
+    StackFrame &top = topFrame();
+    const StructOptional &obj = top.peekStruct(0);
+    if (!top.dup()) {
         sendCommand(offset, 1, new EvalStackOperand[1], false);
-        topFrame().push1(false);
+        topFrame().push1(false, obj);
     }
 }
 PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
@@ -543,8 +550,12 @@ PROBE(void, Exec_BinOp_8_4_ovf, (UINT16 op, INT64 arg1, INT32 arg2, OFFSET offse
 PROBE(void, Exec_BinOp_4_p_ovf, (UINT16 op, INT32 arg1, INT_PTR arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_4(arg1), mkop_p(arg2) }); }
 PROBE(void, Exec_BinOp_p_4_ovf, (UINT16 op, INT_PTR arg1, INT32 arg2, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(arg1), mkop_4(arg2) }); }
 
-PROBE(void, Track_Ldind, (INT_PTR ptr, OFFSET offset)) {
-    // TODO
+PROBE(void, Track_Ldind, (INT_PTR ptr, INT32 sizeOfPtr, OFFSET offset)) {
+    StackFrame &top = topFrame();
+    auto concreteness = top.pop1();
+    if (concreteness) concreteness = heap.readConcreteness(ptr, sizeOfPtr);
+    if (concreteness) top.push1Concrete();
+    else sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(ptr) });
 }
 
 PROBE(COND, Track_Stind, (INT_PTR ptr, INT32 sizeOfPtr)) {
@@ -552,7 +563,7 @@ PROBE(COND, Track_Stind, (INT_PTR ptr, INT32 sizeOfPtr)) {
     auto valueIsConcrete = top.peek0();
     auto addressIsConcrete = top.peek1();
     if (addressIsConcrete) heap.writeConcreteness(ptr, sizeOfPtr, valueIsConcrete);
-    return topFrame().pop(2);
+    return top.pop(2);
 }
 
 PROBE(void, Exec_Stind_I1, (INT_PTR ptr, INT8 value, OFFSET offset)) { sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) }); }
@@ -663,8 +674,11 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
 }
 PROBE(void, Track_Ldfld_Struct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
     StackFrame &top = vsharp::topFrame();
-    // 2Misha: track concreteness of fields instead of concreteness of the whole struct
-    if (!top.pop1()) {
+    const StructOptional &obj = top.peekStruct(0);
+    top.pop1();
+    assert(obj.isStruct);
+    Object *p = (Object *)obj.obj;
+    if (!p->readConcreteness(fieldOffset, fieldSize)) {
         sendCommand1(offset);
     } else {
         top.push1Concrete();
@@ -870,7 +884,8 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
                     top.pop1();
                 }
                 stack.popFrame();
-                stack.topFrame().push1(returnValue);
+                // Frame is popped, all structures from it are deleted, so pushing primitive to stack
+                stack.topFrame().pushPrimitive(returnValue);
             } else {
                 stack.popFrame();
                 LOG(tout << "Ignoring return type because of internal execution in unmanaged context..." << std::endl);
