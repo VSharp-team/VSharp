@@ -447,17 +447,18 @@ PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset
 PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
+PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) {
     unsigned frame = stack().framesCount();
     StackFrame &top = topFrame();
     bool concreteness = top.argConcreteness(idx);
     ObjectLocation location{Parameter, frame, idx};
-    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
-    // Register obj in current stack frame
-    ConcretenessCell concretenessCell{};
-    concretenessCell.obj = obj;
-    LocalCell cell{true, concretenessCell};
-    top.setArg(idx, cell);
+    // 2Misha: take object from stack frame!
+//     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
+//     // Register obj in current stack frame
+//     ConcretenessCell concretenessCell{};
+//     concretenessCell.obj = obj;
+//     LocalCell cell{true, concretenessCell};
+//     top.setArg(idx, cell);
     top.push1Concrete();
 }
 
@@ -480,17 +481,18 @@ PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset
 PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
+PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx)) {
     unsigned frame = stack().framesCount();
     StackFrame &top = topFrame();
     bool concreteness = top.locConcreteness(idx);
     ObjectLocation location{LocalVariable, frame, idx};
-    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
-    // Register obj in current stack frame
-    ConcretenessCell concretenessCell{};
-    concretenessCell.obj = obj;
-    LocalCell cell{true, concretenessCell};
-    top.setLoc(idx, cell);
+    // 2Misha: take object from stack frame!
+//     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
+//     // Register obj in current stack frame
+//     ConcretenessCell concretenessCell{};
+//     concretenessCell.obj = obj;
+//     LocalCell cell{true, concretenessCell};
+//     top.setLoc(idx, cell);
     top.push1Concrete();
 }
 
@@ -875,6 +877,14 @@ PROBE(void, Track_Mkrefany, ()) {
     topFrame().pop1();
 }
 
+PROBE(void, SetArgSize, (INT8 idx, SIZE size)) {
+    // 2Misha: allocate object on stack frame with UNKNOWN_OBJID
+    // 2Misha: if we want to allocate objid for structs only, then pass one more bool here from instrumenter (isStruct)
+}
+PROBE(void, SetLocSize, (INT8 idx, SIZE size)) {
+    // 2Misha: allocate object on stack frame with UNKNOWN_OBJID
+    // 2Misha: if we want to allocate objid for structs only, then pass one more bool here from instrumenter (isStruct)
+}
 PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
     LOG(tout << "Track_Enter, token = " << HEX(token) << std::endl);
     Stack &stack = vsharp::stack();
@@ -991,6 +1001,10 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
+    auto ops = createOps(argsCount);
+    sendCommand(offset, argsCount, ops);
+}
+PROBE(VOID, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
     auto ops = createOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }

@@ -138,6 +138,8 @@ type probes = {
     mutable arglist : uint64
     mutable mkrefany : uint64
 
+    mutable setArgSize : uint64
+    mutable setLocSize : uint64
     mutable enter : uint64
     mutable enterMain : uint64
     mutable leave : uint64
@@ -149,6 +151,7 @@ type probes = {
     mutable leaveMain_p : uint64
     mutable finalizeCall : uint64
     mutable execCall : uint64
+    mutable execInternalCall : uint64
     mutable call : uint64
     mutable pushFrame : uint64
     mutable callVirt : uint64
@@ -234,6 +237,7 @@ type signatureTokens = {
     mutable void_i_r8_sig : uint32
     mutable void_i_i_sig : uint32
     mutable void_i_size_sig : uint32
+    mutable void_i1_size_sig : uint32
     mutable void_i4_i4_sig : uint32
     mutable void_i4_i_sig : uint32
     mutable void_i8_i4_sig : uint32

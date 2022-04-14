@@ -9,7 +9,7 @@ open VSharp.Interpreter.IL
 
 type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes : probes) =
     // TODO: should we consider executed assembly build options here?
-    let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> VSharp.Concolic.OpCode
+    let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> OpCode
     let mutable currentStaticFieldID = 0
     let staticFieldIDs = Dictionary<int, FieldInfo>()
     let registerStaticFieldID (fieldInfo : FieldInfo) =
@@ -36,14 +36,14 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode opcode
+        newInstr.opcode <- OpCode opcode
         newInstr.arg <- arg
 
     member private x.PrependNop(beforeInstr : ilInstr byref) =
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode OpCodes.Nop
+        newInstr.opcode <- OpCode OpCodes.Nop
         newInstr.arg <- NoArg
         newInstr
 
@@ -51,7 +51,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode opcode
+        newInstr.opcode <- OpCode opcode
         newInstr.arg <- NoArg // In chain of prepends, the address of instruction constantly changes. Deferring it.
         newInstr
 
@@ -75,7 +75,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
         match args with
         | (opcode, arg)::tail ->
-            newInstr.opcode <- opcode |> VSharp.Concolic.OpCode
+            newInstr.opcode <- OpCode opcode
             newInstr.arg <- arg
             for opcode, arg in tail do
                 let newInstr = x.rewriter.NewInstr opcode
@@ -124,27 +124,42 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
     member private x.PlaceEnterProbe (firstInstr : ilInstr byref) =
         let isSpontaneous = if Reflection.isExternalMethod x.m || Reflection.isStaticConstructor x.m then 1 else 0
-        let localsCount =
+        let locals, localsCount =
             match x.m.GetMethodBody() with
-            | null -> 0
-            | mb -> mb.LocalVariables.Count
-        let argsCount = x.m.GetParameters().Length
-        let argsCount = if Reflection.hasThis x.m then argsCount + 1 else argsCount
+            | null -> null, 0
+            | mb ->
+                let locals = mb.LocalVariables
+                locals, locals.Count
+        let parameters = x.m.GetParameters()
+        let hasThis = Reflection.hasThis x.m
+        let argsCount = parameters.Length
+        let totalArgsCount = if hasThis then argsCount + 1 else argsCount
         if x.m = entryPoint then
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
-                        (OpCodes.Ldc_I4, Arg32 argsCount)
+                        (OpCodes.Ldc_I4, Arg32 totalArgsCount)
 //                        (OpCodes.Ldc_I4, Arg32 1) // Arguments of entry point are concrete
                         (OpCodes.Ldc_I4, Arg32 0) // Arguments of entry point are symbolic
                         (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)
                         (OpCodes.Ldc_I4, Arg32 localsCount)]
-            x.PrependProbe(probes.enterMain, args, x.tokens.void_token_u2_bool_u4_u4_sig, &firstInstr)
+            x.PrependProbe(probes.enterMain, args, x.tokens.void_token_u2_bool_u4_u4_sig, &firstInstr) |> ignore
         else
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
                         (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)
-                        (OpCodes.Ldc_I4, Arg32 argsCount)
+                        (OpCodes.Ldc_I4, Arg32 totalArgsCount)
                         (OpCodes.Ldc_I4, Arg32 localsCount)
                         (OpCodes.Ldc_I4, Arg32 isSpontaneous)]
-            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr)
+            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr) |> ignore
+        if hasThis then
+            x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 0); (OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>)], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
+        for i = 0 to argsCount - 1 do
+            let argType = parameters.[i].ParameterType
+            let idx = if hasThis then i + 1 else i
+            let sizeInstr = x.TypeSizeInstr argType (fun () -> x.AcceptArgTypeToken argType idx)
+            x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 idx); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
+        for i = 0 to localsCount - 1 do
+            let locType = locals.[i].LocalType
+            let sizeInstr = x.TypeSizeInstr locType (fun () -> x.AcceptLocVarTypeToken locType i)
+            x.PrependProbe(probes.setLocSize, [(OpCodes.Ldc_I4, Arg32 i); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
 
     member private x.PrependMem_p(idx, order, instr : ilInstr byref) =
         x.PrependInstr(OpCodes.Conv_I, NoArg, &instr)
@@ -219,6 +234,28 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.PrependMem_i2(2, 0, &instr)
         x.PrependMem_p(1, 1, &instr)
         x.PrependMem_p(0, 2, &instr)
+
+    member private x.AppendMem_p(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_p_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_i_i1_i1_sig, instr)
+        x.AppendInstr OpCodes.Conv_I NoArg instr
+
+    member private x.AppendMem_i1(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_1_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_i1_i1_i1_sig, instr)
+
+    member private x.AppendMem_i2(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_2_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_i2_i1_i1_sig, instr)
+
+    member private x.AppendMem_i4(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_4_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_i4_i1_i1_sig, instr)
+
+    member private x.AppendMem_i8(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_8_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_i8_i1_i1_sig, instr)
+
+    member private x.AppendMem_f4(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_f4_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_r4_i1_i1_sig, instr)
+
+    member private x.AppendMem_f8(idx, order, instr : ilInstr) =
+        x.AppendProbe(probes.mem_f8_idx, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 order)], x.tokens.void_r8_i1_i1_sig, instr)
 
     member private x.PrependValidLeaveMain(instr : ilInstr byref) =
         match instr.stackState with
@@ -351,6 +388,22 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 //            probes.unmem_p, x.tokens.i_i1_sig
         | _ -> __unreachable__()
 
+    member private x.AppendMemForType(t : evaluationStackCellType, idx, order, instr : ilInstr) =
+        match t with
+        | evaluationStackCellType.I1 -> x.AppendMem_i1(idx, order, instr)
+        | evaluationStackCellType.I2 -> x.AppendMem_i2(idx, order, instr)
+        | evaluationStackCellType.I4 -> x.AppendMem_i4(idx, order, instr)
+        | evaluationStackCellType.I8 -> x.AppendMem_i8(idx, order, instr)
+        | evaluationStackCellType.R4 -> x.AppendMem_f4(idx, order, instr)
+        | evaluationStackCellType.R8 -> x.AppendMem_f8(idx, order, instr)
+        | evaluationStackCellType.I -> x.AppendMem_p(idx, order, instr)
+        | evaluationStackCellType.Ref -> x.AppendMem_p(idx, order, instr)
+        | evaluationStackCellType.Struct
+        | evaluationStackCellType.RefLikeStruct ->
+            __notImplemented__()
+            // TODO: support struct
+        | _ -> __unreachable__()
+
     member private x.PrependMemUnmemAndProbeWithOffset(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, signature, beforeInstr : ilInstr byref)=
         match beforeInstr.stackState with
         | UnOp typ ->
@@ -359,26 +412,57 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         | s -> internalfailf "PrependMemUnmemAndProbeWithOffset: unexpected stack state %O" s
         x.PrependProbeWithOffset(methodAddress, args, signature, &beforeInstr)
 
-    member private x.AcceptTypeToken (t : System.Type) =
-        let correctType (t : System.Type) =
-            match t with
-            | _ when t.IsByRef -> t.GetElementType()
-            | _ -> t
-        let str = (correctType t).ToString()
-        match t with
-        | _ when t.Module = x.m.Module && t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
-            t.MetadataToken
-        | _ when t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
-            communicator.SendStringAndParseTypeRef str |> int
-//        | _ when t.IsGenericParameter -> t.MetadataToken
-        | _ -> communicator.SendStringAndParseTypeSpec str |> int
+//    member private x.AcceptTypeToken (t : System.Type) =
+//        let correctType (t : System.Type) =
+//            match t with
+//            | _ when t.IsByRef -> t.GetElementType()
+//            | _ -> t
+//        let str = (correctType t).ToString()
+//        match t with
+//        | _ when t.Module = x.m.Module && t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
+//            t.MetadataToken
+//        | _ when t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) ->
+//            communicator.SendStringAndParseTypeRef str |> int
+////        | _ when t.IsGenericParameter -> t.MetadataToken
+//        | _ -> communicator.SendStringAndParseTypeSpec str |> int
 
-    member private x.TypeSizeInstr (t : System.Type) =
+    member private x.AcceptTypeToken (t : System.Type) accept =
+        if t.Module = x.m.Module && t.IsTypeDefinition && not (t.IsGenericType || t.IsGenericTypeDefinition) then
+            t.MetadataToken
+        else accept()
+
+    member private x.AcceptFieldTypeToken (f : FieldInfo) =
+        if f.Module = x.m.Module then
+            x.AcceptTypeToken f.DeclaringType (fun () -> x.AcceptFieldDefTypeToken f.MetadataToken)
+        else
+            x.AcceptFieldRefTypeToken f.MetadataToken f.DeclaringType.MetadataToken
+
+    member private x.AcceptFieldDefTypeToken (memberRef : int) =
+        // 2Misha
+        __notImplemented__()
+
+    member private x.AcceptFieldRefTypeToken (fieldDef : int) (typeDef : int) =
+        // 2Misha
+        __notImplemented__()
+
+
+    member private x.AcceptArgTypeToken (t : System.Type) idx =
+        x.AcceptTypeToken t (fun () ->
+            let methodDef = x.m.MetadataToken
+            // 2Misha: GetArgTypeToken command here
+            __notImplemented__())
+
+    member private x.AcceptLocVarTypeToken (t : System.Type) idx =
+        x.AcceptTypeToken t (fun () ->
+            // 2Misha: GetLocVarTypeToken command here
+            __notImplemented__())
+
+    member private x.TypeSizeInstr (t : System.Type) getToken =
         if TypeUtils.isGround t then
             let size = TypeUtils.internalSizeOf t
             OpCodes.Ldc_I4, Arg32 (int size)
         else
-            let typeToken = x.AcceptTypeToken t
+            let typeToken = getToken()
             OpCodes.Sizeof, Arg32 typeToken
 
     member x.PlaceProbes() =
@@ -388,7 +472,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable hasPrefix = false
         let mutable prefixCell = instructions.[0]
         let mutable prefix : ilInstr byref = &prefixCell
-        x.PlaceEnterProbe(&instructions.[0]) |> ignore
+        x.PlaceEnterProbe(&instructions.[0])
         for i in 0 .. instructions.Length - 1 do
             let instr = &instructions.[i]
             if not hasPrefix then prefix <- instr
@@ -411,23 +495,19 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 // Concrete instructions
                 | OpCodeValues.Ldarga_S ->
                     let index = int instr.Arg8
-                    let argSizeInstr = x.m |> Reflection.getMethodArgumentType index |> x.TypeSizeInstr
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); argSizeInstr], x.tokens.void_i_u2_size_sig, instr)
+                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca_S ->
                     let index = int instr.Arg8
-                    let locSizeInstr = x.m.GetMethodBody().LocalVariables.[index].LocalType |> x.TypeSizeInstr
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); locSizeInstr], x.tokens.void_i_u2_size_sig, instr)
+                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldarga ->
                     let index = int instr.Arg16
-                    let argSizeInstr = x.m |> Reflection.getMethodArgumentType index |> x.TypeSizeInstr
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index); argSizeInstr], x.tokens.void_i_u2_size_sig, instr)
+                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca ->
                     let index = int instr.Arg16
-                    let locSizeInstr = x.m.GetMethodBody().LocalVariables.[index].LocalType |> x.TypeSizeInstr
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index); locSizeInstr], x.tokens.void_i_u2_size_sig, instr)
+                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldnull
                 | OpCodeValues.Ldc_I4_M1
@@ -745,8 +825,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             probes.execStind_R8, x.tokens.void_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
                         | _ -> __unreachable__()
 
-//                    x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-//                    x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget)
                     x.PrependProbe(probes.stind, [], x.tokens.bool_i_i4_sig, &prependTarget) |> ignore
@@ -839,7 +917,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     //       runtime, rather than at instrumentation step
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                     x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
-                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType
+                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
                     x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
                     if isStruct then
                         x.PrependProbeWithOffset(probes.ldfld_struct, [], x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
@@ -872,20 +950,21 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // TODO: here we potentially could calculate offsets inside open generic type! Should do this at
                     //       runtime, rather than at instrumentation step
                     let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                    let fieldSizeOpcode, fieldSizeArg as sizeInstr = x.TypeSizeInstr fieldInfo.FieldType
+                    let fieldToken = lazy(x.AcceptFieldTypeToken fieldInfo)
+                    let fieldSizeOpcode, fieldSizeArg as sizeInstr = x.TypeSizeInstr fieldInfo.FieldType fieldToken.Force
 
                     if isRefLikeStruct then
                         match instr.stackState with
                         | Some (_ :: (_, src) :: _) ->
-                            src |> Set.iter (fun srcOffset ->
-                                let srcInstr = instructions |> Array.find (fun i -> i.offset = srcOffset)
+                            src |> List.iter (fun srcInstr ->
+                                let srcInstr = instructions |> Array.find (fun i -> i.offset = srcInstr.offset)
                                 x.AppendProbe(probes.mem_refLikeStruct, [OpCodes.Dup, NoArg; OpCodes.Conv_I, NoArg], x.tokens.void_i_sig, srcInstr))
                         | _ -> __unreachable__()
                         let args = [(OpCodes.Ldc_I4, Arg32 fieldOffset); sizeInstr]
                         x.PrependProbeWithOffset(probes.stfld_refLikeStruct, args, x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
                         if isStruct then
-                            let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                            let typeToken = fieldToken.Value
                             x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
                         let probe, signature, unmem2Probe, unmem2Sig =
                             match instr.stackState with
@@ -932,15 +1011,14 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         if isStruct then
-                            // TODO: ref-like struct!!
-                            let typeToken = fieldInfo.DeclaringType |> x.AcceptTypeToken
+                            let typeToken = fieldToken.Value
                             x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget)
                 | OpCodeValues.Ldsfld ->
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
                     x.PrependProbeWithOffset(probes.ldsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldsflda ->
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
-                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType
+                    let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
                     let id = registerStaticFieldID fieldInfo |> int16
                     x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_i4_i2_sig, instr)
                     x.AppendInstr OpCodes.Ldc_I4 (Arg16 id) instr
@@ -1000,9 +1078,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | OpCodeValues.Ldelem_R4 -> OpCodes.Ldc_I4, Arg32 sizeof<float>
                         | OpCodeValues.Ldelem_R8 -> OpCodes.Ldc_I4, Arg32 sizeof<double>
                         | OpCodeValues.Ldelem
-                        | OpCodeValues.Ldelema ->
-                            let typ = Reflection.resolveType x.m instr.Arg32
-                            x.TypeSizeInstr typ
+                        | OpCodeValues.Ldelema -> OpCodes.Sizeof, instr.arg
                         | _ -> __unreachable__()
 
                     x.PrependMem2_p &prependTarget
@@ -1098,9 +1174,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.Struct, _, evaluationStackCellType.Ref)
                         | OpCodeValues.Stelem, TernOp(evaluationStackCellType.RefLikeStruct, _, evaluationStackCellType.Ref) ->
                             x.PrependMem_p(2, 0, &prependTarget)
-                            let typ = Reflection.resolveType x.m instr.Arg32
-                            let elemSizeOpcode, elemSizeArg = x.TypeSizeInstr typ
-                            probes.execStelem_Struct, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig, elemSizeOpcode, elemSizeArg
+                            probes.execStelem_Struct, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig, OpCodes.Sizeof, instr.arg
                         | _ -> __unreachable__()
 
                     x.PrependMem_p(1, 1, &prependTarget)
@@ -1243,66 +1317,39 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         let hasThis = Reflection.hasThis callee && opcodeValue <> OpCodeValues.Newobj
                         let argsCount = parameters.Length
                         let argsCount = if hasThis then argsCount + 1 else argsCount
-//                        let types = communicator.SendMethodTokenAndParseTypes token
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
                         let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                         let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
                         if isInternalCall then
-                            let unmems = List<uint64 * uint32>()
                             match instr.stackState with
                             | Some list ->
                                 let types = List.take argsCount list |> Array.ofList
                                 for i = 0 to argsCount - 1 do
-                                    let t = fst types.[i]
-                                    let unmem, token = x.PrependMemUnmemForType(t, argsCount - i - 1, i, &prependTarget)
-                                    unmems.Add(unmem, token)
-                            | None -> internalfail "unexpected stack state"
+                                    let t, src = types.[i]
+                                    src |> List.iter (fun srcInstr ->
+                                        let srcInstr = instructions |> Array.find (fun i -> i.offset = srcInstr.offset)
+                                        x.AppendMemForType(t, argsCount - i - 1, argsCount - i - 1, srcInstr)
+                                        x.AppendInstr OpCodes.Dup NoArg srcInstr)
+                            | None -> __unreachable__()
+                            for i = 1 to argsCount do
+                                x.PrependInstr(OpCodes.Pop, NoArg, &prependTarget)
                             // TODO: if internal call raised exception, raise it in concolic
                             let retType = Reflection.getMethodReturnType callee
                             if retType <> typeof<System.Void> then
                                 x.PrependLdcDefault(retType, &instr)
                                 let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, argsCount, &prependTarget)
-                                x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                                x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                                 x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
                             else
-                                x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                                x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                             if opcodeValue <> OpCodeValues.Newobj then
                                 let br = x.PrependBranch(OpCodes.Br, &prependTarget)
                                 br.arg <- Target nop
-                            else
-                                let argsTypes = parameters |> Array.map (fun p -> p.ParameterType)
-                                let argsTypes =
-                                    if hasThis
-                                        then Array.append [|callee.DeclaringType|] argsTypes
-                                        else argsTypes
-                                for i = argsCount - 1 downto 0 do
-                                    let probe, token = unmems.[i]
-                                    x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
-                                    let t = argsTypes.[argsCount - 1 - i]
-                                    if not t.IsValueType && t.IsAssignableTo(typeof<obj>) then
-                                        let token = x.AcceptTypeToken t
-                                        x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
-                                        x.PrependInstr(OpCodes.Unbox_Any, Arg32 token, &prependTarget)
-                                        x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
-                        else x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                        else
+                            x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
 
                         let callStart = x.PrependNop(&prependTarget)
                         br_true.arg <- Target callStart
-                        // TODO: this code produces proper unmems
-//                        let argsTypes = parameters |> Array.map (fun p -> p.ParameterType)
-//                        let argsTypes =
-//                            if hasThis
-//                                then Array.append [|callee.DeclaringType|] argsTypes
-//                                else argsTypes
-//                        for i = argsCount - 1 downto 0 do
-//                            let probe, token = unmems.[i]
-//                            x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 (argsCount - 1 - i))], token, &prependTarget) |> ignore
-//                            let t = argsTypes.[argsCount - 1 - i]
-//                            if not t.IsValueType && t.IsAssignableTo(typeof<obj>) then
-//                                let token = x.AcceptTypeToken t
-//                                x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
-//                                x.PrependInstr(OpCodes.Unbox_Any, Arg32 token, &prependTarget)
-//                                x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                         let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let pushFrameArgs = [(OpCodes.Ldc_I4, Arg32 token)
                                              (OpCodes.Ldc_I4, Arg32 expectedToken)

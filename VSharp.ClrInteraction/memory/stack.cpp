@@ -1,6 +1,7 @@
 #include "stack.h"
 #include <cstring>
 #include <cassert>
+#include <algorithm>
 
 using namespace vsharp;
 
@@ -34,7 +35,7 @@ inline void copyUniqueLocalObjects(LocalCell *array, unsigned count, std::vector
     for (int i = 0; i < count; i++) {
         LocalCell cell = array[i];
         if (cell.isStruct) {
-            auto *p = (Interval *) cell.concreteness.obj;
+            Interval *p = (Interval *) cell.concreteness.obj;
             if (std::find(objects.begin(), objects.end(), p) == objects.end())
                 objects.push_back(p);
         }

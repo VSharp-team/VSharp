@@ -19,8 +19,6 @@ type evaluationStackCellType =
     | Struct = 8
     | RefLikeStruct = 9
 
-type stackState = (evaluationStackCellType * uint32 Set) stack
-
 [<AutoOpen>]
 module StackStateActivePatterns =
     let (|UnOp|_|) = function
@@ -91,6 +89,8 @@ type ilInstrOperand =
     | Arg16 of int16
     | Arg32 of int32
     | Arg64 of int64
+
+and stackState = (evaluationStackCellType * ilInstr list) stack
 
 and ilInstr = {
     mutable prev : ilInstr
@@ -166,8 +166,8 @@ module private EvaluationStackTyper =
             else evaluationStackCellType.Struct
         else evaluationStackCellType.Ref
 
-    let private push (s : stackState) offset (abstractTyp : evaluationStackCellType) =
-        Stack.push s (abstractTyp, Set.singleton offset)
+    let private push (s : stackState) instr (abstractTyp : evaluationStackCellType) =
+        Stack.push s (abstractTyp, [instr])
 
     let private abstractAndPush (s : stackState) offset (typ : Type) =
         typ |> abstractType |> push s offset
@@ -194,22 +194,22 @@ module private EvaluationStackTyper =
         else fail()
 
     let private mergeCell (a1, o1) (a2, o2) =
-        (mergeAbstraction a1 a2, Set.union o1 o2)
+        (mergeAbstraction a1 a2, List.fold (fun acc i -> if List.exists (fun i' -> i'.offset = i.offset) acc then acc else i::acc) o1 o2)
 
     let private mergeStackStates s1 s2 = List.map2 mergeCell s1 s2
 
-    let private typeLdarg (m : Reflection.MethodBase) (s : stackState) offset idx =
+    let private typeLdarg (m : Reflection.MethodBase) (s : stackState) instr idx =
         let hasThis = m.CallingConvention.HasFlag(System.Reflection.CallingConventions.HasThis)
         if hasThis && idx = 0 then
-            Stack.push s (evaluationStackCellType.Ref, Set.singleton offset)
+            Stack.push s (evaluationStackCellType.Ref, [instr])
         else
             let idx = if hasThis then idx - 1 else idx
-            m.GetParameters().[idx].ParameterType |> abstractAndPush s offset
+            m.GetParameters().[idx].ParameterType |> abstractAndPush s instr
 
-    let private typeLdloc (m : Reflection.MethodBase) (s : stackState) offset idx =
-        m.GetMethodBody().LocalVariables.[idx].LocalType |> abstractAndPush s offset
+    let private typeLdloc (m : Reflection.MethodBase) (s : stackState) instr idx =
+        m.GetMethodBody().LocalVariables.[idx].LocalType |> abstractAndPush s instr
 
-    let private typeBinop (s : stackState) offset =
+    let private typeBinop (s : stackState) instr =
         // See ECMA-335, sec. III.1.5
         let (t1, _), s = Stack.pop s
         let (t2, _), s = Stack.pop s
@@ -243,7 +243,7 @@ module private EvaluationStackTyper =
         elif t1 = evaluationStackCellType.I || t1 = evaluationStackCellType.Ref then t1
         elif t2 = evaluationStackCellType.I || t2 = evaluationStackCellType.Ref then t2
         else fail()
-        |> withSnd (Set.singleton offset) |> Stack.push s
+        |> withSnd [instr] |> Stack.push s
     let private typeShiftOp (s : stackState) =
         // TODO: implement fully #do
         // See ECMA-335, sec. III.1.5, table III.6
@@ -287,23 +287,23 @@ module private EvaluationStackTyper =
 //            Logger.trace "typer before: [%O] %O: %O" instr.offset (REMOVE_ME m instr) s.Length
             let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
             match opcodeValue with
-            | OpCodeValues.Ldarg_0 -> typeLdarg m s instr.offset 0
-            | OpCodeValues.Ldarg_1 -> typeLdarg m s instr.offset 1
-            | OpCodeValues.Ldarg_2 -> typeLdarg m s instr.offset 2
-            | OpCodeValues.Ldarg_3 -> typeLdarg m s instr.offset 3
-            | OpCodeValues.Ldarg_S -> instr.Arg8 |> int |> typeLdarg m s instr.offset
-            | OpCodeValues.Ldarg -> instr.Arg16 |> int |> typeLdarg m s instr.offset
-            | OpCodeValues.Ldloc_0 -> typeLdloc m s instr.offset 0
-            | OpCodeValues.Ldloc_1 -> typeLdloc m s instr.offset 1
-            | OpCodeValues.Ldloc_2 -> typeLdloc m s instr.offset 2
-            | OpCodeValues.Ldloc_3 -> typeLdloc m s instr.offset 3
-            | OpCodeValues.Ldloc_S -> instr.Arg8 |> int |> typeLdloc m s instr.offset
-            | OpCodeValues.Ldloc -> instr.Arg16 |> int |> typeLdloc m s instr.offset
+            | OpCodeValues.Ldarg_0 -> typeLdarg m s instr 0
+            | OpCodeValues.Ldarg_1 -> typeLdarg m s instr 1
+            | OpCodeValues.Ldarg_2 -> typeLdarg m s instr 2
+            | OpCodeValues.Ldarg_3 -> typeLdarg m s instr 3
+            | OpCodeValues.Ldarg_S -> instr.Arg8 |> int |> typeLdarg m s instr
+            | OpCodeValues.Ldarg -> instr.Arg16 |> int |> typeLdarg m s instr
+            | OpCodeValues.Ldloc_0 -> typeLdloc m s instr 0
+            | OpCodeValues.Ldloc_1 -> typeLdloc m s instr 1
+            | OpCodeValues.Ldloc_2 -> typeLdloc m s instr 2
+            | OpCodeValues.Ldloc_3 -> typeLdloc m s instr 3
+            | OpCodeValues.Ldloc_S -> instr.Arg8 |> int |> typeLdloc m s instr
+            | OpCodeValues.Ldloc -> instr.Arg16 |> int |> typeLdloc m s instr
 
             | OpCodeValues.Ldarga_S
             | OpCodeValues.Ldloca_S
             | OpCodeValues.Ldarga
-            | OpCodeValues.Ldloca -> push s instr.offset evaluationStackCellType.I
+            | OpCodeValues.Ldloca -> push s instr evaluationStackCellType.I
 
             | OpCodeValues.Stloc_0
             | OpCodeValues.Stloc_1
@@ -354,25 +354,25 @@ module private EvaluationStackTyper =
             | OpCodeValues.Ldc_I4_7
             | OpCodeValues.Ldc_I4_8
             | OpCodeValues.Ldc_I4_S
-            | OpCodeValues.Ldc_I4 -> push s instr.offset evaluationStackCellType.I4
-            | OpCodeValues.Ldc_I8 -> push s instr.offset evaluationStackCellType.I8
-            | OpCodeValues.Ldc_R4 -> push s instr.offset evaluationStackCellType.R4
-            | OpCodeValues.Ldc_R8 -> push s instr.offset evaluationStackCellType.R8
-            | OpCodeValues.Ldnull -> push s instr.offset evaluationStackCellType.Ref
+            | OpCodeValues.Ldc_I4 -> push s instr evaluationStackCellType.I4
+            | OpCodeValues.Ldc_I8 -> push s instr evaluationStackCellType.I8
+            | OpCodeValues.Ldc_R4 -> push s instr evaluationStackCellType.R4
+            | OpCodeValues.Ldc_R8 -> push s instr evaluationStackCellType.R8
+            | OpCodeValues.Ldnull -> push s instr evaluationStackCellType.Ref
 
             | OpCodeValues.Dup -> Stack.dup s
 
             | OpCodeValues.Ldind_I1
-            | OpCodeValues.Ldind_U1 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I1
+            | OpCodeValues.Ldind_U1 -> push (Stack.drop 1 s) instr evaluationStackCellType.I1
             | OpCodeValues.Ldind_I2
-            | OpCodeValues.Ldind_U2 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I2
+            | OpCodeValues.Ldind_U2 -> push (Stack.drop 1 s) instr evaluationStackCellType.I2
             | OpCodeValues.Ldind_I4
-            | OpCodeValues.Ldind_U4 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I4
-            | OpCodeValues.Ldind_I8 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I8
-            | OpCodeValues.Ldind_I -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I
-            | OpCodeValues.Ldind_R4 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.R4
-            | OpCodeValues.Ldind_R8 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.R8
-            | OpCodeValues.Ldind_Ref -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.Ref
+            | OpCodeValues.Ldind_U4 -> push (Stack.drop 1 s) instr evaluationStackCellType.I4
+            | OpCodeValues.Ldind_I8 -> push (Stack.drop 1 s) instr evaluationStackCellType.I8
+            | OpCodeValues.Ldind_I -> push (Stack.drop 1 s) instr evaluationStackCellType.I
+            | OpCodeValues.Ldind_R4 -> push (Stack.drop 1 s) instr evaluationStackCellType.R4
+            | OpCodeValues.Ldind_R8 -> push (Stack.drop 1 s) instr evaluationStackCellType.R8
+            | OpCodeValues.Ldind_Ref -> push (Stack.drop 1 s) instr evaluationStackCellType.Ref
             | OpCodeValues.Stind_Ref
             | OpCodeValues.Stind_I1
             | OpCodeValues.Stind_I2
@@ -397,7 +397,7 @@ module private EvaluationStackTyper =
             | OpCodeValues.Mul_Ovf
             | OpCodeValues.Mul_Ovf_Un
             | OpCodeValues.Sub_Ovf
-            | OpCodeValues.Sub_Ovf_Un -> typeBinop s instr.offset
+            | OpCodeValues.Sub_Ovf_Un -> typeBinop s instr
             | OpCodeValues.Shl
             | OpCodeValues.Shr
             | OpCodeValues.Shr_Un -> typeShiftOp s
@@ -406,85 +406,85 @@ module private EvaluationStackTyper =
             | OpCodeValues.Cgt
             | OpCodeValues.Cgt_Un
             | OpCodeValues.Clt
-            | OpCodeValues.Clt_Un -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I4
+            | OpCodeValues.Clt_Un -> push (Stack.drop 2 s) instr evaluationStackCellType.I4
 
             | OpCodeValues.Conv_I1
             | OpCodeValues.Conv_U1
             | OpCodeValues.Conv_Ovf_I1
             | OpCodeValues.Conv_Ovf_U1
             | OpCodeValues.Conv_Ovf_I1_Un
-            | OpCodeValues.Conv_Ovf_U1_Un -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I1
+            | OpCodeValues.Conv_Ovf_U1_Un -> push (Stack.drop 1 s) instr evaluationStackCellType.I1
             | OpCodeValues.Conv_I2
             | OpCodeValues.Conv_U2
             | OpCodeValues.Conv_Ovf_I2
             | OpCodeValues.Conv_Ovf_U2
             | OpCodeValues.Conv_Ovf_U2_Un
-            | OpCodeValues.Conv_Ovf_I2_Un -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I2
+            | OpCodeValues.Conv_Ovf_I2_Un -> push (Stack.drop 1 s) instr evaluationStackCellType.I2
             | OpCodeValues.Conv_I4
             | OpCodeValues.Conv_U4
             | OpCodeValues.Conv_Ovf_I4
             | OpCodeValues.Conv_Ovf_U4
             | OpCodeValues.Conv_Ovf_I4_Un
-            | OpCodeValues.Conv_Ovf_U4_Un -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I4
+            | OpCodeValues.Conv_Ovf_U4_Un -> push (Stack.drop 1 s) instr evaluationStackCellType.I4
             | OpCodeValues.Conv_I8
             | OpCodeValues.Conv_U8
             | OpCodeValues.Conv_Ovf_I8
             | OpCodeValues.Conv_Ovf_U8
             | OpCodeValues.Conv_Ovf_I8_Un
-            | OpCodeValues.Conv_Ovf_U8_Un -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I8
-            | OpCodeValues.Conv_R4 -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.R4
+            | OpCodeValues.Conv_Ovf_U8_Un -> push (Stack.drop 1 s) instr evaluationStackCellType.I8
+            | OpCodeValues.Conv_R4 -> push (Stack.drop 1 s) instr evaluationStackCellType.R4
             | OpCodeValues.Conv_R8
-            | OpCodeValues.Conv_R_Un -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.R8
+            | OpCodeValues.Conv_R_Un -> push (Stack.drop 1 s) instr evaluationStackCellType.R8
             | OpCodeValues.Conv_I
             | OpCodeValues.Conv_U
             | OpCodeValues.Conv_Ovf_I
             | OpCodeValues.Conv_Ovf_U
             | OpCodeValues.Conv_Ovf_I_Un
-            | OpCodeValues.Conv_Ovf_U_Un -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.I, Set.singleton instr.offset)
+            | OpCodeValues.Conv_Ovf_U_Un -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.I, [instr])
 
-            | OpCodeValues.Ldobj -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.Struct, Set.singleton instr.offset)
-            | OpCodeValues.Ldstr -> Stack.push s (evaluationStackCellType.Ref, Set.singleton instr.offset)
-            | OpCodeValues.Unbox -> Stack.push s (evaluationStackCellType.I, Set.singleton instr.offset)
+            | OpCodeValues.Ldobj -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.Struct, [instr])
+            | OpCodeValues.Ldstr -> Stack.push s (evaluationStackCellType.Ref, [instr])
+            | OpCodeValues.Unbox -> Stack.push s (evaluationStackCellType.I, [instr])
             | OpCodeValues.Throw
             | OpCodeValues.Leave_S
             | OpCodeValues.Leave -> Stack.empty
 
             | OpCodeValues.Ldsfld ->
                 let fieldInfo = Reflection.resolveField m instr.Arg32
-                fieldInfo.FieldType |> abstractAndPush s instr.offset
+                fieldInfo.FieldType |> abstractAndPush s instr
             | OpCodeValues.Ldfld ->
                 let s = Stack.drop 1 s
                 let fieldInfo = Reflection.resolveField m instr.Arg32
-                fieldInfo.FieldType |> abstractAndPush s instr.offset
+                fieldInfo.FieldType |> abstractAndPush s instr
 
-            | OpCodeValues.Ldflda -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.I, Set.singleton instr.offset)
-            | OpCodeValues.Ldsflda -> Stack.push s (evaluationStackCellType.I, Set.singleton instr.offset)
+            | OpCodeValues.Ldflda -> Stack.push (Stack.drop 1 s) (evaluationStackCellType.I, [instr])
+            | OpCodeValues.Ldsflda -> Stack.push s (evaluationStackCellType.I, [instr])
 
             | OpCodeValues.Stfld -> Stack.drop 2 s
             | OpCodeValues.Stsfld -> Stack.drop 1 s
             | OpCodeValues.Stobj -> Stack.drop 2 s
             | OpCodeValues.Unbox_Any ->
                 let s = Stack.drop 1 s
-                Reflection.resolveType m instr.Arg32 |> abstractAndPush s instr.offset
+                Reflection.resolveType m instr.Arg32 |> abstractAndPush s instr
             | OpCodeValues.Box
-            | OpCodeValues.Newarr -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.Ref
-            | OpCodeValues.Ldlen -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I
+            | OpCodeValues.Newarr -> push (Stack.drop 1 s) instr evaluationStackCellType.Ref
+            | OpCodeValues.Ldlen -> push (Stack.drop 1 s) instr evaluationStackCellType.I
 
-            | OpCodeValues.Ldelema -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I
+            | OpCodeValues.Ldelema -> push (Stack.drop 2 s) instr evaluationStackCellType.I
             | OpCodeValues.Ldelem_I1
-            | OpCodeValues.Ldelem_U1 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I1
+            | OpCodeValues.Ldelem_U1 -> push (Stack.drop 2 s) instr evaluationStackCellType.I1
             | OpCodeValues.Ldelem_I2
-            | OpCodeValues.Ldelem_U2 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I2
+            | OpCodeValues.Ldelem_U2 -> push (Stack.drop 2 s) instr evaluationStackCellType.I2
             | OpCodeValues.Ldelem_I4
-            | OpCodeValues.Ldelem_U4 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I4
-            | OpCodeValues.Ldelem_I8 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I8
-            | OpCodeValues.Ldelem_I -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.I
-            | OpCodeValues.Ldelem_R4 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.R4
-            | OpCodeValues.Ldelem_R8 -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.R8
-            | OpCodeValues.Ldelem_Ref -> push (Stack.drop 2 s) instr.offset evaluationStackCellType.Ref
+            | OpCodeValues.Ldelem_U4 -> push (Stack.drop 2 s) instr evaluationStackCellType.I4
+            | OpCodeValues.Ldelem_I8 -> push (Stack.drop 2 s) instr evaluationStackCellType.I8
+            | OpCodeValues.Ldelem_I -> push (Stack.drop 2 s) instr evaluationStackCellType.I
+            | OpCodeValues.Ldelem_R4 -> push (Stack.drop 2 s) instr evaluationStackCellType.R4
+            | OpCodeValues.Ldelem_R8 -> push (Stack.drop 2 s) instr evaluationStackCellType.R8
+            | OpCodeValues.Ldelem_Ref -> push (Stack.drop 2 s) instr evaluationStackCellType.Ref
             | OpCodeValues.Ldelem ->
                 let s = Stack.drop 2 s
-                Reflection.resolveType m instr.Arg32 |> abstractAndPush s instr.offset
+                Reflection.resolveType m instr.Arg32 |> abstractAndPush s instr
 
             | OpCodeValues.Stelem_I
             | OpCodeValues.Stelem_I1
@@ -497,17 +497,17 @@ module private EvaluationStackTyper =
             | OpCodeValues.Stelem -> Stack.drop 3 s
 
             | OpCodeValues.Refanyval
-            | OpCodeValues.Ldvirtftn -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I
-            | OpCodeValues.Mkrefany -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.Ref
+            | OpCodeValues.Ldvirtftn -> push (Stack.drop 1 s) instr evaluationStackCellType.I
+            | OpCodeValues.Mkrefany -> push (Stack.drop 1 s) instr evaluationStackCellType.Ref
             | OpCodeValues.Ldtoken
             | OpCodeValues.Arglist
-            | OpCodeValues.Ldftn -> push s instr.offset evaluationStackCellType.I
-            | OpCodeValues.Localloc -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I
+            | OpCodeValues.Ldftn -> push s instr evaluationStackCellType.I
+            | OpCodeValues.Localloc -> push (Stack.drop 1 s) instr evaluationStackCellType.I
             | OpCodeValues.Initobj -> Stack.drop 1 s
             | OpCodeValues.Cpblk -> Stack.drop 3 s
             | OpCodeValues.Initblk -> Stack.drop 3 s
-            | OpCodeValues.Sizeof -> push s instr.offset evaluationStackCellType.I
-            | OpCodeValues.Refanytype -> push (Stack.drop 1 s) instr.offset evaluationStackCellType.I4
+            | OpCodeValues.Sizeof -> push s instr evaluationStackCellType.I
+            | OpCodeValues.Refanytype -> push (Stack.drop 1 s) instr evaluationStackCellType.I4
 
             | OpCodeValues.Call
             | OpCodeValues.Callvirt
@@ -520,10 +520,10 @@ module private EvaluationStackTyper =
                     else pops
                 let s = Stack.drop pops s
                 if opcodeValue = OpCodeValues.Newobj then
-                    abstractAndPush s instr.offset callee.DeclaringType
+                    abstractAndPush s instr callee.DeclaringType
                 elif Reflection.hasNonVoidResult callee then
                     let returnType = Reflection.getMethodReturnType callee
-                    abstractAndPush s instr.offset returnType
+                    abstractAndPush s instr returnType
                 else s
             | OpCodeValues.Calli ->
                 // TODO: resolve and parse signature
@@ -577,7 +577,7 @@ module private EvaluationStackTyper =
     let createEHStackState (m : Reflection.MethodBase) (flags : int) (startInstr : ilInstr) =
         let catchFlags = LanguagePrimitives.EnumToValue System.Reflection.ExceptionHandlingClauseOptions.Clause
         if flags = catchFlags then // NOTE: is catch
-            startInstr.stackState <- Some [evaluationStackCellType.Ref, Set.empty]
+            startInstr.stackState <- Some [evaluationStackCellType.Ref, []]
         else startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
@@ -703,7 +703,7 @@ type ILRewriter(body : rawMethodBody) =
         instr.opcode <- OpCode op
         instr.arg <- NoArg
         match instr.stackState with
-        | Some (_ :: _ :: tl)  -> newInstr.stackState <- Some((evaluationStackCellType.I4, Set.singleton instr.offset) :: tl)
+        | Some (_ :: _ :: tl)  -> newInstr.stackState <- Some((evaluationStackCellType.I4, [instr]) :: tl)
         | _ -> __unreachable__()
         newInstr.opcode <- OpCode brop
 

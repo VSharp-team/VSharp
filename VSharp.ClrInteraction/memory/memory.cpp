@@ -107,7 +107,7 @@ void vsharp::mem_i1(INT8 value) {
 }
 
 void vsharp::mem_i1(INT8 value, INT8 idx) {
-    LOG(tout << "mem_i1 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_i1 " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_I1, sizeof(INT8), idx);
 }
 
@@ -117,7 +117,7 @@ void vsharp::mem_i2(INT16 value) {
 }
 
 void vsharp::mem_i2(INT16 value, INT8 idx) {
-    LOG(tout << "mem_i2 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_i2 " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_I2, sizeof(INT16), idx);
 }
 
@@ -127,7 +127,7 @@ void vsharp::mem_i4(INT32 value) {
 }
 
 void vsharp::mem_i4(INT32 value, INT8 idx) {
-    LOG(tout << "mem_i4 " << (INT64) value << " " << (INT64) idx << std::endl);
+    LOG(tout << "mem_i4 " << (INT64) value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_I4, sizeof(INT32), idx);
 }
 
@@ -137,7 +137,7 @@ void vsharp::mem_i8(INT64 value) {
 }
 
 void vsharp::mem_i8(INT64 value, INT8 idx) {
-    LOG(tout << "mem_i8 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_i8 " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_I8, sizeof(INT64), idx);
 }
 
@@ -147,7 +147,7 @@ void vsharp::mem_f4(FLOAT value) {
 }
 
 void vsharp::mem_f4(FLOAT value, INT8 idx) {
-    LOG(tout << "mem_f4 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_f4 " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_R4, sizeof(FLOAT), idx);
 }
 
@@ -157,7 +157,7 @@ void vsharp::mem_f8(DOUBLE value) {
 }
 
 void vsharp::mem_f8(DOUBLE value, INT8 idx) {
-    LOG(tout << "mem_f8 " << value << " " << idx << std::endl);
+    LOG(tout << "mem_f8 " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_R8, sizeof(DOUBLE), idx);
 }
 
@@ -167,7 +167,7 @@ void vsharp::mem_p(INT_PTR value) {
 }
 
 void vsharp::mem_p(INT_PTR value, INT8 idx) {
-    LOG(tout << "mem_p " << value << " " << idx << std::endl);
+    LOG(tout << "mem_p " << value << " " << (int) idx << std::endl);
     mem((char *) &value, ELEMENT_TYPE_PTR, sizeof(INT_PTR), idx);
 }
 
