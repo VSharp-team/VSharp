@@ -20,17 +20,21 @@ StackFrame::StackFrame(unsigned resolvedToken, unsigned unresolvedToken, const b
     , m_enteredMarker(false)
     , m_spontaneous(false)
     , m_heap(heap)
+    , m_ip(0)
 {
-    for (int i = 0; i < argsCount; i++)
-        m_args[i] = {args[i], false, 0};
+    for (int i = 0; i < argsCount; i++) {
+        ConcretenessCell concreteness{};
+        concreteness.primitive = args[i];
+        m_args[i] = {false, concreteness};
+    }
     resetPopsTracking();
 }
 
 inline void copyUniqueLocalObjects(LocalCell *array, unsigned count, std::vector<Interval *> &objects) {
     for (int i = 0; i < count; i++) {
-        StructOptional obj = array[i].obj;
-        if (obj.isStruct) {
-            auto *p = (Interval *) obj.obj;
+        LocalCell cell = array[i];
+        if (cell.isStruct) {
+            auto *p = (Interval *) cell.concreteness.obj;
             if (std::find(objects.begin(), objects.end(), p) == objects.end())
                 objects.push_back(p);
         }
@@ -59,14 +63,26 @@ StackFrame::~StackFrame()
         delete [] m_args;
 }
 
+bool localCellConcreteness(const LocalCell &cell) {
+    if (cell.isStruct) {
+        Object *obj = (Object *) cell.concreteness.obj;
+        return obj->isFullyConcrete();
+    } else {
+        return cell.concreteness.primitive;
+    }
+}
+
 void StackFrame::configure(unsigned maxStackSize, unsigned localsCount)
 {
     m_capacity = maxStackSize;
     m_concreteness = new StackCell[maxStackSize];
     m_locals = new LocalCell[localsCount];
     m_localsCount = localsCount;
-    for (int i = 0; i < localsCount; i++)
-        m_locals[i] = {true, false, 0};
+    for (int i = 0; i < localsCount; i++) {
+        ConcretenessCell concreteness{};
+        concreteness.primitive = true;
+        m_locals[i] = {false, concreteness};
+    }
 }
 
 bool StackFrame::isEmpty() const
@@ -79,24 +95,40 @@ bool StackFrame::isFull() const
     return m_concretenessTop == m_capacity;
 }
 
+bool stackCellConcreteness(const StackCell &cell) {
+    StructOptional structOptional = cell.obj;
+    if (structOptional.isStruct) {
+        Object *obj = (Object *)structOptional.obj;
+        return obj->isFullyConcrete();
+    } else {
+        return cell.content == CONCRETE;
+    }
+}
+
+bool StackFrame::peekConcreteness(unsigned idx) const
+{
+    StackCell cell = m_concreteness[m_concretenessTop - idx - 1];
+    return stackCellConcreteness(cell);
+}
+
 bool StackFrame::peek0() const
 {
-    return m_concreteness[m_concretenessTop - 1].content == CONCRETE;
+    return peekConcreteness(0);
 }
 
 bool StackFrame::peek1() const
 {
-    return m_concreteness[m_concretenessTop - 2].content == CONCRETE;
+    return peekConcreteness(1);
 }
 
 bool StackFrame::peek2() const
 {
-    return m_concreteness[m_concretenessTop - 3].content == CONCRETE;
+    return peekConcreteness(2);
 }
 
-const StructOptional &StackFrame::peekStruct(unsigned idx) const
+void StackFrame::peekStruct(unsigned idx, StructOptional &structOptional) const
 {
-    return m_concreteness[m_concretenessTop - idx - 1].obj;
+    structOptional = m_concreteness[m_concretenessTop - idx - 1].obj;
 }
 
 void StackFrame::pop0()
@@ -104,7 +136,9 @@ void StackFrame::pop0()
     m_lastPoppedSymbolics.clear();
 }
 
-void StackFrame::push1(bool isConcrete, const StructOptional &obj)
+// NOTE: if pushing value is struct, parameter 'isConcrete' over approximates its concreteness
+//       otherwise, 'isConcrete' represents concreteness of primitive type
+void StackFrame::push1(bool isConcrete, StructOptional obj) // TODO: pass StructOptional via const ref?
 {
 #ifdef _DEBUG
     if (isFull()) {
@@ -136,12 +170,12 @@ bool StackFrame::pop1()
         FAIL_LOUD("Corrupted stack!");
     }
 #endif
+    StackCell cell = m_concreteness[m_concretenessTop - 1];
     m_lastPoppedSymbolics.clear();
     --m_concretenessTop;
-    unsigned content = m_concreteness[m_concretenessTop].content;
-    if (content != CONCRETE) {
+    if (!stackCellConcreteness(cell)) {
         --m_symbolsCount;
-        m_lastPoppedSymbolics.emplace_back(content, 0u);
+        m_lastPoppedSymbolics.emplace_back(cell.content, 0u);
         return false;
     }
     return true;
@@ -157,14 +191,14 @@ bool StackFrame::pop(unsigned count)
     }
 #endif
     m_lastPoppedSymbolics.clear();
-    m_concretenessTop -= count;
-    for (unsigned i = m_concretenessTop + count; i > m_concretenessTop; --i) {
-        unsigned content = m_concreteness[i - 1].content;
-        if (content != CONCRETE) {
+    for (unsigned i = 0; i < count; i++) {
+        StackCell cell = m_concreteness[m_concretenessTop - i - 1];
+        if (!stackCellConcreteness(cell)) {
             --m_symbolsCount;
-            m_lastPoppedSymbolics.emplace_back(content, m_concretenessTop + count - i);
+            m_lastPoppedSymbolics.emplace_back(cell.content, i);
         }
     }
+    m_concretenessTop -= count;
     return m_lastPoppedSymbolics.empty();
 }
 
@@ -175,39 +209,40 @@ void StackFrame::pop1Async()
         m_minSymbsCountSinceLastSent = m_symbolsCount;
 }
 
-const LocalCell &StackFrame::arg(unsigned index) const
+void StackFrame::arg(unsigned index, LocalCell &cell) const
 {
-    return m_args[index];
+    cell = m_args[index];
 }
 
 bool StackFrame::argConcreteness(unsigned int index) const
 {
-    return m_args[index].concreteness;
+    return localCellConcreteness(m_args[index]);
 }
 
-void StackFrame::setArg(unsigned index, const LocalCell &value)
+void StackFrame::setArg(unsigned index, LocalCell value) // TODO: pass LocalCell via const ref?
 {
     m_args[index] = value;
 }
 
-const LocalCell &StackFrame::loc(unsigned index) const
+void StackFrame::loc(unsigned index, LocalCell &cell) const
 {
-    return m_locals[index];
+    cell = m_locals[index];
 }
 
 bool StackFrame::locConcreteness(unsigned index) const
 {
-    return m_locals[index].concreteness;
+    return localCellConcreteness(m_locals[index]);
 }
 
-void StackFrame::setLoc(unsigned index, const LocalCell &value)
+void StackFrame::setLoc(unsigned index, LocalCell value) // TODO: pass LocalCell via const ref?
 {
     m_locals[index] = value;
 }
 
 bool StackFrame::dup()
 {
-    const StructOptional &obj = peekStruct(0);
+    StructOptional obj{};
+    peekStruct(0, obj);
     bool concreteness = pop1();
     if (concreteness) {
         push1(concreteness, obj);
@@ -229,6 +264,14 @@ unsigned StackFrame::resolvedToken() const
 unsigned StackFrame::unresolvedToken() const
 {
     return m_unresolvedToken;
+}
+
+unsigned StackFrame::ip() const {
+    return m_ip;
+}
+
+void StackFrame::setIp(unsigned ip) {
+    m_ip = ip;
 }
 
 bool StackFrame::hasEntered() const
@@ -337,6 +380,10 @@ unsigned Stack::framesCount() const
 unsigned Stack::tokenAt(unsigned index) const
 {
     return m_frames[index].unresolvedToken();
+}
+
+unsigned Stack::offsetAt(unsigned int index) const {
+    return m_frames[index].ip();
 }
 
 unsigned Stack::unsentPops() const

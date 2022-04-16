@@ -69,6 +69,7 @@ module internal CallStack =
             // This state is formed by SMT solver model, just return the default value
             match key with
             | ParameterKey pi -> Constructor.fromDotNetType pi.ParameterType |> makeDefaultValue
+            | LocalVariableKey(lvi, _) -> Constructor.fromDotNetType lvi.LocalType |> makeDefaultValue
             | ThisKey _ -> nullRef
             | _ -> __unreachable__()
         else

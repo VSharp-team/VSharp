@@ -66,7 +66,7 @@ INT_PTR unmem_refLikeStruct();
 
 void validateStackEmptyness();
 
-VirtualAddress resolve(INT_PTR p);
+void resolve(INT_PTR p, VirtualAddress &vAddress);
 
 }
 

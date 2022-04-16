@@ -264,7 +264,7 @@ namespace vsharp {
     void Storage::readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
         Object *obj = (Object *) objID;
         size = obj->right - obj->left;
-        VirtualAddress vAddress = {objID, 0};
+        VirtualAddress vAddress{objID, 0};
         buffer = readBytes(vAddress, size, false);
         if (isArray && refOffsetsLength > 0) { // TODO: implement for non-vector array
             char *array = buffer + sizeof(UINT_PTR);
@@ -333,17 +333,17 @@ namespace vsharp {
         LOG(tout << "-------------- DUMP END ---------------" << std::endl);
     }
 
-    VirtualAddress Storage::physToVirtAddress(ADDR physAddress) const {
-        VirtualAddress vAddress{};
+    void Storage::physToVirtAddress(ADDR physAddress, VirtualAddress &vAddress) const {
         if (physAddress == 0) {
             ObjectKey key{};
             key.none = nullptr;
-            return VirtualAddress{0, 0, ReferenceType, key};
+            vAddress.obj = 0;
+            vAddress.offset = 0;
+            vAddress.location = {ReferenceType, key};
         }
         if (!resolve(physAddress, vAddress)) {
             FAIL_LOUD("unable to resolve physical address!");
         }
-        return vAddress;
     }
 
     ADDR Storage::virtToPhysAddress(const VirtualAddress &virtAddress) {

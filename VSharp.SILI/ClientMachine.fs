@@ -166,8 +166,11 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             let method = Reflection.resolveMethod topMethod token
             initSymbolicFrame method
         Array.iter initFrame c.newCallStackFrames
-        let topMethod = Memory.GetCurrentExploringFunction cilState.state
-        cilState.ipStack <- Instruction(int c.offset, topMethod) :: List.tail cilState.ipStack
+        let setIp ip offset =
+            match ip with
+            | Instruction(_, m) -> Instruction(offset, m)
+            | _ -> internalfailf "SynchronizeStates: unexpected ip in ipStack: %O" ip
+        cilState.ipStack <- List.map2 setIp cilState.ipStack (List.rev c.ipStack)
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
         let concreteMemory = cilState.state.concreteMemory
         let allocateAddress address typ =

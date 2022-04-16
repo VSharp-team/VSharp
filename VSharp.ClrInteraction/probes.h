@@ -88,14 +88,15 @@ struct EvalStackOperand {
 };
 
 struct ExecCommand {
-    unsigned offset;
     unsigned isBranch;
     unsigned newCallStackFramesCount;
+    unsigned ipStackCount;
     unsigned callStackFramesPops;
     unsigned evaluationStackPushesCount;
     unsigned evaluationStackPops;
     unsigned newAddressesCount;
     unsigned *newCallStackFrames;
+    unsigned *ipStack;
     EvalStackOperand *evaluationStackPushes;
     // TODO: add deleted addresses
     OBJID *newAddresses;
@@ -103,7 +104,7 @@ struct ExecCommand {
     char *newAddressesTypes;
 
     void serialize(char *&bytes, unsigned &count) const {
-        count = 7 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount;
+        count = 7 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount + sizeof(unsigned) * ipStackCount;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
             count += evaluationStackPushes[i].size();
         count += sizeof(UINT_PTR) * newAddressesCount;
@@ -115,15 +116,17 @@ struct ExecCommand {
         bytes = new char[count];
         char *buffer = bytes;
         unsigned size = sizeof(unsigned);
-        *(unsigned *)buffer = offset; buffer += size;
         *(unsigned *)buffer = isBranch; buffer += size;
         *(unsigned *)buffer = newCallStackFramesCount; buffer += size;
+        *(unsigned *)buffer = ipStackCount; buffer += size;
         *(unsigned *)buffer = callStackFramesPops; buffer += size;
         *(unsigned *)buffer = evaluationStackPushesCount; buffer += size;
         *(unsigned *)buffer = evaluationStackPops; buffer += size;
         *(unsigned *)buffer = newAddressesCount; buffer += size;
         size = newCallStackFramesCount * sizeof(unsigned);
         memcpy(buffer, (char*)newCallStackFrames, size); buffer += size;
+        size = ipStackCount * sizeof(unsigned);
+        memcpy(buffer, (char*)ipStack, size); buffer += size;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i) {
             evaluationStackPushes[i].serialize(buffer);
         }
@@ -138,18 +141,22 @@ struct ExecCommand {
 void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOperand *ops, ExecCommand &command) {
     Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
-    command.offset = offset;
     command.isBranch = isBranch ? 1 : 0;
 
     unsigned minCallFrames = stack.minTopSinceLastSent();
     unsigned currCallFrames = stack.framesCount();
     assert(minCallFrames <= currCallFrames);
     command.newCallStackFramesCount = currCallFrames - minCallFrames;
+    command.ipStackCount = currCallFrames;
     command.newCallStackFrames = new unsigned[command.newCallStackFramesCount];
     for (unsigned i = minCallFrames; i < currCallFrames; ++i) {
         command.newCallStackFrames[i - minCallFrames] = stack.tokenAt(i);
     }
-
+    command.ipStack = new unsigned[command.ipStackCount];
+    for (unsigned i = 0; i < currCallFrames; ++i) {
+        command.ipStack[i] = stack.offsetAt(i);
+    }
+    command.ipStack[currCallFrames - 1] = offset;
     command.callStackFramesPops = stack.unsentPops();
     unsigned afterPop = top.symbolicsCount();
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
@@ -349,8 +356,8 @@ EvalStackOperand mkop_f8(DOUBLE op) {
     return {OpR8, result};
 }
 EvalStackOperand mkop_p(INT_PTR op) {
-    OperandContent content;
-    content.address = resolve(op);
+    OperandContent content{};
+    resolve(op, content.address);
     return {OpRef, content};
 }
 EvalStackOperand mkop_struct(INT_PTR op) { FAIL_LOUD("not implemented"); }
@@ -411,13 +418,26 @@ int registerProbe(unsigned long long probe) {
 PROBE(void, EnableInstrumentation, ()) { enabledInstrumentation(); }
 PROBE(void, DisableInstrumentation, ()) { disableInstrumentation(); }
 
+void localCellToStruct(const LocalCell &cell, StructOptional &structOptional) {
+    if (cell.isStruct) {
+        structOptional.isStruct = true;
+        structOptional.obj = cell.concreteness.obj;
+    } else {
+        structOptional.isStruct = false;
+        structOptional.obj = 0;
+    }
+}
+
 inline bool ldarg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
     top.pop0();
-    LocalCell cell = top.arg(idx);
-    bool concreteness = cell.concreteness;
+    LocalCell cell{};
+    top.arg(idx, cell);
+    bool concreteness = top.argConcreteness(idx);
     if (concreteness) {
-        top.push1(true, cell.obj);
+        StructOptional structOptional{};
+        localCellToStruct(cell, structOptional);
+        top.push1(true, structOptional);
     }
     return concreteness;
 }
@@ -434,7 +454,9 @@ PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     ObjectLocation location{Parameter, frame, idx};
     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
     // Register obj in current stack frame
-    LocalCell cell{concreteness, true, obj};
+    ConcretenessCell concretenessCell{};
+    concretenessCell.obj = obj;
+    LocalCell cell{true, concretenessCell};
     top.setArg(idx, cell);
     top.push1Concrete();
 }
@@ -442,10 +464,13 @@ PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx, SIZE size)) {
 inline bool ldloc(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
     top.pop0();
-    LocalCell cell = top.loc(idx);
-    bool concreteness = cell.concreteness;
+    LocalCell cell{};
+    top.loc(idx, cell);
+    bool concreteness = top.locConcreteness(idx);
     if (concreteness) {
-        top.push1(true, cell.obj);
+        StructOptional structOptional{};
+        localCellToStruct(cell, structOptional);
+        top.push1(true, structOptional);
     }
     return concreteness;
 }
@@ -462,16 +487,30 @@ PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     ObjectLocation location{LocalVariable, frame, idx};
     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
     // Register obj in current stack frame
-    LocalCell cell{concreteness, true, obj};
+    ConcretenessCell concretenessCell{};
+    concretenessCell.obj = obj;
+    LocalCell cell{true, concretenessCell};
     top.setLoc(idx, cell);
     top.push1Concrete();
 }
 
+void createLocalCell(bool isConcrete, const StructOptional &structOptional, LocalCell &cell) {
+    if (structOptional.isStruct) {
+        cell.isStruct = true;
+        cell.concreteness.obj = structOptional.obj;
+    } else {
+        cell.isStruct = false;
+        cell.concreteness.primitive = isConcrete;
+    }
+}
+
 inline bool starg(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
-    const StructOptional &obj = top.peekStruct(0);
+    StructOptional obj{};
+    top.peekStruct(0, obj);
     bool concreteness = top.pop1();
-    LocalCell localCell{concreteness, obj};
+    LocalCell localCell{};
+    createLocalCell(concreteness, obj, localCell);
     top.setArg(idx, localCell);
     return concreteness;
 }
@@ -480,9 +519,11 @@ PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCom
 
 inline bool stloc(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
-    const StructOptional &obj = top.peekStruct(0);
+    StructOptional obj{};
+    top.peekStruct(0, obj);
     bool concreteness = top.pop1();
-    LocalCell localCell{concreteness, obj};
+    LocalCell localCell{};
+    createLocalCell(concreteness, obj, localCell);
     top.setLoc(idx, localCell);
     return concreteness;
 }
@@ -496,7 +537,8 @@ PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCom
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
 PROBE(void, Track_Dup, (OFFSET offset)) {
     StackFrame &top = topFrame();
-    const StructOptional &obj = top.peekStruct(0);
+    StructOptional obj{};
+    top.peekStruct(0, obj);
     if (!top.dup()) {
         sendCommand(offset, 1, new EvalStackOperand[1], false);
         topFrame().push1(false, obj);
@@ -674,11 +716,15 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OF
 }
 PROBE(void, Track_Ldfld_Struct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
     StackFrame &top = vsharp::topFrame();
-    const StructOptional &obj = top.peekStruct(0);
-    top.pop1();
-    assert(obj.isStruct);
-    Object *p = (Object *)obj.obj;
-    if (!p->readConcreteness(fieldOffset, fieldSize)) {
+    StructOptional obj{};
+    top.peekStruct(0, obj);
+    bool structConcreteness = top.pop1();
+    bool memoryConcreteness = false;
+    if (structConcreteness) {
+        Object *p = (Object *)obj.obj;
+        memoryConcreteness = p->readConcreteness(fieldOffset, fieldSize);
+    }
+    if (!memoryConcreteness) {
         sendCommand1(offset);
     } else {
         top.push1Concrete();
@@ -875,6 +921,9 @@ PROBE(void, Track_Leave, (UINT8 returnValues, OFFSET offset)) {
     }
 #endif
     if (returnValues) {
+        // TODO: implement pushing struct onto evaluation stack, when returning value is struct
+//        StructOptional obj{};
+//        top.peekStruct(0, obj);
         bool returnValue = top.pop1();
         if (!stack.isEmpty()) {
             if (!top.isSpontaneous()) {
@@ -945,6 +994,8 @@ PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
     auto ops = createOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
+
+// TODO: cache all structs before pop and use them in PushFrame
 PROBE(COND, Track_Call, (UINT16 argsCount)) {
     return vsharp::stack().topFrame().pop(argsCount);
 }
@@ -973,6 +1024,8 @@ PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
         for (unsigned i = 0; i < argsCount; ++i)
             tout << argsConcreteness[i];);
 
+    top.setIp(offset);
+    // TODO: push into new frame structs, popped in Track_Call
     stack.pushFrame(resolvedToken, unresolvedToken, argsConcreteness, argsCount);
     if (callHasSymbolicArgs) stack.resetMinTop();
     delete[] argsConcreteness;

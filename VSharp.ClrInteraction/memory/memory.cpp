@@ -313,6 +313,6 @@ void vsharp::disableInstrumentation() {
     instrumentationEnabled = false;
 }
 
-VirtualAddress vsharp::resolve(INT_PTR p) {
-    return heap.physToVirtAddress(p);
+void vsharp::resolve(INT_PTR p, VirtualAddress &address) {
+    heap.physToVirtAddress(p, address);
 }

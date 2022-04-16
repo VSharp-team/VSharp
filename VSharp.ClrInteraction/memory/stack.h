@@ -12,14 +12,21 @@ struct StructOptional {
     OBJID obj;
 };
 
+// NOTE: if value is struct, parameter 'content' over approximates its concreteness
+//       otherwise, 'content' represents concreteness of primitive type
 struct StackCell {
     unsigned content;
     StructOptional obj;
 };
 
+union ConcretenessCell {
+    bool primitive;
+    OBJID obj;
+};
+
 struct LocalCell {
-    bool concreteness;
-    StructOptional obj;
+    bool isStruct;
+    ConcretenessCell concreteness;
 };
 
 class StackFrame {
@@ -42,6 +49,8 @@ private:
     bool m_enteredMarker;
     bool m_spontaneous;
 
+    unsigned m_ip;
+
     Storage &m_heap;
 
     std::vector<std::pair<unsigned, unsigned>> m_lastPoppedSymbolics;
@@ -55,26 +64,27 @@ public:
     inline bool isEmpty() const;
     inline bool isFull() const;
 
+    bool peekConcreteness(unsigned idx) const;
     bool peek0() const;
     bool peek1() const;
     bool peek2() const;
-    const StructOptional &peekStruct(unsigned idx) const;
+    void peekStruct(unsigned idx, StructOptional &structOptional) const;
 
     void pop0();
     bool pop1();
     bool pop(unsigned count);
     void pop1Async(); // Does not track the popped symbolics, but tracks the total amount of such pops.
 
-    void push1(bool isConcrete, const StructOptional &obj);
+    void push1(bool isConcrete, StructOptional obj);
     void pushPrimitive(bool isConcrete);
     void push1Concrete();
 
-    const LocalCell &arg(unsigned index) const;
+    void arg(unsigned index, LocalCell &cell) const;
     bool argConcreteness(unsigned index) const;
-    void setArg(unsigned index, const LocalCell &value);
-    const LocalCell &loc(unsigned index) const;
+    void setArg(unsigned index, LocalCell value);
+    void loc(unsigned index, LocalCell &cell) const;
     bool locConcreteness(unsigned index) const;
-    void setLoc(unsigned index, const LocalCell &value);
+    void setLoc(unsigned index, LocalCell value);
 
     bool dup();
 
@@ -82,6 +92,8 @@ public:
 
     unsigned resolvedToken() const;
     unsigned unresolvedToken() const;
+    unsigned ip() const;
+    void setIp(unsigned ip);
     bool hasEntered() const;
     void setEnteredMarker(bool entered);
     bool isSpontaneous() const;
@@ -111,6 +123,7 @@ public:
     bool isEmpty() const;
     unsigned framesCount() const;
     unsigned tokenAt(unsigned index) const;
+    unsigned offsetAt(unsigned index) const;
 
     unsigned unsentPops() const;
     unsigned minTopSinceLastSent() const;

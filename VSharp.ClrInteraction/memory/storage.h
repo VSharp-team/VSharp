@@ -74,7 +74,7 @@ enum ObjectType {
     Statics = 4
 };
 
-// TODO: use 'ObjectLocation' with 'new' and pointers
+// TODO: use 'ObjectLocation' with const refs
 struct ObjectLocation {
     ObjectType type;
     ObjectKey key;
@@ -102,7 +102,6 @@ public:
 
 typedef IntervalTree<Interval, Shift, ADDR> Intervals;
 
-// TODO: use 'VirtualAddress' with 'new' and pointers
 struct VirtualAddress
 {
     OBJID obj;
@@ -137,7 +136,7 @@ public:
 
     std::map<OBJID, std::pair<char*, unsigned long>> flushObjects();
 
-    VirtualAddress physToVirtAddress(ADDR physAddress) const;
+    void physToVirtAddress(ADDR physAddress, VirtualAddress &vAddress) const;
     static ADDR virtToPhysAddress(const VirtualAddress &virtAddress);
 
     bool readConcreteness(ADDR address, SIZE sizeOfPtr) const;

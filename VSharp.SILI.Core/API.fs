@@ -401,6 +401,7 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
+                | Ptr _
                 | Ref _ -> ReferenceField state target field |> Memory.read state (ErrorReporter())
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term

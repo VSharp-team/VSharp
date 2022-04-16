@@ -428,20 +428,20 @@ type evalStackOperand =
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type private execCommandStatic = {
-    offset : uint32
     isBranch : uint32
     newCallStackFramesCount : uint32
+    ipStackCount : uint32
     callStackFramesPops : uint32
     evaluationStackPushesCount : uint32
     evaluationStackPops : uint32
     newAddressesCount : uint32
 }
 type execCommand = {
-    offset : uint32
     isBranch : uint32
     callStackFramesPops : uint32
     evaluationStackPops : uint32
     newCallStackFrames : int32 array
+    ipStack : int32 list
     evaluationStackPushes : evalStackOperand array // NOTE: operands for executing instruction
     newAddresses : UIntPtr array
     newAddressesTypes : Type array
@@ -745,8 +745,11 @@ type Communicator(pipeFile) =
             let staticPart = x.Deserialize<execCommandStatic> staticBytes
             let callStackEntrySize = Marshal.SizeOf typeof<int32>
             let callStackOffset = (int staticPart.newCallStackFramesCount) * callStackEntrySize
-            let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i -> BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
+            let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i ->
+                BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
             let mutable offset = callStackOffset
+            let ipStack = List.init (int staticPart.ipStackCount) (fun _ ->
+                let res = BitConverter.ToInt32(dynamicBytes, offset) in offset <- offset + sizeof<int>; res)
             let evaluationStackPushes = Array.init (int staticPart.evaluationStackPushesCount) (fun _ ->
                 let evalStackArgTypeNum = BitConverter.ToInt32(dynamicBytes, offset)
                 offset <- offset + sizeof<int32>
@@ -828,11 +831,11 @@ type Communicator(pipeFile) =
                             if Array.isEmpty typeArgs then resultType else resultType.MakeGenericType(typeArgs)
                     else typeof<Void>
                 readType())
-            { offset = staticPart.offset
-              isBranch = staticPart.isBranch
+            { isBranch = staticPart.isBranch
               callStackFramesPops = staticPart.callStackFramesPops
               evaluationStackPops = staticPart.evaluationStackPops
               newCallStackFrames = newCallStackFrames
+              ipStack = ipStack
               evaluationStackPushes = evaluationStackPushes
               newAddresses = newAddresses
               newAddressesTypes = newAddressesTypes }
