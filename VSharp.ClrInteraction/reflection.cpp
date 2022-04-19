@@ -387,11 +387,24 @@ private:
     bool m_typeParseStarted = false;
     bool m_paramParsed = false;
     bool m_typeParsed = false;
+    bool m_hasThis = false;
     IMetaDataEmit *metadataEmit;
+    mdToken declaringType;
     int parameterIndex;
     int currentParam = 0;
 
 protected:
+
+    void NotifyBeginMethod(sig_elem_type elem_type) {
+        if (elem_type == SIG_HASTHIS) {
+            m_hasThis = true;
+            currentParam++;
+            if (parameterIndex == 0) {
+                m_typeParseStarted = true;
+                m_paramParsed = true;
+            }
+        }
+    }
 
     void NotifyBeginParam() {
         if (currentParam == parameterIndex) {
@@ -401,7 +414,8 @@ protected:
 
     }
     void NotifyEndParam() {
-        m_paramParsed = true;
+        if (m_typeParseStarted)
+            m_paramParsed = true;
     }
 
     void NotifyBeginType() {
@@ -418,14 +432,17 @@ protected:
 
 public:
 
-    MethodParamTypeParser(IMetaDataEmit *emit, int idx)
+    MethodParamTypeParser(IMetaDataEmit *emit, int idx, mdToken declaringType)
         : metadataEmit(emit)
         , parameterIndex(idx)
+        , declaringType(declaringType)
     {
     }
 
     mdToken paramType() {
         assert(m_typeParseStarted && m_typeParsed);
+        if (m_hasThis && parameterIndex == 0)
+            return declaringType;
         long typeSize = typeEnd - typeStart;
         assert(typeSize <= sizeof(mdToken));
         mdToken type;
@@ -453,10 +470,11 @@ protected:
             m_typeParseStarted = true;
         }
         currentLocal++;
-
     }
-    void NotifyEndParam() {
-        m_localParsed = true;
+
+    void NotifyEndLocal() {
+        if (m_typeParseStarted)
+            m_localParsed = true;
     }
 
     void NotifyBeginType() {
@@ -474,8 +492,8 @@ protected:
 public:
 
     LocalTypeParser(IMetaDataEmit *emit, int idx)
-            : metadataEmit(emit)
-            , localIndex(idx)
+        : metadataEmit(emit)
+        , localIndex(idx)
     {
     }
 
@@ -484,7 +502,8 @@ public:
         long typeSize = typeEnd - typeStart;
         assert(typeSize <= sizeof(mdToken));
         mdToken type;
-        metadataEmit->GetTokenFromTypeSpec(typeStart, typeSize, &type);
+        HRESULT hr = metadataEmit->GetTokenFromTypeSpec(typeStart, typeSize, &type);
+        if (FAILED(hr)) FAIL_LOUD("getting local type: GetTokenFromTypeSpec failed!");
         return type;
     }
 };
@@ -638,15 +657,17 @@ mdToken Reflection::getTypeTokenFromFieldRef(mdToken fieldRef) const {
     ULONG chMember;
     PCCOR_SIGNATURE signature;
     ULONG count;
-    metadataImport->GetMemberRefProps(fieldRef, &declaringType, new WCHAR[0], 0, &chMember, &signature, &count);
+    HRESULT hr = metadataImport->GetMemberRefProps(fieldRef, &declaringType, new WCHAR[0], 0, &chMember, &signature, &count);
+    if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromFieldRef: GetMemberRefProps failed!");
     FieldTypeParser *fieldTypeParser = new FieldTypeParser(metadataEmit);
-    fieldTypeParser->ParseField((sig_byte *)signature, count);
+    if (!fieldTypeParser->ParseField((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldRef: ParseField failed!");
     mdToken fieldType = fieldTypeParser->fieldType();
     delete fieldTypeParser;
     return fieldType;
 }
 
-mdToken Reflection::getTypeTokenFromFieldDef(mdToken typeDef, mdToken fieldDef) const {
+mdToken Reflection::getTypeTokenFromFieldDef(mdToken fieldDef) const {
+    mdToken declaringType;
     ULONG chField;
     DWORD dwAttr;
     PCCOR_SIGNATURE signature;
@@ -654,9 +675,10 @@ mdToken Reflection::getTypeTokenFromFieldDef(mdToken typeDef, mdToken fieldDef) 
     DWORD dwCPlusTypeFlag;
     UVCP_CONSTANT constant;
     ULONG cchValue;
-    metadataImport->GetFieldProps(fieldDef, &typeDef, new WCHAR[0], 0, &chField, &dwAttr, &signature, &count, &dwCPlusTypeFlag, &constant, &cchValue);
+    HRESULT hr = metadataImport->GetFieldProps(fieldDef, &declaringType, new WCHAR[0], 0, &chField, &dwAttr, &signature, &count, &dwCPlusTypeFlag, &constant, &cchValue);
+    if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromFieldDef: GetFieldProps failed!");
     FieldTypeParser *fieldTypeParser = new FieldTypeParser(metadataEmit);
-    fieldTypeParser->ParseField((sig_byte *)signature, count);
+    if (!fieldTypeParser->ParseField((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldDef: ParseField failed!");
     mdToken fieldType = fieldTypeParser->fieldType();
     delete fieldTypeParser;
     return fieldType;
@@ -670,9 +692,10 @@ mdToken Reflection::getTypeTokenFromParameter(mdToken method, INT32 argIndex) co
     ULONG count;
     ULONG ulCodeRVA;
     DWORD dwImplFlags;
-    metadataImport->GetMethodProps(method, &declaringType, new WCHAR[0], 0, &chMember, &dwAttr, &signature, &count, &ulCodeRVA, &dwImplFlags);
-    MethodParamTypeParser *methodParamTypeParser = new MethodParamTypeParser(metadataEmit, argIndex);
-    methodParamTypeParser->ParseMethod((sig_byte *)signature, count);
+    HRESULT hr = metadataImport->GetMethodProps(method, &declaringType, new WCHAR[0], 0, &chMember, &dwAttr, &signature, &count, &ulCodeRVA, &dwImplFlags);
+    if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromParameter: GetMethodProps failed!");
+    MethodParamTypeParser *methodParamTypeParser = new MethodParamTypeParser(metadataEmit, argIndex, declaringType);
+    if (!methodParamTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromParameter: parsing method failed!");
     mdToken paramType = methodParamTypeParser->paramType();
     delete methodParamTypeParser;
     return paramType;
@@ -681,9 +704,10 @@ mdToken Reflection::getTypeTokenFromParameter(mdToken method, INT32 argIndex) co
 mdToken Reflection::getTypeTokenFromLocal(mdToken localsToken, INT32 localIndex) const {
     PCCOR_SIGNATURE signature;
     ULONG count;
-    metadataImport->GetSigFromToken(localsToken, &signature, &count);
+    HRESULT hr = metadataImport->GetSigFromToken(localsToken, &signature, &count);
+    if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromLocal: GetSigFromToken failed!");
     LocalTypeParser *localTypeParser = new LocalTypeParser(metadataEmit, localIndex);
-    localTypeParser->ParseLocals((sig_byte *)signature, count);
+    if (!localTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromLocal: ParseLocals failed!");
     mdToken localType = localTypeParser->localType();
     delete localTypeParser;
     return localType;

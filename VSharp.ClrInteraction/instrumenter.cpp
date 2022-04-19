@@ -449,10 +449,10 @@ CommandType Instrumenter::getAndHandleCommand() {
         case ParseFieldDefTypeToken: {
             mdToken typeDef;
             mdToken fieldDef;
-            if (!m_protocol.accept2Tokens(typeDef, fieldDef)) FAIL_LOUD("Instrumenting: accepting typeDef and fieldDef tokens to parse failed!");
+            if (!m_protocol.acceptToken(fieldDef)) FAIL_LOUD("Instrumenting: accepting fieldDef token to parse failed!");
             auto *reflection = new Reflection(m_profilerInfo);
             reflection->configure(m_moduleId, m_jittedToken);
-            mdToken typeSpec = reflection->getTypeTokenFromFieldDef(typeDef, fieldDef);
+            mdToken typeSpec = reflection->getTypeTokenFromFieldDef(fieldDef);
             if (!m_protocol.sendToken(typeSpec)) FAIL_LOUD("Instrumenting: sending typeSpec token failed!");
             delete reflection;
             break;

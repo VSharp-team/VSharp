@@ -136,7 +136,6 @@ public:
     bool Parse(sig_byte *blob, sig_count len);
     bool ParseType(sig_byte *blob, sig_count len);
     bool ParseField(sig_byte *pb, sig_count cbBuffer);
-    bool ParseMethod(sig_byte *pb, sig_count cbBuffer);
     bool ParseLocals(sig_byte *pb, sig_count cbBuffer);
 
 private:
@@ -717,22 +716,6 @@ bool SigParser::ParseField(sig_byte *pb, sig_count cbBuffer)
     pbCur = pb;
     pbEnd = pbBase + cbBuffer;
     return ParseField(*pb);
-}
-
-bool SigParser::ParseMethod(sig_byte *pb, sig_count cbBuffer)
-{
-    pbBase = pb;
-    pbCur = pb;
-    pbEnd = pbBase + cbBuffer;
-    return ParseMethod(*pbCur);
-}
-
-bool SigParser::ParseLocals(sig_byte *pb, sig_count cbBuffer)
-{
-    pbBase = pb;
-    pbCur = pb;
-    pbEnd = pbBase + cbBuffer;
-    return ParseLocals(*pbCur);
 }
 
 bool SigParser::ParseType()

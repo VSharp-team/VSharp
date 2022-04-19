@@ -441,24 +441,43 @@ inline bool ldarg(INT16 idx) {
     }
     return concreteness;
 }
+
+void concretizeAddress(INT_PTR ptr, LocalCell &cell) {
+    assert(cell.isStruct);
+    assert(cell.concreteness.obj);
+    Object *obj = (Object *) cell.concreteness.obj;
+    assert(obj->left == ptr || obj->left == UNKNOWN_ADDRESS);
+    int size = obj->sizeOf();
+    obj->left = ptr;
+    obj->right = ptr + size - 1;
+}
+
 PROBE(void, Track_Ldarg_0, (OFFSET offset)) { if (!ldarg(0)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_1, (OFFSET offset)) { if (!ldarg(1)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldarga, (INT_PTR ptr, UINT16 idx)) {
+PROBE(void, Track_Ldarga_Primitive, (INT_PTR ptr, UINT16 idx, INT32 size)) {
     unsigned frame = stack().framesCount();
     StackFrame &top = topFrame();
     bool concreteness = top.argConcreteness(idx);
     ObjectLocation location{Parameter, frame, idx};
-    // 2Misha: take object from stack frame!
-//     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
-//     // Register obj in current stack frame
-//     ConcretenessCell concretenessCell{};
-//     concretenessCell.obj = obj;
-//     LocalCell cell{true, concretenessCell};
-//     top.setArg(idx, cell);
+    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
+    // Register obj in current stack frame
+    ConcretenessCell concretenessCell{};
+    concretenessCell.obj = obj;
+    LocalCell cell{true, concretenessCell};
+    top.setArg(idx, cell);
+    top.push1Concrete();
+}
+PROBE(void, Track_Ldarga_Struct, (INT_PTR ptr, UINT16 idx)) {
+    unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    LocalCell cell{};
+    top.arg(idx, cell);
+    concretizeAddress(ptr, cell);
+    top.setArg(idx, cell);
     top.push1Concrete();
 }
 
@@ -481,18 +500,26 @@ PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset
 PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldloca, (INT_PTR ptr, UINT16 idx)) {
+PROBE(void, Track_Ldloca_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     unsigned frame = stack().framesCount();
     StackFrame &top = topFrame();
     bool concreteness = top.locConcreteness(idx);
     ObjectLocation location{LocalVariable, frame, idx};
-    // 2Misha: take object from stack frame!
-//     OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
-//     // Register obj in current stack frame
-//     ConcretenessCell concretenessCell{};
-//     concretenessCell.obj = obj;
-//     LocalCell cell{true, concretenessCell};
-//     top.setLoc(idx, cell);
+    OBJID obj = heap.allocateLocal(ptr, size, location, concreteness);
+    // Register obj in current stack frame
+    ConcretenessCell concretenessCell{};
+    concretenessCell.obj = obj;
+    LocalCell cell{true, concretenessCell};
+    top.setLoc(idx, cell);
+    top.push1Concrete();
+}
+PROBE(void, Track_Ldloca_Struct, (INT_PTR ptr, UINT16 idx)) {
+    unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    LocalCell cell{};
+    top.loc(idx, cell);
+    concretizeAddress(ptr, cell);
+    top.setLoc(idx, cell);
     top.push1Concrete();
 }
 
@@ -629,7 +656,14 @@ inline void conv(OFFSET offset) {
 PROBE(void, Track_Conv, (OFFSET offset)) { conv(offset); }
 PROBE(void, Track_Conv_Ovf, (OFFSET offset)) { conv(offset); }
 
-PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO! Do we need allocated address?*/ }
+PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) {
+    StackFrame &top = topFrame();
+    if (!top.pop1())
+        sendCommand(offset, 1, new EvalStackOperand[1], false); // TODO: can this fork?
+    else
+        top.push1Concrete();
+}
+
 PROBE(void, Track_Localloc, (INT_PTR len, OFFSET offset)) { /*TODO*/ }
 PROBE(void, Track_Ldobj, (INT_PTR ptr, OFFSET offset)) { /* TODO! will ptr be always concrete? */ }
 PROBE(void, Track_Ldstr, (INT_PTR ptr)) { topFrame().push1Concrete(); } // TODO: do we need allocated address?
@@ -877,14 +911,42 @@ PROBE(void, Track_Mkrefany, ()) {
     topFrame().pop1();
 }
 
+// NOTE: used only for non-primitive types
 PROBE(void, SetArgSize, (INT8 idx, SIZE size)) {
-    // 2Misha: allocate object on stack frame with UNKNOWN_OBJID
-    // 2Misha: if we want to allocate objid for structs only, then pass one more bool here from instrumenter (isStruct)
+    unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    LocalCell cell{};
+    top.arg(idx, cell);
+    if (cell.isStruct) {
+        assert(((Object *)cell.concreteness.obj)->sizeOf() == size);
+    } else {
+        ObjectLocation location{Parameter, frame, idx};
+        bool concreteness = top.argConcreteness(idx);
+        OBJID obj = heap.reserveObject(size, location, concreteness);
+        cell.isStruct = true;
+        cell.concreteness.obj = obj;
+        top.setArg(idx, cell);
+    }
 }
+
+// NOTE: used only for non-primitive types
 PROBE(void, SetLocSize, (INT8 idx, SIZE size)) {
-    // 2Misha: allocate object on stack frame with UNKNOWN_OBJID
-    // 2Misha: if we want to allocate objid for structs only, then pass one more bool here from instrumenter (isStruct)
+    unsigned frame = stack().framesCount();
+    StackFrame &top = topFrame();
+    LocalCell cell{};
+    top.loc(idx, cell);
+    if (cell.isStruct) {
+        assert(((Object *)cell.concreteness.obj)->sizeOf() == size);
+    } else {
+        ObjectLocation location{LocalVariable, frame, idx};
+        bool concreteness = top.locConcreteness(idx);
+        OBJID obj = heap.reserveObject(size, location, concreteness);
+        cell.isStruct = true;
+        cell.concreteness.obj = obj;
+        top.setLoc(idx, cell);
+    }
 }
+
 PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
     LOG(tout << "Track_Enter, token = " << HEX(token) << std::endl);
     Stack &stack = vsharp::stack();

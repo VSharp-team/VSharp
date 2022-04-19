@@ -99,7 +99,7 @@ module TypeUtils =
 
     let internalSizeOf (typ: Type) : uint32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         assert(isGround typ)
-        if typ.IsByRef || typ.IsPointer || typ.IsArray then uint32 sizeof<IntPtr>
+        if typ.IsByRef || typ.IsPointer || not typ.IsValueType then uint32 sizeof<IntPtr>
         else
             let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
             let gen = meth.GetILGenerator()

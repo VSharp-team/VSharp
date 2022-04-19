@@ -18,7 +18,8 @@ type probes = {
     mutable ldarg_3 : uint64
     mutable ldarg_S : uint64
     mutable ldarg : uint64
-    mutable ldarga : uint64
+    mutable ldarga_primitive : uint64
+    mutable ldarga_struct : uint64
 
     mutable ldloc_0 : uint64
     mutable ldloc_1 : uint64
@@ -26,7 +27,8 @@ type probes = {
     mutable ldloc_3 : uint64
     mutable ldloc_S : uint64
     mutable ldloc : uint64
-    mutable ldloca : uint64
+    mutable ldloca_primitive : uint64
+    mutable ldloca_struct : uint64
 
     mutable starg_S : uint64
     mutable starg : uint64
@@ -475,6 +477,10 @@ type commandForConcolic =
     | ReadExecResponse
     | Unmarshall
     | ReadWholeObject
+    | ParseFieldRefTypeToken
+    | ParseFieldDefTypeToken
+    | ParseArgTypeToken
+    | ParseLocalTypeToken
 
 type Communicator(pipeFile) =
 
@@ -490,6 +496,10 @@ type Communicator(pipeFile) =
     let readExecResponseByte = byte(0x64)
     let unmarshallByte = byte(0x65)
     let readWholeObjectByte = byte(0x66)
+    let parseFieldRefTypeTokenByte = byte(0x67)
+    let parseFieldDefTypeTokenByte = byte(0x69)
+    let parseArgTypeTokenByte = byte(0x70)
+    let parseLocalTypeTokenByte = byte(0x71)
 
     let confirmation = Array.singleton confirmationByte
 
@@ -614,6 +624,10 @@ type Communicator(pipeFile) =
             | ReadExecResponse -> readExecResponseByte
             | Unmarshall -> unmarshallByte
             | ReadWholeObject -> readWholeObjectByte
+            | ParseFieldRefTypeToken -> parseFieldRefTypeTokenByte
+            | ParseFieldDefTypeToken -> parseFieldDefTypeTokenByte
+            | ParseArgTypeToken -> parseArgTypeTokenByte
+            | ParseLocalTypeToken -> parseLocalTypeTokenByte
         Array.singleton byte
 
     member x.Connect() =
@@ -659,13 +673,16 @@ type Communicator(pipeFile) =
             Array.init typesSize (fun i -> BitConverter.ToUInt32(bytes, i * sizeof<uint32>))
         | None -> Array.empty
 
-    member private x.SendStringAndParseTypeToken (string : string) : uint32 =
-        Encoding.Unicode.GetBytes string |> writeBuffer
+    member private x.ReadTypeToken() : uint32 =
         match readBuffer() with
         | Some bytes ->
             assert(Array.length bytes = sizeof<uint32>)
             BitConverter.ToUInt32(bytes)
         | None -> internalfail "expected type token, but got nothing"
+
+    member private x.SendStringAndParseTypeToken (string : string) : uint32 =
+        Encoding.Unicode.GetBytes string |> writeBuffer
+        x.ReadTypeToken()
 
     member x.SendStringAndParseTypeRef (string : string) : uint32 =
         x.SendCommand ParseTypeRef
@@ -701,6 +718,26 @@ type Communicator(pipeFile) =
     member x.ReadWholeObject (address : UIntPtr) isArray refOffsets : byte[] =
         x.SendCommand ReadWholeObject
         x.SendParametersAndReadObject address isArray refOffsets
+
+    member x.ParseFieldRefTypeToken (fieldRef : int) : uint32 =
+        x.SendCommand ParseFieldRefTypeToken
+        x.Serialize<int> fieldRef |> writeBuffer
+        x.ReadTypeToken()
+
+    member x.ParseFieldDefTypeToken (fieldDef : int) : uint32 =
+        x.SendCommand ParseFieldDefTypeToken
+        x.Serialize<int> fieldDef |> writeBuffer
+        x.ReadTypeToken()
+
+    member x.ParseArgTypeToken (methodToken : int) (argIndex : int) : uint32 =
+        x.SendCommand ParseArgTypeToken
+        Array.concat [x.Serialize<int> methodToken; x.Serialize<int> argIndex] |> writeBuffer
+        x.ReadTypeToken()
+
+    member x.ParseLocalTypeToken (localIndex : int) : uint32 =
+        x.SendCommand ParseLocalTypeToken
+        x.Serialize<int> localIndex |> writeBuffer
+        x.ReadTypeToken()
 
     member x.ReadMethodBody() =
         match readBuffer() with

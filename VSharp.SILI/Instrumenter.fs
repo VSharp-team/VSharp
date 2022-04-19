@@ -20,6 +20,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         else
             let kvp = staticFieldIDs |> Seq.find (fun kvp -> kvp.Value = fieldInfo)
             kvp.Key
+    let hasComplexSize (t : System.Type) =
+        (t.IsValueType && not t.IsPrimitive) || t.IsGenericParameter
 
     static member private instrumentedFunctions = HashSet<MethodBase>()
     [<DefaultValue>] val mutable tokens : signatureTokens
@@ -149,17 +151,19 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         (OpCodes.Ldc_I4, Arg32 localsCount)
                         (OpCodes.Ldc_I4, Arg32 isSpontaneous)]
             x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr) |> ignore
-        if hasThis then
+        if hasThis && hasComplexSize x.m.DeclaringType then
             x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 0); (OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>)], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
         for i = 0 to argsCount - 1 do
             let argType = parameters.[i].ParameterType
-            let idx = if hasThis then i + 1 else i
-            let sizeInstr = x.TypeSizeInstr argType (fun () -> x.AcceptArgTypeToken argType idx)
-            x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 idx); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
+            if hasComplexSize argType then
+                let idx = if hasThis then i + 1 else i
+                let sizeInstr = x.TypeSizeInstr argType (fun () -> x.AcceptArgTypeToken argType idx)
+                x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 idx); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
         for i = 0 to localsCount - 1 do
             let locType = locals.[i].LocalType
-            let sizeInstr = x.TypeSizeInstr locType (fun () -> x.AcceptLocVarTypeToken locType i)
-            x.PrependProbe(probes.setLocSize, [(OpCodes.Ldc_I4, Arg32 i); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
+            if hasComplexSize locType then
+                let sizeInstr = x.TypeSizeInstr locType (fun () -> x.AcceptLocVarTypeToken locType i)
+                x.PrependProbe(probes.setLocSize, [(OpCodes.Ldc_I4, Arg32 i); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
 
     member private x.PrependMem_p(idx, order, instr : ilInstr byref) =
         x.PrependInstr(OpCodes.Conv_I, NoArg, &instr)
@@ -435,27 +439,21 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         if f.Module = x.m.Module then
             x.AcceptTypeToken f.DeclaringType (fun () -> x.AcceptFieldDefTypeToken f.MetadataToken)
         else
-            x.AcceptFieldRefTypeToken f.MetadataToken f.DeclaringType.MetadataToken
+            x.AcceptFieldRefTypeToken f.MetadataToken
 
-    member private x.AcceptFieldDefTypeToken (memberRef : int) =
-        // 2Misha
-        __notImplemented__()
+    member private x.AcceptFieldRefTypeToken (memberRef : int) =
+        communicator.ParseFieldRefTypeToken memberRef |> int
 
-    member private x.AcceptFieldRefTypeToken (fieldDef : int) (typeDef : int) =
-        // 2Misha
-        __notImplemented__()
-
+    member private x.AcceptFieldDefTypeToken (fieldDef : int) =
+        communicator.ParseFieldDefTypeToken fieldDef |> int
 
     member private x.AcceptArgTypeToken (t : System.Type) idx =
         x.AcceptTypeToken t (fun () ->
             let methodDef = x.m.MetadataToken
-            // 2Misha: GetArgTypeToken command here
-            __notImplemented__())
+            communicator.ParseArgTypeToken methodDef idx |> int)
 
     member private x.AcceptLocVarTypeToken (t : System.Type) idx =
-        x.AcceptTypeToken t (fun () ->
-            // 2Misha: GetLocVarTypeToken command here
-            __notImplemented__())
+        x.AcceptTypeToken t (fun () -> communicator.ParseLocalTypeToken idx |> int)
 
     member private x.TypeSizeInstr (t : System.Type) getToken =
         if TypeUtils.isGround t then
@@ -495,19 +493,39 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 // Concrete instructions
                 | OpCodeValues.Ldarga_S ->
                     let index = int instr.Arg8
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    let argType = x.m |> Reflection.getMethodArgumentType index
+                    if hasComplexSize argType then
+                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    else
+                        let size = TypeUtils.internalSizeOf argType |> int
+                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca_S ->
                     let index = int instr.Arg8
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    let locType = x.m.GetMethodBody().LocalVariables.[index].LocalType
+                    if hasComplexSize locType then
+                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    else
+                        let size = TypeUtils.internalSizeOf locType |> int
+                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldarga ->
                     let index = int instr.Arg16
-                    x.AppendProbe(probes.ldarga, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    let argType = x.m |> Reflection.getMethodArgumentType index
+                    if hasComplexSize argType then
+                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    else
+                        let size = TypeUtils.internalSizeOf argType |> int
+                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldloca ->
                     let index = int instr.Arg16
-                    x.AppendProbe(probes.ldloca, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    let locType = x.m.GetMethodBody().LocalVariables.[index].LocalType
+                    if hasComplexSize locType then
+                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                    else
+                        let size = TypeUtils.internalSizeOf locType |> int
+                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
                     x.AppendDup instr
                 | OpCodeValues.Ldnull
                 | OpCodeValues.Ldc_I4_M1

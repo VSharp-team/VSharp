@@ -14,6 +14,8 @@ namespace vsharp {
 #define SIZE UINT_PTR
 #define OBJID UINT_PTR
 
+#define UNKNOWN_ADDRESS 1
+
 class Shift {
 public:
     ADDR oldBase;
@@ -97,7 +99,8 @@ public:
     void writeConcretenessWholeObject(bool vConcreteness);
     void writeConcreteness(SIZE offset, SIZE size, bool vConcreteness);
     char *readBytes(SIZE offset, SIZE size) const;
-    ObjectLocation getLocation() const;
+    void getLocation(ObjectLocation &location) const;
+    int sizeOf() const;
 };
 
 typedef IntervalTree<Interval, Shift, ADDR> Intervals;
@@ -123,6 +126,8 @@ public:
     Storage();
 
     OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
+    // Allocate object with unknown address
+    OBJID reserveObject(SIZE size, ObjectLocation location, bool concreteness);
     // Allocate block of memory controlled by stack
     OBJID allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness);
     // Allocate block of static memory

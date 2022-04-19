@@ -128,17 +128,18 @@ namespace vsharp {
 
     char* Object::readBytes(SIZE offset, SIZE size) const {
         assert(size > 0);
+        assert(left != UNKNOWN_ADDRESS);
         char *buffer = new char[size];
         memcpy(buffer, (char *)left + offset, size);
         return buffer;
     }
 
     bool Object::isFullyConcrete() const {
-        return readConcreteness(0, right - left);
+        return readConcreteness(0, sizeOf());
     }
 
     void Object::writeConcretenessWholeObject(bool vConcreteness) {
-        writeConcreteness(0, right - left, vConcreteness);
+        writeConcreteness(0, sizeOf(), vConcreteness);
     }
 
     void Object::writeConcreteness(SIZE offset, SIZE size, bool vConcreteness) {
@@ -168,8 +169,13 @@ namespace vsharp {
         }
     }
 
-    ObjectLocation Object::getLocation() const {
-        return m_location;
+    void Object::getLocation(ObjectLocation &location) const {
+        location = m_location;
+    }
+
+    int Object::sizeOf() const {
+        SIZE size = right - left + 1;
+        return (int) size;
     }
 
 // --------------------------- Heap ---------------------------
@@ -185,6 +191,13 @@ namespace vsharp {
         auto id = (OBJID) obj;
         newAddresses[id] = std::make_pair(type, typeLength);
         return id;
+    }
+
+    OBJID Storage::reserveObject(SIZE size, ObjectLocation location, bool concreteness) {
+        auto *obj = new Object(UNKNOWN_ADDRESS, size, location);
+        tree.add(*obj);
+        obj->writeConcretenessWholeObject(concreteness);
+        return (OBJID) obj;
     }
 
     UINT_PTR Storage::allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness) {
@@ -220,8 +233,7 @@ namespace vsharp {
     bool Storage::readConcreteness(ADDR address, SIZE sizeOfPtr) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
-            // TODO: throw unbound pointer?
-            return false;
+            FAIL_LOUD("Unbound pointer!");
         }
 
         auto *obj = (Object *) vAddress.obj;
@@ -231,6 +243,7 @@ namespace vsharp {
     void Storage::writeConcreteness(ADDR address, SIZE sizeOfPtr, bool vConcreteness) const {
         VirtualAddress vAddress{};
         if (!resolve(address, vAddress)) {
+            LOG(tout << "Unresolved address = " << address << std::endl);
             FAIL_LOUD("Writing concreteness to heap: unable to resolve address");
         }
 
@@ -243,11 +256,7 @@ namespace vsharp {
         char *bytes = obj->readBytes(address.offset, sizeOfPtr);
         if (isRef) {
             assert(sizeOfPtr == sizeof(UINT_PTR));
-            UINT_PTR ref = *(UINT_PTR *) bytes;
-            VirtualAddress vAddress;
-            resolve(ref, vAddress);
-            assert(vAddress.offset == 0);
-            memcpy(bytes, &vAddress.obj, sizeof(UINT_PTR));
+            resolveRefInHeapBytes(bytes);
         }
         return bytes;
     }
@@ -263,7 +272,7 @@ namespace vsharp {
 
     void Storage::readWholeObject(OBJID objID, char *&buffer, SIZE &size, bool isArray, int refOffsetsLength, int *refOffsets) const {
         Object *obj = (Object *) objID;
-        size = obj->right - obj->left;
+        size = obj->sizeOf();
         VirtualAddress vAddress{objID, 0};
         buffer = readBytes(vAddress, size, false);
         if (isArray && refOffsetsLength > 0) { // TODO: implement for non-vector array
@@ -291,6 +300,7 @@ namespace vsharp {
     }
 
     bool Storage::resolve(ADDR address, VirtualAddress &vAddress) const {
+        assert(address != UNKNOWN_ADDRESS);
         if (address == 0) {
             ObjectKey key{};
             key.none = nullptr;
@@ -302,7 +312,9 @@ namespace vsharp {
             const auto *obj = dynamic_cast<const Object *>(i);
             vAddress.offset = address - obj->left;
             vAddress.obj = (OBJID) obj;
-            vAddress.location = obj->getLocation();
+            ObjectLocation location{};
+            obj->getLocation(location);
+            vAddress.location = location;
             return true;
         }
         return false;
@@ -342,6 +354,7 @@ namespace vsharp {
             vAddress.location = {ReferenceType, key};
         }
         if (!resolve(physAddress, vAddress)) {
+            LOG(tout << "Unresolved address = " << physAddress << std::endl);
             FAIL_LOUD("unable to resolve physical address!");
         }
     }
