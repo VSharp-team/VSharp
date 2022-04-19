@@ -62,7 +62,6 @@ public:
     bool acceptToken(mdToken &token);
     bool acceptInt32(INT32 &value);
     bool acceptTokenAndInt32(mdToken &token, INT32 &value);
-    bool accept2Tokens(mdToken &token1, mdToken &token2);
     bool acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets);
     bool acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef);
     bool sendToken(mdToken token);

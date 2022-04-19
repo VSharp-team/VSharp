@@ -135,8 +135,10 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             let cm = cilState.state.concreteMemory
             let address = cm.GetVirtualAddress baseAddress |> ConcreteHeapAddress
             let typ = TypeOfAddress cilState.state address
-            if offset = UIntPtr.Zero then HeapRef address typ
-            else
+            match offset with
+            | _ when offset = UIntPtr.Zero && not (Types.IsValueType typ) -> HeapRef address typ
+            | _ when offset = UIntPtr.Zero -> HeapRef address Types.ObjectType
+            | _ ->
                 let offset = int offset - metadataSizeOfAddress cilState.state address
                 let offset = Concrete offset Types.TLength
                 Ptr (HeapLocation(address, typ)) Void offset

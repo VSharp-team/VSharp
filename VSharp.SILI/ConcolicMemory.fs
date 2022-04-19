@@ -107,6 +107,13 @@ type ConcolicMemory(communicator : Communicator) =
             let bytes = communicator.ReadHeapBytes address offset size (not t.IsValueType)
             Reflection.bytesToObj bytes t
 
+        member x.ReadBoxedLocation address actualType =
+            let address = (x :> IConcreteMemory).GetPhysicalAddress address
+            let size = TypeUtils.internalSizeOf actualType |> int
+            let metadataSize = LayoutUtils.MetadataSize typeof<Object>
+            let bytes = communicator.ReadHeapBytes address metadataSize size false
+            Reflection.bytesToObj bytes actualType
+
         member x.GetAllArrayData address arrayType =
             let cm = x :> IConcreteMemory
             let elemType, dims, isVector = arrayType

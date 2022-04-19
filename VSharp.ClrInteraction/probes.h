@@ -659,7 +659,7 @@ PROBE(void, Track_Conv_Ovf, (OFFSET offset)) { conv(offset); }
 PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) {
     StackFrame &top = topFrame();
     if (!top.pop1())
-        sendCommand(offset, 1, new EvalStackOperand[1], false); // TODO: can this fork?
+        sendCommand(offset, 1, new EvalStackOperand[1], false);
     else
         top.push1Concrete();
 }
@@ -743,8 +743,8 @@ inline bool ldfld(INT_PTR fieldPtr, INT32 fieldSize) {
 }
 
 // TODO: if objPtr = null, it's static field
-PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
-    if (!ldfld(objPtr + fieldOffset, fieldSize)) {
+PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT_PTR fieldPtr, INT32 fieldSize, OFFSET offset)) {
+    if (!ldfld(fieldPtr, fieldSize)) {
         sendCommand(offset, 1, new EvalStackOperand[1] { mkop_p(objPtr) });
     } else {
         vsharp::topFrame().push1Concrete();
@@ -768,53 +768,52 @@ PROBE(void, Track_Ldfld_Struct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offs
 }
 PROBE(void, Track_Ldflda, (INT_PTR objPtr, mdToken fieldToken, OFFSET offset)) { /*TODO*/ }
 
-inline bool stfld(INT32 fieldOffset, INT32 fieldSize, INT_PTR ptr) {
+inline bool stfld(INT_PTR fieldPtr, INT32 fieldSize) {
     StackFrame &top = vsharp::topFrame();
     bool value = top.peek0();
     bool obj = top.peek1();
-    UINT_PTR address = ptr + fieldOffset;
     bool memory = false;
-    if (obj) memory = heap.readConcreteness(address, fieldSize);
+    if (obj) memory = heap.readConcreteness(fieldPtr, fieldSize);
     if (memory) {
-        heap.writeConcreteness(address, fieldSize, value);
+        heap.writeConcreteness(fieldPtr, fieldSize, value);
     }
     top.pop(2);
     return value && obj && memory;
 }
 
-PROBE(void, Track_Stfld_4, (INT32 fieldOffset, INT_PTR ptr, INT32 value, OFFSET offset)) {
-    if (!stfld(fieldOffset, 4, ptr)) {
+PROBE(void, Track_Stfld_4, (INT_PTR fieldPtr, INT_PTR ptr, INT32 value, OFFSET offset)) {
+    if (!stfld(fieldPtr, 4)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_4(value) });
     }
 }
-PROBE(void, Track_Stfld_8, (INT32 fieldOffset, INT_PTR ptr, INT64 value, OFFSET offset)) {
-    if (!stfld(fieldOffset, 8, ptr)) {
+PROBE(void, Track_Stfld_8, (INT_PTR fieldPtr, INT_PTR ptr, INT64 value, OFFSET offset)) {
+    if (!stfld(fieldPtr, 8)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_8(value) });
     }
 }
-PROBE(void, Track_Stfld_f4, (INT32 fieldOffset, INT_PTR ptr, FLOAT value, OFFSET offset)) {
-    if (!stfld(fieldOffset, sizeof(FLOAT), ptr)) {
+PROBE(void, Track_Stfld_f4, (INT_PTR fieldPtr, INT_PTR ptr, FLOAT value, OFFSET offset)) {
+    if (!stfld(fieldPtr, sizeof(FLOAT))) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f4(value) });
     }
 }
-PROBE(void, Track_Stfld_f8, (INT32 fieldOffset, INT_PTR ptr, DOUBLE value, OFFSET offset)) {
-    if (!stfld(fieldOffset, sizeof(DOUBLE), ptr)) {
+PROBE(void, Track_Stfld_f8, (INT_PTR fieldPtr, INT_PTR ptr, DOUBLE value, OFFSET offset)) {
+    if (!stfld(fieldPtr, sizeof(DOUBLE))) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_f8(value) });
     }
 }
-PROBE(void, Track_Stfld_p, (INT32 fieldOffset, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
-    if (!stfld(fieldOffset, sizeof(INT_PTR), ptr)) {
+PROBE(void, Track_Stfld_p, (INT_PTR fieldPtr, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldPtr, sizeof(INT_PTR))) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_p(value) });
     }
 }
-PROBE(void, Track_Stfld_struct, (INT32 fieldOffset, INT32 fieldSize, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
-    if (!stfld(fieldOffset, fieldSize, ptr)) {
+PROBE(void, Track_Stfld_struct, (INT_PTR fieldPtr, INT32 fieldSize, INT_PTR ptr, INT_PTR value, OFFSET offset)) {
+    if (!stfld(fieldPtr, fieldSize)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_struct(value) });
     }
 }
-PROBE(void, Track_Stfld_refLikeStruct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
+PROBE(void, Track_Stfld_RefLikeStruct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
     INT_PTR ptr = unmem_refLikeStruct();
-    if (!stfld(fieldOffset, fieldSize, ptr)) {
+    if (!stfld(ptr + fieldOffset, fieldSize)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_refLikeStruct() });
     }
 }

@@ -173,8 +173,8 @@ type public SILI(options : SiliOptions) =
                 else __notImplemented'__ "Forking in concolic mode"
             while machine.State.suspended && machine.ExecCommand() do
                 x.BidirectionalSymbolicExecution entryIP
-            // NOTE: if SILI ended method exploration,
-            // but concolic is still running (IIE occured, for example), terminating it
+            // NOTE: if SILI ended method exploration (IIE occured, for example),
+            // but concolic is still running, terminating it
             if machine.IsRunning then machine.Terminate()
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution entryIP

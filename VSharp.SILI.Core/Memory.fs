@@ -25,6 +25,7 @@ module internal Memory =
             member x.ReadArrayLength _ _ _ = internalfail "ReadArrayLength from empty concrete memory"
             member x.ReadArrayLowerBound _ _ _ = internalfail "ReadArrayLowerBound from empty concrete memory"
             member x.ReadClassField _ _ = internalfail "ReadClassField from empty concrete memory"
+            member x.ReadBoxedLocation _ _ = internalfail "ReadBoxedLocation from empty concrete memory"
             member x.GetAllArrayData _ _ = internalfail "GetAllArrayData from empty concrete memory"
             member x.Unmarshall _ _ = internalfail "Unmarshalling address from empty concrete memory"
             member x.Allocate _ _ = internalfail "Allocating address to empty concrete memory"
@@ -625,7 +626,11 @@ module internal Memory =
             (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readBoxedLocation state (address : concreteHeapAddress) =
+        let cm = state.concreteMemory
         match PersistentDict.tryFind state.boxedLocations address with
+        | _ when cm.Contains address ->
+            let typ = typeOfConcreteHeapAddress state address |> toDotNetType
+            cm.ReadBoxedLocation address typ |> objToTerm state typ
         | Some value -> value
         | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
 

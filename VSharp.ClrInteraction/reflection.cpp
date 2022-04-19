@@ -660,7 +660,7 @@ mdToken Reflection::getTypeTokenFromFieldRef(mdToken fieldRef) const {
     HRESULT hr = metadataImport->GetMemberRefProps(fieldRef, &declaringType, new WCHAR[0], 0, &chMember, &signature, &count);
     if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromFieldRef: GetMemberRefProps failed!");
     FieldTypeParser *fieldTypeParser = new FieldTypeParser(metadataEmit);
-    if (!fieldTypeParser->ParseField((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldRef: ParseField failed!");
+    if (!fieldTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldRef: ParseField failed!");
     mdToken fieldType = fieldTypeParser->fieldType();
     delete fieldTypeParser;
     return fieldType;
@@ -678,7 +678,7 @@ mdToken Reflection::getTypeTokenFromFieldDef(mdToken fieldDef) const {
     HRESULT hr = metadataImport->GetFieldProps(fieldDef, &declaringType, new WCHAR[0], 0, &chField, &dwAttr, &signature, &count, &dwCPlusTypeFlag, &constant, &cchValue);
     if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromFieldDef: GetFieldProps failed!");
     FieldTypeParser *fieldTypeParser = new FieldTypeParser(metadataEmit);
-    if (!fieldTypeParser->ParseField((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldDef: ParseField failed!");
+    if (!fieldTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromFieldDef: ParseField failed!");
     mdToken fieldType = fieldTypeParser->fieldType();
     delete fieldTypeParser;
     return fieldType;

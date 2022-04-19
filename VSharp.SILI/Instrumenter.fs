@@ -931,16 +931,21 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     if not isStruct then
                         x.PrependMem_p(0, 0, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
-                    // TODO: here we potentially could calculate offsets inside open generic type! Should do this at
-                    //       runtime, rather than at instrumentation step
-                    let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
+                    // NOTE: getting field offset in runtime
+                    if isStruct then
+                        // TODO: here we potentially could calculate offsets inside open generic type!
+                        //       Should do this at runtime, rather than at instrumentation step
+                        let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                        x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
+                    else
+                        x.PrependDup(&prependTarget)
+                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget)
                     let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
                     x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
                     if isStruct then
                         x.PrependProbeWithOffset(probes.ldfld_struct, [], x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
-                        x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i4_i4_offset_sig, &prependTarget) |> ignore
+                        x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i_i4_offset_sig, &prependTarget) |> ignore
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
                 | OpCodeValues.Ldflda ->
                     x.PrependDup &prependTarget
@@ -965,9 +970,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | UnOp evaluationStackCellType.RefLikeStruct -> false, true
                         | _ -> false, false
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
-                    // TODO: here we potentially could calculate offsets inside open generic type! Should do this at
-                    //       runtime, rather than at instrumentation step
-                    let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                     let fieldToken = lazy(x.AcceptFieldTypeToken fieldInfo)
                     let fieldSizeOpcode, fieldSizeArg as sizeInstr = x.TypeSizeInstr fieldInfo.FieldType fieldToken.Force
 
@@ -978,6 +980,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 let srcInstr = instructions |> Array.find (fun i -> i.offset = srcInstr.offset)
                                 x.AppendProbe(probes.mem_refLikeStruct, [OpCodes.Dup, NoArg; OpCodes.Conv_I, NoArg], x.tokens.void_i_sig, srcInstr))
                         | _ -> __unreachable__()
+                        // TODO: here we potentially could calculate offsets inside open generic type!
+                        //       Should do this at runtime, rather than at instrumentation step
+                        // TODO: refactor all cases and use ldflda #Dima
+                        let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                         let args = [(OpCodes.Ldc_I4, Arg32 fieldOffset); sizeInstr]
                         x.PrependProbeWithOffset(probes.stfld_refLikeStruct, args, x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
@@ -993,34 +999,33 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             | BinOp(evaluationStackCellType.I2, evaluationStackCellType.Ref)
                             | BinOp(evaluationStackCellType.I4, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_4 &prependTarget
-                                probes.stfld_4, x.tokens.void_i4_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig
+                                probes.stfld_4, x.tokens.void_i_i_i4_offset_sig, probes.unmem_4, x.tokens.i4_i1_sig
                             | BinOp(evaluationStackCellType.I8, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.I8, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_8 &prependTarget
-                                probes.stfld_8, x.tokens.void_i4_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig
+                                probes.stfld_8, x.tokens.void_i_i_i8_offset_sig, probes.unmem_8, x.tokens.i8_i1_sig
                             | BinOp(evaluationStackCellType.R4, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.R4, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_f4 &prependTarget
-                                probes.stfld_f4, x.tokens.void_i4_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig
+                                probes.stfld_f4, x.tokens.void_i_i_r4_offset_sig, probes.unmem_f4, x.tokens.r4_i1_sig
                             | BinOp(evaluationStackCellType.R8, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.R8, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p_f8 &prependTarget
-                                probes.stfld_f8, x.tokens.void_i4_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
+                                probes.stfld_f8, x.tokens.void_i_i_r8_offset_sig, probes.unmem_f8, x.tokens.r8_i1_sig
                             | BinOp(evaluationStackCellType.I, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.I, evaluationStackCellType.Ref)
                             | BinOp(evaluationStackCellType.Ref, evaluationStackCellType.I)
                             | BinOp(evaluationStackCellType.Ref, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p &prependTarget
-                                probes.stfld_p, x.tokens.void_i4_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                                probes.stfld_p, x.tokens.void_i_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
                             | BinOp(evaluationStackCellType.Struct, evaluationStackCellType.I)
-                            | BinOp(evaluationStackCellType.Struct, evaluationStackCellType.Ref)
-                            | BinOp(evaluationStackCellType.RefLikeStruct, evaluationStackCellType.I)
-                            | BinOp(evaluationStackCellType.RefLikeStruct, evaluationStackCellType.Ref) ->
+                            | BinOp(evaluationStackCellType.Struct, evaluationStackCellType.Ref) ->
                                 x.PrependMem2_p &prependTarget
-                                probes.stfld_struct, x.tokens.void_i4_i4_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
+                                probes.stfld_struct, x.tokens.void_i_i4_i_i_offset_sig, probes.unmem_p, x.tokens.i_i1_sig
                             | _ -> __unreachable__()
 
-                        x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
+                        x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
+                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget)
                         if isStruct then
                             x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore

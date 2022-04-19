@@ -82,6 +82,7 @@ type IConcreteMemory =
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> arrayType -> bool -> obj
     abstract ReadArrayLowerBound : concreteHeapAddress -> int -> arrayType-> obj
     abstract ReadArrayLength : concreteHeapAddress -> int -> arrayType -> obj
+    abstract ReadBoxedLocation : concreteHeapAddress -> Type -> obj
     abstract GetAllArrayData : concreteHeapAddress -> arrayType -> seq<int list * obj>
     abstract GetPhysicalAddress : concreteHeapAddress -> UIntPtr
     abstract GetVirtualAddress : UIntPtr -> concreteHeapAddress
