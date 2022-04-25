@@ -82,6 +82,7 @@ struct ObjectLocation {
     ObjectKey key;
 };
 
+// TODO: track concreteness of whole object (add field 'bool fullConcreteness')
 class Object : public Interval {
 private:
     // NOTE: each bit corresponds of concreteness of memory byte

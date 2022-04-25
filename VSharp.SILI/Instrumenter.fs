@@ -1421,7 +1421,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.rewriter <- ILRewriter(body)
         x.m <- x.rewriter.Method
         let t = x.m.DeclaringType
-        if typeof<System.Exception>.IsAssignableFrom(t) then
+        if t = typeof<System.InvalidProgramException> || t = typeof<System.TypeLoadException> then
             internalfailf "Incorrect instrumentation: exception %O is thrown!" t
         let shouldInstrument = Array.contains (Reflection.methodToString x.m) x.NeedToSkip |> not
         let result =

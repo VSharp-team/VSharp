@@ -751,16 +751,9 @@ PROBE(void, Track_Ldfld, (INT_PTR objPtr, INT_PTR fieldPtr, INT32 fieldSize, OFF
     }
 }
 PROBE(void, Track_Ldfld_Struct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
+    // TODO: track concreteness of each field (need to get fieldOffset for generic struct)
     StackFrame &top = vsharp::topFrame();
-    StructOptional obj{};
-    top.peekStruct(0, obj);
-    bool structConcreteness = top.pop1();
-    bool memoryConcreteness = false;
-    if (structConcreteness) {
-        Object *p = (Object *)obj.obj;
-        memoryConcreteness = p->readConcreteness(fieldOffset, fieldSize);
-    }
-    if (!memoryConcreteness) {
+    if (!top.pop1()) {
         sendCommand1(offset);
     } else {
         top.push1Concrete();
@@ -1119,9 +1112,11 @@ PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
 }
 
 PROBE(void, Track_Throw, (OFFSET offset)) {
-    //TODO
-    StackFrame &top = vsharp::topFrame();
-    top.pop1();
+    StackFrame &top = topFrame();
+    if (!top.pop1())
+        sendCommand1(offset);
+    else
+        top.push1Concrete();
 }
 PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
 

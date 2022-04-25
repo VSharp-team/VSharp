@@ -663,87 +663,87 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionThrown(ObjectID thrownObjectId)
     // }
     // printf("\n");
 
-    std::cout << "EXCEPTION THROWN!!1!!!1!" << std::endl;
+    LOG(tout << "EXCEPTION THROWN!" << std::endl);
     UNUSED(thrownObjectId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionEnter(FunctionID functionId)
 {
-    std::cout << "EXCEPTION Search function enter" << std::endl;
+    LOG(tout << "EXCEPTION Search function enter" << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 {
-    std::cout << "EXCEPTION Search function leave" << std::endl;
+    LOG(tout << "EXCEPTION Search function leave" << std::endl);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID functionId)
 {
-    std::cout << "EXCEPTION Search filter enter" << std::endl;
+    LOG(tout << "EXCEPTION Search filter enter" << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterLeave()
 {
-    std::cout << "EXCEPTION Search filter leave" << std::endl;
+    LOG(tout << "EXCEPTION Search filter leave" << std::endl);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchCatcherFound(FunctionID functionId)
 {
-    std::cout << "EXCEPTION Search catcher found" << std::endl;
+    LOG(tout << "EXCEPTION Search catcher found" << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerEnter(UINT_PTR ptr)
 {
-    std::cout << "EXCEPTION OS HANDLER ENTER!" << std::endl;
+    LOG(tout << "EXCEPTION OS HANDLER ENTER!" << std::endl);
     UNUSED(ptr);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR ptr)
 {
-    std::cout << "EXCEPTION OS HANDLER LEAVE!" << std::endl;
+    LOG(tout << "EXCEPTION OS HANDLER LEAVE!" << std::endl);
     UNUSED(ptr);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionEnter(FunctionID functionId)
 {
-    std::cout << "EXCEPTION UNWIND FUNCTION ENTER!" << std::endl;
+    LOG(tout << "EXCEPTION UNWIND FUNCTION ENTER!" << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
 {
-    std::cout << "EXCEPTION UNWIND FUNCTION LEAVE!" << std::endl;
+    LOG(tout << "EXCEPTION UNWIND FUNCTION LEAVE!" << std::endl);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFinallyEnter(FunctionID functionId)
 {
-    std::cout << "EXCEPTION UNWIND FINALLY ENTER!" << std::endl;
+    LOG(tout << "EXCEPTION UNWIND FINALLY ENTER!" << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFinallyLeave()
 {
-    std::cout << "EXCEPTION UNWIND FINALLY LEAVE!" << std::endl;
+    LOG(tout << "EXCEPTION UNWIND FINALLY LEAVE!" << std::endl);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionCatcherEnter(FunctionID functionId, ObjectID objectId)
 {
-    std::cout << "EXCEPTION CATCHER ENTER!" << std::endl;
+    LOG(tout << "EXCEPTION CATCHER ENTER!" << std::endl);
     UNUSED(functionId);
     UNUSED(objectId);
     return S_OK;
@@ -751,7 +751,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionCatcherEnter(FunctionID function
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionCatcherLeave()
 {
-    std::cout << "EXCEPTION CATCHER Leave!" << std::endl;
+    LOG(tout << "EXCEPTION CATCHER Leave!" << std::endl);
     return S_OK;
 }
 
