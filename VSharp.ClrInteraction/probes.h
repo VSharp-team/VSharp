@@ -7,7 +7,6 @@
 #include <vector>
 
 #define COND INT_PTR
-#define OFFSET UINT32
 
 namespace vsharp {
 
@@ -237,22 +236,22 @@ void freeCommand(ExecCommand &command) {
     delete[] command.newAddressesTypes;
 }
 
-void updateMemory(EvalStackOperand &op, unsigned int idx) {
+void updateMemory(EvalStackOperand &op, Stack::OperandMem &opmem, unsigned int idx) {
     switch (op.typ) {
         case OpI4:
-            update_i4((INT32) op.content.number, (INT8) idx);
+            opmem.update_i4((INT32) op.content.number, (INT8) idx);
             break;
         case OpI8:
-            update_i8((INT64) op.content.number, (INT8) idx);
+            opmem.update_i8((INT64) op.content.number, (INT8) idx);
             break;
         case OpR4:
-            update_f4(op.content.number, (INT8) idx);
+            opmem.update_f4(op.content.number, (INT8) idx);
             break;
         case OpR8:
-            update_f8(op.content.number, (INT8) idx);
+            opmem.update_f8(op.content.number, (INT8) idx);
             break;
         case OpRef:
-            update_p((INT_PTR) Storage::virtToPhysAddress(op.content.address), (INT8) idx);
+            opmem.update_p((INT_PTR) Storage::virtToPhysAddress(op.content.address), (INT8) idx);
             break;
         case OpStruct:
             FAIL_LOUD("Not implemented!");
@@ -303,7 +302,7 @@ CommandType getAndHandleCommand() {
     return command;
 }
 
-bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops, bool mightFork = true) {
+bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     ExecCommand command{};
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
@@ -314,23 +313,24 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops, bool m
         commandType = getAndHandleCommand();
     } while (commandType != ReadExecResponse);
 
-    StackFrame &top = vsharp::topFrame();
+    Stack &stack = vsharp::stack();
+    StackFrame &top = stack.topFrame();
     int framesCount;
     EvalStackOperand internalCallResult = EvalStackOperand {OpSymbolic, 0};
     unsigned oldOpsCount = opsCount;
     bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
-    if (mightFork && opsConcretized && opsCount > 0) {
-        const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
-        for (const auto &poppedSymb : poppedSymbs) {
-            assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
-            unsigned idx = opsCount - poppedSymb.second - 1;
-            assert(idx < opsCount);
-            EvalStackOperand op = ops[idx];
-            updateMemory(op, idx);
-        }
-    }
+//    if (mightFork && opsConcretized && opsCount > 0) {
+//        const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
+//        for (const auto &poppedSymb : poppedSymbs) {
+//            assert((int)opsCount - (int)poppedSymb.second - 1 >= 0);
+//            unsigned idx = opsCount - poppedSymb.second - 1;
+//            assert(idx < opsCount);
+//            EvalStackOperand op = ops[idx];
+//            updateMemory(op, idx);
+//        }
+//    }
     if (internalCallResult.typ != OpSymbolic)
-        updateMemory(internalCallResult, oldOpsCount);
+        updateMemory(internalCallResult, stack.opmem(offset), oldOpsCount);
 
     vsharp::stack().resetPopsTracking(framesCount);
     freeCommand(command);
@@ -367,31 +367,32 @@ EvalStackOperand mkop_refLikeStruct() {
     return {OpStruct, content};
 }
 
-EvalStackOperand* createOps(int opsCount) {
+EvalStackOperand* createOps(int opsCount, OFFSET offset) {
+    const Stack::OperandMem &top = vsharp::stack().opmem(offset);
     auto ops = new EvalStackOperand[opsCount];
     for (int i = 0; i < opsCount; ++i) {
-        CorElementType type = unmemType((INT8) i);
+        CorElementType type = top.unmemType((INT8) i);
         switch (type) {
             case ELEMENT_TYPE_I1:
-                ops[i] = mkop_4(unmem_i1((INT8) i));
+                ops[i] = mkop_4(top.unmem_i1((INT8) i));
                 break;
             case ELEMENT_TYPE_I2:
-                ops[i] = mkop_4(unmem_i2((INT8) i));
+                ops[i] = mkop_4(top.unmem_i2((INT8) i));
                 break;
             case ELEMENT_TYPE_I4:
-                ops[i] = mkop_4(unmem_i4((INT8) i));
+                ops[i] = mkop_4(top.unmem_i4((INT8) i));
                 break;
             case ELEMENT_TYPE_I8:
-                ops[i] = mkop_8(unmem_i8((INT8) i));
+                ops[i] = mkop_8(top.unmem_i8((INT8) i));
                 break;
             case ELEMENT_TYPE_R4:
-                ops[i] = mkop_f4(unmem_f4((INT8) i));
+                ops[i] = mkop_f4(top.unmem_f4((INT8) i));
                 break;
             case ELEMENT_TYPE_R8:
-                ops[i] = mkop_f8(unmem_f8((INT8) i));
+                ops[i] = mkop_f8(top.unmem_f8((INT8) i));
                 break;
             case ELEMENT_TYPE_PTR:
-                ops[i] = mkop_p(unmem_p((INT8) i));
+                ops[i] = mkop_p(top.unmem_p((INT8) i));
                 break;
             default:
                 LOG(tout << "type = " << type << std::endl);
@@ -505,8 +506,8 @@ inline bool starg(INT16 idx) {
     top.arg(idx) = cell;
     return concreteness;
 }
-PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
 
 inline bool stloc(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
@@ -515,19 +516,19 @@ inline bool stloc(INT16 idx) {
     top.loc(idx) = cell;
     return concreteness;
 }
-PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
-PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
 PROBE(void, Track_Dup, (OFFSET offset)) {
     StackFrame &top = topFrame();
     const LocalObject &cell = top.peekObject(0);
     if (!top.dup()) {
-        sendCommand(offset, 1, new EvalStackOperand[1], false);
+        sendCommand(offset, 1, new EvalStackOperand[1]);
         top.push1(cell);
     }
 }
@@ -617,7 +618,7 @@ PROBE(void, Track_Conv_Ovf, (OFFSET offset)) { conv(offset); }
 PROBE(void, Track_Newarr, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) {
     StackFrame &top = topFrame();
     if (!top.pop1())
-        sendCommand(offset, 1, new EvalStackOperand[1], false);
+        sendCommand(offset, 1, new EvalStackOperand[1]);
     else
         top.push1Concrete();
 }
@@ -763,7 +764,7 @@ PROBE(void, Track_Stfld_struct, (INT_PTR fieldPtr, INT32 fieldSize, INT_PTR ptr,
     }
 }
 PROBE(void, Track_Stfld_RefLikeStruct, (INT32 fieldOffset, INT32 fieldSize, OFFSET offset)) {
-    INT_PTR ptr = unmem_refLikeStruct();
+    INT_PTR ptr = vsharp::stack().opmem(offset).unmem_refLikeStruct();
     if (!stfld(ptr + fieldOffset, fieldSize)) {
         sendCommand(offset, 2, new EvalStackOperand[2] { mkop_p(ptr), mkop_refLikeStruct() });
     }
@@ -997,11 +998,11 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
-    auto ops = createOps(argsCount);
+    auto ops = createOps(argsCount, offset);
     sendCommand(offset, argsCount, ops);
 }
 PROBE(VOID, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
-    auto ops = createOps(argsCount);
+    auto ops = createOps(argsCount, offset);
     sendCommand(offset, argsCount, ops);
 }
 
@@ -1059,22 +1060,22 @@ PROBE(void, Track_Throw, (OFFSET offset)) {
 }
 PROBE(void, Track_Rethrow, (OFFSET offset)) { /*TODO*/ }
 
-PROBE(void, Mem_p, (INT_PTR arg)) { clear_mem(); mem_p(arg); }
+//PROBE(void, Mem_p, (INT_PTR arg)) { clear_mem(); mem_p(arg); }
 
-PROBE(void, Mem_1_idx, (INT8 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i1(arg, idx); }
-PROBE(void, Mem_2_idx, (INT16 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i2(arg, idx); }
-PROBE(void, Mem_4_idx, (INT32 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i4(arg, idx); }
-PROBE(void, Mem_8_idx, (INT64 arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_i8(arg, idx); }
-PROBE(void, Mem_f4_idx, (FLOAT arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_f4(arg, idx); }
-PROBE(void, Mem_f8_idx, (DOUBLE arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_f8(arg, idx); }
-PROBE(void, Mem_p_idx, (INT_PTR arg, INT8 idx, INT8 order)) { if (order == 0) clear_mem(); mem_p(arg, idx); }
+PROBE(void, Mem_1, (INT8 arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_i1(arg, idx); }
+PROBE(void, Mem_2, (INT16 arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_i2(arg, idx); }
+PROBE(void, Mem_4, (INT32 arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_i4(arg, idx); }
+PROBE(void, Mem_8, (INT64 arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_i8(arg, idx); }
+PROBE(void, Mem_f4, (FLOAT arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_f4(arg, idx); }
+PROBE(void, Mem_f8, (DOUBLE arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_f8(arg, idx); }
+PROBE(void, Mem_p, (INT_PTR arg, INT8 idx, OFFSET offset)) { vsharp::stack().opmem(offset).mem_p(arg, idx); }
 
-PROBE(void, Mem2_4, (INT32 arg1, INT32 arg2)) { clear_mem(); mem_i4(arg1); mem_i4(arg2); }
-PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2)) { clear_mem(); mem_i8(arg1); mem_i8(arg2); }
-PROBE(void, Mem2_f4, (FLOAT arg1, FLOAT arg2)) { clear_mem(); mem_f4(arg1); mem_f4(arg2); }
-PROBE(void, Mem2_f8, (DOUBLE arg1, DOUBLE arg2)) { clear_mem(); mem_f8(arg1); mem_f8(arg2); }
+PROBE(void, Mem2_4, (INT32 arg1, INT32 arg2, OFFSET offset)) { auto &opmem = vsharp::stack().opmem(offset); opmem.mem_i4(arg1); opmem.mem_i4(arg2); }
+PROBE(void, Mem2_8, (INT64 arg1, INT64 arg2, OFFSET offset)) { auto &opmem = vsharp::stack().opmem(offset); opmem.mem_i8(arg1); opmem.mem_i8(arg2); }
+PROBE(void, Mem2_f4, (FLOAT arg1, FLOAT arg2, OFFSET offset)) { auto &opmem = vsharp::stack().opmem(offset); opmem.mem_f4(arg1); opmem.mem_f4(arg2); }
+PROBE(void, Mem2_f8, (DOUBLE arg1, DOUBLE arg2, OFFSET offset)) { auto &opmem = vsharp::stack().opmem(offset); opmem.mem_f8(arg1); opmem.mem_f8(arg2); }
 //PROBE(void, Mem2_p, (INT_PTR arg1, INT_PTR arg2)) { clear_mem(); mem_p(arg1); mem_p(arg2); }
-PROBE(void, Mem2_8_4, (INT64 arg1, INT32 arg2)) { clear_mem(); mem_i8(arg1); mem_i4(arg2); }
+PROBE(void, Mem2_8_4, (INT64 arg1, INT32 arg2, OFFSET offset)) { auto &opmem = vsharp::stack().opmem(offset); opmem.mem_i8(arg1); opmem.mem_i4(arg2); }
 //PROBE(void, Mem2_4_p, (INT32 arg1, INT_PTR arg2)) { clear_mem(); mem_i4(arg1); mem_p(arg2); }
 //PROBE(void, Mem2_p_1, (INT_PTR arg1, INT8 arg2)) { clear_mem(); mem_p(arg1); mem_i1(arg2); }
 //PROBE(void, Mem2_p_2, (INT_PTR arg1, INT16 arg2)) { clear_mem(); mem_p(arg1); mem_i2(arg2); }
@@ -1083,7 +1084,7 @@ PROBE(void, Mem2_8_4, (INT64 arg1, INT32 arg2)) { clear_mem(); mem_i8(arg1); mem
 //PROBE(void, Mem2_p_f4, (INT_PTR arg1, FLOAT arg2)) { clear_mem(); mem_p(arg1); mem_f4(arg2); }
 //PROBE(void, Mem2_p_f8, (INT_PTR arg1, DOUBLE arg2)) { clear_mem(); mem_p(arg1); mem_f8(arg2); }
 
-PROBE(void, Mem_RefLikeStruct, (INT_PTR arg)) { clear_mem(); mem_refLikeStruct(arg); }
+PROBE(void, Mem_RefLikeStruct, (INT_PTR arg, OFFSET offset)) { vsharp::stack().opmem(offset).mem_refLikeStruct(arg); }
 
 //PROBE(void, Mem3_p_p_p, (INT_PTR arg1, INT_PTR arg2, INT_PTR arg3)) { clear_mem(); mem_p(arg1); mem_p(arg2); mem_p(arg3); }
 //PROBE(void, Mem3_p_p_i1, (INT_PTR arg1, INT_PTR arg2, INT8 arg3)) { clear_mem(); mem_p(arg1); mem_p(arg2); mem_i1(arg3); }
@@ -1100,13 +1101,25 @@ PROBE(void, Mem_RefLikeStruct, (INT_PTR arg)) { clear_mem(); mem_refLikeStruct(a
 //PROBE(void, Mem3_p_p_f8, (INT_PTR arg1, INT_PTR arg2, DOUBLE arg3)) { clear_mem(); mem_p(arg1); mem_p(arg2); mem_f8(arg3); }
 //PROBE(void, Mem3_p_i1_p, (INT_PTR arg1, INT8 arg2, INT_PTR arg3)) { clear_mem(); mem_p(arg1); mem_i1(arg2); mem_p(arg3); }
 
-PROBE(INT8, Unmem_1, (INT8 idx)) { return unmem_i1(idx); }
-PROBE(INT16, Unmem_2, (INT8 idx)) { return unmem_i2(idx); }
-PROBE(INT32, Unmem_4, (INT8 idx)) { return unmem_i4(idx); }
-PROBE(INT64, Unmem_8, (INT8 idx)) { return unmem_i8(idx); }
-PROBE(FLOAT, Unmem_f4, (INT8 idx)) { return unmem_f4(idx); }
-PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return unmem_f8(idx); }
-PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return unmem_p(idx); }
+PROBE(INT8, Unmem_1, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_i1(idx); }
+PROBE(INT16, Unmem_2, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_i2(idx); }
+PROBE(INT32, Unmem_4, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_i4(idx); }
+PROBE(INT64, Unmem_8, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_i8(idx); }
+PROBE(FLOAT, Unmem_f4, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_f4(idx); }
+PROBE(DOUBLE, Unmem_f8, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_f8(idx); }
+PROBE(INT_PTR, Unmem_p, (INT8 idx)) { return vsharp::stack().lastOpmem().unmem_p(idx); }
+
+PROBE(void, PopOpmem, (OFFSET offset)) {
+#ifdef _DEBUG
+    OFFSET expectedOffset = vsharp::stack().lastOpmem().offset();
+    if (offset != expectedOffset) {
+        LOG(tout << "Pop opmem: expected opmem offset " << expectedOffset << ", but got offset " << offset
+                 << " [token=" << HEX(vsharp::stack().lastOpmem().stackFrame().resolvedToken()) << "]");
+        FAIL_LOUD("Pop: opmem validation failed!")
+    }
+#endif
+    vsharp::stack().popOpmem();
+}
 
 PROBE(void, DumpInstruction, (UINT32 index)) {
 #ifdef _DEBUG

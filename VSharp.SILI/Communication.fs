@@ -163,36 +163,19 @@ type probes = {
     mutable throw : uint64
     mutable rethrow : uint64
 
+    mutable mem_1 : uint64
+    mutable mem_2 : uint64
+    mutable mem_4 : uint64
+    mutable mem_8 : uint64
+    mutable mem_f4 : uint64
+    mutable mem_f8 : uint64
     mutable mem_p : uint64
-    mutable mem_1_idx : uint64
-    mutable mem_2_idx : uint64
-    mutable mem_4_idx : uint64
-    mutable mem_8_idx : uint64
-    mutable mem_f4_idx : uint64
-    mutable mem_f8_idx : uint64
-    mutable mem_p_idx : uint64
     mutable mem2_4 : uint64
     mutable mem2_8 : uint64
     mutable mem2_f4 : uint64
     mutable mem2_f8 : uint64
-//    mutable mem2_p : uint64
     mutable mem2_8_4 : uint64
     mutable mem_refLikeStruct : uint64
-//    mutable mem2_4_p : uint64
-//    mutable mem2_p_1 : uint64
-//    mutable mem2_p_2 : uint64
-//    mutable mem2_p_4 : uint64
-//    mutable mem2_p_8 : uint64
-//    mutable mem2_p_f4 : uint64
-//    mutable mem2_p_f8 : uint64
-//    mutable mem3_p_p_p : uint64
-//    mutable mem3_p_p_i1 : uint64
-//    mutable mem3_p_p_i2 : uint64
-//    mutable mem3_p_p_i4 : uint64
-//    mutable mem3_p_p_i8 : uint64
-//    mutable mem3_p_p_f4 : uint64
-//    mutable mem3_p_p_f8 : uint64
-//    mutable mem3_p_i1_p : uint64
     mutable unmem_1 : uint64
     mutable unmem_2 : uint64
     mutable unmem_4 : uint64
@@ -200,6 +183,7 @@ type probes = {
     mutable unmem_f4 : uint64
     mutable unmem_f8 : uint64
     mutable unmem_p : uint64
+    mutable popOpmem : uint64
 
     mutable dumpInstruction : uint64
 }
@@ -238,14 +222,7 @@ type signatureTokens = {
     mutable void_i_r4_sig : uint32
     mutable void_i_r8_sig : uint32
     mutable void_i_i_sig : uint32
-    mutable void_i_size_sig : uint32
     mutable void_i1_size_sig : uint32
-    mutable void_i4_i4_sig : uint32
-    mutable void_i4_i_sig : uint32
-    mutable void_i8_i4_sig : uint32
-    mutable void_i8_i8_sig : uint32
-    mutable void_r4_r4_sig : uint32
-    mutable void_r8_r8_sig : uint32
     mutable bool_i_i4_sig : uint32
     mutable bool_i_i_sig : uint32
     mutable bool_i_i_i4_sig : uint32
@@ -256,13 +233,16 @@ type signatureTokens = {
     mutable void_i_i_i8_sig : uint32
     mutable void_i_i_r4_sig : uint32
     mutable void_i_i_r8_sig : uint32
-    mutable void_i_i1_i_sig : uint32
-    mutable void_i1_i1_i1_sig : uint32
-    mutable void_i2_i1_i1_sig : uint32
-    mutable void_i4_i1_i1_sig : uint32
-    mutable void_i8_i1_i1_sig : uint32
-    mutable void_r4_i1_i1_sig : uint32
-    mutable void_r8_i1_i1_sig : uint32
+    mutable void_i1_i1_offset_sig : uint32
+    mutable void_i2_i1_offset_sig : uint32
+    mutable void_i4_i1_offset_sig : uint32
+    mutable void_i8_i1_offset_sig : uint32
+    mutable void_r4_i1_offset_sig : uint32
+    mutable void_r8_i1_offset_sig : uint32
+    mutable void_i8_i4_offset_sig : uint32
+    mutable void_i8_i8_offset_sig : uint32
+    mutable void_r4_r4_offset_sig : uint32
+    mutable void_r8_r8_offset_sig : uint32
     mutable void_i_i1_i1_sig : uint32
     mutable void_i_i4_i2_sig : uint32
     mutable void_token_u2_bool_u4_u4_sig : uint32
@@ -307,12 +287,7 @@ type signatureTokens = {
     mutable void_i4_i_r4_offset_sig : uint32
     mutable void_i4_i_r8_offset_sig : uint32
     mutable void_i4_i_i_offset_sig : uint32
-    mutable void_token_u4_u4_u4_sig : uint32
     mutable void_token_i_i_offset_sig : uint32
-    mutable void_token_i_i4_offset_sig : uint32
-    mutable void_token_i_i8_offset_sig : uint32
-    mutable void_token_i_r4_offset_sig : uint32
-    mutable void_token_i_r8_offset_sig : uint32
     mutable void_i4_i4_i_i_offset_sig : uint32
     mutable void_i_i4_i_i_offset_sig : uint32
     mutable void_token_token_bool_u2_offset_sig : uint32

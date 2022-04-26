@@ -46,11 +46,11 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         //       but length of ipStack must be equal to length of stack frames
         CilStateOperations.pushToIp (ipOperations.instruction method -1) cilState
 
-    let bindNewCilState newState =
-        if not <| LanguagePrimitives.PhysicalEquality cilState newState then
-            cilState.suspended <- false
-            newState.suspended <- true
-            cilState <- newState
+//    let bindNewCilState newState =
+//        if not <| LanguagePrimitives.PhysicalEquality cilState newState then
+//            cilState.suspended <- false
+//            newState.suspended <- true
+//            cilState <- newState
 
     let metadataSizeOfAddress state address =
         let t = TypeOfAddress state address |> Types.ToDotNetType
@@ -274,14 +274,15 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         // NOTE: if there are no branching, TryGetModel forces solver to create model
         // NOTE: this made to check communication between Concolic and SILI
         // TODO: after all checks, change this to 'cilState.state.model'
-        match TryGetModel cilState.state with
-        | Some model ->
-            let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
-            if List.length operands <> List.length concretizedOps then None
-            else
-                bindNewCilState cilState
-                Some concretizedOps
-        | None -> None
+//        match TryGetModel cilState.state with
+//        | Some model ->
+//            let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
+//            if List.length operands <> List.length concretizedOps then None
+//            else
+//                bindNewCilState cilState
+//                Some concretizedOps
+//        | None -> None
+        None
 
     member x.StepDone (steppedStates : cilState list) =
         let methodEnded = CilStateOperations.methodEnded cilState

@@ -7,6 +7,8 @@
 
 namespace vsharp {
 
+#define OFFSET UINT32
+
 // NOTE: every stack cell (evaluation stack cell, local or argument) contains LocalObject class by value
 struct StackCell {
     unsigned content;
@@ -96,8 +98,71 @@ private:
     unsigned m_minTopSinceLastSent;
 
     Storage &m_heap;
+
 public:
-    Stack(Storage &heap);
+    struct OperandMem {
+    private:
+        const StackFrame &m_frame;
+        OFFSET m_offset;
+        unsigned m_entries_count;
+        unsigned m_data_ptr;
+        std::vector<char> m_data;
+        std::vector<unsigned> m_dataPtrs;
+
+        int m_memSize = 0;
+
+        INT_PTR m_refLikeStructRef;
+
+    public:
+        OperandMem(const StackFrame &frame, OFFSET offset);
+
+        const StackFrame &stackFrame() const { return m_frame; }
+        OFFSET offset() const { return m_offset; }
+        INT8 entriesCount() { return m_entries_count; }
+
+        void mem(char *value, CorElementType t, size_t size, INT8 idx);
+        void mem(char *value, CorElementType t, size_t size);
+        void update(char *value, size_t size, INT8 idx);
+
+        void mem_i1(INT8 value);
+        void mem_i1(INT8 value, INT8 idx);
+        void mem_i2(INT16 value);
+        void mem_i2(INT16 value, INT8 idx);
+        void mem_i4(INT32 value);
+        void mem_i4(INT32 value, INT8 idx);
+        void mem_i8(INT64 value);
+        void mem_i8(INT64 value, INT8 idx);
+        void mem_f4(FLOAT value);
+        void mem_f4(FLOAT value, INT8 idx);
+        void mem_f8(DOUBLE value);
+        void mem_f8(DOUBLE value, INT8 idx);
+        void mem_p(INT_PTR value);
+        void mem_p(INT_PTR value, INT8 idx);
+        void mem_refLikeStruct(INT_PTR ref);
+        void update_i1(INT8 value, INT8 idx);
+        void update_i2(INT16 value, INT8 idx);
+        void update_i4(INT32 value, INT8 idx);
+        void update_i8(INT64 value, INT8 idx);
+        void update_f4(long long value, INT8 idx);
+        void update_f8(long long value, INT8 idx);
+        void update_p(INT_PTR value, INT8 idx);
+        CorElementType unmemType(INT8 idx) const;
+        INT8 unmem_i1(INT8 idx) const;
+        INT16 unmem_i2(INT8 idx) const;
+        INT32 unmem_i4(INT8 idx) const;
+        INT64 unmem_i8(INT8 idx) const;
+        FLOAT unmem_f4(INT8 idx) const;
+        DOUBLE unmem_f8(INT8 idx) const;
+        INT_PTR unmem_p(INT8 idx) const;
+        INT_PTR unmem_refLikeStruct() const;
+    };
+
+private:
+    std::deque<OperandMem> m_opmem;
+
+public:
+    explicit Stack(Storage &heap);
+
     void pushFrame(unsigned resolvedToken, unsigned unresolvedToken, const bool *args, unsigned argsCount);
     void popFrame();
     void popFrameUntracked();
@@ -113,6 +178,11 @@ public:
     unsigned minTopSinceLastSent() const;
     void resetMinTop();
     void resetPopsTracking(int framesCount);
+
+    bool opmemIsEmpty() const;
+    OperandMem &opmem(OFFSET offset);
+    const OperandMem &lastOpmem() const;
+    void popOpmem();
 };
 
 }
