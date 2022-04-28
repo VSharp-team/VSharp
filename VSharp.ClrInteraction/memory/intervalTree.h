@@ -60,12 +60,15 @@ public:
     }
 
     void deleteIntervals(const std::vector<Interval *> &intervals) {
-        remove_if(
-            objects.begin(),
-            objects.end(),
-            [&intervals](Interval *i) {
-                return std::find(intervals.begin(), intervals.end(), i) != intervals.end();
-            }
+        objects.erase(
+            remove_if(
+                objects.begin(),
+                objects.end(),
+                [&intervals](Interval *i) {
+                    return std::find(intervals.begin(), intervals.end(), i) != intervals.end();
+                }
+            ),
+            objects.end()
         );
     }
 
