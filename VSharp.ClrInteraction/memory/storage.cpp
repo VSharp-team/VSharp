@@ -84,15 +84,23 @@ namespace vsharp {
 
 // --------------------------- Object ---------------------------
 
+    const cell max = 0xFF;
+    const cell min = 0x00;
+    const size_t sizeofCell = sizeof(cell) * 8;
+    inline SIZE squashSize(SIZE size) {
+        return (size + sizeofCell - 1) / sizeofCell;
+    }
+
     Object::Object(ADDR address, SIZE size, ObjectLocation location)
         : Interval(address, size)
         , m_location(location)
     {
         assert(size > 0);
-        SIZE squashedSize = (size + sizeofCell - 1) / sizeofCell;
+        SIZE squashedSize = squashSize(size);
         concreteness = new cell[squashedSize];
         // NOTE: all contents are concrete at the beginning
         for (int i = 0; i < squashedSize; ++i) concreteness[i] = max;
+        fullConcreteness = true;
     }
 
     Object::~Object() {
@@ -135,11 +143,12 @@ namespace vsharp {
     }
 
     bool Object::isFullyConcrete() const {
-        return readConcreteness(0, sizeOf());
+        return fullConcreteness;
     }
 
     void Object::writeConcretenessWholeObject(bool vConcreteness) {
         writeConcreteness(0, sizeOf(), vConcreteness);
+        fullConcreteness = vConcreteness;
     }
 
     void Object::writeConcreteness(SIZE offset, SIZE size, bool vConcreteness) {
@@ -167,6 +176,10 @@ namespace vsharp {
             else
                 this->concreteness[endIndex] &= ~endMask;
         }
+        if (fullConcreteness)
+            fullConcreteness = vConcreteness;
+        else
+            fullConcreteness = readConcreteness(0, sizeOf());
     }
 
     void Object::getLocation(ObjectLocation &location) const {
@@ -176,6 +189,86 @@ namespace vsharp {
     int Object::sizeOf() const {
         SIZE size = right - left + 1;
         return (int) size;
+    }
+
+// --------------------------- LocalObject ---------------------------
+
+// TODO: think about marked and flushed flags
+
+    LocalObject::LocalObject(int size, const ObjectLocation &location)
+        : Object(UNKNOWN_ADDRESS, size, location)
+    {
+    }
+
+    LocalObject::LocalObject()
+        : Object(UNKNOWN_ADDRESS, 1, ObjectLocation{})
+    {
+    }
+
+    LocalObject::~LocalObject() = default;
+
+    LocalObject::LocalObject(const LocalObject &s)
+        : Object(s.left, s.sizeOf(), s.m_location)
+    {
+        copyConcreteness(s);
+    }
+
+    void LocalObject::changeAddress(ADDR address) {
+        assert(left == UNKNOWN_ADDRESS || left == address || address == UNKNOWN_ADDRESS);
+        int size = sizeOf();
+        left = address;
+        right = address + size - 1;
+    }
+
+    void LocalObject::setSize(int size) {
+        assert(sizeOf() == 1);
+        delete[] concreteness;
+        SIZE squashedSize = squashSize(size);
+        concreteness = new cell[squashedSize];
+        cell value = isFullyConcrete() ? max : min;
+        for (int i = 0; i < squashedSize; ++i) concreteness[i] = value;
+        right = left + size - 1;
+    }
+
+    void LocalObject::setLocation(const ObjectLocation &location) {
+        m_location = ObjectLocation(location);
+    }
+
+    void LocalObject::copyConcreteness(const LocalObject &s) {
+        assert(concreteness != s.concreteness);
+        int size = sizeOf();
+        int sizeOfOther = s.sizeOf();
+        // NOTE: some local cell may have size (locs/args after setLocSize/setArgSize),
+        // but some have no size:
+        // - all cells, pushed via push1Concrete
+        // - locs/args before setLocSize/setArgSize
+        if (size == sizeOfOther) {
+            // NOTE: both cells have size, or both are simplified (size = 1)
+            SIZE squashedSize = squashSize(size);
+            memcpy(concreteness, s.concreteness, squashedSize);
+        } else {
+            // NOTE: one of cells is simplified (size = 1), but another is not
+            // concretizing cell with max size
+            if (size > sizeOfOther) {
+                writeConcretenessWholeObject(s.isFullyConcrete());
+            } else {
+                setSize(sizeOfOther);
+                SIZE squashedSize = squashSize(sizeOfOther);
+                memcpy(concreteness, s.concreteness, squashedSize);
+            }
+        }
+        fullConcreteness = s.fullConcreteness;
+    }
+
+    // NOTE: operator needs to be overloaded, because concreteness is pointer, so it should be copied
+    LocalObject &LocalObject::operator=(const LocalObject &other) {
+        assert(concreteness != other.concreteness);
+        if (this == &other)
+            return *this;
+        copyConcreteness(other);
+        m_location = other.m_location;
+        changeAddress(other.left);
+        return *this;
     }
 
 // --------------------------- Heap ---------------------------
@@ -193,20 +286,11 @@ namespace vsharp {
         return id;
     }
 
-    OBJID Storage::reserveObject(SIZE size, ObjectLocation location, bool concreteness) {
-        auto *obj = new Object(UNKNOWN_ADDRESS, size, location);
-        tree.add(*obj);
-        obj->writeConcretenessWholeObject(concreteness);
-        return (OBJID) obj;
-    }
-
-    UINT_PTR Storage::allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness) {
+    OBJID Storage::allocateLocal(LocalObject *local) {
         const Interval *i;
-        if (!tree.find(address, i)) {
-            auto *obj = new Object(address, size, location);
-            tree.add(*obj);
-            obj->writeConcretenessWholeObject(concreteness);
-            return (OBJID) obj;
+        if (!tree.find(local->left, i)) {
+            tree.add(*local);
+            return (OBJID) local;
         }
         return (OBJID) i;
     }

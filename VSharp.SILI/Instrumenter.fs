@@ -151,8 +151,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         (OpCodes.Ldc_I4, Arg32 localsCount)
                         (OpCodes.Ldc_I4, Arg32 isSpontaneous)]
             x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr) |> ignore
-        if hasThis && hasComplexSize x.m.DeclaringType then
-            x.PrependProbe(probes.setArgSize, [(OpCodes.Ldc_I4, Arg32 0); (OpCodes.Ldc_I4, Arg32 sizeof<System.IntPtr>)], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
         for i = 0 to argsCount - 1 do
             let argType = parameters.[i].ParameterType
             if hasComplexSize argType then
@@ -640,23 +638,28 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | BinOp(evaluationStackCellType.I2, evaluationStackCellType.I4)
                         | BinOp(evaluationStackCellType.I4, evaluationStackCellType.I1)
                         | BinOp(evaluationStackCellType.I4, evaluationStackCellType.I2) ->
-                            x.PrependProbe(probes.mem2_4, [], x.tokens.void_i4_i4_sig, &prependTarget) |> ignore
+                            x.PrependMem_i4(1, 0, &prependTarget)
+                            x.PrependMem_i4(0, 1, &prependTarget)
                             (if isUnchecked then probes.execBinOp_4 else probes.execBinOp_4_ovf), x.tokens.void_u2_i4_i4_offset_sig,
                                 probes.unmem_4, x.tokens.i4_i1_sig, probes.unmem_4, x.tokens.i4_i1_sig
                         | BinOp(evaluationStackCellType.I4, evaluationStackCellType.I8) ->
-                            x.PrependProbe(probes.mem2_8_4, [], x.tokens.void_i8_i4_sig, &prependTarget) |> ignore
+                            x.PrependMem_i4(1, 0, &prependTarget)
+                            x.PrependMem_i8(0, 1, &prependTarget)
                             (if isUnchecked then probes.execBinOp_8_4 else probes.execBinOp_8_4_ovf), x.tokens.void_u2_i8_i4_offset_sig,
                                 probes.unmem_8, x.tokens.i8_i1_sig, probes.unmem_4, x.tokens.i4_i1_sig
                         | BinOp(evaluationStackCellType.I8, evaluationStackCellType.I8) ->
-                            x.PrependProbe(probes.mem2_8, [], x.tokens.void_i8_i8_sig, &prependTarget) |> ignore
+                            x.PrependMem_i8(1, 0, &prependTarget)
+                            x.PrependMem_i8(0, 1, &prependTarget)
                             (if isUnchecked then probes.execBinOp_8 else probes.execBinOp_8_ovf), x.tokens.void_u2_i8_i8_offset_sig,
                                 probes.unmem_8, x.tokens.i8_i1_sig, probes.unmem_8, x.tokens.i8_i1_sig
                         | BinOp(evaluationStackCellType.R4, evaluationStackCellType.R4) ->
-                            x.PrependProbe(probes.mem2_f4, [], x.tokens.void_r4_r4_sig, &prependTarget) |> ignore
+                            x.PrependMem_f4(1, 0, &prependTarget)
+                            x.PrependMem_f4(0, 1, &prependTarget)
                             (if isUnchecked then probes.execBinOp_f4 else probes.execBinOp_f4_ovf), x.tokens.void_u2_r4_r4_offset_sig,
                                 probes.unmem_f4, x.tokens.r4_i1_sig, probes.unmem_f4, x.tokens.r4_i1_sig
                         | BinOp(evaluationStackCellType.R8, evaluationStackCellType.R8) ->
-                            x.PrependProbe(probes.mem2_f8, [], x.tokens.void_r8_r8_sig, &prependTarget) |> ignore
+                            x.PrependMem_f8(1, 0, &prependTarget)
+                            x.PrependMem_f8(0, 1, &prependTarget)
                             (if isUnchecked then probes.execBinOp_f8 else probes.execBinOp_f8_ovf), x.tokens.void_u2_r8_r8_offset_sig,
                                 probes.unmem_f8, x.tokens.r8_i1_sig, probes.unmem_f8, x.tokens.r8_i1_sig
                         | BinOp(evaluationStackCellType.I, evaluationStackCellType.I)
@@ -1051,14 +1054,15 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Stsfld ->
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
                     x.PrependProbeWithOffset(probes.stsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
-                | OpCodeValues.Stobj -> __notImplemented__() // ?????????????????
+                | OpCodeValues.Stobj ->
+                    // TODO: implement via append dup to sources of operands
+                    __notImplemented__() // ?????????????????
                 | OpCodeValues.Box ->
                     x.AppendProbeWithOffset(probes.box, [], x.tokens.void_i_offset_sig, instr)
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Ldlen ->
-                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                    x.PrependProbe(probes.mem_p, [], x.tokens.void_i_sig, &prependTarget) |> ignore
+                    x.PrependMem_p(0, 0, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.ldlen, [], x.tokens.void_i_offset_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore

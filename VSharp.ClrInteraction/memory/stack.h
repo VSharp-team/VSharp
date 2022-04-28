@@ -7,26 +7,10 @@
 
 namespace vsharp {
 
-struct StructOptional {
-    bool isStruct;
-    OBJID obj;
-};
-
-// NOTE: if value is struct, parameter 'content' over approximates its concreteness
-//       otherwise, 'content' represents concreteness of primitive type
+// NOTE: every stack cell (evaluation stack cell, local or argument) contains LocalObject class by value
 struct StackCell {
     unsigned content;
-    StructOptional obj;
-};
-
-union ConcretenessCell {
-    bool primitive;
-    OBJID obj;
-};
-
-struct LocalCell {
-    bool isStruct;
-    ConcretenessCell concreteness;
+    LocalObject cell;
 };
 
 class StackFrame {
@@ -39,10 +23,12 @@ private:
     unsigned m_lastSentSymbolsCount;
     unsigned m_minSymbsCountSinceLastSent;
 
-    LocalCell *m_args;
+    LocalObject *m_args;
     unsigned m_argsCount;
-    LocalCell *m_locals;
+    LocalObject *m_locals;
     unsigned m_localsCount;
+    // NOTE: used to delete from heap all stack cell, which were allocated there
+    std::vector<Interval *> allocatedLocals;
 
     unsigned m_resolvedToken;
     unsigned m_unresolvedToken;
@@ -68,23 +54,21 @@ public:
     bool peek0() const;
     bool peek1() const;
     bool peek2() const;
-    void peekStruct(unsigned idx, StructOptional &structOptional) const;
+    const LocalObject &peekObject(unsigned idx) const;
 
     void pop0();
     bool pop1();
     bool pop(unsigned count);
     void pop1Async(); // Does not track the popped symbolics, but tracks the total amount of such pops.
 
-    void push1(bool isConcrete, StructOptional obj);
+    void push1(const LocalObject &obj);
     void pushPrimitive(bool isConcrete);
     void push1Concrete();
 
-    void arg(unsigned index, LocalCell &cell) const;
-    bool argConcreteness(unsigned index) const;
-    void setArg(unsigned index, LocalCell value);
-    void loc(unsigned index, LocalCell &cell) const;
-    bool locConcreteness(unsigned index) const;
-    void setLoc(unsigned index, LocalCell value);
+    LocalObject &arg(unsigned index) const;
+    LocalObject &loc(unsigned index) const;
+
+    void addAllocatedLocal(LocalObject *local);
 
     bool dup();
 

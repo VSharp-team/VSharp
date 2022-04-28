@@ -84,12 +84,10 @@ struct ObjectLocation {
 
 // TODO: track concreteness of whole object (add field 'bool fullConcreteness')
 class Object : public Interval {
-private:
+protected:
     // NOTE: each bit corresponds of concreteness of memory byte
     cell *concreteness = nullptr;
-    const cell max = 0xFF;
-    const cell min = 0x00;
-    const size_t sizeofCell = sizeof(cell) * 8;
+    bool fullConcreteness = true;
     ObjectLocation m_location;
 public:
     Object(ADDR address, SIZE size, ObjectLocation location);
@@ -102,6 +100,24 @@ public:
     char *readBytes(SIZE offset, SIZE size) const;
     void getLocation(ObjectLocation &location) const;
     int sizeOf() const;
+};
+
+// NOTE: this type is used for stack cells (evaluation stack, locals and arguments
+// NOTE: there are two types of LocalObjects:
+// - simplified (size = 1, ObjectLocation is default, address = UNKNOWN_ADDRESS) --- used for primitive locations
+// - normal --- used for structs and locations with address (cells after ldloca, ldarga)
+class LocalObject : public Object {
+private:
+    void copyConcreteness(const LocalObject &s);
+public:
+    LocalObject(int size, const ObjectLocation &location);
+    LocalObject(const LocalObject &s);
+    LocalObject();
+    ~LocalObject() override;
+    void changeAddress(ADDR address);
+    void setSize(int size);
+    void setLocation(const ObjectLocation &location);
+    LocalObject& operator=(const LocalObject& other);
 };
 
 typedef IntervalTree<Interval, Shift, ADDR> Intervals;
@@ -127,10 +143,8 @@ public:
     Storage();
 
     OBJID allocateObject(ADDR address, SIZE size, char *type, unsigned long typeLength);
-    // Allocate object with unknown address
-    OBJID reserveObject(SIZE size, ObjectLocation location, bool concreteness);
     // Allocate block of memory controlled by stack
-    OBJID allocateLocal(ADDR address, SIZE size, ObjectLocation location, bool concreteness);
+    OBJID allocateLocal(LocalObject *s);
     // Allocate block of static memory
     OBJID allocateStaticField(ADDR address, INT32 size, INT16 id);
 
