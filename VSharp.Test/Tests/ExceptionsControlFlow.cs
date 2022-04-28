@@ -100,6 +100,65 @@ namespace IntegrationTests
             return globalMemory;
         }
 
+        public static void ThrowConcreteException()
+        {
+            throw new SystemException();
+        }
+
+        public static void ThrowSymbolicException(string s)
+        {
+            throw new SystemException(s);
+        }
+
+        [TestSvm]
+        public static int ThrowExceptionInCall()
+        {
+            int globalMemory = 0;
+            try
+            {
+                ThrowConcreteException();
+            }
+            catch (Exception)
+            {
+                globalMemory = 12;
+            }
+            finally
+            {
+                globalMemory++;
+            }
+            return globalMemory;
+        }
+
+        [TestSvm]
+        public static int ThrowExceptionInCallWithFinally()
+        {
+            int globalMemory = 0;
+            void ThrowWithFinally()
+            {
+                try
+                {
+                    throw new SystemException();
+                }
+                finally
+                {
+                    globalMemory++;
+                }
+            }
+
+            try
+            {
+                ThrowWithFinally();
+            }
+            catch (Exception)
+            {
+                globalMemory = 12;
+            }
+            finally
+            {
+                globalMemory++;
+            }
+            return globalMemory;
+        }
 
         [TestSvm(79)]
         public static int NestedTryCatchFinally()
