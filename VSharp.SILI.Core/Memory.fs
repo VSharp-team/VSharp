@@ -469,8 +469,6 @@ module internal Memory =
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
-        SolverInteraction.assertAssumption state condition
-        SolverInteraction.assertAssumption state (!!condition)
         let thenPc = PC.add state.pc condition
         let elsePc = PC.add state.pc (!!condition)
         if PC.isFalse thenPc then

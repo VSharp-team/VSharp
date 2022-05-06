@@ -42,14 +42,10 @@ module public SolverInteraction =
         match solver with
         | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
         | None -> SmtUnknown ""*)
-        let names = PC.toSeq state.pc |> Seq.map (fun t -> t.GetHashCode().ToString())
-        match solver with
-        | Some s -> s.CheckAssumptions names
-        | None -> SmtUnknown ""
-        
-    let assertAssumption state condition =
         let ctx = getEncodingContext state
-        let name = condition.GetHashCode().ToString()
+        let conditionsWithHashCodes = PC.toSeq state.pc |> Seq.map (fun t -> t, t.GetHashCode().ToString())
         match solver with
-        | Some s -> s.AssertAssumption ctx name condition
-        | None -> ()
+        | Some s ->
+            conditionsWithHashCodes |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
+            conditionsWithHashCodes |> Seq.map snd |> s.CheckAssumptions
+        | None -> SmtUnknown ""
