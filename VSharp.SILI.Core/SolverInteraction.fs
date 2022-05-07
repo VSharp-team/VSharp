@@ -46,6 +46,9 @@ module public SolverInteraction =
         let conditionsWithHashCodes = PC.toSeq state.pc |> Seq.map (fun t -> t, t.GetHashCode().ToString())
         match solver with
         | Some s ->
-            conditionsWithHashCodes |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
-            conditionsWithHashCodes |> Seq.map snd |> s.CheckAssumptions
+            try
+                conditionsWithHashCodes |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
+                conditionsWithHashCodes |> Seq.map snd |> s.CheckAssumptions
+            with
+            | e -> SmtUnknown $"Solver couldn't assert and check assumptions: %s{e.Message}"
         | None -> SmtUnknown ""
