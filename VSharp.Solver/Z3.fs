@@ -848,9 +848,15 @@ module internal Z3 =
                     assumptionNames.Add name |> ignore
                     let from = ctx.MkBoolConst name
                     let encoded = builder.EncodeTerm encCtx formula
-                    let implication = ctx.MkImplies (from, encoded.expr :?> BoolExpr)
-                    optCtx.Assert implication
-                
+                    seq {
+                        yield! Seq.cast<Expr> encoded.assumptions
+                        yield encoded.expr
+                    }
+                    |> Seq.iter (fun (implies: Expr) ->
+                        let implication = ctx.MkImplies (from, implies :?> BoolExpr)
+                        optCtx.Assert implication
+                    )
+                    
             member x.CheckAssumptions names =
                 let assumptions = names |> Seq.distinct |> Seq.map ctx.MkBoolConst
                 let amp = " & "
@@ -866,7 +872,6 @@ module internal Z3 =
                 | Status.UNKNOWN ->
                     SmtUnknown optCtx.ReasonUnknown
                 | _ -> __unreachable__()
-                
 
     let reset() =
         builder.Reset()
