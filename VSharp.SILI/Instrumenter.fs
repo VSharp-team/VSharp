@@ -128,7 +128,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let hasThis = Reflection.hasThis x.m
         let argsCount = parameters.Length
         let totalArgsCount = if hasThis then argsCount + 1 else argsCount
-        if x.m = entryPoint then
+        if x.m.MethodHandle = entryPoint.MethodHandle then
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
                         (OpCodes.Ldc_I4, Arg32 totalArgsCount)
 //                        (OpCodes.Ldc_I4, Arg32 1) // Arguments of entry point are concrete
@@ -299,7 +299,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         | _ -> internalfailf "PrependValidLeaveMain: unexpected stack state! %O" instr.stackState
 
     member private x.PlaceLeaveProbe(instr : ilInstr byref) =
-        if x.m = entryPoint then
+        if x.m.MethodHandle = entryPoint.MethodHandle then
             x.PrependValidLeaveMain(&instr)
         else
             let returnsSomething = Reflection.hasNonVoidResult x.m
@@ -931,7 +931,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     else
                         x.PrependDup(&prependTarget)
                         x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                        x.PrependDup(&prependTarget)
                         x.PrependDup(&prependTarget)
                         x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget)
                     let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
