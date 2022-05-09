@@ -1317,8 +1317,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         // TODO: if method is F# internal call, instr.arg <- token of static ctor of type #do
                         // TODO: if method is C# internal call, instr.arg <- token of C# implementation #do
                         let callee = Reflection.resolveMethod x.m token
+                        let isNewObj = opcodeValue = OpCodeValues.Newobj
 
-                        if opcodeValue = OpCodeValues.Newobj then
+                        if isNewObj then
                             if callee.DeclaringType.IsValueType then
                                 x.AppendProbe(probes.newobjStruct, [], x.tokens.void_sig, instr)
                             else
@@ -1330,12 +1331,13 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
 
                         let parameters = callee.GetParameters()
-                        let hasThis = Reflection.hasThis callee && opcodeValue <> OpCodeValues.Newobj
+                        let hasThis = Reflection.hasThis callee && not isNewObj
                         let argsCount = parameters.Length
                         let argsCount = if hasThis then argsCount + 1 else argsCount
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
                         let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                         let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
+                        let retType = Reflection.getMethodReturnType callee
                         if isInternalCall then
                             match instr.stackState with
                             | Some list ->
@@ -1351,7 +1353,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             for i = 1 to argsCount do
                                 x.PrependInstr(OpCodes.Pop, NoArg, &prependTarget)
                             // TODO: if internal call raised exception, raise it in concolic
-                            let retType = Reflection.getMethodReturnType callee
                             if retType <> typeof<System.Void> then
                                 x.PrependLdcDefault(retType, &instr)
                                 let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, &prependTarget)
@@ -1359,20 +1360,25 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
                             else
                                 x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
-                            if opcodeValue <> OpCodeValues.Newobj then
+                            if not isNewObj then
+                                if argsCount > 0 || retType <> typeof<System.Void> then
+                                    x.PrependPopOpmem &prependTarget |> ignore
                                 let br = x.PrependBranch(OpCodes.Br, &prependTarget)
                                 br.arg <- Target nop
-                            if argsCount > 0 || retType <> typeof<System.Void> then
-                                x.PrependPopOpmem &prependTarget |> ignore
+                            else
+                                if argsCount = 0 && retType <> typeof<System.Void> then
+                                    x.PrependPopOpmem &prependTarget |> ignore
                         else
                             x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
 
                         let callStart = x.PrependNop(&prependTarget)
                         br_true.arg <- Target callStart
+                        if isInternalCall && argsCount > 0 then
+                            x.PrependPopOpmem &prependTarget |> ignore
                         let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                         let pushFrameArgs = [(OpCodes.Ldc_I4, Arg32 token)
                                              (OpCodes.Ldc_I4, Arg32 expectedToken)
-                                             (OpCodes.Ldc_I4, Arg32 (if opcodeValue = OpCodeValues.Newobj then 1 else 0))
+                                             (OpCodes.Ldc_I4, Arg32 (if isNewObj then 1 else 0))
                                              (OpCodes.Ldc_I4, Arg32 argsCount)]
                         x.PrependProbeWithOffset(probes.pushFrame, pushFrameArgs, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
                     | _ -> __unreachable__()
