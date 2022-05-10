@@ -359,11 +359,11 @@ bool Stack::opmemIsEmpty() const
 Stack::OperandMem &Stack::opmem(UINT32 offset)
 {
     if (m_opmem.empty()) {
-        m_opmem.push_back(OperandMem(m_frames.back(), offset));
+        m_opmem.emplace_back(m_frames.back(), offset);
     } else {
         const Stack::OperandMem &top = m_opmem.back();
         if (top.offset() != offset || &top.stackFrame() != &m_frames.back()) {
-            m_opmem.push_back(OperandMem(m_frames.back(), offset));
+            m_opmem.emplace_back(m_frames.back(), offset);
         }
     }
     return m_opmem.back();

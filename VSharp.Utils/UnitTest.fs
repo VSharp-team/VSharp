@@ -89,9 +89,9 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             p.SetValue(info, v)
 
     member x.SetTypeGenericParameters (parameters : Type array) =
-            let t = typeof<testInfo>
-            let p = t.GetProperty("classTypeParameters")
-            p.SetValue(info, parameters |> Array.map Serialization.encodeType)
+        let t = typeof<testInfo>
+        let p = t.GetProperty("classTypeParameters")
+        p.SetValue(info, parameters |> Array.map Serialization.encodeType)
 
     member x.SetMethodGenericParameters (parameters : Type array) =
         let t = typeof<testInfo>

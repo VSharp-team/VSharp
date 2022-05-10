@@ -115,6 +115,7 @@ module TypeSolver =
                 if satisfiesTypeParameterConstraints parameter subst typ then
                     validate typ
                 else NotExists
+            // TODO: need to add object constraint?
             let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
             findType supertypes validate (AssemblyManager.assemblies())//)
 

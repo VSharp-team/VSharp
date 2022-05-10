@@ -1419,13 +1419,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member x.Box (cfg : cfg) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata cfg (offset + OpCodes.Box.Size)
         let termType = Types.FromDotNetType t
+        let v = pop cilState
         if Types.IsValueType termType then
-            let v = pop cilState
             if Types.IsNullable termType then x.BoxNullable t v cilState
             else
                 allocateValueTypeInHeap v cilState
                 [cilState]
-        else [cilState]
+        else
+            push v cilState
+            [cilState]
     member private x.UnboxCommon cilState obj t handleRestResults k =
         let nonExceptionCont (cilState : cilState) res k =
             push res cilState

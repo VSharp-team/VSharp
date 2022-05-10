@@ -25,7 +25,8 @@ enum EvalStackArgType {
     OpR4 = 4,
     OpR8 = 5,
     OpRef = 6,
-    OpStruct = 7
+    OpStruct = 7,
+    OpEmpty = 8
 };
 
 union OperandContent {
@@ -255,6 +256,8 @@ void updateMemory(EvalStackOperand &op, Stack::OperandMem &opmem, unsigned int i
             break;
         case OpStruct:
             FAIL_LOUD("Not implemented!");
+        case OpEmpty:
+            FAIL_LOUD("updateMemory: trying to update empty cell!");
         case OpSymbolic:
             FAIL_LOUD("updateMemory: unexpected symbolic value after concretization!");
     }
@@ -366,6 +369,16 @@ EvalStackOperand mkop_refLikeStruct() {
     OperandContent content{};
     return {OpStruct, content};
 }
+EvalStackOperand mkop_empty() {
+    return {OpEmpty, 0};
+}
+
+EvalStackOperand* createEmptyOps(int opsCount) {
+    auto ops = new EvalStackOperand[opsCount];
+    for (int i = 0; i < opsCount; ++i)
+        ops[i] = mkop_empty();
+    return ops;
+}
 
 EvalStackOperand* createOps(int opsCount, OFFSET offset) {
     const Stack::OperandMem &top = vsharp::stack().opmem(offset);
@@ -396,7 +409,7 @@ EvalStackOperand* createOps(int opsCount, OFFSET offset) {
                 break;
             default:
                 LOG(tout << "type = " << type << std::endl);
-                FAIL_LOUD("Exec_Call: not implemented");
+                FAIL_LOUD("createOps: not implemented");
                 break;
         }
     }
@@ -686,10 +699,12 @@ PROBE(void, Track_Castclass, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) {
 PROBE(void, Track_Isinst, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 
 PROBE(void, Track_Box, (INT_PTR ptr, OFFSET offset)) {
-    // TODO
     StackFrame &top = vsharp::topFrame();
-    top.pop1();
-    top.push1Concrete();
+    if (!top.pop1()) {
+        sendCommand1(offset);
+    } else {
+        top.push1Concrete();
+    }
 }
 PROBE(void, Track_Unbox, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
 PROBE(void, Track_Unbox_Any, (INT_PTR ptr, mdToken typeToken, OFFSET offset)) { /*TODO*/ }
@@ -998,7 +1013,7 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
 }
 
 PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
-    auto ops = createOps(argsCount, offset);
+    auto ops = createEmptyOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
 PROBE(VOID, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
