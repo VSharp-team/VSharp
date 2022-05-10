@@ -517,15 +517,14 @@ module internal Memory =
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
-            let pcConstants = state.pc.ToSeq() |> discoverConstants
+            let pcConstants = HashSet(state.pc.Constants)
             let condConstants = condition |> Seq.singleton |> discoverConstants
             let noNewConstants = pcConstants.IsSupersetOf condConstants
-            let kek = state.model.Value.Eval condition
-            if (noNewConstants && (isTrue kek)) then
-                Logger.trace $"Current model satisfies {condition}"
+            let evaluatedCondition = state.model.Value.Eval condition
+            // Current model satisfies new condition, so we can keep it for 'then' branch
+            if (noNewConstants && (isTrue evaluatedCondition)) then
                 let elseState = copy conditionState independentElsePc
                 conditionState.pc <- thenPc
-                conditionState.model <- Option.bind (fun mdl -> Some {mdl with state = {mdl.state with model = mdl.state.model}}) conditionState.model
                 match SolverInteraction.checkSat elseState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
@@ -534,14 +533,13 @@ module internal Memory =
                     elseState.pc <- elsePc
                     elseState.model <- Some elseModel.mdl
                     execution conditionState elseState condition k
-            elif (noNewConstants && (isFalse kek)) then
-                Logger.trace $"Current model satisfies {negatedCondition}"
+            // Current model satisfies !condition, so we can keep it for 'else' branch
+            elif (noNewConstants && (isFalse evaluatedCondition)) then
                 let thenState = copy conditionState independentThenPc
-                conditionState.pc <- elsePc
-                conditionState.model <- Option.bind (fun mdl -> Some {mdl with state = {mdl.state with model = mdl.state.model}}) conditionState.model
                 match SolverInteraction.checkSat thenState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- elsePc
                     elseBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat thenModel ->
                     let elseState = copy conditionState elsePc
@@ -549,7 +547,6 @@ module internal Memory =
                     conditionState.model <- Some thenModel.mdl
                     execution conditionState elseState condition k
             else
-                Logger.trace "Current model doesn't satisfy condition or its negation"
                 conditionState.pc <- independentThenPc
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnknown _ ->
