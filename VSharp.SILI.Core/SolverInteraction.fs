@@ -35,20 +35,28 @@ module public SolverInteraction =
         let order = Seq.fold (fun (map, i) address -> Map.add address i map, i + 1) (Map.empty, 1) sortedAddresses |> fst
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
-
-    let checkSat state = // TODO: need to solve types here? #do
-(*        let ctx = getEncodingContext state
+        
+    let private checkSatPlainly state =
+        let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
         | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
-        | None -> SmtUnknown ""*)
+        | None -> SmtUnknown ""
+        
+    let private checkSatIncrementally split naming state =
         let ctx = getEncodingContext state
-        let conditionsWithHashCodes = PC.toSeq state.pc |> Seq.map (fun t -> t, t.GetHashCode().ToString())
+        let conditionsWithNames =
+            PC.toSeq state.pc
+            |> split
+            |> Seq.map (fun t -> t, naming t)
         match solver with
         | Some s ->
             try
-                conditionsWithHashCodes |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
-                conditionsWithHashCodes |> Seq.map snd |> s.CheckAssumptions
+                conditionsWithNames |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
+                conditionsWithNames |> Seq.map snd |> s.CheckAssumptions
             with
             | e -> SmtUnknown $"Solver couldn't assert and check assumptions: %s{e.Message}"
         | None -> SmtUnknown ""
+        
+    let checkSat = // TODO: need to solve types here? #do        
+        checkSatIncrementally (Seq.collect splitConjunction) (fun t -> t.GetHashCode().ToString())
