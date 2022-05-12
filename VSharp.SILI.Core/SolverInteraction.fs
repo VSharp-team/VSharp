@@ -22,8 +22,7 @@ module public SolverInteraction =
         abstract CheckSat : encodingContext -> query -> smtResult
         abstract Assert : encodingContext -> level -> formula -> unit
         abstract AddPath : encodingContext -> path -> unit
-        abstract AssertAssumption : encodingContext -> string -> formula -> unit
-        abstract CheckAssumptions : string seq -> smtResult
+        abstract CheckAssumptions : encodingContext -> formula seq -> smtResult
 
     let mutable private solver : ISolver option = None
 
@@ -43,20 +42,16 @@ module public SolverInteraction =
         | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
         | None -> SmtUnknown ""
         
-    let private checkSatIncrementally split naming state =
+    let private checkSatIncrementally state =
         let ctx = getEncodingContext state
-        let conditionsWithNames =
-            PC.toSeq state.pc
-            |> split
-            |> Seq.map (fun t -> t, naming t)
+        let conditions = state.pc |> PC.toSeq
         match solver with
         | Some s ->
             try
-                conditionsWithNames |> Seq.iter (fun (t, hc) -> s.AssertAssumption ctx hc t)
-                conditionsWithNames |> Seq.map snd |> s.CheckAssumptions
+                s.CheckAssumptions ctx conditions
             with
             | e -> SmtUnknown $"Solver couldn't assert and check assumptions: %s{e.Message}"
         | None -> SmtUnknown ""
         
     let checkSat = // TODO: need to solve types here? #do        
-        checkSatIncrementally (Seq.collect splitConjunction) (fun t -> t.GetHashCode().ToString())
+        checkSatIncrementally
