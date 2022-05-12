@@ -40,18 +40,14 @@ module public SolverInteraction =
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
         | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
-        | None -> SmtUnknown ""
+        | None -> SmtUnknown "Solver not configured"
         
     let private checkSatIncrementally state =
         let ctx = getEncodingContext state
         let conditions = state.pc |> PC.toSeq
         match solver with
-        | Some s ->
-            try
-                s.CheckAssumptions ctx conditions
-            with
-            | e -> SmtUnknown $"Solver couldn't assert and check assumptions: %s{e.Message}"
-        | None -> SmtUnknown ""
+        | Some s -> s.CheckAssumptions ctx conditions
+        | None -> SmtUnknown "Solver not configured"
         
     let checkSat = // TODO: need to solve types here? #do        
         checkSatIncrementally
