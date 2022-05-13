@@ -872,8 +872,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     //       but at that moment statics will be already initialized
 
     member x.InitializeStatics (cilState : cilState) (t : Type) whenInitializedCont =
-        let fields = t.GetFields(Reflection.staticBindingFlags)
         match t with
+        | _ when isConcolicMode -> whenInitializedCont cilState
         | _ when t.IsGenericParameter -> whenInitializedCont cilState
         | _ ->
             let termType = Types.FromDotNetType t
@@ -882,6 +882,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | True -> whenInitializedCont cilState
             | _ ->
                 let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
+                let fields = t.GetFields(Reflection.staticBindingFlags)
                 Seq.iter (x.InitStaticFieldWithDefaultValue cilState.state) fields
                 Memory.InitializeStaticMembers cilState.state termType
                 match staticConstructor with

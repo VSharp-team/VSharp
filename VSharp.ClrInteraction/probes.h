@@ -39,39 +39,50 @@ struct EvalStackOperand {
     OperandContent content;
 
     size_t size() const {
-        if (typ == OpRef)
-            // NOTE: evaluation stack type * base address * offset * object type * object key
-            return sizeof(EvalStackArgType) + sizeof(UINT_PTR) + sizeof(UINT_PTR) + sizeof(BYTE) + sizeof(BYTE) * 2;
-        return sizeof(EvalStackArgType) + sizeof(INT64);
+        switch (typ) {
+            case OpRef:
+                // NOTE: evaluation stack type * base address * offset * object type * object key
+                return sizeof(INT32) + sizeof(UINT_PTR) + sizeof(UINT_PTR) + sizeof(BYTE) + sizeof(BYTE) * 2;
+            case OpEmpty:
+                return sizeof(INT32);
+            default:
+                return sizeof(INT32) + sizeof(INT64);
+        }
     }
 
     void serialize(char *&buffer) const {
-        *(EvalStackArgType *)buffer = typ;
-        buffer += sizeof(EvalStackArgType);
-        if (typ == OpRef) {
-            VirtualAddress address = content.address;
-            *(UINT_PTR *)buffer = address.obj; buffer += sizeof(UINT_PTR);
-            *(UINT_PTR *)buffer = address.offset; buffer += sizeof(UINT_PTR);
-            ObjectLocation location = address.location;
-            ObjectType type = location.type;
-            *(BYTE *)buffer = type; buffer += sizeof(BYTE);
-            switch (type) {
-                case LocalVariable:
-                case Parameter: {
-                    StackKey key = location.key.stackKey;
-                    *(BYTE *) buffer = key.frame; buffer += sizeof(BYTE);
-                    *(BYTE *) buffer = key.idx; buffer += sizeof(BYTE);
-                    break;
+        *(INT32 *)buffer = (INT32) typ;
+        buffer += sizeof(INT32);
+        switch (typ) {
+            case OpRef: {
+                VirtualAddress address = content.address;
+                *(UINT_PTR *)buffer = address.obj; buffer += sizeof(UINT_PTR);
+                *(UINT_PTR *)buffer = address.offset; buffer += sizeof(UINT_PTR);
+                ObjectLocation location = address.location;
+                ObjectType type = location.type;
+                *(BYTE *)buffer = type; buffer += sizeof(BYTE);
+                switch (type) {
+                    case LocalVariable:
+                    case Parameter: {
+                        StackKey key = location.key.stackKey;
+                        *(BYTE *) buffer = key.frame; buffer += sizeof(BYTE);
+                        *(BYTE *) buffer = key.idx; buffer += sizeof(BYTE);
+                        break;
+                    }
+                    case Statics:
+                        *(INT16 *) buffer = location.key.staticFieldKey; buffer += sizeof(INT16);
+                        break;
+                    default:
+                        buffer += sizeof(BYTE) * 2;
+                        break;
                 }
-                case Statics:
-                    *(INT16 *) buffer = location.key.staticFieldKey; buffer += sizeof(INT16);
-                    break;
-                default:
-                    buffer += sizeof(BYTE) * 2;
-                    break;
+                break;
             }
-        } else {
-            *(INT64 *)buffer = (INT64) content.number; buffer += sizeof(INT64);
+            case OpEmpty:
+                break;
+            default:
+                *(INT64 *)buffer = (INT64) content.number; buffer += sizeof(INT64);
+                break;
         }
     }
 

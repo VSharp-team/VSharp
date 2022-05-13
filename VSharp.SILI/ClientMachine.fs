@@ -195,9 +195,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | OpCodeValues.Callvirt
             | OpCodeValues.Newobj ->
                 let callee = TokenResolver.resolveMethodFromMetadata cfg.methodBase cfg.ilBytes (offset + opCode.Size)
-                let argTypes = m.GetParameters() |> Array.map (fun p -> p.ParameterType)
-                let argTypes = if Reflection.hasThis callee then Array.append [|callee.DeclaringType|] argTypes else argTypes
-                argTypes
+                let argTypes = callee.GetParameters() |> Array.map (fun p -> p.ParameterType)
+                if Reflection.hasThis callee then Array.append [|callee.DeclaringType|] argTypes else argTypes
             | _ -> internalfail "CalleeParamsIfPossible: unexpected opcode"
         | None -> internalfail "CalleeParamsIfPossible: could not get offset"
 
