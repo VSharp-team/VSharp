@@ -464,8 +464,9 @@ PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCo
 PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
 
 PROBE(void, Track_Ldarga_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
-    unsigned frame = stack().framesCount();
-    StackFrame &top = topFrame();
+    Stack &stack = vsharp::stack();
+    unsigned frame = stack.framesCount();
+    StackFrame &top = stack.topFrame();
     LocalObject &cell = top.arg(idx);
     cell.setSize((int) size);
     cell.changeAddress(ptr);
@@ -475,8 +476,8 @@ PROBE(void, Track_Ldarga_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     top.addAllocatedLocal(&cell);
     top.push1Concrete();
 }
+
 PROBE(void, Track_Ldarga_Struct, (INT_PTR ptr, UINT16 idx)) {
-    unsigned frame = stack().framesCount();
     StackFrame &top = topFrame();
     LocalObject &cell = top.arg(idx);
     cell.changeAddress(ptr);
@@ -503,8 +504,9 @@ PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCo
 PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
 
 PROBE(void, Track_Ldloca_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
-    unsigned frame = stack().framesCount();
-    StackFrame &top = topFrame();
+    Stack &stack = vsharp::stack();
+    unsigned frame = stack.framesCount();
+    StackFrame &top = stack.topFrame();
     LocalObject &cell = top.loc(idx);
     cell.setSize((int) size);
     cell.changeAddress(ptr);
@@ -514,9 +516,11 @@ PROBE(void, Track_Ldloca_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     top.addAllocatedLocal(&cell);
     top.push1Concrete();
 }
+
 PROBE(void, Track_Ldloca_Struct, (INT_PTR ptr, UINT16 idx)) {
-    unsigned frame = stack().framesCount();
-    StackFrame &top = topFrame();
+    Stack &stack = vsharp::stack();
+    unsigned frame = stack.framesCount();
+    StackFrame &top = stack.topFrame();
     LocalObject &cell = top.loc(idx);
     cell.changeAddress(ptr);
     heap.allocateLocal(&cell);
@@ -891,8 +895,9 @@ PROBE(void, Track_Mkrefany, ()) {
 
 PROBE(void, SetArgSize, (INT8 idx, SIZE size)) {
     assert(size > 0);
-    unsigned frame = stack().framesCount();
-    StackFrame &top = topFrame();
+    Stack &stack = vsharp::stack();
+    unsigned frame = stack.framesCount();
+    StackFrame &top = stack.topFrame();
     LocalObject &cell = top.arg(idx);
     cell.setSize((int) size);
     ObjectLocation location{LocalVariable, frame, idx};
@@ -901,8 +906,9 @@ PROBE(void, SetArgSize, (INT8 idx, SIZE size)) {
 
 PROBE(void, SetLocSize, (INT8 idx, SIZE size)) {
     assert(size > 0);
-    unsigned frame = stack().framesCount();
-    StackFrame &top = topFrame();
+    Stack &stack = vsharp::stack();
+    unsigned frame = stack.framesCount();
+    StackFrame &top = stack.topFrame();
     LocalObject &cell = top.loc(idx);
     cell.setSize((int) size);
     ObjectLocation location{LocalVariable, frame, idx};
@@ -932,6 +938,18 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
     }
     top->setEnteredMarker(true);
     top->configure(maxStackSize, localsCount);
+}
+
+PROBE(void, Track_StructCtor, (ADDR address)) {
+    Stack &stack = vsharp::stack();
+    unsigned frames = stack.framesCount();
+    if (frames > 1 && !stack.topFrame().isSpontaneous()) {
+        StackFrame &prevFrame = stack.frameAt(frames - 2);
+        LocalObject &cell = prevFrame.peekObject(0);
+        cell.changeAddress(address);
+        heap.allocateLocal(&cell);
+        prevFrame.addAllocatedLocal(&cell);
+    }
 }
 
 PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
@@ -1064,16 +1082,22 @@ PROBE(void, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
     if (callHasSymbolicArgs) stack.resetMinTop();
     delete[] argsConcreteness;
 }
+
+PROBE(void, PushTemporaryAllocatedStruct, (SIZE size, OFFSET offset)) {
+    Stack &stack = vsharp::stack();
+    StackFrame &top = stack.topFrame();
+    unsigned frame = stack.framesCount();
+    ObjectLocation tempLocation{TemporaryAllocatedStruct, frame, offset};
+    LocalObject allocatedStruct(size, tempLocation);
+    top.push1(allocatedStruct);
+}
+
 PROBE(void, PushInternalCallResult, ()) {
     vsharp::topFrame().push1Concrete();
 }
 
 PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(count); PushFrame(0, 0, false, count, offset); }
 PROBE(void, Track_Newobj, (INT_PTR ptr)) { topFrame().push1Concrete(); }
-PROBE(void, Track_NewobjStruct, (INT_PTR ptr)) {
-    // TODO: concreteness should be tracked in constructor execution and extracted from object referred by 'this'
-    topFrame().push1Concrete();
-}
 PROBE(void, Track_Calli, (mdSignature signature, OFFSET offset)) {
     // TODO
     (void)signature;

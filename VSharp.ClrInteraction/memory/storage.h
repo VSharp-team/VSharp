@@ -73,7 +73,8 @@ enum ObjectType {
     ReferenceType = 1,
     LocalVariable = 2,
     Parameter = 3,
-    Statics = 4
+    Statics = 4,
+    TemporaryAllocatedStruct = 5
 };
 
 // TODO: use 'ObjectLocation' with const refs

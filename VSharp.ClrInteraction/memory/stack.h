@@ -56,6 +56,7 @@ public:
     bool peek0() const;
     bool peek1() const;
     bool peek2() const;
+    LocalObject &peekObject(unsigned idx);
     const LocalObject &peekObject(unsigned idx) const;
 
     void pop0();
@@ -168,6 +169,8 @@ public:
     void popFrameUntracked();
     StackFrame &topFrame();
     inline const StackFrame &topFrame() const;
+    StackFrame &frameAt(unsigned index);
+    inline const StackFrame &frameAt(unsigned index) const;
 
     bool isEmpty() const;
     unsigned framesCount() const;

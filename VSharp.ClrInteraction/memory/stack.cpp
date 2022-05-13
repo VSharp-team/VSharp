@@ -83,6 +83,11 @@ bool StackFrame::peek2() const
     return peekConcreteness(2);
 }
 
+LocalObject &StackFrame::peekObject(unsigned idx)
+{
+    return m_concreteness[m_concretenessTop - idx - 1].cell;
+}
+
 const LocalObject &StackFrame::peekObject(unsigned idx) const
 {
     return m_concreteness[m_concretenessTop - idx - 1].cell;
@@ -308,6 +313,24 @@ const StackFrame &Stack::topFrame() const
     return m_frames.back();
 }
 
+StackFrame &Stack::frameAt(unsigned index) {
+#ifdef _DEBUG
+    if (index >= m_frames.size()) {
+        FAIL_LOUD("Requesting too large frame number!");
+    }
+#endif
+    return m_frames[index];
+}
+
+const StackFrame &Stack::frameAt(unsigned index) const {
+#ifdef _DEBUG
+    if (index >= m_frames.size()) {
+        FAIL_LOUD("Requesting too large frame number!");
+    }
+#endif
+    return m_frames[index];
+}
+
 bool Stack::isEmpty() const
 {
     return m_frames.empty();
@@ -484,7 +507,7 @@ void Stack::OperandMem::mem_p(INT_PTR value, INT8 idx) {
 }
 
 void Stack::OperandMem::mem_refLikeStruct(INT_PTR ref) {
-    LOG(tout << "mem_refLikeStruct " << (INT64) ref << std::endl);
+    LOG(tout << "mem_refLikeStruct " << (INT64) ref << " (offset = " << this->offset() << ", resolvedToken = " << HEX(this->stackFrame().resolvedToken()) << ")" << std::endl);
     m_refLikeStructRef = ref;
 }
 
@@ -596,5 +619,6 @@ INT_PTR Stack::OperandMem::unmem_p(INT8 idx) const {
 }
 
 INT_PTR Stack::OperandMem::unmem_refLikeStruct() const {
+    LOG(tout << "unmem_refLikeStruct " << (INT64) m_refLikeStructRef << " (offset = " << this->offset() << ", resolvedToken = " << HEX(this->stackFrame().resolvedToken()) << ")" << std::endl);
     return m_refLikeStructRef;
 }

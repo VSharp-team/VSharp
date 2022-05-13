@@ -148,6 +148,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 let sizeInstr = x.TypeSizeInstr locType (fun () -> x.AcceptLocVarTypeToken locType i)
                 x.PrependProbe(probes.setLocSize, [(OpCodes.Ldc_I4, Arg32 i); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
 
+        // If x.m is a constructor of structure, then we should register structure address (it becomes explicit only here)
+        if x.m.IsConstructor && x.m.DeclaringType.IsValueType then
+            x.PrependProbe(probes.enterStructCtor, [(OpCodes.Ldarg_0, NoArg); (OpCodes.Conv_I, NoArg)], x.tokens.void_i_sig, &firstInstr) |> ignore
+
     member private x.PrependMem_p(idx, instr : ilInstr byref) =
         x.PrependInstr(OpCodes.Conv_I, NoArg, &instr) |> ignore
         x.PrependProbe(probes.mem_p, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 (int instr.offset))], x.tokens.void_i_i1_offset_sig, &instr) |> ignore
@@ -450,6 +454,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
     member private x.AcceptReturnTypeToken (t : System.Type) =
         x.AcceptTypeToken t (communicator.ParseReturnTypeToken >> int)
+
+    member private x.AcceptDeclaringTypeToken (m : MethodBase) (methodToken : int) =
+        x.AcceptTypeToken m.DeclaringType (fun () -> communicator.ParseDeclaringTypeToken methodToken |> int)
 
     member private x.TypeSizeInstr (t : System.Type) getToken =
         if t.IsByRef || t.IsArray || (t.IsConstructedGenericType && t.GetGenericTypeDefinition().FullName = "System.ByReference`1") then
@@ -1299,7 +1306,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     //     calli exec
                     //     if (callee is modeled internal call) { br B }
                     //     A: if (callee is modeled internal call) { calli pushInternalCallResult }
-                    //     B: if (NOT callee is modeled internal call) { calli pushFrame }
+                    //     B: if (NOT callee is modeled internal call) {
+                    //           if (call opcode is newobj of value type) { calli pushTemporaryAllocatedStruct }
+                    //           calli pushFrame
+                    //     }
                     //     if (callee is modeled internal call) { calli disableInstrumentation }
                     //     call callee
                     //     if (callee is modeled internal call) { calli enableInstrumentation }
@@ -1329,13 +1339,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         let callee = Reflection.resolveMethod x.m token
                         let isNewObj = opcodeValue = OpCodeValues.Newobj
 
-                        if isNewObj then
-                            if callee.DeclaringType.IsValueType then
-                                x.AppendProbe(probes.newobjStruct, [], x.tokens.void_sig, instr) |> ignore
-                            else
-                                x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr) |> ignore
-                                x.AppendInstr OpCodes.Conv_I NoArg instr
-                                x.AppendDup(instr)
+                        if isNewObj && not callee.DeclaringType.IsValueType then
+                            x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr) |> ignore
+                            x.AppendInstr OpCodes.Conv_I NoArg instr
+                            x.AppendDup instr
                         let returnValues = if Reflection.hasNonVoidResult callee then 1 else 0
                         let finalize = x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
 
@@ -1365,8 +1372,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             let br_call =
                                 if isModeledInternalCall then
                                     x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
-                                    if argsCount > 0 then
-                                        x.PrependPopOpmem &prependTarget |> ignore
                                     x.PrependBranch(OpCodes.Br, &prependTarget) |> Some
                                 else
                                     x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
@@ -1374,18 +1379,25 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                             let pushStart = x.PrependNop &prependTarget
                             br_push.arg <- Target pushStart
-                            if isModeledInternalCall && returnValues > 0 then
+                            if isModeledInternalCall && (returnValues > 0 || isNewObj) then
                                 x.PrependProbe(probes.pushInternalCallResult, [], x.tokens.void_sig, &prependTarget) |> ignore
 
                             let callStart = x.PrependNop &prependTarget
                             br_call |> Option.iter (fun instr -> instr.arg <- Target callStart)
                             if not isModeledInternalCall then
+                                if isNewObj && callee.DeclaringType.IsValueType then
+                                    let allocatedType = callee.DeclaringType
+                                    let sizeInstr = x.TypeSizeInstr allocatedType (fun () -> x.AcceptDeclaringTypeToken callee token)
+                                    x.PrependProbeWithOffset(probes.pushTemporaryAllocatedStruct, [sizeInstr], x.tokens.void_size_offset_sig, &prependTarget) |> ignore
+
                                 let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
                                 let pushFrameArgs = [(OpCodes.Ldc_I4, Arg32 token)
                                                      (OpCodes.Ldc_I4, Arg32 expectedToken)
                                                      (OpCodes.Ldc_I4, Arg32 (if isNewObj then 1 else 0))
                                                      (OpCodes.Ldc_I4, Arg32 argsCount)]
                                 x.PrependProbeWithOffset(probes.pushFrame, pushFrameArgs, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
+                            elif argsCount > 0 then
+                                x.PrependPopOpmem &prependTarget |> ignore
 
                             if isModeledInternalCall then
                                 x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
