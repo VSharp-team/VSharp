@@ -419,7 +419,8 @@ EvalStackOperand* createOps(int opsCount, OFFSET offset) {
                 ops[i] = mkop_p(top.unmem_p((INT8) i));
                 break;
             default:
-                LOG(tout << "type = " << type << std::endl);
+                LOG(tout << "type = " << type);
+                LOG(tout << "current frame resolved token = " << HEX(top.stackFrame().resolvedToken()) << std::endl);
                 FAIL_LOUD("createOps: not implemented");
                 break;
         }
@@ -911,9 +912,8 @@ PROBE(void, SetLocSize, (INT8 idx, SIZE size)) {
 PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
     LOG(tout << "Track_Enter, token = " << HEX(token) << std::endl);
     Stack &stack = vsharp::stack();
-    assert(!stack.isEmpty());
-    StackFrame *top = &stack.topFrame();
-    unsigned expected = top->resolvedToken();
+    StackFrame *top = stack.isEmpty() ? nullptr : &stack.topFrame();
+    unsigned expected = stack.isEmpty() ? 0xFFFFFFFFu : top->resolvedToken();
     if (expected == token || !expected && !isSpontaneous) {
         LOG(tout << "Frame " << stack.framesCount() <<
                     ": entering token " << HEX(token) <<
@@ -1023,11 +1023,11 @@ PROBE(void, Finalize_Call, (UINT8 returnValues)) {
     }
 }
 
-PROBE(VOID, Exec_Call, (INT32 argsCount, OFFSET offset)) {
+PROBE(void, Exec_Call, (INT32 argsCount, OFFSET offset)) {
     auto ops = createEmptyOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
-PROBE(VOID, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
+PROBE(void, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
     auto ops = createOps(argsCount, offset);
     sendCommand(offset, argsCount, ops);
 }
@@ -1037,7 +1037,7 @@ PROBE(COND, Track_Call, (UINT16 argsCount)) {
     return vsharp::stack().topFrame().pop(argsCount);
 }
 
-PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
+PROBE(void, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool newobj, UINT16 argsCount, OFFSET offset)) {
     Stack &stack = vsharp::stack();
     StackFrame &top = stack.topFrame();
     argsCount = newobj ? argsCount + 1 : argsCount;
@@ -1063,6 +1063,9 @@ PROBE(VOID, PushFrame, (mdToken unresolvedToken, mdMethodDef resolvedToken, bool
     stack.pushFrame(resolvedToken, unresolvedToken, argsConcreteness, argsCount);
     if (callHasSymbolicArgs) stack.resetMinTop();
     delete[] argsConcreteness;
+}
+PROBE(void, PushInternalCallResult, ()) {
+    vsharp::topFrame().push1Concrete();
 }
 
 PROBE(void, Track_CallVirt, (UINT16 count, OFFSET offset)) { Track_Call(count); PushFrame(0, 0, false, count, offset); }

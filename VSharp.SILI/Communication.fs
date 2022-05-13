@@ -156,6 +156,7 @@ type probes = {
     mutable execInternalCall : uint64
     mutable call : uint64
     mutable pushFrame : uint64
+    mutable pushInternalCallResult : uint64
     mutable callVirt : uint64
     mutable newobj : uint64
     mutable newobjStruct : uint64

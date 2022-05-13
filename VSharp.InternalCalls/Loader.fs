@@ -44,3 +44,10 @@ module Loader =
 
     let public getRuntimeExceptionsImplementation (fullMethodName : string) =
         runtimeExceptionsConstructors.[fullMethodName]
+
+    /// Some methods give non-deterministic input values or not terminate.
+    /// In this case, we isolate code under test by disabling their execution and considering their return result as
+    /// symbolic value.
+    /// For such methods, false should be returned here.
+    /// The examples are: reading from console, file, socket, generating random number, etc.
+    let public isExecutable (_ : MethodBase) = true

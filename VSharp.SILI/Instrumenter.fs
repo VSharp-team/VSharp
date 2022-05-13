@@ -40,22 +40,13 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         swap &newInstr &beforeInstr
         newInstr.opcode <- OpCode opcode
         newInstr.arg <- arg
+        newInstr
 
     member private x.PrependNop(beforeInstr : ilInstr byref) =
-        let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
-        x.rewriter.InsertAfter(beforeInstr, newInstr)
-        swap &newInstr &beforeInstr
-        newInstr.opcode <- OpCode OpCodes.Nop
-        newInstr.arg <- NoArg
-        newInstr
+        x.PrependInstr(OpCodes.Nop, NoArg, &beforeInstr)
 
     member private x.PrependBranch(opcode, beforeInstr : ilInstr byref) =
-        let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
-        x.rewriter.InsertAfter(beforeInstr, newInstr)
-        swap &newInstr &beforeInstr
-        newInstr.opcode <- OpCode opcode
-        newInstr.arg <- NoArg // In chain of prepends, the address of instruction constantly changes. Deferring it.
-        newInstr
+        x.PrependInstr(opcode, NoArg (*In chain of prepends, the address of instruction constantly changes. Deferring it.*), &beforeInstr)
 
     member private x.AppendInstr (opcode : OpCode) arg (afterInstr : ilInstr) =
         let dupInstr = x.rewriter.NewInstr opcode
@@ -99,9 +90,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.PrependProbe(methodAddress, List.append args [(OpCodes.Ldc_I4, beforeInstr.offset |> int32 |> Arg32)], signature, &beforeInstr)
 
     member private x.AppendProbe(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, signature, afterInstr : ilInstr) =
-        let mutable newInstr = afterInstr
-        x.MkCalli(&newInstr, signature)
-        x.rewriter.InsertAfter(afterInstr, newInstr)
+        let mutable calliInstr = afterInstr
+        x.MkCalli(&calliInstr, signature)
+        x.rewriter.InsertAfter(afterInstr, calliInstr)
 
         let newInstr = x.rewriter.NewInstr ldc_i
         newInstr.arg <- Arg64 (int64 methodAddress)
@@ -111,6 +102,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             let newInstr = x.rewriter.NewInstr opcode
             newInstr.arg <- arg
             x.rewriter.InsertAfter(afterInstr, newInstr)
+
+        calliInstr
 
     // NOTE: offset is sent from client to SILI
     member private x.AppendProbeWithOffset(methodAddress : uint64, args : (OpCode * ilInstrOperand) list, offset, signature, afterInstr : ilInstr) =
@@ -156,7 +149,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 x.PrependProbe(probes.setLocSize, [(OpCodes.Ldc_I4, Arg32 i); sizeInstr], x.tokens.void_i1_size_sig, &firstInstr) |> ignore
 
     member private x.PrependMem_p(idx, instr : ilInstr byref) =
-        x.PrependInstr(OpCodes.Conv_I, NoArg, &instr)
+        x.PrependInstr(OpCodes.Conv_I, NoArg, &instr) |> ignore
         x.PrependProbe(probes.mem_p, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 (int instr.offset))], x.tokens.void_i_i1_offset_sig, &instr) |> ignore
 
     member private x.PrependMem_i1(idx, instr : ilInstr byref) =
@@ -233,26 +226,26 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.PrependProbe(probes.popOpmem, [(OpCodes.Ldc_I4, Arg32 (int instr.offset))], x.tokens.void_offset_sig, &instr)
 
     member private x.AppendMem_p(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_p, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_p, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i_i1_offset_sig, instr) |> ignore
         x.AppendInstr OpCodes.Conv_I NoArg instr
 
     member private x.AppendMem_i1(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_1, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i1_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_1, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i1_i1_offset_sig, instr) |> ignore
 
     member private x.AppendMem_i2(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_2, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i2_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_2, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i2_i1_offset_sig, instr) |> ignore
 
     member private x.AppendMem_i4(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_4, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i4_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_4, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i4_i1_offset_sig, instr) |> ignore
 
     member private x.AppendMem_i8(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_8, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i8_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_8, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_i8_i1_offset_sig, instr) |> ignore
 
     member private x.AppendMem_f4(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_f4, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_r4_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_f4, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_r4_i1_offset_sig, instr) |> ignore
 
     member private x.AppendMem_f8(idx, offset, instr : ilInstr) =
-        x.AppendProbe(probes.mem_f8, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_r8_i1_offset_sig, instr)
+        x.AppendProbe(probes.mem_f8, [(OpCodes.Ldc_I4, Arg32 idx); (OpCodes.Ldc_I4, Arg32 offset)], x.tokens.void_r8_i1_offset_sig, instr) |> ignore
 
     member private x.PrependValidLeaveMain(instr : ilInstr byref) =
         match instr.stackState with
@@ -450,7 +443,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         x.AcceptTypeToken t (fun () -> communicator.ParseLocalTypeToken idx |> int)
 
     member private x.TypeSizeInstr (t : System.Type) getToken =
-        if TypeUtils.isGround t then
+        if t.IsByRef || t.IsArray || (t.IsConstructedGenericType && t.GetGenericTypeDefinition().FullName = "System.ByReference`1") then
+            OpCodes.Ldc_I4, Arg32 System.IntPtr.Size
+        elif TypeUtils.isGround t then
             let size = TypeUtils.internalSizeOf t
             OpCodes.Ldc_I4, Arg32 (int size)
         else
@@ -471,9 +466,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             match instr.opcode with
             | OpCode op ->
                 let prependTarget = if hasPrefix then &prefix else &instr
-                let dumpedInfo = x.rewriter.ILInstrToString probes instr
-                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
-                x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget) |> ignore
+//                let dumpedInfo = x.rewriter.ILInstrToString probes instr
+//                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
+//                x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget) |> ignore
                 let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
                 match opcodeValue with
                 // Prefixes
@@ -489,37 +484,37 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     let index = int instr.Arg8
                     let argType = x.m |> Reflection.getMethodArgumentType index
                     if hasComplexSize argType then
-                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr) |> ignore
                     else
                         let size = TypeUtils.internalSizeOf argType |> int
-                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr) |> ignore
                     x.AppendDup instr
                 | OpCodeValues.Ldloca_S ->
                     let index = int instr.Arg8
                     let locType = x.m.GetMethodBody().LocalVariables.[index].LocalType
                     if hasComplexSize locType then
-                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr) |> ignore
                     else
                         let size = TypeUtils.internalSizeOf locType |> int
-                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr) |> ignore
                     x.AppendDup instr
                 | OpCodeValues.Ldarga ->
                     let index = int instr.Arg16
                     let argType = x.m |> Reflection.getMethodArgumentType index
                     if hasComplexSize argType then
-                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                        x.AppendProbe(probes.ldarga_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr) |> ignore
                     else
                         let size = TypeUtils.internalSizeOf argType |> int
-                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                        x.AppendProbe(probes.ldarga_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr) |> ignore
                     x.AppendDup instr
                 | OpCodeValues.Ldloca ->
                     let index = int instr.Arg16
                     let locType = x.m.GetMethodBody().LocalVariables.[index].LocalType
                     if hasComplexSize locType then
-                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr)
+                        x.AppendProbe(probes.ldloca_struct, [(OpCodes.Ldc_I4, Arg32 index)], x.tokens.void_i_u2_sig, instr) |> ignore
                     else
                         let size = TypeUtils.internalSizeOf locType |> int
-                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr)
+                        x.AppendProbe(probes.ldloca_primitive, [(OpCodes.Ldc_I4, Arg32 index); (OpCodes.Ldc_I4, Arg32 size)], x.tokens.void_i_u2_size_sig, instr) |> ignore
                     x.AppendDup instr
                 | OpCodeValues.Ldnull
                 | OpCodeValues.Ldc_I4_M1
@@ -536,12 +531,12 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Ldc_I4
                 | OpCodeValues.Ldc_I8
                 | OpCodeValues.Ldc_R4
-                | OpCodeValues.Ldc_R8 -> x.AppendProbe(probes.ldc, [], x.tokens.void_sig, instr)
-                | OpCodeValues.Pop -> x.AppendProbe(probes.pop, [], x.tokens.void_sig, instr)
-                | OpCodeValues.Ldtoken -> x.AppendProbe(probes.ldtoken, [], x.tokens.void_sig, instr)
-                | OpCodeValues.Arglist -> x.AppendProbe(probes.arglist, [], x.tokens.void_sig, instr)
-                | OpCodeValues.Ldftn -> x.AppendProbe(probes.ldftn, [], x.tokens.void_sig, instr)
-                | OpCodeValues.Sizeof -> x.AppendProbe(probes.sizeof, [], x.tokens.void_sig, instr)
+                | OpCodeValues.Ldc_R8 -> x.AppendProbe(probes.ldc, [], x.tokens.void_sig, instr) |> ignore
+                | OpCodeValues.Pop -> x.AppendProbe(probes.pop, [], x.tokens.void_sig, instr) |> ignore
+                | OpCodeValues.Ldtoken -> x.AppendProbe(probes.ldtoken, [], x.tokens.void_sig, instr) |> ignore
+                | OpCodeValues.Arglist -> x.AppendProbe(probes.arglist, [], x.tokens.void_sig, instr) |> ignore
+                | OpCodeValues.Ldftn -> x.AppendProbe(probes.ldftn, [], x.tokens.void_sig, instr) |> ignore
+                | OpCodeValues.Sizeof -> x.AppendProbe(probes.sizeof, [], x.tokens.void_sig, instr) |> ignore
 
                 // Branchings
                 | OpCodeValues.Brfalse_S
@@ -551,27 +546,27 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Switch -> x.PrependProbeWithOffset(probes.switch, [], x.tokens.void_offset_sig, &prependTarget) |> ignore
 
                 // Symbolic stack instructions
-                | OpCodeValues.Ldarg_0 -> x.AppendProbeWithOffset(probes.ldarg_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldarg_1 -> x.AppendProbeWithOffset(probes.ldarg_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldarg_2 -> x.AppendProbeWithOffset(probes.ldarg_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldarg_3 -> x.AppendProbeWithOffset(probes.ldarg_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldloc_0 -> x.AppendProbeWithOffset(probes.ldloc_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldloc_1 -> x.AppendProbeWithOffset(probes.ldloc_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldloc_2 -> x.AppendProbeWithOffset(probes.ldloc_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldloc_3 -> x.AppendProbeWithOffset(probes.ldloc_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Stloc_0 -> x.AppendProbeWithOffset(probes.stloc_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Stloc_1 -> x.AppendProbeWithOffset(probes.stloc_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Stloc_2 -> x.AppendProbeWithOffset(probes.stloc_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Stloc_3 -> x.AppendProbeWithOffset(probes.stloc_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-                | OpCodeValues.Ldarg_S -> x.AppendProbeWithOffset(probes.ldarg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr)
-                | OpCodeValues.Starg_S -> x.AppendProbeWithOffset(probes.starg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr)
-                | OpCodeValues.Ldloc_S -> x.AppendProbeWithOffset(probes.ldloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr)
-                | OpCodeValues.Stloc_S -> x.AppendProbeWithOffset(probes.stloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr)
-                | OpCodeValues.Ldarg -> x.AppendProbeWithOffset(probes.ldarg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr)
-                | OpCodeValues.Starg -> x.AppendProbeWithOffset(probes.starg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr)
-                | OpCodeValues.Ldloc -> x.AppendProbeWithOffset(probes.ldloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr)
-                | OpCodeValues.Stloc -> x.AppendProbeWithOffset(probes.stloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr)
-                | OpCodeValues.Dup -> x.AppendProbeWithOffset(probes.dup, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
+                | OpCodeValues.Ldarg_0 -> x.AppendProbeWithOffset(probes.ldarg_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldarg_1 -> x.AppendProbeWithOffset(probes.ldarg_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldarg_2 -> x.AppendProbeWithOffset(probes.ldarg_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldarg_3 -> x.AppendProbeWithOffset(probes.ldarg_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc_0 -> x.AppendProbeWithOffset(probes.ldloc_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc_1 -> x.AppendProbeWithOffset(probes.ldloc_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc_2 -> x.AppendProbeWithOffset(probes.ldloc_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc_3 -> x.AppendProbeWithOffset(probes.ldloc_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc_0 -> x.AppendProbeWithOffset(probes.stloc_0, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc_1 -> x.AppendProbeWithOffset(probes.stloc_1, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc_2 -> x.AppendProbeWithOffset(probes.stloc_2, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc_3 -> x.AppendProbeWithOffset(probes.stloc_3, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldarg_S -> x.AppendProbeWithOffset(probes.ldarg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr) |> ignore
+                | OpCodeValues.Starg_S -> x.AppendProbeWithOffset(probes.starg_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc_S -> x.AppendProbeWithOffset(probes.ldloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc_S -> x.AppendProbeWithOffset(probes.stloc_S, [(OpCodes.Ldc_I4, instr.Arg8 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u1_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldarg -> x.AppendProbeWithOffset(probes.ldarg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr) |> ignore
+                | OpCodeValues.Starg -> x.AppendProbeWithOffset(probes.starg, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr) |> ignore
+                | OpCodeValues.Ldloc -> x.AppendProbeWithOffset(probes.ldloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr) |> ignore
+                | OpCodeValues.Stloc -> x.AppendProbeWithOffset(probes.stloc, [(OpCodes.Ldc_I4, instr.Arg16 |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr) |> ignore
+                | OpCodeValues.Dup -> x.AppendProbeWithOffset(probes.dup, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
 
                 | OpCodeValues.Add
                 | OpCodeValues.Sub
@@ -681,7 +676,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | BinOp(x, y) -> internalfailf "Unexpected binop ([%O]%O) evaluation stack types: %O, %O" i opcodeValue x y
                         | stack -> internalfailf "Unexpected binop (%O) evaluation stack types! stack: %O" opcodeValue stack
 
-                    x.PrependInstr(OpCodes.Ldc_I4, op.Value |> int |> Arg32 , &prependTarget)
+                    x.PrependInstr(OpCodes.Ldc_I4, op.Value |> int |> Arg32 , &prependTarget) |> ignore
                     x.PrependProbe(unmem1Probe, [(OpCodes.Ldc_I4, Arg32 0)], unmem1Sig, &prependTarget) |> ignore
                     x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(execProbe, [], execSig, &prependTarget) |> ignore
@@ -693,7 +688,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Neg
                 | OpCodeValues.Not ->
                     match instr.opcode with
-                    | OpCode op -> x.AppendProbeWithOffset(probes.unOp, [(OpCodes.Ldc_I4, op.Value |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr)
+                    | OpCode op -> x.AppendProbeWithOffset(probes.unOp, [(OpCodes.Ldc_I4, op.Value |> int |> Arg32)], prependTarget.offset, x.tokens.void_u2_offset_sig, instr) |> ignore
                     | _ -> __unreachable__()
 
                 | OpCodeValues.Conv_I1
@@ -709,7 +704,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Conv_U1
                 | OpCodeValues.Conv_I
                 | OpCodeValues.Conv_U ->
-                    x.AppendProbeWithOffset(probes.conv, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
+                    x.AppendProbeWithOffset(probes.conv, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
                 | OpCodeValues.Conv_Ovf_I1_Un
                 | OpCodeValues.Conv_Ovf_I2_Un
                 | OpCodeValues.Conv_Ovf_I4_Un
@@ -730,8 +725,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Conv_Ovf_U8
                 | OpCodeValues.Conv_Ovf_I
                 | OpCodeValues.Conv_Ovf_U ->
-                    x.AppendProbeWithOffset(probes.conv, [], prependTarget.offset, x.tokens.void_offset_sig, instr)
-//                    x.AppendProbeWithOffsetMemUnmem(probes.conv, [], x.tokens.void_offset_sig, &prependTarget, instr)
+                    x.AppendProbeWithOffset(probes.conv, [], prependTarget.offset, x.tokens.void_offset_sig, instr) |> ignore
 
                 | OpCodeValues.Ldind_I1
                 | OpCodeValues.Ldind_U1
@@ -747,8 +741,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // dup
                     // calli track_ldind
                     // ldind
-                    x.PrependDup &prependTarget
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget)
+                    x.PrependDup &prependTarget |> ignore
+                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.ldind, [], x.tokens.void_i_i4_offset_sig, &prependTarget) |> ignore
 
                 | OpCodeValues.Stind_Ref
@@ -838,7 +832,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | _ -> __unreachable__()
 
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget)
+                    x.PrependInstr(OpCodes.Ldc_I4, Arg32 (x.SizeOfIndirection opcodeValue), &prependTarget) |> ignore
                     x.PrependProbe(probes.stind, [], x.tokens.bool_i_i4_sig, &prependTarget) |> ignore
                     let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
@@ -849,14 +843,14 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     br_true.arg <- Target unmem_p
                     x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
 
-                | OpCodeValues.Mkrefany -> x.AppendProbe(probes.mkrefany, [], x.tokens.void_sig, instr)
+                | OpCodeValues.Mkrefany -> x.AppendProbe(probes.mkrefany, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Newarr ->
-                    x.AppendProbeWithOffset(probes.newarr, [], prependTarget.offset, x.tokens.void_i_token_offset_sig, instr)
+                    x.AppendProbeWithOffset(probes.newarr, [], prependTarget.offset, x.tokens.void_i_token_offset_sig, instr) |> ignore
                     x.AppendInstr OpCodes.Ldc_I4 instr.arg instr
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Localloc ->
-                    x.AppendProbeWithOffset(probes.newarr, [], prependTarget.offset, x.tokens.void_i_offset_sig, instr)
+                    x.AppendProbeWithOffset(probes.newarr, [], prependTarget.offset, x.tokens.void_i_offset_sig, instr) |> ignore
                     x.AppendDup instr
                 | OpCodeValues.Cpobj ->
                     // calli mem2
@@ -878,43 +872,44 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.cpobj, [], x.tokens.bool_i_i_sig, &prependTarget) |> ignore
                     let br = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.execCpobj, [], x.tokens.void_token_i_i_offset_sig, &prependTarget) |> ignore
                     br.arg <- Target prependTarget
                     x.PrependPopOpmem &prependTarget |> ignore
                 | OpCodeValues.Ldobj ->
-                    x.PrependDup &prependTarget
+                    x.PrependDup &prependTarget |> ignore
                     x.PrependProbeWithOffset(probes.ldobj, [], x.tokens.void_i_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldstr ->
-                    x.AppendProbe(probes.ldstr, [], x.tokens.void_i_sig, instr)
+                    x.AppendProbe(probes.ldstr, [], x.tokens.void_i_sig, instr) |> ignore
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendInstr OpCodes.Dup NoArg instr
                 | OpCodeValues.Castclass ->
-                    x.PrependDup &prependTarget
-                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependDup &prependTarget |> ignore
+                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.castclass, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                 | OpCodeValues.Isinst ->
-                    x.PrependDup &prependTarget
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependDup &prependTarget |> ignore
+                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.isinst, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Unbox ->
-                     x.PrependDup &prependTarget
-                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                     x.PrependDup &prependTarget |> ignore
+                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.unbox, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                      x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
-                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
+                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Unbox_Any ->
-                     x.PrependDup &prependTarget
-                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                     x.PrependDup &prependTarget |> ignore
+                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
+                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                      x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.unboxAny, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
-                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr)
+                     x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Ldfld ->
                     let isStruct =
                         match instr.stackState with
@@ -927,22 +922,22 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         // TODO: here we potentially could calculate offsets inside open generic type!
                         //       Should do this at runtime, rather than at instrumentation step
                         let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                        x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
+                        x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget) |> ignore
                     else
-                        x.PrependDup(&prependTarget)
-                        x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                        x.PrependDup(&prependTarget)
-                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget)
+                        x.PrependDup(&prependTarget) |> ignore
+                        x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
+                        x.PrependDup(&prependTarget) |> ignore
+                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget) |> ignore
                     let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
-                    x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
+                    x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget) |> ignore
                     if isStruct then
                         x.PrependProbeWithOffset(probes.ldfld_struct, [], x.tokens.void_i4_i4_offset_sig, &prependTarget) |> ignore
                     else
                         x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i_i4_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldflda ->
-                    x.PrependDup &prependTarget
-                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependDup &prependTarget |> ignore
+                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.ldflda, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Stfld ->
                     // box [if struct]
@@ -972,7 +967,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             src |> List.iter (fun srcInstr ->
                                 let srcInstr = instructions |> Array.find (fun i -> i.offset = srcInstr.offset)
                                 let args = [OpCodes.Dup, NoArg; OpCodes.Conv_I, NoArg]
-                                x.AppendProbeWithOffset(probes.mem_refLikeStruct, args, offset, x.tokens.void_i_offset_sig, srcInstr))
+                                x.AppendProbeWithOffset(probes.mem_refLikeStruct, args, offset, x.tokens.void_i_offset_sig, srcInstr) |> ignore)
                         | _ -> __unreachable__()
                         // TODO: here we potentially could calculate offsets inside open generic type!
                         //       Should do this at runtime, rather than at instrumentation step
@@ -983,7 +978,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     else
                         if isStruct then
                             let typeToken = fieldToken.Value
-                            x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget)
+                            x.PrependInstr(OpCodes.Box, Arg32 typeToken, &prependTarget) |> ignore
                         let probe, signature, unmem2Probe, unmem2Sig =
                             match instr.stackState with
                             | BinOp(evaluationStackCellType.I1, evaluationStackCellType.I)
@@ -1019,9 +1014,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                             | _ -> __unreachable__()
 
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget)
+                        x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget) |> ignore
                         if isStruct then
-                            x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget)
+                            x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget) |> ignore
                         x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         x.PrependProbeWithOffset(probe, [], signature, &prependTarget) |> ignore
@@ -1029,33 +1024,33 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         if isStruct then
                             let typeToken = fieldToken.Value
-                            x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget)
+                            x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget) |> ignore
                     x.PrependPopOpmem &prependTarget |> ignore
                 | OpCodeValues.Ldsfld ->
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.ldsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldsflda ->
                     let fieldInfo = Reflection.resolveField x.m instr.Arg32
                     let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
                     let id = registerStaticFieldID fieldInfo |> int16
-                    x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_i4_i2_sig, instr)
+                    x.AppendProbe(probes.ldsflda, [], x.tokens.void_i_i4_i2_sig, instr) |> ignore
                     x.AppendInstr OpCodes.Ldc_I4 (Arg16 id) instr
                     x.AppendInstr fieldSizeOpcode fieldSizeArg instr
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Stsfld ->
-                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                    x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.stsfld, [], x.tokens.void_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Stobj ->
                     // TODO: implement via append dup to sources of operands
                     __notImplemented__() // ?????????????????
                 | OpCodeValues.Box ->
-                    x.AppendProbeWithOffset(probes.box, [], prependTarget.offset, x.tokens.void_i_offset_sig, instr)
+                    x.AppendProbeWithOffset(probes.box, [], prependTarget.offset, x.tokens.void_i_offset_sig, instr) |> ignore
                     x.AppendInstr OpCodes.Conv_I NoArg instr
                     x.AppendDup instr
                 | OpCodeValues.Ldlen ->
-                    x.PrependDup &prependTarget
-                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget)
+                    x.PrependDup &prependTarget |> ignore
+                    x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.ldlen, [], x.tokens.void_i_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Ldelema
                 | OpCodeValues.Ldelem_I1
@@ -1104,7 +1099,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget)
+                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget) |> ignore
                     x.PrependProbe(track, [], x.tokens.bool_i_i_i4_sig, &prependTarget) |> ignore
                     let br = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
@@ -1151,7 +1146,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     let typeTokenArg = instr.arg
 
                     if isStruct then
-                        x.PrependInstr(OpCodes.Box, typeTokenArg, &prependTarget)
+                        x.PrependInstr(OpCodes.Box, typeTokenArg, &prependTarget) |> ignore
 
                     let execProbe, execSig, unmem3Probe, unmem3Sig, elemSizeOpcode, elemSizeArg =
                         match opcodeValue, instr.stackState with
@@ -1198,7 +1193,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
-                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget)
+                    x.PrependInstr(elemSizeOpcode, elemSizeArg, &prependTarget) |> ignore
                     x.PrependProbe(probes.stelem, [], x.tokens.bool_i_i_i4_sig, &prependTarget) |> ignore
                     let brtrue = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget) |> ignore
@@ -1209,17 +1204,17 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(unmem3Probe, [(OpCodes.Ldc_I4, Arg32 2)], unmem3Sig, &prependTarget) |> ignore
                     if isStruct then
-                        x.PrependInstr(OpCodes.Unbox_Any, typeTokenArg, &prependTarget)
+                        x.PrependInstr(OpCodes.Unbox_Any, typeTokenArg, &prependTarget) |> ignore
                     brtrue.arg <- Target tgt
                     x.PrependPopOpmem &prependTarget |> ignore
 
-                | OpCodeValues.Ckfinite ->  x.AppendProbe(probes.ckfinite, [], x.tokens.void_sig, instr)
+                | OpCodeValues.Ckfinite ->  x.AppendProbe(probes.ckfinite, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Ldvirtftn ->
-                     x.PrependDup &prependTarget
-                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget)
+                     x.PrependDup &prependTarget |> ignore
+                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.ldvirtftn, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
                 | OpCodeValues.Initobj ->
-                     x.PrependDup &prependTarget
+                     x.PrependDup &prependTarget |> ignore
                      x.PrependProbe(probes.initobj, [], x.tokens.void_i_sig, &prependTarget) |> ignore
                 | OpCodeValues.Cpblk ->
                     // calli mem3
@@ -1286,30 +1281,33 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 | OpCodeValues.Newobj ->
                     // ldc argsCount
                     // calli track_call
-                    // branch_true A
-                    // if callee is internal call {
-                    //    mem args
-                    //    ldc default return value
-                    //    mem default value
-                    //    calli exec
-                    //    unmem default value
-                    //    if opcode <> newobj {
-                    //      branch B
-                    //    } else {
-                    //      unmem args
-                    //    }
+                    // if (callee is modeled internal call || callee is not executable) { mem args }
+                    // if (callee is executable) {
+                    //     brtrue A
+                    //     calli exec
+                    //     if (callee is modeled internal call) { br B }
+                    //     A: if (callee is modeled internal call) { calli pushInternalCallResult }
+                    //     B: if (NOT callee is modeled internal call) { calli pushFrame }
+                    //     if (callee is modeled internal call) { calli disableInstrumentation }
+                    //     call callee
+                    //     if (callee is modeled internal call) { calli enableInstrumentation }
+                    //     calli finalizeCall
+                    //     if call opcode is newobj {
+                    //         dup
+                    //         conv.i
+                    //         calli newobj_probe
+                    //     }
                     // } else {
-                    //    calli exec
-                    // }
-                    // A : nop
-                    // calli pushFrame
-                    // call callee
-                    // calli finalizeCall
-                    // B: nop
-                    // if call opcode is newobj {
-                    //    dup
-                    //    conv.i
-                    //    calli newobj_probe
+                    //    mem args
+                    //    if callee is modeled internal call {
+                    //        pop args
+                    //        ldc default return value
+                    //        mem default value
+                    //        calli exec
+                    //        unmem default value
+                    //    } else {
+                    //        call detour
+                    //    }
                     // }
 
                     match instr.arg with
@@ -1321,24 +1319,23 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
                         if isNewObj then
                             if callee.DeclaringType.IsValueType then
-                                x.AppendProbe(probes.newobjStruct, [], x.tokens.void_sig, instr)
+                                x.AppendProbe(probes.newobjStruct, [], x.tokens.void_sig, instr) |> ignore
                             else
-                                x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr)
+                                x.AppendProbe(probes.newobj, [], x.tokens.void_i_sig, instr) |> ignore
                                 x.AppendInstr OpCodes.Conv_I NoArg instr
                                 x.AppendDup(instr)
                         let returnValues = if Reflection.hasNonVoidResult callee then 1 else 0
-                        let nop = x.AppendNop instr
-                        x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
+                        let finalize = x.AppendProbe(probes.finalizeCall, [(OpCodes.Ldc_I4, Arg32 returnValues)], x.tokens.void_u1_sig, instr)
 
                         let parameters = callee.GetParameters()
                         let hasThis = Reflection.hasThis callee && not isNewObj
                         let argsCount = parameters.Length
                         let argsCount = if hasThis then argsCount + 1 else argsCount
+                        let isModeledInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
+                        let isExecutableMethod = Loader.isExecutable callee
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
-                        let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
-                        let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
-                        let retType = Reflection.getMethodReturnType callee
-                        if isInternalCall then
+
+                        if isModeledInternalCall || not isExecutableMethod then
                             match instr.stackState with
                             | Some list ->
                                 let types = List.take argsCount list |> Array.ofList
@@ -1350,37 +1347,55 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                         x.AppendMemForType(t, argsCount - i - 1, opmemOffset, srcInstr)
                                         x.AppendInstr OpCodes.Dup NoArg srcInstr)
                             | None -> __unreachable__()
-                            for i = 1 to argsCount do
-                                x.PrependInstr(OpCodes.Pop, NoArg, &prependTarget)
-                            // TODO: if internal call raised exception, raise it in concolic
-                            if retType <> typeof<System.Void> then
-                                x.PrependLdcDefault(retType, &instr)
-                                let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, &prependTarget)
-                                x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
-                                x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
-                            else
-                                x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
-                            if not isNewObj then
-                                if argsCount > 0 || retType <> typeof<System.Void> then
-                                    x.PrependPopOpmem &prependTarget |> ignore
-                                let br = x.PrependBranch(OpCodes.Br, &prependTarget)
-                                br.arg <- Target nop
-                            else
-                                if argsCount = 0 && retType <> typeof<System.Void> then
-                                    x.PrependPopOpmem &prependTarget |> ignore
-                        else
-                            x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
 
-                        let callStart = x.PrependNop(&prependTarget)
-                        br_true.arg <- Target callStart
-                        if isInternalCall && argsCount > 0 then
-                            x.PrependPopOpmem &prependTarget |> ignore
-                        let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
-                        let pushFrameArgs = [(OpCodes.Ldc_I4, Arg32 token)
-                                             (OpCodes.Ldc_I4, Arg32 expectedToken)
-                                             (OpCodes.Ldc_I4, Arg32 (if isNewObj then 1 else 0))
-                                             (OpCodes.Ldc_I4, Arg32 argsCount)]
-                        x.PrependProbeWithOffset(probes.pushFrame, pushFrameArgs, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
+                        if isExecutableMethod then
+                            let br_push = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
+                            let br_call =
+                                if isModeledInternalCall then
+                                    x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                                    if argsCount > 0 then
+                                        x.PrependPopOpmem &prependTarget |> ignore
+                                    x.PrependBranch(OpCodes.Br, &prependTarget) |> Some
+                                else
+                                    x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                                    None
+
+                            let pushStart = x.PrependNop &prependTarget
+                            br_push.arg <- Target pushStart
+                            if isModeledInternalCall && returnValues > 0 then
+                                x.PrependProbe(probes.pushInternalCallResult, [], x.tokens.void_sig, &prependTarget) |> ignore
+
+                            let callStart = x.PrependNop &prependTarget
+                            br_call |> Option.iter (fun instr -> instr.arg <- Target callStart)
+                            if not isModeledInternalCall then
+                                let expectedToken = if opcodeValue = OpCodeValues.Callvirt then 0 else callee.MetadataToken
+                                let pushFrameArgs = [(OpCodes.Ldc_I4, Arg32 token)
+                                                     (OpCodes.Ldc_I4, Arg32 expectedToken)
+                                                     (OpCodes.Ldc_I4, Arg32 (if isNewObj then 1 else 0))
+                                                     (OpCodes.Ldc_I4, Arg32 argsCount)]
+                                x.PrependProbeWithOffset(probes.pushFrame, pushFrameArgs, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
+
+                            if isModeledInternalCall then
+                                x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                                x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
+                        else
+                            // TODO: see listing above
+                            __notImplemented__()
+//                            if isModeledInternalCall then
+//                                for i = 1 to argsCount do
+//                                    x.PrependInstr(OpCodes.Pop, NoArg, &prependTarget)
+//                                // TODO: if internal call mod el raised exception, raise it in concolic
+//                                if retType <> typeof<System.Void> then
+//                                    x.PrependLdcDefault(retType, &instr)
+//                                    let probe, token = x.PrependMemUnmemForType(EvaluationStackTyper.abstractType retType, argsCount, &prependTarget)
+//                                    x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+//                                    x.PrependProbe(probe, [(OpCodes.Ldc_I4, Arg32 argsCount)], token, &prependTarget) |> ignore
+//                                else
+//                                    x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+//                                if argsCount > 0 then
+//                                    x.PrependPopOpmem &prependTarget |> ignore
+                        finalize.offset <- instr.offset
+                        instructions.[i] <- finalize
                     | _ -> __unreachable__()
                 | OpCodeValues.Calli -> __notImplemented__()
 
