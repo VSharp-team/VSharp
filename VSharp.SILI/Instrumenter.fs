@@ -848,9 +848,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(execProbe, [], execSig, &prependTarget) |> ignore
                     let unmem_p = x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &prependTarget)
-                    x.PrependPopOpmem &prependTarget |> ignore
                     br_true.arg <- Target unmem_p
                     x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
+                    x.PrependPopOpmem &prependTarget |> ignore
 
                 | OpCodeValues.Mkrefany -> x.AppendProbe(probes.mkrefany, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Newarr ->
@@ -898,14 +898,16 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependDup &prependTarget |> ignore
                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
-                    x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.castclass, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
-                    x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                    x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                    x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Isinst ->
                     x.PrependDup &prependTarget |> ignore
                     x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
                     x.PrependProbeWithOffset(probes.isinst, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
+                    x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
+                    x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Unbox ->
                      x.PrependDup &prependTarget |> ignore
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
@@ -916,8 +918,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      x.PrependDup &prependTarget |> ignore
                      x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                      x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
-                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                      x.PrependProbeWithOffset(probes.unboxAny, [], x.tokens.void_i_token_offset_sig, &prependTarget) |> ignore
+                     x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                      x.AppendProbe(probes.enableInstrumentation, [], x.tokens.void_sig, instr) |> ignore
                 | OpCodeValues.Ldfld ->
                     let isStruct =
