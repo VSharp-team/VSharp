@@ -254,41 +254,47 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         | UnOp evaluationStackCellType.I1
         | UnOp evaluationStackCellType.I2
         | UnOp evaluationStackCellType.I4 ->
+            // TODO: 2Misha: Why mem value and then dup and pass it to probe?
+            x.PrependDup &instr |> ignore
             x.PrependMem_i4(0, &instr)
-            x.PrependProbe(probes.unmem_4, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i4_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_4, [], x.tokens.void_i4_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_4, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i4_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.I8 ->
+            x.PrependDup &instr |> ignore
             x.PrependMem_i8(0, &instr)
-            x.PrependProbe(probes.unmem_8, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i8_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_8, [], x.tokens.void_i8_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_8, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i8_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.R4 ->
+            x.PrependDup &instr |> ignore
             x.PrependMem_f4(0, &instr)
-            x.PrependProbe(probes.unmem_f4, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.r4_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_f4, [], x.tokens.void_r4_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_f4, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.r4_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.R8 ->
+            x.PrependDup &instr |> ignore
             x.PrependMem_f8(0, &instr)
-            x.PrependProbe(probes.unmem_f8, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.r8_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_f8, [], x.tokens.void_r8_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_f8, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.r8_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.I ->
+            x.PrependDup &instr |> ignore
             x.PrependMem_p(0, &instr)
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_p, [], x.tokens.void_i_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.Ref ->
+            x.PrependDup &instr |> ignore
             x.PrependMem_p(0, &instr)
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+            x.PrependDup &instr |> ignore
+            x.PrependInstr(OpCodes.Conv_I, NoArg, &instr) |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_p, [], x.tokens.void_i_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
         | UnOp evaluationStackCellType.Struct
         | UnOp evaluationStackCellType.RefLikeStruct ->
+            x.PrependDup &instr |> ignore
+            let returnType = Reflection.getMethodReturnType x.m
+            let returnTypeToken = x.AcceptReturnTypeToken returnType
+            x.PrependInstr(OpCodes.Box, Arg32 returnTypeToken, &instr) |> ignore
+            x.PrependDup &instr |> ignore
             x.PrependMem_p(0, &instr)
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
+            x.PrependInstr(OpCodes.Conv_I, NoArg, &instr) |> ignore
             x.PrependProbeWithOffset(probes.leaveMain_p, [], x.tokens.void_i_offset_sig, &instr) |> ignore
-            x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore
         | _ -> internalfailf "PrependValidLeaveMain: unexpected stack state! %O" instr.stackState
 
     member private x.PlaceLeaveProbe(instr : ilInstr byref) =
@@ -442,6 +448,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
     member private x.AcceptLocVarTypeToken (t : System.Type) idx =
         x.AcceptTypeToken t (fun () -> communicator.ParseLocalTypeToken idx |> int)
 
+    member private x.AcceptReturnTypeToken (t : System.Type) =
+        x.AcceptTypeToken t (communicator.ParseReturnTypeToken >> int)
+
     member private x.TypeSizeInstr (t : System.Type) getToken =
         if t.IsByRef || t.IsArray || (t.IsConstructedGenericType && t.GetGenericTypeDefinition().FullName = "System.ByReference`1") then
             OpCodes.Ldc_I4, Arg32 System.IntPtr.Size
@@ -466,9 +475,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
             match instr.opcode with
             | OpCode op ->
                 let prependTarget = if hasPrefix then &prefix else &instr
-//                let dumpedInfo = x.rewriter.ILInstrToString probes instr
-//                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
-//                x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget) |> ignore
+                let dumpedInfo = x.rewriter.ILInstrToString probes instr
+                let idx = communicator.SendStringAndReadItsIndex dumpedInfo
+                x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget) |> ignore
                 let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
                 match opcodeValue with
                 // Prefixes
@@ -928,6 +937,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                         x.PrependDup(&prependTarget) |> ignore
                         x.PrependInstr(OpCodes.Ldflda, instr.arg, &prependTarget) |> ignore
+                        x.PrependInstr(OpCodes.Conv_I, NoArg, &prependTarget) |> ignore
                     let fieldSizeOpcode, fieldSizeArg = x.TypeSizeInstr fieldInfo.FieldType (fun () -> x.AcceptFieldTypeToken fieldInfo)
                     x.PrependInstr(fieldSizeOpcode, fieldSizeArg, &prependTarget) |> ignore
                     if isStruct then

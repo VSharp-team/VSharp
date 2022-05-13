@@ -719,6 +719,10 @@ type Communicator(pipeFile) =
         x.Serialize<int> localIndex |> writeBuffer
         x.ReadTypeToken()
 
+    member x.ParseReturnTypeToken () : uint32 =
+        // TODO: 2Misha
+        __notImplemented__()
+
     member x.ReadMethodBody() =
         match readBuffer() with
         | Some bytes ->

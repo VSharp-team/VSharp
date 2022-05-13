@@ -140,28 +140,28 @@ module private EvaluationStackTyper =
     let fail() = internalfail "Stack typer validation failed!"
 
     let typeAbstraction =
-        let result = System.Collections.Generic.Dictionary<int32 * int32, evaluationStackCellType>()
-        result.Add((typeof<int8>.Module.MetadataToken, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
-        result.Add((typeof<uint8>.Module.MetadataToken, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
-        result.Add((typeof<char>.Module.MetadataToken, typeof<char>.MetadataToken), evaluationStackCellType.I2)
-        result.Add((typeof<bool>.Module.MetadataToken, typeof<bool>.MetadataToken), evaluationStackCellType.I1)
-        result.Add((typeof<int16>.Module.MetadataToken, typeof<int16>.MetadataToken), evaluationStackCellType.I2)
-        result.Add((typeof<uint16>.Module.MetadataToken, typeof<uint16>.MetadataToken), evaluationStackCellType.I2)
-        result.Add((typeof<int32>.Module.MetadataToken, typeof<int32>.MetadataToken), evaluationStackCellType.I4)
-        result.Add((typeof<uint32>.Module.MetadataToken, typeof<uint32>.MetadataToken), evaluationStackCellType.I4)
-        result.Add((typeof<int64>.Module.MetadataToken, typeof<int64>.MetadataToken), evaluationStackCellType.I8)
-        result.Add((typeof<uint64>.Module.MetadataToken, typeof<uint64>.MetadataToken), evaluationStackCellType.I8)
-        result.Add((typeof<float32>.Module.MetadataToken, typeof<float32>.MetadataToken), evaluationStackCellType.R4)
-        result.Add((typeof<double>.Module.MetadataToken, typeof<double>.MetadataToken), evaluationStackCellType.R8)
-        result.Add((typeof<IntPtr>.Module.MetadataToken, typeof<IntPtr>.MetadataToken), evaluationStackCellType.I)
-        result.Add((typeof<UIntPtr>.Module.MetadataToken, typeof<UIntPtr>.MetadataToken), evaluationStackCellType.I)
+        let result = System.Collections.Generic.Dictionary<string * int32, evaluationStackCellType>()
+        result.Add((typeof<int8>.Module.FullyQualifiedName, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
+        result.Add((typeof<uint8>.Module.FullyQualifiedName, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
+        result.Add((typeof<char>.Module.FullyQualifiedName, typeof<char>.MetadataToken), evaluationStackCellType.I2)
+        result.Add((typeof<bool>.Module.FullyQualifiedName, typeof<bool>.MetadataToken), evaluationStackCellType.I1)
+        result.Add((typeof<int16>.Module.FullyQualifiedName, typeof<int16>.MetadataToken), evaluationStackCellType.I2)
+        result.Add((typeof<uint16>.Module.FullyQualifiedName, typeof<uint16>.MetadataToken), evaluationStackCellType.I2)
+        result.Add((typeof<int32>.Module.FullyQualifiedName, typeof<int32>.MetadataToken), evaluationStackCellType.I4)
+        result.Add((typeof<uint32>.Module.FullyQualifiedName, typeof<uint32>.MetadataToken), evaluationStackCellType.I4)
+        result.Add((typeof<int64>.Module.FullyQualifiedName, typeof<int64>.MetadataToken), evaluationStackCellType.I8)
+        result.Add((typeof<uint64>.Module.FullyQualifiedName, typeof<uint64>.MetadataToken), evaluationStackCellType.I8)
+        result.Add((typeof<float32>.Module.FullyQualifiedName, typeof<float32>.MetadataToken), evaluationStackCellType.R4)
+        result.Add((typeof<double>.Module.FullyQualifiedName, typeof<double>.MetadataToken), evaluationStackCellType.R8)
+        result.Add((typeof<IntPtr>.Module.FullyQualifiedName, typeof<IntPtr>.MetadataToken), evaluationStackCellType.I)
+        result.Add((typeof<UIntPtr>.Module.FullyQualifiedName, typeof<UIntPtr>.MetadataToken), evaluationStackCellType.I)
         result
 
     let abstractType (typ : Type) =
         if typ.IsValueType then
             let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
             let result = ref evaluationStackCellType.I1
-            if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then result.Value
+            if typeAbstraction.TryGetValue((typ.Module.FullyQualifiedName, typ.MetadataToken), result) then result.Value
             elif Attribute.IsDefined(typ, typeof<IsByRefLikeAttribute>) then evaluationStackCellType.RefLikeStruct
             else evaluationStackCellType.Struct
         else evaluationStackCellType.Ref
