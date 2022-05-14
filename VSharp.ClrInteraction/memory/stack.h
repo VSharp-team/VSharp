@@ -34,6 +34,7 @@ private:
 
     unsigned m_resolvedToken;
     unsigned m_unresolvedToken;
+    unsigned m_moduleToken;
     bool m_enteredMarker;
     bool m_spontaneous;
 
@@ -86,6 +87,9 @@ public:
     void setEnteredMarker(bool entered);
     bool isSpontaneous() const;
     void setSpontaneous(bool isUnmanaged);
+
+    unsigned moduleToken() const;
+    void setModuleToken(unsigned token);
 
     const std::vector<std::pair<unsigned, unsigned>> &poppedSymbolics() const;
     unsigned evaluationStackPops() const;

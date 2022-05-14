@@ -316,7 +316,12 @@ CommandType getAndHandleCommand() {
     return command;
 }
 
-bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
+void sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops, bool mightFork = true) {
+    if (mightFork)
+        addCoverageStep(offset);
+    if (stillExpectsCoverage())
+        return;
+
     ExecCommand command{};
     initCommand(offset, false, opsCount, ops, command);
     protocol->sendSerializable(ExecuteCommand, command);
@@ -332,7 +337,7 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
     int framesCount;
     EvalStackOperand internalCallResult = EvalStackOperand {OpSymbolic, 0};
     unsigned oldOpsCount = opsCount;
-    bool opsConcretized = readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
+    readExecResponse(top, ops, opsCount, framesCount, internalCallResult);
 //    if (mightFork && opsConcretized && opsCount > 0) {
 //        const std::vector<std::pair<unsigned, unsigned>> &poppedSymbs = top.poppedSymbolics();
 //        for (const auto &poppedSymb : poppedSymbs) {
@@ -348,11 +353,10 @@ bool sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops) {
 
     vsharp::stack().resetPopsTracking(framesCount);
     freeCommand(command);
-    return opsConcretized;
 }
 
-bool sendCommand0(OFFSET offset) { return sendCommand(offset, 0, nullptr); }
-bool sendCommand1(OFFSET offset) { return sendCommand(offset, 1, new EvalStackOperand[1]); }
+void sendCommand0(OFFSET offset, bool mightFork = true) { sendCommand(offset, 0, nullptr, mightFork); }
+void sendCommand1(OFFSET offset, bool mightFork = true) { sendCommand(offset, 1, new EvalStackOperand[1], mightFork); }
 
 // TODO:
 EvalStackOperand mkop_4(INT32 op) { return {OpI4, (long long)op}; }
@@ -442,6 +446,10 @@ int registerProbe(unsigned long long probe) {
     int NAME##_tmp = registerProbe((unsigned long long)&(NAME));\
     RETTYPE STDMETHODCALLTYPE NAME ARGS
 
+PROBE(void, Track_Coverage, (OFFSET offset)) {
+    addCoverageStep(offset);
+}
+
 PROBE(void, EnableInstrumentation, ()) { enabledInstrumentation(); }
 PROBE(void, DisableInstrumentation, ()) { disableInstrumentation(); }
 
@@ -456,12 +464,12 @@ inline bool ldarg(INT16 idx) {
     return concreteness;
 }
 
-PROBE(void, Track_Ldarg_0, (OFFSET offset)) { if (!ldarg(0)) sendCommand0(offset); }
-PROBE(void, Track_Ldarg_1, (OFFSET offset)) { if (!ldarg(1)) sendCommand0(offset); }
-PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset); }
-PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset); }
-PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldarg_0, (OFFSET offset)) { if (!ldarg(0)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldarg_1, (OFFSET offset)) { if (!ldarg(1)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldarg_2, (OFFSET offset)) { if (!ldarg(2)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldarg_3, (OFFSET offset)) { if (!ldarg(3)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldarg_S, (UINT8 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldarg, (UINT16 idx, OFFSET offset)) { if (!ldarg(idx)) sendCommand0(offset, false); }
 
 PROBE(void, Track_Ldarga_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     Stack &stack = vsharp::stack();
@@ -496,12 +504,12 @@ inline bool ldloc(INT16 idx) {
     }
     return concreteness;
 }
-PROBE(void, Track_Ldloc_0, (OFFSET offset)) { if (!ldloc(0)) sendCommand0(offset); }
-PROBE(void, Track_Ldloc_1, (OFFSET offset)) { if (!ldloc(1)) sendCommand0(offset); }
-PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset); }
-PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset); }
-PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
-PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset); }
+PROBE(void, Track_Ldloc_0, (OFFSET offset)) { if (!ldloc(0)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldloc_1, (OFFSET offset)) { if (!ldloc(1)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldloc_2, (OFFSET offset)) { if (!ldloc(2)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldloc_3, (OFFSET offset)) { if (!ldloc(3)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldloc_S, (UINT8 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset, false); }
+PROBE(void, Track_Ldloc, (UINT16 idx, OFFSET offset)) { if (!ldloc(idx)) sendCommand0(offset, false); }
 
 PROBE(void, Track_Ldloca_Primitive, (INT_PTR ptr, UINT16 idx, SIZE size)) {
     Stack &stack = vsharp::stack();
@@ -535,8 +543,8 @@ inline bool starg(INT16 idx) {
     top.arg(idx) = cell;
     return concreteness;
 }
-PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Starg_S, (UINT8 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Starg, (UINT16 idx, OFFSET offset)) { if (!starg(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 
 inline bool stloc(INT16 idx) {
     StackFrame &top = vsharp::topFrame();
@@ -545,29 +553,27 @@ inline bool stloc(INT16 idx) {
     top.loc(idx) = cell;
     return concreteness;
 }
-PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
-PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1]); }
+PROBE(void, Track_Stloc_0, (OFFSET offset)) { if (!stloc(0)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_1, (OFFSET offset)) { if (!stloc(1)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_2, (OFFSET offset)) { if (!stloc(2)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_3, (OFFSET offset)) { if (!stloc(3)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc_S, (UINT8 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
+PROBE(void, Track_Stloc, (UINT16 idx, OFFSET offset)) { if (!stloc(idx)) sendCommand(offset, 1, new EvalStackOperand[1], false); }
 
 PROBE(void, Track_Ldc, ()) { topFrame().push1Concrete(); }
 PROBE(void, Track_Dup, (OFFSET offset)) {
     StackFrame &top = topFrame();
     const LocalObject &cell = top.peekObject(0);
     if (!top.dup()) {
-        sendCommand(offset, 1, new EvalStackOperand[1]);
+        sendCommand(offset, 1, new EvalStackOperand[1], false);
         top.push1(cell);
     }
 }
 PROBE(void, Track_Pop, ()) { topFrame().pop1Async(); }
 
-inline bool branch(OFFSET offset) {
+inline void branch(OFFSET offset) {
     if (!topFrame().pop1())
-        return sendCommand1(offset);
-    // TODO
-    return true;
+        sendCommand1(offset);
 }
 // TODO: make it bool, change instrumentation
 PROBE(void, BrTrue, (OFFSET offset)) { branch(offset); }
@@ -915,7 +921,7 @@ PROBE(void, SetLocSize, (INT8 idx, SIZE size)) {
     cell.setLocation(location);
 }
 
-PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
+PROBE(void, Track_Enter, (mdMethodDef token, unsigned moduleToken, unsigned maxStackSize, unsigned argsCount, unsigned localsCount, INT8 isSpontaneous)) {
     LOG(tout << "Track_Enter, token = " << HEX(token) << std::endl);
     Stack &stack = vsharp::stack();
     StackFrame *top = stack.isEmpty() ? nullptr : &stack.topFrame();
@@ -938,6 +944,7 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
     }
     top->setEnteredMarker(true);
     top->configure(maxStackSize, localsCount);
+    top->setModuleToken(moduleToken);
 }
 
 PROBE(void, Track_StructCtor, (ADDR address)) {
@@ -952,13 +959,13 @@ PROBE(void, Track_StructCtor, (ADDR address)) {
     }
 }
 
-PROBE(void, Track_EnterMain, (mdMethodDef token, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
+PROBE(void, Track_EnterMain, (mdMethodDef token, unsigned moduleToken, UINT16 argsCount, bool argsConcreteness, unsigned maxStackSize, unsigned localsCount)) {
     Stack &stack = vsharp::stack();
     assert(stack.isEmpty());
     auto args = new bool[argsCount];
     memset(args, argsConcreteness, argsCount);
     stack.pushFrame(token, token, args, argsCount);
-    Track_Enter(token, maxStackSize, argsCount, localsCount, 0);
+    Track_Enter(token, moduleToken, maxStackSize, argsCount, localsCount, 0);
     stack.resetPopsTracking(1);
 }
 

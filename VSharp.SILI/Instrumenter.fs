@@ -123,19 +123,21 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let totalArgsCount = if hasThis then argsCount + 1 else argsCount
         if x.m.MethodHandle = entryPoint.MethodHandle then
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
+                        (OpCodes.Ldc_I4, Arg32 (Coverage.moduleToken x.m.Module))
                         (OpCodes.Ldc_I4, Arg32 totalArgsCount)
 //                        (OpCodes.Ldc_I4, Arg32 1) // Arguments of entry point are concrete
                         (OpCodes.Ldc_I4, Arg32 0) // Arguments of entry point are symbolic
                         (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)
                         (OpCodes.Ldc_I4, Arg32 localsCount)]
-            x.PrependProbe(probes.enterMain, args, x.tokens.void_token_u2_bool_u4_u4_sig, &firstInstr) |> ignore
+            x.PrependProbe(probes.enterMain, args, x.tokens.void_token_u4_u2_bool_u4_u4_sig, &firstInstr) |> ignore
         else
             let args = [(OpCodes.Ldc_I4, Arg32 x.m.MetadataToken)
+                        (OpCodes.Ldc_I4, Arg32 (Coverage.moduleToken x.m.Module))
                         (OpCodes.Ldc_I4, x.rewriter.MaxStackSize |> int32 |> Arg32)
                         (OpCodes.Ldc_I4, Arg32 totalArgsCount)
                         (OpCodes.Ldc_I4, Arg32 localsCount)
                         (OpCodes.Ldc_I4, Arg32 isSpontaneous)]
-            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_i1_sig, &firstInstr) |> ignore
+            x.PrependProbe(probes.enter, args, x.tokens.void_token_u4_u4_u4_u4_i1_sig, &firstInstr) |> ignore
         for i = 0 to argsCount - 1 do
             let argType = parameters.[i].ParameterType
             if hasComplexSize argType then
@@ -470,6 +472,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
     member x.PlaceProbes() =
         let instructions = x.rewriter.CopyInstructions()
+        let cfg = CFG.findCfg x.m
+        let basicBlocks = cfg.sortedOffsets
+        let mutable currentBasicBlockIndex = 0
         assert(not <| Array.isEmpty instructions)
         let mutable atLeastOneReturnFound = false
         let mutable hasPrefix = false
@@ -485,6 +490,10 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                 let dumpedInfo = x.rewriter.ILInstrToString probes instr
                 let idx = communicator.SendStringAndReadItsIndex dumpedInfo
                 x.PrependProbe(probes.dumpInstruction, [OpCodes.Ldc_I4, idx |> int |> Arg32], x.tokens.void_u4_sig, &prependTarget) |> ignore
+                if not hasPrefix && uint32 basicBlocks[currentBasicBlockIndex] = instr.offset then
+                    x.PrependProbeWithOffset(probes.trackCoverage, [], x.tokens.void_offset_sig, &instr) |> ignore
+                    currentBasicBlockIndex <- currentBasicBlockIndex + 1
+
                 let opcodeValue = LanguagePrimitives.EnumOfValue op.Value
                 match opcodeValue with
                 // Prefixes

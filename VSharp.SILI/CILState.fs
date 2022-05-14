@@ -23,6 +23,7 @@ type cilState =
       mutable stepsNumber : uint
       mutable concolicState : concolicState
       mutable lastPushInfo : term option
+      mutable path : Coverage.path
     }
     with
     member x.Result with get() =
@@ -51,6 +52,7 @@ module internal CilStateOperations =
           stepsNumber = 0u
           concolicState = Disabled
           lastPushInfo = None
+          path = []
         }
 
     let makeInitialState m state = makeCilState (instruction m 0) 0u state
@@ -231,23 +233,6 @@ module internal CilStateOperations =
         push value afterCall
 
     // ------------------------------- Helper functions for cilState -------------------------------
-
-    let moveIp offset m cilState =
-        let cfg = CFG.findCfg m
-        let opCode = Instruction.parseInstruction m offset
-        let newIps =
-            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
-            match nextTargets with
-            | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction :: []
-            | Return -> exit m :: []
-            | ExceptionMechanism ->
-                // TODO: use ExceptionMechanism? #do
-//                let toObserve = __notImplemented__()
-//                searchingForHandler toObserve 0 :: []
-                __notImplemented__()
-            | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
-        List.map (fun ip -> setCurrentIp ip cilState) newIps
 
     let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
         let mkCilState state =

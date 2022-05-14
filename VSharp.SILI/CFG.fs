@@ -92,7 +92,7 @@ module public CFG =
             if used.Contains src then ()
             else
                 let wasAdded = used.Add src
-                assert(wasAdded)
+                assert wasAdded
                 match interimData.fallThroughOffset.[src] with
                 | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
                     addEdge currentVertex dst
@@ -120,13 +120,9 @@ module public CFG =
         let rec dfs' (v : offset) =
             if used.Contains v then ()
             else
-                //TODO: remove next line of code when generic pobs-generating mechanism is coded: for now ``markVertex''
-                //TODO: is done intentionally to bypass all opcodes and find ``hard-coded Throw'' that would be pobs
-//                markVertex data.verticesOffsets v
                 let wasAdded = used.Add(v)
-                assert(wasAdded)
+                assert wasAdded
                 let opCode = Instruction.parseInstruction methodBase v
-//                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.getFullMethodName methodBase) v opCode
                 data.opCodes.[v] <- opCode
 
                 let dealWithJump src dst =
@@ -152,6 +148,7 @@ module public CFG =
                 | UnconditionalBranch target -> dealWithJump v target
                 | ConditionalBranch (fallThrough, offsets) -> fallThrough :: offsets |> List.iter (dealWithJump v)
         dfs' v
+
     let private dfsComponent methodBase (data : interimData) used (ilBytes : byte []) startOffset =
         markVertex data.verticesOffsets startOffset
         dfs methodBase data used ilBytes startOffset

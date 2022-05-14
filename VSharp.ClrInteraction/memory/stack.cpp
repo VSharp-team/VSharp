@@ -245,6 +245,16 @@ void StackFrame::setSpontaneous(bool isUnmanaged)
     this->m_spontaneous = isUnmanaged;
 }
 
+unsigned StackFrame::moduleToken() const
+{
+    return m_moduleToken;
+}
+
+void StackFrame::setModuleToken(unsigned token)
+{
+    m_moduleToken = token;
+}
+
 unsigned StackFrame::evaluationStackPops() const
 {
     assert(m_minSymbsCountSinceLastSent <= m_lastSentSymbolsCount);

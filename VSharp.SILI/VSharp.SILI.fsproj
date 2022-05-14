@@ -23,6 +23,7 @@
         <Compile Include="ILRewriter.fs" />
         <Compile Include="Instruction.fs" />
         <Compile Include="CFG.fs" />
+        <Compile Include="Coverage.fs" />
         <Compile Include="CILState.fs" />
         <Compile Include="Lambdas.fs" />
         <Compile Include="Statistics.fs" />

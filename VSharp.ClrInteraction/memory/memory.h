@@ -18,6 +18,8 @@ extern Storage heap;
 extern std::map<unsigned, const char*> stringsPool;
 #endif
 
+// Memory tracking
+
 Stack &stack();
 StackFrame &topFrame();
 
@@ -33,6 +35,23 @@ unsigned allocateString(const char *s);
 void validateStackEmptyness();
 
 void resolve(INT_PTR p, VirtualAddress &vAddress);
+
+// Coverage collection
+
+struct CoverageNode {
+    int moduleToken;
+    mdMethodDef methodToken;
+    OFFSET offset;
+    int threadToken;
+    CoverageNode *next;
+};
+
+static const CoverageNode *expectedCoverageStep = nullptr;
+static CoverageNode *lastCoverageStep = nullptr;
+
+void setExpectedCoverage(const CoverageNode *expectedCoverage);
+bool stillExpectsCoverage();
+bool addCoverageStep(OFFSET offset);
 
 }
 

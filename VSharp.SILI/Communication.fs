@@ -10,6 +10,7 @@ open VSharp.Core.API
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
 type probes = {
+    mutable trackCoverage : uint64
     mutable enableInstrumentation : uint64
     mutable disableInstrumentation : uint64
     mutable ldarg_0 : uint64
@@ -248,7 +249,6 @@ type signatureTokens = {
     mutable void_r8_r8_offset_sig : uint32
     mutable void_i_i1_i1_sig : uint32
     mutable void_i_i4_i2_sig : uint32
-    mutable void_token_u2_bool_u4_u4_sig : uint32
     mutable void_offset_sig : uint32
     mutable void_u1_offset_sig : uint32
     mutable void_u2_offset_sig : uint32
@@ -295,7 +295,8 @@ type signatureTokens = {
     mutable void_i4_i4_i_i_offset_sig : uint32
     mutable void_i_i4_i_i_offset_sig : uint32
     mutable void_token_token_bool_u2_offset_sig : uint32
-    mutable void_token_u4_u4_u4_i1_sig : uint32
+    mutable void_token_u4_u4_u4_u4_i1_sig : uint32
+    mutable void_token_u4_u2_bool_u4_u4_sig : uint32
 }
 with
     member private x.SigToken2str =

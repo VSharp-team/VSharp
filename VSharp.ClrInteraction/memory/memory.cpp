@@ -94,3 +94,38 @@ void vsharp::disableInstrumentation() {
 void vsharp::resolve(INT_PTR p, VirtualAddress &address) {
     heap.physToVirtAddress(p, address);
 }
+
+void vsharp::setExpectedCoverage(const CoverageNode *expectedCoverage) {
+    expectedCoverageStep = expectedCoverage;
+}
+
+bool vsharp::stillExpectsCoverage() {
+    return expectedCoverageStep;
+}
+
+bool vsharp::addCoverageStep(OFFSET offset) {
+    int threadToken = 0; // TODO: support multithreading
+    StackFrame &top = topFrame();
+    int moduleToken = top.moduleToken();
+    mdMethodDef methodToken = top.resolvedToken();
+    if (expectedCoverageStep) {
+        if (expectedCoverageStep->moduleToken != moduleToken || expectedCoverageStep->methodToken != methodToken ||
+                expectedCoverageStep->offset != offset || expectedCoverageStep->threadToken != threadToken) {
+            LOG(tout << "Path divergence detected at offset " << offset << " of " << HEX(methodToken));
+            return false;
+        }
+        expectedCoverageStep = expectedCoverageStep->next;
+    }
+    if (lastCoverageStep && lastCoverageStep->moduleToken == moduleToken && lastCoverageStep->methodToken == methodToken &&
+            lastCoverageStep->offset == offset && lastCoverageStep->threadToken == threadToken)
+    {
+        return true;
+    }
+    LOG(tout << "cover offset " << offset << " of " << HEX(methodToken));
+    CoverageNode *newStep = new CoverageNode{moduleToken, methodToken, offset, threadToken, nullptr};
+    if (lastCoverageStep) {
+        lastCoverageStep->next = newStep;
+    }
+    lastCoverageStep = newStep;
+    return true;
+}
