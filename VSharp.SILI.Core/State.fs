@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open VSharp
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
@@ -15,8 +16,8 @@ type offset = int
 // last fields are determined by above fields
 // TODO: remove it when CFA is gone #Kostya
 [<CustomEquality;CustomComparison>]
-type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
-                  calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
+type callSite = { sourceMethod : MethodBase; offset : offset
+                  calledMethod : MethodBase; opCode : Emit.OpCode }
     with
     member x.HasNonVoidResult = Reflection.hasNonVoidResult x.calledMethod
     member x.SymbolicType = x.calledMethod |> Reflection.getMethodReturnType |> fromDotNetType
@@ -75,6 +76,12 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
+type concreteData =
+    | StringData of char[]
+    | VectorData of obj[]
+    | ComplexArrayData of Array // TODO: support non-vector arrays
+    | FieldsData of (FieldInfo * obj)[]
+
 type IConcreteMemory =
     abstract Allocate : UIntPtr -> Lazy<concreteHeapAddress> -> unit // physical address * virtual address
     abstract Contains : concreteHeapAddress -> bool
@@ -86,7 +93,7 @@ type IConcreteMemory =
     abstract GetAllArrayData : concreteHeapAddress -> arrayType -> seq<int list * obj>
     abstract GetPhysicalAddress : concreteHeapAddress -> UIntPtr
     abstract GetVirtualAddress : UIntPtr -> concreteHeapAddress
-    abstract Unmarshall : concreteHeapAddress -> Type -> obj
+    abstract Unmarshall : concreteHeapAddress -> Type -> concreteData
 
 type model =
     { state : state; subst : IDictionary<ISymbolicConstantSource, term>; complete : bool }

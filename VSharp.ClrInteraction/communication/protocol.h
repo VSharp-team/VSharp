@@ -33,7 +33,9 @@ enum CommandType {
     ParseFieldRefTypeToken = 0x67,
     ParseFieldDefTypeToken = 0x69,
     ParseArgTypeToken = 0x70,
-    ParseLocalTypeToken = 0x71
+    ParseLocalTypeToken = 0x71,
+    ParseReturnTypeToken = 0x72,
+    ParseDeclaringTypeToken = 0x73
 };
 
 class Protocol {

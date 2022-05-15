@@ -221,7 +221,7 @@ namespace vsharp {
     }
 
     void LocalObject::setSize(int size) {
-        assert(sizeOf() == 1);
+//        assert(sizeOf() == 1);
         delete[] concreteness;
         SIZE squashedSize = squashSize(size);
         concreteness = new cell[squashedSize];

@@ -365,9 +365,13 @@ module internal Memory =
         | _ -> referenceTypeToTerm state obj
 
     and private structToTerm state (obj : obj) t =
-        let makeField (fieldInfo : Reflection.FieldInfo) _ _ =
-           fieldInfo.GetValue(obj) |> objToTerm state fieldInfo.FieldType
-        makeStruct false makeField (fromDotNetType t)
+        match obj with
+        | :? concreteData as FieldsData fields ->
+            let makeField (fieldInfo : Reflection.FieldInfo) _ _ =
+               let objValue = Array.find (fun (info, _) -> info = fieldInfo) fields
+               objToTerm state fieldInfo.FieldType objValue
+            makeStruct false makeField (fromDotNetType t)
+        | _ -> internalfailf "structToTerm: unexpected struct object %O" obj
 
     and private nullableToTerm state t (obj : obj) =
         let nullableType = Nullable.GetUnderlyingType t
@@ -915,15 +919,15 @@ module internal Memory =
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
-    let private unmarshallClass (state : state) address obj =
-        let writeField state (fieldId, fieldInfo : Reflection.FieldInfo) =
-            let value = fieldInfo.GetValue obj |> objToTerm state fieldInfo.FieldType
+    let private unmarshallClass (state : state) address fields =
+        let writeField state (fieldInfo : Reflection.FieldInfo, valueObj : obj) =
+            let value = objToTerm state fieldInfo.FieldType valueObj
+            let fieldId = Reflection.wrapField fieldInfo
             writeClassFieldSymbolic state address fieldId value
-        let fields = obj.GetType() |> Reflection.fieldsOf false
         Array.iter (writeField state) fields
 
-    let private unmarshallArray (state : state) address (array : Array) =
-        let elemType, dim, _ as arrayType = array.GetType() |> fromDotNetType |> symbolicTypeToArrayType
+    let private unmarshallArray (state : state) address (array : Array) typ =
+        let elemType, dim, _ as arrayType = symbolicTypeToArrayType typ
         let lbs = List.init dim array.GetLowerBound
         let lens = List.init dim array.GetLength
         let writeIndex state (indices : int list) =
@@ -936,15 +940,26 @@ module internal Memory =
         let termLens = List.map (objToTerm state typeof<int>) lens
         fillArrayBoundsSymbolic state address termLens termLBs arrayType
 
-    let private unmarshallString (state : state) address (string : string) =
-        let concreteStringLength = string.Length
+    let private unmarshallVector (state : state) address (array : obj[]) typ =
+        let elemType, _, isVector as arrayType = symbolicTypeToArrayType typ
+        assert(isVector)
+        let writeIndex state (idx : int) value =
+            let value = objToTerm state (toDotNetType elemType) value
+            writeArrayIndexSymbolic state address [makeNumber idx] arrayType value
+        Array.iteri (writeIndex state) array
+        let lbs = [makeNumber 0]
+        let lens = [Array.length array |> makeNumber]
+        fillArrayBoundsSymbolic state address lens lbs arrayType
+
+    let private unmarshallString (state : state) address (chars : char[]) =
+        let concreteStringLength = Array.length chars
         let stringLength = makeNumber concreteStringLength
         let arrayLength = makeNumber (concreteStringLength + 1)
         let arrayType = (Char, 1, true)
         let zero = makeNumber 0
         let writeChars state i value =
             writeArrayIndexSymbolic state address [Concrete i lengthType] arrayType (Concrete value Char)
-        Seq.iteri (writeChars state) string
+        Array.iteri (writeChars state) chars
         writeLengthSymbolic state address zero arrayType arrayLength
         writeLowerBoundSymbolic state address zero arrayType zero
         writeArrayIndexSymbolic state address [stringLength] (Char, 1, true) (Concrete '\000' Char)
@@ -953,13 +968,14 @@ module internal Memory =
     let unmarshall (state : state) concreteAddress =
         let address = ConcreteHeapAddress concreteAddress
         let cm = state.concreteMemory
-        let typ = typeOfHeapLocation state address |> toDotNetType
-        let obj = cm.Unmarshall concreteAddress typ
-        assert(box obj <> null)
-        match obj with
-        | :? Array as array -> unmarshallArray state address array
-        | :? String as string -> unmarshallString state address string
-        | _ -> unmarshallClass state address obj
+        let typ = typeOfHeapLocation state address
+        let dotNetType = toDotNetType typ
+        let data = cm.Unmarshall concreteAddress dotNetType
+        match data with
+        | VectorData array -> unmarshallVector state address array typ
+        | ComplexArrayData array -> unmarshallArray state address array typ
+        | StringData chars -> unmarshallString state address chars
+        | FieldsData fields -> unmarshallClass state address fields
 
 // ------------------------------- Writing -------------------------------
 

@@ -29,8 +29,7 @@ module TypeUtils =
 
     // ---------------------------------- Basic type predicates ----------------------------------
 
-    let isGround (x : Type) =
-        (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType
+    let isGround (x : Type) = not x.ContainsGenericParameters
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral = integralTypes.Contains

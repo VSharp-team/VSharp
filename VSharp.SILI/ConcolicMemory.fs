@@ -28,10 +28,7 @@ type ConcolicMemory(communicator : Communicator) =
         let parseOneElement i =
             let offset = offset + i * elemSize
             Reflection.bytesToObj bytes[offset .. offset + elemSize - 1] elemType
-        let array = Array.CreateInstance(elemType, length)
-        for i = 0 to length - 1 do
-            array.SetValue(parseOneElement i, i)
-        array
+        Array.init length parseOneElement
 
     let parseString bytes =
         let mutable offset = LayoutUtils.StringLengthOffset
@@ -42,17 +39,14 @@ type ConcolicMemory(communicator : Communicator) =
             let offset = offset + i * elemSize
             let obj = Reflection.bytesToObj bytes[offset .. offset + elemSize - 1] typeof<char>
             obj :?> char
-        let array : char array = Array.init length parseOneChar
-        String(array)
+        Array.init length parseOneChar
 
-    let parseClass (bytes : byte array) fieldOffsets typ =
-        let obj = Reflection.createObject typ
+    let parseFields (bytes : byte array) fieldOffsets typ =
         let parseOneField (info : FieldInfo, offset) =
             let fieldSize = TypeUtils.internalSizeOf info.FieldType |> int
             let value = Reflection.bytesToObj bytes[offset .. offset + fieldSize - 1] info.FieldType
-            info.SetValue(obj, value)
-        Array.iter parseOneField fieldOffsets
-        obj
+            info, value
+        Array.map parseOneField fieldOffsets
 
     interface IConcreteMemory with
         // TODO: support non-vector arrays
@@ -109,10 +103,20 @@ type ConcolicMemory(communicator : Communicator) =
 
         member x.ReadBoxedLocation address actualType =
             let address = (x :> IConcreteMemory).GetPhysicalAddress address
-            let size = TypeUtils.internalSizeOf actualType |> int
-            let metadataSize = LayoutUtils.MetadataSize typeof<Object>
-            let bytes = communicator.ReadHeapBytes address metadataSize size false
-            Reflection.bytesToObj bytes actualType
+            match actualType with
+            | _ when actualType.IsPrimitive ->
+                let size = TypeUtils.internalSizeOf actualType |> int
+                let metadataSize = LayoutUtils.MetadataSize typeof<Object>
+                let bytes = communicator.ReadHeapBytes address metadataSize size false
+                Reflection.bytesToObj bytes actualType
+            | _ ->
+                let fields = Reflection.fieldsOf false actualType
+                let fieldOffsets = Array.map (fun (_, info) -> info, Reflection.memoryFieldOffset info) fields
+                let getRefOffset (f : FieldInfo, offset) = if not f.FieldType.IsValueType then Some offset else None
+                let refOffsets = Array.choose getRefOffset fieldOffsets
+                let bytes = communicator.ReadWholeObject address false refOffsets
+                let data = parseFields bytes fieldOffsets actualType |> FieldsData
+                data :> obj
 
         member x.GetAllArrayData address arrayType =
             let cm = x :> IConcreteMemory
@@ -123,7 +127,7 @@ type ConcolicMemory(communicator : Communicator) =
             let bytes = communicator.ReadWholeObject physAddress true refOffsets
             if isVector then
                 let array = parseVectorArray bytes elemType
-                List.init array.Length (fun i -> List.singleton i, array.GetValue i)
+                Array.mapi (fun i value -> List.singleton i, value) array
             else internalfailf "GetAllArrayData: getting array data from non-vector array (rank = %O) is not implemented!" dims
 
         // NOTE: 'Unmarshall' function gets all bytes from concolic memory and gives control of 'address' to SILI
@@ -137,13 +141,13 @@ type ConcolicMemory(communicator : Communicator) =
                 let elemType = typ.GetElementType()
                 let refOffsets = arrayRefOffsets elemType
                 let bytes = communicator.Unmarshall address true refOffsets
-                parseVectorArray bytes elemType
+                parseVectorArray bytes elemType |> VectorData
             | _ when typ.IsArray ->
                 let rank = typ.GetArrayRank()
                 internalfailf "Unmarshalling non-vector array (rank = %O) is not implemented!" rank
             | _ when typ = typeof<String> ->
                 let bytes = communicator.Unmarshall address false Array.empty
-                parseString bytes
+                parseString bytes |> StringData
             | _ ->
                 assert(not typ.IsValueType)
                 let fields = Reflection.fieldsOf false typ
@@ -151,7 +155,7 @@ type ConcolicMemory(communicator : Communicator) =
                 let getRefOffset (f : FieldInfo, offset) = if not f.FieldType.IsValueType then Some offset else None
                 let refOffsets = fieldOffsets |> Array.choose getRefOffset
                 let bytes = communicator.Unmarshall address false refOffsets
-                parseClass bytes fieldOffsets typ
+                parseFields bytes fieldOffsets typ |> FieldsData
 
         member x.Allocate physAddress virtAddress =
             physicalAddresses.Add(physAddress, virtAddress)

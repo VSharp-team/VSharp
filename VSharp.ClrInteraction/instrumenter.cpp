@@ -471,6 +471,24 @@ CommandType Instrumenter::getAndHandleCommand() {
             delete reflection;
             break;
         }
+        case ParseReturnTypeToken: {
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeToken = reflection->getTypeTokenOfReturnType(m_jittedToken);
+            if (!m_protocol.sendToken(typeToken)) FAIL_LOUD("Instrumenting: sending type token failed!");
+            delete reflection;
+            break;
+        }
+        case ParseDeclaringTypeToken: {
+            mdToken method;
+            if (!m_protocol.acceptToken(method)) FAIL_LOUD("Instrumenting: accepting method token failed!");
+            auto *reflection = new Reflection(m_profilerInfo);
+            reflection->configure(m_moduleId, m_jittedToken);
+            mdToken typeToken = reflection->getTypeTokenOfDeclaringType(method);
+            if (!m_protocol.sendToken(typeToken)) FAIL_LOUD("Instrumenting: sending type token failed!");
+            delete reflection;
+            break;
+        }
         default:
             break;
     }

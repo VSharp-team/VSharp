@@ -1301,6 +1301,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     // ldc argsCount
                     // calli track_call
                     // if (callee is modeled internal call || callee is not executable) { mem args }
+                    // elif (callee has this) { mem this }
                     // if (callee is executable) {
                     //     brtrue A
                     //     calli exec
@@ -1320,7 +1321,6 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     //         calli newobj_probe
                     //     }
                     // } else {
-                    //    mem args
                     //    if callee is modeled internal call {
                     //        pop args
                     //        ldc default return value
@@ -1366,6 +1366,16 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                         x.AppendMemForType(t, argsCount - i - 1, opmemOffset, srcInstr)
                                         x.AppendInstr OpCodes.Dup NoArg srcInstr)
                             | None -> __unreachable__()
+                            elif hasThis then
+                                match instr.stackState with
+                                | Some list ->
+                                    let opmemOffset = int prependTarget.offset
+                                    let t, src = List.item (argsCount - 1) list
+                                    src |> List.iter (fun srcInstr ->
+                                        let srcInstr = instructions |> Array.find (fun i -> i.offset = srcInstr.offset)
+                                        x.AppendMemForType(t, 0, opmemOffset, srcInstr)
+                                        x.AppendInstr OpCodes.Dup NoArg srcInstr)
+                                | None -> __unreachable__()
 
                         if isExecutableMethod then
                             let br_push = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
@@ -1373,6 +1383,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                 if isModeledInternalCall then
                                     x.PrependProbeWithOffset(probes.execInternalCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                                     x.PrependBranch(OpCodes.Br, &prependTarget) |> Some
+                                elif hasThis then
+                                    x.PrependProbeWithOffset(probes.execThisCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
+                                    None
                                 else
                                     x.PrependProbeWithOffset(probes.execCall, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.void_i4_offset_sig, &prependTarget) |> ignore
                                     None
@@ -1396,7 +1409,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                                                      (OpCodes.Ldc_I4, Arg32 (if isNewObj then 1 else 0))
                                                      (OpCodes.Ldc_I4, Arg32 argsCount)]
                                 x.PrependProbeWithOffset(probes.pushFrame, pushFrameArgs, x.tokens.void_token_token_bool_u2_offset_sig, &prependTarget) |> ignore
-                            elif argsCount > 0 then
+                            if isModeledInternalCall && argsCount > 0 || hasThis then
                                 x.PrependPopOpmem &prependTarget |> ignore
 
                             if isModeledInternalCall then

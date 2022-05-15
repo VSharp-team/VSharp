@@ -108,7 +108,7 @@ void StackFrame::push1(const LocalObject& obj)
     }
 #endif
     unsigned content = obj.isFullyConcrete() ? CONCRETE : ++m_symbolsCount;
-    m_concreteness[m_concretenessTop++] = {content, LocalObject(obj)};
+    m_concreteness[m_concretenessTop++] = {content, obj};
 }
 
 void StackFrame::pushPrimitive(bool isConcrete)

@@ -37,8 +37,11 @@ namespace vsharp {
         std::vector<mdToken> getTypeInfoFromMethod(mdToken method) const;
         mdToken getTypeTokenFromFieldRef(mdToken fieldRef) const;
         mdToken getTypeTokenFromFieldDef(mdToken fieldDef) const;
+        void getSigAndDeclaringTypeFromMethod(mdToken method, PCCOR_SIGNATURE &sig, ULONG &count, mdToken &declaringType) const;
         mdToken getTypeTokenFromParameter(mdToken method, INT32 argIndex) const;
         mdToken getTypeTokenFromLocal(mdToken localsToken, INT32 argIndex) const;
+        mdToken getTypeTokenOfReturnType(mdToken method) const;
+        mdToken getTypeTokenOfDeclaringType(mdToken method) const;
     };
 
 }

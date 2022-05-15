@@ -1045,6 +1045,12 @@ PROBE(void, Exec_Call, (INT32 argsCount, OFFSET offset)) {
     auto ops = createEmptyOps(argsCount);
     sendCommand(offset, argsCount, ops);
 }
+PROBE(void, Exec_ThisCall, (INT32 argsCount, OFFSET offset)) {
+    auto ops = createEmptyOps(argsCount);
+    const Stack::OperandMem &top = vsharp::stack().opmem(offset);
+    ops[0] = mkop_p(top.unmem_p(0));
+    sendCommand(offset, argsCount, ops);
+}
 PROBE(void, Exec_InternalCall, (INT32 argsCount, OFFSET offset)) {
     auto ops = createOps(argsCount, offset);
     sendCommand(offset, argsCount, ops);

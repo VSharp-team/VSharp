@@ -451,6 +451,56 @@ public:
     }
 };
 
+class MethodRetTypeParser : public SigParser
+{
+private:
+    sig_byte *typeStart;
+    sig_byte *typeEnd;
+    bool m_typeParseStarted = false;
+    bool m_typeParsed = false;
+    bool m_retTypeParsed = false;
+    IMetaDataEmit *metadataEmit;
+
+protected:
+
+    void NotifyBeginRetType() {
+        m_typeParseStarted = true;
+    };
+
+    void NotifyEndRetType() {
+        assert(m_typeParseStarted);
+        m_retTypeParsed = true;
+    };
+
+    void NotifyBeginType() {
+        if (m_typeParseStarted && !m_retTypeParsed)
+            typeStart = this->pbCur;
+    };
+
+    void NotifyEndType() {
+        if (m_typeParseStarted && !m_retTypeParsed) {
+            typeEnd = this->pbCur;
+            m_typeParsed = true;
+        }
+    };
+
+public:
+
+    MethodRetTypeParser(IMetaDataEmit *emit)
+        : metadataEmit(emit)
+    {
+    }
+
+    mdToken retType() {
+        assert(m_typeParseStarted && m_typeParsed);
+        long typeSize = typeEnd - typeStart;
+        assert(typeSize <= sizeof(mdToken));
+        mdToken type;
+        metadataEmit->GetTokenFromTypeSpec(typeStart, typeSize, &type);
+        return type;
+    }
+};
+
 class LocalTypeParser : public SigParser
 {
 private:
@@ -684,19 +734,38 @@ mdToken Reflection::getTypeTokenFromFieldDef(mdToken fieldDef) const {
     return fieldType;
 }
 
+void Reflection::getSigAndDeclaringTypeFromMethod(mdToken method, PCCOR_SIGNATURE &sig, ULONG &count, mdToken &declaringType) const {
+    unsigned tokenType = method & 4278190080L;
+    bool isMethodDef  = tokenType == mdtMethodDef;
+    bool isMemberRef  = tokenType == mdtMemberRef;
+    bool isMethodSpec = tokenType == mdtMethodSpec;
+    assert(isMethodDef || isMemberRef || isMethodSpec);
+    ULONG chMember;
+    HRESULT hr;
+    if (isMethodDef) {
+        DWORD dwAttr;
+        ULONG ulCodeRVA;
+        DWORD dwImplFlags;
+        hr = metadataImport->GetMethodProps(method, &declaringType, new WCHAR[0], 0, &chMember, &dwAttr, &sig, &count, &ulCodeRVA, &dwImplFlags);
+    } else if (isMemberRef) {
+        hr = metadataImport->GetMemberRefProps(method, &declaringType, new WCHAR[0], 0, &chMember, &sig, &count);
+    } else {
+        mdToken parent;
+        hr = metadataImport->GetMethodSpecProps(method, &parent, &sig, &count);
+        declaringType = 0;
+    }
+    if (FAILED(hr)) FAIL_LOUD("getSigAndDeclaringTypeFromMethod: getting props failed!");
+}
+
 mdToken Reflection::getTypeTokenFromParameter(mdToken method, INT32 argIndex) const {
     mdToken declaringType;
-    ULONG chMember;
-    DWORD dwAttr;
     PCCOR_SIGNATURE signature;
     ULONG count;
-    ULONG ulCodeRVA;
-    DWORD dwImplFlags;
-    HRESULT hr = metadataImport->GetMethodProps(method, &declaringType, new WCHAR[0], 0, &chMember, &dwAttr, &signature, &count, &ulCodeRVA, &dwImplFlags);
-    if (FAILED(hr)) FAIL_LOUD("getTypeTokenFromParameter: GetMethodProps failed!");
+    getSigAndDeclaringTypeFromMethod(method, signature, count, declaringType);
     MethodParamTypeParser *methodParamTypeParser = new MethodParamTypeParser(metadataEmit, argIndex, declaringType);
     if (!methodParamTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenFromParameter: parsing method failed!");
     mdToken paramType = methodParamTypeParser->paramType();
+    assert(paramType != 0);
     delete methodParamTypeParser;
     return paramType;
 }
@@ -711,4 +780,32 @@ mdToken Reflection::getTypeTokenFromLocal(mdToken localsToken, INT32 localIndex)
     mdToken localType = localTypeParser->localType();
     delete localTypeParser;
     return localType;
+}
+
+mdToken Reflection::getTypeTokenOfReturnType(mdToken method) const {
+    mdToken declaringType;
+    PCCOR_SIGNATURE signature;
+    ULONG count;
+    getSigAndDeclaringTypeFromMethod(method, signature, count, declaringType);
+    MethodRetTypeParser *methodRetTypeParser = new MethodRetTypeParser(metadataEmit);
+    if (!methodRetTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenOfReturnType: parsing method failed!");
+    mdToken paramType = methodRetTypeParser->retType();
+    delete methodRetTypeParser;
+    return paramType;
+}
+
+mdToken Reflection::getTypeTokenOfDeclaringType(mdToken method) const {
+    mdToken declaringType;
+    PCCOR_SIGNATURE signature;
+    ULONG count;
+    getSigAndDeclaringTypeFromMethod(method, signature, count, declaringType);
+    if (declaringType == 0) {
+        MethodParamTypeParser *methodParamTypeParser = new MethodParamTypeParser(metadataEmit, 0, declaringType);
+        if (!methodParamTypeParser->Parse((sig_byte *)signature, count)) FAIL_LOUD("getTypeTokenOfDeclaringType: parsing method failed!");
+        mdToken paramType = methodParamTypeParser->paramType();
+        assert(paramType != 0);
+        delete methodParamTypeParser;
+        return paramType;
+    }
+    return declaringType;
 }
