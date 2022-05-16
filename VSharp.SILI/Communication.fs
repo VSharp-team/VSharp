@@ -430,7 +430,7 @@ type execCommand = {
     isBranch : uint32
     callStackFramesPops : uint32
     evaluationStackPops : uint32
-    newCallStackFrames : int32 array
+    newCallStackFrames : array<int32 * int32>
     ipStack : int32 list
     evaluationStackPushes : evalStackOperand array // NOTE: operands for executing instruction
     newAddresses : UIntPtr array
@@ -783,10 +783,12 @@ type Communicator(pipeFile) =
             let staticSize = Marshal.SizeOf typeof<execCommandStatic>
             let staticBytes, dynamicBytes = Array.splitAt staticSize bytes
             let staticPart = x.Deserialize<execCommandStatic> staticBytes
-            let callStackEntrySize = Marshal.SizeOf typeof<int32>
+            let callStackEntrySize = sizeof<int32> * 2
             let callStackOffset = (int staticPart.newCallStackFramesCount) * callStackEntrySize
             let newCallStackFrames = Array.init (int staticPart.newCallStackFramesCount) (fun i ->
-                BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize))
+                let moduleToken = BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize)
+                let methodToken = BitConverter.ToInt32(dynamicBytes, i * callStackEntrySize + sizeof<int32>)
+                moduleToken, methodToken)
             let mutable offset = callStackOffset
             let ipStack = List.init (int staticPart.ipStackCount) (fun _ ->
                 let res = BitConverter.ToInt32(dynamicBytes, offset) in offset <- offset + sizeof<int>; res)

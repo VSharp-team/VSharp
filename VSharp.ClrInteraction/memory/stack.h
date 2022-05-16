@@ -179,7 +179,8 @@ public:
 
     bool isEmpty() const;
     unsigned framesCount() const;
-    unsigned tokenAt(unsigned index) const;
+    unsigned moduleTokenAt(unsigned index) const;
+    unsigned methodTokenAt(unsigned index) const;
     unsigned offsetAt(unsigned index) const;
 
     unsigned unsentPops() const;

@@ -322,6 +322,7 @@ module API =
     module public EvaluationStack =
         let Pop evaluationStack = EvaluationStack.pop evaluationStack
         let PopMany n evaluationStack = EvaluationStack.popMany n evaluationStack
+        let PopFromAnyFrame evaluationStack = EvaluationStack.popFromAnyFrame evaluationStack
         let Push x evaluationStack =
             let x' = TypeCasting.castToEvaluationStackType x
             EvaluationStack.push x' evaluationStack
@@ -335,9 +336,11 @@ module API =
         let ToList evaluationStack = EvaluationStack.toList evaluationStack
         let ClearActiveFrame evaluationStack = EvaluationStack.clearActiveFrame evaluationStack
         let EmptyStack = EvaluationStack.empty
+        let TopIsEmpty evaluationStack = EvaluationStack.topIsEmpty evaluationStack
 
     module public Memory =
         let EmptyState() = Memory.makeEmpty()
+        let EmptyConcreteMemory() = Memory.EmptyConcreteMemory() :> IConcreteMemory
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state

@@ -504,10 +504,11 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, const WCHAR *assem
 
     if (oldModuleId != m_moduleId) {
         delete[] m_signatureTokens;
-        std::vector<mdSignature> *tokens = new std::vector<mdSignature>;
-        initTokens(metadataEmit, *tokens);
-        m_signatureTokensLength = tokens->size() * sizeof(mdSignature);
-        m_signatureTokens = (char *) &(*tokens)[0];
+        std::vector<mdSignature> tokens;
+        initTokens(metadataEmit, tokens);
+        m_signatureTokensLength = tokens.size() * sizeof(mdSignature);
+        m_signatureTokens = new char[m_signatureTokensLength];
+        memcpy(m_signatureTokens, (char *)&tokens[0], m_signatureTokensLength);
     }
 
     LOG(tout << "Instrumenting token " << HEX(m_jittedToken) << "..." << std::endl);

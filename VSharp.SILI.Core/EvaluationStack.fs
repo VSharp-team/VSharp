@@ -9,6 +9,11 @@ module internal EvaluationStack =
     let __corruptedStack__() = raise (System.InvalidProgramException())
 
     let empty = { contents = List.empty }
+    let topIsEmpty evaluationStack =
+        match evaluationStack.contents with
+        | [] :: _ -> true
+        | (_ :: _) :: _ -> false
+        | [] -> __corruptedStack__()
 
     let push (x : term) evaluationStack =
         match evaluationStack.contents with
@@ -66,6 +71,17 @@ module internal EvaluationStack =
             let args, rest = List.splitAt n l
             args, { contents = rest :: ls }
         | [] -> __corruptedStack__()
+
+    let popFromAnyFrame evaluationStack =
+        let rec unwind frames =
+            match frames with
+            | (x :: xs) :: ls -> x, xs :: ls
+            | [] :: ls ->
+                let x, frames' = unwind ls
+                x, [] :: frames'
+            | [] -> __corruptedStack__()
+        let x, frames' = unwind evaluationStack.contents
+        x, { contents = frames' }
 
     // oldStack = [[1]; []]
     // newStack = [[2]]

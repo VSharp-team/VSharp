@@ -107,7 +107,7 @@ struct ExecCommand {
     unsigned evaluationStackPushesCount;
     unsigned evaluationStackPops;
     unsigned newAddressesCount;
-    unsigned *newCallStackFrames;
+    std::pair<unsigned, unsigned> *newCallStackFrames;
     unsigned *ipStack;
     EvalStackOperand *evaluationStackPushes;
     // TODO: add deleted addresses
@@ -116,7 +116,7 @@ struct ExecCommand {
     char *newAddressesTypes;
 
     void serialize(char *&bytes, unsigned &count) const {
-        count = 7 * sizeof(unsigned) + sizeof(unsigned) * newCallStackFramesCount + sizeof(unsigned) * ipStackCount;
+        count = 7 * sizeof(unsigned) + 2 * sizeof(unsigned) * newCallStackFramesCount + sizeof(unsigned) * ipStackCount;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i)
             count += evaluationStackPushes[i].size();
         count += sizeof(UINT_PTR) * newAddressesCount;
@@ -135,8 +135,10 @@ struct ExecCommand {
         *(unsigned *)buffer = evaluationStackPushesCount; buffer += size;
         *(unsigned *)buffer = evaluationStackPops; buffer += size;
         *(unsigned *)buffer = newAddressesCount; buffer += size;
-        size = newCallStackFramesCount * sizeof(unsigned);
-        memcpy(buffer, (char*)newCallStackFrames, size); buffer += size;
+        for (int i = 0; i < newCallStackFramesCount; i++) {
+            *(unsigned *)buffer = newCallStackFrames[i].first; buffer += size;
+            *(unsigned *)buffer = newCallStackFrames[i].second; buffer += size;
+        }
         size = ipStackCount * sizeof(unsigned);
         memcpy(buffer, (char*)ipStack, size); buffer += size;
         for (unsigned i = 0; i < evaluationStackPushesCount; ++i) {
@@ -160,9 +162,10 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
     assert(minCallFrames <= currCallFrames);
     command.newCallStackFramesCount = currCallFrames - minCallFrames;
     command.ipStackCount = currCallFrames;
-    command.newCallStackFrames = new unsigned[command.newCallStackFramesCount];
+    command.newCallStackFrames = new std::pair<unsigned, unsigned>[command.newCallStackFramesCount];
     for (unsigned i = minCallFrames; i < currCallFrames; ++i) {
-        command.newCallStackFrames[i - minCallFrames] = stack.tokenAt(i);
+        auto pair = std::make_pair(stack.moduleTokenAt(i), stack.methodTokenAt(i));
+        command.newCallStackFrames[i - minCallFrames] = pair;
     }
     command.ipStack = new unsigned[command.ipStackCount];
     for (unsigned i = 0; i < currCallFrames; ++i) {

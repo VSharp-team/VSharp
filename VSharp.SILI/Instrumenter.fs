@@ -1052,7 +1052,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         x.PrependProbe(unmem2Probe, [(OpCodes.Ldc_I4, Arg32 1)], unmem2Sig, &prependTarget) |> ignore
                         if isStruct then
                             let typeToken = fieldToken.Value
+                            x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                             x.PrependInstr(OpCodes.Unbox_Any, Arg32 typeToken, &prependTarget) |> ignore
+                            x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                     x.PrependPopOpmem &prependTarget |> ignore
                 | OpCodeValues.Ldsfld ->
                     x.PrependInstr(OpCodes.Ldc_I4, instr.arg, &prependTarget) |> ignore
@@ -1232,7 +1234,9 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                     x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 1)], x.tokens.i_i1_sig, &prependTarget) |> ignore
                     x.PrependProbe(unmem3Probe, [(OpCodes.Ldc_I4, Arg32 2)], unmem3Sig, &prependTarget) |> ignore
                     if isStruct then
+                        x.PrependProbe(probes.disableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                         x.PrependInstr(OpCodes.Unbox_Any, typeTokenArg, &prependTarget) |> ignore
+                        x.PrependProbe(probes.enableInstrumentation, [], x.tokens.void_sig, &prependTarget) |> ignore
                     brtrue.arg <- Target tgt
                     x.PrependPopOpmem &prependTarget |> ignore
 

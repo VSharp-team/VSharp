@@ -356,9 +356,14 @@ unsigned Stack::framesCount() const
     return m_frames.size();
 }
 
-unsigned Stack::tokenAt(unsigned index) const
+unsigned Stack::moduleTokenAt(unsigned index) const
 {
-    return m_frames[index].unresolvedToken();
+    return m_frames[index].moduleToken();
+}
+
+unsigned Stack::methodTokenAt(unsigned index) const
+{
+    return m_frames[index].resolvedToken();
 }
 
 unsigned Stack::offsetAt(unsigned int index) const {
