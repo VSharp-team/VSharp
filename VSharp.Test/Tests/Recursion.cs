@@ -14,13 +14,13 @@ namespace IntegrationTests
             return FibRec(n - 1) + FibRec(n - 2);
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int Fib2()
         {
             return FibRec(2);
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int Fib5()
         {
             return FibRec(5);
@@ -46,7 +46,7 @@ namespace IntegrationTests
             }
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int FibUnbound(int n)
         {
             _c = 42;
@@ -68,13 +68,13 @@ namespace IntegrationTests
             return GcdRec(n, m - n);
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int Gcd1()
         {
             return GcdRec(15, 4);
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int Gcd15()
         {
             return GcdRec(30, 75);
@@ -84,7 +84,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class McCarthy91
     {
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static int McCarthy(int n)
         {
             return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
@@ -135,7 +135,7 @@ namespace IntegrationTests
             return s;
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm]
         public static SmallClass MutationAfterRecursionTest(int n)
         {
             var s1 = new BigClass {Small = new SmallClass()};
