@@ -219,6 +219,24 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    internal class ClassEquality
+    {
+        public int field;
+        public override string ToString()
+        {
+            return field > 0 ? "1" : "2";
+        }
+
+        [TestSvm]
+        public static string F(int x)
+        {
+            var a = new ClassEquality();
+            a.field = x;
+            return Convert.ToString(a);
+        }
+    }
+
+    [TestSvmFixture]
     public static class ClassesSimple
     {
         [TestSvm]

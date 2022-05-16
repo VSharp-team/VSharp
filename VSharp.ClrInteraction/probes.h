@@ -924,7 +924,7 @@ PROBE(void, Track_Enter, (mdMethodDef token, unsigned maxStackSize, unsigned arg
         LOG(tout << "Frame " << stack.framesCount() <<
                     ": entering token " << HEX(token) <<
                     ", expected token is " << HEX(expected) << std::endl);
-        // TODO: if expected is 0, set resolved token?
+        if (!expected) top->setResolvedToken(token);
         top->setSpontaneous(false);
     } else {
         LOG(tout << "Spontaneous enter! Details: expected token "

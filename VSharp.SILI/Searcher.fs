@@ -73,7 +73,11 @@ type ForwardSearcher(maxBound) =
         override x.Init state =
             forPropagation.AddRange(state)
         override x.Pick() =
-            x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
+            let concolicStates = forPropagation |> Seq.filter controlledByConcolic
+            let availableStates =
+                if Seq.isEmpty concolicStates then forPropagation |> Seq.filter (isSuspended >> not)
+                else concolicStates |> Seq.filter (isSuspended >> not)
+            x.Choose availableStates
         override x.Update parent newStates =
             if isStopped parent then
                 forPropagation.Remove(parent) |> ignore

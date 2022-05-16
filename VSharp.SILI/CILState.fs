@@ -5,6 +5,11 @@ open System.Text
 open VSharp.Core
 open ipOperations
 
+type concolicState =
+    | Running
+    | Waiting
+    | Disabled
+
 [<ReferenceEquality>]
 type cilState =
     { mutable ipStack : ipStack
@@ -16,7 +21,7 @@ type cilState =
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
-      mutable suspended : bool
+      mutable concolicState : concolicState
       mutable lastPushInfo : term option
     }
     with
@@ -44,7 +49,7 @@ module internal CilStateOperations =
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
-          suspended = false
+          concolicState = Disabled
           lastPushInfo = None
         }
 
@@ -83,6 +88,23 @@ module internal CilStateOperations =
         match currentIp s with
         | SearchingForHandler([], []) -> true
         | _ -> false
+
+    let isSuspended (s : cilState) =
+        match s.concolicState with
+        | Running -> true
+        | _ -> false
+
+    let controlledByConcolic (s : cilState) =
+        match s.concolicState with
+        | Disabled -> false
+        | _ -> true
+
+    let moveControlToConcolic (s : cilState) =
+        s.concolicState <- Running
+
+    let moveControlFromConcolic (s : cilState) =
+        assert(s.concolicState = Running)
+        s.concolicState <- Waiting
 
     let currentLoc = currentIp >> ip2codeLocation >> Option.get
     let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get

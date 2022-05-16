@@ -24,7 +24,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
     let cilState : cilState =
-        cilState.suspended <- true
+        cilState.concolicState <- Running
         cilState
 
     let initSymbolicFrame (method : MethodBase) = // TODO: unify with InitFunctionFrame
@@ -271,7 +271,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             | ExecuteInstruction c ->
                 Logger.trace "Got execute instruction command!"
                 x.SynchronizeStates c
-                cilState.suspended <- false
+                cilState.concolicState <- Waiting
                 requestMakeStep cilState
                 true
             | Terminate ->
@@ -342,7 +342,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
             let concretizedOps =
                 if callIsSkipped then Some List.empty
                 else steppedStates |> List.tryPick x.EvalOperands
-            cilState.suspended <- notEndOfEntryPoint && not isIIEState
+            steppedStates |> List.iter (fun s -> s.concolicState <- Disabled)
+            if notEndOfEntryPoint && not isIIEState then cilState.concolicState <- Running
             let lastPushInfo =
                 match cilState.lastPushInfo with
                 | Some x when IsConcrete x && notEndOfEntryPoint ->

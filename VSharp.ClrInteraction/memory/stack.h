@@ -79,6 +79,7 @@ public:
 
     unsigned resolvedToken() const;
     unsigned unresolvedToken() const;
+    void setResolvedToken(unsigned resolved);
     unsigned ip() const;
     void setIp(unsigned ip);
     bool hasEntered() const;

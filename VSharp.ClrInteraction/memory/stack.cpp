@@ -212,6 +212,11 @@ unsigned StackFrame::unresolvedToken() const
     return m_unresolvedToken;
 }
 
+void StackFrame::setResolvedToken(unsigned resolved)
+{
+    this->m_resolvedToken = resolved;
+}
+
 unsigned StackFrame::ip() const {
     return m_ip;
 }
