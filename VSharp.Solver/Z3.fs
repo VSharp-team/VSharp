@@ -847,7 +847,7 @@ module internal Z3 =
                 let encoded = builder.MkAnd encodedWithAssumptions
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
                           
-            member x.CheckAssumptions encCtx formulas =
+            member x.CheckAssumptions encCtx currentModel formulas =
                 let encodeToBoolExprs formula =
                     let encoded = builder.EncodeTerm encCtx formula
                     seq {
@@ -877,11 +877,15 @@ module internal Z3 =
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
-                        let model = builder.MkModel z3Model
-                        SmtSat { mdl = model; usedPaths = [] }
+                        let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
+                        builder.UpdateModel z3Model updatedModel
+                        builder.ClearT2E()
+                        SmtSat { mdl = updatedModel; usedPaths = [] }
                     | Status.UNSATISFIABLE ->
+                        builder.ClearT2E()
                         SmtUnsat { core = Array.empty }
                     | Status.UNKNOWN ->
+                        builder.ClearT2E()
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
                 with
