@@ -743,11 +743,14 @@ module internal Z3 =
 
     type internal Z3Solver() =
 //        let optCtx = ctx.MkOptimize()
+        // Why Solver is named optCtx?
         let optCtx = ctx.MkSolver()
         let levelAtoms = List<BoolExpr>()
         let mutable pathsCount = 0u
         let pathAtoms = Dictionary<level, List<BoolExpr>>()
         let paths = Dictionary<BoolExpr, path>()
+        
+        let assumptions = Dictionary<BoolExpr, string>()
 
         let getLevelAtom (lvl : level) =
             assert (not <| Level.isInf lvl)
@@ -843,6 +846,48 @@ module internal Z3 =
                 let encodedWithAssumptions = Seq.append assumptions encoded |> Array.ofSeq
                 let encoded = builder.MkAnd encodedWithAssumptions
                 optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
+                          
+            member x.CheckAssumptions encCtx formulas =
+                let encodeToBoolExprs formula =
+                    let encoded = builder.EncodeTerm encCtx formula
+                    seq {
+                        yield! Seq.cast<BoolExpr> encoded.assumptions
+                        yield encoded.expr :?> BoolExpr
+                }
+                try                    
+                    let exprs = Seq.collect encodeToBoolExprs formulas
+                    let boolConsts = seq {
+                        for expr in exprs do
+                            let mutable name = ""
+                            if (assumptions.TryGetValue(expr, &name)) then
+                                yield ctx.MkBoolConst name
+                            else
+                                name <- $"p{assumptions.Count}"
+                                printLog Trace $"SOLVER: assert: {name} => {expr}"
+                                assumptions.[expr] <- name
+                                let boolConst = ctx.MkBoolConst name
+                                let implication = ctx.MkImplies(boolConst, expr)
+                                optCtx.Assert implication
+                                yield boolConst
+                    }
+                    let names = boolConsts |> Seq.map (fun c -> c.ToString())
+                    let amp = " & "
+                    printLog Trace $"SOLVER: check: {join amp names}"
+                    let result = optCtx.Check boolConsts
+                    match result with
+                    | Status.SATISFIABLE ->
+                        let z3Model = optCtx.Model
+                        let model = builder.MkModel z3Model
+                        SmtSat { mdl = model; usedPaths = [] }
+                    | Status.UNSATISFIABLE ->
+                        SmtUnsat { core = Array.empty }
+                    | Status.UNKNOWN ->
+                        SmtUnknown optCtx.ReasonUnknown
+                    | _ -> __unreachable__()
+                with
+                | :? EncodingException as e ->
+                    printLog Info "SOLVER: exception was thrown: %s" e.Message
+                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
 
     let reset() =
         builder.Reset()

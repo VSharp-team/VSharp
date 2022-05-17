@@ -24,6 +24,7 @@ module public SolverInteraction =
         abstract CheckSat : encodingContext -> query -> smtResult
         abstract Assert : encodingContext -> level -> formula -> unit
         abstract AddPath : encodingContext -> path -> unit
+        abstract CheckAssumptions : encodingContext -> formula seq -> smtResult
 
     let mutable private solver : ISolver option = None
 
@@ -35,8 +36,8 @@ module public SolverInteraction =
         let order = Seq.fold (fun (map, i) address -> Map.add address i map, i + 1) (Map.empty, 1) sortedAddresses |> fst
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
-
-    let checkSat state = // TODO: need to solve types here? #do
+        
+    let private checkSatPlainly state =
         let ctx = getEncodingContext state
         let formula = state.pc.ToSeq() |> conjunction
         match solver with
@@ -47,3 +48,11 @@ module public SolverInteraction =
             s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
         | None -> SmtUnknown ""
  
+    let private checkSatIncrementally state =
+        let ctx = getEncodingContext state
+        let conditions = state.pc |> PC.toSeq
+        match solver with
+        | Some s -> s.CheckAssumptions ctx conditions
+        | None -> SmtUnknown "Solver not configured"
+        
+    let checkSat = // TODO: need to solve types here? #do        
