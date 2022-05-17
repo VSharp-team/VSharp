@@ -117,7 +117,7 @@ and
     [<ReferenceEquality>]
     state = {
     id : string
-    mutable pc : PC.PathCondition
+    mutable pc : PC.IPathCondition
     mutable evaluationStack : evaluationStack
     mutable stack : callStack                                          // Arguments and local variables
     mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc

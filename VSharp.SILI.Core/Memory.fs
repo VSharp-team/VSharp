@@ -493,8 +493,8 @@ module internal Memory =
     let guardedStatedMap mapper state term =
         commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
 
-    let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let keepDependentWith (pc : PC.PathCondition) cond =
+    let executionWithConstraintIndependence (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let keepDependentWith (pc : PC.IPathCondition) cond =
             pc.Fragments
             |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
             |> Option.defaultValue pc
@@ -578,6 +578,88 @@ module internal Memory =
                         elseState.model <- Some elseModel.mdl
                         thenState.pc <- thenPc
                         execution thenState elseState condition k)
+        
+    let executionWithoutConstraintIndependence (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
+        let execution thenState elseState condition k =
+            assert (condition <> True && condition <> False)
+            thenBranch thenState (fun thenResult ->
+            elseBranch elseState (fun elseResult ->
+            merge2Results thenResult elseResult |> k))
+        conditionInvocation state (fun (condition, conditionState) ->
+        let negatedCondition = !!condition
+        let thenPc = PC.add condition state.pc
+        let elsePc = PC.add negatedCondition state.pc
+        if thenPc.IsFalse then
+            conditionState.pc <- elsePc
+            elseBranch conditionState (List.singleton >> k)
+        elif elsePc.IsFalse then
+            conditionState.pc <- thenPc
+            thenBranch conditionState (List.singleton >> k)
+        else
+(*            let pcConstants = HashSet(state.pc.Constants)
+            let condConstants = condition |> Seq.singleton |> discoverConstants
+            let noNewConstants = pcConstants.IsSupersetOf condConstants*)
+            let evaluatedCondition = state.model.Value.Eval condition
+            // Current model satisfies new condition, so we can keep it for 'then' branch
+            if isTrue evaluatedCondition then
+                let elseState = copy conditionState elsePc
+                conditionState.pc <- thenPc
+                match SolverInteraction.checkSat elseState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    thenBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat elseModel ->
+                    elseState.pc <- elsePc
+                    elseState.model <- Some elseModel.mdl
+                    execution conditionState elseState condition k
+            // Current model satisfies !condition, so we can keep it for 'else' branch
+            elif isFalse evaluatedCondition then
+                let thenState = copy conditionState thenPc
+                match SolverInteraction.checkSat thenState with
+                | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- elsePc
+                    elseBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat thenModel ->
+                    let elseState = copy conditionState elsePc
+                    conditionState.pc <- thenPc
+                    conditionState.model <- Some thenModel.mdl
+                    execution conditionState elseState condition k
+            else
+                Logger.trace $"Evaluated condition != False and != True: {evaluatedCondition}"
+                conditionState.pc <- thenPc
+                match SolverInteraction.checkSat conditionState with
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- elsePc
+                    match SolverInteraction.checkSat conditionState with
+                    | SolverInteraction.SmtUnsat _
+                    | SolverInteraction.SmtUnknown _ ->
+                        __insufficientInformation__ "Unable to witness branch"
+                    | SolverInteraction.SmtSat elseModel ->
+                        conditionState.pc <- elsePc
+                        conditionState.model <- Some elseModel.mdl
+                        elseBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtUnsat _ ->
+                    conditionState.pc <- elsePc
+                    elseBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat thenModel ->
+                    conditionState.pc <- elsePc
+                    match SolverInteraction.checkSat conditionState with
+                    | SolverInteraction.SmtUnsat _
+                    | SolverInteraction.SmtUnknown _ ->
+                        conditionState.model <- Some thenModel.mdl
+                        conditionState.pc <- thenPc
+                        thenBranch conditionState (List.singleton >> k)
+                    | SolverInteraction.SmtSat elseModel ->
+                        conditionState.model <- Some thenModel.mdl
+                        let thenState = conditionState
+                        let elseState = copy conditionState elsePc
+                        elseState.model <- Some elseModel.mdl
+                        thenState.pc <- thenPc
+                        execution thenState elseState condition k)
+        
+    let commonStatedConditionalExecutionk =
+        executionWithoutConstraintIndependence
 
     let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
         commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k

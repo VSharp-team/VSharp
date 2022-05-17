@@ -5,6 +5,63 @@ open System.Collections.Generic
 
 module public PC =
     
+    type IPathCondition =
+        abstract Add : term -> unit
+        abstract Copy : unit -> IPathCondition
+        abstract ToSeq : unit -> term seq
+        abstract UnionWith : IPathCondition -> IPathCondition
+        abstract Map : (term -> term) -> IPathCondition
+        abstract IsEmpty : bool
+        abstract IsFalse : bool
+        abstract Fragments : IPathCondition seq
+        
+    type public PathCondition private (constraints : HashSet<term>, isFalse : bool) =
+        
+        let mutable isFalse = isFalse
+        
+        let becomeTrivialFalse() =
+            constraints.Clear()
+            isFalse <- true
+            
+        new() =
+            PathCondition(HashSet<term>(), false)
+            
+        override this.ToString() =
+            Seq.map toString constraints |> Seq.sort |> join " /\ "
+
+        interface IPathCondition with
+        
+            member this.Add newConstraint =
+                match newConstraint with
+                | True -> ()
+                | False -> becomeTrivialFalse()
+                | _ when isFalse -> ()
+                | _ when constraints.Contains(newConstraint) -> ()
+                // what if constraint is not equal to newConstraint structurally, but is equal logically?
+                | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
+                | _ -> constraints.Add(newConstraint) |> ignore
+                
+            member this.Copy() =
+                PathCondition(HashSet(constraints), isFalse)
+                
+            member this.ToSeq() = seq constraints
+            
+            member this.UnionWith (anotherPc : IPathCondition) =
+                let union = (this :> IPathCondition).Copy()
+                anotherPc.ToSeq() |> Seq.iter union.Add
+                union
+                
+            member this.Map mapper =
+                let mapped = PathCondition() :> IPathCondition
+                Seq.iter (mapper >> mapped.Add) constraints
+                mapped
+                
+            member this.IsEmpty = constraints.Count = 0
+            
+            member this.IsFalse = isFalse
+            
+            member this.Fragments = Seq.singleton this
+    
     type private node =
         | Tail of term * term pset
         | Node of term
@@ -29,7 +86,7 @@ module public PC =
         isFalse -- flag used to determine if the PC is false trivially (i. e. c an !c were added to it).
             Invariant: PC doesn't contain True or False as elements.
     *)
-    type public PathCondition private(constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
+    type public IndependentPathCondition private (constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
         
         let mutable isFalse = isFalse
 
@@ -154,70 +211,68 @@ module public PC =
             | _ -> ()
 
         new() =
-            PathCondition(Dictionary<term, node>(), HashSet<term>(), false)
+            IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
             Seq.map toString constraints |> Seq.sort |> join " /\ "
+            
+        interface IPathCondition with
 
-        member this.Copy() =
-            PathCondition(Dictionary(constants), HashSet(constraints), isFalse)
+            member this.Copy() =
+                IndependentPathCondition(Dictionary(constants), HashSet(constraints), isFalse)
 
-        member this.IsFalse = isFalse
+            member this.IsFalse = isFalse
 
-        member this.IsEmpty = constraints.Count = 0
+            member this.IsEmpty = constraints.Count = 0
 
-        member this.ToSeq() = seq constraints
+            member this.ToSeq() = seq constraints
 
-        member this.Add newConstraint =
-            match newConstraint with
-            | True -> ()
-            | False -> becomeTrivialFalse()
-            | _ when isFalse -> ()
-            | _ when constraints.Contains(newConstraint) -> ()
-            // what if constraint is not equal to newConstraint structurally, but is equal logically?
-            | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
-            | _ -> addNewConstraintWithMerge newConstraint
+            member this.Add newConstraint =
+                match newConstraint with
+                | True -> ()
+                | False -> becomeTrivialFalse()
+                | _ when isFalse -> ()
+                | _ when constraints.Contains(newConstraint) -> ()
+                // what if constraint is not equal to newConstraint structurally, but is equal logically?
+                | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
+                | _ -> addNewConstraintWithMerge newConstraint
 
-        member this.Map mapper =
-            let mapped = PathCondition()
-            Seq.iter (mapper >> mapped.Add) constraints
-            mapped
+            member this.Map mapper =
+                let mapped = IndependentPathCondition() :> IPathCondition
+                Seq.iter (mapper >> mapped.Add) constraints
+                mapped
 
-        member this.UnionWith (anotherPc : PathCondition) =
-            let union = this.Copy()
-            anotherPc.ToSeq() |> Seq.iter union.Add
-            union
+            member this.UnionWith (anotherPc : IPathCondition) =
+                let union = (this :> IPathCondition).Copy()
+                anotherPc.ToSeq() |> Seq.iter union.Add
+                union
 
-        /// <summary>
-        /// Returns the sequence of path conditions such that constants contained in
-        /// one path condition are independent with constants contained in another one 
-        /// </summary>
-        member this.Fragments =
-            if isFalse then
-                Seq.singleton this
-            else
-                let getSubsetByRepresentative =
-                    function
-                    | Tail(representative, constraints) ->
-                        let constants = Dictionary<term, node>()
-                        addSubset constants (subset  representative) constraints
-                        let constraints = HashSet(PersistentSet.toSeq constraints)
-                        Some(PathCondition(constants, constraints, false))
-                    | _ -> None
-                Seq.choose getSubsetByRepresentative constants.Values
-        
-        /// <summary>
-        /// Returns all constants contained in path condition 
-        /// </summary>
-        member this.Constants = seq constants.Keys
+            /// <summary>
+            /// Returns the sequence of path conditions such that constants contained in
+            /// one path condition are independent with constants contained in another one 
+            /// </summary>
+            member this.Fragments =
+                if isFalse then
+                    Seq.singleton this
+                else
+                    let getSubsetByRepresentative =
+                        function
+                        | Tail(representative, constraints) ->
+                            let constants = Dictionary<term, node>()
+                            addSubset constants (subset  representative) constraints
+                            let constraints = HashSet(PersistentSet.toSeq constraints)
+                            Some(IndependentPathCondition(constants, constraints, false))
+                        | _ -> None
+                    Seq.choose getSubsetByRepresentative constants.Values
+                    |> Seq.cast<IPathCondition>
 
-    let public add newConstraint (pc : PathCondition) =
+    let public add newConstraint (pc : IPathCondition) =
         let copy = pc.Copy()
         copy.Add newConstraint
         copy
 
-    let public toSeq (pc : PathCondition) = pc.ToSeq()
+    let public toSeq (pc : IPathCondition) = pc.ToSeq()
     
-    let public map mapper (pc : PathCondition) = pc.Map mapper
+    let public map mapper (pc : IPathCondition) = pc.Map mapper
     
-    let public unionWith anotherPc (pc : PathCondition) = pc.UnionWith anotherPc
+    let public unionWith anotherPc (pc : IPathCondition) = pc.UnionWith anotherPc
