@@ -23,6 +23,7 @@ module Stopwatch =
             timesCalled: int
             totalTicks: int64
             totalMs: int64
+            testsGenerated: uint
         }
         
     let private csvPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "VSharpBenchmark")
@@ -80,7 +81,8 @@ module Stopwatch =
     /// Saves all current measurement results to .csv file. If the file already exists, appends lines
     /// </summary>
     /// <param name="caseName">Additional tag given to the saved measurements</param>
-    let public saveMeasurements caseName =
+    /// <param name="caseName">Number of tests generated during the run</param>
+    let public saveMeasurements caseName testsGenerated =
         stopAll()
         
         let commitHash = getGitCommitHash()
@@ -98,6 +100,7 @@ module Stopwatch =
                     timesCalled = m.timesCalled
                     totalTicks = m.stopwatch.ElapsedTicks
                     totalMs = m.stopwatch.ElapsedMilliseconds
+                    testsGenerated = testsGenerated
                 }
             )       
         
