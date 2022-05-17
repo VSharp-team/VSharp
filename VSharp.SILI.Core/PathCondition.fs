@@ -205,6 +205,11 @@ module public PC =
                         Some(PathCondition(constants, constraints, false))
                     | _ -> None
                 Seq.choose getSubsetByRepresentative constants.Values
+        
+        /// <summary>
+        /// Returns all constants contained in path condition 
+        /// </summary>
+        member this.Constants = seq constants.Keys
 
     let public add newConstraint (pc : PathCondition) =
         let copy = pc.Copy()

@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Text
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
 open VSharp.Core.Types
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
@@ -516,25 +517,38 @@ module internal Memory =
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
-            conditionState.pc <- independentThenPc
-            match SolverInteraction.checkSat conditionState with
-            | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
+            let pcConstants = HashSet(state.pc.Constants)
+            let condConstants = condition |> Seq.singleton |> discoverConstants
+            let noNewConstants = pcConstants.IsSupersetOf condConstants
+            let evaluatedCondition = state.model.Value.Eval condition
+            // Current model satisfies new condition, so we can keep it for 'then' branch
+            if (noNewConstants && (isTrue evaluatedCondition)) then
+                let elseState = copy conditionState independentElsePc
+                conditionState.pc <- thenPc
+                match SolverInteraction.checkSat elseState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
-                    __insufficientInformation__ "Unable to witness branch"
+                    thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
-                    conditionState.pc <- elsePc
-                    conditionState.model <- Some elseModel.mdl
-                    elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtUnsat _ ->
-                conditionState.pc <- elsePc
-                elseBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat thenModel ->
-                conditionState.pc <- independentElsePc
-                match SolverInteraction.checkSat conditionState with
+                    elseState.pc <- elsePc
+                    elseState.model <- Some elseModel.mdl
+                    execution conditionState elseState condition k
+            // Current model satisfies !condition, so we can keep it for 'else' branch
+            elif (noNewConstants && (isFalse evaluatedCondition)) then
+                let thenState = copy conditionState independentThenPc
+                match SolverInteraction.checkSat thenState with
                 | SolverInteraction.SmtUnsat _
+                | SolverInteraction.SmtUnknown _ ->
+                    conditionState.pc <- elsePc
+                    elseBranch conditionState (List.singleton >> k)
+                | SolverInteraction.SmtSat thenModel ->
+                    let elseState = copy conditionState elsePc
+                    conditionState.pc <- thenPc
+                    conditionState.model <- Some thenModel.mdl
+                    execution conditionState elseState condition k
+            else
+                conditionState.pc <- independentThenPc
+                match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.model <- Some thenModel.mdl
                     conditionState.pc <- thenPc
