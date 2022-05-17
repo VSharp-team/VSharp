@@ -802,7 +802,7 @@ module internal Z3 =
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
+                    let result = Stopwatch.runMeasuringTime "Z3_check" (fun _ -> optCtx.Check assumptions)
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
@@ -873,7 +873,7 @@ module internal Z3 =
                     let names = boolConsts |> Seq.map (fun c -> c.ToString())
                     let amp = " & "
                     printLog Trace $"SOLVER: check: {join amp names}"
-                    let result = optCtx.Check boolConsts
+                    let result = Stopwatch.runMeasuringTime "Z3_check_assumptions" (fun _ -> optCtx.Check boolConsts)
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model

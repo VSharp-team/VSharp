@@ -517,12 +517,12 @@ module internal Memory =
             conditionState.pc <- thenPc
             thenBranch conditionState (List.singleton >> k)
         else
-            let pcConstants = HashSet(state.pc.Constants)
+(*            let pcConstants = HashSet(state.pc.Constants)
             let condConstants = condition |> Seq.singleton |> discoverConstants
-            let noNewConstants = pcConstants.IsSupersetOf condConstants
+            let noNewConstants = pcConstants.IsSupersetOf condConstants*)
             let evaluatedCondition = state.model.Value.Eval condition
             // Current model satisfies new condition, so we can keep it for 'then' branch
-            if (noNewConstants && (isTrue evaluatedCondition)) then
+            if isTrue evaluatedCondition then
                 let elseState = copy conditionState independentElsePc
                 conditionState.pc <- thenPc
                 match SolverInteraction.checkSat elseState with
@@ -534,7 +534,7 @@ module internal Memory =
                     elseState.model <- Some elseModel.mdl
                     execution conditionState elseState condition k
             // Current model satisfies !condition, so we can keep it for 'else' branch
-            elif (noNewConstants && (isFalse evaluatedCondition)) then
+            elif isFalse evaluatedCondition then
                 let thenState = copy conditionState independentThenPc
                 match SolverInteraction.checkSat thenState with
                 | SolverInteraction.SmtUnsat _
@@ -547,6 +547,7 @@ module internal Memory =
                     conditionState.model <- Some thenModel.mdl
                     execution conditionState elseState condition k
             else
+                Logger.trace $"Evaluated condition != False and != True: {evaluatedCondition}"
                 conditionState.pc <- independentThenPc
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnknown _ ->
