@@ -22,7 +22,7 @@ namespace IntegrationTests
             return 3 * a + 1;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb1(int i)
         {
             if (i <= 0)
@@ -47,7 +47,7 @@ namespace IntegrationTests
             return 2;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb2(int i)
         {
             if (i <= 0 || i >= 100)
@@ -84,7 +84,7 @@ namespace IntegrationTests
         }
         
         // Fails with j == 11 and loopCount == 14
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb3(int i)
         {
             var j = 12;
@@ -104,7 +104,7 @@ namespace IntegrationTests
             return 2;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb4(int i, int j)
         {
             var loopCount = 0;
@@ -130,7 +130,7 @@ namespace IntegrationTests
             return 2;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb5(int i, int j, int k)
         {
             var loopCount = 0;
@@ -162,7 +162,7 @@ namespace IntegrationTests
             return 2;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb6(int i, int j)
         {
             var loopCount = 0;
@@ -183,7 +183,7 @@ namespace IntegrationTests
             return 2;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb7(int i)
         {
             for (var j = 1; j < 100; ++j)
@@ -199,7 +199,7 @@ namespace IntegrationTests
             return 0;
         }
         
-        [TestSvm]
+        [TestSvm(100)]
         public static int CollatzLogicBomOmb8(int i, int j)
         {
             for (var k = 1; k < 17; ++k)
