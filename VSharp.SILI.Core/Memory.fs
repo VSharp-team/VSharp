@@ -536,6 +536,7 @@ module internal Memory =
                 match SolverInteraction.checkSat conditionState with
                 | SolverInteraction.SmtUnsat _
                 | SolverInteraction.SmtUnknown _ ->
+                    conditionState.model <- Some thenModel.mdl
                     conditionState.pc <- thenPc
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat elseModel ->
