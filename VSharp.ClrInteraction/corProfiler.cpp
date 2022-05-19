@@ -73,6 +73,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
     instrumenter = new Instrumenter(*corProfilerInfo, *protocol);
     instrumenter->configureEntryPoint();
+    setExpectedCoverage(protocol->acceptCoverageInformation());
 
     return S_OK;
 }

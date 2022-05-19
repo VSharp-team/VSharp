@@ -141,6 +141,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
             x.communicator.SendEntryPoint entryPoint
+            x.communicator.SendCoverageInformation cilState.path
             x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
             true
         else false
@@ -250,6 +251,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
         cilState.lastPushInfo <- None
+        cilState.path <- c.newCoveragePath @ cilState.path
 
     member x.State with get() = cilState
 

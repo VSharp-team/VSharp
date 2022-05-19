@@ -44,14 +44,19 @@ struct CoverageNode {
     OFFSET offset;
     int threadToken;
     CoverageNode *next;
+
+    int size() const;
+    void serialize(char *&buffer) const;
 };
 
 static const CoverageNode *expectedCoverageStep = nullptr;
 static CoverageNode *lastCoverageStep = nullptr;
+static CoverageNode *newCoverageNodes = nullptr;
 
 void setExpectedCoverage(const CoverageNode *expectedCoverage);
 bool stillExpectsCoverage();
 bool addCoverageStep(OFFSET offset);
+const CoverageNode *flushNewCoverageNodes();
 
 }
 

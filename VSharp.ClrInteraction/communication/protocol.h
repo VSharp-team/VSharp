@@ -2,7 +2,7 @@
 #define PROTOCOL_H_
 
 #include "communicator.h"
-#include "../memory/storage.h"
+#include "../memory/memory.h"
 #include "cor.h"
 #include <vector>
 
@@ -66,6 +66,7 @@ public:
     bool acceptTokenAndInt32(mdToken &token, INT32 &value);
     bool acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets);
     bool acceptHeapReadingParameters(VirtualAddress &address, INT32 &size, BYTE &isRef);
+    CoverageNode *acceptCoverageInformation();
     bool sendToken(mdToken token);
     bool sendBytes(char *bytes, int size);
     bool sendStringsPoolIndex(unsigned index);
@@ -81,6 +82,7 @@ public:
         delete[] bytes;
         return result;
     }
+
     void acceptExecResult(char *&bytes, int &messageLength);
     bool shutdown();
 };

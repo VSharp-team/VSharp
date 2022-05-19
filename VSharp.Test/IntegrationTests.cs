@@ -48,11 +48,11 @@ namespace VSharp.Test
         // NOTE: expected coverage field in TestSVM attribute indicates dotCover needs to be run:
         //       if it wasn't mentioned -- dotCover will not be started
         //       if it was -- dotCover will be started
-        private int? _expectedCoverage = null;
-        private uint _maxBoundForTest = 15u;
-        private bool _concolicMode = false;
+        private readonly int? _expectedCoverage = null;
+        private readonly uint _maxBoundForTest = 15u;
+        private readonly bool _concolicMode = false;
 
-        public TestSvmAttribute(int expectedCoverage=-1, uint maxBoundForTest=15u, bool concolicMode=false)
+        public TestSvmAttribute(int expectedCoverage = -1, uint maxBoundForTest = 15u, bool concolicMode = false)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;

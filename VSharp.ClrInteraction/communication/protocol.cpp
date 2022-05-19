@@ -238,6 +238,39 @@ bool Protocol::acceptHeapReadingParameters(VirtualAddress &address, INT32 &size,
     return true;
 }
 
+CoverageNode *Protocol::acceptCoverageInformation() {
+    char *message;
+    int messageLength;
+    if (!readBuffer(message, messageLength)) {
+        LOG_ERROR(tout << "Accepting coverage information failed!");
+        return nullptr;
+    }
+    int entrySize = sizeof(int) + sizeof(mdMethodDef) + sizeof(OFFSET) + sizeof(int);
+    assert(messageLength >= sizeof(unsigned));
+    char *start = message;
+    unsigned entriesCount = *((unsigned *)message);
+    message += sizeof(unsigned);
+    assert(messageLength == sizeof(unsigned) + entriesCount * entrySize);
+    CoverageNode *result = nullptr;
+    CoverageNode *current = nullptr;
+    for (unsigned i = 0; i < entriesCount; ++i) {
+        int moduleToken = *((int *)message); message += sizeof(int);
+        mdMethodDef methodToken = *((mdMethodDef *)message); message += sizeof(mdMethodDef);
+        OFFSET offset = *((OFFSET *)message); message += sizeof(OFFSET);
+        int threadToken = *((int *)message); message += sizeof(int);
+        CoverageNode *node = new CoverageNode{moduleToken, methodToken, offset, threadToken, nullptr};
+        if (current) {
+            current->next = node;
+        } else {
+            result = node;
+        }
+        current = node;
+    }
+    delete[] start;
+    LOG(tout << "Coverage path prefix accepted, " << entriesCount << " entries" << std::endl);
+    return result;
+}
+
 bool Protocol::acceptReadObjectParameters(OBJID &objID, bool &isArray, int &refOffsetsLength, int *&refOffsets) {
     char *message;
     int messageLength;

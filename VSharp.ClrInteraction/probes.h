@@ -114,6 +114,7 @@ struct ExecCommand {
     OBJID *newAddresses;
     UINT64 *newAddressesTypeLengths;
     char *newAddressesTypes;
+    const CoverageNode *newCoverageNodes;
 
     void serialize(char *&bytes, unsigned &count) const {
         count = 7 * sizeof(unsigned) + 2 * sizeof(unsigned) * newCallStackFramesCount + sizeof(unsigned) * ipStackCount;
@@ -125,6 +126,9 @@ struct ExecCommand {
         for (int i = 0; i < newAddressesCount; ++i)
             fullTypesSize += newAddressesTypeLengths[i];
         count += fullTypesSize;
+        unsigned coverageNodesCount = newCoverageNodes ? newCoverageNodes->size() : 0;
+        unsigned coverageNodeSize = sizeof(int) + sizeof(mdMethodDef) + sizeof(OFFSET) + sizeof(int);
+        count += sizeof(unsigned) + coverageNodesCount * coverageNodeSize;
         bytes = new char[count];
         char *buffer = bytes;
         unsigned size = sizeof(unsigned);
@@ -149,6 +153,13 @@ struct ExecCommand {
         size = newAddressesCount * sizeof(UINT64);
         memcpy(buffer, (char*)newAddressesTypeLengths, size); buffer += size;
         memcpy(buffer, newAddressesTypes, fullTypesSize); buffer += fullTypesSize;
+
+        *(unsigned *)buffer = coverageNodesCount; buffer += sizeof(unsigned);
+        const CoverageNode *node = newCoverageNodes;
+        while (node) {
+            node->serialize(buffer);
+            node = node->next;
+        }
     }
 };
 
@@ -208,6 +219,7 @@ void initCommand(OFFSET offset, bool isBranch, unsigned opsCount, EvalStackOpera
         i++;
     }
     command.newAddressesTypes = begin;
+    command.newCoverageNodes = flushNewCoverageNodes();
 }
 
 bool readExecResponse(StackFrame &top, EvalStackOperand *ops, unsigned &count, int &framesCount, EvalStackOperand &result) {

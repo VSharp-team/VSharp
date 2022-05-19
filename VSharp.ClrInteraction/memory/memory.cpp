@@ -127,5 +127,27 @@ bool vsharp::addCoverageStep(OFFSET offset) {
         lastCoverageStep->next = newStep;
     }
     lastCoverageStep = newStep;
+    if (!newCoverageNodes) {
+        newCoverageNodes = newStep;
+    }
     return true;
+}
+
+const CoverageNode *vsharp::flushNewCoverageNodes() {
+    const CoverageNode *result = newCoverageNodes;
+    newCoverageNodes = nullptr;
+    return result;
+}
+
+int CoverageNode::size() const {
+    if (!next)
+        return 1;
+    return next->size() + 1;
+}
+
+void CoverageNode::serialize(char *&buffer) const {
+    *(int *)buffer = moduleToken; buffer += sizeof(int);
+    *(mdMethodDef *)buffer = methodToken; buffer += sizeof(mdMethodDef);
+    *(OFFSET *)buffer = offset; buffer += sizeof(OFFSET);
+    *(int *)buffer = threadToken; buffer += sizeof(int);
 }
