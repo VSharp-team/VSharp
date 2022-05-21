@@ -2283,8 +2283,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
         let originLevel = levelToUnsignedInt cilState.level
         assert(List.forall (fun s -> levelToUnsignedInt s.level = originLevel) newSts)
-        let renewInstructionsInfo cilState =
-            if not <| isUnhandledError cilState then
-                x.IncrementLevelIfNeeded cfg offset cilState
-        newSts |> List.iter renewInstructionsInfo
-        newSts
+        let mutable origStateIdx = 0
+        let renewInstructionsInfo i cilState' =
+            if Object.ReferenceEquals(cilState, cilState') then
+                origStateIdx <- i
+            if not <| isUnhandledError cilState' then
+                x.IncrementLevelIfNeeded cfg offset cilState'
+        newSts |> List.iteri renewInstructionsInfo
+        if origStateIdx = 0 then
+            newSts
+        else
+            cilState::List.removeAt origStateIdx newSts

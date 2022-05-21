@@ -79,6 +79,9 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
         let initialState = Memory.EmptyState()
+        let modelState = Memory.EmptyState()
+        Memory.FillWithParametersAndThis modelState method
+        initialState.model <- Some {subst = Dictionary<_,_>(); state = modelState; complete = true}
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -128,7 +131,7 @@ type public SILI(options : SiliOptions) =
             let pool : ConcolicPool ref = ref null
             match s.startingIP with
             | Instruction(_, entryMethod) when concolicPools.TryGetValue(entryMethod, pool) ->
-                (!pool).StepDone(s, s::newStates)
+                pool.Value.StepDone(s, s::newStates)
             | _ -> ()
             searcher.UpdateStates s newStates
 
@@ -196,6 +199,9 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
         let state = Memory.EmptyState()
+        let modelState = Memory.EmptyState()
+        Memory.FillWithParametersAndThis modelState method
+        state.model <- Some {state = modelState; subst = Dictionary<_,_>(); complete = true}
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = Types.FromDotNetType typeof<string>

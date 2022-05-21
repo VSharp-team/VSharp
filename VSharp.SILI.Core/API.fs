@@ -346,6 +346,7 @@ module API =
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
+        let FillWithParametersAndThis state method = Memory.fillWithParametersAndThis state method
 
         let rec ReferenceArrayIndex state arrayRef indices (valueType : symbolicType option) =
             match arrayRef.term with

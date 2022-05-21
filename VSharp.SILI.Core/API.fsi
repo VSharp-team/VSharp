@@ -217,6 +217,7 @@ module API =
         val PopTypeVariables : state -> unit
         val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> unit
         val NewTypeVariables : state -> (typeId * symbolicType) list -> unit
+        val FillWithParametersAndThis : state -> MethodBase -> unit
 
         val ReferenceArrayIndex : state -> term -> term list -> symbolicType option -> term
         val ReferenceField : state -> term -> fieldId -> term
