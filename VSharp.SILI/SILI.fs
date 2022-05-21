@@ -9,6 +9,7 @@ open VSharp
 open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
+open VSharp.Interpreter.IL
 open VSharp.Solver
 
 type public SILI(options : SiliOptions) =
@@ -27,7 +28,7 @@ type public SILI(options : SiliOptions) =
     let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
+    let concolicPools = Dictionary<MethodBase, ConcolicPool>()
 
     let isSat pc =
         // TODO: consider trivial cases
@@ -54,7 +55,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method cmdArgs state with
+            match TestGenerator.state2test isError method cmdArgs state true with
             | Some test -> reporter test
             | None -> ()
         with :? InsufficientInformationException as e ->
@@ -98,33 +99,38 @@ type public SILI(options : SiliOptions) =
         | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
-        // TODO: update pobs when visiting new methods; use coverageZone
-        statistics.TrackStepForward s
-        let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
-        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
-        toReportFinished |> List.iter reportFinished
-        let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportExceptions |> List.iter reportFinished
-        let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReportIIE |> List.iter reportIncomplete
-        let newStates =
-            match goodStates with
-            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
-            | _ ->
-                match iieStates with
-                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+        if s.concolicStatus = concolicStatus.Detached then
+            let pool : ConcolicPool ref = ref null
+            match s.startingIP with
+            | Instruction(_, entryMethod) when concolicPools.TryGetValue(entryMethod, pool) ->
+                (!pool).Schedule s
+            | _ -> __unreachable__()
+        else
+            // TODO: update pobs when visiting new methods; use coverageZone
+            statistics.TrackStepForward s
+            let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
+            let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
+            toReportFinished |> List.iter reportFinished
+            let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
+            toReportExceptions |> List.iter reportFinished
+            let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
+            toReportIIE |> List.iter reportIncomplete
+            let newStates =
+                match goodStates with
+                | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
                 | _ ->
-                    match errors with
-                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
-                    | _ -> goodStates @ iieStates @ errors
-        let concolicMachine : ClientMachine ref = ref null
-        if concolicMachines.TryGetValue(s, concolicMachine) then
-            let machine = concolicMachine.Value
-            let cilState' = machine.StepDone (s::newStates)
-            if not <| LanguagePrimitives.PhysicalEquality s cilState' then
-                concolicMachines.Remove(s) |> ignore
-                concolicMachines.Add(cilState', machine)
-        searcher.UpdateStates s newStates
+                    match iieStates with
+                    | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                    | _ ->
+                        match errors with
+                        | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                        | _ -> goodStates @ iieStates @ errors
+            let pool : ConcolicPool ref = ref null
+            match s.startingIP with
+            | Instruction(_, entryMethod) when concolicPools.TryGetValue(entryMethod, pool) ->
+                (!pool).StepDone(s, s::newStates)
+            | _ -> ()
+            searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
         assert(currentLoc s' = p'.loc)
@@ -154,7 +160,7 @@ type public SILI(options : SiliOptions) =
             | GoBack(s, p) -> x.Backward p s EP
             | Stop -> __unreachable__()
 
-    member private x.AnswerPobs entryPoint initialStates =
+    member private x.AnswerPobs entryPoint cmdArgs initialStates =
         statistics.ExplorationStarted()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
         AssemblyManager.reset()
@@ -163,19 +169,14 @@ type public SILI(options : SiliOptions) =
         entryIP <- Instruction(0x0, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
-            initialStates |> List.iter (fun initialState ->
-                let machine = ClientMachine(entryPoint, (fun _ -> ()), initialState)
-                if not <| machine.Spawn() then
-                    internalfail "Unable to spawn concolic machine!"
-                concolicMachines.Add(initialState, machine))
-            let machine =
-                if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
-                else __notImplemented'__ "Forking in concolic mode"
-            while isSuspended machine.State && machine.ExecCommand() do
+            let concolicPool = ConcolicPool(entryPoint, cmdArgs, (fun _ -> ()), reportIncomplete, 1)
+            concolicPools.Add(entryPoint, concolicPool)
+            initialStates |> List.iter (fun s -> s.concolicStatus <- concolicStatus.Detached; concolicPool.Schedule s)
+            while concolicPool.ExecCommand() do
                 x.BidirectionalSymbolicExecution entryIP
             // NOTE: if SILI ended method exploration (IIE occured, for example),
             // but concolic is still running, terminating it
-            if machine.IsRunning then machine.Terminate()
+            if concolicPool.IsRunning() then concolicPool.Terminate()
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution entryIP
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
@@ -211,7 +212,7 @@ type public SILI(options : SiliOptions) =
             AddConstraint state (!!(IsNullReference argsParameterTerm))
         Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
         let initialState = makeInitialState method state
-        x.AnswerPobs method [initialState]
+        x.AnswerPobs method optionArgs [initialState]
 
     member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
                                (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
@@ -227,7 +228,7 @@ type public SILI(options : SiliOptions) =
         let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
         iieStates |> List.iter reportIncomplete
         if not initialStates.IsEmpty then
-            x.AnswerPobs method initialStates
+            x.AnswerPobs method None initialStates
         Restore()
 
     member x.Statistics with get() = statistics

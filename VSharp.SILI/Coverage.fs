@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System.Reflection
+open VSharp
 open VSharp.Concolic
 
 module Coverage =
@@ -21,3 +22,6 @@ module Coverage =
         | None ->
             modules.Add m
             modules.Count - 1
+
+    let dump (path : path) =
+        path |> List.rev |> List.map toString |> join " => "

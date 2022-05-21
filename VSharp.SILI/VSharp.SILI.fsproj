@@ -36,9 +36,9 @@
         <Compile Include="StackTraceSearcher.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ConcolicMemory.fs" />
-        <Compile Include="ClientMachine.fs" />
         <Compile Include="Options.fs" />
         <Compile Include="TestGenerator.fs" />
+        <Compile Include="ClientMachine.fs" />
         <Compile Include="SILI.fs" />
     </ItemGroup>
 

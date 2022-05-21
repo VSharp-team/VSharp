@@ -2,7 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Collections.Generic
-open System.IO
 open System.Reflection
 open FSharpx.Collections
 open VSharp
@@ -91,7 +90,7 @@ module TestGenerator =
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term
 
-    let model2test (test : UnitTest) isError hasException indices (m : MethodBase) model cmdArgs (cilState : cilState) =
+    let model2test (test : UnitTest) isError hasException indices (m : MethodBase) model cmdArgs (cilState : cilState) resultChecking =
         match SolveTypes model cilState.state with
         | None -> None
         | Some(classParams, methodParams) ->
@@ -115,12 +114,12 @@ module TestGenerator =
                 let concreteValue : obj = term2obj model cilState.state indices test value
                 test.ThisArg <- concreteValue
 
-            if not isError && not hasException then
+            if not isError && not hasException && resultChecking then
                 let retVal = model.Eval cilState.Result
                 test.Expected <- term2obj model cilState.state indices test retVal
             Some test
 
-    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
+    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) resultChecking =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m
         let hasException =
@@ -134,5 +133,5 @@ module TestGenerator =
 
         match TryGetModel cilState.state with
         | Some model ->
-            model2test test isError hasException indices m model cmdArgs cilState
+            model2test test isError hasException indices m model cmdArgs cilState resultChecking
         | None -> None

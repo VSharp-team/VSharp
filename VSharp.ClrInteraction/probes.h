@@ -127,7 +127,7 @@ struct ExecCommand {
             fullTypesSize += newAddressesTypeLengths[i];
         count += fullTypesSize;
         unsigned coverageNodesCount = newCoverageNodes ? newCoverageNodes->size() : 0;
-        unsigned coverageNodeSize = sizeof(int) + sizeof(mdMethodDef) + sizeof(OFFSET) + sizeof(int);
+        unsigned coverageNodeSize = 3 * sizeof(int) + sizeof(mdMethodDef) + sizeof(OFFSET);
         count += sizeof(unsigned) + coverageNodesCount * coverageNodeSize;
         bytes = new char[count];
         char *buffer = bytes;
@@ -331,14 +331,26 @@ CommandType getAndHandleCommand() {
     return command;
 }
 
+void trackCoverage(OFFSET offset, int &lastPushInfo, bool &stillExpectsCoverage) {
+    if (!addCoverageStep(offset, lastPushInfo, stillExpectsCoverage)) {
+        FAIL_LOUD("Path divergence")
+    }
+}
+
 void sendCommand(OFFSET offset, unsigned opsCount, EvalStackOperand *ops, bool mightFork = true) {
-    if (mightFork)
-        addCoverageStep(offset);
-    if (stillExpectsCoverage())
-        return;
+    int lastStackPush = 0;
+    bool commandsDisabled;
+    trackCoverage(offset, lastStackPush, commandsDisabled);
 
     ExecCommand command{};
     initCommand(offset, false, opsCount, ops, command);
+    if (commandsDisabled) {
+        if (lastStackPush) {
+            StackFrame &top = vsharp::topFrame();
+            top.pushPrimitive(lastStackPush == 2);
+        }
+        return;
+    }
     protocol->sendSerializable(ExecuteCommand, command);
 
     // NOTE: handling commands from SILI (ReadBytes, ...)
@@ -462,7 +474,9 @@ int registerProbe(unsigned long long probe) {
     RETTYPE STDMETHODCALLTYPE NAME ARGS
 
 PROBE(void, Track_Coverage, (OFFSET offset)) {
-    addCoverageStep(offset);
+    int unused1;
+    bool unused2;
+    trackCoverage(offset, unused1, unused2);
 }
 
 PROBE(void, EnableInstrumentation, ()) { enabledInstrumentation(); }

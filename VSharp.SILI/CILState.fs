@@ -3,12 +3,16 @@ namespace VSharp.Interpreter.IL
 open VSharp
 open System.Text
 open VSharp.Core
+open VSharp.Interpreter.IL
 open ipOperations
 
-type concolicState =
-    | Running
-    | Waiting
-    | Disabled
+type concolicStatus =
+    | PurelySymbolic = 0 // State is controlled only by symbolic interpreter
+    | Detached = 1       // State should be controlled by concolic machine, but still waiting to be picked by searcher
+    | Queued = 2         // State was picked by searcher, but delayed until another concolic machines terminate
+    | Running = 3        // State is attached to concolic machine, which is currently running
+    | Waiting = 4        // State is attached to concolic machine, but it sent command to symbolic engine and waiting for responce
+    | Done = 5           // State was attached to concolic machine and successfully computed
 
 [<ReferenceEquality>]
 type cilState =
@@ -21,7 +25,7 @@ type cilState =
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
-      mutable concolicState : concolicState
+      mutable concolicStatus : concolicStatus
       mutable lastPushInfo : term option
       mutable path : Coverage.path
     }
@@ -50,7 +54,7 @@ module internal CilStateOperations =
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
-          concolicState = Disabled
+          concolicStatus = concolicStatus.PurelySymbolic
           lastPushInfo = None
           path = []
         }
@@ -90,23 +94,6 @@ module internal CilStateOperations =
         match currentIp s with
         | SearchingForHandler([], []) -> true
         | _ -> false
-
-    let isSuspended (s : cilState) =
-        match s.concolicState with
-        | Running -> true
-        | _ -> false
-
-    let controlledByConcolic (s : cilState) =
-        match s.concolicState with
-        | Disabled -> false
-        | _ -> true
-
-    let moveControlToConcolic (s : cilState) =
-        s.concolicState <- Running
-
-    let moveControlFromConcolic (s : cilState) =
-        assert(s.concolicState = Running)
-        s.concolicState <- Waiting
 
     let currentLoc = currentIp >> ip2codeLocation >> Option.get
     let startingLoc (s : cilState) = s.startingIP |> ip2codeLocation |> Option.get

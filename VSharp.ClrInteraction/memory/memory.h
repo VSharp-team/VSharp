@@ -43,6 +43,7 @@ struct CoverageNode {
     mdMethodDef methodToken;
     OFFSET offset;
     int threadToken;
+    int stackPush;
     CoverageNode *next;
 
     int size() const;
@@ -50,12 +51,13 @@ struct CoverageNode {
 };
 
 static const CoverageNode *expectedCoverageStep = nullptr;
+static bool expectedCoverageExpirated = true;
 static CoverageNode *lastCoverageStep = nullptr;
 static CoverageNode *newCoverageNodes = nullptr;
 
 void setExpectedCoverage(const CoverageNode *expectedCoverage);
-bool stillExpectsCoverage();
-bool addCoverageStep(OFFSET offset);
+int expectedStackPush();
+bool addCoverageStep(OFFSET offset, int &lastStackPush, bool &stillExpectsCoverage);
 const CoverageNode *flushNewCoverageNodes();
 
 }

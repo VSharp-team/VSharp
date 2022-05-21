@@ -97,32 +97,37 @@ void vsharp::resolve(INT_PTR p, VirtualAddress &address) {
 
 void vsharp::setExpectedCoverage(const CoverageNode *expectedCoverage) {
     expectedCoverageStep = expectedCoverage;
+    expectedCoverageExpirated = !expectedCoverage;
 }
 
-bool vsharp::stillExpectsCoverage() {
-    return expectedCoverageStep;
-}
-
-bool vsharp::addCoverageStep(OFFSET offset) {
+bool vsharp::addCoverageStep(OFFSET offset, int &lastStackPush, bool &stillExpectsCoverage) {
     int threadToken = 0; // TODO: support multithreading
     StackFrame &top = topFrame();
     int moduleToken = top.moduleToken();
     mdMethodDef methodToken = top.resolvedToken();
+    if (lastCoverageStep && lastCoverageStep->moduleToken == moduleToken && lastCoverageStep->methodToken == methodToken &&
+            lastCoverageStep->offset == offset && lastCoverageStep->threadToken == threadToken)
+    {
+        stillExpectsCoverage = !expectedCoverageExpirated;
+        expectedCoverageExpirated = !expectedCoverageStep;
+        lastStackPush = lastCoverageStep->stackPush;
+        return true;
+    }
     if (expectedCoverageStep) {
+        stillExpectsCoverage = true;
         if (expectedCoverageStep->moduleToken != moduleToken || expectedCoverageStep->methodToken != methodToken ||
                 expectedCoverageStep->offset != offset || expectedCoverageStep->threadToken != threadToken) {
             LOG(tout << "Path divergence detected at offset " << offset << " of " << HEX(methodToken));
             return false;
         }
+        lastStackPush = expectedCoverageStep->stackPush;
         expectedCoverageStep = expectedCoverageStep->next;
+    } else {
+        stillExpectsCoverage = false;
+        expectedCoverageExpirated = true;
     }
-    if (lastCoverageStep && lastCoverageStep->moduleToken == moduleToken && lastCoverageStep->methodToken == methodToken &&
-            lastCoverageStep->offset == offset && lastCoverageStep->threadToken == threadToken)
-    {
-        return true;
-    }
-    LOG(tout << "cover offset " << offset << " of " << HEX(methodToken));
-    CoverageNode *newStep = new CoverageNode{moduleToken, methodToken, offset, threadToken, nullptr};
+    LOG(tout << "Cover offset " << offset << " of " << HEX(methodToken));
+    CoverageNode *newStep = new CoverageNode{moduleToken, methodToken, offset, threadToken, lastStackPush, nullptr};
     if (lastCoverageStep) {
         lastCoverageStep->next = newStep;
     }
@@ -131,6 +136,10 @@ bool vsharp::addCoverageStep(OFFSET offset) {
         newCoverageNodes = newStep;
     }
     return true;
+}
+
+int vsharp::expectedStackPush() {
+    return expectedCoverageStep ? expectedCoverageStep->stackPush : 0;
 }
 
 const CoverageNode *vsharp::flushNewCoverageNodes() {
@@ -150,4 +159,5 @@ void CoverageNode::serialize(char *&buffer) const {
     *(mdMethodDef *)buffer = methodToken; buffer += sizeof(mdMethodDef);
     *(OFFSET *)buffer = offset; buffer += sizeof(OFFSET);
     *(int *)buffer = threadToken; buffer += sizeof(int);
+    *(int *)buffer = stackPush; buffer += sizeof(int);
 }

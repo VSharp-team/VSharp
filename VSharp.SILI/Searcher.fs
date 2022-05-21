@@ -5,6 +5,7 @@ open FSharpx.Collections
 open VSharp
 open CilStateOperations
 open VSharp.Core
+open VSharp.Interpreter.IL
 
 type action =
     | GoFront of cilState
@@ -73,10 +74,13 @@ type ForwardSearcher(maxBound) =
         override x.Init state =
             forPropagation.AddRange(state)
         override x.Pick() =
-            let concolicStates = forPropagation |> Seq.filter controlledByConcolic
+            let detachedConcolicStates = forPropagation |> Seq.filter (fun s -> s.concolicStatus = concolicStatus.Detached)
             let availableStates =
-                if Seq.isEmpty concolicStates then forPropagation |> Seq.filter (isSuspended >> not)
-                else concolicStates |> Seq.filter (isSuspended >> not)
+                if not <| Seq.isEmpty detachedConcolicStates then detachedConcolicStates
+                else
+                    let pendingConcolicStates = forPropagation |> Seq.filter (fun s -> s.concolicStatus = concolicStatus.Waiting)
+                    if Seq.isEmpty pendingConcolicStates then forPropagation |> Seq.filter (fun s -> s.concolicStatus = concolicStatus.PurelySymbolic)
+                    else pendingConcolicStates
             x.Choose availableStates
         override x.Update parent newStates =
             if isStopped parent then
