@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Microsoft.FSharp.Core;
+using VSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -71,7 +73,7 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null)
+        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, Parameters parameters, string[] mainArguments = null)
         {
             var recThreshold = 0u;
             var options =
@@ -80,18 +82,31 @@ namespace VSharp
             SILI explorer = new SILI(options);
             UnitTests unitTests = new UnitTests(resultsFolder);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
+            Core.API.SetFeatureFlags(parameters.GetFeatureFlags());
+
+            var totalTestsGenerated = 0u;
+            
             foreach (var method in methods)
             {
-                if (method == method.Module.Assembly.EntryPoint)
-                {
-                    explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => throw e);
-                }
-                else
-                {
-                    explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => throw e);
-                }
+                Stopwatch.runMeasuringTime("total", FuncConvert.FromAction(() =>
+                    {
+                        if (method == method.Module.Assembly.EntryPoint)
+                        {
+                            explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                                e => throw e);
+                        }
+                        else
+                        {
+                            explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                                e => throw e);
+                        }
+                    }
+                ));
+                
+                Stopwatch.saveMeasurements(parameters.RunId, method.Name, unitTests.UnitTestsCount - totalTestsGenerated);
+                Stopwatch.clear();
+
+                totalTestsGenerated = unitTests.UnitTestsCount;
             }
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
@@ -112,10 +127,10 @@ namespace VSharp
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>Summary of tests generation process.</returns>
-        public static Statistics Cover(MethodBase method, string outputDirectory = "")
+        public static Statistics Cover(MethodBase method, Parameters parameters, string outputDirectory = "")
         {
             List<MethodBase> methods = new List<MethodBase> {method};
-            return StartExploration(methods, outputDirectory);
+            return StartExploration(methods, outputDirectory, parameters);
         }
 
         /// <summary>
@@ -125,7 +140,7 @@ namespace VSharp
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static Statistics Cover(Type type, string outputDirectory = "")
+        public static Statistics Cover(Type type, Parameters parameters, string outputDirectory = "")
         {
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
@@ -140,7 +155,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method of class " + type.FullName);
             }
 
-            return StartExploration(methods, outputDirectory);
+            return StartExploration(methods, outputDirectory, parameters);
         }
 
         /// <summary>
@@ -151,7 +166,7 @@ namespace VSharp
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, Parameters parameters, string outputDirectory = "")
         {
             List<MethodBase> methods;
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
@@ -173,7 +188,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method in assembly");
             }
 
-            return StartExploration(methods, outputDirectory);
+            return StartExploration(methods, outputDirectory, parameters);
         }
 
         /// <summary>
@@ -185,7 +200,7 @@ namespace VSharp
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, string[] args, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, Parameters parameters, string[] args, string outputDirectory = "")
         {
             List<MethodBase> methods;
             var entryPoint = assembly.EntryPoint;
@@ -195,7 +210,7 @@ namespace VSharp
             }
             methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, args);
+            return StartExploration(methods, outputDirectory, parameters, args);
         }
 
         /// <summary>
@@ -204,9 +219,9 @@ namespace VSharp
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(MethodBase method, string outputDirectory = "")
+        public static bool CoverAndRun(MethodBase method, Parameters parameters, string outputDirectory = "")
         {
-            var stats = Cover(method, outputDirectory);
+            var stats = Cover(method, parameters, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 
@@ -217,9 +232,9 @@ namespace VSharp
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static bool CoverAndRun(Type type, string outputDirectory = "")
+        public static bool CoverAndRun(Type type, Parameters parameters, string outputDirectory = "")
         {
-            var stats = Cover(type, outputDirectory);
+            var stats = Cover(type, parameters, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 
@@ -231,9 +246,9 @@ namespace VSharp
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(Assembly assembly, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, Parameters parameters, string outputDirectory = "")
         {
-            var stats = Cover(assembly, outputDirectory);
+            var stats = Cover(assembly, parameters, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 
@@ -245,9 +260,9 @@ namespace VSharp
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, string[] args, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, Parameters parameters, string[] args, string outputDirectory = "")
         {
-            var stats = Cover(assembly, args, outputDirectory);
+            var stats = Cover(assembly, parameters, args, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 

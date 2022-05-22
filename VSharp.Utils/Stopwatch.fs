@@ -16,7 +16,7 @@ module Stopwatch =
     type private measurement = { stopwatch: Stopwatch; mutable timesCalled: int }    
     type private csvRecord =
         {
-            commitHash: string
+            runId: string
             dateTime: string
             caseName: string
             tag: string
@@ -81,11 +81,10 @@ module Stopwatch =
     /// Saves all current measurement results to .csv file. If the file already exists, appends lines
     /// </summary>
     /// <param name="caseName">Additional tag given to the saved measurements</param>
-    /// <param name="caseName">Number of tests generated during the run</param>
-    let public saveMeasurements caseName testsGenerated =
+    /// <param name="testsGenerated">Number of tests generated during the run</param>
+    let public saveMeasurements runId caseName testsGenerated =
         stopAll()
-        
-        let commitHash = getGitCommitHash()
+
         let currentDateTime = DateTime.Now.ToString("yyyy-MM-ddTHH-mm-ss")
         
         let records =
@@ -93,7 +92,7 @@ module Stopwatch =
             |> Seq.map (|KeyValue|)
             |> Seq.map (fun (tag, m) ->
                 {
-                    commitHash = commitHash
+                    runId = runId
                     dateTime = currentDateTime
                     caseName = caseName
                     tag = tag
@@ -102,7 +101,7 @@ module Stopwatch =
                     totalMs = m.stopwatch.ElapsedMilliseconds
                     testsGenerated = testsGenerated
                 }
-            )       
+            )
         
         let targetPath = Path.Combine(csvPath, csvFilename)
         
@@ -119,4 +118,4 @@ module Stopwatch =
     /// <summary>
     /// Clears all current measurements
     /// </summary>
-    let public clear () = measurements.Clear() 
+    let public clear () = measurements.Clear()

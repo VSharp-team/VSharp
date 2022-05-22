@@ -122,6 +122,11 @@ namespace VSharp.Runner
             var unknownArgsOption =
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
 
+            var constraintIndependenceOption = new Option<bool>("--cind");
+            var evalConditionOption = new Option<bool>("--eval-cond");
+            var incrementalityOption = new Option<bool>("--incrementality");
+            var runIdOption = new Option<string>("--runId");
+            
             var rootCommand = new RootCommand();
 
             var entryPointCommand =
@@ -131,18 +136,25 @@ namespace VSharp.Runner
             entryPointCommand.AddArgument(concreteArguments);
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
+            
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
             allPublicMethodsCommand.AddArgument(assemblyPathArgument);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
+            
             var publicMethodsOfClassCommand =
-                new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
+                new Command("public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
             var classArgument = new Argument<string>("class-name");
             publicMethodsOfClassCommand.AddArgument(classArgument);
             publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
+            publicMethodsOfClassCommand.AddOption(runIdOption);
+            publicMethodsOfClassCommand.AddOption(constraintIndependenceOption);
+            publicMethodsOfClassCommand.AddOption(evalConditionOption);
+            publicMethodsOfClassCommand.AddOption(incrementalityOption);
+
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
@@ -153,41 +165,45 @@ namespace VSharp.Runner
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool>((assemblyPath, args, output, unknownArgs) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool, bool, bool, bool, string>((assemblyPath, args, output, unknownArgs, ci, eval, inc, id) =>
             {
+                var parameters = new Parameters(ci, eval, inc, id);
                 var assembly = ResolveAssembly(assemblyPath);
                 if (unknownArgs)
                     args = null;
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, args, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, parameters, args, output.FullName));
             });
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo>((assemblyPath, output) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo, bool, bool, bool, string>((assemblyPath, output, ci, eval, inc, id) =>
             {
+                var parameters = new Parameters(ci, eval, inc, id);
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, parameters, output.FullName));
             });
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo>((className, assemblyPath, output) =>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, string, bool, bool, bool>((className, assemblyPath, output, runId, ci, eval, inc) =>
             {
+                var parameters = new Parameters(ci, eval, inc, runId);
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
                 {
                     var type = ResolveType(assembly, className);
                     if (type != null)
                     {
-                        PostProcess(TestGenerator.Cover(type, output.FullName));
+                        PostProcess(TestGenerator.Cover(type, parameters, output.FullName));
                     }
                 }
             });
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo>((methodName, assemblyPath, output) =>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool, bool, string>((methodName, assemblyPath, output, ci, eval, inc, id) =>
             {
+                var parameters = new Parameters(ci, eval, inc, id);
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
                 {
                     var method = ResolveMethod(assembly, methodName);
                     if (method != null)
                     {
-                        PostProcess(TestGenerator.Cover(method, output.FullName));
+                        PostProcess(TestGenerator.Cover(method, parameters, output.FullName));
                     }
                 }
             });

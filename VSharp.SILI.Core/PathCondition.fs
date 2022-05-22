@@ -3,19 +3,23 @@ open VSharp
 open VSharp.Utils
 open System.Collections.Generic
 
-module public PC =
-    
-    type IPathCondition =
-        abstract Add : term -> unit
-        abstract Copy : unit -> IPathCondition
-        abstract ToSeq : unit -> term seq
-        abstract UnionWith : IPathCondition -> IPathCondition
-        abstract Map : (term -> term) -> IPathCondition
-        abstract IsEmpty : bool
-        abstract IsFalse : bool
-        abstract Fragments : IPathCondition seq
+type public IPathCondition =
+    abstract Add : term -> unit
+    abstract Copy : unit -> IPathCondition
+    abstract ToSeq : unit -> term seq
+    abstract UnionWith : IPathCondition -> IPathCondition
+    abstract Map : (term -> term) -> IPathCondition
+    abstract IsEmpty : bool
+    abstract IsFalse : bool
+    abstract Fragments : IPathCondition seq
+    abstract Constants : term seq
+
+module internal PC =
         
-    type public PathCondition private (constraints : HashSet<term>, isFalse : bool) =
+    /// <summary>
+    /// Naive path condition implementation which maintains a single set of constraints
+    /// </summary>
+    type private PathCondition private (constraints : HashSet<term>, isFalse : bool) =
         
         let mutable isFalse = isFalse
         
@@ -61,6 +65,8 @@ module public PC =
             member this.IsFalse = isFalse
             
             member this.Fragments = Seq.singleton this
+            
+            member this.Constants = seq constraints |> Seq.map Seq.singleton |> Seq.collect discoverConstants
     
     type private node =
         | Tail of term * term pset
@@ -73,9 +79,10 @@ module public PC =
         | Node(constant) -> constant
         | Empty -> invalidOp "Cannot unwrap empty node"
     
-    (*
-        Path condition maintains independent subsets of constants and constraints ("constraint independence")
-        
+    /// <summary>
+    /// Path condition implementation which maintains independent subsets of constants and constraints ("constraint independence")
+    /// </summary>
+    (*        
         constants -- dictionary used as union-find structure for constants. Constants of one subset are
             cyclically mapping to each other. There is only one node.Tail in subset and it is the representative
             element of the subset. Tail also contains the constraints corresponding to the constants subset
@@ -86,7 +93,7 @@ module public PC =
         isFalse -- flag used to determine if the PC is false trivially (i. e. c an !c were added to it).
             Invariant: PC doesn't contain True or False as elements.
     *)
-    type public IndependentPathCondition private (constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
+    type private IndependentPathCondition private (constants : Dictionary<term, node>, constraints : HashSet<term>, isFalse : bool) =
         
         let mutable isFalse = isFalse
 
@@ -210,7 +217,7 @@ module public PC =
                 | _ -> ()
             | _ -> ()
 
-        new() =
+        internal new() =
             IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
@@ -265,6 +272,8 @@ module public PC =
                         | _ -> None
                     Seq.choose getSubsetByRepresentative constants.Values
                     |> Seq.cast<IPathCondition>
+                    
+            member this.Constants = constants.Keys
 
     let public add newConstraint (pc : IPathCondition) =
         let copy = pc.Copy()
@@ -276,3 +285,9 @@ module public PC =
     let public map mapper (pc : IPathCondition) = pc.Map mapper
     
     let public unionWith anotherPc (pc : IPathCondition) = pc.UnionWith anotherPc
+    
+    let public create () : IPathCondition =
+        if FeatureFlags.current.isConstraintIndependenceEnabled then
+            IndependentPathCondition()
+        else
+            PathCondition()

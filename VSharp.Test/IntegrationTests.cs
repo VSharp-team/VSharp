@@ -11,6 +11,7 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -96,6 +97,8 @@ namespace VSharp.Test
             private TestResult Explore(TestExecutionContext context)
             {
                 Core.API.ConfigureSolver(SolverPool.mkSolver());
+                Core.API.SetFeatureFlags(new featureFlags(true, true, true));
+                
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
@@ -137,9 +140,6 @@ namespace VSharp.Test
                     {
                         context.CurrentResult.SetResult(ResultState.Success);
                     }
-                    
-                    Stopwatch.saveMeasurements(methodInfo.Name, unitTests.UnitTestsCount);
-                    Stopwatch.clear();
                 }
                 catch (Exception e)
                 {

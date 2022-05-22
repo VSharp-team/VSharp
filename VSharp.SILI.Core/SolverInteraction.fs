@@ -59,5 +59,9 @@ module public SolverInteraction =
             s.CheckAssumptions ctx model conditions
         | None -> SmtUnknown "Solver not configured"
         
-    let checkSat =
-        checkSatIncrementally// TODO: need to solve types here? #do        
+    let checkSat state =
+        // TODO: need to solve types here? #do
+        if FeatureFlags.current.isIncrementalityEnabled then
+            checkSatIncrementally state
+        else
+            checkSatPlainly state

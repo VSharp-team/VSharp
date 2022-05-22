@@ -20,9 +20,10 @@ module Logger =
         | _ -> "Unknown"
 
     let private writeLineString vLevel message =
-        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
+        ()
+(*        let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
-        current_text_writer.Flush()
+        current_text_writer.Flush()*)
 
     let public printLog vLevel format =
         Printf.ksprintf (fun message -> if current_log_level >= vLevel then writeLineString vLevel message) format
