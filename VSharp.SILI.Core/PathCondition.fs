@@ -1,6 +1,5 @@
 namespace VSharp.Core
 open VSharp
-open VSharp.Utils
 open System.Collections.Generic
 
 type public IPathCondition =
@@ -31,7 +30,10 @@ module internal PC =
             PathCondition(HashSet<term>(), false)
             
         override this.ToString() =
-            Seq.map toString constraints |> Seq.sort |> join " /\ "
+            if (this :> IPathCondition).IsEmpty then
+                "true"
+            else
+                Seq.map (fun c -> $"({c})") constraints |> join " /\ "
 
         interface IPathCondition with
         
@@ -221,7 +223,10 @@ module internal PC =
             IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
-            Seq.map toString constraints |> Seq.sort |> join " /\ "
+            if (this :> IPathCondition).IsEmpty then
+                "true"
+            else
+                Seq.map (fun c -> $"({c})") constraints |> join " /\ "
             
         interface IPathCondition with
 

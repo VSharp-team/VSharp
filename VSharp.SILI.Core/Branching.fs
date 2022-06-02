@@ -2,7 +2,6 @@ namespace VSharp.Core
 
 open System.Collections.Generic
 open VSharp
-open VSharp.Core.PC
 
 module internal Branching =
     
@@ -182,7 +181,7 @@ module internal Branching =
                 checkBothBranches())
         
     let branch copy (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let isEvalEnabled = FeatureFlags.current.isConditionEvalEnabled
+        let isEvalEnabled = FeatureFlags.current.isConditionEvaluationEnabled
         if FeatureFlags.current.isConstraintIndependenceEnabled then
             executionWithConstraintIndependence isEvalEnabled copy state conditionInvocation thenBranch elseBranch merge2Results k
         else

@@ -1,6 +1,5 @@
 ﻿namespace VSharp
 
-open System
 open System.Collections.Generic
 open System.IO
 open System.Text
@@ -36,5 +35,5 @@ module TaggedLogger =
     /// <param name="path">Path of the file to save</param>
     let public saveLog tag path =
         if logs.ContainsKey tag then
-            let log = logs[tag].ToString()
+            let log = logs.[tag].ToString()
             File.WriteAllText(path, log)

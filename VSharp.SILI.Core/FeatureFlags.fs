@@ -2,7 +2,7 @@ namespace VSharp.Core
 
 type public featureFlags = {
     isConstraintIndependenceEnabled : bool
-    isConditionEvalEnabled : bool
+    isConditionEvaluationEnabled : bool
     isIncrementalityEnabled : bool
 }
 
@@ -10,7 +10,7 @@ module internal FeatureFlags =
 
     let mutable current = {
         isConstraintIndependenceEnabled = false
-        isConditionEvalEnabled = false
+        isConditionEvaluationEnabled = false
         isIncrementalityEnabled = false
     }
     

@@ -2,7 +2,6 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
-open System.Reflection
 open VSharp
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
@@ -169,4 +168,3 @@ module public State =
         model =
             Option.bind (fun state -> Some {subst = Dictionary<_,_>(); state = state; complete = true}) modelState
     }
-

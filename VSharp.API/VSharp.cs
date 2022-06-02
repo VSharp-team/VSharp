@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Microsoft.FSharp.Core;
-using VSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -73,7 +71,7 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, Parameters parameters, string[] mainArguments = null)
+        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, SvmOptions svmOptions, string[] mainArguments = null)
         {
             var recThreshold = 0u;
             var options =
@@ -82,31 +80,21 @@ namespace VSharp
             SILI explorer = new SILI(options);
             UnitTests unitTests = new UnitTests(resultsFolder);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
-            Core.API.SetFeatureFlags(parameters.GetFeatureFlags());
-
-            var totalTestsGenerated = 0u;
+            Core.API.SetFeatureFlags(svmOptions.GetFeatureFlags());
             
+            // TODO: single solver instance for multiple methods causes problems in incrementality mode
             foreach (var method in methods)
             {
-                Stopwatch.runMeasuringTime("total", FuncConvert.FromAction(() =>
-                    {
-                        if (method == method.Module.Assembly.EntryPoint)
-                        {
-                            explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                                e => throw e);
-                        }
-                        else
-                        {
-                            explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                                e => throw e);
-                        }
-                    }
-                ));
-                
-                Stopwatch.saveMeasurements(parameters.RunId, method.Name, unitTests.UnitTestsCount - totalTestsGenerated);
-                Stopwatch.clear();
-
-                totalTestsGenerated = unitTests.UnitTestsCount;
+                if (method == method.Module.Assembly.EntryPoint)
+                {
+                    explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                        e => throw e);
+                }
+                else
+                {
+                    explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                        e => throw e);
+                }
             }
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
@@ -126,11 +114,12 @@ namespace VSharp
         /// </summary>
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>Summary of tests generation process.</returns>
-        public static Statistics Cover(MethodBase method, Parameters parameters, string outputDirectory = "")
+        public static Statistics Cover(MethodBase method, string outputDirectory = "", SvmOptions svmOptions = new())
         {
             List<MethodBase> methods = new List<MethodBase> {method};
-            return StartExploration(methods, outputDirectory, parameters);
+            return StartExploration(methods, outputDirectory, svmOptions);
         }
 
         /// <summary>
@@ -138,9 +127,10 @@ namespace VSharp
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static Statistics Cover(Type type, Parameters parameters, string outputDirectory = "")
+        public static Statistics Cover(Type type, string outputDirectory = "", SvmOptions svmOptions = new())
         {
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
@@ -155,7 +145,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method of class " + type.FullName);
             }
 
-            return StartExploration(methods, outputDirectory, parameters);
+            return StartExploration(methods, outputDirectory, svmOptions);
         }
 
         /// <summary>
@@ -163,10 +153,11 @@ namespace VSharp
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, Parameters parameters, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, string outputDirectory = "", SvmOptions svmOptions = new())
         {
             List<MethodBase> methods;
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
@@ -188,7 +179,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method in assembly");
             }
 
-            return StartExploration(methods, outputDirectory, parameters);
+            return StartExploration(methods, outputDirectory, svmOptions);
         }
 
         /// <summary>
@@ -197,10 +188,11 @@ namespace VSharp
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="args">Command line arguments of entry point</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, Parameters parameters, string[] args, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, string[] args, string outputDirectory = "", SvmOptions svmOptions = new())
         {
             List<MethodBase> methods;
             var entryPoint = assembly.EntryPoint;
@@ -210,7 +202,7 @@ namespace VSharp
             }
             methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, parameters, args);
+            return StartExploration(methods, outputDirectory, svmOptions, args);
         }
 
         /// <summary>
@@ -218,10 +210,11 @@ namespace VSharp
         /// </summary>
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(MethodBase method, Parameters parameters, string outputDirectory = "")
+        public static bool CoverAndRun(MethodBase method, string outputDirectory = "", SvmOptions svmOptions = new())
         {
-            var stats = Cover(method, parameters, outputDirectory);
+            var stats = Cover(method, outputDirectory, svmOptions);
             return Reproduce(stats.OutputDir);
         }
 
@@ -230,11 +223,12 @@ namespace VSharp
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static bool CoverAndRun(Type type, Parameters parameters, string outputDirectory = "")
+        public static bool CoverAndRun(Type type, string outputDirectory = "", SvmOptions svmOptions = new())
         {
-            var stats = Cover(type, parameters, outputDirectory);
+            var stats = Cover(type, outputDirectory, svmOptions);
             return Reproduce(stats.OutputDir);
         }
 
@@ -243,12 +237,13 @@ namespace VSharp
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(Assembly assembly, Parameters parameters, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, string outputDirectory = "", SvmOptions svmOptions = new())
         {
-            var stats = Cover(assembly, parameters, outputDirectory);
+            var stats = Cover(assembly, outputDirectory, svmOptions);
             return Reproduce(stats.OutputDir);
         }
 
@@ -258,11 +253,12 @@ namespace VSharp
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="args">Command line arguments of entry point</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="svmOptions">Advanced symbolic virtual machine options.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, Parameters parameters, string[] args, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, string[] args, string outputDirectory = "", SvmOptions svmOptions = new())
         {
-            var stats = Cover(assembly, parameters, args, outputDirectory);
+            var stats = Cover(assembly, args, outputDirectory, svmOptions);
             return Reproduce(stats.OutputDir);
         }
 

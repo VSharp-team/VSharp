@@ -31,6 +31,10 @@ module public Seq =
             lenProd <- lenProd * lengths.[i]
         Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
 
+    /// <summary>
+    /// Splits sequence into two sequences: with elements which satisfy condition and with those
+    /// which don't
+    /// </summary>
     let splitBy condition seq =
         let grouped = Seq.groupBy (fun element -> condition element) seq
         match (Seq.tryFind (fun (value, _) -> value) grouped),

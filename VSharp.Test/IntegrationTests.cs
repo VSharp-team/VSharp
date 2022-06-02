@@ -1,11 +1,10 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
-using Microsoft.FSharp.Core;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -97,7 +96,7 @@ namespace VSharp.Test
             private TestResult Explore(TestExecutionContext context)
             {
                 Core.API.ConfigureSolver(SolverPool.mkSolver());
-                Core.API.SetFeatureFlags(new featureFlags(true, true, true));
+                Core.API.SetFeatureFlags(new featureFlags(false, false, false));
                 
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
@@ -111,11 +110,7 @@ namespace VSharp.Test
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
-                    Stopwatch.runMeasuringTime("total", FuncConvert.FromAction(() =>
-                        {
-                            explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
-                        }
-                    ));
+                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
