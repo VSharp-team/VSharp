@@ -127,8 +127,14 @@ module internal CilStateOperations =
         | _ -> ()
 
     let pushToIp (ip : ip) (cilState : cilState) =
-        moveCodeLoc cilState ip
+        let loc = cilState.currentLoc
+        match ip2codeLocation ip with
+        | Some loc' when loc'.method.GetMethodBody() <> null ->
+            cilState.currentLoc <- loc'
+            CFG.appGraph.AddCallEdge (CFG.findCfg loc.method) loc.offset (CFG.findCfg loc'.method)
+        | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
+
     let setCurrentIp (ip : ip) (cilState : cilState) =
         moveCodeLoc cilState ip
         cilState.ipStack <- ip :: List.tail cilState.ipStack
