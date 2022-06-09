@@ -4,8 +4,6 @@ open System
 open System.Reflection.Emit
 open System.Runtime.CompilerServices
 open VSharp
-open VSharp.Concolic
-open VSharp.Interpreter.IL
 
 type evaluationStackCellType =
     | I1 = 0

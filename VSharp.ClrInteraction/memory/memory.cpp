@@ -1,5 +1,6 @@
 #include "memory.h"
 #include "stack.h"
+#include <mutex>
 
 using namespace vsharp;
 

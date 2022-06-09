@@ -1,8 +1,7 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp
 
 open System.Reflection
 open System.Reflection.Emit
-open VSharp
 
 exception IncorrectCIL of string
 

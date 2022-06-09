@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp
 
 open System
 open VSharp
@@ -21,7 +21,7 @@ type ipTransition =
     // TODO: use this thing? #do
     | ExceptionMechanism
 
-module internal NumberCreator =
+module NumberCreator =
     let public extractInt32 (ilBytes : byte []) pos =
         BitConverter.ToInt32(ilBytes, pos)
     let public extractUnsignedInt32 (ilBytes : byte []) pos =
@@ -39,7 +39,7 @@ module internal NumberCreator =
     let public extractFloat32 (ilBytes : byte []) pos =
         BitConverter.ToSingle(ilBytes, pos)
 
-module internal TokenResolver =
+module TokenResolver =
     let private extractToken = NumberCreator.extractInt32
 
     let resolveFieldFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveField methodBase
@@ -47,7 +47,7 @@ module internal TokenResolver =
     let resolveMethodFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveMethod methodBase
     let resolveTokenFromMetadata methodBase ilBytes = extractToken ilBytes >> Reflection.resolveToken methodBase
 
-module internal Instruction =
+module Instruction =
 
     let private operandType2operandSize = [| 4; 4; 4; 8; 4; 0; -1; 8; 4; 4; 4; 4; 4; 4; 2; 1; 1; 4; 1|]
 

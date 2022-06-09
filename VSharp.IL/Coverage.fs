@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp
 
 open System.Reflection
 open VSharp
