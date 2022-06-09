@@ -7,3 +7,6 @@
 [submodule "z3"]
 	path = z3
 	url = https://github.com/MchKosticyn/z3
+[submodule "CFPQ_GLL"]
+	path = CFPQ_GLL
+	url = https://github.com/gsvgit/CFPQ_GLL
