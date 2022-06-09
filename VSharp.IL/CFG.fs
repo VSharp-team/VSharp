@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp
 
 open System
 open System.Reflection
@@ -6,9 +6,7 @@ open System.Collections.Generic
 
 open System.Reflection.Emit
 open FSharpx.Collections
-open VSharp
 open VSharp.Core
-open VSharp.Interpreter.IL
 
 module public CFG =
     type internal genericGraph<'a> = Dictionary<'a, List<'a>>
@@ -55,6 +53,54 @@ module public CFG =
                 x.edges.Add (src, List<_>())
                 x.edges.[src].Add dst
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
+
+    // TODO: CFL reachability
+    type ApplicationGraph() =
+        let rec binSearch (sortedOffsets : List<offset>) offset l r =
+            if l >= r then sortedOffsets.[l]
+            else
+                let mid = (l + r) / 2
+                let midValue = sortedOffsets.[mid]
+                if midValue = offset then midValue
+                elif midValue < offset then
+                    binSearch sortedOffsets offset (mid + 1) r
+                else
+                    binSearch sortedOffsets offset l (mid - 1)
+
+        let resolveBasicBlock (cfg : cfgData) offset =
+            binSearch cfg.sortedOffsets offset 0 (cfg.sortedOffsets.Count - 1)
+
+        // Registers new control flow graph
+        member x.AddCfg cfg =
+            Logger.trace "registering CFG for %s" cfg.methodBase.Name
+//            __notImplemented__()
+
+        member x.AddCallEdge (sourceCfg : cfgData) (offset : offset) (targetCfg : cfgData) =
+            let sourceBasicBlock = resolveBasicBlock sourceCfg offset
+            Logger.trace "connecting %x of %s with %s" sourceBasicBlock sourceCfg.methodBase.Name targetCfg.methodBase.Name
+//            __notImplemented__()
+
+        member x.AddState (cfg : cfgData) (offset : offset) =
+            let basicBlock = resolveBasicBlock cfg offset
+            Logger.trace "add state to offset %x of %s" basicBlock cfg.methodBase.Name
+//            __notImplemented__()
+
+        member x.MoveState (fromCfg : cfgData) (fromOffset : offset) (toCfg : cfgData) (toOffset : offset) =
+            let fromBasicBlock = resolveBasicBlock fromCfg fromOffset
+            let toBasicBlock = resolveBasicBlock toCfg toOffset
+            if fromBasicBlock <> toBasicBlock || fromCfg.methodBase <> toCfg.methodBase then
+                Logger.trace "move state from (%x, %s) to (%x, %s)" fromBasicBlock fromCfg.methodBase.Name toBasicBlock toCfg.methodBase.Name
+//            __notImplemented__()
+
+        member x.AddGoal (cfg : cfgData) (offset : offset) =
+            let basicBlock = resolveBasicBlock cfg offset
+            Logger.trace "add goal to offset %x of %s" basicBlock cfg.methodBase.Name
+//            __notImplemented__()
+
+        member x.RemoveGoal (cfg : cfgData) (offset : offset) =
+            let basicBlock = resolveBasicBlock cfg offset
+            Logger.trace "remove goal from offset %x of %s" basicBlock cfg.methodBase.Name
+//            __notImplemented__()
 
     let private createData (methodBase : MethodBase) (ilBytes : byte []) ehsBytes =
         let size = ilBytes.Length
@@ -260,6 +306,13 @@ module public CFG =
         let graph = cfg.graph
         dijkstraAlgo nodes graph
 
+    let cfgs = Dictionary<MethodBase, cfgData>()
+    let appGraph = ApplicationGraph()
+    let cfgFloyds = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
+    let cfgDijkstras = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
+    let cfgDistanceFrom = Dictionary<cfgData, genericDistance<offset>>()
+    let cfgDistanceTo = Dictionary<cfgData, genericDistance<offset>>()
+
     let private build (methodBase : MethodBase) =
         let ilBytes = Instruction.getILBytes methodBase
         let ehs = Instruction.getEHSBytes methodBase
@@ -269,13 +322,8 @@ module public CFG =
         Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) ehs
         let cfg = addVerticesAndEdges cfgData interimData
         orderEdges cfg
+        appGraph.AddCfg cfg
         cfg
-
-    let cfgs = Dictionary<MethodBase, cfgData>()
-    let cfgFloyds = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
-    let cfgDijkstras = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
-    let cfgDistanceFrom = Dictionary<cfgData, genericDistance<offset>>()
-    let cfgDistanceTo = Dictionary<cfgData, genericDistance<offset>>()
 
     let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
 
@@ -381,7 +429,11 @@ module public CFG =
                 let processedMethods = current :: processedMethods
                 if current.GetMethodBody() <> null then
                     let cfg = findCfg current
-                    Seq.iter (fun (_, m) -> addCall methods methodsReachability current m) cfg.offsetsDemandingCall.Values
+                    cfg.offsetsDemandingCall |> Seq.iter (fun kvp ->
+                        let m = snd kvp.Value
+                        let offset = kvp.Key
+                        addCall methods methodsReachability current m
+                        appGraph.AddCallEdge cfg offset (findCfg m))
                 let newQ =
                     if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue

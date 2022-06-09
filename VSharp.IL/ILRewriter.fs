@@ -3,7 +3,6 @@ namespace VSharp.Concolic
 open System
 open System.Reflection.Emit
 open VSharp
-open VSharp.Interpreter.IL
 
 type evaluationStackCellType =
     | I1 = 1
@@ -118,7 +117,7 @@ type ehClause = {
     matcher : ehClauseMatcher
 }
 
-module private EvaluationStackTyper =
+module EvaluationStackTyper =
 
     let fail() = internalfail "Stack typer validation failed!"
 

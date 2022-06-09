@@ -121,6 +121,7 @@ type public SILI(options : SiliOptions) =
         | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
+        let loc = s.currentLoc
         // TODO: update pobs when visiting new methods; use coverageZone
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
@@ -147,6 +148,11 @@ type public SILI(options : SiliOptions) =
             if not <| LanguagePrimitives.PhysicalEquality s cilState' then
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
+        let loc' = s.currentLoc
+        CFG.appGraph.MoveState (CFG.findCfg loc.method) loc.offset (CFG.findCfg loc'.method) loc'.offset
+        newStates |> Seq.iter (fun newState ->
+            let loc = currentLoc newState
+            CFG.appGraph.AddState (CFG.findCfg loc.method) loc.offset)
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -161,6 +167,7 @@ type public SILI(options : SiliOptions) =
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
+                CFG.appGraph.AddGoal (CFG.findCfg p.loc.method) p.loc.offset
                 searcher.UpdatePobs p' p
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
@@ -185,6 +192,7 @@ type public SILI(options : SiliOptions) =
         statistics.ExplorationStarted()
         branchesReleased <- false
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
+        mainPobs |> Seq.iter (fun pob -> CFG.appGraph.AddGoal (CFG.findCfg pob.loc.method) pob.loc.offset)
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs

@@ -18,12 +18,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="OpCodes.fs" />
         <Compile Include="Options.fs" />
-        <Compile Include="Communication.fs" />
-        <Compile Include="ILRewriter.fs" />
-        <Compile Include="Instruction.fs" />
-        <Compile Include="CFG.fs" />
         <Compile Include="CILState.fs" />
         <Compile Include="Lambdas.fs" />
         <Compile Include="Statistics.fs" />
@@ -39,9 +34,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
-      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
-      <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
+        <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
+        <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
+        <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+        <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
 <!--Building concolic every project build, to disable this, uncomment line bellow-->
