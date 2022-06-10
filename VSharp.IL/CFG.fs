@@ -5,6 +5,8 @@ open System.Reflection
 open System.Collections.Generic
 
 open System.Reflection.Emit
+open CFPQ_GLL
+open CFPQ_GLL.InputGraph
 open FSharpx.Collections
 open VSharp.Core
 
@@ -34,6 +36,28 @@ module public CFG =
             | :? cfgData as other -> x.methodBase = other.methodBase
             | _ -> false
         override x.GetHashCode() = x.methodBase.GetHashCode()
+        
+        member this.ResolveBasicBlock offset =
+            let rec binSearch (sortedOffsets : List<offset>) offset l r =
+                if l >= r then sortedOffsets.[l]
+                else
+                    let mid = (l + r) / 2
+                    let midValue = sortedOffsets.[mid]
+                    if midValue = offset then midValue
+                    elif midValue < offset then
+                        binSearch sortedOffsets offset (mid + 1) r
+                    else
+                        binSearch sortedOffsets offset l (mid - 1)
+        
+            binSearch this.sortedOffsets offset 0 (this.sortedOffsets.Count - 1)
+        
+        member this.GetSinks () =
+            [|
+                for kvp in this.graph do
+                    if kvp.Value.Count = 0
+                    then yield kvp.Key
+            |]
+
 
     type private interimData = {
         opCodes : OpCode [] //  for debug
@@ -51,49 +75,89 @@ module public CFG =
 
     // TODO: CFL reachability
     type ApplicationGraph() =
-        let rec binSearch (sortedOffsets : List<offset>) offset l r =
-            if l >= r then sortedOffsets.[l]
-            else
-                let mid = (l + r) / 2
-                let midValue = sortedOffsets.[mid]
-                if midValue = offset then midValue
-                elif midValue < offset then
-                    binSearch sortedOffsets offset (mid + 1) r
-                else
-                    binSearch sortedOffsets offset l (mid - 1)
-
-        let resolveBasicBlock (cfg : cfgData) offset =
-            binSearch cfg.sortedOffsets offset 0 (cfg.sortedOffsets.Count - 1)
-
+        let mutable firstFreeVertexId = 0<graphVertex>
+        let terminalForCFGEdge = 0<terminalSymbol>
+        let mutable firstFreeCallTerminalId = 1<terminalSymbol>
+        let cfgToFirstVertexIdMapping = Dictionary<cfgData,int<graphVertex>>()
+        let callEdgesTerminals = Dictionary<_,Dictionary<_,int<terminalSymbol>>>()        
+        
+            
+        let getNewInnerGraphEdgesForCfgData (cfg:cfgData) =
+            let edges = 
+                [|
+                   for kvp in cfg.graph do
+                       for targetOffset in kvp.Value do
+                           yield TerminalEdge( firstFreeVertexId + kvp.Key * 1<graphVertex>,
+                                               terminalForCFGEdge,
+                                               firstFreeVertexId + targetOffset * 1<graphVertex>)
+                |]
+            cfgToFirstVertexIdMapping.Add(cfg, firstFreeVertexId)
+            firstFreeVertexId <- firstFreeVertexId + cfg.ilBytes.Length * 1<graphVertex>
+            edges
+     
+        let innerGraphForCFPQ = InputGraph.InputGraph()
+        
         // Registers new control flow graph
         member x.AddCfg cfg =
-            Logger.trace "registering CFG for %s" cfg.methodBase.Name
-//            __notImplemented__()
+            innerGraphForCFPQ.AddEdges (getNewInnerGraphEdgesForCfgData cfg)            
 
-        member x.AddCallEdge (sourceCfg : cfgData) (offset : offset) (targetCfg : cfgData) =
-            let sourceBasicBlock = resolveBasicBlock sourceCfg offset
-            Logger.trace "connecting %x of %s with %s" sourceBasicBlock sourceCfg.methodBase.Name targetCfg.methodBase.Name
-//            __notImplemented__()
+        member x.AddCallEdge (sourceCfg : cfgData) (sourceOffset : offset) (targetCfg : cfgData) =
+            let sourceBasicBlock = cfgToFirstVertexIdMapping.[sourceCfg] + sourceCfg.ResolveBasicBlock sourceOffset * 1<graphVertex>
+            let callFrom = cfgToFirstVertexIdMapping.[sourceCfg] + sourceOffset * 1<graphVertex>
+            if not (callEdgesTerminals.ContainsKey callFrom && callEdgesTerminals.[callFrom].ContainsKey targetCfg)
+            then 
+                let targetBlockSinks =
+                    targetCfg.GetSinks()
+                    |>  Array.map (( * ) 1<graphVertex> >> (+) cfgToFirstVertexIdMapping.[targetCfg])
+                let callTo = cfgToFirstVertexIdMapping.[targetCfg]
+                let returnTo = callFrom + 1<graphVertex>
+                
+                let edgesToAdd =
+                    
+                        [|
+                            yield TerminalEdge (callFrom, firstFreeCallTerminalId, callTo)
+                            for returnFrom in targetBlockSinks do
+                                yield TerminalEdge (returnFrom, firstFreeCallTerminalId + 1<terminalSymbol>, returnTo)
+                            if not (callEdgesTerminals.ContainsKey callFrom)
+                            then
+                                callEdgesTerminals.Add(callFrom, Dictionary<_,_>())
+                                let outgoingFromCall =
+                                    innerGraphForCFPQ.OutgoingTerminalEdges callFrom
+                                    |> ResizeArray.map unpackInputGraphTerminalEdge
+                                innerGraphForCFPQ.RemoveOutgoingEdges callFrom                                                        
+                                if sourceBasicBlock <> callFrom
+                                then yield TerminalEdge (sourceBasicBlock, terminalForCFGEdge, callFrom)
+                                for edge in outgoingFromCall do
+                                    yield TerminalEdge (returnTo, edge.TerminalSymbol, edge.Vertex)
+                        |]
+                
+                callEdgesTerminals.[callFrom].Add(targetCfg, firstFreeCallTerminalId)
+                
+                firstFreeCallTerminalId <- firstFreeCallTerminalId + 2<terminalSymbol>
+                innerGraphForCFPQ.AddEdges edgesToAdd
+                
+                //innerGraphForCFPQ.ToDot(false, "/home/gsv/Projects/VSharp/1.dot")
 
         member x.AddState (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
+            let basicBlock = cfg.ResolveBasicBlock offset
             Logger.trace "add state to offset %x of %s" basicBlock cfg.methodBase.Name
 //            __notImplemented__()
 
         member x.MoveState (fromCfg : cfgData) (fromOffset : offset) (toCfg : cfgData) (toOffset : offset) =
-            let fromBasicBlock = resolveBasicBlock fromCfg fromOffset
-            let toBasicBlock = resolveBasicBlock toCfg toOffset
+            let fromBasicBlock = fromCfg.ResolveBasicBlock fromOffset
+            let toBasicBlock = toCfg.ResolveBasicBlock toOffset
             if fromBasicBlock <> toBasicBlock || fromCfg.methodBase <> toCfg.methodBase then
                 Logger.trace "move state from (%x, %s) to (%x, %s)" fromBasicBlock fromCfg.methodBase.Name toBasicBlock toCfg.methodBase.Name
 //            __notImplemented__()
 
         member x.AddGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
+            let basicBlock = cfg.ResolveBasicBlock offset
             Logger.trace "add goal to offset %x of %s" basicBlock cfg.methodBase.Name
+            x.RemoveGoal cfg 10
 //            __notImplemented__()
 
         member x.RemoveGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
+            let basicBlock = cfg.ResolveBasicBlock offset
             Logger.trace "remove goal from offset %x of %s" basicBlock cfg.methodBase.Name
 //            __notImplemented__()
 
