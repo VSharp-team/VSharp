@@ -87,8 +87,36 @@ module public CFG =
         let mutable firstFreeCallTerminalId = 1<terminalSymbol>
         let cfgToFirstVertexIdMapping = Dictionary<cfgData,int<graphVertex>>()
         let callEdgesTerminals = Dictionary<_,Dictionary<_,int<terminalSymbol>>>()        
-        let states = HashSet<_>()
-        let goals = Dictionary<PositionInApplicationGraph,int<graphVertex>>()
+        let statesToInnerGraphVerticesMap = Dictionary<PositionInApplicationGraph, int<graphVertex>>()
+        let innerGraphVerticesToStatesMap = Dictionary<int<graphVertex>, PositionInApplicationGraph>()
+        let goalsToInnerGraphVerticesMap = Dictionary<PositionInApplicationGraph, int<graphVertex>>()
+        let innerGraphVerticesToGoalsMap = Dictionary<int<graphVertex>, PositionInApplicationGraph>()
+        let buildQuery () =
+            let startBox =
+                RSMBox(
+                    0<rsmState>,
+                    HashSet [|0<rsmState>|],
+                    [|
+                        yield RSMEdges.TerminalEdge(0<rsmState>, terminalForCFGEdge, 0<rsmState>)
+                        yield RSMEdges.NonTerminalEdge(0<rsmState>, 1<rsmState>, 0<rsmState>)
+                        for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
+                          yield RSMEdges.TerminalEdge(0<rsmState>, callSymbol, 0<rsmState>)
+                    |]
+                    )
+            let balancedBracketsBox =
+              let mutable firstFreeRsmState = 3<rsmState>
+              RSMBox(
+                  1<rsmState>,
+                  HashSet [|1<rsmState>; 2<rsmState>|],
+                  [|
+                      yield RSMEdges.TerminalEdge(1<rsmState>, terminalForCFGEdge, 1<rsmState>)
+                      for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
+                          yield RSMEdges.TerminalEdge(1<rsmState>, callSymbol, firstFreeRsmState)
+                          yield RSMEdges.NonTerminalEdge(firstFreeRsmState, 0<rsmState>, firstFreeRsmState + 1<rsmState>)
+                          yield RSMEdges.TerminalEdge(firstFreeRsmState + 1<rsmState>, callSymbol + 1<terminalSymbol>, 2<rsmState>)
+                          firstFreeRsmState <- firstFreeRsmState + 2<rsmState>
+                  |])
+            RSM([|startBox; balancedBracketsBox|], startBox)
         let getNewInnerGraphEdgesForCfgData (cfg:cfgData) =
             let edges = 
                 [|
@@ -144,54 +172,57 @@ module public CFG =
                 innerGraphForCFPQ.AddEdges edgesToAdd
 
         member this.AddState (cfg : cfgData) (offset : offset) =
-            let basicBlock = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
-            states.Add basicBlock |> ignore
+            let vertexInInnerGraph = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
+            let positionInApplicationGraph = PositionInApplicationGraph(cfg, offset)
+            statesToInnerGraphVerticesMap.Add(positionInApplicationGraph, vertexInInnerGraph)
+            innerGraphVerticesToStatesMap.Add(vertexInInnerGraph, positionInApplicationGraph) 
 
         member this.MoveState (fromCfg : cfgData) (fromOffset : offset) (toCfg : cfgData) (toOffset : offset) =
-            let fromBasicBlock = cfgToFirstVertexIdMapping.[fromCfg] + fromCfg.ResolveBasicBlock fromOffset * 1<graphVertex>
-            let toBasicBlock = cfgToFirstVertexIdMapping.[toCfg] + toCfg.ResolveBasicBlock toOffset * 1<graphVertex>
-            if fromBasicBlock <> toBasicBlock
+            let initialVertexInInnerGraph = cfgToFirstVertexIdMapping.[fromCfg] + fromCfg.ResolveBasicBlock fromOffset * 1<graphVertex>
+            let initialPositionInApplicationGraph = PositionInApplicationGraph (fromCfg, fromOffset)
+            let finalVertexInnerGraph = cfgToFirstVertexIdMapping.[toCfg] + toCfg.ResolveBasicBlock toOffset * 1<graphVertex>
+            let finalPositionInApplicationGraph = PositionInApplicationGraph (toCfg, toOffset)
+            if initialVertexInInnerGraph <> finalVertexInnerGraph
             then
-                states.Remove fromBasicBlock |> ignore
-                states.Add toBasicBlock |> ignore
+                statesToInnerGraphVerticesMap.Remove initialPositionInApplicationGraph |> ignore
+                innerGraphVerticesToStatesMap.Remove initialVertexInInnerGraph |> ignore
+                statesToInnerGraphVerticesMap.Add(finalPositionInApplicationGraph, finalVertexInnerGraph)
+                innerGraphVerticesToStatesMap.Add(finalVertexInnerGraph,finalPositionInApplicationGraph)
 
         member x.AddGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
-            goals.Add(PositionInApplicationGraph(cfg, offset), basicBlock)
+            let vertexInInnerGraph = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
+            goalsToInnerGraphVerticesMap.Add(PositionInApplicationGraph(cfg, offset), vertexInInnerGraph)
+            innerGraphVerticesToGoalsMap.Add(vertexInInnerGraph, PositionInApplicationGraph(cfg, offset))
 
         member x.RemoveGoal (cfg : cfgData) (offset : offset) =
-            goals.Remove(PositionInApplicationGraph(cfg,offset))
-            
-        member this.AllStates with get() = states |> Array.ofSeq
+            let vertexInInnerGraph = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
+            goalsToInnerGraphVerticesMap.Remove(PositionInApplicationGraph(cfg,offset)) |> ignore
+            innerGraphVerticesToGoalsMap.Remove(vertexInInnerGraph) |> ignore
         
-        /// Without states history for now. 
-        /// Recalculation on each call for now.
-        member this.GetGoalsReachableFromStates (states: array<PositionInApplicationGraph>) =            
-            let startBox =
-                RSMBox(
-                    0<rsmState>,
-                    HashSet [|0<rsmState>|],
-                    [|
-                        yield RSMEdges.TerminalEdge(0<rsmState>, terminalForCFGEdge, 0<rsmState>)
-                        yield RSMEdges.NonTerminalEdge(0<rsmState>, 1<rsmState>, 0<rsmState>)
-                        for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
-                          yield RSMEdges.TerminalEdge(0<rsmState>, callSymbol, 0<rsmState>)
-                    |]
+        member this.GetShortestDistancesToAllGoalsFromStates (states: array<PositionInApplicationGraph>) =
+            let query = buildQuery()
+            let statesInInnerGraph =
+                states
+                |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.CFG] + state.Offset * 1<graphVertex>)
+            let goalsInInnerGraph =
+                goalsToInnerGraphVerticesMap
+                |> Seq.map (fun kvp -> kvp.Value)
+            let res = eval innerGraphForCFPQ statesInInnerGraph query Mode.AllPaths
+            match res with
+            | QueryResult.ReachabilityFacts _ ->
+                failwith "Impossible!"
+            | QueryResult.MatchedRanges ranges ->
+                ranges.GetShortestDistances(statesInInnerGraph, goalsInInnerGraph)
+                |> ResizeArray.map (fun (_from,_to,distance) ->
+                    innerGraphVerticesToStatesMap.[_from],
+                    innerGraphVerticesToGoalsMap.[_to],
+                    distance
                     )
-            let balancedBracketsBox =
-              let mutable firstFreeRsmState = 3<rsmState>
-              RSMBox(
-                  1<rsmState>,
-                  HashSet [|1<rsmState>; 2<rsmState>|],
-                  [|
-                      yield RSMEdges.TerminalEdge(1<rsmState>, terminalForCFGEdge, 1<rsmState>)
-                      for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
-                          yield RSMEdges.TerminalEdge(1<rsmState>, callSymbol, firstFreeRsmState)
-                          yield RSMEdges.NonTerminalEdge(firstFreeRsmState, 0<rsmState>, firstFreeRsmState + 1<rsmState>)
-                          yield RSMEdges.TerminalEdge(firstFreeRsmState + 1<rsmState>, callSymbol + 1<terminalSymbol>, 2<rsmState>)
-                          firstFreeRsmState <- firstFreeRsmState + 2<rsmState>
-                  |])
-            let query = RSM([|startBox; balancedBracketsBox|], startBox)
+                
+        /// Without states history. 
+        /// Recalculation on each call.
+        member this.GetGoalsReachableFromStates (states: array<PositionInApplicationGraph>) =            
+            let query = buildQuery()
             let statesInInnerGraph =
                 states
                 |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.CFG] + state.Offset * 1<graphVertex>)
@@ -199,17 +230,11 @@ module public CFG =
             match res with
             | QueryResult.ReachabilityFacts facts ->
                 let res = Dictionary<_,_>()
-                let statesBackMapping = Dictionary<int<graphVertex>,PositionInApplicationGraph>()
-                for state in states do 
-                    statesBackMapping.Add(cfgToFirstVertexIdMapping.[state.CFG] + state.Offset * 1<graphVertex>, state)
-                let goalsBackMapping = Dictionary<int<graphVertex>, PositionInApplicationGraph>()
-                for kvp in goals do 
-                    goalsBackMapping.Add(kvp.Value, kvp.Key)
                 for fact in facts do
-                    res.Add(statesBackMapping.[fact.Key], HashSet<_>())
+                    res.Add(innerGraphVerticesToStatesMap.[fact.Key], HashSet<_>())
                     for reachable in fact.Value do
-                        let exists, goalPosition = goalsBackMapping.TryGetValue reachable
-                        if exists then res.[statesBackMapping.[fact.Key]].Add goalPosition |> ignore
+                        let exists, goalPosition = innerGraphVerticesToGoalsMap.TryGetValue reachable
+                        if exists then res.[innerGraphVerticesToStatesMap.[fact.Key]].Add goalPosition |> ignore
                 res
                 
             | _ -> failwith "Impossible!"
