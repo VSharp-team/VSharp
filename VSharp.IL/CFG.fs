@@ -160,7 +160,6 @@ module public CFG =
             goals.Add(PositionInApplicationGraph(cfg, offset), basicBlock)
 
         member x.RemoveGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = cfgToFirstVertexIdMapping.[cfg] + cfg.ResolveBasicBlock offset * 1<graphVertex>
             goals.Remove(PositionInApplicationGraph(cfg,offset))
             
         member this.AllStates with get() = states |> Array.ofSeq
@@ -168,20 +167,31 @@ module public CFG =
         /// Without states history for now. 
         /// Recalculation on each call for now.
         member this.GetGoalsReachableFromStates (states: array<PositionInApplicationGraph>) =            
-            let sBox =
-              let mutable firstFreeRsmState = 1<rsmState>
+            let startBox =
+                RSMBox(
+                    0<rsmState>,
+                    HashSet [|0<rsmState>|],
+                    [|
+                        yield RSMEdges.TerminalEdge(0<rsmState>, terminalForCFGEdge, 0<rsmState>)
+                        yield RSMEdges.NonTerminalEdge(0<rsmState>, 1<rsmState>, 0<rsmState>)
+                        for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
+                          yield RSMEdges.TerminalEdge(0<rsmState>, callSymbol, 0<rsmState>)
+                    |]
+                    )
+            let balancedBracketsBox =
+              let mutable firstFreeRsmState = 3<rsmState>
               RSMBox(
-                  0<rsmState>,
-                  HashSet [|0<rsmState>|],
+                  1<rsmState>,
+                  HashSet [|1<rsmState>; 2<rsmState>|],
                   [|
-                      yield RSMEdges.TerminalEdge(0<rsmState>, terminalForCFGEdge, 0<rsmState>)
+                      yield RSMEdges.TerminalEdge(1<rsmState>, terminalForCFGEdge, 1<rsmState>)
                       for callSymbol in 1<terminalSymbol> .. 2<terminalSymbol> .. firstFreeCallTerminalId - 1<terminalSymbol> do
-                          yield RSMEdges.TerminalEdge(0<rsmState>, callSymbol, firstFreeRsmState)
+                          yield RSMEdges.TerminalEdge(1<rsmState>, callSymbol, firstFreeRsmState)
                           yield RSMEdges.NonTerminalEdge(firstFreeRsmState, 0<rsmState>, firstFreeRsmState + 1<rsmState>)
-                          yield RSMEdges.TerminalEdge(firstFreeRsmState + 1<rsmState>, callSymbol + 1<terminalSymbol>, 0<rsmState>)
+                          yield RSMEdges.TerminalEdge(firstFreeRsmState + 1<rsmState>, callSymbol + 1<terminalSymbol>, 2<rsmState>)
                           firstFreeRsmState <- firstFreeRsmState + 2<rsmState>
                   |])
-            let query = RSM([|sBox|], sBox)
+            let query = RSM([|startBox; balancedBracketsBox|], startBox)
             let statesInInnerGraph =
                 states
                 |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.CFG] + state.Offset * 1<graphVertex>)
