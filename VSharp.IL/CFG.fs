@@ -74,13 +74,12 @@ module public CFG =
                 x.edges.Add (src, List<_>())
                 x.edges.[src].Add dst
             elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
-
+    
     [<Struct>]
     type PositionInApplicationGraph =
         val Cfg: cfgData
         val Offset: offset
         new (cfg, offset) = {Cfg = cfg; Offset = offset}
-
     type ApplicationGraphMessage =
         | AddGoal of PositionInApplicationGraph
         | RemoveGoal of PositionInApplicationGraph
@@ -93,8 +92,8 @@ module public CFG =
         | GetReachableGoals
             of AsyncReplyChannel<Dictionary<PositionInApplicationGraph,HashSet<PositionInApplicationGraph>>> * array<PositionInApplicationGraph>
         
-    type ApplicationGraph() =
-        let mutable firstFreeVertexId = 0<graphVertex>
+    type ApplicationGraph() =        
+        let mutable firstFreeVertexId = 0<graphVertex>        
         let terminalForCFGEdge = 0<terminalSymbol>
         let mutable firstFreeCallTerminalId = 1<terminalSymbol>
         let cfgToFirstVertexIdMapping = Dictionary<cfgData,int<graphVertex>>()
@@ -166,7 +165,7 @@ module public CFG =
             Logger.trace "Add call edge"
             let sourceBasicBlock = cfgToFirstVertexIdMapping.[callSource.Cfg] + callSource.Cfg.ResolveBasicBlock callSource.Offset * 1<graphVertex>
             let callFrom = cfgToFirstVertexIdMapping.[callSource.Cfg] + callSource.Offset * 1<graphVertex>
-            if not (callEdgesTerminals.ContainsKey callFrom && callEdgesTerminals.[callFrom].ContainsKey callSource.Cfg)
+            if not (callEdgesTerminals.ContainsKey callFrom && callEdgesTerminals.[callFrom].ContainsKey callTarget.Cfg)
             then
                 let targetBlockSinks =
                    callSource.Cfg.GetSinks()
@@ -282,11 +281,11 @@ module public CFG =
         member x.AddCallEdge (sourceCfg : cfgData) (sourceOffset : offset) (targetCfg : cfgData) =
             messagesProcessor.Post <| AddCallEdge (PositionInApplicationGraph(sourceCfg, sourceOffset), PositionInApplicationGraph(targetCfg,0))
 
-        member this.AddState (cfg : cfgData) (offset : offset) =             
+        member this.AddState (cfg : cfgData) (offset : offset) =            
             messagesProcessor.Post <| AddState (PositionInApplicationGraph(cfg, offset))
             
         member this.MoveState (fromCfg : cfgData) (fromOffset : offset) (toCfg : cfgData) (toOffset : offset) =
-            messagesProcessor.Post <| AddCallEdge (PositionInApplicationGraph(fromCfg, fromOffset), PositionInApplicationGraph(toCfg,toOffset))
+            messagesProcessor.Post <| MoveState (PositionInApplicationGraph(fromCfg, fromOffset), PositionInApplicationGraph(toCfg,toOffset))
 
         member x.AddGoal (cfg : cfgData) (offset : offset) =
             messagesProcessor.Post <| AddGoal (PositionInApplicationGraph(cfg, offset))    
@@ -316,7 +315,7 @@ module public CFG =
             sortedOffsets = List<_>()
             dfsOut = Dictionary<_,_>()
             sccOut = Dictionary<_,_>()
-            graph = Dictionary<_, _>()
+            graph = Dictionary<_,_>()
             reverseGraph = Dictionary<_,_>()
             clauses = ehsBytes
             offsetsDemandingCall = Dictionary<_,_>()
