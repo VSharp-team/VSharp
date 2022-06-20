@@ -12,11 +12,13 @@ open CFPQ_GLL.RSM
 open FSharpx.Collections
 open VSharp.Core
 
+ 
+
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
 
     [<CustomEquality; CustomComparison>]
-    type public cfgData =
+    type public cfgData =        
         {
             methodBase : MethodBase
             ilBytes : byte []
@@ -27,7 +29,7 @@ module public CFG =
             reverseGraph : graph
             clauses : ExceptionHandlingClause []
             offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
-        }
+        }        
         interface IComparable with
             override x.CompareTo (obj : obj) =
                 match obj with
@@ -256,25 +258,25 @@ module public CFG =
                     distance
                     )
             
-        let messagesProcessor = MailboxProcessor.Start(fun inbox ->
-            let rec loop () =
+        let messagesProcessor = MailboxProcessor.Start(fun inbox ->            
                 async{
-                    let! message = inbox.Receive()
-                    match message with
-                    | AddCFG cfg -> addCFG cfg
-                    | AddCallEdge (_from, _to) -> addCallEdge _from _to
-                    | AddGoal pos -> addGoal pos
-                    | RemoveGoal pos -> removeGoal pos
-                    | AddState pos -> addState pos
-                    | MoveState (_from,_to) -> moveState _from _to
-                    | GetShortestDistancesToGoals (replyChannel, states) -> replyChannel.Reply (getShortestDistancesToGoal states)
-                    | GetReachableGoals (replyChannel, states) -> replyChannel.Reply (getReachableGoals states)
-                    
-                    return! loop ()
-                }
-            loop ()
+                    while true do
+                        let! message = inbox.Receive()
+                        match message with
+                        | AddCFG cfg -> addCFG cfg
+                        | AddCallEdge (_from, _to) -> addCallEdge _from _to
+                        | AddGoal pos -> addGoal pos
+                        | RemoveGoal pos -> removeGoal pos
+                        | AddState pos -> addState pos
+                        | MoveState (_from,_to) -> moveState _from _to
+                        | GetShortestDistancesToGoals (replyChannel, states) -> replyChannel.Reply (getShortestDistancesToGoal states)
+                        | GetReachableGoals (replyChannel, states) -> replyChannel.Reply (getReachableGoals states)                    
+                }            
             )
-                
+
+        do
+            messagesProcessor.Error.Add(fun e -> Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}")
+            
         member x.AddCfg cfg =
             messagesProcessor.Post (AddCFG cfg)
 
