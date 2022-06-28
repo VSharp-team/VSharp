@@ -94,7 +94,7 @@ type CFG (methodBase : MethodBase) =
     let dfs (startVertices : array<offset>) =
         let used = HashSet<offset>()        
         let verticesOffsets = HashSet<offset> startVertices
-        let addVertex v = verticesOffsets.Add |> ignore
+        let addVertex v = verticesOffsets.Add v |> ignore
         let edges = Dictionary<offset, HashSet<offset>>()
         let fallThroughOffset = Array.init ilBytes.Length (fun _ -> None)
         
@@ -337,19 +337,19 @@ type ApplicationGraph() as this =
         cfgToFirstVertexIdMapping.[pos.Method] + cfgs.[pos.Method].ResolveBasicBlock pos.Offset * 1<inputGraphVertex>
         
     let addGoal (pos:PositionInApplicationGraph) = 
-        Logger.trace "Add goal"
+        Logger.trace $"Add goal: %A{pos.Method.Name}, %A{pos.Offset}"
         let vertexInInnerGraph = getVertex pos
         goalsToInnerGraphVerticesMap.Add (pos, vertexInInnerGraph)
         innerGraphVerticesToGoalsMap.Add (vertexInInnerGraph, pos)
         
     let removeGoal (pos:PositionInApplicationGraph) =
-        Logger.trace "Remove goal"
+        Logger.trace $"Remove goal: %A{pos.Method.Name}, %A{pos.Offset}"
         let vertexInInnerGraph = getVertex pos
         goalsToInnerGraphVerticesMap.Remove pos |> ignore
         innerGraphVerticesToGoalsMap.Remove vertexInInnerGraph |> ignore
         
     let addCallEdge (callSource:PositionInApplicationGraph) (callTarget:PositionInApplicationGraph) =
-        Logger.trace "Add call edge"       
+        Logger.trace $"Add call edge from %A{callSource.Method}, %i{callSource.Offset} to %A{callTarget.Method}."       
         let callerMethodCfgInfo = cfgs.[callSource.Method]
         let calledMethodCfgInfo = cfgs.[callTarget.Method]
         let callFrom = getVertex callSource
@@ -367,7 +367,7 @@ type ApplicationGraph() as this =
             firstFreeCallTerminalId <- firstFreeCallTerminalId + 2<terminalSymbol>            
         
     let moveState (initialPosition: PositionInApplicationGraph) (finalPosition: PositionInApplicationGraph) =
-        Logger.trace "Move state"
+        Logger.trace $"Move state form %A{initialPosition.Method.Name}, %A{initialPosition.Offset} to %A{finalPosition.Method.Name}, %A{finalPosition.Offset}"
         let initialVertexInInnerGraph = getVertex initialPosition            
         let finalVertexInnerGraph = getVertex finalPosition            
         if initialVertexInInnerGraph <> finalVertexInnerGraph
@@ -380,7 +380,7 @@ type ApplicationGraph() as this =
             then innerGraphVerticesToStatesMap.Add(finalVertexInnerGraph,finalPosition)
             
     let addState (pos:PositionInApplicationGraph) =
-        Logger.trace "Add state"
+        Logger.trace $"Add state: %A{pos.Method.Name}, %A{pos.Offset}"
         let vertexInInnerGraph = getVertex pos
         if not <| statesToInnerGraphVerticesMap.ContainsKey pos
         then statesToInnerGraphVerticesMap.Add(pos, vertexInInnerGraph)
@@ -388,6 +388,7 @@ type ApplicationGraph() as this =
         then innerGraphVerticesToStatesMap.Add(vertexInInnerGraph, pos)
         
     let getReachableGoals (states:array<PositionInApplicationGraph>) =
+        Logger.trace $"Get reachable goals for %A{states}."
         let query = buildQuery()
         let statesInInnerGraph =
             states
@@ -406,6 +407,7 @@ type ApplicationGraph() as this =
         | _ -> failwith "Impossible!"
         
     let getShortestDistancesToGoal (states:array<PositionInApplicationGraph>) =
+        Logger.trace $"Get shortest distances for %A{states}."
         let query = buildQuery()
         let statesInInnerGraph =
             states
@@ -437,9 +439,9 @@ type ApplicationGraph() as this =
                     | Some ch -> ch.Reply cfgInfo
                     | None -> ()
                     cfgs.Add(methodBase, cfgInfo)
-                    for callInfo in cfg.CallsToAdd do            
-                        inbox.Post (AddCFG (None, callInfo.MethodToCall))
-                        inbox.Post (AddCallEdge (PositionInApplicationGraph(methodBase, callInfo.CallFrom), PositionInApplicationGraph(callInfo.MethodToCall,0)))
+                    //for callInfo in cfg.CallsToAdd do            
+                    //    inbox.Post (AddCFG (None, callInfo.MethodToCall))
+                    //    inbox.Post (AddCallEdge (PositionInApplicationGraph(methodBase, callInfo.CallFrom), PositionInApplicationGraph(callInfo.MethodToCall,0)))
                         
                 | AddCallEdge (_from, _to) -> addCallEdge _from _to
                 | AddGoal pos -> addGoal pos
