@@ -70,6 +70,9 @@ type public SILIStatistics() =
             startDict.[current] <- !currentRef + 1u
 
     member x.TrackStepForward (s : cilState) =
+        // TODO gsv add query here.
+        //unansweredPobs.[0].loc
+        //cilState.currentLocation
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
         match startLoc, currentLoc with

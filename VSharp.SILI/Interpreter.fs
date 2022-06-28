@@ -1094,6 +1094,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member x.CommonCall (calledMethodBase : MethodBase) (cilState : cilState) (k : cilState list -> 'a) =
         let call cilState k = x.InlineMethodBaseCallIfNeeded calledMethodBase cilState k
+        // TODO query goals reachable from cilState
+        // cilState.currentLoc.  
         match calledMethodBase.IsStatic with
         | true -> call cilState k
         | false ->
@@ -1899,7 +1901,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) =
         let isRecursiveVertex offset =
-            //TODO gsv Fix it. What recursive vertex actually is?
+            // TODO gsv Fix it. What recursive vertex actually is?
+            // IsLoopEntry
+            // Вершина с обратным ребром или входная. 
             false
             (*if cfg.dfsOut.ContainsKey offset then
                 let t1 = cfg.dfsOut.[offset]
