@@ -72,14 +72,14 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
 
        | _ -> Reachable(UNKNOWN_CONSTANT, 0)
 
-    let canReachMetrics2 (ip : ip) : reachabilityEvaluation =
+    (*let canReachMetrics2 (ip : ip) : reachabilityEvaluation =
        match ip2codeLocation ip with
        | Some l when Seq.contains target (loc2Locs l) ->
             let u = l.offset
             let v = target.offset
             let dist = CFG.findDistance cfg
             Reachable(dist.[u,v], 0)
-       | _ -> Reachable(UNKNOWN_CONSTANT, 0)
+       | _ -> Reachable(UNKNOWN_CONSTANT, 0)*)
     let canReachMetrics(ipStack : ip list) : reachabilityEvaluation =
         let helper target acc ip =
             let currentReachableCost, currentCostToExit =
@@ -93,13 +93,16 @@ type cilstatesComparer(target : codeLocation, cfg : cfg, reachableLocations : Di
             | Some loc when Seq.contains target (loc2Locs loc) ->
                 let u = loc.offset
                 let v = target.offset
-                let dist = CFG.findDistance cfg
+                // TODO gsv Fix it
+                (* let dist = CFG.findDistance cfg
                 if dist.ContainsKey (u,v) |> not then
                     Logger.warning "FLOYDs DISTANCE is wrong!"
                     Seq.iter (Logger.warning "%d -> %d" u) cfg.graph.[u]
                     ()
 
                 let price = dist.[u,v]
+                *)
+                let price = 42 
 //                Logger.warning "FLOYDs DISTANCE from (%s, %s) = %d" (u.ToString("X4")) (v.ToString("X4")) price
                 findNewCost price
 //            | Some loc when Seq.contains target.method (loc2Methods loc) -> findNewCost COST_OF_CALL

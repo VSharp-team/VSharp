@@ -30,8 +30,8 @@ type public SILIStatistics() =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
-        let cfg = CFG.findCfg codeLocation.method
-        cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        let cfg = CFG.applicationGraph.GetCfg codeLocation.method
+        cfg.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
         let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))

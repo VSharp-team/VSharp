@@ -175,13 +175,13 @@ type ClientMachine(entryPoint : MethodBase, cmdArgs : string[] option, requestMa
         match offset with
         | Some offset ->
             let opCode = Instruction.parseInstruction m offset
-            let cfg = m |> CFG.findCfg
+            let cfg = CFG.applicationGraph.GetCfg m
             let opcodeValue = LanguagePrimitives.EnumOfValue opCode.Value
             match opcodeValue with
             | OpCodeValues.Call
             | OpCodeValues.Callvirt
             | OpCodeValues.Newobj ->
-                let callee = TokenResolver.resolveMethodFromMetadata cfg.methodBase cfg.ilBytes (offset + opCode.Size)
+                let callee = TokenResolver.resolveMethodFromMetadata cfg.MethodBase cfg.IlBytes (offset + opCode.Size)
                 let argTypes = callee.GetParameters() |> Array.map (fun p -> p.ParameterType)
                 if Reflection.hasThis callee then Array.append [|callee.DeclaringType|] argTypes else argTypes
             | _ -> internalfail "CalleeParamsIfPossible: unexpected opcode"
