@@ -316,17 +316,16 @@ type ApplicationGraph() as this =
     let buildCFG (methodBase:MethodBase) =
         Logger.trace $"Add CFG for %A{methodBase.Name}."
         let cfg = CFG(methodBase)
-        let edges =             
-           for kvp in cfg.Edges do
-               let edges =
-                   [|
-                       for targetOffset in kvp.Value do
-                           yield InputGraphEdge(
-                                                terminalForCFGEdge,
-                                                firstFreeVertexId + targetOffset * 1<inputGraphVertex>
-                                                )        
-                   |]
-               vertices.Add(firstFreeVertexId + kvp.Key * 1<inputGraphVertex>, ResizeArray edges)       
+        for kvp in cfg.Edges do
+            let edges =
+                [|
+                    for targetOffset in kvp.Value do
+                        yield InputGraphEdge(
+                                             terminalForCFGEdge,
+                                             firstFreeVertexId + targetOffset * 1<inputGraphVertex>
+                                             )        
+                |]
+            vertices.Add(firstFreeVertexId + kvp.Key * 1<inputGraphVertex>, ResizeArray edges)       
             
         cfgToFirstVertexIdMapping.Add(methodBase, firstFreeVertexId)
         firstFreeVertexId <- firstFreeVertexId + cfg.ILBytes.Length * 1<inputGraphVertex>
@@ -474,6 +473,7 @@ type ApplicationGraph() as this =
         messagesProcessor.Post <| AddState (PositionInApplicationGraph(method, offset))
         
     member this.MoveState (fromMethod : MethodBase) (fromOffset : offset) (toMethod : MethodBase) (toOffset : offset) =
+        //Add query here
         messagesProcessor.Post <| MoveState (PositionInApplicationGraph(fromMethod, fromOffset), PositionInApplicationGraph(toMethod,toOffset))
 
     member x.AddGoal (method : MethodBase) (offset : offset) =
