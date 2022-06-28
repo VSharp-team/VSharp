@@ -10,9 +10,158 @@ open CFPQ_GLL.GLL
 open CFPQ_GLL.InputGraph
 open CFPQ_GLL.RSM
 open FSharpx.Collections
+open VSharp
 open VSharp.Core
 
- 
+[<Struct>]
+type private CFGTemporaryData =
+    val VerticesOffsets : HashSet<int>
+    val FallThroughOffset : array<Option<offset>>
+    val Edges : Dictionary<offset, HashSet<offset>>
+    val OffsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>    
+    new (verticesOffset, fallThroughOffset, edges, offsetsDemandingCall) =
+        {
+            VerticesOffsets = verticesOffset
+            FallThroughOffset = fallThroughOffset
+            Edges = edges
+            OffsetsDemandingCall = offsetsDemandingCall
+        }
+    
+type CFG (methodBase : MethodBase) =
+    
+    let ilBytes = Instruction.getILBytes methodBase
+    let exceptionHandlers = Instruction.getEHSBytes methodBase
+    let sortedOffsets = ResizeArray<offset>()
+    let edges = Dictionary<offset, ResizeArray<offset>>()
+    let offsetsDemandingCall = Dictionary<offset,_>()
+    let sinks = ResizeArray<_>()
+    let callsToAdd = ResizeArray<_>()
+    
+    let addVerticesAndEdges (temporaryData : CFGTemporaryData) =
+        temporaryData.VerticesOffsets
+        |> Seq.sort
+        |> Seq.iter (fun v ->
+            sortedOffsets.Add v
+            edges.Add(v, ResizeArray<_>()))
+
+        let addEdge src dst =
+            edges.[src].Add dst            
+
+        let used = HashSet<offset>()
+        let rec addEdges currentVertex src =
+            if used.Contains src then ()
+            else
+                let wasAdded = used.Add src
+                assert wasAdded
+                let exists, callInfo = offsetsDemandingCall.TryGetValue src
+                if exists
+                then
+                    addEdge currentVertex src                    
+                    let dst = temporaryData.FallThroughOffset.[src].Value
+                    callsToAdd.Add (src, dst, snd callInfo)
+                    addEdges dst dst                    
+                else 
+                   match temporaryData.FallThroughOffset.[src] with                
+                    | Some dst when sortedOffsets.Contains dst ->
+                        addEdge currentVertex dst
+                        addEdges dst dst
+                    | Some dst -> addEdges currentVertex dst
+                    | None when temporaryData.Edges.ContainsKey src ->
+                        temporaryData.Edges.[src] |> Seq.iter (fun dst ->
+                            if sortedOffsets.Contains dst
+                            then
+                                addEdge currentVertex dst
+                                addEdges dst dst
+                            else
+                                addEdges currentVertex dst
+                        )
+                    | None -> ()
+                
+        sortedOffsets |> Seq.iter (fun offset -> addEdges offset offset)        
+
+    let dfs (startVertices : array<offset>) =
+        let used = HashSet<offset>()        
+        let verticesOffsets = HashSet<offset> startVertices
+        let addVertex v = verticesOffsets.Add |> ignore
+        let edges = Dictionary<offset, HashSet<offset>>()
+        let fallThroughOffset = Array.init ilBytes.Length (fun _ -> None)
+        
+        let addEdge src dst =
+            let exists,outgoingEdges = edges.TryGetValue src
+            if exists
+            then outgoingEdges.Add dst |> ignore
+            else edges.Add(src, HashSet [|dst|])
+
+        let rec dfs' (v : offset) =
+            if not <| used.Contains v
+            then
+                used.Add v |> ignore                
+                let opCode = Instruction.parseInstruction methodBase v                
+
+                let dealWithJump src dst =
+                    addVertex src
+                    addVertex dst 
+                    addEdge src dst
+                    dfs' dst
+
+                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
+                match ipTransition with
+                | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
+                    offsetsDemandingCall.Add(v, (opCode, calledMethod))
+                    addVertex v
+                    addVertex offset
+                    fallThroughOffset.[v] <- Some offset
+                    dfs' offset
+                | FallThrough offset ->
+                    fallThroughOffset.[v] <- Some offset
+                    dfs' offset
+                | ExceptionMechanism -> ()
+                | Return ->
+                    addVertex v
+                    sinks.Add v
+                | UnconditionalBranch target -> dealWithJump v target
+                | ConditionalBranch (fallThrough, offsets) ->
+                    dealWithJump v fallThrough
+                    offsets |> List.iter (dealWithJump v)
+        
+        startVertices
+        |> Array.iter dfs'
+        
+        CFGTemporaryData(verticesOffsets, fallThroughOffset, edges, offsetsDemandingCall)
+        
+    do
+        let startVertices =
+            [|
+             yield 0
+             yield! exceptionHandlers |> Array.choose (fun handler -> match handler.ehcType with | Filter offset -> Some offset | _ -> None)
+            |]
+        
+        let temporaryData = dfs startVertices
+        
+        addVerticesAndEdges temporaryData
+        
+    member this.MethodBase = methodBase
+    member this.ILBytes = ilBytes
+    member this.ResolveBasicBlock offset =
+            let rec binSearch (sortedOffsets : List<offset>) offset l r =
+                if l >= r then sortedOffsets.[l]
+                else
+                    let mid = (l + r) / 2
+                    let midValue = sortedOffsets.[mid]
+                    if midValue = offset then midValue
+                    elif midValue < offset then
+                        binSearch sortedOffsets offset (mid + 1) r
+                    else
+                        binSearch sortedOffsets offset l (mid - 1)
+        
+            binSearch sortedOffsets offset 0 (sortedOffsets.Count - 1)
+
+(*
+type ApplicationGraph() =
+    
+    let buildCfgGraph (methodBase:MethodBase) =
+*)
 
 module public CFG =
     type internal graph = Dictionary<offset, List<offset>>
@@ -225,7 +374,7 @@ module public CFG =
             let statesInInnerGraph =
                 states
                 |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.Cfg] + state.Offset * 1<graphVertex>)
-            let res = eval innerGraphForCFPQ statesInInnerGraph query Mode.ReachabilityOnly
+            let res = GLL.eval innerGraphForCFPQ statesInInnerGraph query Mode.ReachabilityOnly
             match res with
             | QueryResult.ReachabilityFacts facts ->
                 let res = Dictionary<_,_>()
@@ -246,7 +395,7 @@ module public CFG =
             let goalsInInnerGraph =
                 goalsToInnerGraphVerticesMap
                 |> Seq.map (fun kvp -> kvp.Value)
-            let res = eval innerGraphForCFPQ statesInInnerGraph query Mode.AllPaths
+            let res = GLL.eval innerGraphForCFPQ statesInInnerGraph query Mode.AllPaths
             match res with
             | QueryResult.ReachabilityFacts _ ->
                 failwith "Impossible!"
@@ -467,39 +616,3 @@ module public CFG =
     let findDistance cfg = Dict.getValueOrUpdate floyds cfg (fun () -> floydAlgo cfg 100000)
 
     let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
-
-    let private addToDict (dict : Dictionary<'a, HashSet<'b>> ) (k : 'a ) (v : 'b) =
-        let mutable refSet = ref null
-        if not (dict.TryGetValue(k, refSet)) then
-            refSet <- ref (HashSet<_>())
-            dict.Add(k, refSet.Value)
-        refSet.Value.Add(v) |> ignore
-
-    let private addCall methodsReachability inverseMethodsReachability caller callee =
-        addToDict methodsReachability caller callee
-        addToDict inverseMethodsReachability callee caller
-
-    let buildMethodsReachabilityForAssembly (entryMethod : MethodBase) =
-        let assembly = entryMethod.Module.Assembly
-        let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
-        let inverseMethodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
-        let rec exit processedMethods = function
-            | [] -> ()
-            | m :: q' -> dfs (processedMethods, q') m
-        and dfs (processedMethods : MethodBase list, methodsQueue : MethodBase list) (current : MethodBase) =
-            if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
-            else
-                let processedMethods = current :: processedMethods
-                if current.GetMethodBody() <> null then
-                    let cfg = findCfg current
-                    cfg.offsetsDemandingCall |> Seq.iter (fun kvp ->
-                        let m = snd kvp.Value
-                        let offset = kvp.Key
-                        addCall methodsReachability inverseMethodsReachability current m
-                        appGraph.AddCallEdge cfg offset (findCfg m))
-                let newQ =
-                    if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
-                    else methodsQueue
-                exit processedMethods newQ
-        dfs ([],[]) entryMethod
-        methodsReachability, inverseMethodsReachability
