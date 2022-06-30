@@ -127,17 +127,15 @@ namespace VSharp
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
         public static Statistics Cover(Type type, string outputDirectory = "")
         {
+            List<MethodBase> methods = new List<MethodBase>(type.GetConstructors());
+
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
-            List<MethodBase> methods = new List<MethodBase>();
-            foreach (var m in type.GetMethods(bindingFlags))
-            {
-                methods.Add(m);
-            }
+            methods.AddRange(type.GetMethods(bindingFlags));
 
             if (methods.Count == 0)
             {
-                throw new ArgumentException("I've not found any public method of class " + type.FullName);
+                throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
             return StartExploration(methods, outputDirectory);
