@@ -1,10 +1,8 @@
 namespace VSharp
 
-open System
 open System.Reflection
 open System.Collections.Generic
 
-open System.Reflection.Emit
 open CFPQ_GLL
 open CFPQ_GLL.GLL
 open CFPQ_GLL.InputGraph
@@ -25,146 +23,129 @@ type CallInfo =
             MethodToCall = methodToCall
         }
 
-[<Struct>]
-type private CFGTemporaryData =
-    val VerticesOffsets : HashSet<int>
-    val FallThroughOffset : array<Option<offset>>
-    val Edges : Dictionary<offset, HashSet<offset>>
-    val OffsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>    
-    new (verticesOffset, fallThroughOffset, edges, offsetsDemandingCall) =
-        {
-            VerticesOffsets = verticesOffset
-            FallThroughOffset = fallThroughOffset
-            Edges = edges
-            OffsetsDemandingCall = offsetsDemandingCall            
-        }
-    
-type CFG (methodBase : MethodBase) =
+type private BasicBlock (startVertex: offset) =
+    let innerVertices = ResizeArray<offset>()
+    let mutable finalVertex = None 
+    member this.StartVertex = startVertex
+    member this.InnerVertices with get () = innerVertices
+    member this.AddVertex v = innerVertices.Add v
+    member this.FinalVertex
+        with get () =
+                match finalVertex with
+                | Some v -> v
+                | None -> failwith "Final vertex of this basic block is not specified yet."
+        and set v = finalVertex <- Some v
+type CfgTemporaryData (methodBase : MethodBase) =
     let ilBytes = Instruction.getILBytes methodBase
     let exceptionHandlers = Instruction.getEHSBytes methodBase
     let sortedOffsets = ResizeArray<offset>()
-    let edges = Dictionary<offset, ResizeArray<offset>>()
-    let offsetsDemandingCall = Dictionary<offset,_>()
+    let edges = Dictionary<offset, HashSet<offset>>()
     let sinks = ResizeArray<_>()
     let callsToAdd = ResizeArray<CallInfo>()
     let loopEntries = HashSet<offset>()
     
-    let addVerticesAndEdges (temporaryData : CFGTemporaryData) =
-        temporaryData.VerticesOffsets
-        |> Seq.sort
-        |> Seq.iter (fun v ->
-            sortedOffsets.Add v
-            edges.Add(v, ResizeArray<_>()))
-
-        let addEdge src dst =
-            edges.[src].Add dst            
-
-        let used = HashSet<offset>()
-        let rec addEdges currentVertex src =
-            if used.Contains src then ()
-            else
-                let wasAdded = used.Add src
-                assert wasAdded
-                let exists, callInfo = offsetsDemandingCall.TryGetValue src
-                if exists
-                then
-                    addEdge currentVertex src                    
-                    let dst = temporaryData.FallThroughOffset.[src].Value
-                    CallInfo (src, dst, snd callInfo)
-                    |> callsToAdd.Add
-                    addEdges dst dst                    
-                else 
-                   match temporaryData.FallThroughOffset.[src] with                
-                    | Some dst when sortedOffsets.Contains dst ->
-                        addEdge currentVertex dst
-                        addEdges dst dst
-                    | Some dst -> addEdges currentVertex dst
-                    | None when temporaryData.Edges.ContainsKey src ->
-                        temporaryData.Edges.[src] |> Seq.iter (fun dst ->
-                            if sortedOffsets.Contains dst
-                            then
-                                addEdge currentVertex dst
-                                addEdges dst dst
-                            else
-                                addEdges currentVertex dst
-                        )
-                    | None -> ()
-        
-        let returnPoints = callsToAdd |> ResizeArray.map (fun callInfo -> callInfo.ReturnTo)         
-        returnPoints.AddRange sortedOffsets
-        returnPoints |> ResizeArray.iter (fun offset -> addEdges offset offset)        
-
     let dfs (startVertices : array<offset>) =
         let used = HashSet<offset>()        
         let verticesOffsets = HashSet<offset> startVertices
-        let addVertex v = verticesOffsets.Add v |> ignore
-        let edges = Dictionary<offset, HashSet<offset>>()
-        let fallThroughOffset = Array.init ilBytes.Length (fun _ -> None)
+        let addVertex v = verticesOffsets.Add v |> ignore        
+        let greyVertices = HashSet<offset>()
+        let vertexToBasicBloc: array<Option<BasicBlock>> = Array.init ilBytes.Length (fun _ -> None)
         
+        let splitEdge edgeStart edgeFinal intermediatePoint =
+            let isRemoved = edges.[edgeStart].Remove edgeFinal
+            assert isRemoved
+            let isAdded = edges.[edgeStart].Add intermediatePoint
+            assert isAdded
+            edges.Add(intermediatePoint, HashSet<_>[|edgeFinal|])
+            
+        let splitBasicBlock (block:BasicBlock) intermediatePoint =
+            let newBlock = BasicBlock(intermediatePoint)
+            newBlock.FinalVertex <- block.FinalVertex
+            for v in block.InnerVertices do
+                if v > intermediatePoint
+                then
+                    let isRemoved = block.InnerVertices.Remove v
+                    assert isRemoved
+                    newBlock.AddVertex v
+                    vertexToBasicBloc.[v] <- Some newBlock
+            block.FinalVertex <- intermediatePoint
+            let isRemoved = block.InnerVertices.Remove intermediatePoint
+            assert isRemoved
+
         let addEdge src dst =
             let exists,outgoingEdges = edges.TryGetValue src
             if exists
             then outgoingEdges.Add dst |> ignore
             else edges.Add(src, HashSet [|dst|])
-        
-        let greyVertices = HashSet<offset>()
+            match vertexToBasicBloc.[dst] with
+            | None -> ()
+            | Some block ->
+                if block.InnerVertices.Contains dst
+                then
+                    splitBasicBlock block dst
+                    splitEdge block.StartVertex block.FinalVertex dst                
             
-        let rec dfs' (v : offset) =
-            if used.Contains v
+        let rec dfs' (basicBlockStartsForm : offset) (currentVertex : offset) =
+            if used.Contains currentVertex
             then
-                if greyVertices.Contains v
-                then loopEntries.Add v |> ignore
+                if greyVertices.Contains currentVertex
+                then loopEntries.Add currentVertex |> ignore
             else 
-                greyVertices.Add v |> ignore
-                used.Add v |> ignore
-                let opCode = Instruction.parseInstruction methodBase v                
+                greyVertices.Add currentVertex |> ignore
+                used.Add currentVertex |> ignore
+                let opCode = Instruction.parseInstruction methodBase currentVertex                
 
                 let dealWithJump src dst =
                     addVertex src
                     addVertex dst 
                     addEdge src dst
-                    dfs' dst
+                    dfs' dst dst
 
-                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
+                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes currentVertex
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
-                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
-                    offsetsDemandingCall.Add(v, (opCode, calledMethod))
-                    addVertex v
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + opCode.Size)
+                    callsToAdd.Add(CallInfo(currentVertex,offset,calledMethod))
+                    addVertex currentVertex                    
                     addVertex offset
-                    fallThroughOffset.[v] <- Some offset
-                    dfs' offset
+                    addEdge basicBlockStartsForm currentVertex
+                    dfs' offset offset
                 | FallThrough offset ->
-                    fallThroughOffset.[v] <- Some offset
-                    dfs' offset
+                    dfs' basicBlockStartsForm offset
                 | ExceptionMechanism ->
-                    Logger.trace $"Exception mechanism: %A{v}"
+                    Logger.trace $"Exception mechanism: %A{currentVertex}"
                     ()
                 | Return ->
-                    addVertex v
-                    sinks.Add v
-                | UnconditionalBranch target -> dealWithJump v target
+                    addVertex currentVertex
+                    sinks.Add currentVertex
+                    if basicBlockStartsForm <> currentVertex
+                    then addEdge basicBlockStartsForm currentVertex
+                | UnconditionalBranch target -> dealWithJump currentVertex target
                 | ConditionalBranch (fallThrough, offsets) ->
-                    dealWithJump v fallThrough
-                    offsets |> List.iter (dealWithJump v)
-                greyVertices.Remove v |> ignore
+                    dealWithJump currentVertex fallThrough
+                    offsets |> List.iter (dealWithJump currentVertex)
+                
+                greyVertices.Remove currentVertex |> ignore
         
         startVertices
-        |> Array.iter dfs'
+        |> Array.iter (fun v -> dfs' v v)
         
-        CFGTemporaryData(verticesOffsets, fallThroughOffset, edges, offsetsDemandingCall)
+        verticesOffsets
+        |> Seq.sort
+        |> Seq.iter sortedOffsets.Add
         
     do
         let startVertices =
             [|
              yield 0
-             yield! exceptionHandlers |> Array.choose (fun handler -> match handler.ehcType with | Filter offset -> Some offset | _ -> None)
-             yield! exceptionHandlers |> Array.map (fun ehc -> ehc.handlerOffset)
+             for handler in exceptionHandlers do
+                 yield handler.handlerOffset
+                 match handler.ehcType with
+                 | Filter offset -> yield offset
+                 | _ -> ()
             |]
         
-        let temporaryData = dfs startVertices
-        
-        addVerticesAndEdges temporaryData
+        dfs startVertices
         
     member this.MethodBase = methodBase
     member this.ILBytes = ilBytes
@@ -174,7 +155,7 @@ type CFG (methodBase : MethodBase) =
     member this.Sinks = sinks.ToArray()
     member this.LoopEntries = loopEntries
 
-type CfgInfo (cfg:CFG) =
+type CfgInfo (cfg:CfgTemporaryData) =
     let resolveBasicBlock offset =
         let rec binSearch (sortedOffsets : List<offset>) offset l r =
             if l >= r then sortedOffsets.[l]
@@ -266,7 +247,7 @@ type ApplicationGraph() as this =
     
     let buildCFG (methodBase:MethodBase) =
         Logger.trace $"Add CFG for %A{methodBase.Name}."
-        let cfg = CFG(methodBase)
+        let cfg = CfgTemporaryData(methodBase)
         for kvp in cfg.Edges do
             let edges =
                 [|
@@ -276,7 +257,7 @@ type ApplicationGraph() as this =
                                              firstFreeVertexId + targetOffset * 1<inputGraphVertex>
                                              )        
                 |]
-            vertices.Add(firstFreeVertexId + kvp.Key * 1<inputGraphVertex>, ResizeArray edges)       
+            vertices.Add(firstFreeVertexId + kvp.Key * 1<inputGraphVertex>, ResizeArray edges)
             
         cfgToFirstVertexIdMapping.Add(methodBase, firstFreeVertexId)
         firstFreeVertexId <- firstFreeVertexId + cfg.ILBytes.Length * 1<inputGraphVertex>
@@ -307,17 +288,21 @@ type ApplicationGraph() as this =
         let returnTo = getVertex (PositionInApplicationGraph(callSource.Method, callerMethodCfgInfo.CallReturnPairs.[callSource.Offset]))
         if not (vertices.ContainsKey callFrom && vertices.[callFrom].Exists (fun edg -> edg.TargetVertex = callTo))
         then
+            if not <| vertices.ContainsKey callFrom
+            then vertices.Add(callFrom, ResizeArray())
             InputGraphEdge (firstFreeCallTerminalId, callTo)
             |> vertices.[callFrom].Add
             let returnFromPoints = calledMethodCfgInfo.Sinks |>  Array.map(fun sink -> getVertex (PositionInApplicationGraph (callTarget.Method, sink)))  
             for returnFrom in returnFromPoints do
+                if not <| vertices.ContainsKey returnFrom
+                then vertices.Add(returnFrom, ResizeArray())
                 InputGraphEdge (firstFreeCallTerminalId + 1<terminalSymbol>, returnTo)
                 |> vertices.[returnFrom].Add
                 
             firstFreeCallTerminalId <- firstFreeCallTerminalId + 2<terminalSymbol>            
         
     let moveState (initialPosition: PositionInApplicationGraph) (finalPosition: PositionInApplicationGraph) =
-        Logger.trace $"Move state form %A{initialPosition.Method.Name}, %A{initialPosition.Offset} to %A{finalPosition.Method.Name}, %A{finalPosition.Offset}"
+        //Logger.trace $"Move state form %A{initialPosition.Method.Name}, %A{initialPosition.Offset} to %A{finalPosition.Method.Name}, %A{finalPosition.Offset}"
         let initialVertexInInnerGraph = getVertex initialPosition            
         let finalVertexInnerGraph = getVertex finalPosition            
         if initialVertexInInnerGraph <> finalVertexInnerGraph
@@ -418,6 +403,7 @@ type ApplicationGraph() as this =
     interface IInputGraph with
         member this.GetOutgoingEdges v =
             vertices.[v]
+
     member this.GetCfg (methodBase: MethodBase) =        
             messagesProcessor.PostAndReply (fun ch -> AddCFG (Some ch, methodBase))
     
