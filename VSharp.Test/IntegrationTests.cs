@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
+using Microsoft.FSharp.Core;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -98,11 +99,11 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
-                    _options = new SiliOptions
-                        (
+                    _options = new SiliOptions(
                             explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
                             _executionMode,
-                            _recThresholdForTest
+                            _recThresholdForTest,
+                            new FSharpOption<IDictionary<Type, object>>(null)
                         );
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());

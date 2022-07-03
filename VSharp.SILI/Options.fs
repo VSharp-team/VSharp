@@ -1,5 +1,7 @@
 ﻿namespace VSharp.Interpreter.IL
 
+open System
+open System.Collections.Generic
 open System.Diagnostics
 
 type searchMode =
@@ -20,5 +22,9 @@ type executionMode =
     | ConcolicMode
     | SymbolicMode
 
-type SiliOptions =
-    {explorationMode : explorationMode; executionMode : executionMode; recThreshold : uint32}
+type SiliOptions = {
+    explorationMode : explorationMode
+    executionMode : executionMode
+    recThreshold : uint32
+    preallocatedMap: Option<IDictionary<Type, Object>>
+}

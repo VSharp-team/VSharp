@@ -77,16 +77,23 @@ module Serialization =
         let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
         mdle.GetType(t.fullName)
 
-type MemoryGraph(repr : memoryRepr) =
-
-    let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
-
+type MemoryGraph(repr : memoryRepr, preallocatedObjectMap: IDictionary<Type, Object>) =
+    let rebindTypes src =
+        src |> Array.map (fun x ->        
+            if preallocatedObjectMap.ContainsKey(x)
+            then preallocatedObjectMap[x].GetType()
+            else x)
+            
+    let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType |> rebindTypes)
+        
     let allocatePlaceholder (obj : obj) =
         assert(obj <> null)
         match obj with
         | :? structureRepr as repr ->
             let t = sourceTypes.[repr.typ]
-            System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+            if preallocatedObjectMap.ContainsKey(t)
+                then preallocatedObjectMap[t]
+                else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
         | :? arrayRepr as repr ->
             let t = sourceTypes.[repr.typ]
             let elementType = t.GetElementType()
@@ -236,10 +243,15 @@ type MemoryGraph(repr : memoryRepr) =
         let repr : arrayRepr = {typ = x.RegisterType typ; contents = contents; lengths = lengths; lowerBounds = lowerBounds }
         objReprs.[index] <- repr
         { index = index }
-
+    
     member x.Serialize (target : memoryRepr) =
         let t = typeof<memoryRepr>
         let p = t.GetProperty("objects")
         p.SetValue(target, objReprs.ToArray())
         let p = t.GetProperty("types")
         p.SetValue(target, sourceTypes |> Seq.map Serialization.encodeType |> Array.ofSeq)
+        
+    member x.UpdateTypes (target : memoryRepr) (value: typeRepr array) =
+        let t = typeof<memoryRepr>
+        let p = t.GetProperty("types")
+        p.SetValue(target, value)        

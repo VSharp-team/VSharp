@@ -87,8 +87,12 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
-type model =
-    { state : state; subst : IDictionary<ISymbolicConstantSource, term>; complete : bool }
+type model = {
+    state : state
+    subst : IDictionary<ISymbolicConstantSource, term>
+    complete : bool
+}
+    
 with
     member x.Complete value =
         if x.complete then

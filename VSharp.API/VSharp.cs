@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Microsoft.FSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -71,12 +72,17 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null)
+        private static Statistics StartExploration(List<MethodBase> methods, 
+            string resultsFolder, Dictionary<Type, object>? map = null, string[] mainArguments = null)
         {
             var recThreshold = 0u;
             var options =
-                new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
-                    executionMode.SymbolicMode, recThreshold);
+                new SiliOptions(
+                    explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
+                    executionMode.SymbolicMode,
+                    recThreshold,
+                    new FSharpOption<IDictionary<Type, object>>(map));
+            
             SILI explorer = new SILI(options);
             UnitTests unitTests = new UnitTests(resultsFolder);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
@@ -101,9 +107,10 @@ namespace VSharp
             return statistics;
         }
 
-        private static bool Reproduce(DirectoryInfo testDir)
+        private static bool Reproduce(DirectoryInfo testDir, 
+            IDictionary<Type, object>? preallocatedMap = null)
         {
-            return TestRunner.TestRunner.ReproduceTests(testDir);
+            return TestRunner.TestRunner.ReproduceTests(testDir, preallocatedMap);
         }
 
         /// <summary>
@@ -125,7 +132,7 @@ namespace VSharp
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static Statistics Cover(Type type, string outputDirectory = "")
+        public static Statistics Cover(Type type, Dictionary<Type, object>? map = null, string outputDirectory = "")
         {
             List<MethodBase> methods = new List<MethodBase>(type.GetConstructors());
 
@@ -138,7 +145,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
-            return StartExploration(methods, outputDirectory);
+            return StartExploration(methods, outputDirectory, map);
         }
 
         /// <summary>
@@ -193,7 +200,7 @@ namespace VSharp
             }
             methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, args);
+            return StartExploration(methods, outputDirectory, null, args);
         }
 
         /// <summary>
@@ -217,10 +224,18 @@ namespace VSharp
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
         public static bool CoverAndRun(Type type, string outputDirectory = "")
         {
-            var stats = Cover(type, outputDirectory);
+            var stats = Cover(type, null, outputDirectory);
             return Reproduce(stats.OutputDir);
         }
 
+        public static bool CoverAndRun<T>(Dictionary<Type, object> map, string outputDirectory = "")
+        {
+            if (map == null) throw new ArgumentNullException(nameof(map));
+            var type = typeof(T);
+            var stats = Cover(type, map, outputDirectory);
+            return Reproduce(stats.OutputDir, map);
+
+        }
         /// <summary>
         /// Generates test coverage for all public methods of all public classes of the specified assembly and runs all tests.
         /// </summary>

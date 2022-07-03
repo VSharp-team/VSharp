@@ -175,7 +175,7 @@ namespace VSharp.Runner
                     var type = ResolveType(assembly, className);
                     if (type != null)
                     {
-                        PostProcess(TestGenerator.Cover(type, output.FullName));
+                        PostProcess(TestGenerator.Cover(type, null, output.FullName));
                     }
                 }
             });

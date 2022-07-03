@@ -11,8 +11,7 @@ open VSharp.Core
 open CilStateOperations
 open VSharp.Solver
 
-type public SILI(options : SiliOptions) =
-
+type public SILI(options : SiliOptions) =    
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
@@ -57,7 +56,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method cmdArgs state with
+            match TestGenerator.state2test isError method cmdArgs state options.preallocatedMap with
             | Some test -> reporter test
             | None -> ()
         with :? InsufficientInformationException as e ->

@@ -20,6 +20,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Runner", "VSharp.Run
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.API", "VSharp.API\VSharp.API.csproj", "{C908A11C-B910-4283-A718-DA6A69E19D7F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanExamTests", "LoanExamTests\LoanExamTests.csproj", "{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LoanExam", "LoanExam\LoanExam.csproj", "{E2821F93-ED10-4835-B73A-A986B4D73E71}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -93,5 +97,17 @@ Global
 		{C908A11C-B910-4283-A718-DA6A69E19D7F}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C908A11C-B910-4283-A718-DA6A69E19D7F}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
 		{C908A11C-B910-4283-A718-DA6A69E19D7F}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.Release|Any CPU.Build.0 = Release|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{77B22F3A-EE2F-4B42-ABEA-FDABE31EAE7E}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{E2821F93-ED10-4835-B73A-A986B4D73E71}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

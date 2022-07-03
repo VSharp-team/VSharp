@@ -120,9 +120,12 @@ module TestGenerator =
                 test.Expected <- term2obj model cilState.state indices test retVal
             Some test
 
-    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
+    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) preallocatedMap =
         let indices = Dictionary<concreteHeapAddress, int>()
-        let test = UnitTest m
+        let test = match preallocatedMap with
+            | Some map -> UnitTest(m, map)
+            | None -> UnitTest(m)
+            
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled e ->

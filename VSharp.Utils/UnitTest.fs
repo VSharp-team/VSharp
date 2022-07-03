@@ -1,9 +1,11 @@
 namespace VSharp
 
 open System
+open System.Collections.Generic
 open System.IO
 open System.Reflection
 open System.Xml.Serialization
+open VSharp
 
 [<CLIMutable>]
 [<Serializable>]
@@ -42,8 +44,8 @@ with
         extraAssemblyLoadDirs = Array.empty
     }
 
-type UnitTest private (m : MethodBase, info : testInfo) =
-    let memoryGraph = MemoryGraph(info.memory)
+type UnitTest private (m : MethodBase, info : testInfo, preallocatedObjectMap: IDictionary<Type, Object>) =
+    let memoryGraph = MemoryGraph(info.memory, preallocatedObjectMap)
     let exceptionInfo = info.throwsException
     let throwsException =
         if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
@@ -55,8 +57,13 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
     let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
+    
+    static let emptyMap = Dictionary<Type, Object>()
     new(m : MethodBase) =
-        UnitTest(m, testInfo.OfMethod m)
+        UnitTest(m, testInfo.OfMethod m, emptyMap)
+        
+    new(m : MethodBase, preallocatedObjectMap: IDictionary<Type, Object>) =
+        UnitTest(m, testInfo.OfMethod m, preallocatedObjectMap)
 
     member x.Method with get() = m
     member x.ThisArg
@@ -120,8 +127,31 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let p = t.GetProperty("extraAssemblyLoadDirs")
         p.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let serializer = XmlSerializer t
+        
+        let returnLogger: typeRepr =
+            let enm = preallocatedObjectMap.Keys.GetEnumerator()
+            enm.MoveNext() 
+            let t = enm.Current
+            let loggerType = preallocatedObjectMap[t].GetType()
+            
+            let r = {
+                assemblyName = loggerType.Assembly.FullName
+                moduleFullyQualifiedName = loggerType.Module.FullyQualifiedName
+                fullName = loggerType.FullName
+            }
+            r
+            
+        let updInfo info: testInfo =
+            let types = info.memory.types |> Array.map(fun x ->
+                if x.fullName.Contains "Logger"
+                then returnLogger
+                else x)
+            memoryGraph.UpdateTypes info.memory types
+            info
+        
+        let updatedInfo = info |> updInfo
         use stream = File.Create(destination)
-        serializer.Serialize(stream, info)
+        serializer.Serialize(stream, updatedInfo)
 
     static member DeserializeTestInfo(stream : FileStream) = // TODO: fix style #style
         let serializer = XmlSerializer(typeof<testInfo>)
@@ -131,7 +161,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
-    static member DeserializeFromTestInfo(ti : testInfo) =
+    static member DeserializeFromTestInfo(ti : testInfo, preallocatedObjectMap: IDictionary<Type, Object>) =
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
@@ -160,16 +190,17 @@ type UnitTest private (m : MethodBase, info : testInfo) =
                     assert(mp.Length = 0)
                     declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
                 | _ -> __notImplemented__()
+                
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
-            UnitTest(method, ti)
+            UnitTest(method, ti, preallocatedObjectMap)
         with child ->
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
-    static member Deserialize(stream : FileStream) =
+    static member Deserialize(stream : FileStream, preallocatedObjectMap) =
         let testInfo = UnitTest.DeserializeTestInfo(stream)
-        UnitTest.DeserializeFromTestInfo(testInfo)
+        UnitTest.DeserializeFromTestInfo(testInfo, preallocatedObjectMap)
 
-    static member Deserialize(source : string) =
+    static member Deserialize(source : string, preallocatedObjectMap) =
         use stream = new FileStream(source, FileMode.Open, FileAccess.Read)
-        UnitTest.Deserialize stream
+        UnitTest.Deserialize(stream, preallocatedObjectMap)

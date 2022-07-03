@@ -50,5 +50,4 @@
     <ItemGroup>
       <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" />
     </ItemGroup>
-
 </Project>

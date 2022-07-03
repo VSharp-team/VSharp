@@ -89,7 +89,8 @@ namespace VSharp.TestRunner
             return StructurallyEqual(expected, got);
         }
 
-        private static bool ReproduceTests(IEnumerable<FileInfo> tests, bool shouldReproduceError, bool checkResult)
+        private static bool ReproduceTests(IEnumerable<FileInfo> tests, 
+            bool shouldReproduceError, bool checkResult, IDictionary<Type, object> preallocatedObjectMap)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
@@ -99,9 +100,9 @@ namespace VSharp.TestRunner
                 {
                     using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
                     {
-                        testInfo ti = UnitTest.DeserializeTestInfo(stream);
+                        var ti = UnitTest.DeserializeTestInfo(stream);
                         _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-                        UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+                        var test = UnitTest.DeserializeFromTestInfo(ti, preallocatedObjectMap);
                         // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                         var method = test.Method;
@@ -157,18 +158,21 @@ namespace VSharp.TestRunner
             return true;
         }
 
+        private static readonly IDictionary<Type, object> EmptyMap = new Dictionary<Type, object>(); 
+        
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
-            return ReproduceTests(new[] {file}, true, checkResult);
+            return ReproduceTests(new[] {file}, true, checkResult, EmptyMap);
         }
 
-        public static bool ReproduceTests(DirectoryInfo testsDir)
+        public static bool ReproduceTests(DirectoryInfo testsDir, 
+            IDictionary<Type, object>? preallocatedMap = null)
         {
             var tests = testsDir.EnumerateFiles("*.vst");
             var testsList = tests.ToList();
             if (testsList.Count > 0)
             {
-                return ReproduceTests(testsList, false, true);
+                return ReproduceTests(testsList, false, true, preallocatedMap ?? EmptyMap);
             }
 
             Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
