@@ -140,7 +140,9 @@ type UnitTest private (m : MethodBase, info : testInfo, preallocatedObjectMap: I
                 fullName = loggerType.FullName
             }
             r
-            
+        
+        // TODO: this is for Logger implementation only
+        // needs to be implemented in a generic form    
         let updInfo info: testInfo =
             let types = info.memory.types |> Array.map(fun x ->
                 if x.fullName.Contains "Logger"
