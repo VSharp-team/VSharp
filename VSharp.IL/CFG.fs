@@ -15,14 +15,19 @@ open VSharp.Core
 type CallInfo =
     val CallFrom: offset
     val ReturnTo: offset
-    val MethodToCall: MethodBase
-    new (callFrom, returnTo, methodToCall) =
+    val IsExternalStaticCall: bool
+    new (callFrom, returnTo) =
         {
             CallFrom = callFrom
             ReturnTo = returnTo
-            MethodToCall = methodToCall
+            IsExternalStaticCall = false
         }
-
+    new (callFrom, returnTo, isExternalStatic) =
+        {
+            CallFrom = callFrom
+            ReturnTo = returnTo
+            IsExternalStaticCall = isExternalStatic
+        }
 type private BasicBlock (startVertex: offset) =
     let innerVertices = ResizeArray<offset>()
     let mutable finalVertex = None 
@@ -41,7 +46,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
     let sortedOffsets = ResizeArray<offset>()
     let edges = Dictionary<offset, HashSet<offset>>()
     let sinks = ResizeArray<_>()
-    let callsToAdd = ResizeArray<CallInfo>()
+    let calls = ResizeArray<CallInfo>()
     let loopEntries = HashSet<offset>()
     
     let dfs (startVertices : array<offset>) =
@@ -61,7 +66,8 @@ type CfgTemporaryData (methodBase : MethodBase) =
         let splitBasicBlock (block:BasicBlock) intermediatePoint =
             let newBlock = BasicBlock(intermediatePoint)
             newBlock.FinalVertex <- block.FinalVertex
-            for v in block.InnerVertices do
+            let tmp = ResizeArray block.InnerVertices
+            for v in tmp do
                 if v > intermediatePoint
                 then
                     let isRemoved = block.InnerVertices.Remove v
@@ -73,21 +79,30 @@ type CfgTemporaryData (methodBase : MethodBase) =
             assert isRemoved
 
         let addEdge src dst =
-            let exists,outgoingEdges = edges.TryGetValue src
-            if exists
-            then outgoingEdges.Add dst |> ignore
-            else edges.Add(src, HashSet [|dst|])
-            match vertexToBasicBloc.[dst] with
-            | None -> ()
-            | Some block ->
-                if block.InnerVertices.Contains dst
-                then
-                    splitBasicBlock block dst
-                    splitEdge block.StartVertex block.FinalVertex dst                
+            addVertex src
+            addVertex dst
+            if src <> dst
+            then
+                let exists,outgoingEdges = edges.TryGetValue src
+                if exists
+                then outgoingEdges.Add dst |> ignore
+                else edges.Add(src, HashSet [|dst|])
+                match vertexToBasicBloc.[dst] with
+                | None -> ()
+                | Some block ->
+                    if block.InnerVertices.Contains dst && block.FinalVertex <> dst 
+                    then
+                        splitBasicBlock block dst
+                        splitEdge block.StartVertex block.FinalVertex dst                
             
-        let rec dfs' (basicBlockStartsForm : offset) (currentVertex : offset) =
+        let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) =
+            
+            vertexToBasicBloc.[currentVertex] <- Some currentBasicBlock
+            
             if used.Contains currentVertex
             then
+                currentBasicBlock.FinalVertex <- currentVertex
+                addEdge currentBasicBlock.StartVertex currentVertex
                 if greyVertices.Contains currentVertex
                 then loopEntries.Add currentVertex |> ignore
             else 
@@ -99,36 +114,66 @@ type CfgTemporaryData (methodBase : MethodBase) =
                     addVertex src
                     addVertex dst 
                     addEdge src dst
-                    dfs' dst dst
-
+                    dfs' (BasicBlock dst)  dst
+                
                 let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes currentVertex
+                if currentVertex = 23
+                then printfn "!!!"
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
                     let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + opCode.Size)
-                    callsToAdd.Add(CallInfo(currentVertex,offset,calledMethod))
-                    addVertex currentVertex                    
-                    addVertex offset
-                    addEdge basicBlockStartsForm currentVertex
-                    dfs' offset offset
+                    if not <| Reflection.isExternalMethod calledMethod
+                    then
+                        calls.Add(CallInfo(currentVertex,offset))
+                        currentBasicBlock.FinalVertex <- currentVertex
+                        addEdge currentBasicBlock.StartVertex currentVertex
+                        dfs' (BasicBlock offset) offset
+                    elif calledMethod.IsStatic 
+                    then
+                        calls.Add (CallInfo(currentVertex,offset,true))
+                        currentBasicBlock.FinalVertex <- currentVertex
+                        addEdge currentBasicBlock.StartVertex currentVertex
+                        addEdge currentVertex offset
+                        dfs' (BasicBlock offset) offset
+                    else
+                        currentBasicBlock.AddVertex offset
+                        dfs' currentBasicBlock offset
                 | FallThrough offset ->
-                    dfs' basicBlockStartsForm offset
+                    if opCode.Name = "ldsfld"
+                    then
+                        calls.Add (CallInfo(currentVertex,offset,true))
+                        currentBasicBlock.FinalVertex <- currentVertex
+                        addEdge currentBasicBlock.StartVertex currentVertex
+                        addEdge currentVertex offset
+                        dfs' (BasicBlock offset) offset
+                    else 
+                    currentBasicBlock.AddVertex offset
+                    dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
+                    //TODO gsv fix it.
                     Logger.trace $"Exception mechanism: %A{currentVertex}"
-                    ()
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    calls.Add(CallInfo(currentVertex,currentVertex))
                 | Return ->
                     addVertex currentVertex
                     sinks.Add currentVertex
-                    if basicBlockStartsForm <> currentVertex
-                    then addEdge basicBlockStartsForm currentVertex
-                | UnconditionalBranch target -> dealWithJump currentVertex target
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                | UnconditionalBranch target ->
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    dealWithJump currentVertex target
                 | ConditionalBranch (fallThrough, offsets) ->
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
                     dealWithJump currentVertex fallThrough
                     offsets |> List.iter (dealWithJump currentVertex)
                 
                 greyVertices.Remove currentVertex |> ignore
         
         startVertices
-        |> Array.iter (fun v -> dfs' v v)
+        |> Array.iter (fun v -> dfs' (BasicBlock v) v)
         
         verticesOffsets
         |> Seq.sort
@@ -151,7 +196,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
     member this.ILBytes = ilBytes
     member this.SortedOffsets = sortedOffsets
     member this.Edges = edges
-    member this.CallsToAdd = callsToAdd
+    member this.Calls = calls
     member this.Sinks = sinks.ToArray()
     member this.LoopEntries = loopEntries
 
@@ -172,16 +217,17 @@ type CfgInfo (cfg:CfgTemporaryData) =
     
     let sinks = cfg.Sinks |> Array.map resolveBasicBlock
     let loopEntries = cfg.LoopEntries   
-    let callReturnPairs =
+    let calls =
         let res = Dictionary<_,_>()
-        cfg.CallsToAdd
-        |> ResizeArray.iter (fun callInfo -> res.Add(callInfo.CallFrom, callInfo.ReturnTo))
+        cfg.Calls
+        |> ResizeArray.iter (fun callInfo -> res.Add(callInfo.CallFrom, callInfo))
         res
+    
     member this.MethodBase = cfg.MethodBase
     member this.IlBytes = cfg.ILBytes
     member this.SortedOffsets = cfg.SortedOffsets
     member this.Sinks = sinks 
-    member this.CallReturnPairs = callReturnPairs
+    member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
     member this.ResolveBasicBlock offset =
         resolveBasicBlock offset
@@ -216,6 +262,19 @@ type ApplicationGraph() as this =
     let innerGraphVerticesToGoalsMap = Dictionary<int<inputGraphVertex>, PositionInApplicationGraph>()    
     let cfgs = Dictionary<MethodBase, CfgInfo>()
     let vertices = Dictionary<int<inputGraphVertex>, ResizeArray<InputGraphEdge>>()
+    
+    let toDot filePath =        
+        let content =
+            seq{
+               yield "digraph G"
+               yield "{"
+               yield "node [shape = plaintext]"
+               for kvp in vertices do
+                for e in kvp.Value do
+                    yield $"%i{kvp.Key} -> %i{e.TargetVertex} [label=%A{e.TerminalSymbol}]"
+               yield "}"
+            }
+        System.IO.File.WriteAllLines(filePath, content)
     
     let buildQuery () =
         let startBox =
@@ -285,7 +344,11 @@ type ApplicationGraph() as this =
         let calledMethodCfgInfo = cfgs.[callTarget.Method]
         let callFrom = getVertex callSource
         let callTo = getVertex callTarget
-        let returnTo = getVertex (PositionInApplicationGraph(callSource.Method, callerMethodCfgInfo.CallReturnPairs.[callSource.Offset]))
+        let returnTo = getVertex (PositionInApplicationGraph(callSource.Method, callerMethodCfgInfo.Calls.[callSource.Offset].ReturnTo))
+        if callerMethodCfgInfo.Calls.[callSource.Offset].IsExternalStaticCall
+        then
+            let removed = vertices.[callFrom].Remove <| InputGraphEdge(terminalForCFGEdge, returnTo)
+            assert removed
         if not (vertices.ContainsKey callFrom && vertices.[callFrom].Exists (fun edg -> edg.TargetVertex = callTo))
         then
             if not <| vertices.ContainsKey callFrom
@@ -365,8 +428,8 @@ type ApplicationGraph() as this =
     let messagesProcessor = MailboxProcessor.Start(fun inbox ->            
         async{            
             while true do
-                try
-                    let! message = inbox.Receive()
+                let! message = inbox.Receive()
+                try                    
                     match message with
                     | AddCFG (replyChannel, methodBase) ->
                         let reply cfgInfo =
@@ -383,7 +446,9 @@ type ApplicationGraph() as this =
                             cfgs.Add(methodBase, cfgInfo)
                             Logger.trace $"Vertices in application graph: %i{vertices.Count}"
                             
-                    | AddCallEdge (_from, _to) -> addCallEdge _from _to
+                    | AddCallEdge (_from, _to) ->
+                        addCallEdge _from _to
+                        toDot "cfg.dot"
                     | AddGoal pos -> addGoal pos
                     | RemoveGoal pos -> removeGoal pos
                     | AddState pos -> addState pos
@@ -391,13 +456,18 @@ type ApplicationGraph() as this =
                     | GetShortestDistancesToGoals (replyChannel, states) -> replyChannel.Reply (getShortestDistancesToGoal states)
                     | GetReachableGoals (replyChannel, states) -> replyChannel.Reply (getReachableGoals states)
                 with
-                | e -> Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
+                | e ->
+                    Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
+                    match message with
+                    | AddCFG (Some ch, _) -> ch.Reply (Unchecked.defaultof<CfgInfo>)
+                    | _ -> ()
         }            
     )
 
     do
         messagesProcessor.Error.Add(fun e ->
             Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
+            raise e
             )
 
     interface IInputGraph with
@@ -416,8 +486,9 @@ type ApplicationGraph() as this =
         messagesProcessor.Post <| AddState (PositionInApplicationGraph(method, offset))
         
     member this.MoveState (fromMethod : MethodBase) (fromOffset : offset) (toMethod : MethodBase) (toOffset : offset) =
-        
         //Add query here
+        if not <| cfgs.ContainsKey toMethod
+        then messagesProcessor.Post (AddCFG (None, toMethod))
         messagesProcessor.Post <| MoveState (PositionInApplicationGraph(fromMethod, fromOffset), PositionInApplicationGraph(toMethod,toOffset))
 
     member x.AddGoal (method : MethodBase) (offset : offset) =
