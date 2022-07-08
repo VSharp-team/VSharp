@@ -49,6 +49,59 @@ type CfgTemporaryData (methodBase : MethodBase) =
     let calls = ResizeArray<CallInfo>()
     let loopEntries = HashSet<offset>()
     
+    let opCodesWhichMayBeReplacedWithCallInRuntime =
+        [|
+            "ldsfld"
+            "stelem.i1"
+            "stelem.i2"
+            "stelem.i4"
+            "stelem.i8"
+            "stelem.r4"
+            "stelem.r8"
+            "stelem.i"
+            "stelem.ref"
+            "ldlen"
+            "ldfld"
+            "ldarg.0"
+            "ldarg.1"
+            "ldarg.2"
+            "ldelem.i1"
+            "ldelem.i2"
+            "ldelem.i4"
+            "ldelem.i8"
+            "ldelem.u1"
+            "ldelem.u2"
+            "ldelem.u4"
+            "ldelem.u8"
+            "ldelem.r4"
+            "ldelem.r8"
+            "ldelem.i"
+            "ldelem.ref"
+            "ldelema"
+            "sub.ovf"
+            "add.ovf"
+            "conv.ovf"
+            "conv.ovf.i1"
+            "conv.ovf.i2"
+            "conv.ovf.i4"
+            "conv.ovf.i8"
+            "conv.ovf.u1"
+            "conv.ovf.u2"
+            "conv.ovf.u4"
+            "conv.ovf.u8"
+            "conv.ovf.i1"
+            "conv.ovf.i2"
+            "conv.ovf.i4"
+            "conv.ovf.i"
+            "conv.ovf.u"
+            "mul.ovf"
+            "castclass"
+            "unbox"
+            "newarray"
+            "newarr"
+            "stfld"
+        |]
+    
     let dfs (startVertices : array<offset>) =
         let used = HashSet<offset>()        
         let verticesOffsets = HashSet<offset> startVertices
@@ -116,45 +169,42 @@ type CfgTemporaryData (methodBase : MethodBase) =
                     addEdge src dst
                     dfs' (BasicBlock dst)  dst
                 
+                let processCall callFrom returnTo isStaticCall =
+                    calls.Add(CallInfo(callFrom,returnTo,isStaticCall))
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    if isStaticCall
+                    then addEdge callFrom returnTo
+                    dfs' (BasicBlock returnTo) returnTo
+                
                 let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes currentVertex
-                if currentVertex = 23
-                then printfn "!!!"
+                
+                if currentVertex = 0
+                then
+                    Logger.trace $"OpCode: %A{opCode.Name}"
+                                
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
                     let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + opCode.Size)
                     if not <| Reflection.isExternalMethod calledMethod
-                    then
-                        calls.Add(CallInfo(currentVertex,offset))
-                        currentBasicBlock.FinalVertex <- currentVertex
-                        addEdge currentBasicBlock.StartVertex currentVertex
-                        dfs' (BasicBlock offset) offset
+                    then processCall currentVertex offset false
                     elif calledMethod.IsStatic 
-                    then
-                        calls.Add (CallInfo(currentVertex,offset,true))
-                        currentBasicBlock.FinalVertex <- currentVertex
-                        addEdge currentBasicBlock.StartVertex currentVertex
-                        addEdge currentVertex offset
-                        dfs' (BasicBlock offset) offset
+                    then processCall currentVertex offset true
                     else
                         currentBasicBlock.AddVertex offset
                         dfs' currentBasicBlock offset
                 | FallThrough offset ->
-                    if opCode.Name = "ldsfld"
-                    then
-                        calls.Add (CallInfo(currentVertex,offset,true))
-                        currentBasicBlock.FinalVertex <- currentVertex
-                        addEdge currentBasicBlock.StartVertex currentVertex
-                        addEdge currentVertex offset
-                        dfs' (BasicBlock offset) offset
+                    if Array.contains opCode.Name opCodesWhichMayBeReplacedWithCallInRuntime 
+                    then processCall currentVertex offset true
                     else 
-                    currentBasicBlock.AddVertex offset
-                    dfs' currentBasicBlock offset
+                        currentBasicBlock.AddVertex offset
+                        dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
                     //TODO gsv fix it.
                     Logger.trace $"Exception mechanism: %A{currentVertex}"
                     currentBasicBlock.FinalVertex <- currentVertex
                     addEdge currentBasicBlock.StartVertex currentVertex
-                    calls.Add(CallInfo(currentVertex,currentVertex))
+                    calls.Add(CallInfo(currentVertex,currentVertex+1))
                 | Return ->
                     addVertex currentVertex
                     sinks.Add currentVertex
@@ -191,6 +241,8 @@ type CfgTemporaryData (methodBase : MethodBase) =
             |]
         
         dfs startVertices
+        if methodBase.IsStatic
+        then calls.Add(CallInfo(0,0,true))
         
     member this.MethodBase = methodBase
     member this.ILBytes = ilBytes
@@ -345,10 +397,10 @@ type ApplicationGraph() as this =
         let callFrom = getVertex callSource
         let callTo = getVertex callTarget
         let returnTo = getVertex (PositionInApplicationGraph(callSource.Method, callerMethodCfgInfo.Calls.[callSource.Offset].ReturnTo))
-        if callerMethodCfgInfo.Calls.[callSource.Offset].IsExternalStaticCall
+        (*if callerMethodCfgInfo.Calls.[callSource.Offset].IsExternalStaticCall
         then
             let removed = vertices.[callFrom].Remove <| InputGraphEdge(terminalForCFGEdge, returnTo)
-            assert removed
+            assert removed*)
         if not (vertices.ContainsKey callFrom && vertices.[callFrom].Exists (fun edg -> edg.TargetVertex = callTo))
         then
             if not <| vertices.ContainsKey callFrom
@@ -365,7 +417,6 @@ type ApplicationGraph() as this =
             firstFreeCallTerminalId <- firstFreeCallTerminalId + 2<terminalSymbol>            
         
     let moveState (initialPosition: PositionInApplicationGraph) (finalPosition: PositionInApplicationGraph) =
-        //Logger.trace $"Move state form %A{initialPosition.Method.Name}, %A{initialPosition.Offset} to %A{finalPosition.Method.Name}, %A{finalPosition.Offset}"
         let initialVertexInInnerGraph = getVertex initialPosition            
         let finalVertexInnerGraph = getVertex finalPosition            
         if initialVertexInInnerGraph <> finalVertexInnerGraph
@@ -448,7 +499,7 @@ type ApplicationGraph() as this =
                             
                     | AddCallEdge (_from, _to) ->
                         addCallEdge _from _to
-                        toDot "cfg.dot"
+                        //toDot "cfg.dot"
                     | AddGoal pos -> addGoal pos
                     | RemoveGoal pos -> removeGoal pos
                     | AddState pos -> addState pos
@@ -480,6 +531,8 @@ type ApplicationGraph() as this =
     member this.AddCallEdge (sourceMethod : MethodBase) (sourceOffset : offset) (targetMethod : MethodBase) =
         if not <| cfgs.ContainsKey targetMethod
         then messagesProcessor.Post (AddCFG (None, targetMethod))
+        if not <| cfgs.ContainsKey sourceMethod
+        then messagesProcessor.Post (AddCFG (None, sourceMethod))
         messagesProcessor.Post <| AddCallEdge (PositionInApplicationGraph(sourceMethod, sourceOffset), PositionInApplicationGraph(targetMethod, 0))
 
     member this.AddState (method : MethodBase) (offset : offset) =            
