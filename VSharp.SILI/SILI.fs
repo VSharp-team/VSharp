@@ -136,10 +136,10 @@ type public SILI(options : SiliOptions) =
                 pool.Value.StepDone(s, s::newStates)
             | _ -> ()
             let loc' = s.currentLoc
-            CFG.applicationGraph.MoveState loc.method loc.offset loc'.method loc'.offset
+            CFG.applicationGraph.MoveState loc loc'
             newStates |> Seq.iter (fun newState ->
                 let loc = currentLoc newState
-                CFG.applicationGraph.AddState loc.method loc.offset)
+                CFG.applicationGraph.AddState loc)
             searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -154,7 +154,7 @@ type public SILI(options : SiliOptions) =
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
-                CFG.applicationGraph.AddGoal p.loc.method p.loc.offset
+                CFG.applicationGraph.AddGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
@@ -174,7 +174,7 @@ type public SILI(options : SiliOptions) =
     member private x.AnswerPobs entryPoint cmdArgs initialStates =
         statistics.ExplorationStarted()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
-        mainPobs |> Seq.iter (fun pob -> CFG.applicationGraph.AddGoal pob.loc.method pob.loc.offset)
+        mainPobs |> Seq.iter (fun pob -> CFG.applicationGraph.AddGoal pob.loc)
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs

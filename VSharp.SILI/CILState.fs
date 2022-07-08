@@ -131,7 +131,7 @@ module internal CilStateOperations =
         match ip2codeLocation ip with
         | Some loc' when loc'.method.GetMethodBody() <> null ->
             cilState.currentLoc <- loc'
-            CFG.applicationGraph.AddCallEdge loc.method loc.offset loc'.method
+            CFG.applicationGraph.AddCallEdge loc loc'.method
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 

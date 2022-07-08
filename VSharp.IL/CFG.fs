@@ -284,23 +284,17 @@ type CfgInfo (cfg:CfgTemporaryData) =
     member this.ResolveBasicBlock offset =
         resolveBasicBlock offset
 
-[<Struct>]
-type PositionInApplicationGraph =
-    val Method: MethodBase
-    val Offset: offset
-    new (method, offset) = {Method = method; Offset = offset}
-    
 type private ApplicationGraphMessage =
-    | AddGoal of PositionInApplicationGraph
-    | RemoveGoal of PositionInApplicationGraph
-    | AddState of PositionInApplicationGraph
-    | MoveState of positionForm:PositionInApplicationGraph * positionTo: PositionInApplicationGraph
+    | AddGoal of codeLocation
+    | RemoveGoal of codeLocation
+    | AddState of codeLocation
+    | MoveState of positionForm:codeLocation * positionTo: codeLocation
     | AddCFG of Option<AsyncReplyChannel<CfgInfo>> *  MethodBase
-    | AddCallEdge of callForm:PositionInApplicationGraph * callTo: PositionInApplicationGraph
+    | AddCallEdge of callForm:codeLocation * callTo: codeLocation
     | GetShortestDistancesToGoals
-        of AsyncReplyChannel<ResizeArray<PositionInApplicationGraph * PositionInApplicationGraph * int>> * array<PositionInApplicationGraph>
+        of AsyncReplyChannel<ResizeArray<codeLocation * codeLocation * int>> * array<codeLocation>
     | GetReachableGoals
-        of AsyncReplyChannel<Dictionary<PositionInApplicationGraph,HashSet<PositionInApplicationGraph>>> * array<PositionInApplicationGraph>
+        of AsyncReplyChannel<Dictionary<codeLocation,HashSet<codeLocation>>> * array<codeLocation>
     
 type ApplicationGraph() as this =        
     let mutable firstFreeVertexId = 0<inputGraphVertex>        
@@ -308,10 +302,10 @@ type ApplicationGraph() as this =
     let mutable firstFreeCallTerminalId = 1<terminalSymbol>
     let cfgToFirstVertexIdMapping = Dictionary<MethodBase,int<inputGraphVertex>>()
     let callEdgesTerminals = Dictionary<_,Dictionary<_,int<terminalSymbol>>>()        
-    let statesToInnerGraphVerticesMap = Dictionary<PositionInApplicationGraph, int<inputGraphVertex>>()
-    let innerGraphVerticesToStatesMap = Dictionary<int<inputGraphVertex>, PositionInApplicationGraph>()
-    let goalsToInnerGraphVerticesMap = Dictionary<PositionInApplicationGraph, int<inputGraphVertex>>()
-    let innerGraphVerticesToGoalsMap = Dictionary<int<inputGraphVertex>, PositionInApplicationGraph>()    
+    let statesToInnerGraphVerticesMap = Dictionary<codeLocation, int<inputGraphVertex>>()
+    let innerGraphVerticesToStatesMap = Dictionary<int<inputGraphVertex>, codeLocation>()
+    let goalsToInnerGraphVerticesMap = Dictionary<codeLocation, int<inputGraphVertex>>()
+    let innerGraphVerticesToGoalsMap = Dictionary<int<inputGraphVertex>, codeLocation>()    
     let cfgs = Dictionary<MethodBase, CfgInfo>()
     let vertices = Dictionary<int<inputGraphVertex>, ResizeArray<InputGraphEdge>>()
     
@@ -375,28 +369,28 @@ type ApplicationGraph() as this =
         
         cfg
         
-    let getVertex (pos:PositionInApplicationGraph) =
-        cfgToFirstVertexIdMapping.[pos.Method] + cfgs.[pos.Method].ResolveBasicBlock pos.Offset * 1<inputGraphVertex>
+    let getVertex (pos:codeLocation) =
+        cfgToFirstVertexIdMapping.[pos.method] + cfgs.[pos.method].ResolveBasicBlock pos.offset * 1<inputGraphVertex>
         
-    let addGoal (pos:PositionInApplicationGraph) = 
-        Logger.trace $"Add goal: %A{pos.Method.Name}, %A{pos.Offset}"
+    let addGoal (pos:codeLocation) = 
+        Logger.trace $"Add goal: %A{pos.method.Name}, %A{pos.offset}"
         let vertexInInnerGraph = getVertex pos
         goalsToInnerGraphVerticesMap.Add (pos, vertexInInnerGraph)
         innerGraphVerticesToGoalsMap.Add (vertexInInnerGraph, pos)
         
-    let removeGoal (pos:PositionInApplicationGraph) =
-        Logger.trace $"Remove goal: %A{pos.Method.Name}, %A{pos.Offset}"
+    let removeGoal (pos:codeLocation) =
+        Logger.trace $"Remove goal: %A{pos.method.Name}, %A{pos.offset}"
         let vertexInInnerGraph = getVertex pos
         goalsToInnerGraphVerticesMap.Remove pos |> ignore
         innerGraphVerticesToGoalsMap.Remove vertexInInnerGraph |> ignore
         
-    let addCallEdge (callSource:PositionInApplicationGraph) (callTarget:PositionInApplicationGraph) =
-        Logger.trace $"Add call edge from %A{callSource.Method}, %i{callSource.Offset} to %A{callTarget.Method}."       
-        let callerMethodCfgInfo = cfgs.[callSource.Method]
-        let calledMethodCfgInfo = cfgs.[callTarget.Method]
+    let addCallEdge (callSource:codeLocation) (callTarget:codeLocation) =
+        Logger.trace $"Add call edge from %A{callSource.method}, %i{callSource.offset} to %A{callTarget.method}."       
+        let callerMethodCfgInfo = cfgs.[callSource.method]
+        let calledMethodCfgInfo = cfgs.[callTarget.method]
         let callFrom = getVertex callSource
         let callTo = getVertex callTarget
-        let returnTo = getVertex (PositionInApplicationGraph(callSource.Method, callerMethodCfgInfo.Calls.[callSource.Offset].ReturnTo))
+        let returnTo = getVertex {callSource with offset = callerMethodCfgInfo.Calls.[callSource.offset].ReturnTo}
         (*if callerMethodCfgInfo.Calls.[callSource.Offset].IsExternalStaticCall
         then
             let removed = vertices.[callFrom].Remove <| InputGraphEdge(terminalForCFGEdge, returnTo)
@@ -407,7 +401,7 @@ type ApplicationGraph() as this =
             then vertices.Add(callFrom, ResizeArray())
             InputGraphEdge (firstFreeCallTerminalId, callTo)
             |> vertices.[callFrom].Add
-            let returnFromPoints = calledMethodCfgInfo.Sinks |>  Array.map(fun sink -> getVertex (PositionInApplicationGraph (callTarget.Method, sink)))  
+            let returnFromPoints = calledMethodCfgInfo.Sinks |>  Array.map(fun sink -> getVertex {callTarget with offset = sink})  
             for returnFrom in returnFromPoints do
                 if not <| vertices.ContainsKey returnFrom
                 then vertices.Add(returnFrom, ResizeArray())
@@ -416,7 +410,7 @@ type ApplicationGraph() as this =
                 
             firstFreeCallTerminalId <- firstFreeCallTerminalId + 2<terminalSymbol>            
         
-    let moveState (initialPosition: PositionInApplicationGraph) (finalPosition: PositionInApplicationGraph) =
+    let moveState (initialPosition: codeLocation) (finalPosition: codeLocation) =
         let initialVertexInInnerGraph = getVertex initialPosition            
         let finalVertexInnerGraph = getVertex finalPosition            
         if initialVertexInInnerGraph <> finalVertexInnerGraph
@@ -428,20 +422,20 @@ type ApplicationGraph() as this =
             if not <| innerGraphVerticesToStatesMap.ContainsKey finalVertexInnerGraph
             then innerGraphVerticesToStatesMap.Add(finalVertexInnerGraph,finalPosition)
             
-    let addState (pos:PositionInApplicationGraph) =
-        Logger.trace $"Add state: %A{pos.Method.Name}, %A{pos.Offset}"
+    let addState (pos:codeLocation) =
+        Logger.trace $"Add state: %A{pos.method.Name}, %A{pos.offset}"
         let vertexInInnerGraph = getVertex pos
         if not <| statesToInnerGraphVerticesMap.ContainsKey pos
         then statesToInnerGraphVerticesMap.Add(pos, vertexInInnerGraph)
         if not <| innerGraphVerticesToStatesMap.ContainsKey vertexInInnerGraph
         then innerGraphVerticesToStatesMap.Add(vertexInInnerGraph, pos)
         
-    let getReachableGoals (states:array<PositionInApplicationGraph>) =
+    let getReachableGoals (states:array<codeLocation>) =
         Logger.trace $"Get reachable goals for %A{states}."
         let query = buildQuery()
         let statesInInnerGraph =
             states
-            |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.Method] + state.Offset * 1<inputGraphVertex>)
+            |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.method] + state.offset * 1<inputGraphVertex>)
         let res = GLL.eval this statesInInnerGraph query Mode.ReachabilityOnly
         match res with
         | QueryResult.ReachabilityFacts facts ->
@@ -455,12 +449,12 @@ type ApplicationGraph() as this =
             
         | _ -> failwith "Impossible!"
         
-    let getShortestDistancesToGoal (states:array<PositionInApplicationGraph>) =
+    let getShortestDistancesToGoal (states:array<codeLocation>) =
         Logger.trace $"Get shortest distances for %A{states}."
         let query = buildQuery()
         let statesInInnerGraph =
             states
-            |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.Method] + state.Offset * 1<inputGraphVertex>)
+            |> Array.map (fun state -> cfgToFirstVertexIdMapping.[state.method] + state.offset * 1<inputGraphVertex>)
         let goalsInInnerGraph =
             goalsToInnerGraphVerticesMap
             |> Seq.map (fun kvp -> kvp.Value)
@@ -476,7 +470,17 @@ type ApplicationGraph() as this =
                 distance
                 )
         
-    let messagesProcessor = MailboxProcessor.Start(fun inbox ->            
+    let messagesProcessor = MailboxProcessor.Start(fun inbox ->
+        let tryGetCfgInfo methodBase =
+            let exists,cfgInfo = cfgs.TryGetValue methodBase  
+            if not exists
+            then
+                let cfg = buildCFG methodBase
+                let cfgInfo = CfgInfo cfg
+                cfgs.Add(methodBase, cfgInfo)
+                cfgInfo
+            else cfgInfo
+            
         async{            
             while true do
                 let! message = inbox.Receive()
@@ -487,23 +491,20 @@ type ApplicationGraph() as this =
                             match replyChannel with
                             | Some ch -> ch.Reply cfgInfo
                             | None -> ()
-                        let exists, cfgInfo = cfgs.TryGetValue methodBase                    
-                        if exists
-                        then reply cfgInfo
-                        else
-                            let cfg = buildCFG methodBase
-                            let cfgInfo = CfgInfo cfg
-                            reply cfgInfo
-                            cfgs.Add(methodBase, cfgInfo)
-                            Logger.trace $"Vertices in application graph: %i{vertices.Count}"
+                        let cfgInfo = tryGetCfgInfo methodBase                    
+                        reply cfgInfo                        
                             
                     | AddCallEdge (_from, _to) ->
+                        tryGetCfgInfo _from.method |> ignore
+                        tryGetCfgInfo _to.method |> ignore                       
                         addCallEdge _from _to
                         //toDot "cfg.dot"
                     | AddGoal pos -> addGoal pos
                     | RemoveGoal pos -> removeGoal pos
                     | AddState pos -> addState pos
-                    | MoveState (_from,_to) -> moveState _from _to
+                    | MoveState (_from,_to) ->
+                        tryGetCfgInfo _from.method |> ignore                            
+                        moveState _from _to
                     | GetShortestDistancesToGoals (replyChannel, states) -> replyChannel.Reply (getShortestDistancesToGoal states)
                     | GetReachableGoals (replyChannel, states) -> replyChannel.Reply (getReachableGoals states)
                 with
@@ -528,32 +529,26 @@ type ApplicationGraph() as this =
     member this.GetCfg (methodBase: MethodBase) =        
             messagesProcessor.PostAndReply (fun ch -> AddCFG (Some ch, methodBase))
     
-    member this.AddCallEdge (sourceMethod : MethodBase) (sourceOffset : offset) (targetMethod : MethodBase) =
-        if not <| cfgs.ContainsKey targetMethod
-        then messagesProcessor.Post (AddCFG (None, targetMethod))
-        if not <| cfgs.ContainsKey sourceMethod
-        then messagesProcessor.Post (AddCFG (None, sourceMethod))
-        messagesProcessor.Post <| AddCallEdge (PositionInApplicationGraph(sourceMethod, sourceOffset), PositionInApplicationGraph(targetMethod, 0))
+    member this.AddCallEdge (sourceLocation : codeLocation) (targetMethod : MethodBase) =        
+        messagesProcessor.Post <| AddCallEdge (sourceLocation, {offset = 0; method = targetMethod})
 
-    member this.AddState (method : MethodBase) (offset : offset) =            
-        messagesProcessor.Post <| AddState (PositionInApplicationGraph(method, offset))
+    member this.AddState (location:codeLocation) =            
+        messagesProcessor.Post <| AddState location
         
-    member this.MoveState (fromMethod : MethodBase) (fromOffset : offset) (toMethod : MethodBase) (toOffset : offset) =
-        //Add query here
-        if not <| cfgs.ContainsKey toMethod
-        then messagesProcessor.Post (AddCFG (None, toMethod))
-        messagesProcessor.Post <| MoveState (PositionInApplicationGraph(fromMethod, fromOffset), PositionInApplicationGraph(toMethod,toOffset))
+    member this.MoveState (fromLocation : codeLocation) (toLocation : codeLocation) =
+        //Add query here        
+        messagesProcessor.Post <| MoveState (fromLocation, toLocation)
 
-    member x.AddGoal (method : MethodBase) (offset : offset) =
-        messagesProcessor.Post <| AddGoal (PositionInApplicationGraph(method, offset))    
+    member x.AddGoal (location:codeLocation) =
+        messagesProcessor.Post <| AddGoal location    
 
-    member x.RemoveGoal (method : MethodBase) (offset : offset) =
-        messagesProcessor.Post <| RemoveGoal (PositionInApplicationGraph(method, offset))
+    member x.RemoveGoal (location:codeLocation) =
+        messagesProcessor.Post <| RemoveGoal location
     
-    member this.GetShortestDistancesToAllGoalsFromStates (states: array<PositionInApplicationGraph>) =
+    member this.GetShortestDistancesToAllGoalsFromStates (states: array<codeLocation>) =
         messagesProcessor.PostAndReply (fun ch -> GetShortestDistancesToGoals(ch, states))
             
-    member this.GetGoalsReachableFromStates (states: array<PositionInApplicationGraph>) =            
+    member this.GetGoalsReachableFromStates (states: array<codeLocation>) =            
         messagesProcessor.PostAndReply (fun ch -> GetReachableGoals(ch, states))
 
 module CFG =
