@@ -5,6 +5,7 @@ before_build:
   - dotnet restore
   - git submodule update --init z3
   - git submodule update --init runtime
+  - git submodule update --init CFPQ_GLL
 
 configuration: Release
 
