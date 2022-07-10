@@ -25,16 +25,11 @@
 
     <ItemGroup>
       <ProjectReference Include="..\LoanExam\LoanExam.csproj" />
-      <ProjectReference Include="..\SourceGenerator\SourceGenerator.csproj" />
       <ProjectReference Include="..\VSharp.API\VSharp.API.csproj" />
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
     </ItemGroup>
-
-
-    <ItemGroup>
-        <ProjectReference Include="..\SourceGenerator\SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    </ItemGroup>
+    
 </Project>
