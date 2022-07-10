@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 #nowarn "69"
 
+open System
 open VSharp
 open VSharp.Core.Types
 
@@ -218,6 +219,7 @@ module internal TypeCasting =
         | _ when t = typeof<uint64>  -> UInt64
         | _ when t = typeof<float32> -> F
         | _ when t = typeof<float>   -> D
+        | _ when t = typeof<Decimal>   -> Dec
         | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 
