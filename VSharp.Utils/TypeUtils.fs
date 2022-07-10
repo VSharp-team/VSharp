@@ -145,6 +145,7 @@ module TypeUtils =
         | _ when t = typeof<UInt64>     -> OpCodes.Conv_U8
         | _ when t = typeof<float32>    -> OpCodes.Conv_R4
         | _ when t = typeof<float>      -> OpCodes.Conv_R8
+        | _ when t = typeof<Decimal>    -> __unreachable__()
         | _ when t = typeof<Boolean>    -> __unreachable__()
         | _ when t = typeof<nativeint>  -> __unreachable__()
         | _ when t = typeof<unativeint> -> __unreachable__()
