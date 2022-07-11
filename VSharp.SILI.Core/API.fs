@@ -50,6 +50,13 @@ module API =
         let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
         let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
         let addresses = HashSet<concreteHeapAddress>()
+        model.state.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
+            addresses.Add(addr) |> ignore
+            Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
+                let list = List<Type>()
+                addr |> typeOfAddress |> Types.toDotNetType |> list.Add
+                list) |> ignore)
+
         let add dict address typ =
             match model.Eval address with
             | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
@@ -58,11 +65,6 @@ module API =
                 let typ = Types.toDotNetType typ
                 if not <| list.Contains typ then
                     list.Add typ
-                Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
-                    let list = List<Type>()
-                    addr |> typeOfAddress |> Types.toDotNetType |> list.Add
-                    list)
-                |> ignore
             | {term = ConcreteHeapAddress _} -> ()
             | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
 
@@ -86,7 +88,7 @@ module API =
                                      notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
             |> List.ofSeq
         let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = m.GetGenericArguments()
+        let methodGenericParameters = if m.IsConstructor then [||] else m.GetGenericArguments()
         let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
         | TypeSat(refsTypes, typeParams) ->
