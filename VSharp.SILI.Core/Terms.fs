@@ -427,7 +427,10 @@ module internal Terms =
             let enumValue = TypeUtils.convert underlyingValue t
             Concrete enumValue (fromDotNetType t)
         elif actualType.IsEnum && TypeUtils.isNumeric t then
-            Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+            try
+                Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+            with :? OverflowException ->
+                Concrete concrete (fromDotNetType t)
         elif TypeUtils.canConvert actualType t then
             Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
         elif t.IsAssignableFrom(actualType) then

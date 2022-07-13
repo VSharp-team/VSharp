@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 
 open VSharp
+open VSharp.Interpreter.IL
 open VSharp.Utils
 open VSharp.Core
 open CilStateOperations
@@ -39,6 +40,7 @@ type TargetedSearcher(maxBound, target) =
             match x.TryGetWeight state with
             | None when not state.suspended ->
                 removeTarget state target
+
             | _ -> ()
 
     member x.TargetedInsert states : cilState list =
@@ -87,7 +89,6 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let resume (state : cilState) : unit =
         state.suspended <- false
     let violatesRecursionLevel s =
-        let startingLoc = startingLoc s
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->
@@ -217,3 +218,11 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             insertInTargetedSearchers states
         override x.Pick() = pick ()
         override x.Update (parent, newStates) = update parent newStates
+        override x.States() =
+            seq {
+                yield baseSearcher.States()
+                yield! targetedSearchers |> Seq.map (fun kvp -> (kvp.Value :> IForwardSearcher).States())
+            } |> Seq.concat
+
+type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
+    inherit SampledWeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics))

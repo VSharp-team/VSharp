@@ -5,7 +5,8 @@ open System.Diagnostics
 type searchMode =
     | DFSMode
     | BFSMode
-    | GuidedMode
+    | ShortestDistanceBasedMode
+    | GuidedMode of searchMode
 
 type coverageZone =
     | MethodZone
@@ -20,5 +21,9 @@ type executionMode =
     | ConcolicMode
     | SymbolicMode
 
-type SiliOptions =
-    {explorationMode : explorationMode; executionMode : executionMode; recThreshold : uint32}
+type SiliOptions = {
+     explorationMode : explorationMode
+     executionMode : executionMode
+     recThreshold : uint32
+     timeout : int
+     }

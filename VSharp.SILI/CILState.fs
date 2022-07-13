@@ -44,7 +44,6 @@ type cilStateComparer(comparer) =
 module internal CilStateOperations =
 
     let makeCilState curV initialEvaluationStackSize state =
-        let loc = ip2codeLocation curV |> Option.get
         { ipStack = [curV]
           state = state
           filterResult = None

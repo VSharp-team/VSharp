@@ -55,6 +55,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             | _ ->
                 let reached = targeted.Update parent children
                 Seq.iter (backward.AddBranch >> ignore) reached
+        override x.States() = forward.States()
 
         override x.Pick () =
             match forward.Pick() with
@@ -77,6 +78,19 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //                        backward.RemoveBranch s
 //                        GoFront s
 //                    | None -> Stop
+
+type OnlyForwardSearcher(searcher : IForwardSearcher) =
+    interface IBidirectionalSearcher with
+        override x.Init m cilStates _ = searcher.Init cilStates
+        override x.Statuses() = []
+        override x.Answer _ _ = ()
+        override x.UpdatePobs _ _ = ()
+        override x.UpdateStates parent children = searcher.Update(parent, children)
+        override x.Pick () =
+            match searcher.Pick() with
+            | Some s -> GoFront s
+            | None -> Stop
+        override x.States() = searcher.States()
 
 // TODO: check pob duplicates
 type BackwardSearcher() =
