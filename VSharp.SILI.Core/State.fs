@@ -144,7 +144,8 @@ and
         abstract Compose : state -> term
         
 module public State =
-    let makeEmpty modelState = {
+    
+    let private makeEmptyInternal modelState = {
         id = Guid.NewGuid().ToString()
         pc = PC.create()
         evaluationStack = EvaluationStack.empty
@@ -168,3 +169,7 @@ module public State =
         model =
             Option.bind (fun state -> Some {subst = Dictionary<_,_>(); state = state; complete = true}) modelState
     }
+    
+    let makeEmptyWithModel modelState = makeEmptyInternal (Some modelState)
+
+    let makeEmpty() = makeEmptyInternal None

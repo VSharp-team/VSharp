@@ -36,31 +36,23 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
         
+    let private getOrEmpty = Option.defaultValue { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
+        
     let private checkSatPlainly state =
         let ctx = getEncodingContext state
         let formula = state.pc.ToSeq() |> conjunction
         match solver with
-        | Some s ->
-            let model = 
-                state.model
-                |> Option.defaultValue { state = State.makeEmpty None; subst = Dictionary<_, _>(); complete = true }
-            s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = model }
+        | Some s -> s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = getOrEmpty state.model }
         | None -> SmtUnknown "Solver not configured"
  
     let private checkSatIncrementally state =
         let ctx = getEncodingContext state
         let conditions = state.pc |> PC.toSeq
         match solver with
-        | Some s ->
-            let model = 
-                state.model
-                |> Option.defaultValue { state = State.makeEmpty None; subst = Dictionary<_, _>(); complete = true }
-            s.CheckAssumptions ctx model conditions
+        | Some s -> s.CheckAssumptions ctx (getOrEmpty state.model) conditions
         | None -> SmtUnknown "Solver not configured"
         
     let checkSat state =
         // TODO: need to solve types here? #do
-        if FeatureFlags.current.isIncrementalityEnabled then
-            checkSatIncrementally state
-        else
-            checkSatPlainly state
+        if FeatureFlags.current.isIncrementalityEnabled then checkSatIncrementally state
+        else checkSatPlainly state

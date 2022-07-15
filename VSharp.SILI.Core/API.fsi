@@ -210,7 +210,8 @@ module API =
         val EmptyStack : evaluationStack
 
     module public Memory =
-        val EmptyState : state option -> state
+        val EmptyState : unit -> state
+        val EmptyStateWithModel : state -> state
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
@@ -253,7 +254,7 @@ module API =
 
         val InitializeStaticMembers : state -> symbolicType -> unit
 
-        val Allocate : state -> stackKey -> term -> unit
+        val AllocateOnStack : state -> stackKey -> term -> unit
         val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term
         val AllocateDefaultClass : state -> symbolicType -> term
         val AllocateDefaultArray : state -> term list -> symbolicType -> term

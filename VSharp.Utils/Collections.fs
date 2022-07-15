@@ -37,8 +37,8 @@ module public Seq =
     /// </summary>
     let splitBy condition seq =
         let grouped = Seq.groupBy (fun element -> condition element) seq
-        match (Seq.tryFind (fun (value, _) -> value) grouped),
-            (Seq.tryFind (fun (value, _) -> value |> not) grouped) with
+        match Seq.tryFind (fun (value, _) -> value) grouped,
+            Seq.tryFind (fun (value, _) -> value |> not) grouped with
         | Some(_, trueSeq), Some(_, falseSeq) -> trueSeq, falseSeq
         | Some(_, trueSeq), None -> trueSeq, Seq.empty
         | None, Some(_, falseSeq) -> Seq.empty, falseSeq

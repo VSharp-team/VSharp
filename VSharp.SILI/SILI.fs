@@ -15,7 +15,7 @@ type public SILI(options : SiliOptions) =
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
-    let emptyState = Memory.EmptyState None
+    let emptyState = Memory.EmptyState()
     let isConcolicMode =
         match options.executionMode with
         | ConcolicMode -> true
@@ -80,9 +80,9 @@ type public SILI(options : SiliOptions) =
         action.Invoke e
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
-        let modelState = Memory.EmptyState None
+        let modelState = Memory.EmptyState()
         Memory.FillWithParametersAndThis modelState method
-        let initialState = Memory.EmptyState (Some modelState)
+        let initialState = Memory.EmptyStateWithModel modelState
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -199,9 +199,9 @@ type public SILI(options : SiliOptions) =
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
-        let modelState = Memory.EmptyState None
+        let modelState = Memory.EmptyState()
         Memory.FillWithParametersAndThis modelState method
-        let state = Memory.EmptyState (Some modelState)
+        let state = Memory.EmptyStateWithModel modelState
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = Types.FromDotNetType typeof<string>

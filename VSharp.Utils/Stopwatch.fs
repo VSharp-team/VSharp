@@ -30,7 +30,7 @@ module Stopwatch =
     let private csvFilename = "benchmark.csv"    
     let private measurements = Dictionary<string, measurement>()
     
-    let private getGitCommitHash () =
+    let private getGitCommitHash() =
         let procStartInfo = ProcessStartInfo("git", "rev-parse --short HEAD")
 
         procStartInfo.RedirectStandardOutput <- true
@@ -52,7 +52,7 @@ module Stopwatch =
     /// <param name="action">Function to run</param>
     let public runMeasuringTime tag action =
         let measurement =
-            if (measurements.ContainsKey tag) then
+            if measurements.ContainsKey tag then
                 measurements.[tag]
             else
                 let newMeasurement = { stopwatch = Stopwatch(); timesCalled = 0 }
@@ -72,7 +72,7 @@ module Stopwatch =
     /// <summary>
     /// Stops all running measurements
     /// </summary>
-    let public stopAll () =
+    let public stopAll() =
         measurements
         |> Seq.map (|KeyValue|)
         |> Seq.iter (fun (_, m) -> m.stopwatch.Stop())
@@ -88,21 +88,22 @@ module Stopwatch =
         let currentDateTime = DateTime.Now.ToString("yyyy-MM-ddTHH-mm-ss")
         let commitHash = getGitCommitHash()
         
+        let createRecord (tag, measurement : measurement)  =
+            {
+                commitHash = commitHash
+                dateTime = currentDateTime
+                caseName = caseName
+                tag = tag
+                timesCalled = measurement.timesCalled
+                totalTicks = measurement.stopwatch.ElapsedTicks
+                totalMs = measurement.stopwatch.ElapsedMilliseconds
+                testsGenerated = testsGenerated
+            }
+            
         let records =
             measurements
             |> Seq.map (|KeyValue|)
-            |> Seq.map (fun (tag, m) ->
-                {
-                    commitHash = commitHash
-                    dateTime = currentDateTime
-                    caseName = caseName
-                    tag = tag
-                    timesCalled = m.timesCalled
-                    totalTicks = m.stopwatch.ElapsedTicks
-                    totalMs = m.stopwatch.ElapsedMilliseconds
-                    testsGenerated = testsGenerated
-                }
-            )
+            |> Seq.map createRecord
         
         let targetPath = Path.Combine(csvPath, csvFilename)
         
@@ -119,4 +120,4 @@ module Stopwatch =
     /// <summary>
     /// Clears all current measurements
     /// </summary>
-    let public clear () = measurements.Clear()
+    let public clear() = measurements.Clear()

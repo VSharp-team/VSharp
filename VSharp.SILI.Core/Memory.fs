@@ -703,7 +703,7 @@ module internal Memory =
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte endByte
+        readFieldsUnsafe (State.makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
     and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
@@ -1030,7 +1030,7 @@ module internal Memory =
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe (State.makeEmpty None) (fun _ -> __unreachable__()) readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (State.makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 

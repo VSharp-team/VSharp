@@ -37,30 +37,30 @@ module internal Z3 =
 
     type private encodingCache = {
         sorts : IDictionary<symbolicType, Sort>
-        e2t : IDictionary<Expr, term>
-        t2e : IDictionary<term, encodingResult>
+        expressionToTerm : IDictionary<Expr, term>
+        termToExpression : IDictionary<term, encodingResult>
         heapAddresses : IDictionary<symbolicType * Expr, vectorTime>
         staticKeys : IDictionary<Expr, symbolicType>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
-            Dict.tryGetValue2 x.t2e term (fun () ->
+            Dict.tryGetValue2 x.termToExpression term (fun () ->
                 let result = {expr = encoder(); assumptions = List.empty}
-                x.e2t.[result.expr] <- term
-                x.t2e.[term] <- result
+                x.expressionToTerm.[result.expr] <- term
+                x.termToExpression.[term] <- result
                 result)
         member x.Get(term, encoder : unit -> encodingResult) =
-            Dict.tryGetValue2 x.t2e term (fun () ->
+            Dict.tryGetValue2 x.termToExpression term (fun () ->
                 let result = encoder()
-                x.e2t.[result.expr] <- term
-                x.t2e.[term] <- result
+                x.expressionToTerm.[result.expr] <- term
+                x.termToExpression.[term] <- result
                 result)
 
     let private freshCache () = {
         sorts = Dictionary<symbolicType, Sort>()
-        e2t = Dictionary<Expr, term>()
-        t2e = Dictionary<term, encodingResult>()
+        expressionToTerm = Dictionary<Expr, term>()
+        termToExpression = Dictionary<term, encodingResult>()
         heapAddresses = Dictionary<symbolicType * Expr, vectorTime>()
         staticKeys = Dictionary<Expr, symbolicType>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
@@ -71,7 +71,7 @@ module internal Z3 =
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
-        let emptyState = Memory.EmptyState None
+        let emptyState = Memory.EmptyState()
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
@@ -84,8 +84,8 @@ module internal Z3 =
         member x.Reset() =
             encodingCache <- freshCache()
             
-        member x.ClearT2E() =
-            encodingCache.t2e.Clear()
+        member x.ClearTermToExpressionCache() =
+            encodingCache.termToExpression.Clear()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -617,12 +617,12 @@ module internal Z3 =
                 let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
-                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                if encodingCache.expressionToTerm.ContainsKey(expr) then encodingCache.expressionToTerm.[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String
             | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
             | _ ->
-                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                if encodingCache.expressionToTerm.ContainsKey(expr) then encodingCache.expressionToTerm.[expr]
                 elif expr.IsTrue then True
                 elif expr.IsFalse then False
                 elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
@@ -661,7 +661,7 @@ module internal Z3 =
 
         member x.UpdateModel (z3Model : Model) (targetModel : model) =
             let stackEntries = Dictionary<stackKey, term ref>()
-            encodingCache.t2e |> Seq.iter (fun kvp ->
+            encodingCache.termToExpression |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
                     let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
@@ -682,13 +682,13 @@ module internal Z3 =
                     targetModel.subst.[source] <- term
                 | _ -> ())
 
-            if (Memory.IsStackEmpty targetModel.state) then
+            if Memory.IsStackEmpty targetModel.state then
                 Memory.NewStackFrame targetModel.state null List.empty
             
             stackEntries |> Seq.iter (fun kvp ->
                     let key = kvp.Key
                     let term = !kvp.Value
-                    Memory.Allocate targetModel.state key term)
+                    Memory.AllocateOnStack targetModel.state key term)
 
             let defaultValues = Dictionary<regionSort, term ref>()
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
@@ -736,7 +736,7 @@ module internal Z3 =
             targetModel.state.startingTime <- VectorTime.min targetModel.state.startingTime [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            encodingCache.t2e.Clear()
+            encodingCache.termToExpression.Clear()
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
@@ -812,13 +812,13 @@ module internal Z3 =
 //                            pathAtoms
 //                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
 //                            |> Seq.map (fun atom -> paths.[atom])
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtSat { mdl = updatedModel; usedPaths = [](*usedPaths*) }
                     | Status.UNSATISFIABLE ->
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
                 with
@@ -853,13 +853,13 @@ module internal Z3 =
                     seq {
                         yield! Seq.cast<BoolExpr> encoded.assumptions
                         yield encoded.expr :?> BoolExpr
-                }
+                    }
                 try                    
                     let exprs = Seq.collect encodeToBoolExprs formulas
                     let boolConsts = seq {
                         for expr in exprs do
                             let mutable name = ""
-                            if (assumptions.TryGetValue(expr, &name)) then
+                            if assumptions.TryGetValue(expr, &name) then
                                 yield ctx.MkBoolConst name
                             else
                                 name <- $"p{assumptions.Count}"
@@ -871,21 +871,20 @@ module internal Z3 =
                                 yield boolConst
                     }
                     let names = boolConsts |> Seq.map (fun c -> c.ToString())
-                    let amp = " & "
-                    printLog Trace $"SOLVER: check: {join amp names}"
+                    printLog Trace $"""SOLVER: check: {join " & " names}"""
                     let result = optCtx.Check boolConsts
                     match result with
                     | Status.SATISFIABLE ->
                         let z3Model = optCtx.Model
                         let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
                         builder.UpdateModel z3Model updatedModel
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtSat { mdl = updatedModel; usedPaths = [] }
                     | Status.UNSATISFIABLE ->
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtUnsat { core = Array.empty }
                     | Status.UNKNOWN ->
-                        builder.ClearT2E()
+                        builder.ClearTermToExpressionCache()
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
                 with

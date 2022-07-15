@@ -26,14 +26,11 @@ module internal PC =
             constraints.Clear()
             isFalse <- true
             
-        new() =
-            PathCondition(HashSet<term>(), false)
+        new() = PathCondition(HashSet<term>(), false)
             
         override this.ToString() =
-            if (this :> IPathCondition).IsEmpty then
-                "true"
-            else
-                Seq.map (fun c -> $"({c})") constraints |> join " /\ "
+            if (this :> IPathCondition).IsEmpty then "true"
+            else Seq.map (fun c -> $"({c})") constraints |> join " /\ "
 
         interface IPathCondition with
         
@@ -47,8 +44,7 @@ module internal PC =
                 | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
                 | _ -> constraints.Add(newConstraint) |> ignore
                 
-            member this.Copy() =
-                PathCondition(HashSet(constraints), isFalse)
+            member this.Copy() = PathCondition(HashSet(constraints), isFalse)
                 
             member this.ToSeq() = seq constraints
             
@@ -75,8 +71,7 @@ module internal PC =
         | Node of term
         | Empty
 
-    let private unwrapNode =
-        function
+    let private unwrapNode = function
         | Tail(constant, _) -> constant
         | Node(constant) -> constant
         | Empty -> invalidOp "Cannot unwrap empty node"
@@ -110,7 +105,7 @@ module internal PC =
         /// </summary>
         let rec findPrevious constant =            
             match nextNode constant with
-            | Tail _ -> Some(constant)
+            | Tail _ -> Some constant
             | Node nextTerm -> findPrevious nextTerm
             | Empty -> None
 
@@ -119,9 +114,9 @@ module internal PC =
         /// oneConstant and anotherConstant don't need to be the representatives
         /// </summary>
         let union oneConstant anotherConstant =
-            match (findPrevious oneConstant), (findPrevious anotherConstant) with
-            | Some(onePrevious), Some(anotherPrevious) ->
-                match (nextNode onePrevious), (nextNode anotherPrevious) with
+            match findPrevious oneConstant, findPrevious anotherConstant with
+            | Some onePrevious, Some anotherPrevious ->
+                match nextNode onePrevious, nextNode anotherPrevious with
                 | Tail(oneRepresentative, oneConstraints), Tail(anotherRepresentative, anotherConstraints) when
                     oneRepresentative <> anotherRepresentative ->
                         let constraintsUnion = PersistentSet.union oneConstraints anotherConstraints
@@ -163,22 +158,20 @@ module internal PC =
         /// <param name="constraintsToAdd">Constraints to add to the tail</param>
         let addSubset (constants : Dictionary<term, node>) constantsToAdd constraintsToAdd =
             let firstConstant = constantsToAdd |> Seq.head
-            if Seq.length constantsToAdd = 1 then
-                constants.[firstConstant] <- Tail(firstConstant, constraintsToAdd)
-            else
-                constantsToAdd 
-                |> Seq.pairwise 
-                |> Seq.iteri (fun i (previous, next) ->
-                        if (i <> Seq.length constantsToAdd - 2) then
-                            constants.[previous] <- Node(next)
-                        else
-                            constants.[previous] <- Tail(next, constraintsToAdd)
-                            constants.[next] <- Node(firstConstant)
-                    )
+            
+            let addNode i (previous, next) =
+                if i <> Seq.length constantsToAdd - 2 then
+                    constants.[previous] <- Node(next)
+                else
+                    constants.[previous] <- Tail(next, constraintsToAdd)
+                    constants.[next] <- Node(firstConstant)
+                    
+            if Seq.length constantsToAdd = 1 then constants.[firstConstant] <- Tail(firstConstant, constraintsToAdd)
+            else constantsToAdd |> Seq.pairwise |> Seq.iteri addNode
                 
         let addConstraintsToSubset subsetConstant constraintsToAdd =
             match findPrevious subsetConstant with
-            | Some(previous) ->
+            | Some previous ->
                 match nextNode previous with
                 | Tail(representative, constraints) ->
                         let constraintsUnion = PersistentSet.union constraints constraintsToAdd
@@ -186,24 +179,20 @@ module internal PC =
                 | _ -> __unreachable__()
             | _ -> __unreachable__()
 
-        let constSourcesIndependent =
-            function
-                | ConstantT(_, oneSrc, _), ConstantT(_, anotherSrc, _) -> oneSrc.IndependentWith anotherSrc
-                | _ -> true
+        let constSourcesIndependent = function
+            | ConstantT(_, oneSrc, _), ConstantT(_, anotherSrc, _) -> oneSrc.IndependentWith anotherSrc
+            | _ -> true
 
         let addNewConstraintWithMerge newConstraint = 
             let constraintConstants = discoverConstants [newConstraint]
-            let oldConstants, newConstants = 
-                constraintConstants
-                    |> Seq.splitBy constants.ContainsKey
+            let oldConstants, newConstants = constraintConstants |> Seq.splitBy constants.ContainsKey
             
             // are there constraints without constants at all?
             // answer: yes, in ArrayConcreteUnsafeRead, is it ok?
             let newConstraintSet = PersistentSet.add PersistentSet.empty newConstraint
-            if Seq.isEmpty newConstants |> not then
-                addSubset constants newConstants newConstraintSet
-            else if Seq.isEmpty oldConstants |> not then
-                addConstraintsToSubset (Seq.head oldConstants) newConstraintSet
+            
+            if Seq.isEmpty newConstants |> not then addSubset constants newConstants newConstraintSet
+            elif Seq.isEmpty oldConstants |> not then addConstraintsToSubset (Seq.head oldConstants) newConstraintSet
                 
             constraints.Add(newConstraint) |> ignore
 
@@ -211,27 +200,23 @@ module internal PC =
                 |> Seq.filter (constSourcesIndependent >> not)
                 |> Seq.iter (fun (oneConst, anotherConst) -> union oneConst anotherConst)
 
-            match (Seq.tryHead oldConstants) with
-            | Some(someOldConstant) -> 
+            match Seq.tryHead oldConstants with
+            | Some someOldConstant -> 
                 Seq.iter (union someOldConstant) oldConstants
-                match (Seq.tryHead newConstants) with
-                | Some(someNewConstant) -> union someNewConstant someOldConstant
+                match Seq.tryHead newConstants with
+                | Some someNewConstant -> union someNewConstant someOldConstant
                 | _ -> ()
             | _ -> ()
 
-        internal new() =
-            IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
+        internal new() = IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
-            if (this :> IPathCondition).IsEmpty then
-                "true"
-            else
-                Seq.map (fun c -> $"({c})") constraints |> join " /\ "
+            if (this :> IPathCondition).IsEmpty then "true"
+            else Seq.map (fun c -> $"({c})") constraints |> join " /\ "
             
         interface IPathCondition with
 
-            member this.Copy() =
-                IndependentPathCondition(Dictionary(constants), HashSet(constraints), isFalse)
+            member this.Copy() = IndependentPathCondition(Dictionary(constants), HashSet(constraints), isFalse)
 
             member this.IsFalse = isFalse
 
@@ -264,17 +249,17 @@ module internal PC =
             /// one path condition are independent with constants contained in another one 
             /// </summary>
             member this.Fragments =
+                let getSubsetByRepresentative = function
+                    | Tail(representative, constraints) ->
+                        let constants = Dictionary<term, node>()
+                        addSubset constants (subset  representative) constraints
+                        let constraints = HashSet(PersistentSet.toSeq constraints)
+                        Some(IndependentPathCondition(constants, constraints, false))
+                    | _ -> None                
+               
                 if isFalse then
                     Seq.singleton this
                 else
-                    let getSubsetByRepresentative =
-                        function
-                        | Tail(representative, constraints) ->
-                            let constants = Dictionary<term, node>()
-                            addSubset constants (subset  representative) constraints
-                            let constraints = HashSet(PersistentSet.toSeq constraints)
-                            Some(IndependentPathCondition(constants, constraints, false))
-                        | _ -> None
                     Seq.choose getSubsetByRepresentative constants.Values
                     |> Seq.cast<IPathCondition>
                     
@@ -291,8 +276,6 @@ module internal PC =
     
     let public unionWith anotherPc (pc : IPathCondition) = pc.UnionWith anotherPc
     
-    let public create () : IPathCondition =
-        if FeatureFlags.current.isConstraintIndependenceEnabled then
-            IndependentPathCondition()
-        else
-            PathCondition()
+    let public create() : IPathCondition =
+        if FeatureFlags.current.isConstraintIndependenceEnabled then IndependentPathCondition()
+        else PathCondition()

@@ -344,7 +344,8 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState modelState = State.makeEmpty modelState
+        let EmptyState() = State.makeEmpty()
+        let EmptyStateWithModel modelState = State.makeEmptyWithModel modelState
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -469,7 +470,7 @@ module API =
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
             
-        let Allocate state key term = Memory.allocateOnStack state key term
+        let AllocateOnStack state key term = Memory.allocateOnStack state key term
 
         let AllocateTemporaryLocalVariable state typ term =
             let tmpKey = TemporaryLocalVariableKey typ
