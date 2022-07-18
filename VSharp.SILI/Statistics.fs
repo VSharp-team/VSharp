@@ -119,6 +119,9 @@ type public SILIStatistics() =
                 visitedWithHistory.Add(current, historyRef.Value)
             (historyRef.Value).UnionWith visited
 
+    member x.IsCovered (loc : codeLocation) =
+       Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
+
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)

@@ -35,6 +35,9 @@ module API =
     let GuardedStatedApplyk f state term mergeStates k =
         Memory.commonGuardedStatedApplyk f state term mergeStates k
 
+    let ReleaseBranches() = Memory.branchesReleased <- true
+    let AquireBranches() = Memory.branchesReleased <- false
+
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
@@ -449,6 +452,7 @@ module API =
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
+        let FillWithParametersAndThis state method = Memory.fillWithParametersAndThis state method
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack

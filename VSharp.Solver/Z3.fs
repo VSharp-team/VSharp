@@ -694,14 +694,17 @@ module internal Z3 =
                 let region, fields = kvp.Key
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
+                let typeOfLocation =
+                    if fields.IsEmpty then region.TypeOfLocation
+                    else fields.Head.typ |> Types.FromDotNetType
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType region.TypeOfLocation then x.Decode region.TypeOfLocation arr.Args.[0]
+                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress region.TypeOfLocation arr.Args.[0] |> ConcreteHeapAddress
-                                HeapRef addr region.TypeOfLocation
+                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
+                                HeapRef addr typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     elif arr.IsDefaultArray then
                         assert(arr.Args.Length = 1)
@@ -709,13 +712,12 @@ module internal Z3 =
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
                         let address = x.DecodeMemoryKey region arr.Args.[1..arr.Args.Length - 2]
-                        let t = region.TypeOfLocation
                         let value =
-                            if Types.IsValueType t then
-                                x.Decode t (Array.last arr.Args)
+                            if Types.IsValueType typeOfLocation then
+                                x.Decode typeOfLocation (Array.last arr.Args)
                             else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
-                                HeapRef address t
+                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
+                                HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write state (Ref address) value
                         assert(states.Length = 1 && states.[0] = state)

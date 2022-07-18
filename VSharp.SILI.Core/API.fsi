@@ -22,6 +22,9 @@ module API =
     val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
+    val ReleaseBranches : unit -> unit
+    val AquireBranches : unit -> unit
+
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
@@ -241,6 +244,7 @@ module API =
 
         val MakeSymbolicThis : MethodBase -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+        val FillWithParametersAndThis : state -> MethodBase -> unit
 
         val CallStackContainsFunction : state -> MethodBase -> bool
         val CallStackSize : state -> int

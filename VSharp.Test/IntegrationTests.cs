@@ -100,9 +100,10 @@ namespace VSharp.Test
                 {
                     _options = new SiliOptions
                         (
-                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
+                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.NewGuidedMode(searchMode.DFSMode)),
                             _executionMode,
-                            _recThresholdForTest
+                            _recThresholdForTest,
+                            -1 // no timeout
                         );
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
