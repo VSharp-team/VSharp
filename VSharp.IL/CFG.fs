@@ -205,20 +205,23 @@ type CallInfo =
             ReturnTo = returnTo
         }
 
-and CfgInfo internal (cfg:CfgTemporaryData) =
-    let resolveBasicBlock offset =
+and CfgInfo internal (cfg : CfgTemporaryData) =
+    let resolveBasicBlockIndex offset =
         let rec binSearch (sortedOffsets : ResizeArray<offset>) offset l r =
-            if l >= r then sortedOffsets.[l]
+            if l >= r then l
             else
                 let mid = (l + r) / 2
                 let midValue = sortedOffsets.[mid]
-                if midValue = offset
-                then midValue
-                elif midValue < offset
-                then binSearch sortedOffsets offset (mid + 1) r
-                else binSearch sortedOffsets offset l (mid - 1)
+                let leftIsLefter = midValue <= offset
+                let rightIsRighter = mid + 1 >= sortedOffsets.Count || sortedOffsets.[mid + 1] > offset
+                if leftIsLefter && rightIsRighter then mid
+                elif not rightIsRighter
+                    then binSearch sortedOffsets offset (mid + 1) r
+                    else binSearch sortedOffsets offset l (mid - 1)
 
         binSearch cfg.SortedOffsets offset 0 (cfg.SortedOffsets.Count - 1)
+
+    let resolveBasicBlock offset = cfg.SortedOffsets.[resolveBasicBlockIndex offset]
 
     let sinks = cfg.Sinks |> Array.map resolveBasicBlock
     let loopEntries = cfg.LoopEntries
@@ -232,9 +235,11 @@ and CfgInfo internal (cfg:CfgTemporaryData) =
 
     member this.IlBytes = cfg.ILBytes
     member this.SortedOffsets = cfg.SortedOffsets
+    member this.Edges = cfg.Edges
     member this.Sinks = sinks
     member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
+    member internal this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
     member this.ResolveBasicBlock offset = resolveBasicBlock offset
     member this.IsBasicBlockStart offset = resolveBasicBlock offset = offset
     // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)
@@ -250,6 +255,7 @@ and Method internal (m : MethodBase) as this =
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
             let cfg = CfgTemporaryData this
+            Method.ReportCFGLoaded this
             cfg |> CfgInfo |> Some
         else None)
 
@@ -261,6 +267,24 @@ and Method internal (m : MethodBase) as this =
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private cfgReporter : Method -> unit
     static member internal ReportCFGLoaded with get() = Method.cfgReporter and set v = Method.cfgReporter <- v
+
+    // Returns a sequence of strings, one per instruction in basic block
+    member x.BasicBlockToString (offset : offset) : string seq =
+        let cfg = x.CFG
+        let idx = cfg.ResolveBasicBlockIndex offset
+        let offset = cfg.SortedOffsets.[idx]
+        let parsedInstrs = x.ParsedInstructions
+        let mutable instr = parsedInstrs |> Array.find (fun instr -> Offset.from (int instr.offset) = offset)
+        let endInstr =
+            if idx + 1 < cfg.SortedOffsets.Count then
+                let nextBBOffset = cfg.SortedOffsets.[idx + 1]
+                parsedInstrs |> Array.find (fun instr -> Offset.from (int instr.offset) = nextBBOffset)
+            else parsedInstrs.[parsedInstrs.Length - 1].next
+        seq {
+            while not <| LanguagePrimitives.PhysicalEquality instr endInstr do
+                yield ILRewriter.PrintILInstr None None x.MethodBase instr
+                instr <- instr.next
+        }
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -280,12 +304,13 @@ type public codeLocation = {offset : offset; method : Method}
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
+    abstract member CallStack: list<Method>
 
 type private ApplicationGraphMessage =
     | ResetQueryEngine
     | AddGoals of array<codeLocation>
     | RemoveGoal of codeLocation
-    | AddStates of seq<IGraphTrackableState>
+    | SpawnStates of seq<IGraphTrackableState>
     | AddForkedStates of parentState:IGraphTrackableState * forkedStates:seq<IGraphTrackableState>
     | MoveState of positionForm:codeLocation * positionTo: IGraphTrackableState
     | AddCFG of Option<AsyncReplyChannel<CfgInfo>> *  Method
@@ -347,7 +372,7 @@ type ApplicationGraph() as this =
                     | RemoveGoal pos ->
                         Logger.trace "Remove goal."
                         //__notImplemented__()
-                    | AddStates states -> Array.ofSeq states |> addStates None
+                    | SpawnStates states -> Array.ofSeq states |> addStates None
                     | AddForkedStates (parentState, forkedStates) ->
                         addStates (Some parentState) (Array.ofSeq forkedStates)
                     | MoveState (_from,_to) ->
@@ -381,13 +406,13 @@ type ApplicationGraph() as this =
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         messagesProcessor.Post <| AddCallEdge (sourceLocation, targetLocation)
 
-    member this.AddState (state:IGraphTrackableState) =
-        messagesProcessor.Post <| AddStates [|state|]
+    member this.SpawnState (state:IGraphTrackableState) =
+        messagesProcessor.Post <| SpawnStates [|state|]
 
-    member this.AddStates (states:seq<IGraphTrackableState>) =
-        messagesProcessor.Post <| AddStates states
+    member this.SpawnStates (states:seq<IGraphTrackableState>) =
+        messagesProcessor.Post <| SpawnStates states
 
-    member this.AddForkedStates (parentState:IGraphTrackableState, states:seq<IGraphTrackableState>) =
+    member this.AddForkedStates (parentState:IGraphTrackableState) (states:seq<IGraphTrackableState>) =
         messagesProcessor.Post <| AddForkedStates (parentState,states)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
@@ -414,131 +439,57 @@ type ApplicationGraph() as this =
     member this.ResetQueryEngine() =
         messagesProcessor.Post ResetQueryEngine
 
+
+
+type IVisualizer =
+    abstract AddState : IGraphTrackableState -> unit
+    abstract TerminateState : IGraphTrackableState -> unit
+    abstract VisualizeGraph : unit -> unit
+    abstract VisualizeStep : codeLocation -> IGraphTrackableState -> IGraphTrackableState seq -> unit
+
+type NullVisualizer() =
+    interface IVisualizer with
+        override x.AddState _ = ()
+        override x.TerminateState _ = ()
+        override x.VisualizeGraph () = ()
+        override x.VisualizeStep _ _ _ = ()
+
+
+
 module Application =
     let private methods = Dictionary<MethodBase, Method>()
-    let applicationGraph = ApplicationGraph()
+    let private _loadedMethods = HashSet<_>()
+    let loadedMethods = _loadedMethods :> seq<_>
+    let graph = ApplicationGraph()
+    let mutable visualizer : IVisualizer = NullVisualizer()
 
     let getMethod (m : MethodBase) : Method =
         Dict.getValueOrUpdate methods m (fun () -> Method(m))
 
-    let () =
+    let setVisualizer (v : IVisualizer) =
+        visualizer <- v
+
+    let spawnStates states =
+        graph.SpawnStates states
+        states |> Seq.iter (fun state -> visualizer.AddState state)
+        visualizer.VisualizeGraph()
+
+    let moveState fromLoc toState forked =
+        graph.MoveState fromLoc toState
+        graph.AddForkedStates toState forked
+        visualizer.VisualizeStep fromLoc toState forked
+
+    let terminateState state =
+        // TODO: gsv: propagate this into application graph
+        visualizer.TerminateState state
+
+    let addCallEdge = graph.AddCallEdge
+    let addGoal = graph.AddGoal
+    let addGoals = graph.AddGoals
+    let removeGoal = graph.RemoveGoal
+
+    do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody
-        Method.ReportCFGLoaded <- applicationGraph.RegisterMethod
-
-// TODO: ideally, we don't need CallGraph: it gets lazily bundled into application graph. Get rid of it when CFL reachability is ready.
-module CallGraph =
-    type callGraph =
-        {
-            graph : GraphUtils.graph<Method>
-            reverseGraph : GraphUtils.graph<Method>
-        }
-
-    let graph = GraphUtils.graph<Method>()
-    let reverseGraph = GraphUtils.graph<Method>()
-
-    let callGraphs = Dictionary<Assembly, callGraph>()
-    let callGraphDijkstras = Dictionary<Assembly, Dictionary<Method * Method, uint>>()
-    let callGraphFloyds = Dictionary<Assembly, Dictionary<Method * Method, uint>>()
-    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<Method>>()
-    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<Method>>()
-
-    let private fromCurrentAssembly assembly (current : Method) = current.Module.Assembly = assembly
-
-    let private addToDict (dict : Dictionary<'a, HashSet<'b>> ) (k : 'a ) (v : 'b) =
-        let mutable refSet = ref null
-        if not (dict.TryGetValue(k, refSet)) then
-            refSet <- ref (HashSet<_>())
-            dict.Add(k, refSet.Value)
-        refSet.Value.Add(v) |> ignore
-
-    let private addCall (methods : HashSet<Method>) methodsReachability caller callee =
-        methods.Add callee |> ignore
-        addToDict methodsReachability caller callee
-
-    let private buildMethodsReachabilityForAssembly (assembly : Assembly) (entryMethod : Method) =
-        let methods = HashSet<Method>()
-        let methodsReachability = Dictionary<Method, HashSet<Method>>()
-        let rec exit processedMethods = function
-            | [] -> ()
-            | m :: q' -> dfs processedMethods q' m
-        and dfs (processedMethods : Method list) (methodsQueue : Method list) (current : Method) =
-            methods.Add current |> ignore
-            if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
-            else
-                let processedMethods = current :: processedMethods
-                if current.HasBody then
-                    current.CFG.Calls |> Seq.iter (fun kvp ->
-                        let m = kvp.Value.Callee
-                        addCall methods methodsReachability current m)
-                let newQ =
-                    if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
-                    else methodsQueue
-                exit processedMethods newQ
-        let mq = List<Method>()
-        dfs [] (List.ofSeq mq) entryMethod
-        methods, methodsReachability
-
-    let private buildCallGraph (assembly : Assembly) (entryMethod : Method) =
-        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
-        let graph = GraphUtils.graph<Method>()
-        let reverseGraph = GraphUtils.graph<Method>()
-        for i in methods do
-            graph.Add (i, HashSet<_>())
-            reverseGraph.Add (i, HashSet<_>())
-        for i in methodsReachability do
-            for j in i.Value do
-                let added = graph.[i.Key].Add j in assert added
-                let added = reverseGraph.[j].Add i.Key in assert added
-        { graph = graph; reverseGraph = reverseGraph }
-
-    let private findCallGraph (assembly : Assembly) (entryMethod : Method) =
-        let callGraph = Dict.getValueOrUpdate callGraphs assembly (fun () -> buildCallGraph assembly entryMethod)
-        if not <| callGraph.graph.ContainsKey entryMethod then
-            let updateCallGraph = buildCallGraph assembly entryMethod
-            for i in updateCallGraph.graph do
-                callGraph.graph.TryAdd(i.Key, i.Value) |> ignore
-            for i in updateCallGraph.reverseGraph do
-                callGraph.reverseGraph.TryAdd(i.Key, i.Value) |> ignore
-        callGraph
-
-    let private buildCallGraphDistance (assembly : Assembly) (entryMethod : Method) =
-        let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
-        let callGraph = GraphUtils.graph<Method>()
-        for i in methods do
-            callGraph.Add (i, HashSet<_>())
-        for i in methodsReachability do
-            for j in i.Value do
-                let added = callGraph.[i.Key].Add j
-                assert added
-        GraphUtils.dijkstraAlgo methods callGraph
-
-    let findCallGraphDistance (assembly : Assembly) (entryMethod : Method) =
-        let callGraphDist = Dict.getValueOrUpdate callGraphDijkstras assembly (fun () -> buildCallGraphDistance assembly entryMethod)
-        if not <| callGraphDist.ContainsKey (entryMethod, entryMethod) then
-            for i in buildCallGraphDistance assembly entryMethod do
-                callGraphDist.TryAdd(i.Key, i.Value) |> ignore
-        callGraphDist
-
-    let findCallGraphDistanceFrom (method : Method) =
-        let assembly = method.Module.Assembly
-        let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
-        Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let callGraph = findCallGraph assembly method
-        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.graph callGraphDist
-        let distFromNode = Dictionary<Method, uint>()
-        for i in dist do
-            if i.Value <> GraphUtils.infinity then
-                distFromNode.Add(i.Key, i.Value)
-        distFromNode)
-
-    let findCallGraphDistanceTo (method : Method) =
-        let assembly = method.Module.Assembly
-        let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
-        Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let callGraph = findCallGraph assembly method
-        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.reverseGraph callGraphDist
-        let distToNode = Dictionary<Method, uint>()
-        for i in dist do
-            if i.Value <> GraphUtils.infinity then
-                distToNode.Add(i.Key, i.Value)
-        distToNode)
+        Method.ReportCFGLoaded <- fun m ->
+            graph.RegisterMethod m
+            let added = _loadedMethods.Add(m) in assert added

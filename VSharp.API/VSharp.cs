@@ -74,13 +74,17 @@ namespace VSharp
         private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[] mainArguments = null, int timeout = -1)
         {
             var recThreshold = 0u;
-            var options =
-                // TODO: customize search strategies via console options
-                // new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.NewGuidedMode(searchMode.DFSMode)),
-                new SiliOptions(explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.ShortestDistanceBasedMode),
-                    executionMode.SymbolicMode, recThreshold, timeout);
-            SILI explorer = new SILI(options);
             UnitTests unitTests = new UnitTests(resultsFolder);
+            // TODO: customize search strategies via console options
+            var options =
+                new SiliOptions(
+                    explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode),
+                    executionMode.SymbolicMode,
+                    unitTests.TestDirectory,
+                    recThreshold,
+                    timeout,
+                    false);
+            SILI explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
             foreach (var method in methods)
             {

@@ -137,6 +137,9 @@ module internal CallStack =
         |> join "\n"
 
     let stackTrace (stack : callStack) =
+        stack.frames |> List.map (fun frame -> frame.func |> Option.get)
+
+    let stackTraceString (stack : callStack) =
         stack.frames
         |> Stack.map (fun f ->
             match f.func with

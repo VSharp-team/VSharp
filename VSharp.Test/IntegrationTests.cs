@@ -130,14 +130,16 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
+                    UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
                             explorationMode.NewTestCoverageMode(coverageZone.MethodZone, _searchStrat),
                             _executionMode,
+                            unitTests.TestDirectory,
                             _recThresholdForTest,
-                            _timeout
+                            _timeout,
+                            false
                         );
                     SILI explorer = new SILI(_options);
-                    UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
 
                     explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
 
