@@ -1070,22 +1070,23 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 TypeUtils.float32Type, [|TypeUtils.float32Type; TypeUtils.float64Type|]
                 TypeUtils.float64Type, [|TypeUtils.float64Type|] ]
         let isSubset leftTyp rightTyp = Array.contains rightTyp supersetsOf.[leftTyp]
-        let minMaxOf = // TODO: implement big numbers, instead of double #hack
+        let minMaxOf =
             PersistentDict.ofSeq [
-                TypeUtils.int8Type,    (SByte.MinValue  |> double, SByte.MaxValue  |> double)
-                TypeUtils.int16Type,   (Int16.MinValue  |> double, Int16.MaxValue  |> double)
-                TypeUtils.int32Type,   (Int32.MinValue  |> double, Int32.MaxValue  |> double)
-                TypeUtils.int64Type,   (Int64.MinValue  |> double, Int64.MaxValue  |> double)
-                TypeUtils.uint8Type,   (Byte.MinValue   |> double, Byte.MaxValue   |> double)
-                TypeUtils.uint16Type,  (UInt16.MinValue |> double, UInt16.MaxValue |> double)
-                TypeUtils.uint32Type,  (UInt32.MinValue |> double, UInt32.MaxValue |> double)
-                TypeUtils.uint64Type,  (UInt64.MinValue |> double, UInt64.MaxValue |> double)
-                TypeUtils.float32Type, (Single.MinValue |> double, Single.MaxValue |> double)
-                TypeUtils.float64Type, (Double.MinValue |> double, Double.MaxValue |> double) ]
+                TypeUtils.int8Type,    (SByte.MinValue  :> IConvertible, SByte.MaxValue  :> IConvertible)
+                TypeUtils.int16Type,   (Int16.MinValue  :> IConvertible, Int16.MaxValue  :> IConvertible)
+                TypeUtils.int32Type,   (Int32.MinValue  :> IConvertible, Int32.MaxValue  :> IConvertible)
+                TypeUtils.int64Type,   (Int64.MinValue  :> IConvertible, Int64.MaxValue  :> IConvertible)
+                TypeUtils.uint8Type,   (Byte.MinValue   :> IConvertible, Byte.MaxValue   :> IConvertible)
+                TypeUtils.uint16Type,  (UInt16.MinValue :> IConvertible, UInt16.MaxValue :> IConvertible)
+                TypeUtils.uint32Type,  (UInt32.MinValue :> IConvertible, UInt32.MaxValue :> IConvertible)
+                TypeUtils.uint64Type,  (UInt64.MinValue :> IConvertible, UInt64.MaxValue :> IConvertible)
+                TypeUtils.float32Type, (Single.MinValue :> IConvertible, Single.MaxValue :> IConvertible)
+                TypeUtils.float64Type, (Double.MinValue :> IConvertible, Double.MaxValue :> IConvertible) ]
         let getSegment leftTyp rightTyp =
             let min1, max1 = minMaxOf.[leftTyp]
             let min2, max2 = minMaxOf.[rightTyp]
-            match min1 < min2, max1 < max2 with
+            let c = System.Globalization.CultureInfo.CurrentCulture
+            match min1.ToDouble(c) < min2.ToDouble(c), max1.ToDouble(c) < max2.ToDouble(c) with
             | true, true   -> min2, max1
             | true, false  -> min2, max2
             | false, true  -> min1, max1
