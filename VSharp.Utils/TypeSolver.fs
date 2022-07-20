@@ -140,7 +140,7 @@ module TypeSolver =
                             let acc = constraints.notSubtypes |> List.fold collectTypeVariables acc
                             acc) typeVars
             let decodeTypeSubst (subst : substitution) =
-                 List.map (PersistentDict.find subst) typeParameters
+                 List.map (Reflection.concretizeType (fun t -> if subst.impl.ContainsKey t then subst.impl.[t] else t)) typeParameters
             let mutable inputs = []
             let mutable typeVariablesUnknown = true
             let rec solveInputsRec acc subst = function

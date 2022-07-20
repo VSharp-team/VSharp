@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using System;
 using VSharp.Test;
+#pragma warning disable CS0659
 
 namespace IntegrationTests.Typecast
 {

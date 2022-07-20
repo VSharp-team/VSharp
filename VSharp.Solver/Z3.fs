@@ -662,10 +662,11 @@ module internal Z3 =
             let stackEntries = Dictionary<stackKey, term ref>()
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
-                | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
+                | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    x.Decode t refinedExpr
-                    |> x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation
+                    let decoded = x.Decode t refinedExpr
+                    if decoded <> constant then
+                        x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
@@ -681,7 +682,7 @@ module internal Z3 =
                     subst.Add(source, term)
                 | _ -> ())
 
-            let state = Memory.EmptyState()
+            let state = {Memory.EmptyState() with complete = true}
             let frame = stackEntries |> Seq.map (fun kvp ->
                     let key = kvp.Key
                     let term = !kvp.Value
@@ -737,7 +738,7 @@ module internal Z3 =
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst; complete = true}
+            {state = state; subst = subst}
 
 
     let private ctx = new Context()
@@ -804,6 +805,7 @@ module internal Z3 =
                     let result = optCtx.Check assumptions
                     match result with
                     | Status.SATISFIABLE ->
+                        trace "SATISFIABLE"
                         let z3Model = optCtx.Model
                         let model = builder.MkModel z3Model
 //                        let usedPaths =
@@ -812,8 +814,10 @@ module internal Z3 =
 //                            |> Seq.map (fun atom -> paths.[atom])
                         SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
                     | Status.UNSATISFIABLE ->
+                        trace "UNSATISFIABLE"
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
+                        trace "UNKNOWN"
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
                 with

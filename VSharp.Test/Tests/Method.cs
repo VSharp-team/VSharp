@@ -1,6 +1,7 @@
 using IntegrationTests.Typecast;
 using NUnit.Framework;
 using VSharp.Test;
+#pragma warning disable CS0693
 
 
 namespace IntegrationTests

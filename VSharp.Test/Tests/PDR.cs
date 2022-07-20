@@ -6,6 +6,7 @@ using System.IO;
 using NUnit.Framework;
 using NUnit.Framework.Internal;
 using VSharp.Test;
+#pragma warning disable CS0168
 
 namespace IntegrationTests
 {

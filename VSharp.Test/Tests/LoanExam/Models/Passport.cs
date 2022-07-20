@@ -1,4 +1,5 @@
 ﻿using System;
+#pragma warning disable CS0660, CS0661
 
 namespace LoanExam.Models;
 
