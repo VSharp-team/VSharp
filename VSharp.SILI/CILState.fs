@@ -33,7 +33,7 @@ type cilState =
         | 1 ->
             let result = EvaluationStack.Pop x.state.evaluationStack |> fst
             match x.ipStack with
-            | [Exit m] -> Types.Cast result (Reflection.getMethodReturnType m |> Types.FromDotNetType)
+            | [Exit m] -> Types.Cast result (Types.FromDotNetType m.ReturnType)
             | _ when x.state.exceptionsRegister.UnhandledError -> Nop
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
@@ -140,13 +140,13 @@ module internal CilStateOperations =
 
     let private moveCodeLoc (cilState : cilState) (ip : ip) =
         match ip2codeLocation ip with
-        | Some loc when loc.method.GetMethodBody() <> null -> cilState.currentLoc <- loc
+        | Some loc when loc.method.HasBody -> cilState.currentLoc <- loc
         | _ -> ()
 
     let pushToIp (ip : ip) (cilState : cilState) =
         let loc = cilState.currentLoc
         match ip2codeLocation ip with
-        | Some loc' when loc'.method.GetMethodBody() <> null ->
+        | Some loc' when loc'.method.HasBody ->
             cilState.currentLoc <- loc'
             Application.applicationGraph.AddCallEdge loc loc'
         | _ -> ()
@@ -280,11 +280,11 @@ module internal CilStateOperations =
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
-    let moveIp offset m cilState =
-        let cfg = Application.applicationGraph.GetCfg m
-        let opCode = Instruction.parseInstruction m offset
+    let moveIp offset (m : Method) cilState =
+        assert m.HasBody
+        let opCode = MethodBody.parseInstruction m offset
         let newIps =
-            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.IlBytes offset
+            let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
             | FallThrough nextInstruction -> instruction m nextInstruction :: []

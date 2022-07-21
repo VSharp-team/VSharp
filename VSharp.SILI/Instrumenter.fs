@@ -1116,7 +1116,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                         | None -> internalfail "unexpected stack state"
                         x.PrependProbe(probes.call, [(OpCodes.Ldc_I4, Arg32 argsCount)], x.tokens.bool_u2_sig, &prependTarget) |> ignore
                         let br_true = x.PrependBranch(OpCodes.Brtrue_S, &prependTarget)
-                        let isInternalCall = InstructionsSet.isFSharpInternalCall callee // TODO: add other cases
+                        let isInternalCall = Map.containsKey (Reflection.fullGenericMethodName callee) Loader.FSharpImplementations
                         if isInternalCall then
                             let retType = Reflection.getMethodReturnType callee
                             x.PrependLdcDefault(retType, &instr)
@@ -1184,6 +1184,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
     member x.Instrument(body : rawMethodBody) =
         assert(x.rewriter = null)
         x.tokens <- body.tokens
+        // TODO: call Application.getMethod and take ILRewriter there!
         x.rewriter <- ILRewriter(body)
         x.m <- x.rewriter.Method
         let result =

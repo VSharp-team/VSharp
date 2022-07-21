@@ -30,7 +30,7 @@ type public SILI(options : SiliOptions) =
         | SymbolicMode -> false
     let interpreter = ILInterpreter(isConcolicMode)
 
-    let mutable entryIP : ip = Exit null
+    let mutable entryIP : ip = Unchecked.defaultof<ip>
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
@@ -68,8 +68,8 @@ type public SILI(options : SiliOptions) =
             searcher <- bidirectionalSearcher
 
 
-    let coveragePobsForMethod (method : MethodBase) =
-        let cfg = Application.applicationGraph.GetCfg method
+    let coveragePobsForMethod (method : Method) =
+        let cfg = method.CFG
         cfg.SortedOffsets |> Seq.map (fun offset ->
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
@@ -83,8 +83,8 @@ type public SILI(options : SiliOptions) =
             state.iie <- Some e
             reportIncomplete state
 
-    let wrapOnTest (action : Action<UnitTest>) (method : MethodBase) cmdArgs (state : cilState) =
-        Logger.info "Result of method %s is %O" method.Name state.Result
+    let wrapOnTest (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) =
+        Logger.info "Result of method %s is %O" method.FullName state.Result
         reportState action.Invoke false method cmdArgs state
 
     let wrapOnError (action : Action<UnitTest>) method cmdArgs state =
@@ -98,7 +98,7 @@ type public SILI(options : SiliOptions) =
         statistics.InternalFails.Add(e)
         action.Invoke e
 
-    static member private FormInitialStateWithoutStatics (method : MethodBase) =
+    static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
         initialState.model <- Some (Memory.EmptyModel method)
         let cilState = makeInitialState method initialState
@@ -114,7 +114,7 @@ type public SILI(options : SiliOptions) =
             cilState.iie <- Some e
         cilState
 
-    member private x.FormInitialStates (method : MethodBase) : cilState list =
+    member private x.FormInitialStates (method : Method) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
         match options.executionMode with
         | ConcolicMode -> List.singleton cilState
@@ -222,6 +222,7 @@ type public SILI(options : SiliOptions) =
                                  (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
         let optionArgs = if mainArguments = null then None else Some mainArguments
+        let method = Application.getMethod method
         reportFinished <- wrapOnTest onFinished method optionArgs
         reportError <- wrapOnError onException method optionArgs
         reportIncomplete <- wrapOnIIE onIIE
@@ -238,7 +239,7 @@ type public SILI(options : SiliOptions) =
         ILInterpreter.InitFunctionFrame state method None arguments
         if Option.isNone optionArgs then
             // NOTE: if args are symbolic, constraint 'args != null' is added
-            let parameters = method.GetParameters()
+            let parameters = method.Parameters
             assert(Array.length parameters = 1)
             let argsParameter = Array.head parameters
             let argsParameterTerm = Memory.ReadArgument state argsParameter
@@ -252,6 +253,7 @@ type public SILI(options : SiliOptions) =
                                (onInternalFail : Action<Exception>) : unit =
         Reset()
         SolverPool.reset()
+        let method = Application.getMethod method
         reportFinished <- wrapOnTest onFinished method None
         reportError <- wrapOnError onException method None
         reportIncomplete <- wrapOnIIE onIIE

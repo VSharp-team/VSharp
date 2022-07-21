@@ -14,7 +14,7 @@ open ipOperations
 
 type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
     with
-    override x.ToString() = sprintf "loc = %O; lvl = %d; pc = %s" x.loc x.lvl (Print.PrintPC x.pc)
+    override x.ToString() = $"loc = {x.loc}; lvl = %d{x.lvl}; pc = %s{Print.PrintPC x.pc}"
 
 type pobStatus =
     | Unknown
@@ -31,16 +31,16 @@ type public SILIStatistics() =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
-        if not codeLocation.method.IsAbstract then
-            let cfg = Application.applicationGraph.GetCfg codeLocation.method
-            cfg.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        let method = codeLocation.method
+        if method.HasBody then
+            method.CFG.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
         else false
 
-    let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
-        let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
+    let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
+        let sb = PrettyPrinting.appendLine sb $"%s{placeHolder}Method = %s{m.FullName}: ["
         let sb = Seq.fold (fun sb (loc : codeLocation) ->
             PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder ((int loc.offset).ToString("X")) d.[loc])) sb locs
-        PrettyPrinting.appendLine sb (sprintf "%s]" placeHolder)
+        PrettyPrinting.appendLine sb $"%s{placeHolder}]"
 
     let printDict placeHolder sb (d : Dictionary<codeLocation, uint>) =
         let keys = d.Keys
@@ -48,7 +48,7 @@ type public SILIStatistics() =
         Seq.fold (printDict' placeHolder d) sb sortedKeys
 
     let printPart (sb : StringBuilder) i (k : KeyValuePair<codeLocation, Dictionary<codeLocation, uint>>) =
-        let sb = PrettyPrinting.appendLine sb (sprintf "Part %d; Start from %O" i k.Key)
+        let sb = PrettyPrinting.appendLine sb $"Part %d{i}; Start from {k.Key}"
 //        let sb = PrettyPrinting.appendLine sb
         printDict "\t\t" sb k.Value
 
@@ -60,14 +60,13 @@ type public SILIStatistics() =
             let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
             distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
-        if method.IsAbstract then None
-        else
-            let cfg = Application.applicationGraph.GetCfg method
-            cfg.DistancesFrom currentLoc.offset
+        if method.HasBody then
+            method.CFG.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        else None
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
         let infinity = UInt32.MaxValue
@@ -80,14 +79,13 @@ type public SILIStatistics() =
             let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
             validDistance && (emptyHistory || nontrivialHistory)
 
-        if method.IsAbstract then None
-        else
-            let cfg = Application.applicationGraph.GetCfg method
-            cfg.DistancesFrom currentLoc.offset
+        if method.HasBody then
+            method.CFG.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+        else None
 
     let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
         if isHeadOfBasicBlock current then
