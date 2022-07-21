@@ -1,18 +1,10 @@
 namespace VSharp.Core
 
-type public featureFlags = {
-    isConstraintIndependenceEnabled : bool
-    isConditionEvaluationEnabled : bool
-    isIncrementalityEnabled : bool
-}
-
 module internal FeatureFlags =
-
-    let mutable current = {
-        isConstraintIndependenceEnabled = false
-        isConditionEvaluationEnabled = false
-        isIncrementalityEnabled = false
-    }
     
-    let public set flags =
-        current <- flags
+    let mutable private _isConstraintIndependenceEnabled = false
+    
+    let public isConstraintIndependenceEnabled() = _isConstraintIndependenceEnabled
+    
+    let public setConstraintIndependenceEnabled enabled =
+       _isConstraintIndependenceEnabled <- enabled

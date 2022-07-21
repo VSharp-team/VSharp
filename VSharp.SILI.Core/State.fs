@@ -115,28 +115,28 @@ with
 and
     [<ReferenceEquality>]
     state = {
-    id : string
-    mutable pc : IPathCondition
-    mutable evaluationStack : evaluationStack
-    mutable stack : callStack                                          // Arguments and local variables
-    mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
-    mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
-    mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
-    mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
-    mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
-    mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
-    mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
-    mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-    concreteMemory : concreteMemory                                    // Fully concrete objects
-    mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
-    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
-    mutable typeVariables : typeVariables                              // Type variables assignment in the current state
-    mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
-    mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
-    mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-    mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    mutable model : model option
-}
+        id : string
+        mutable pc : IPathCondition
+        mutable evaluationStack : evaluationStack
+        mutable stack : callStack                                          // Arguments and local variables
+        mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
+        mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
+        mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
+        mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
+        mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
+        mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
+        mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
+        mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
+        concreteMemory : concreteMemory                                    // Fully concrete objects
+        mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
+        mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+        mutable typeVariables : typeVariables                              // Type variables assignment in the current state
+        mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
+        mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
+        mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
+        mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+        mutable model : model option
+    }
 
 and
     IStatedSymbolicConstantSource =

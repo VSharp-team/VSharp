@@ -11,7 +11,7 @@ open VSharp.Core
 open CilStateOperations
 open VSharp.Solver
 
-type public SILI(options : SiliOptions) =
+type public SILI(options : siliOptions) =
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue

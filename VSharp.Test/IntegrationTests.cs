@@ -10,7 +10,6 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
-using VSharp.Core;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -27,7 +26,7 @@ namespace VSharp.Test
 
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
-        private static SiliOptions _options = null;
+        private static siliOptions _options = null;
 
         static TestSvmAttribute()
         {
@@ -95,14 +94,15 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
-                Core.API.ConfigureSolver(SolverPool.mkSolver());
-                Core.API.SetFeatureFlags(new featureFlags(false, false, false));
+                Core.API.ConfigureSolver(SolverPool.mkSolver(), false);
+                Core.API.SetConstraintIndependenceEnabled(true);
                 
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
-                    _options = new SiliOptions
+                    _options = new siliOptions
                         (
+                            "",
                             explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.GuidedMode),
                             _executionMode,
                             _recThresholdForTest

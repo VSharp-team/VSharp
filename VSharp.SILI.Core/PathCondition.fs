@@ -277,5 +277,5 @@ module internal PC =
     let public unionWith anotherPc (pc : IPathCondition) = pc.UnionWith anotherPc
     
     let public create() : IPathCondition =
-        if FeatureFlags.current.isConstraintIndependenceEnabled then IndependentPathCondition()
+        if FeatureFlags.isConstraintIndependenceEnabled() then IndependentPathCondition()
         else PathCondition()

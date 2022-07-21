@@ -121,9 +121,16 @@ namespace VSharp.Runner
             var unknownArgsOption =
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
 
-            var constraintIndependenceOption = new Option<bool>("--c-independence", description: "Advanced: maintain independent constraint sets (constraint independence optimization)");
-            var conditionEvaluationOption = new Option<bool>("--eval-condition", description: "Advanced: evaluate branch condition with current model to avoid extra SMT solver queries");
-            var incrementalityOption = new Option<bool>("--incrementality", description: "Advanced: enable SMT solver incremental mode");
+            var constraintIndependenceOption = new Option<bool>(
+                "--c-independence",
+                description: "Maintain independent constraint sets (constraint independence optimization). True by default",
+                getDefaultValue: () => true
+            );
+            var incrementalityOption = new Option<bool>(
+                "--incrementality",
+                description: "Enable SMT solver incremental mode. False by default",
+                getDefaultValue: () => false
+            );
 
             var rootCommand = new RootCommand();
 
@@ -135,7 +142,6 @@ namespace VSharp.Runner
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
             entryPointCommand.AddOption(constraintIndependenceOption);
-            entryPointCommand.AddOption(conditionEvaluationOption);
             entryPointCommand.AddOption(incrementalityOption);
             
             var allPublicMethodsCommand =
@@ -144,7 +150,6 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddArgument(assemblyPathArgument);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
             allPublicMethodsCommand.AddOption(constraintIndependenceOption);
-            allPublicMethodsCommand.AddOption(conditionEvaluationOption);
             allPublicMethodsCommand.AddOption(incrementalityOption);
             
             var publicMethodsOfClassCommand =
@@ -155,7 +160,6 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
             publicMethodsOfClassCommand.AddOption(constraintIndependenceOption);
-            publicMethodsOfClassCommand.AddOption(conditionEvaluationOption);
             publicMethodsOfClassCommand.AddOption(incrementalityOption);
 
             var specificMethodCommand =
@@ -166,61 +170,84 @@ namespace VSharp.Runner
             specificMethodCommand.AddArgument(assemblyPathArgument);
             specificMethodCommand.AddGlobalOption(outputOption);
             specificMethodCommand.AddOption(constraintIndependenceOption);
-            specificMethodCommand.AddOption(conditionEvaluationOption);
             specificMethodCommand.AddOption(incrementalityOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool, bool, bool, bool>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool, bool, bool>
             (
-                (assemblyPath, args, output, unknownArgs, cIndependence, evalCondition, incrementality) =>
+                (assemblyPath, args, output, unknownArgs, cIndependence, incrementality) =>
                 {
-                    var options = new SvmOptions(cIndependence, evalCondition, incrementality);
                     var assembly = ResolveAssembly(assemblyPath);
                     if (unknownArgs)
                         args = null;
                     if (assembly != null)
-                        PostProcess(TestGenerator.Cover(assembly, args, output.FullName, options));
+                    {
+                        var options = new CoverOptions(
+                            OutputDirectory: output.FullName,
+                            IsConstraintIndependenceEnabled: cIndependence,
+                            IsSolverIncrementalityEnabled: incrementality
+                        );
+                        
+                        PostProcess(TestGenerator.Cover(assembly, args, options));
+                    }
                 }
             );
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo, bool, bool, bool>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo, bool, bool>
             (
-                (assemblyPath, output, cIndependence, evalCondition, incrementality) =>
+                (assemblyPath, output, cIndependence, incrementality) =>
                 {
-                    var options = new SvmOptions(cIndependence, evalCondition, incrementality);
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
-                        PostProcess(TestGenerator.Cover(assembly, output.FullName, options));
+                    {
+                        var options = new CoverOptions(
+                            OutputDirectory: output.FullName,
+                            IsConstraintIndependenceEnabled: cIndependence,
+                            IsSolverIncrementalityEnabled: incrementality
+                        );
+                        
+                        PostProcess(TestGenerator.Cover(assembly, options));
+                    }
                 }
             );
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool, bool>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool>
             (
-                (className, assemblyPath, output, cIndependence, evalCondition, incrementality) =>
+                (className, assemblyPath, output, cIndependence, incrementality) =>
                 {
-                    var options = new SvmOptions(cIndependence, evalCondition, incrementality);
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
                     {
                         var type = ResolveType(assembly, className);
                         if (type != null)
                         {
-                            PostProcess(TestGenerator.Cover(type, output.FullName, options));
+                            var options = new CoverOptions(
+                                OutputDirectory: output.FullName,
+                                IsConstraintIndependenceEnabled: cIndependence,
+                                IsSolverIncrementalityEnabled: incrementality
+                            );
+                            
+                            PostProcess(TestGenerator.Cover(type, options));
                         }
                     }
                 }
             );
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool, bool>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool>
             (
-                (methodName, assemblyPath, output, cIndependence, evalCondition, incrementality) =>
+                (methodName, assemblyPath, output, cIndependence, incrementality) =>
                 {
-                    var options = new SvmOptions(cIndependence, evalCondition, incrementality);
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
                     {
                         var method = ResolveMethod(assembly, methodName);
                         if (method != null)
                         {
-                            PostProcess(TestGenerator.Cover(method, output.FullName, options));
+                            var options = new CoverOptions(
+                                OutputDirectory: output.FullName,
+                                IsConstraintIndependenceEnabled: cIndependence,
+                                IsSolverIncrementalityEnabled: incrementality
+                            );
+                            
+                            PostProcess(TestGenerator.Cover(method, options));
                         }
                     }
                 }

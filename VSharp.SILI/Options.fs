@@ -20,5 +20,9 @@ type executionMode =
     | ConcolicMode
     | SymbolicMode
 
-type SiliOptions =
-    {explorationMode : explorationMode; executionMode : executionMode; recThreshold : uint32}
+type siliOptions = {
+    outputDirectory : string
+    explorationMode : explorationMode
+    executionMode : executionMode
+    recThreshold : uint32
+}

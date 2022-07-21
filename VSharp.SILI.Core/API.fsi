@@ -5,9 +5,8 @@ open System.Reflection
 
 [<AutoOpen>]
 module API =
-    val SetFeatureFlags : featureFlags -> unit
-    
-    val ConfigureSolver : SolverInteraction.ISolver -> unit
+    val SetConstraintIndependenceEnabled : bool -> unit    
+    val ConfigureSolver : SolverInteraction.ISolver -> bool -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit

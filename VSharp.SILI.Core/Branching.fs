@@ -181,8 +181,7 @@ module internal Branching =
                 checkBothBranches())
         
     let branch copy (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
-        let isEvalEnabled = FeatureFlags.current.isConditionEvaluationEnabled
-        if FeatureFlags.current.isConstraintIndependenceEnabled then
-            executionWithConstraintIndependence isEvalEnabled copy state conditionInvocation thenBranch elseBranch merge2Results k
+        if FeatureFlags.isConstraintIndependenceEnabled() then
+            executionWithConstraintIndependence true copy state conditionInvocation thenBranch elseBranch merge2Results k
         else
-            executionWithoutConstraintIndependence isEvalEnabled copy state conditionInvocation thenBranch elseBranch merge2Results k
+            executionWithoutConstraintIndependence true copy state conditionInvocation thenBranch elseBranch merge2Results k

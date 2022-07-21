@@ -6,11 +6,10 @@ open FSharpx.Collections
 open VSharp
 
 module API =
-    let SetFeatureFlags flags =
-        FeatureFlags.set flags
-    
-    let ConfigureSolver solver =
-        SolverInteraction.configureSolver solver
+    let SetConstraintIndependenceEnabled enabled =
+        FeatureFlags.setConstraintIndependenceEnabled enabled
+    let ConfigureSolver solver enableIncrementalMode =
+        SolverInteraction.configureSolver solver enableIncrementalMode
     let ConfigureSimplifier simplifier =
         configureSimplifier simplifier
 

@@ -25,9 +25,12 @@ module public SolverInteraction =
         abstract AddPath : encodingContext -> path -> unit
         abstract CheckAssumptions : encodingContext -> model -> formula seq -> smtResult
 
-    let mutable private solver : ISolver option = None
+    let mutable private mSolver : ISolver option = None
+    let mutable private isIncrementalModeEnabled : bool = false
 
-    let configureSolver s = solver <- Some s
+    let configureSolver solver enableIncrementalMode =
+        mSolver <- Some solver
+        isIncrementalModeEnabled <- enableIncrementalMode
 
     let getEncodingContext (state : state) =
         let addresses = PersistentDict.keys state.allocatedTypes
@@ -41,18 +44,18 @@ module public SolverInteraction =
     let private checkSatPlainly state =
         let ctx = getEncodingContext state
         let formula = state.pc.ToSeq() |> conjunction
-        match solver with
+        match mSolver with
         | Some s -> s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = getOrEmpty state.model }
         | None -> SmtUnknown "Solver not configured"
  
     let private checkSatIncrementally state =
         let ctx = getEncodingContext state
         let conditions = state.pc |> PC.toSeq
-        match solver with
+        match mSolver with
         | Some s -> s.CheckAssumptions ctx (getOrEmpty state.model) conditions
         | None -> SmtUnknown "Solver not configured"
         
     let checkSat state =
         // TODO: need to solve types here? #do
-        if FeatureFlags.current.isIncrementalityEnabled then checkSatIncrementally state
+        if isIncrementalModeEnabled then checkSatIncrementally state
         else checkSatPlainly state
