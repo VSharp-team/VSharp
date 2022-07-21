@@ -1,9 +1,6 @@
-namespace VSharp.Core
+namespace VSharp
 
-open System.Collections.Generic
 open System.Reflection
-open VSharp
-
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : MethodBase}
@@ -13,7 +10,7 @@ type public codeLocation = {offset : offset; method : MethodBase}
         | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
         | _ -> false
     override x.GetHashCode() = (x.offset, x.method).GetHashCode()
-    override x.ToString() = sprintf "[method = %s\noffset = %s]" (Reflection.getFullMethodName x.method) (x.offset.ToString("X"))
+    override x.ToString() = sprintf "[method = %s\noffset = %s]" (Reflection.getFullMethodName x.method) ((int x.offset).ToString("X"))
     interface System.IComparable with
         override x.CompareTo y =
             match y with
@@ -22,11 +19,11 @@ type public codeLocation = {offset : offset; method : MethodBase}
             | _ -> -1
 
 type ehcType =
-    | Filter of int
+    | Filter of offset
     | Catch of System.Type
     | Finally
 
-type public ExceptionHandlingClause = { tryOffset : int; tryLength : int; handlerOffset : int; handlerLength : int; ehcType : ehcType }
+type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
 
 [<CustomEquality; CustomComparison>]
 type ip =
@@ -102,7 +99,7 @@ type ip =
             | _ -> -1
     override x.ToString() =
         match x with
-        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" (offset.ToString("X")) (Reflection.getFullMethodName m)
+        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" ((int offset).ToString("X")) (Reflection.getFullMethodName m)
         | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
         | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
         | SearchingForHandler(toObserve, checkFinally) -> sprintf "SearchingForHandler(%O, %O)" toObserve checkFinally
@@ -111,7 +108,6 @@ type ip =
 
 and ipStack = ip list
 
-// TODO: #mbdo use ``ip'' instead of ``codeLocation''
 type level = pdict<codeLocation, uint32>
 
 module ipOperations =
@@ -148,10 +144,6 @@ module ipOperations =
         | Instruction(_, m)
         | Leave(_, _, _, m) -> Some m
         | _ -> None
-//    let withExit ip = {ip with label = Exit}
-//    let withOffset offset ip = {ip with label = Instruction offset}
-//    let labelOf (ip : ip) = ip.label
-//    let methodOf (ip : ip) = ip.method
 
     let ip2codeLocation (ip : ip) =
         match offsetOf ip, methodOf ip with
@@ -160,9 +152,11 @@ module ipOperations =
             let loc = {offset = offset; method = m}
             Some loc
         | _ -> __unreachable__()
-    let buildIpFromOffset (m : MethodBase) (offset : int) =
+
+    let buildIpFromOffset (m : MethodBase) (offset : offset) =
         // TODO: what about Leave-constructor?
         instruction m offset
+
 module Level =
     // TODO: implement level
     let zero : level = PersistentDict.empty
@@ -180,90 +174,3 @@ module Level =
 
     let toString (lvl : level) =
         if isInf lvl then "inf" else lvl.ToString()
-
-type formula = term
-
-type lemma =
-    { lvl : level; lemFml : formula } with
-    override x.ToString() =
-        sprintf "{lemma [lvl %s]: %O}" (Level.toString x.lvl) x.lemFml
-
-type path =
-    { lvl : level; state : state } with
-    override x.ToString() =
-        sprintf "{path [lvl %s]: %O}" (Level.toString x.lvl) x.state.pc
-
-type query =
-    { lvl : level; queryFml : formula } with
-    override x.ToString() =
-        sprintf "{query [lvl %s]: %O}" (Level.toString x.lvl) x.queryFml
-
-type databaseId =
-    { m : MethodBase; ip : ip } with
-    override x.ToString() =
-        sprintf "%O.%O[ip=%O]" (Reflection.getFullTypeName x.m.DeclaringType) x.m.Name x.ip
-
-module internal Database =
-    let private lemmas = new Dictionary<databaseId, HashSet<lemma>>()
-    let private paths = new Dictionary<databaseId, HashSet<path>>()
-    let private queries = new Dictionary<databaseId, HashSet<query>>()
-
-    let idOfVertex (m : MethodBase) (ip : ip) : databaseId = { m=m; ip=ip }
-
-    let addLemma (id : databaseId) (lemma : lemma) =
-        let lemmas = Dict.tryGetValue2 lemmas id (fun () -> new HashSet<_>())
-        if not <| lemmas.Add lemma then
-            internalfailf "Vertex %O: Added twice %O" id lemma
-
-    let addPath (id : databaseId) (path : path) =
-        let paths = Dict.tryGetValue2 paths id (fun () -> new HashSet<_>())
-        if not <| paths.Add path then
-            internalfail "Vertex %O: Added twice %O" id path
-
-    let addQuery (id : databaseId) (query : query) =
-        let queries = Dict.tryGetValue2 queries id (fun () -> new HashSet<_>())
-        if not <| queries.Add query then
-            internalfailf "Vertex %O: Added twice %O" id query
-
-    let removeQuery (id : databaseId) (query : query) =
-        let noQueryError() =
-            internalfail "Removing unknown query of vertex %O: %O" id query
-        let queries = Dict.tryGetValue2 queries id noQueryError
-        if not <| queries.Remove query then
-            noQueryError()
-
-type Lemmas(m : MethodBase, ip : ip) =
-    let id = Database.idOfVertex m ip
-    let parsed = new Dictionary<level, HashSet<lemma>>()
-    member x.Add (lemma : lemma) =
-        Database.addLemma id lemma
-        let lemmas = Dict.tryGetValue2 parsed lemma.lvl (fun () -> new HashSet<_>())
-        lemmas.Add lemma |> ignore
-
-type Paths(m : MethodBase, ip : ip) =
-    let id = Database.idOfVertex m ip
-    let parsed = new Dictionary<level, HashSet<path>>()
-    let used = HashSet<path>() // TODO: ``used'' set should be moved to Analyzer
-    member x.Add (path : path) =
-        if used.Contains path then used.Remove path |> ignore
-        Database.addPath id path
-        let paths = Dict.getValueOrUpdate parsed path.lvl (fun () -> new HashSet<_>())
-        paths.Add path |> ignore
-    member x.OfLevel lvl =
-        let paths = Dict.tryGetValue2 parsed lvl (fun () -> new HashSet<_>()) |> List.ofSeq
-        let paths = List.filter (used.Contains >> not) paths
-        List.iter (fun (path : path) -> assert(used.Add(path))) paths
-        paths
-
-
-type Queries(m : MethodBase, ip : ip) =
-    let id = Database.idOfVertex m ip
-    let parsed = new Dictionary<level, HashSet<query>>()
-    member x.Add (query : query) =
-        Database.addQuery id query
-        let queries = Dict.tryGetValue2 parsed query.lvl (fun () -> new HashSet<_>())
-        queries.Add query |> ignore
-
-    member x.Close (query : query) =
-        Database.addQuery id query
-        assert parsed.[query.lvl].Remove query

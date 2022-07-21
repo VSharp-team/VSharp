@@ -5,7 +5,6 @@ open System.Collections.Generic
 open VSharp
 open VSharp.Interpreter.IL
 open VSharp.Utils
-open VSharp.Core
 open CilStateOperations
 
 type TargetedSearcher(maxBound, target) =
@@ -26,7 +25,9 @@ type TargetedSearcher(maxBound, target) =
             let onVertex state =
                 let currLoc = tryCurrentLoc state
                 match currLoc with
-                | Some loc -> CFG.isVertex loc.method loc.offset
+                | Some loc ->
+                    let cfg = Application.applicationGraph.GetCfg loc.method
+                    cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
             isStopped state  ||  onVertex state
@@ -64,7 +65,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
     interface ITargetCalculator with
         override x.CalculateTarget state =
             let startingLoc = startingLoc state
-            let locStack = state.ipStack |> Seq.choose (ipOperations.ip2codeLocation)
+            let locStack = state.ipStack |> Seq.choose ipOperations.ip2codeLocation
             let inCoverageZone loc = inCoverageZone coverageZone startingLoc loc
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
@@ -92,7 +93,8 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->
-            let onVertex = CFG.isVertex currLoc.method currLoc.offset
+            let cfg = Application.applicationGraph.GetCfg currLoc.method
+            let onVertex = cfg.IsBasicBlockStart currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
             onVertex && level > threshold
         | _ -> false
@@ -105,14 +107,14 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
     let insertInTargetedSearcher state target =
         let targetedSearcher = getTargetedSearcher target
-        targetedSearcher.Insert [state] |> ignore
+        targetedSearcher.Insert [state]
 
     let addReturnTarget state =
         let startingLoc = startingLoc state
         let startingMethod = startingLoc.method
-        let cfg = CFG.findCfg startingMethod
+        let cfg = Application.applicationGraph.GetCfg startingMethod
 
-        for retOffset in cfg.retOffsets do
+        for retOffset in cfg.Sinks do
             let target = {offset = retOffset; method = startingMethod}
 
             match state.targets with

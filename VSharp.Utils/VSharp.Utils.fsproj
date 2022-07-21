@@ -25,6 +25,7 @@
         <Compile Include="PersistentDictionary.fs" />
         <Compile Include="Cps.fs" />
         <Compile Include="PriorityCollection.fs" />
+        <Compile Include="GraphUtils.fs" />
         <Compile Include="DiscretePDF.fs" />
         <Compile Include="TypeUtils.fs" />
         <Compile Include="Reflection.fs" />
