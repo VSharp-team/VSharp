@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using VSharp.Test;
+#pragma warning disable CS0414
 
 namespace IntegrationTests
 {

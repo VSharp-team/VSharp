@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using VSharp.Test;
+#pragma warning disable CS0219
 
 namespace IntegrationTests
 {

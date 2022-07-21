@@ -1,6 +1,7 @@
 using System;
 using NUnit.Framework;
 using VSharp.Test;
+#pragma warning disable CS0162
 
 namespace IntegrationTests
 {
@@ -15,11 +16,11 @@ namespace IntegrationTests
             {
                 return x / y;
             }
-            catch (OverflowException e)
+            catch (OverflowException)
             {
                 return addition + 100500;
             }
-            catch (DivideByZeroException e) when (x == 100)
+            catch (DivideByZeroException) when (x == 100)
             {
                 return addition + 90;
             }

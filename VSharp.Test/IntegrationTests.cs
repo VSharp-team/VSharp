@@ -15,6 +15,13 @@ using VSharp.Solver;
 
 namespace VSharp.Test
 {
+    public enum SearchStrategy
+    {
+        DFS,
+        BFS,
+        ShortestDistance
+    }
+
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
@@ -50,12 +57,16 @@ namespace VSharp.Test
         //       if it was -- dotCover will be started
         private int? _expectedCoverage = null;
         private uint _recThresholdForTest = 0u;
+        private int _timeout = -1;
         private bool _concolicMode = false;
+        private SearchStrategy _strat = SearchStrategy.BFS;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
             uint recThresholdForTest = 0u,
-            bool concolicMode = false)
+            int timeout = -1,
+            bool concolicMode = false,
+            SearchStrategy strat = SearchStrategy.BFS)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -63,7 +74,9 @@ namespace VSharp.Test
                 _expectedCoverage = 100;
             else _expectedCoverage = expectedCoverage;
             _recThresholdForTest = recThresholdForTest;
+            _timeout = timeout;
             _concolicMode = concolicMode;
+            _strat = strat;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -73,23 +86,42 @@ namespace VSharp.Test
                 execMode = executionMode.ConcolicMode;
             else
                 execMode = executionMode.SymbolicMode;
-            return new TestSvmCommand(command, _expectedCoverage, _recThresholdForTest, execMode);
+            return new TestSvmCommand(command, _expectedCoverage, _recThresholdForTest, _timeout, execMode, _strat);
         }
 
         private class TestSvmCommand : DelegatingTestCommand
         {
             private int? _expectedCoverage;
             private uint _recThresholdForTest;
+            private int _timeout;
             private executionMode _executionMode;
+            private searchMode _searchStrat;
             public TestSvmCommand(
                 TestCommand innerCommand,
                 int? expectedCoverage,
                 uint recThresholdForTest,
-                executionMode execMode) : base(innerCommand)
+                int timeout,
+                executionMode execMode,
+                SearchStrategy strat) : base(innerCommand)
             {
                 _expectedCoverage = expectedCoverage;
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
+                _timeout = timeout;
+                switch (strat)
+                {
+                    case SearchStrategy.DFS:
+                        _searchStrat = searchMode.DFSMode;
+                        break;
+                    case SearchStrategy.BFS:
+                        _searchStrat = searchMode.BFSMode;
+                        break;
+                    case SearchStrategy.ShortestDistance:
+                        _searchStrat = searchMode.ShortestDistanceBasedMode;
+                        break;
+                }
+
+                _searchStrat = searchMode.NewGuidedMode(_searchStrat);
             }
 
             private TestResult Explore(TestExecutionContext context)
@@ -98,12 +130,11 @@ namespace VSharp.Test
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
-                    _options = new SiliOptions
-                        (
-                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.NewGuidedMode(searchMode.DFSMode)),
+                    _options = new SiliOptions(
+                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, _searchStrat),
                             _executionMode,
                             _recThresholdForTest,
-                            -1 // no timeout
+                            _timeout
                         );
                     SILI explorer = new SILI(_options);
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());

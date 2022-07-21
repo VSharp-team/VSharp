@@ -88,10 +88,10 @@ type arrayCopyInfo =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
 type model =
-    { state : state; subst : IDictionary<ISymbolicConstantSource, term>; complete : bool }
+    { state : state; subst : IDictionary<ISymbolicConstantSource, term> }
 with
     member x.Complete value =
-        if x.complete then
+        if x.state.complete then
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
@@ -102,13 +102,12 @@ with
     member x.Eval term =
         Substitution.substitute (fun term ->
             match term with
-            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), typ) } ->
-                let value = source.Compose x.state
-                x.Complete value
+            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), _) } ->
+                source.Compose x.state
             | { term = Constant(_, source, typ) } ->
                 let value = ref Nop
                 if x.subst.TryGetValue(source, value) then value.Value
-                elif x.complete then makeDefaultValue typ
+                elif x.state.complete then makeDefaultValue typ
                 else term
             | _ -> term) id id term
 
@@ -134,7 +133,8 @@ and
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
     mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    mutable model : model option
+    mutable model : model option                                       // Concrete valuation of symbolics
+    complete : bool                                                    // If true, reading of undefined locations would result in default values
 }
 
 and

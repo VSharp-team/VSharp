@@ -20,108 +20,33 @@ module API =
         IdGenerator.restore()
 
     let BranchStatements state condition thenStatement elseStatement k =
-        Memory.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
+        Branching.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
     let BranchStatementsOnNull state reference thenStatement elseStatement k =
         BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
     let BranchExpressions condition thenBranch elseExpression k =
         Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
-    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : (state -> (state list -> 'a) -> 'a)) elseBranch k =
-        Memory.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
-    let StatedConditionalExecution = Memory.commonStatedConditionalExecutionk
+    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : state -> (state list -> 'a) -> 'a) elseBranch k =
+        Branching.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
+    let StatedConditionalExecution = Branching.commonStatedConditionalExecutionk
 
     let GuardedApplyExpressionWithPC pc term f = Merging.guardedApplyWithPC pc f term
     let GuardedApplyExpression term f = Merging.guardedApply f term
-    let GuardedStatedApplyStatementK state term f k = Memory.guardedStatedApplyk f state term k
+    let GuardedStatedApplyStatementK state term f k = Branching.guardedStatedApplyk f state term k
     let GuardedStatedApplyk f state term mergeStates k =
-        Memory.commonGuardedStatedApplyk f state term mergeStates k
+        Branching.commonGuardedStatedApplyk f state term mergeStates k
 
-    let ReleaseBranches() = Memory.branchesReleased <- true
-    let AquireBranches() = Memory.branchesReleased <- false
+    let ReleaseBranches() = Branching.branchesReleased <- true
+    let AquireBranches() = Branching.branchesReleased <- false
 
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let SolveTypes (model : model) (state : state) =
-        // TODO: where should we call this?
-        // TODO: find module in SILI.Core for it
-        let m = CallStack.getCurrentFunc state.stack
-        let typeOfAddress addr =
-            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
-            else state.allocatedTypes.[addr]
-        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let addresses = HashSet<concreteHeapAddress>()
-        model.state.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
-            addresses.Add(addr) |> ignore
-            Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
-                let list = List<Type>()
-                addr |> typeOfAddress |> Types.toDotNetType |> list.Add
-                list) |> ignore)
-
-        let add dict address typ =
-            match model.Eval address with
-            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
-                addresses.Add addr |> ignore
-                let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
-                let typ = Types.toDotNetType typ
-                if not <| list.Contains typ then
-                    list.Add typ
-            | {term = ConcreteHeapAddress _} -> ()
-            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
-
-        PC.toSeq state.pc |> Seq.iter (term >> function
-            | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
-            | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
-            | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
-            | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> __notImplemented__()
-            | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> __notImplemented__()
-            | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
-            | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
-            | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> __notImplemented__()
-            | _ -> ())
-        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
-            let l = Dict.tryGetValue d addr null
-            if l = null then [] else List.ofSeq l
-        let addresses = List.ofSeq addresses
-        let inputConstraints =
-            addresses
-            |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
-                                     notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
-            |> List.ofSeq
-        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = if m.IsConstructor then [||] else m.GetGenericArguments()
-        let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
-        match solverResult with
-        | TypeSat(refsTypes, typeParams) ->
-            let refineTypes addr (t : Type) =
-                let typ = Types.Constructor.fromDotNetType t
-                model.state.allocatedTypes <- PersistentDict.add addr typ model.state.allocatedTypes
-                if t.IsValueType then
-                    let value = makeDefaultValue typ
-                    model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
-            Seq.iter2 refineTypes addresses refsTypes
-            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
-            Some(Array.ofList classParams, Array.ofList methodParams)
-        | TypeUnsat -> None
-        | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
-        | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
-
-    let IsValid state =
-        match SolverInteraction.checkSat state with
-        | SolverInteraction.SmtSat satInfo ->
-            let model = satInfo.mdl
-            match SolveTypes model state with // TODO: need to solve types here? #do
-            | None -> SolverInteraction.SmtUnsat {core = Array.empty}
-            | Some _ -> SolverInteraction.SmtSat {satInfo with mdl = model}
-        | result -> result
-
+    let SolveTypes (model : model) (state : state) = TypeCasting.solveTypes model state
     let TryGetModel state =
         match state.model with
         | Some model -> Some model
         | None ->
-            match IsValid state with
+            match TypeCasting.checkSatWithSubtyping state with
             | SolverInteraction.SmtSat model -> Some model.mdl
             | SolverInteraction.SmtUnknown _ -> None
             // NOTE: irrelevant case, because exploring branch must be valid
@@ -131,7 +56,13 @@ module API =
     let ConfigureErrorReporter errorReporter =
         reportError <- errorReporter
     let ErrorReporter() =
-        let result = reportError
+        let result = fun state failCondition ->
+            Branching.commonStatedConditionalExecutionk state
+                (fun state k -> k (!!failCondition, state))
+                (fun _ k -> k ())
+                (fun state k -> k (reportError state))
+                (fun _ _ -> [])
+                ignore
         reportError <- fun _ -> ()
         result
 
@@ -342,7 +273,12 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = Memory.makeEmpty()
+        let EmptyState() = Memory.makeEmpty false
+        let EmptyModel method =
+            let modelState = Memory.makeEmpty true
+            Memory.fillWithParametersAndThis modelState method
+            {subst = Dictionary<_,_>(); state = modelState}
+
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -386,7 +322,7 @@ module API =
             | Ref address ->
                 assert(Memory.baseTypeOfAddress state address |> Types.isStruct)
                 StructField(address, fieldId) |> Ref
-            | Ptr(baseAddress, t, offset) ->
+            | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldOffset fieldId |> makeNumber
                 Ptr baseAddress (Types.FromDotNetType fieldId.typ) (add offset fieldOffset)
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
@@ -430,10 +366,12 @@ module API =
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
-        let Write state reference value = Memory.write state (ErrorReporter()) reference value
+        let Write state reference value =
+            let errorReporter = ErrorReporter()
+            Branching.guardedStatedMap (fun state reference -> Memory.write state errorReporter reference value) state reference
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
-            Memory.guardedStatedMap
+            Branching.guardedStatedMap
                 (fun state reference ->
                     match reference.term with
                     | HeapRef(addr, _) -> Memory.writeClassField state addr field value
@@ -452,7 +390,6 @@ module API =
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
-        let FillWithParametersAndThis state method = Memory.fillWithParametersAndThis state method
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
@@ -572,7 +509,7 @@ module API =
             match dstRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = Types.String)
-                Memory.guardedStatedMap (fun state arrayRef ->
+                Branching.guardedStatedMap (fun state arrayRef ->
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = ArrayType(Types.Char, Vector))

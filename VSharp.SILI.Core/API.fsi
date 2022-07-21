@@ -29,11 +29,10 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (System.Type[] * System.Type[]) option
-    val IsValid : state -> SolverInteraction.smtResult
     val TryGetModel : state -> model option
 
     val ConfigureErrorReporter : (state -> unit) -> unit
-    val ErrorReporter : unit -> (state -> unit)
+    val ErrorReporter : unit -> (state -> term -> unit)
 
     [<AutoOpen>]
     module Terms =
@@ -212,6 +211,7 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
+        val EmptyModel : MethodBase -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
@@ -244,7 +244,6 @@ module API =
 
         val MakeSymbolicThis : MethodBase -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
-        val FillWithParametersAndThis : state -> MethodBase -> unit
 
         val CallStackContainsFunction : state -> MethodBase -> bool
         val CallStackSize : state -> int

@@ -39,6 +39,7 @@
         <Compile Include="ArrayInitialization.fs" />
         <Compile Include="TypeCasting.fs" />
         <Compile Include="Copying.fs" />
+        <Compile Include="Branching.fs" />
         <Compile Include="API.fsi" />
         <Compile Include="API.fs" />
     </ItemGroup>

@@ -100,9 +100,7 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
         let initialState = Memory.EmptyState()
-        let modelState = Memory.EmptyState()
-        Memory.FillWithParametersAndThis modelState method
-        initialState.model <- Some {subst = Dictionary<_,_>(); state = modelState; complete = true}
+        initialState.model <- Some (Memory.EmptyModel method)
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -225,9 +223,7 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
         let state = Memory.EmptyState()
-        let modelState = Memory.EmptyState()
-        Memory.FillWithParametersAndThis modelState method
-        state.model <- Some {state = modelState; subst = Dictionary<_,_>(); complete = true}
+        state.model <- Some (Memory.EmptyModel method)
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = Types.FromDotNetType typeof<string>

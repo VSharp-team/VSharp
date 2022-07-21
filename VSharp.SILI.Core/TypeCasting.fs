@@ -2,7 +2,10 @@ namespace VSharp.Core
 
 #nowarn "69"
 
+open System
+open System.Collections.Generic
 open VSharp
+open VSharp.Core
 open VSharp.Core.Types
 
 module internal TypeCasting =
@@ -205,7 +208,7 @@ module internal TypeCasting =
             | _ -> __unreachable__()
         Merging.guardedApply castUnguarded term
 
-    let rec private nearestBiggerTypeForEvaluationStack (t : System.Type) =
+    let rec private nearestBiggerTypeForEvaluationStack (t : Type) =
         match t with
         | _ when t = typeof<int8>    -> Int32
         | _ when t = typeof<int16>   -> Int32
@@ -229,3 +232,80 @@ module internal TypeCasting =
         // | Bool -> cast x Int32
         | Numeric(Id typ) -> nearestBiggerTypeForEvaluationStack typ |> cast x
         | _ -> x
+
+    let solveTypes (model : model) (state : state) =
+        let m = CallStack.getCurrentFunc state.stack
+        let typeOfAddress addr =
+            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
+            else state.allocatedTypes.[addr]
+        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+        let addresses = HashSet<concreteHeapAddress>()
+        model.state.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
+            addresses.Add(addr) |> ignore
+            Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
+                let list = List<Type>()
+                addr |> typeOfAddress |> toDotNetType |> list.Add
+                list) |> ignore)
+
+        let add dict address typ =
+            match model.Eval address with
+            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
+                addresses.Add addr |> ignore
+                let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
+                let typ = toDotNetType typ
+                if not <| list.Contains typ then
+                    list.Add typ
+            | {term = ConcreteHeapAddress _} -> ()
+            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
+
+        PC.toSeq state.pc |> Seq.iter (term >> function
+            | Constant(_, TypeSubtypeTypeSource _, _) -> __notImplemented__()
+            | Constant(_, RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
+            | Constant(_, TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
+            | Constant(_, RefSubtypeRefSource _, _) -> __notImplemented__()
+            | Negation({term = Constant(_, TypeSubtypeTypeSource _, _)})-> __notImplemented__()
+            | Negation({term = Constant(_, RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
+            | Negation({term = Constant(_, TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
+            | Negation({term = Constant(_, RefSubtypeRefSource _, _)}) -> __notImplemented__()
+            | _ -> ())
+        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
+            let l = Dict.tryGetValue d addr null
+            if l = null then [] else List.ofSeq l
+        let addresses = List.ofSeq addresses
+        let inputConstraints =
+            addresses
+            |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
+                                     notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
+            |> List.ofSeq
+        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
+        let methodGenericParameters = if m.IsConstructor then [||] else m.GetGenericArguments()
+        let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
+        match solverResult with
+        | TypeSat(refsTypes, typeParams) ->
+            let refineTypes addr (t : Type) =
+                let typ = Constructor.fromDotNetType t
+                model.state.allocatedTypes <- PersistentDict.add addr typ model.state.allocatedTypes
+                if t.IsValueType then
+                    let value = makeDefaultValue typ
+                    model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
+            Seq.iter2 refineTypes addresses refsTypes
+            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+            Some(Array.ofList classParams, Array.ofList methodParams)
+        | TypeUnsat -> None
+        | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
+        | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
+
+    let checkSatWithSubtyping state =
+        match SolverInteraction.checkSat state with
+        | SolverInteraction.SmtSat satInfo ->
+            let model = satInfo.mdl
+            try
+                match solveTypes model state with
+                | None -> SolverInteraction.SmtUnsat {core = Array.empty}
+                | Some _ -> SolverInteraction.SmtSat {satInfo with mdl = model}
+            with :? InsufficientInformationException as e ->
+                SolverInteraction.SmtUnknown e.Message
+        | result -> result
