@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using IntegrationTests.Typecast;
 using VSharp.Test;
+#pragma warning disable CS0693
 
 namespace IntegrationTests
 {

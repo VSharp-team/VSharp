@@ -663,6 +663,11 @@ module internal Z3 =
             let stackEntries = Dictionary<stackKey, term ref>()
             encodingCache.termToExpression |> Seq.iter (fun kvp ->
                 match kvp.Key with
+                | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
+                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let decoded = x.Decode t refinedExpr
+                    if decoded <> constant then
+                        x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
                     let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     x.Decode t refinedExpr
@@ -682,10 +687,8 @@ module internal Z3 =
                     targetModel.subst.[source] <- term
                 | _ -> ())
 
-            if Memory.IsStackEmpty targetModel.state then
-                Memory.NewStackFrame targetModel.state null List.empty
-            
-            stackEntries |> Seq.iter (fun kvp ->
+            let state = {Memory.EmptyState() with complete = true}
+            let frame = stackEntries |> Seq.map (fun kvp ->
                     let key = kvp.Key
                     let term = !kvp.Value
                     Memory.AllocateOnStack targetModel.state key term)
@@ -694,15 +697,18 @@ module internal Z3 =
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
-                let arr = z3Model.Eval(constant, false)
+                let arr = m.Eval(constant, false)
+                let typeOfLocation =
+                    if fields.IsEmpty then region.TypeOfLocation
+                    else fields.Head.typ |> Types.FromDotNetType
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType region.TypeOfLocation then x.Decode region.TypeOfLocation arr.Args.[0]
+                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress region.TypeOfLocation arr.Args.[0] |> ConcreteHeapAddress
-                                HeapRef addr region.TypeOfLocation
+                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
+                                HeapRef addr typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     elif arr.IsDefaultArray then
                         assert(arr.Args.Length = 1)
@@ -710,13 +716,12 @@ module internal Z3 =
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
                         let address = x.DecodeMemoryKey region arr.Args.[1..arr.Args.Length - 2]
-                        let t = region.TypeOfLocation
                         let value =
-                            if Types.IsValueType t then
-                                x.Decode t (Array.last arr.Args)
+                            if Types.IsValueType typeOfLocation then
+                                x.Decode typeOfLocation (Array.last arr.Args)
                             else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
-                                HeapRef address t
+                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
+                                HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write targetModel.state (Ref address) value
                         assert(states.Length = 1 && states.[0] = targetModel.state)
@@ -745,30 +750,7 @@ module internal Z3 =
 //        let optCtx = ctx.MkOptimize()
         // Why Solver is named optCtx?
         let optCtx = ctx.MkSolver()
-        let levelAtoms = List<BoolExpr>()
-        let mutable pathsCount = 0u
-        let pathAtoms = Dictionary<level, List<BoolExpr>>()
-        let paths = Dictionary<BoolExpr, path>()
-        
         let assumptions = Dictionary<BoolExpr, string>()
-
-        let getLevelAtom (lvl : level) =
-            assert (not <| Level.isInf lvl)
-            let idx = Level.toInt lvl
-            if levelAtoms.Count > idx then
-                levelAtoms.[idx]
-            else
-                let atom = ctx.MkBoolConst(sprintf "lvl!%O" lvl)
-                levelAtoms.Insert(idx, atom)
-                atom
-
-        let addPath (p : path) =
-            let idx = pathsCount
-            pathsCount <- pathsCount + 1u
-            let atom = ctx.MkBoolConst(sprintf "path!%O!%O" p.lvl idx)
-            (Dict.tryGetValue2 pathAtoms p.lvl (fun () -> List<BoolExpr>())).Add atom
-            paths.Add(atom, p)
-            atom
 
 //        let addSoftConstraints lvl =
 //            let pathAtoms =
@@ -784,40 +766,33 @@ module internal Z3 =
 //            pathAtoms
 
         interface ISolver with
-            member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
-                printLog Trace "SOLVER: trying to solve constraints [level %O]..." q.lvl
-                printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
+            member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
+                printLog Trace "SOLVER: trying to solve constraints..."
+                printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
-                    let query = builder.EncodeTerm encCtx q.queryFml
+                    let query = builder.EncodeTerm encCtx q
                     let assumptions = query.assumptions
                     let assumptions =
                         seq {
-                            for i in 0 .. levelAtoms.Count - 1 do
-                                let atom = levelAtoms.[i]
-                                if atom <> null then
-                                    let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
-                                    yield lit :> Expr
-                            for i in 0 .. assumptions.Length - 1 do
-                                yield assumptions.[i] :> Expr
+                            yield! (Seq.cast<_> assumptions)
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
                     let result = optCtx.Check assumptions
                     match result with
                     | Status.SATISFIABLE ->
+                        trace "SATISFIABLE"
                         let z3Model = optCtx.Model
                         let updatedModel = {q.currentModel with state = {q.currentModel.state with model = q.currentModel.state.model}}
                         builder.UpdateModel z3Model updatedModel                      
-//                        let usedPaths =
-//                            pathAtoms
-//                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
-//                            |> Seq.map (fun atom -> paths.[atom])
                         builder.ClearTermToExpressionCache()
-                        SmtSat { mdl = updatedModel; usedPaths = [](*usedPaths*) }
+                        SmtSat { mdl = updatedModel }
                     | Status.UNSATISFIABLE ->
+                        trace "UNSATISFIABLE"
                         builder.ClearTermToExpressionCache()
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                     | Status.UNKNOWN ->
+                        trace "UNKNOWN"
                         builder.ClearTermToExpressionCache()
                         SmtUnknown optCtx.ReasonUnknown
                     | _ -> __unreachable__()
@@ -826,27 +801,12 @@ module internal Z3 =
                     printLog Info "SOLVER: exception was thrown: %s" e.Message
                     SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
 
-            member x.Assert encCtx (lvl : level) (fml : formula) =
-                printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl
-                printLogLazy Trace "%s" (lazy(fml.ToString()))
+            member x.Assert encCtx (fml : term) =
+                printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
-                let leveled =
-                    if Level.isInf lvl then encoded
-                    else
-                        let levelAtom = getLevelAtom lvl
-                        ctx.MkImplies(levelAtom, encoded)
-                optCtx.Assert(leveled)
+                optCtx.Assert(encoded)
 
-            member x.AddPath encCtx (p : path) =
-                printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
-                printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
-                let pathAtom = addPath p
-                let assumptions, encoded = PathConditionToSeq p.state.pc |> builder.EncodeTerms encCtx
-                let encodedWithAssumptions = Seq.append assumptions encoded |> Array.ofSeq
-                let encoded = builder.MkAnd encodedWithAssumptions
-                optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
-                          
             member x.CheckAssumptions encCtx currentModel formulas =
                 let encodeToBoolExprs formula =
                     let encoded = builder.EncodeTerm encCtx formula

@@ -4,7 +4,6 @@ open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
-open VSharp.Core
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
@@ -48,13 +47,14 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
         override x.UpdateStates parent children =
             let loc = ipOperations.ip2codeLocation parent.startingIP
             match loc with
-            | Some loc when loc.method = mainMethod && loc.offset = 0x0 ->
+            | Some loc when loc.method = mainMethod && loc.offset = 0<offsets> ->
                 forward.Update (parent, children)
                 backward.AddBranch parent |> ignore
                 Seq.iter (backward.AddBranch >> ignore) children
             | _ ->
                 let reached = targeted.Update parent children
                 Seq.iter (backward.AddBranch >> ignore) reached
+        override x.States() = forward.States()
 
         override x.Pick () =
             match forward.Pick() with
@@ -78,6 +78,19 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //                        GoFront s
 //                    | None -> Stop
 
+type OnlyForwardSearcher(searcher : IForwardSearcher) =
+    interface IBidirectionalSearcher with
+        override x.Init _ cilStates _ = searcher.Init cilStates
+        override x.Statuses() = []
+        override x.Answer _ _ = ()
+        override x.UpdatePobs _ _ = ()
+        override x.UpdateStates parent children = searcher.Update(parent, children)
+        override x.Pick () =
+            match searcher.Pick() with
+            | Some s -> GoFront s
+            | None -> Stop
+        override x.States() = searcher.States()
+
 // TODO: check pob duplicates
 type BackwardSearcher() =
     let mainPobs = List<pob>()
@@ -94,8 +107,8 @@ type BackwardSearcher() =
         let mutable pobsRef = ref null
         if not <| loc2pob.TryGetValue(pob.loc, pobsRef) then
             pobsRef <- ref (List<pob>())
-            loc2pob.Add(pob.loc, !pobsRef)
-        (!pobsRef).Add pob
+            loc2pob.Add(pob.loc, pobsRef.Value)
+        pobsRef.Value.Add pob
 
     let addPob parent child =
         if not <| ancestorOf.ContainsKey(child) then
@@ -109,11 +122,11 @@ type BackwardSearcher() =
         | Some loc ->
             let pobsList = ref null
             if loc2pob.TryGetValue(loc, pobsList) then
-                !pobsList |> Seq.iter (fun p ->
+                pobsList.Value |> Seq.iter (fun p ->
                     if not <| alreadyAddedInQBack.Contains(s, p) then
                         alreadyAddedInQBack.Add(s, p) |> ignore
                         qBack.Add(s, p))
-                !pobsList |> List.ofSeq
+                pobsList.Value |> List.ofSeq
             else []
 
     let rec answerYes (s' : cilState) (p' : pob) =
@@ -124,11 +137,12 @@ type BackwardSearcher() =
             list.Remove(p') |> ignore
             if list.Count = 0 then loc2pob.Remove(p'.loc) |> ignore
         currentPobs.Remove(p') |> ignore
-        qBack.RemoveAll(fun ((_, p) as pair) -> if p = p' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false) |> ignore
+        qBack.RemoveAll(fun (_, p as pair) -> if p = p' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false) |> ignore
         if Seq.contains p' mainPobs then
             mainPobs.Remove(p') |> ignore
         if not(answeredPobs.ContainsKey p') then answeredPobs.Add(p', Witnessed s')
         else answeredPobs.[p'] <- Witnessed s'
+        Application.applicationGraph.RemoveGoal p'.loc
         if ancestorOf.ContainsKey p' then
 //            assert(ancestorOf.[p'] <> null)
             Seq.iter (fun (ancestor : pob) ->
@@ -172,7 +186,7 @@ type BackwardSearcher() =
             updateQBack cilState
 
         override x.RemoveBranch cilState =
-            let count = qBack.RemoveAll(fun ((cilState', _) as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
+            let count = qBack.RemoveAll(fun (cilState', _ as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
             if count > 0 then
                 // TODO: need this?
                 internalfail "olololo!"
@@ -190,8 +204,8 @@ module DummyTargetedSearcher =
             let mutable l = ref null
             if not (reached.TryGetValue(from, l)) then
                 l <- ref (List<cilState>())
-                reached.Add(from, !l)
-            (!l).Add s
+                reached.Add(from, l.Value)
+            l.Value.Add s
             Seq.singleton s
         let add (s : cilState) : cilState seq =
             let from = s.startingIP

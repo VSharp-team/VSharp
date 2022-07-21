@@ -8,7 +8,7 @@ open VSharp.Interpreter.IL
 
 type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes : probes) =
     // TODO: should we consider executed assembly build options here?
-    let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> VSharp.Concolic.OpCode
+    let ldc_i : opcode = (if System.Environment.Is64BitOperatingSystem then OpCodes.Ldc_I8 else OpCodes.Ldc_I4) |> VSharp.OpCode
     static member private instrumentedFunctions = HashSet<MethodBase>()
     [<DefaultValue>] val mutable tokens : signatureTokens
     [<DefaultValue>] val mutable rewriter : ILRewriter
@@ -22,14 +22,14 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode opcode
+        newInstr.opcode <- VSharp.OpCode opcode
         newInstr.arg <- arg
 
     member private x.PrependNop(beforeInstr : ilInstr byref) =
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode OpCodes.Nop
+        newInstr.opcode <- VSharp.OpCode OpCodes.Nop
         newInstr.arg <- NoArg
         newInstr
 
@@ -37,7 +37,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let mutable newInstr = x.rewriter.CopyInstruction(beforeInstr)
         x.rewriter.InsertAfter(beforeInstr, newInstr)
         swap &newInstr &beforeInstr
-        newInstr.opcode <- VSharp.Concolic.OpCode opcode
+        newInstr.opcode <- VSharp.OpCode opcode
         newInstr.arg <- NoArg // In chain of prepends, the address of instruction constantly changes. Deferring it.
         newInstr
 
@@ -61,7 +61,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
         match args with
         | (opcode, arg)::tail ->
-            newInstr.opcode <- opcode |> VSharp.Concolic.OpCode
+            newInstr.opcode <- opcode |> VSharp.OpCode
             newInstr.arg <- arg
             for (opcode, arg) in tail do
                 let newInstr = x.rewriter.NewInstr opcode

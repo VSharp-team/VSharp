@@ -1,4 +1,5 @@
 // using VSharp.Test;
+#pragma warning disable CS0162
 
 namespace IntegrationTests
 {

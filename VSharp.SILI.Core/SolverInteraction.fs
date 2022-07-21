@@ -11,7 +11,7 @@ module public SolverInteraction =
     type encodingContext =
         { addressOrder : Map<concreteHeapAddress, int>}
 
-    type satInfo = { mdl : model; usedPaths : path seq }
+    type satInfo = { mdl : model }
     type unsatInfo = { core : term[] }
 
     type smtResult =
@@ -20,9 +20,8 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : encodingContext -> query -> smtResult
-        abstract Assert : encodingContext -> level -> formula -> unit
-        abstract AddPath : encodingContext -> path -> unit
+        abstract CheckSat : encodingContext -> term -> smtResult
+        abstract Assert : encodingContext -> term -> unit
         abstract CheckAssumptions : encodingContext -> model -> formula seq -> smtResult
 
     let mutable private mSolver : ISolver option = None

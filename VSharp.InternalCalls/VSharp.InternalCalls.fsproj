@@ -70,15 +70,6 @@
       </Reference>
     </ItemGroup>
 
-    <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp6.0' ">
-      <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
-        <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\Test.Lifetimes.dll</HintPath>
-      </Reference>
-      <Reference Include="JetBrains.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
-        <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\JetBrains.Lifetimes.dll</HintPath>
-      </Reference>
-    </ItemGroup>
-
     <ItemGroup Condition=" '$(TargetFramework)' == 'net5.0' ">
         <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
             <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\net5.0\Test.Lifetimes.dll</HintPath>

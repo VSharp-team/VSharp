@@ -1,4 +1,5 @@
 using System;
+using Microsoft.AspNetCore.Mvc;
 using NUnit.Framework;
 using VSharp.Test;
 
@@ -1066,6 +1067,18 @@ namespace IntegrationTests
             }
 
             return 42;
+        }
+
+        [TestSvm(100)]
+        public static int DecimalTest(decimal sum)
+        {
+            return sum switch
+            {
+                <= 1_000_000 => 12,
+                <= 5_000_000 => 14,
+                <= 10_000_000 => 8,
+                _ => throw new ArgumentOutOfRangeException()
+            };
         }
     }
 }

@@ -9,6 +9,8 @@ open ipOperations
 [<ReferenceEquality>]
 type cilState =
     { mutable ipStack : ipStack
+      // TODO: get rid of currentLoc!
+      mutable currentLoc : codeLocation // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
       state : state
       mutable filterResult : term option
       //TODO: #mb frames list #mb transfer to Core.State
@@ -36,6 +38,9 @@ type cilState =
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 
+    interface IGraphTrackableState with
+        member this.CodeLocation = this.currentLoc
+
 type cilStateComparer(comparer) =
     interface IComparer<cilState> with
         override _.Compare(x : cilState, y : cilState) =
@@ -44,8 +49,8 @@ type cilStateComparer(comparer) =
 module internal CilStateOperations =
 
     let makeCilState curV initialEvaluationStackSize state =
-        let loc = ip2codeLocation curV |> Option.get
         { ipStack = [curV]
+          currentLoc = ip2codeLocation curV |> Option.get
           state = state
           filterResult = None
           iie = None
@@ -59,7 +64,7 @@ module internal CilStateOperations =
           lastPushInfo = None
         }
 
-    let makeInitialState m state = makeCilState (instruction m 0) 0u state
+    let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
 
     let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
 
@@ -130,10 +135,26 @@ module internal CilStateOperations =
 
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
-        | Instruction (0, _) -> true
+        | Instruction (0<offsets>, _) -> true
         | _ -> false
-    let pushToIp (ip : ip) (cilState : cilState) = cilState.ipStack <- ip :: cilState.ipStack
-    let setCurrentIp (ip : ip) (cilState : cilState) = cilState.ipStack <- ip :: List.tail cilState.ipStack
+
+    let private moveCodeLoc (cilState : cilState) (ip : ip) =
+        match ip2codeLocation ip with
+        | Some loc when loc.method.GetMethodBody() <> null -> cilState.currentLoc <- loc
+        | _ -> ()
+
+    let pushToIp (ip : ip) (cilState : cilState) =
+        let loc = cilState.currentLoc
+        match ip2codeLocation ip with
+        | Some loc' when loc'.method.GetMethodBody() <> null ->
+            cilState.currentLoc <- loc'
+            Application.applicationGraph.AddCallEdge loc loc'
+        | _ -> ()
+        cilState.ipStack <- ip :: cilState.ipStack
+
+    let setCurrentIp (ip : ip) (cilState : cilState) =
+        moveCodeLoc cilState ip
+        cilState.ipStack <- ip :: List.tail cilState.ipStack
 
     let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
     let startingIpOf (cilState : cilState) = cilState.startingIP
@@ -177,7 +198,7 @@ module internal CilStateOperations =
 
     let addIntoHistory (cilState: cilState) k =
         let history = cilState.history
-        cilState.history<- Set.add k history
+        cilState.history <- Set.add k history
 
     let history (cilState : cilState) =
         seq cilState.history
@@ -189,6 +210,9 @@ module internal CilStateOperations =
         Memory.PopFrame cilState.state
         let ip = List.tail cilState.ipStack
         cilState.ipStack <- ip
+        match ip with
+        | ip::_ -> moveCodeLoc cilState ip
+        | [] -> ()
 
     let setCurrentTime time (cilState : cilState) = cilState.state.currentTime <- time
     let setEvaluationStack evaluationStack (cilState : cilState) = cilState.state.evaluationStack <- evaluationStack
@@ -257,10 +281,10 @@ module internal CilStateOperations =
     // ------------------------------- Helper functions for cilState -------------------------------
 
     let moveIp offset m cilState =
-        let cfg = CFG.findCfg m
+        let cfg = Application.applicationGraph.GetCfg m
         let opCode = Instruction.parseInstruction m offset
         let newIps =
-            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
+            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.IlBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
             | FallThrough nextInstruction -> instruction m nextInstruction :: []

@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System.Reflection.Emit
 open VSharp
+open VSharp.Core
 open VSharp.TypeUtils
 open VSharp.CSharpUtils
 open VSharp.Core.Common
@@ -625,9 +626,9 @@ module internal Arithmetics =
             (fun x y k ->
                 match x, y with
                 | _ when x = y -> Concrete sameIsTrue Bool |> k
-                | Add((ConcreteT(_, t) as c), x, _), y when x = y ->
+                | Add(ConcreteT(_, t) as c, x, _), y when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
                     simplifyComparison op c (castConcrete 0 (toDotNetType t)) comparator sameIsTrue k
-                | x, Add((ConcreteT(_, t) as c), y, _) when x = y ->
+                | x, Add(ConcreteT(_, t) as c, y, _) when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
                     simplifyComparison op (castConcrete 0 (toDotNetType t)) c comparator sameIsTrue k
                 | _ -> makeBinary op x y Bool |> k)
             (fun x y k -> simplifyComparison op x y comparator sameIsTrue k)

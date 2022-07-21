@@ -1,0 +1,14 @@
+@model LoanExam.Models.Request
+@using (Html.BeginForm())
+{
+    if (Model != null)
+    {
+        @Html.EditorForModel()
+    }
+    
+    @Html.EditorFor(x => x.CreditInfo)
+    @Html.EditorFor(x => x.Passport)
+    @Html.EditorFor(x => x.Personality)
+    
+    <div><button>Click</button></div>
+}

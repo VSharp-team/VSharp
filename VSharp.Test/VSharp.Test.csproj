@@ -31,6 +31,14 @@
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
     </ItemGroup>
 
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
+        <PackageReference Include="FluentValidation.AspNetCore" Version="11.0.2" />
+        <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="6.0.1" />
+        <PackageReference Include="MinimalApi.Endpoint" Version="1.1.1" />
+    </ItemGroup>
+
     <ItemGroup>
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
@@ -43,10 +51,8 @@
       </Reference>
     </ItemGroup>
 
-    <ItemGroup Condition=" '$(TargetFramework)' == 'netcoreapp6.0' ">
-        <Reference Include="Test.Lifetimes, Version=777.0.0.0, Culture=neutral, PublicKeyToken=3c74c1a6a8683340">
-            <HintPath>..\rd\rd-net\Test.Lifetimes\bin\Debug\netcoreapp6.0\Test.Lifetimes.dll</HintPath>
-        </Reference>
+    <ItemGroup>
+      <Folder Include="Tests\LoanExam\Models" />
     </ItemGroup>
 
 </Project>

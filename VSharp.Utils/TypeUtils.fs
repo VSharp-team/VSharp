@@ -21,7 +21,7 @@ module TypeUtils =
         HashSet<Type>([typedefof<byte>; typedefof<uint16>;
                        typedefof<uint32>; typedefof<uint64>;])
 
-    let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>; typedefof<decimal>])
+    let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
 
     let private numericTypes = HashSet<Type>(Seq.append integralTypes realTypes)
 

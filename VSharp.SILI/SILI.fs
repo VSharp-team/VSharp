@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Diagnostics
 open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections
@@ -9,9 +10,16 @@ open VSharp
 open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
+open VSharp.Interpreter.IL
 open VSharp.Solver
 
 type public SILI(options : siliOptions) =
+
+    let stopwatch = Stopwatch()
+    let () = stopwatch.Start()
+    let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
+    let branchReleaseTimeout = if options.timeout <= 0 then Int64.MaxValue else timeout * 80L / 100L
+    let mutable branchesReleased = false
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
@@ -36,23 +44,34 @@ type public SILI(options : siliOptions) =
         | SolverInteraction.SmtSat _
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
-    let mkForwardSearcher coverageZone = function
+
+    let rec mkForwardSearcher coverageZone = function
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | GuidedMode ->
-            let baseSearcher = BFSSearcher(infty) :> IForwardSearcher
+        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
+        | GuidedMode baseMode ->
+            let baseSearcher = mkForwardSearcher coverageZone baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
 
-    let searcher : IBidirectionalSearcher =
+    let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(coverageZone, searchMode) ->
             BidirectionalSearcher(mkForwardSearcher coverageZone searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
+    let releaseBranches() =
+        if not branchesReleased then
+            branchesReleased <- true
+            let dfsSearcher = DFSSearcher(infty) :> IForwardSearcher
+            let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
+            dfsSearcher.Init <| searcher.States()
+            searcher <- bidirectionalSearcher
+
+
     let coveragePobsForMethod (method : MethodBase) =
-        let cfg = CFG.findCfg method
-        cfg.sortedOffsets |> Seq.map (fun offset ->
-            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition()})
+        let cfg = Application.applicationGraph.GetCfg method
+        cfg.SortedOffsets |> Seq.map (fun offset ->
+            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
     let reportState reporter isError method cmdArgs state =
@@ -80,9 +99,8 @@ type public SILI(options : siliOptions) =
         action.Invoke e
 
     static member private FormInitialStateWithoutStatics (method : MethodBase) =
-        let modelState = Memory.EmptyState()
-        Memory.FillWithParametersAndThis modelState method
-        let initialState = Memory.EmptyStateWithModel modelState
+        let initialState = Memory.EmptyState()
+        initialState.model <- Some (Memory.EmptyModel method)
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -103,6 +121,7 @@ type public SILI(options : siliOptions) =
         | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
 
     member private x.Forward (s : cilState) =
+        let loc = s.currentLoc
         // TODO: update pobs when visiting new methods; use coverageZone
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
@@ -129,6 +148,8 @@ type public SILI(options : siliOptions) =
             if not <| LanguagePrimitives.PhysicalEquality s cilState' then
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
+        Application.applicationGraph.MoveState loc s
+        Application.applicationGraph.AddForkedStates (s, Seq.cast<_> newStates)
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -143,6 +164,7 @@ type public SILI(options : siliOptions) =
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
+                Application.applicationGraph.AddGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
@@ -153,7 +175,11 @@ type public SILI(options : siliOptions) =
             match searcher.Pick() with
             | Stop -> false
             | a -> action <- a; true
-        while pick() do
+        (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
+                 timeout, but we'll live with it for now. *)
+        while pick() && stopwatch.ElapsedMilliseconds < timeout do
+            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
+                releaseBranches()
             match action with
             | GoFront s -> x.Forward(s)
             | GoBack(s, p) -> x.Backward p s EP
@@ -161,11 +187,13 @@ type public SILI(options : siliOptions) =
 
     member private x.AnswerPobs entryPoint initialStates =
         statistics.ExplorationStarted()
-        let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
+        branchesReleased <- false
+        let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
+        mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.applicationGraph.AddGoals
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
-        entryIP <- Instruction(0x0, entryPoint)
+        entryIP <- Instruction(0<offsets>, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
             initialStates |> List.iter (fun initialState ->
@@ -199,9 +227,8 @@ type public SILI(options : siliOptions) =
         reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
         interpreter.ConfigureErrorReporter reportError
-        let modelState = Memory.EmptyState()
-        Memory.FillWithParametersAndThis modelState method
-        let state = Memory.EmptyStateWithModel modelState
+        let state = Memory.EmptyState()
+        state.model <- Some (Memory.EmptyModel method)
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = Types.FromDotNetType typeof<string>

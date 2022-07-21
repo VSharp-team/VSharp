@@ -110,7 +110,7 @@ module internal Memory =
         | StructType(t, args) -> substitute StructType t args
         | ClassType(t, args) -> substitute ClassType t args
         | InterfaceType(t, args) -> substitute InterfaceType t args
-        | TypeVariable(Id t as key) -> commonTypeVariableSubst state t id typ
+        | TypeVariable(Id t) -> commonTypeVariableSubst state t id typ
         | ArrayType(t, dim) -> ArrayType(substituteTypeVariables t, dim)
         | Pointer t -> Pointer(substituteTypeVariables t)
         | ByRef t -> ByRef(substituteTypeVariables t)
@@ -366,6 +366,21 @@ module internal Memory =
             else parameters
         newStackFrame state method parametersAndThis
 
+
+    let fillWithParametersAndThis state (method : System.Reflection.MethodBase) =
+        let parameters = method.GetParameters() |> Seq.map (fun param ->
+            (ParameterKey param, None, fromDotNetType param.ParameterType)) |> List.ofSeq
+        let parametersAndThis =
+            if Reflection.hasThis method then
+                let t = fromDotNetType method.DeclaringType
+                let addr = [-1]
+                let thisRef = HeapRef (ConcreteHeapAddress addr) t
+                state.allocatedTypes <- PersistentDict.add addr t state.allocatedTypes
+                state.startingTime <- [-2]
+                (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+            else parameters
+        newStackFrame state method parametersAndThis
+
 // =============== Marshalling/unmarshalling without state changing ===============
 
     // ------------------ Object to term ------------------
@@ -397,7 +412,7 @@ module internal Memory =
         let value, hasValue =
             if box obj <> null then objToTerm state nullableType obj, True
             else objToTerm state nullableType (Reflection.createObject nullableType), False
-        let fields = PersistentDict.ofSeq <| seq[(valueField, value); (hasValueField, hasValue)]
+        let fields = PersistentDict.ofSeq <| seq [(valueField, value); (hasValueField, hasValue)]
         Struct fields (fromDotNetType t)
 
     // ---------------- Try term to object ----------------
@@ -470,37 +485,6 @@ module internal Memory =
         // TODO
         results
 
-    let commonGuardedStatedApplyk f state term mergeResults k =
-        match term.term with
-        | Union gvs ->
-            let filterUnsat (g, v) k =
-                let pc = PC.add g state.pc
-                if pc.IsFalse then k None
-                else Some (pc, v) |> k
-            Cps.List.choosek filterUnsat gvs (fun pcs ->
-            match pcs with
-            | [] -> k []
-            | (pc, v)::pcs ->
-                let copyState (pc, v) k = f { (copy state) with pc = pc } v k
-                Cps.List.mapk copyState pcs (fun results ->
-                    state.pc <- pc
-                    f state v (fun r ->
-                    r::results |> mergeResults |> k)))
-        | _ -> f state term (List.singleton >> k)
-    let guardedStatedApplyk f state term k = commonGuardedStatedApplyk f state term mergeResults k
-    let guardedStatedApply f state term = guardedStatedApplyk (Cps.ret2 f) state term id
-
-    let guardedStatedMap mapper state term =
-        commonGuardedStatedApplyk (fun state term k -> mapper state term |> k) state term id id
-        
-    let commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k =
-        Branching.branch copy state conditionInvocation thenBranch elseBranch merge2Results k
-
-    let statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch k =
-        commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch merge2Results k
-    let statedConditionalExecutionWithMerge state conditionInvocation thenBranch elseBranch =
-        statedConditionalExecutionWithMergek state conditionInvocation thenBranch elseBranch id
-
 // ------------------------------- Safe reading -------------------------------
 
     let private accessRegion (dict : pdict<'a, memoryRegion<'key, 'reg>>) key typ =
@@ -518,14 +502,18 @@ module internal Memory =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
-    let private isHeapAddressDefault state = term >> function
+    let private isHeapAddressDefault state address =
+        state.complete ||
+        match address.term with
         | ConcreteHeapAddress address -> VectorTime.less state.startingTime address
         | _ -> false
 
     let readStackLocation (s : state) key =
         let makeSymbolic typ =
-            let time = if isValueType typ then None else Some s.startingTime
-            makeSymbolicStackRead key typ time
+            if s.complete then makeDefaultValue typ
+            else
+                let time = if isValueType typ then None else Some s.startingTime
+                makeSymbolicStackRead key typ time
         CallStack.readStackLocation s.stack key makeSymbolic
 
     let readStruct (structTerm : term) (field : fieldId) =
@@ -626,7 +614,7 @@ module internal Memory =
         let symbolicType = fromDotNetType field.typ
         let extractor state = accessRegion state.staticFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
         let mkname = fun (key : symbolicTypeKey) -> sprintf "%O.%O" key.typ field
-        let isDefault _ _ = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
+        let isDefault _ _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
@@ -669,19 +657,11 @@ module internal Memory =
 
 // ------------------------------- Unsafe reading -------------------------------
 
-    let private reportErrorIfNeed state reportError failCondition =
-        commonStatedConditionalExecutionk state
-            (fun state k -> k (!!failCondition, state))
-            (fun _ k -> k ())
-            (fun state k -> k (reportError state))
-            (fun _ _ -> [])
-            ignore
-
     let private checkBlockBounds state reportError blockSize startByte endByte =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
         state.pc.Add (makeExpressionNoOvf failCondition id)
-        reportErrorIfNeed state reportError failCondition
+        reportError state failCondition
 
     let private readAddressUnsafe address startByte endByte =
         let size = Terms.sizeOf address
@@ -1100,7 +1080,7 @@ module internal Memory =
         let baseAddress, offset = Pointers.addressToBaseAndOffset address
         let ptr = Ptr baseAddress typ offset
         match ptr.term with
-        | Ptr(baseAddress, sightType, offset) -> writeUnsafe state (fun _ -> ()) baseAddress offset sightType value
+        | Ptr(baseAddress, sightType, offset) -> writeUnsafe state (fun _ _ -> ()) baseAddress offset sightType value
         | _ -> internalfailf "expected to get ptr, but got %O" ptr
 
     let rec private writeSafe state address value =
@@ -1124,14 +1104,11 @@ module internal Memory =
         | ArrayLowerBound(address, dimension, typ) -> writeLowerBoundSymbolic state address dimension typ value
 
     let write state reportError reference value =
-        guardedStatedMap
-            (fun state reference ->
-                match reference.term with
-                | Ref address -> writeSafe state address value
-                | Ptr(address, sightType, offset) -> writeUnsafe state reportError address offset sightType value
-                | _ -> internalfailf "Writing: expected reference, but got %O" reference
-                state)
-            state reference
+        match reference.term with
+        | Ref address -> writeSafe state address value
+        | Ptr(address, sightType, offset) -> writeUnsafe state reportError address offset sightType value
+        | _ -> internalfailf "Writing: expected reference, but got %O" reference
+        state
 
 // ------------------------------- Allocation -------------------------------
 
@@ -1347,8 +1324,8 @@ module internal Memory =
         let substTime = composeTime state
         let composeOneRegion dicts k (mr' : memoryRegion<_, _>) =
             list {
-                let! (g, dict) = dicts
-                let! (g', mr) =
+                let! g, dict = dicts
+                let! g', mr =
                     let mr =
                         match PersistentDict.tryFind dict k with
                         | Some mr -> mr
@@ -1364,8 +1341,8 @@ module internal Memory =
         state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime state k) (fillHoles state v) acc) state.boxedLocations
 
     let private composeTypeVariablesOf state state' =
-        let (ms, s) = state.typeVariables
-        let (ms', s') = state'.typeVariables
+        let ms, s = state.typeVariables
+        let ms', s' = state'.typeVariables
         let ms' = MappedStack.map (fun _ v -> substituteTypeVariables state v) ms'
         (MappedStack.concat ms ms', List.append s' s)
 
@@ -1460,6 +1437,7 @@ module internal Memory =
                     currentTime = currentTime
                     startingTime = state.startingTime
                     model = state.model // TODO: compose models?
+                    complete = state.complete
                 }
         }
 

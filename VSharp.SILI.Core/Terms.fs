@@ -428,7 +428,10 @@ module internal Terms =
             let enumValue = TypeUtils.convert underlyingValue t
             Concrete enumValue (fromDotNetType t)
         elif actualType.IsEnum && TypeUtils.isNumeric t then
-            Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+            try
+                Concrete (Convert.ChangeType(concrete, t)) (fromDotNetType t)
+            with :? OverflowException ->
+                Concrete concrete (fromDotNetType t)
         elif TypeUtils.canConvert actualType t then
             Concrete (TypeUtils.convert concrete t) (fromDotNetType t)
         elif t.IsAssignableFrom(actualType) then
@@ -501,7 +504,6 @@ module internal Terms =
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
-        | Ref _, ByRef _ -> term
         | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
 
@@ -661,7 +663,7 @@ module internal Terms =
                 let sliceBytes = concreteToBytes o
                 let sliceStart = max s 0
                 // NOTE: 'pos = 0' is write case
-                let termStart = if pos = 0 then s else max (-s) 0
+                let termStart = if pos = 0 then max s 0 else max (-s) 0
                 let e = min e (Array.length sliceBytes)
                 let count = e - sliceStart
                 if count > 0 then Array.blit sliceBytes sliceStart bytes termStart count

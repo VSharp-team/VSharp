@@ -199,7 +199,7 @@ with
         map
     member x.AddressToString (address : int64) =
         let result = ref ""
-        if x.Probe2str.TryGetValue(uint64 address, result) then "probe_" + !result
+        if x.Probe2str.TryGetValue(uint64 address, result) then "probe_" + result.Value
         else toString address
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]
@@ -301,7 +301,7 @@ with
         map
     member x.TokenToString (token : int32) =
         let result = ref ""
-        if x.SigToken2str.TryGetValue(uint32 token, result) then !result
+        if x.SigToken2str.TryGetValue(uint32 token, result) then result.Value
         else "<UNKNOWN TOKEN!>"
 
 [<type: StructLayout(LayoutKind.Sequential, Pack=1, CharSet=CharSet.Ansi)>]

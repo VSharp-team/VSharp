@@ -19,11 +19,13 @@ type IBidirectionalSearcher =
     abstract member Pick : unit -> action
     abstract member Answer : pob -> pobStatus -> unit
     abstract member Statuses : unit -> seq<pob * pobStatus>
+    abstract member States : unit -> cilState seq
 
 type IForwardSearcher =
     abstract member Init : cilState seq -> unit
     abstract member Update : cilState * cilState seq -> unit
     abstract member Pick : unit -> cilState option
+    abstract member States : unit -> cilState seq
 
 type ITargetedSearcher =
     abstract member SetTargets : ip -> ip seq -> unit
@@ -68,6 +70,8 @@ type SimpleForwardSearcher(maxBound) =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update (parent, newStates) =
             x.Insert forPropagation (parent, newStates)
+        override x.States() = forPropagation
+
     abstract member Choose : seq<cilState> -> cilState option
     default x.Choose states = Seq.tryLast states
     abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
@@ -149,6 +153,7 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         override x.Init states = x.Insert states
         override x.Pick() = x.Pick()
         override x.Update (parent, newStates) = x.Update (parent, newStates)
+        override x.States() = storage.ToSeq
 
     member x.Weighter = weighter
     member x.TryGetWeight state = storage.TryGetPriority state
