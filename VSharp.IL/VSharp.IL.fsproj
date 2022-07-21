@@ -11,7 +11,6 @@
       <Compile Include="ILRewriter.fs" />
       <Compile Include="Instruction.fs" />
       <Compile Include="CFG.fs" />
-      <Compile Include="Reachability.fs" />
     </ItemGroup>
 
     <ItemGroup>

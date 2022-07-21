@@ -119,6 +119,11 @@ module public Reflection =
     let isStaticConstructor (m : MethodBase) =
         m.IsStatic && m.Name = ".cctor"
 
+    let isExternalMethod (methodBase : MethodBase) =
+        let isInternalCall = methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall
+        let isPInvokeImpl = methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
+        int isInternalCall <> 0 || isPInvokeImpl
+
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
     // ----------------------------------- Creating objects ----------------------------------

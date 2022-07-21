@@ -37,6 +37,9 @@ type cilState =
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 
+    interface IGraphTrackableState with
+        member this.CodeLocation = this.currentLoc
+
 type cilStateComparer(comparer) =
     interface IComparer<cilState> with
         override _.Compare(x : cilState, y : cilState) =
@@ -144,7 +147,7 @@ module internal CilStateOperations =
         match ip2codeLocation ip with
         | Some loc' when loc'.method.GetMethodBody() <> null ->
             cilState.currentLoc <- loc'
-            CFG.appGraph.AddCallEdge (CFG.findCfg loc.method) loc.offset (CFG.findCfg loc'.method)
+            CFG.applicationGraph.AddCallEdge loc loc'
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 
@@ -194,7 +197,7 @@ module internal CilStateOperations =
 
     let addIntoHistory (cilState: cilState) k =
         let history = cilState.history
-        cilState.history<- Set.add k history
+        cilState.history <- Set.add k history
 
     let history (cilState : cilState) =
         seq cilState.history
@@ -277,10 +280,10 @@ module internal CilStateOperations =
     // ------------------------------- Helper functions for cilState -------------------------------
 
     let moveIp offset m cilState =
-        let cfg = CFG.findCfg m
+        let cfg = CFG.applicationGraph.GetCfg m
         let opCode = Instruction.parseInstruction m offset
         let newIps =
-            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.ilBytes offset
+            let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.IlBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
             | FallThrough nextInstruction -> instruction m nextInstruction :: []

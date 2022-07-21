@@ -26,7 +26,9 @@ type TargetedSearcher(maxBound, target) =
             let onVertex state =
                 let currLoc = tryCurrentLoc state
                 match currLoc with
-                | Some loc -> CFG.isVertex loc.method loc.offset
+                | Some loc ->
+                    let cfg = CFG.applicationGraph.GetCfg loc.method
+                    cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
             isStopped state  ||  onVertex state
@@ -92,7 +94,8 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->
-            let onVertex = CFG.isVertex currLoc.method currLoc.offset
+            let cfg = CFG.applicationGraph.GetCfg currLoc.method
+            let onVertex = cfg.IsBasicBlockStart currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
             onVertex && level > threshold
         | _ -> false
@@ -110,9 +113,9 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let addReturnTarget state =
         let startingLoc = startingLoc state
         let startingMethod = startingLoc.method
-        let cfg = CFG.findCfg startingMethod
+        let cfg = CFG.applicationGraph.GetCfg startingMethod
 
-        for retOffset in cfg.retOffsets do
+        for retOffset in cfg.Sinks do
             let target = {offset = retOffset; method = startingMethod}
 
             match state.targets with

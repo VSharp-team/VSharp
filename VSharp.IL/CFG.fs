@@ -1,395 +1,409 @@
 namespace VSharp
 
-open System
 open System.Reflection
 open System.Collections.Generic
-
-open System.Reflection.Emit
 open FSharpx.Collections
+open Microsoft.FSharp.Collections
+open VSharp
 open VSharp.Core
 
-module public CFG =
-    type internal genericGraph<'a> = Dictionary<'a, List<'a>>
-    type internal genericDistance<'a> = Dictionary<'a, Dictionary<'a, uint>>
-    type internal graph = genericGraph<offset>
-    let private infinity = UInt32.MaxValue
+type IGraphTrackableState =
+    abstract member CodeLocation: codeLocation
 
-    [<CustomEquality; CustomComparison>]
-    type public cfgData =
+[<Struct>]
+type CallInfo =
+    val Callee: MethodBase
+    val CallFrom: offset
+    val ReturnTo: offset
+    new (callee, callFrom, returnTo) =
         {
-            methodBase : MethodBase
-            ilBytes : byte []
-            sortedOffsets : List<offset>
-            dfsOut : Dictionary<offset, int>
-            sccOut : Dictionary<offset, int>               // maximum tOut of SCC-vertices
-            graph : graph
-            reverseGraph : graph
-            clauses : ExceptionHandlingClause []
-            offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
-            retOffsets : List<offset>
+            Callee = callee
+            CallFrom = callFrom
+            ReturnTo = returnTo
         }
-        interface IComparable with
-            override x.CompareTo (obj : obj) =
-                match obj with
-                | :? cfgData as other -> x.methodBase.GetHashCode().CompareTo(other.GetHashCode())
-                | _ -> -1
-        override x.Equals (obj : obj) =
-            match obj with
-            | :? cfgData as other -> x.methodBase = other.methodBase
-            | _ -> false
-        override x.GetHashCode() = x.methodBase.GetHashCode()
 
-    type private interimData = {
-        opCodes : OpCode [] //  for debug
-        verticesOffsets : int HashSet
-        fallThroughOffset : offset option []
-        edges : Dictionary<offset, List<offset>>
-        offsetsDemandingCall : Dictionary<offset, OpCode * MethodBase>
-        retOffsets : List<offset>
-    }
-    with
-        member x.AddEdge src dst =
-            if not <| x.edges.ContainsKey src then
-                x.edges.Add (src, List<_>())
-                x.edges.[src].Add dst
-            elif x.edges.[src].Contains dst |> not then x.edges.[src].Add dst
+type private BasicBlock (startVertex: offset) =
+    let innerVertices = ResizeArray<offset>()
+    let mutable finalVertex = None
+    member this.StartVertex = startVertex
+    member this.InnerVertices with get () = innerVertices
+    member this.AddVertex v = innerVertices.Add v
+    member this.FinalVertex
+        with get () =
+                match finalVertex with
+                | Some v -> v
+                | None -> failwith "Final vertex of this basic block is not specified yet."
+        and set v = finalVertex <- Some v
 
-    // TODO: CFL reachability
-    type ApplicationGraph() =
-        let rec binSearch (sortedOffsets : List<offset>) offset l r =
+type CfgTemporaryData (methodBase : MethodBase) =
+    let ilBytes = Instruction.getILBytes methodBase
+    let exceptionHandlers = Instruction.getEHSBytes methodBase
+    let sortedOffsets = ResizeArray<offset>()
+    let edges = Dictionary<offset, HashSet<offset>>()
+    let sinks = ResizeArray<_>()
+    let calls = ResizeArray<CallInfo>()
+    let loopEntries = HashSet<offset>()
+    let offsetsWithSiblings = HashSet<offset>()
+
+    let dfs (startVertices : array<offset>) =
+        let used = HashSet<offset>()
+        let verticesOffsets = HashSet<offset> startVertices
+        let addVertex v = verticesOffsets.Add v |> ignore
+        let greyVertices = HashSet<offset>()
+        let vertexToBasicBloc: array<Option<BasicBlock>> = Array.init ilBytes.Length (fun _ -> None)
+
+        let splitEdge edgeStart edgeFinal intermediatePoint =
+            let isRemoved = edges.[edgeStart].Remove edgeFinal
+            assert isRemoved
+            let isAdded = edges.[edgeStart].Add intermediatePoint
+            assert isAdded
+            edges.Add(intermediatePoint, HashSet<_>[|edgeFinal|])
+
+        let splitBasicBlock (block:BasicBlock) intermediatePoint =
+            let newBlock = BasicBlock(intermediatePoint)
+            newBlock.FinalVertex <- block.FinalVertex
+            let tmp = ResizeArray block.InnerVertices
+            for v in tmp do
+                if v > intermediatePoint
+                then
+                    let isRemoved = block.InnerVertices.Remove v
+                    assert isRemoved
+                    newBlock.AddVertex v
+                    vertexToBasicBloc.[v] <- Some newBlock
+            block.FinalVertex <- intermediatePoint
+            let isRemoved = block.InnerVertices.Remove intermediatePoint
+            assert isRemoved
+
+        let addEdge src dst =
+            addVertex src
+            addVertex dst
+            if src <> dst
+            then
+                let exists,outgoingEdges = edges.TryGetValue src
+                if exists
+                then outgoingEdges.Add dst |> ignore
+                else edges.Add(src, HashSet [|dst|])
+                match vertexToBasicBloc.[dst] with
+                | None -> ()
+                | Some block ->
+                    if block.InnerVertices.Contains dst && block.FinalVertex <> dst
+                    then
+                        splitEdge block.StartVertex block.FinalVertex dst
+                        splitBasicBlock block dst
+
+
+        let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) =
+
+            vertexToBasicBloc.[currentVertex] <- Some currentBasicBlock
+
+            if used.Contains currentVertex
+            then
+                currentBasicBlock.FinalVertex <- currentVertex
+                addEdge currentBasicBlock.StartVertex currentVertex
+                if greyVertices.Contains currentVertex
+                then loopEntries.Add currentVertex |> ignore
+            else
+                greyVertices.Add currentVertex |> ignore
+                used.Add currentVertex |> ignore
+                let opCode = Instruction.parseInstruction methodBase currentVertex
+
+                let dealWithJump src dst =
+                    addVertex src
+                    addVertex dst
+                    addEdge src dst
+                    dfs' (BasicBlock dst)  dst
+
+                let processCall callee callFrom returnTo =
+                    calls.Add(CallInfo(callee, callFrom,returnTo))
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    addEdge callFrom returnTo
+                    dfs' (BasicBlock returnTo) returnTo
+
+                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes currentVertex
+
+                match ipTransition with
+                | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + opCode.Size)
+                    if not <| Reflection.isExternalMethod calledMethod
+                    then processCall calledMethod currentVertex offset
+                    else
+                        currentBasicBlock.AddVertex offset
+                        dfs' currentBasicBlock offset
+                | FallThrough offset ->
+                    currentBasicBlock.AddVertex offset
+                    dfs' currentBasicBlock offset
+                | ExceptionMechanism ->
+                    // TODO: gsv fix it.
+//                    currentBasicBlock.FinalVertex <- currentVertex
+//                    addEdge currentBasicBlock.StartVertex currentVertex
+//                    calls.Add(CallInfo(null, currentVertex, currentVertex + 1))
+                    ()
+                | Return ->
+                    addVertex currentVertex
+                    sinks.Add currentVertex
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                | UnconditionalBranch target ->
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    dealWithJump currentVertex target
+                | ConditionalBranch (fallThrough, offsets) ->
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
+                    dealWithJump currentVertex fallThrough
+                    offsets |> List.iter (dealWithJump currentVertex)
+
+                greyVertices.Remove currentVertex |> ignore
+
+        startVertices
+        |> Array.iter (fun v -> dfs' (BasicBlock v) v)
+
+        verticesOffsets
+        |> Seq.sort
+        |> Seq.iter sortedOffsets.Add
+
+    let cfgDistanceFrom = GraphUtils.distanceCache<offset>()
+
+    let findDistanceFrom node =
+        Dict.getValueOrUpdate cfgDistanceFrom node (fun () ->
+        let dist = GraphUtils.incrementalSourcedDijkstraAlgo node edges cfgDistanceFrom
+        let distFromNode = Dictionary<offset, uint>()
+        for i in dist do
+            if i.Value <> GraphUtils.infinity then
+                distFromNode.Add(i.Key, i.Value)
+        distFromNode)
+
+    do
+        let startVertices =
+            [|
+             yield 0
+             for handler in exceptionHandlers do
+                 yield handler.handlerOffset
+                 match handler.ehcType with
+                 | Filter offset -> yield offset
+                 | _ -> ()
+            |]
+
+        dfs startVertices
+        sortedOffsets |> Seq.iter (fun bb ->
+            if edges.ContainsKey bb then
+                let outgoing = edges.[bb]
+                if outgoing.Count > 1 then
+                    offsetsWithSiblings.UnionWith outgoing
+            else edges.Add(bb, HashSet<_>()))
+
+    member this.MethodBase = methodBase
+    member this.ILBytes = ilBytes
+    member this.SortedOffsets = sortedOffsets
+    member this.Edges = edges
+    member this.Calls = calls
+    member this.Sinks = sinks.ToArray()
+    member this.LoopEntries = loopEntries
+    member this.BlocksWithSiblings = offsetsWithSiblings
+    member this.DistancesFrom offset = findDistanceFrom offset
+
+
+type CfgInfo (cfg:CfgTemporaryData) =
+    let resolveBasicBlock offset =
+        let rec binSearch (sortedOffsets : ResizeArray<offset>) offset l r =
             if l >= r then sortedOffsets.[l]
             else
                 let mid = (l + r) / 2
                 let midValue = sortedOffsets.[mid]
-                if midValue = offset then midValue
-                elif midValue < offset then
-                    binSearch sortedOffsets offset (mid + 1) r
-                else
-                    binSearch sortedOffsets offset l (mid - 1)
+                if midValue = offset
+                then midValue
+                elif midValue < offset
+                then binSearch sortedOffsets offset (mid + 1) r
+                else binSearch sortedOffsets offset l (mid - 1)
 
-        let resolveBasicBlock (cfg : cfgData) offset =
-            binSearch cfg.sortedOffsets offset 0 (cfg.sortedOffsets.Count - 1)
+        binSearch cfg.SortedOffsets offset 0 (cfg.SortedOffsets.Count - 1)
 
-        // Registers new control flow graph
-        member x.AddCfg cfg =
-            Logger.trace "registering CFG for %s" cfg.methodBase.Name
-//            __notImplemented__()
+    let sinks = cfg.Sinks |> Array.map resolveBasicBlock
+    let loopEntries = cfg.LoopEntries
+    let calls =
+        let res = Dictionary<_,_>()
+        cfg.Calls
+        |> ResizeArray.iter (fun callInfo -> res.Add(callInfo.CallFrom, callInfo))
+        res
 
-        member x.AddCallEdge (sourceCfg : cfgData) (offset : offset) (targetCfg : cfgData) =
-            let sourceBasicBlock = resolveBasicBlock sourceCfg offset
-            Logger.trace "connecting %x of %s with %s" sourceBasicBlock sourceCfg.methodBase.Name targetCfg.methodBase.Name
-//            __notImplemented__()
+    member this.MethodBase = cfg.MethodBase
+    member this.IlBytes = cfg.ILBytes
+    member this.SortedOffsets = cfg.SortedOffsets
+    member this.Sinks = sinks
+    member this.Calls = calls
+    member this.IsLoopEntry offset = loopEntries.Contains offset
+    member this.ResolveBasicBlock offset = resolveBasicBlock offset
+    member this.IsBasicBlockStart offset = resolveBasicBlock offset = offset
+    // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)
+    member this.DistancesFrom offset =
+        let bb = resolveBasicBlock offset
+        cfg.DistancesFrom bb
+    member this.HasSiblings offset =
+        this.IsBasicBlockStart offset && cfg.BlocksWithSiblings.Contains offset
 
-        member x.AddState (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
-            Logger.trace "add state to offset %x of %s" basicBlock cfg.methodBase.Name
-//            __notImplemented__()
 
-        member x.MoveState (fromCfg : cfgData) (fromOffset : offset) (toCfg : cfgData) (toOffset : offset) =
-            let fromBasicBlock = resolveBasicBlock fromCfg fromOffset
-            let toBasicBlock = resolveBasicBlock toCfg toOffset
-            if fromBasicBlock <> toBasicBlock || fromCfg.methodBase <> toCfg.methodBase then
-                Logger.trace "move state from (%x, %s) to (%x, %s)" fromBasicBlock fromCfg.methodBase.Name toBasicBlock toCfg.methodBase.Name
-//            __notImplemented__()
+type private ApplicationGraphMessage =
+    | ResetQueryEngine
+    | AddGoals of array<codeLocation>
+    | RemoveGoal of codeLocation
+    | AddStates of seq<IGraphTrackableState>
+    | AddForkedStates of parentState:IGraphTrackableState * forkedStates:seq<IGraphTrackableState>
+    | MoveState of positionForm:codeLocation * positionTo: IGraphTrackableState
+    | AddCFG of Option<AsyncReplyChannel<CfgInfo>> *  MethodBase
+    | AddCallEdge of callForm:codeLocation * callTo: codeLocation
+    | GetShortestDistancesToGoals
+        of AsyncReplyChannel<ResizeArray<codeLocation * codeLocation * int>> * array<codeLocation>
+    | GetReachableGoals
+        of AsyncReplyChannel<Dictionary<codeLocation,HashSet<codeLocation>>> * array<codeLocation>
+    | GetDistanceToNearestGoal
+        of AsyncReplyChannel<seq<IGraphTrackableState * int>> * seq<IGraphTrackableState>
 
-        member x.AddGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
-            Logger.trace "add goal to offset %x of %s" basicBlock cfg.methodBase.Name
-//            __notImplemented__()
+type ApplicationGraph() as this =
 
-        member x.RemoveGoal (cfg : cfgData) (offset : offset) =
-            let basicBlock = resolveBasicBlock cfg offset
-            Logger.trace "remove goal from offset %x of %s" basicBlock cfg.methodBase.Name
-//            __notImplemented__()
+    let cfgs = Dictionary<MethodBase, CfgInfo>()
 
-    let private createData (methodBase : MethodBase) (ilBytes : byte []) ehsBytes =
-        let size = ilBytes.Length
-        let interim = {
-            fallThroughOffset = Array.init size (fun _ -> None)
-            verticesOffsets = HashSet<_>()
-            edges = Dictionary<_, _>()
-            opCodes = Array.init size (fun _ -> OpCodes.Prefix1)
-            offsetsDemandingCall = Dictionary<_,_>()
-            retOffsets = List<_>()
-        }
-        let cfg = {
-            methodBase = methodBase
-            ilBytes = ilBytes
-            sortedOffsets = List<_>()
-            dfsOut = Dictionary<_,_>()
-            sccOut = Dictionary<_,_>()
-            graph = Dictionary<_, _>()
-            reverseGraph = Dictionary<_,_>()
-            clauses = ehsBytes
-            offsetsDemandingCall = Dictionary<_,_>()
-            retOffsets = List<_>()
-        }
-        interim, cfg
-
-    let createVertex (cfgData : cfgData) offset =
-        cfgData.sortedOffsets.Add offset
-        cfgData.graph.Add <| (offset, List<_>())
-        cfgData.reverseGraph.Add <| (offset, List<_>())
-
-    let private addVerticesAndEdges (cfgData : cfgData) (interimData : interimData) =
-        interimData.verticesOffsets
-        |> Seq.sort
-        |> Seq.iter (createVertex cfgData)
-
-        let addEdge src dst =
-            cfgData.graph.[src].Add dst
-            cfgData.reverseGraph.[dst].Add src
-
-        let used = HashSet<offset>()
-        let rec addEdges currentVertex src =
-            if used.Contains src then ()
-            else
-                let wasAdded = used.Add src
-                assert(wasAdded)
-                match interimData.fallThroughOffset.[src] with
-                | Some dst when interimData.offsetsDemandingCall.ContainsKey dst ->
-                    addEdge currentVertex dst
-                    addEdges dst dst
-                | Some dst when cfgData.sortedOffsets.Contains dst ->
-                    addEdge currentVertex dst
-                    addEdges dst dst
-                | Some dst -> addEdges currentVertex dst
-                | None when interimData.edges.ContainsKey src ->
-                    interimData.edges.[src] |> Seq.iter (fun dst ->
-                        if cfgData.sortedOffsets.Contains dst then
-                            addEdge currentVertex dst
-                            addEdges dst dst
-                        else
-                            addEdges currentVertex dst
-                    )
-                | None -> ()
-        cfgData.sortedOffsets |> Seq.iter (fun offset -> addEdges offset offset)
-        { cfgData with offsetsDemandingCall = interimData.offsetsDemandingCall; retOffsets = interimData.retOffsets }
-
-    let private markVertex (set : HashSet<offset>) vOffset =
-        set.Add vOffset |> ignore
-
-    let private dfs (methodBase : MethodBase) (data : interimData) (used : HashSet<int>) (ilBytes : byte []) (v : offset) =
-        let rec dfs' (v : offset) =
-            if used.Contains v then ()
-            else
-                //TODO: remove next line of code when generic pobs-generating mechanism is coded: for now ``markVertex''
-                //TODO: is done intentionally to bypass all opcodes and find ``hard-coded Throw'' that would be pobs
-//                markVertex data.verticesOffsets v
-                let wasAdded = used.Add(v)
-                assert(wasAdded)
-                let opCode = Instruction.parseInstruction methodBase v
-//                Logger.trace "CFG.dfs: Method = %s went to %d opCode = %O" (Reflection.getFullMethodName methodBase) v opCode
-                data.opCodes.[v] <- opCode
-                if opCode = OpCodes.Ret then
-                    data.retOffsets.Add v
-
-                let dealWithJump src dst =
-                    markVertex data.verticesOffsets src
-                    markVertex data.verticesOffsets dst
-                    data.AddEdge src dst
-                    dfs' dst
-
-                let ipTransition = Instruction.findNextInstructionOffsetAndEdges opCode ilBytes v
-                match ipTransition with
-                | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
-                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (v + opCode.Size)
-                    data.offsetsDemandingCall.Add(v, (opCode, calledMethod))
-                    markVertex data.verticesOffsets v
-                    markVertex data.verticesOffsets offset
-                    data.fallThroughOffset.[v] <- Some offset
-                    dfs' offset
-                | FallThrough offset ->
-                    data.fallThroughOffset.[v] <- Some offset
-                    dfs' offset
-                | ExceptionMechanism -> ()
-                | Return -> markVertex data.verticesOffsets v
-                | UnconditionalBranch target -> dealWithJump v target
-                | ConditionalBranch (fallThrough, offsets) -> fallThrough :: offsets |> List.iter (dealWithJump v)
-        dfs' v
-    let private dfsComponent methodBase (data : interimData) used (ilBytes : byte []) startOffset =
-        markVertex data.verticesOffsets startOffset
-        dfs methodBase data used ilBytes startOffset
-
-    let private dfsExceptionHandlingClause methodBase (data : interimData) used (ilBytes : byte []) (ehc : ExceptionHandlingClause) =
-        match ehc.ehcType with
-        | Filter offset -> dfsComponent methodBase data used ilBytes offset
-        | _ -> ()
-        dfsComponent methodBase data used ilBytes ehc.handlerOffset // some catch handlers may be nested
-
-    let orderEdges (cfg : cfgData) : unit =
-        let used = HashSet<offset>()
-        let rec bypass acc (u : offset) =
-            used.Add u |> ignore
-            let vertices, tOut = cfg.graph.[u] |> Seq.fold (fun acc v -> if used.Contains v then acc else bypass acc v) acc
-            cfg.dfsOut.[u] <- tOut
-            u::vertices, tOut + 1
-        let propagateMaxTOutForSCC (usedForSCC : HashSet<offset>) max v =
-            let rec helper v =
-                usedForSCC.Add v |> ignore
-                cfg.sccOut.[v] <- max
-                cfg.reverseGraph.[v] |> Seq.iter (fun u -> if not <| usedForSCC.Contains u then helper u)
-            helper v
-        let vertices, _ = Seq.fold (fun acc u -> if used.Contains u then acc else bypass acc u)  ([], 1) cfg.sortedOffsets
-        let usedForSCC = HashSet<offset>()
-        vertices |> List.iter (fun v -> if not <| usedForSCC.Contains v then propagateMaxTOutForSCC usedForSCC cfg.dfsOut.[v] v)
-
-    let floydAlgo nodes (graph : genericGraph<'a>) =
-        let dist = Dictionary<'a * 'a, uint>()
-        let offsets = nodes
-        let infinitySum a b =
-            if a = infinity || b = infinity then infinity else a + b
-        for i in offsets do
-            for j in offsets do
-                dist.Add((i, j), infinity)
-
-        for i in offsets do
-            dist.[(i, i)] <- 0u
-            for j in graph.[i] do
-                dist.[(i, j)] <- 1u
-
-        for k in offsets do
-            for i in offsets do
-                for j in offsets do
-                    if dist.[i, j] > infinitySum dist.[i, k] dist.[k, j] then
-                        dist.[(i,j)] <- infinitySum dist.[i, k] dist.[k, j]
-        dist
-
-    let sourcedDijkstraAlgo source (graph : genericGraph<'a>) =
-        let dist = Dictionary<'a, uint>()
-        dist.Add (source, 0u)
-        let queue = Queue<_>()
-        queue.Enqueue source
-        while not <| Seq.isEmpty queue do
-            let parent = queue.Dequeue()
-            for children in graph.[parent] do
-                if not <| dist.ContainsKey (children) then
-                    dist.Add (children, dist.[parent] + 1u)
-                    queue.Enqueue children
-        dist
-
-    let incrementalSourcedDijkstraAlgo source (graph : genericGraph<'a>) (allPairDist : Dictionary<'a, Dictionary<'a, uint>>) =
-        let dist = Dictionary<'a, uint>()
-        dist.Add (source, 0u)
-        let queue = Queue<_>()
-        queue.Enqueue source
-        while not <| Seq.isEmpty queue do
-            let parent = queue.Dequeue()
-            if allPairDist.ContainsKey parent then
-                for parentDist in allPairDist.[parent] do
-                    if not <| dist.ContainsKey parentDist.Key then
-                        dist.Add (parentDist.Key, dist.[parent] + parentDist.Value)
-            else
-                for children in graph.[parent] do
-                    if dist.ContainsKey children && dist.[parent] + 1u < dist.[children] then
-                        dist.Remove children |> ignore
-                    if not <| dist.ContainsKey children then
-                        dist.Add (children, dist.[parent] + 1u)
-                        queue.Enqueue children
-        dist
-
-    let dijkstraAlgo nodes (graph : genericGraph<'a>) =
-        let dist = Dictionary<'a * 'a, uint>()
-        for i in nodes do
-            let iDist = sourcedDijkstraAlgo i graph
-            for kvpair in iDist do
-                dist.Add ((i, kvpair.Key), kvpair.Value)
-        dist
-
-    let foydAlgoCFG cfg =
-        let nodes = cfg.sortedOffsets
-        let graph = cfg.graph
-        floydAlgo nodes graph
-
-    let dijkstraAlgoCFG cfg =
-        let nodes = cfg.sortedOffsets
-        let graph = cfg.graph
-        dijkstraAlgo nodes graph
-
-    let cfgs = Dictionary<MethodBase, cfgData>()
-    let appGraph = ApplicationGraph()
-    let cfgFloyds = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
-    let cfgDijkstras = Dictionary<cfgData, Dictionary<offset * offset, uint>>()
-    let cfgDistanceFrom = Dictionary<cfgData, genericDistance<offset>>()
-    let cfgDistanceTo = Dictionary<cfgData, genericDistance<offset>>()
-
-    let private build (methodBase : MethodBase) =
-        let ilBytes = Instruction.getILBytes methodBase
-        let ehs = Instruction.getEHSBytes methodBase
-        let interimData, cfgData = createData methodBase ilBytes ehs
-        let used = HashSet<offset>()
-        dfsComponent methodBase interimData used ilBytes 0
-        Seq.iter (dfsExceptionHandlingClause methodBase interimData used ilBytes) ehs
-        let cfg = addVerticesAndEdges cfgData interimData
-        orderEdges cfg
-        appGraph.AddCfg cfg
+    let buildCFG (methodBase:MethodBase) =
+        Logger.trace $"Add CFG for %A{methodBase.Name}."
+        let cfg = CfgTemporaryData methodBase
         cfg
 
-    let findCfg m = Dict.getValueOrUpdate cfgs m (fun () -> build m)
+    let addCallEdge (callSource:codeLocation) (callTarget:codeLocation) =
+        Logger.trace "Add call edge."
+        //__notImplemented__()
 
-    let findDistance cfg = Dict.getValueOrUpdate cfgDijkstras cfg (fun () -> dijkstraAlgoCFG cfg)
+    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
+        Logger.trace "Move state."
+        //__notImplemented__()
 
-    let findDistanceFrom cfg node =
-        let cfgDist = Dict.getValueOrUpdate cfgDistanceFrom cfg (fun () -> Dictionary<_, _>())
-        Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = incrementalSourcedDijkstraAlgo node cfg.graph cfgDist
-        let distFromNode = Dictionary<offset, uint>()
-        for i in dist do
-            if i.Value <> infinity then
-                distFromNode.Add(i.Key, i.Value)
-        distFromNode)
+    let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
+        Logger.trace "Add states."
+        //__notImplemented__()
 
-    let findDistanceTo cfg node =
-        let cfgDist = Dict.getValueOrUpdate cfgDistanceTo cfg (fun () -> Dictionary<_, _>())
-        Dict.getValueOrUpdate cfgDist node (fun () ->
-        let dist = incrementalSourcedDijkstraAlgo node cfg.reverseGraph cfgDist
-        let distToNode = Dictionary<offset, uint>()
-        for i in dist do
-            if i.Value <> infinity then
-                distToNode.Add(i.Key, i.Value)
-        distToNode)
+    let getShortestDistancesToGoals (states:array<codeLocation>) =
+        __notImplemented__()
 
-    let vertexOf (method : MethodBase) (offset : offset) =
-        if not method.IsAbstract then
-            let cfg = findCfg method
-            cfg.sortedOffsets
-             |> Seq.filter (fun vertex -> vertex <= offset)
-             |> Seq.max
-             |> Some
-        else None
+    let messagesProcessor = MailboxProcessor.Start(fun inbox ->
+        let tryGetCfgInfo methodBase =
+            let exists,cfgInfo = cfgs.TryGetValue methodBase
+            if not exists
+            then
+                let cfg = buildCFG methodBase
+                let cfgInfo = CfgInfo cfg
+                cfgs.Add(methodBase, cfgInfo)
+                cfgInfo
+            else cfgInfo
 
-    let isVertex (method : MethodBase) (offset : offset) =
-        if not method.IsAbstract then
-            let cfg = findCfg method
-            cfg.sortedOffsets.BinarySearch(offset) >= 0
-        else false
+        async{
+            while true do
+                let! message = inbox.Receive()
+                try
+                    match message with
+                    | ResetQueryEngine ->
+                        __notImplemented__()
+                    | AddCFG (replyChannel, methodBase) ->
+                        let reply cfgInfo =
+                            match replyChannel with
+                            | Some ch -> ch.Reply cfgInfo
+                            | None -> ()
+                        let cfgInfo = tryGetCfgInfo methodBase
+                        reply cfgInfo
+                    | AddCallEdge (_from, _to) ->
+                        tryGetCfgInfo _from.method |> ignore
+                        tryGetCfgInfo _to.method |> ignore
+                        addCallEdge _from _to
+                    | AddGoals positions ->
+                        Logger.trace "Add goals."
+                        //__notImplemented__()
+                    | RemoveGoal pos ->
+                        Logger.trace "Remove goal."
+                        //__notImplemented__()
+                    | AddStates states -> Array.ofSeq states |> addStates None
+                    | AddForkedStates (parentState, forkedStates) ->
+                        addStates (Some parentState) (Array.ofSeq forkedStates)
+                    | MoveState (_from,_to) ->
+                        tryGetCfgInfo _to.CodeLocation.method |> ignore
+                        moveState _from _to
+                    | GetShortestDistancesToGoals (replyChannel, states) ->
+                        Logger.trace "Get shortest distances."
+                        __notImplemented__()
+                    | GetDistanceToNearestGoal (replyChannel, states) ->
+                        replyChannel.Reply []
+                        //__notImplemented__()
+                    | GetReachableGoals (replyChannel, states) -> __notImplemented__()
+                with
+                | e ->
+                    Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
+                    match message with
+                    | AddCFG (Some ch, _) -> ch.Reply (Unchecked.defaultof<CfgInfo>)
+                    | _ -> ()
+        }
+    )
 
-    let isReachingReturn (method : MethodBase) (offset : offset) =
-        if not method.IsAbstract then
-            let cfg = findCfg method
-            let vertex = cfg.sortedOffsets |> Seq.filter (fun vertex -> vertex <= offset) |> Seq.max
-            let dist = findDistanceFrom cfg vertex
-            Seq.exists (fun offset -> dist.ContainsKey offset && dist.[offset] <> 0u) cfg.retOffsets
-        else false
+    do
+        messagesProcessor.Error.Add(fun e ->
+            Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
+            raise e
+            )
 
-    let isRecursiveVertex (method : MethodBase) (offset : offset) =
-        if not method.IsAbstract then
-            let cfg = findCfg method
-            if cfg.dfsOut.ContainsKey offset then
-                let t1 = cfg.dfsOut.[offset]
-                cfg.reverseGraph.[offset] |> Seq.exists (fun w -> cfg.dfsOut.[w] <= t1)
-            else false
-        else false
+    member this.GetCfg (methodBase: MethodBase) =
+         messagesProcessor.PostAndReply (fun ch -> AddCFG (Some ch, methodBase))
 
-    let hasSiblings (method : MethodBase) (offset : offset) =
-        if not method.IsAbstract then
-            let cfg = findCfg method
-            if cfg.sortedOffsets.BinarySearch(offset) >= 0 then
-                let parents = cfg.reverseGraph.[offset]
-                parents |> Seq.exists (fun parent ->
-                cfg.graph.[parent].Count > 1)
-            else false
-        else false
+    member this.RegisterMethod (methodBase: MethodBase) =
+        messagesProcessor.Post (AddCFG (None, methodBase))
+
+    member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
+        messagesProcessor.Post <| AddCallEdge (sourceLocation, targetLocation)
+
+    member this.AddState (state:IGraphTrackableState) =
+        messagesProcessor.Post <| AddStates [|state|]
+
+    member this.AddStates (states:seq<IGraphTrackableState>) =
+        messagesProcessor.Post <| AddStates states
+
+    member this.AddForkedStates (parentState:IGraphTrackableState, states:seq<IGraphTrackableState>) =
+        messagesProcessor.Post <| AddForkedStates (parentState,states)
+
+    member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
+        messagesProcessor.Post <| MoveState (fromLocation, toLocation)
+
+    member x.AddGoal (location:codeLocation) =
+        messagesProcessor.Post <| AddGoals [|location|]
+
+    member x.AddGoals (locations:array<codeLocation>) =
+        messagesProcessor.Post <| AddGoals locations
+
+    member x.RemoveGoal (location:codeLocation) =
+        messagesProcessor.Post <| RemoveGoal location
+
+    member this.GetShortestDistancesToAllGoalsFromStates (states: array<codeLocation>) =
+        messagesProcessor.PostAndReply (fun ch -> GetShortestDistancesToGoals(ch, states))
+
+    member this.GetDistanceToNearestGoal (states: seq<IGraphTrackableState>) =
+        messagesProcessor.PostAndReply (fun ch -> GetDistanceToNearestGoal(ch, states))
+
+    member this.GetGoalsReachableFromStates (states: array<codeLocation>) =
+        messagesProcessor.PostAndReply (fun ch -> GetReachableGoals(ch, states))
+
+    member this.ResetQueryEngine() =
+        messagesProcessor.Post ResetQueryEngine
+
+module CFG =
+    let applicationGraph = ApplicationGraph()
+
+    // TODO: ideally, we don't need everything below. Call graph gets lazily bundled into application graph. Get rid of it when CFL reachability is ready.
+
+    type callGraph =
+        {
+            graph : GraphUtils.graph<MethodBase>
+            reverseGraph : GraphUtils.graph<MethodBase>
+        }
+
+    let callGraphs = Dictionary<Assembly, callGraph>()
+    let callGraphDijkstras = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
+    let callGraphFloyds = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
+    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<MethodBase>>()
+    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<MethodBase>>()
 
     let private fromCurrentAssembly assembly (current : MethodBase) = current.Module.Assembly = assembly
 
@@ -404,18 +418,6 @@ module public CFG =
         methods.Add callee |> ignore
         addToDict methodsReachability caller callee
 
-    type callGraph =
-        {
-            graph : genericGraph<MethodBase>
-            reverseGraph : genericGraph<MethodBase>
-        }
-
-    let callGraphs = Dictionary<Assembly, callGraph>()
-    let callGraphDijkstras = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
-    let callGraphFloyds = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
-    let callGraphDistanceFrom = Dictionary<Assembly, genericDistance<MethodBase>>()
-    let callGraphDistanceTo = Dictionary<Assembly, genericDistance<MethodBase>>()
-
     let private buildMethodsReachabilityForAssembly (assembly : Assembly) (entryMethod : MethodBase) =
         let methods = HashSet<MethodBase>()
         let methodsReachability = Dictionary<MethodBase, HashSet<MethodBase>>()
@@ -428,12 +430,10 @@ module public CFG =
             else
                 let processedMethods = current :: processedMethods
                 if current.GetMethodBody() <> null then
-                    let cfg = findCfg current
-                    cfg.offsetsDemandingCall |> Seq.iter (fun kvp ->
-                        let m = snd kvp.Value
-                        let offset = kvp.Key
-                        addCall methods methodsReachability current m
-                        appGraph.AddCallEdge cfg offset (findCfg m))
+                    let cfg = applicationGraph.GetCfg current
+                    cfg.Calls |> Seq.iter (fun kvp ->
+                        let m = kvp.Value.Callee
+                        addCall methods methodsReachability current m)
                 let newQ =
                     if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue
@@ -444,15 +444,15 @@ module public CFG =
 
     let private buildCallGraph (assembly : Assembly) (entryMethod : MethodBase) =
         let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
-        let graph = genericGraph<MethodBase>()
-        let reverseGraph = genericGraph<MethodBase>()
+        let graph = GraphUtils.graph<MethodBase>()
+        let reverseGraph = GraphUtils.graph<MethodBase>()
         for i in methods do
-            graph.Add (i, List<_>())
-            reverseGraph.Add (i, List<_>())
+            graph.Add (i, HashSet<_>())
+            reverseGraph.Add (i, HashSet<_>())
         for i in methodsReachability do
             for j in i.Value do
-                graph.[i.Key].Add j
-                reverseGraph.[j].Add i.Key
+                let added = graph.[i.Key].Add j in assert added
+                let added = reverseGraph.[j].Add i.Key in assert added
         { graph = graph; reverseGraph = reverseGraph }
 
     let private findCallGraph (assembly : Assembly) (entryMethod : MethodBase) =
@@ -467,13 +467,14 @@ module public CFG =
 
     let private buildCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
         let methods, methodsReachability = buildMethodsReachabilityForAssembly assembly entryMethod
-        let callGraph = genericGraph<MethodBase>()
+        let callGraph = GraphUtils.graph<MethodBase>()
         for i in methods do
-            callGraph.Add (i, List<_>())
+            callGraph.Add (i, HashSet<_>())
         for i in methodsReachability do
             for j in i.Value do
-                callGraph.[i.Key].Add j
-        dijkstraAlgo methods callGraph
+                let added = callGraph.[i.Key].Add j
+                assert added
+        GraphUtils.dijkstraAlgo methods callGraph
 
     let findCallGraphDistance (assembly : Assembly) (entryMethod : MethodBase) =
         let callGraphDist = Dict.getValueOrUpdate callGraphDijkstras assembly (fun () -> buildCallGraphDistance assembly entryMethod)
@@ -487,10 +488,10 @@ module public CFG =
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
         let callGraph = findCallGraph assembly method
-        let dist = incrementalSourcedDijkstraAlgo method callGraph.graph callGraphDist
+        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.graph callGraphDist
         let distFromNode = Dictionary<MethodBase, uint>()
         for i in dist do
-            if i.Value <> infinity then
+            if i.Value <> GraphUtils.infinity then
                 distFromNode.Add(i.Key, i.Value)
         distFromNode)
 
@@ -499,9 +500,9 @@ module public CFG =
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
         let callGraph = findCallGraph assembly method
-        let dist = incrementalSourcedDijkstraAlgo method callGraph.reverseGraph callGraphDist
+        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.reverseGraph callGraphDist
         let distToNode = Dictionary<MethodBase, uint>()
         for i in dist do
-            if i.Value <> infinity then
+            if i.Value <> GraphUtils.infinity then
                 distToNode.Add(i.Key, i.Value)
         distToNode)

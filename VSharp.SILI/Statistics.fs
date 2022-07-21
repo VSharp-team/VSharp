@@ -32,8 +32,8 @@ type public SILIStatistics() =
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         if not codeLocation.method.IsAbstract then
-            let cfg = CFG.findCfg codeLocation.method
-            cfg.sortedOffsets.BinarySearch(codeLocation.offset) >= 0
+            let cfg = CFG.applicationGraph.GetCfg codeLocation.method
+            cfg.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
         else false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
@@ -55,26 +55,23 @@ type public SILIStatistics() =
     let pickTotalUnvisitedInCFG (currentLoc : codeLocation) : codeLocation option =
         let infinity = UInt32.MaxValue
         let method = currentLoc.method
-        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
         let suitable offset distance =
             let loc = { offset = offset; method = method }
             let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
             distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
-        match optVertex with
-        | Some vertex ->
-            let cfg = CFG.findCfg method
-            CFG.findDistanceFrom cfg vertex
-         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
-         |> Seq.tryHead
-         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
-        | None -> None
+        if method.IsAbstract then None
+        else
+            let cfg = CFG.applicationGraph.GetCfg method
+            cfg.DistancesFrom currentLoc.offset
+            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+            |> Seq.tryHead
+            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
         let infinity = UInt32.MaxValue
         let method = currentLoc.method
-        let optVertex = CFG.vertexOf currentLoc.method currentLoc.offset
         let suitable offset distance =
             let loc = { offset = offset; method = method }
             let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
@@ -83,15 +80,14 @@ type public SILIStatistics() =
             let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
             validDistance && (emptyHistory || nontrivialHistory)
 
-        match optVertex with
-        | Some vertex ->
-            let cfg = CFG.findCfg method
-            CFG.findDistanceFrom cfg vertex
-         |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-         |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
-         |> Seq.tryHead
-         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
-        | None -> None
+        if method.IsAbstract then None
+        else
+            let cfg = CFG.applicationGraph.GetCfg method
+            cfg.DistancesFrom currentLoc.offset
+            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+            |> Seq.tryHead
+            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
 
     let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
         if isHeadOfBasicBlock current then

@@ -11,7 +11,7 @@ open VSharp.Interpreter.IL
 open ipOperations
 open Instruction
 
-type cfg = CFG.cfgData
+type cfg = CfgInfo
 
 module internal TypeUtils =
     open Types
@@ -97,11 +97,11 @@ module internal InstructionsSet =
 
     // --------------------------------------- Metadata Interaction ----------------------------------------
 
-    let resolveFieldFromMetadata (cfg : cfg) = TokenResolver.resolveFieldFromMetadata cfg.methodBase cfg.ilBytes
-    let resolveTypeFromMetadata (cfg : cfg) = TokenResolver.resolveTypeFromMetadata cfg.methodBase cfg.ilBytes
+    let resolveFieldFromMetadata (cfg : cfg) = TokenResolver.resolveFieldFromMetadata cfg.MethodBase cfg.IlBytes
+    let resolveTypeFromMetadata (cfg : cfg) = TokenResolver.resolveTypeFromMetadata cfg.MethodBase cfg.IlBytes
     let resolveTermTypeFromMetadata (cfg : cfg) = resolveTypeFromMetadata cfg >> Types.FromDotNetType
-    let resolveMethodFromMetadata (cfg : cfg) = TokenResolver.resolveMethodFromMetadata cfg.methodBase cfg.ilBytes
-    let resolveTokenFromMetadata (cfg : cfg) = TokenResolver.resolveTokenFromMetadata cfg.methodBase cfg.ilBytes
+    let resolveMethodFromMetadata (cfg : cfg) = TokenResolver.resolveMethodFromMetadata cfg.MethodBase cfg.IlBytes
+    let resolveTokenFromMetadata (cfg : cfg) = TokenResolver.resolveTokenFromMetadata cfg.MethodBase cfg.IlBytes
 
     // ------------------------------- Environment interaction -------------------------------
 
@@ -152,44 +152,44 @@ module internal InstructionsSet =
 
     let castUnchecked typ term : term = Types.Cast term typ
     let ldc numberCreator t (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let num = numberCreator cfg.ilBytes shiftedOffset
+        let num = numberCreator cfg.IlBytes shiftedOffset
         let termType = Types.FromDotNetType t
         push (Concrete num termType) cilState
 
     let ldloc numberCreator (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let index = numberCreator cfg.ilBytes shiftedOffset
-        let reference = referenceLocalVariable index cfg.methodBase
+        let index = numberCreator cfg.IlBytes shiftedOffset
+        let reference = referenceLocalVariable index cfg.MethodBase
         let term = Memory.Read cilState.state reference
         push term cilState
 
     let ldarg numberCreator (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
+        let argumentIndex = numberCreator cfg.IlBytes shiftedOffset
         let arg =
             let state = cilState.state
-            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis state cfg.methodBase
-            match this, cfg.methodBase.IsStatic with
+            let this = if cfg.MethodBase.IsStatic then None else Some <| Memory.ReadThis state cfg.MethodBase
+            match this, cfg.MethodBase.IsStatic with
             | None, _
             | Some _, true ->
-                let term = getArgTerm argumentIndex cfg.methodBase
+                let term = getArgTerm argumentIndex cfg.MethodBase
                 Memory.Read state term
             | Some this, _ when argumentIndex = 0 -> this
             | Some _, false ->
-                let term = getArgTerm (argumentIndex - 1) cfg.methodBase
+                let term = getArgTerm (argumentIndex - 1) cfg.MethodBase
                 Memory.Read state term
         push arg cilState
     let ldarga numberCreator (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let argumentIndex = numberCreator cfg.ilBytes shiftedOffset
+        let argumentIndex = numberCreator cfg.IlBytes shiftedOffset
         let address =
-            let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.methodBase
+            let this = if cfg.MethodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.MethodBase
             match this with
-            | None -> getArgTerm argumentIndex cfg.methodBase
+            | None -> getArgTerm argumentIndex cfg.MethodBase
             | Some _ when argumentIndex = 0 -> internalfail "can't load address of ``this''"
-            | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
+            | Some _ -> getArgTerm (argumentIndex - 1) cfg.MethodBase
         push address cilState
     let stloc numberCreator (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let variableIndex = numberCreator cfg.ilBytes shiftedOffset
+        let variableIndex = numberCreator cfg.IlBytes shiftedOffset
         let right = pop cilState
-        let location = referenceLocalVariable variableIndex cfg.methodBase
+        let location = referenceLocalVariable variableIndex cfg.MethodBase
         let typ = TypeOfLocation location
         let value = Types.Cast right typ
         ConfigureErrorReporter (changeState cilState >> reportError)
@@ -227,13 +227,13 @@ module internal InstructionsSet =
         | _ -> false
 
     let ret (cfg : cfg) (cilState : cilState) =
-        let resultTyp = Reflection.getMethodReturnType cfg.methodBase |> Types.FromDotNetType
+        let resultTyp = Reflection.getMethodReturnType cfg.MethodBase |> Types.FromDotNetType
         if resultTyp <> Void then
             let res = pop cilState
             let castedResult = Types.Cast res resultTyp
             push castedResult cilState
         match cilState.ipStack with
-        | _ :: ips -> cilState.ipStack <- (Exit cfg.methodBase) :: ips
+        | _ :: ips -> cilState.ipStack <- (Exit cfg.MethodBase) :: ips
         | [] -> __unreachable__()
 
     let transform2BooleanTerm pc (term : term) =
@@ -266,19 +266,19 @@ module internal InstructionsSet =
             else idTransformation
         binaryOperationWithBoolResult OperationType.Equal transform transform cilState
     let starg numCreator (cfg : cfg) offset (cilState : cilState) =
-        let argumentIndex = numCreator cfg.ilBytes offset
+        let argumentIndex = numCreator cfg.IlBytes offset
         let argTerm =
-           let this = if cfg.methodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.methodBase
+           let this = if cfg.MethodBase.IsStatic then None else Some <| Memory.ReadThis cilState.state cfg.MethodBase
            match this with
-           | None -> getArgTerm argumentIndex cfg.methodBase
+           | None -> getArgTerm argumentIndex cfg.MethodBase
            | Some this when argumentIndex = 0 -> this
-           | Some _ -> getArgTerm (argumentIndex - 1) cfg.methodBase
+           | Some _ -> getArgTerm (argumentIndex - 1) cfg.MethodBase
         let value = pop cilState
         let states = Memory.Write cilState.state argTerm value
         states |> List.map (changeState cilState)
     let brcommon condTransform (cfgData : cfg) (offset : offset) (cilState : cilState) =
         let cond = pop cilState
-        let m = cfgData.methodBase
+        let m = cfgData.MethodBase
         let ipThen, ipElse =
            match conditionalBranchTarget m offset with
            | offsetThen, [offsetElse] -> instruction m offsetThen, instruction m offsetElse
@@ -338,8 +338,8 @@ module internal InstructionsSet =
             performCILBinaryOperation op makeUnsignedInteger makeUnsignedInteger idTransformation cilState
         else internalfailf "arguments for %O are not Integers!" op
     let ldstr (cfg : cfg) offset (cilState : cilState) =
-        let stringToken = NumberCreator.extractInt32 cfg.ilBytes (offset + OpCodes.Ldstr.Size)
-        let string = cfg.methodBase.Module.ResolveString stringToken
+        let stringToken = NumberCreator.extractInt32 cfg.IlBytes (offset + OpCodes.Ldstr.Size)
+        let string = cfg.MethodBase.Module.ResolveString stringToken
         let reference = Memory.AllocateString string cilState.state
         push reference cilState
     let allocateValueTypeInHeap v (cilState : cilState) =
@@ -355,11 +355,11 @@ module internal InstructionsSet =
         let termForStack = Types.Cast t targetType
         push termForStack cilState
     let ldloca numberCreator (cfg : cfg) shiftedOffset (cilState : cilState) =
-        let index = numberCreator cfg.ilBytes shiftedOffset
-        let term = referenceLocalVariable index cfg.methodBase
+        let index = numberCreator cfg.IlBytes shiftedOffset
+        let term = referenceLocalVariable index cfg.MethodBase
         push term cilState
     let switch (cfgData : cfg) offset (cilState : cilState) =
-        let m = cfgData.methodBase
+        let m = cfgData.MethodBase
         let value = pop cilState
         let origPc = cilState.state.pc
         let value = makeUnsignedInteger value id
@@ -453,7 +453,7 @@ module internal InstructionsSet =
         let size = Types.SizeOf typ
         push (MakeNumber size) cilState
     let leave (cfg : cfg) offset (cilState : cilState) =
-        let m = cfg.methodBase
+        let m = cfg.MethodBase
         let dst = unconditionalBranchTarget m offset
         let ehcs =
             getEHSBytes m
@@ -479,7 +479,7 @@ module internal InstructionsSet =
         // Should be handled in makeStep function
         __unreachable__()
     let br (cfgData : cfg) offset (cilState : cilState) =
-        let m = cfgData.methodBase
+        let m = cfgData.MethodBase
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
@@ -487,7 +487,7 @@ module internal InstructionsSet =
     // TODO: - if thisType is a value type and thisType implements method then ptr is passed unmodified
     // TODO: - if thisType is a value type and thisType does not implement method then ptr is dereferenced and boxed
     let constrained (cfg : cfg) offset (cilState : cilState) =
-        match findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.ilBytes offset with
+        match findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.IlBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
@@ -521,7 +521,7 @@ module internal InstructionsSet =
     let fallThrough (cfgData : cfg) offset cilState op =
         assert(not <| isUnhandledError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
-        let m = cfgData.methodBase
+        let m = cfgData.MethodBase
         let newIp = instruction m (fallThroughTarget m offset)
         op cfgData offset cilState
         fallThroughImpl stackSizeBefore newIp cilState
@@ -530,7 +530,7 @@ module internal InstructionsSet =
     let forkThrough (cfgData : cfg) offset cilState op =
         assert(not <| isUnhandledError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
-        let m = cfgData.methodBase
+        let m = cfgData.MethodBase
         let newIp = instruction m (fallThroughTarget m offset)
         let cilStates = op cfgData offset cilState
         List.iter (fallThroughImpl stackSizeBefore newIp) cilStates
@@ -1234,7 +1234,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 callConstructor cilState ref id
 
         let k reference =
-            let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState)
+            let newIp = moveInstruction (fallThroughTarget cfg.MethodBase offset) (currentIp cilState)
             push reference cilState
             setCurrentIp newIp cilState
             [cilState]
@@ -1250,7 +1250,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         else blockCase cilState)
 
     member x.LdsFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
-        let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState)
+        let newIp = moveInstruction (fallThroughTarget cfg.MethodBase offset) (currentIp cilState)
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
@@ -1263,7 +1263,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         setCurrentIp newIp cilState
         [cilState])
     member private x.StsFld (cfg : cfg) offset (cilState : cilState) =
-        let newIp = moveInstruction (fallThroughTarget cfg.methodBase offset) (currentIp cilState) // TODO: remove this copy-paste
+        let newIp = moveInstruction (fallThroughTarget cfg.MethodBase offset) (currentIp cilState) // TODO: remove this copy-paste
         let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
@@ -1857,20 +1857,20 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         assert(ip.CanBeExpanded())
         let startingOffset = ip.Offset()
         let endOffset =
-            let lastOffset = Seq.last cfg.sortedOffsets
+            let lastOffset = Seq.last cfg.SortedOffsets
             let rec binarySearch l r =
                 if l + 1 = r then l
                 else
                     let mid = (l + r) / 2
-                    if cfg.sortedOffsets.[mid] <= startingOffset then binarySearch mid r
+                    if cfg.SortedOffsets.[mid] <= startingOffset then binarySearch mid r
                     else binarySearch l mid
-            let index = binarySearch 0 (Seq.length cfg.sortedOffsets)
-            if cfg.sortedOffsets.[index] = lastOffset then cfg.ilBytes.Length
-            else cfg.sortedOffsets.[index + 1]
+            let index = binarySearch 0 (Seq.length cfg.SortedOffsets)
+            if cfg.SortedOffsets.[index] = lastOffset then cfg.IlBytes.Length
+            else cfg.SortedOffsets.[index + 1]
 
         let isIpOfCurrentBasicBlock (ip : ip) =
             match ip with
-            | Instruction(i, m) when m = cfg.methodBase -> startingOffset <= i && i < endOffset
+            | Instruction(i, m) when m = cfg.MethodBase -> startingOffset <= i && i < endOffset
             | _ -> false
         x.ExecuteAllInstructionsWhile isIpOfCurrentBasicBlock cilState
 
@@ -1900,11 +1900,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) =
-        let isVertex offset = cfg.sortedOffsets.BinarySearch(offset) >= 0
-        if offset = 0 || CFG.isRecursiveVertex cfg.methodBase offset then
-            incrementLevel cilState {offset = offset; method = cfg.methodBase}
-        if CFG.hasSiblings cfg.methodBase offset then
-            addIntoHistory cilState {offset = offset; method = cfg.methodBase}
+        let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
+        if offset = 0 || cfg.IsLoopEntry offset then
+            incrementLevel cilState {offset = offset; method = cfg.MethodBase}
+        if cfg.HasSiblings offset then
+            addIntoHistory cilState {offset = offset; method = cfg.MethodBase}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
         let key = {offset = 0; method = method}
@@ -2038,7 +2038,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.ExecuteInstruction m offset (cilState : cilState) =
 //        Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
-        let cfg = CFG.findCfg m
+        let cfg = CFG.applicationGraph.GetCfg m
         let opCode = parseInstruction m offset
 //        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)
 
