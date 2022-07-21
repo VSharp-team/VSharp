@@ -10,7 +10,7 @@ module public SolverInteraction =
     type encodingContext =
         { addressOrder : Map<concreteHeapAddress, int>}
 
-    type satInfo = { mdl : model; usedPaths : path seq }
+    type satInfo = { mdl : model }
     type unsatInfo = { core : term[] }
 
     type smtResult =
@@ -19,9 +19,8 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : encodingContext -> query -> smtResult
-        abstract Assert : encodingContext -> level -> formula -> unit
-        abstract AddPath : encodingContext -> path -> unit
+        abstract CheckSat : encodingContext -> term -> smtResult
+        abstract Assert : encodingContext -> term -> unit
 
     let mutable private solver : ISolver option = None
 
@@ -38,5 +37,5 @@ module public SolverInteraction =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s -> s.CheckSat ctx {lvl = Level.zero; queryFml = formula }
+        | Some s -> s.CheckSat ctx formula
         | None -> SmtUnknown ""

@@ -69,7 +69,7 @@ type public SILI(options : SiliOptions) =
 
 
     let coveragePobsForMethod (method : MethodBase) =
-        let cfg = CFG.applicationGraph.GetCfg method
+        let cfg = Application.applicationGraph.GetCfg method
         cfg.SortedOffsets |> Seq.map (fun offset ->
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
@@ -148,9 +148,8 @@ type public SILI(options : SiliOptions) =
             if not <| LanguagePrimitives.PhysicalEquality s cilState' then
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
-        let loc' = s.currentLoc
-        CFG.applicationGraph.MoveState loc s
-        CFG.applicationGraph.AddForkedStates (s, Seq.cast<_> newStates)
+        Application.applicationGraph.MoveState loc s
+        Application.applicationGraph.AddForkedStates (s, Seq.cast<_> newStates)
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -165,7 +164,7 @@ type public SILI(options : SiliOptions) =
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
-                CFG.applicationGraph.AddGoal p.loc
+                Application.applicationGraph.AddGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
@@ -189,12 +188,12 @@ type public SILI(options : SiliOptions) =
     member private x.AnswerPobs entryPoint initialStates =
         statistics.ExplorationStarted()
         branchesReleased <- false
-        let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0)
-        mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> CFG.applicationGraph.AddGoals
+        let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
+        mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.applicationGraph.AddGoals
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
-        entryIP <- Instruction(0x0, entryPoint)
+        entryIP <- Instruction(0<offsets>, entryPoint)
         match options.executionMode with
         | ConcolicMode ->
             initialStates |> List.iter (fun initialState ->

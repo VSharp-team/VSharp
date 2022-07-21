@@ -747,28 +747,6 @@ module internal Z3 =
     type internal Z3Solver() =
 //        let optCtx = ctx.MkOptimize()
         let optCtx = ctx.MkSolver()
-        let levelAtoms = List<BoolExpr>()
-        let mutable pathsCount = 0u
-        let pathAtoms = Dictionary<level, List<BoolExpr>>()
-        let paths = Dictionary<BoolExpr, path>()
-
-        let getLevelAtom (lvl : level) =
-            assert (not <| Level.isInf lvl)
-            let idx = Level.toInt lvl
-            if levelAtoms.Count > idx then
-                levelAtoms.[idx]
-            else
-                let atom = ctx.MkBoolConst(sprintf "lvl!%O" lvl)
-                levelAtoms.Insert(idx, atom)
-                atom
-
-        let addPath (p : path) =
-            let idx = pathsCount
-            pathsCount <- pathsCount + 1u
-            let atom = ctx.MkBoolConst(sprintf "path!%O!%O" p.lvl idx)
-            (Dict.tryGetValue2 pathAtoms p.lvl (fun () -> List<BoolExpr>())).Add atom
-            paths.Add(atom, p)
-            atom
 
 //        let addSoftConstraints lvl =
 //            let pathAtoms =
@@ -784,21 +762,15 @@ module internal Z3 =
 //            pathAtoms
 
         interface ISolver with
-            member x.CheckSat (encCtx : encodingContext) (q : query) : smtResult =
-                printLog Trace "SOLVER: trying to solve constraints [level %O]..." q.lvl
-                printLogLazy Trace "%s" (lazy(q.queryFml.ToString()))
+            member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
+                printLog Trace "SOLVER: trying to solve constraints..."
+                printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
-                    let query = builder.EncodeTerm encCtx q.queryFml
+                    let query = builder.EncodeTerm encCtx q
                     let assumptions = query.assumptions
                     let assumptions =
                         seq {
-                            for i in 0 .. levelAtoms.Count - 1 do
-                                let atom = levelAtoms.[i]
-                                if atom <> null then
-                                    let lit = if i < Level.toInt q.lvl then atom else ctx.MkNot atom
-                                    yield lit :> Expr
-                            for i in 0 .. assumptions.Length - 1 do
-                                yield assumptions.[i] :> Expr
+                            yield! (Seq.cast<_> assumptions)
                             yield query.expr
                         } |> Array.ofSeq
 //                    let pathAtoms = addSoftConstraints q.lvl
@@ -808,11 +780,7 @@ module internal Z3 =
                         trace "SATISFIABLE"
                         let z3Model = optCtx.Model
                         let model = builder.MkModel z3Model
-//                        let usedPaths =
-//                            pathAtoms
-//                            |> Seq.filter (fun atom -> z3Model.Eval(atom, false).IsTrue)
-//                            |> Seq.map (fun atom -> paths.[atom])
-                        SmtSat { mdl = model; usedPaths = [](*usedPaths*) }
+                        SmtSat { mdl = model }
                     | Status.UNSATISFIABLE ->
                         trace "UNSATISFIABLE"
                         SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
@@ -825,26 +793,11 @@ module internal Z3 =
                     printLog Info "SOLVER: exception was thrown: %s" e.Message
                     SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
 
-            member x.Assert encCtx (lvl : level) (fml : formula) =
-                printLog Trace "SOLVER: [lvl %O] Asserting (hard):" lvl
-                printLogLazy Trace "%s" (lazy(fml.ToString()))
+            member x.Assert encCtx (fml : term) =
+                printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
-                let leveled =
-                    if Level.isInf lvl then encoded
-                    else
-                        let levelAtom = getLevelAtom lvl
-                        ctx.MkImplies(levelAtom, encoded)
-                optCtx.Assert(leveled)
-
-            member x.AddPath encCtx (p : path) =
-                printLog Trace "SOLVER: [lvl %O] Asserting path:" p.lvl
-                printLogLazy Trace "    %s" (lazy(PathConditionToSeq p.state.pc |> Seq.map toString |> join " /\\ \n     "))
-                let pathAtom = addPath p
-                let assumptions, encoded = PathConditionToSeq p.state.pc |> builder.EncodeTerms encCtx
-                let encodedWithAssumptions = Seq.append assumptions encoded |> Array.ofSeq
-                let encoded = builder.MkAnd encodedWithAssumptions
-                optCtx.Assert(ctx.MkImplies(pathAtom, encoded))
+                optCtx.Assert(encoded)
 
     let reset() =
         builder.Reset()

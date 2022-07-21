@@ -1,8 +1,9 @@
-namespace VSharp.Concolic
+namespace VSharp
 
 open System
 open System.Reflection.Emit
 open VSharp
+open VSharp.Concolic
 
 type evaluationStackCellType =
     | I1 = 1
@@ -117,6 +118,26 @@ type ehClause = {
     matcher : ehClauseMatcher
 }
 
+module NumberCreator =
+    let public extractInt32 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToInt32(ilBytes, int pos)
+    let public extractOffset (ilBytes : byte []) (pos : offset) : offset =
+        BitConverter.ToInt32(ilBytes, int pos) |> Offset.from
+    let public extractUnsignedInt32 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToUInt32(ilBytes, int pos)
+    let public extractUnsignedInt16 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToUInt16(ilBytes, int pos)
+    let public extractInt64 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToInt64(ilBytes, int pos)
+    let public extractInt8 (ilBytes : byte []) (pos : offset) =
+        ilBytes.[int pos] |> sbyte |> int
+    let public extractUnsignedInt8 (ilBytes : byte []) (pos : offset) =
+        ilBytes.[int pos]
+    let public extractFloat64 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToDouble(ilBytes, int pos)
+    let public extractFloat32 (ilBytes : byte []) (pos : offset) =
+        BitConverter.ToSingle(ilBytes, int pos)
+
 module EvaluationStackTyper =
 
     let fail() = internalfail "Stack typer validation failed!"
@@ -142,7 +163,7 @@ module EvaluationStackTyper =
         if typ.IsValueType then
             let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
             let result = ref evaluationStackCellType.I1
-            if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then !result
+            if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then result.Value
             else evaluationStackCellType.Struct
         else evaluationStackCellType.Ref
 
@@ -697,20 +718,21 @@ type ILRewriter(body : rawMethodBody) =
 
         // TODO: unify code with Instruction.fs (parseInstruction)
         let mutable branch = false
-        let mutable offset = 0
+        let mutable offset = 0<offsets>
+        let codeSize : offset = Offset.from codeSize
         while offset < codeSize do
             let startOffset = offset
             let op = OpCodeOperations.getOpCode code offset
-            offset <- offset + op.Size
+            offset <- offset + Offset.from op.Size
 
             let size =
                 match op.OperandType with
                 | OperandType.InlineNone
-                | OperandType.InlineSwitch -> 0
+                | OperandType.InlineSwitch -> 0<offsets>
                 | OperandType.ShortInlineVar
                 | OperandType.ShortInlineI
-                | OperandType.ShortInlineBrTarget -> 1
-                | OperandType.InlineVar -> 2
+                | OperandType.ShortInlineBrTarget -> 1<offsets>
+                | OperandType.InlineVar -> 2<offsets>
                 | OperandType.InlineI
                 | OperandType.InlineMethod
                 | OperandType.InlineType
@@ -719,25 +741,25 @@ type ILRewriter(body : rawMethodBody) =
                 | OperandType.InlineTok
                 | OperandType.ShortInlineR
                 | OperandType.InlineField
-                | OperandType.InlineBrTarget -> 4
+                | OperandType.InlineBrTarget -> 4<offsets>
                 | OperandType.InlineI8
-                | OperandType.InlineR -> 8
+                | OperandType.InlineR -> 8<offsets>
                 | _ -> __unreachable__()
 
             if offset + size > codeSize then invalidProgram "IL stream unexpectedly ended!"
 
             let instr = x.NewInstr (OpCode op)
             instr.offset <- uint32 startOffset
-            offsetToInstr.[startOffset] <- instr
+            offsetToInstr.[int startOffset] <- instr
             x.InsertBefore(il, instr)
-            offsetToInstr.[startOffset] <- instr
+            offsetToInstr.[int startOffset] <- instr
             match op.OperandType with
             | OperandType.InlineNone -> instr.arg <- NoArg
             | OperandType.ShortInlineVar
             | OperandType.ShortInlineI ->
-                instr.arg <- Arg8 code.[offset]
+                instr.arg <- Arg8 code.[int offset]
             | OperandType.InlineVar ->
-                instr.arg <- Arg16 <| BitConverter.ToInt16(code, offset)
+                instr.arg <- Arg16 <| BitConverter.ToInt16(code, int offset)
             | OperandType.InlineI
             | OperandType.InlineMethod
             | OperandType.InlineType
@@ -746,29 +768,30 @@ type ILRewriter(body : rawMethodBody) =
             | OperandType.InlineTok
             | OperandType.ShortInlineR
             | OperandType.InlineField ->
-                instr.arg <- Arg32 <| BitConverter.ToInt32(code, offset)
+                instr.arg <- Arg32 <| NumberCreator.extractInt32 code offset
             | OperandType.InlineI8
             | OperandType.InlineR ->
-                instr.arg <- Arg64 <| BitConverter.ToInt64(code, offset)
+                instr.arg <- Arg64 <| BitConverter.ToInt64(code, int offset)
             | OperandType.ShortInlineBrTarget ->
-                instr.arg <- Arg32 <| offset + 1 + int (sbyte code.[offset])
+                instr.arg <- offset + 1<offsets> + (code.[int offset] |> sbyte |> int |> Offset.from) |> int |> Arg32
                 branch <- true;
             | OperandType.InlineBrTarget ->
-                instr.arg <- Arg32 <| offset + 4 + BitConverter.ToInt32(code, offset)
+                instr.arg <- offset + 4<offsets> + NumberCreator.extractOffset code offset |> int |> Arg32
                 branch <- true;
             | OperandType.InlineSwitch ->
-                if offset + sizeof<int> > codeSize then
+                let sizeOfInt = Offset.from sizeof<int>
+                if offset + sizeOfInt > codeSize then
                     invalidProgram "IL stream unexpectedly ended!"
-                let targetsCount = BitConverter.ToInt32(code, offset)
+                let targetsCount = NumberCreator.extractInt32 code offset
                 instr.arg <- Arg32 targetsCount
-                offset <- offset + sizeof<int>
-                let baseOffset = offset + targetsCount * sizeof<int>
+                offset <- offset + sizeOfInt
+                let baseOffset = offset + targetsCount * sizeOfInt
                 for i in 1 .. targetsCount do
-                    if offset + sizeof<int> > codeSize then
+                    if offset + sizeOfInt > codeSize then
                         invalidProgram "IL stream unexpectedly ended!"
                     let instr = x.NewInstr SwitchArg
-                    instr.arg <- Arg32 <| baseOffset + BitConverter.ToInt32(code, offset)
-                    offset <- offset + sizeof<int>
+                    instr.arg <- baseOffset + NumberCreator.extractOffset code offset |> int |> Arg32
+                    offset <- offset + sizeOfInt
                     x.InsertBefore(il, instr)
                 branch <- true
             | _ -> invalidProgram "Unexpected operand type!"
@@ -914,15 +937,15 @@ type ILRewriter(body : rawMethodBody) =
                         offset <- offset + sizeof<int8>
                     | Arg16 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int16>), arg)
-                        assert(success)
+                        assert success
                         offset <- offset + sizeof<int16>
                     | Arg32 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int32>), arg)
-                        assert(success)
+                        assert success
                         offset <- offset + sizeof<int32>
                     | Arg64 arg ->
                         let success = BitConverter.TryWriteBytes(Span(outputIL, offset, sizeof<int64>), arg)
-                        assert(success)
+                        assert success
                         offset <- offset + sizeof<int64>
                     | Target _ ->
                         match op.OperandType with
@@ -949,7 +972,7 @@ type ILRewriter(body : rawMethodBody) =
                         match instr.arg with
                         | Target tgt ->
                             let success = BitConverter.TryWriteBytes(Span(outputIL, int instr.offset, sizeof<int>), int tgt.offset - switchBase)
-                            assert(success)
+                            assert success
                         | _ -> __unreachable__()
                     | OpCode op ->
                         match instr.arg with
@@ -968,7 +991,7 @@ type ILRewriter(body : rawMethodBody) =
                                 else outputIL.[int instr.next.offset - sizeof<int8>] <- byte (int8 delta)
                             | OperandType.InlineBrTarget ->
                                 let success = BitConverter.TryWriteBytes(Span(outputIL, int instr.next.offset - sizeof<int32>, sizeof<int32>), delta)
-                                assert(success)
+                                assert success
                             | _ -> __unreachable__()
                         | _ -> ())
 
@@ -984,18 +1007,5 @@ type ILRewriter(body : rawMethodBody) =
                 | ClassToken tok -> tok
                 | Filter instr -> instr.offset
         }
-        let probes = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<probes>) :?> probes
-        let ehs = Array.map (fun eh ->
-            Logger.trace "flags: %d" eh.flags
-            Logger.trace "matcher: %O" eh.matcher
-            Logger.trace "try begin: %s" <| x.ILInstrToString probes eh.tryBegin
-            Logger.trace "try end: %s" <| x.ILInstrToString probes eh.tryEnd
-            Logger.trace "try end next: %s" <| x.ILInstrToString probes eh.tryEnd.next
-            Logger.trace "try length: %d" <| eh.tryEnd.next.offset - eh.tryBegin.offset
-            Logger.trace "handler begin: %s" <| x.ILInstrToString probes eh.handlerBegin
-            Logger.trace "handler end: %s" <| x.ILInstrToString probes eh.handlerEnd
-            Logger.trace "handler end next: %s" <| x.ILInstrToString probes eh.handlerEnd.next
-            Logger.trace "handler length: %d" <| eh.handlerEnd.next.offset - eh.handlerBegin.offset
-            encodeEH eh) ehs
-//        let ehs = Array.map encodeEH ehs
+        let ehs = Array.map encodeEH ehs
         {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}

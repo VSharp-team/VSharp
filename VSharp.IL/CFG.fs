@@ -5,7 +5,6 @@ open System.Collections.Generic
 open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
-open VSharp.Core
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
@@ -69,7 +68,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
                     let isRemoved = block.InnerVertices.Remove v
                     assert isRemoved
                     newBlock.AddVertex v
-                    vertexToBasicBloc.[v] <- Some newBlock
+                    vertexToBasicBloc.[int v] <- Some newBlock
             block.FinalVertex <- intermediatePoint
             let isRemoved = block.InnerVertices.Remove intermediatePoint
             assert isRemoved
@@ -83,7 +82,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
                 if exists
                 then outgoingEdges.Add dst |> ignore
                 else edges.Add(src, HashSet [|dst|])
-                match vertexToBasicBloc.[dst] with
+                match vertexToBasicBloc.[int dst] with
                 | None -> ()
                 | Some block ->
                     if block.InnerVertices.Contains dst && block.FinalVertex <> dst
@@ -94,7 +93,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
 
         let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) =
 
-            vertexToBasicBloc.[currentVertex] <- Some currentBasicBlock
+            vertexToBasicBloc.[int currentVertex] <- Some currentBasicBlock
 
             if used.Contains currentVertex
             then
@@ -124,7 +123,7 @@ type CfgTemporaryData (methodBase : MethodBase) =
 
                 match ipTransition with
                 | FallThrough offset when Instruction.isDemandingCallOpCode opCode ->
-                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + opCode.Size)
+                    let calledMethod = TokenResolver.resolveMethodFromMetadata methodBase ilBytes (currentVertex + Offset.from opCode.Size)
                     if not <| Reflection.isExternalMethod calledMethod
                     then processCall calledMethod currentVertex offset
                     else
@@ -177,11 +176,11 @@ type CfgTemporaryData (methodBase : MethodBase) =
     do
         let startVertices =
             [|
-             yield 0
+             yield 0<offsets>
              for handler in exceptionHandlers do
                  yield handler.handlerOffset
                  match handler.ehcType with
-                 | Filter offset -> yield offset
+                 | ehcType.Filter offset -> yield offset
                  | _ -> ()
             |]
 
@@ -388,16 +387,19 @@ type ApplicationGraph() as this =
     member this.ResetQueryEngine() =
         messagesProcessor.Post ResetQueryEngine
 
-module CFG =
+module Application =
     let applicationGraph = ApplicationGraph()
 
-    // TODO: ideally, we don't need everything below. Call graph gets lazily bundled into application graph. Get rid of it when CFL reachability is ready.
-
+// TODO: ideally, we don't need CallGraph: it gets lazily bundled into application graph. Get rid of it when CFL reachability is ready.
+module CallGraph =
     type callGraph =
         {
             graph : GraphUtils.graph<MethodBase>
             reverseGraph : GraphUtils.graph<MethodBase>
         }
+
+    let graph = GraphUtils.graph<MethodBase>()
+    let reverseGraph = GraphUtils.graph<MethodBase>()
 
     let callGraphs = Dictionary<Assembly, callGraph>()
     let callGraphDijkstras = Dictionary<Assembly, Dictionary<MethodBase * MethodBase, uint>>()
@@ -430,7 +432,7 @@ module CFG =
             else
                 let processedMethods = current :: processedMethods
                 if current.GetMethodBody() <> null then
-                    let cfg = applicationGraph.GetCfg current
+                    let cfg = Application.applicationGraph.GetCfg current
                     cfg.Calls |> Seq.iter (fun kvp ->
                         let m = kvp.Value.Callee
                         addCall methods methodsReachability current m)
@@ -506,3 +508,4 @@ module CFG =
             if i.Value <> GraphUtils.infinity then
                 distToNode.Add(i.Key, i.Value)
         distToNode)
+

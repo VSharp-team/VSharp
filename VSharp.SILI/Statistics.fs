@@ -32,14 +32,14 @@ type public SILIStatistics() =
     let iies = List<cilState>()
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         if not codeLocation.method.IsAbstract then
-            let cfg = CFG.applicationGraph.GetCfg codeLocation.method
+            let cfg = Application.applicationGraph.GetCfg codeLocation.method
             cfg.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
         else false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m, locs) =
         let sb = PrettyPrinting.appendLine sb (sprintf "%sMethod = %s: [" placeHolder (Reflection.getFullMethodName m))
         let sb = Seq.fold (fun sb (loc : codeLocation) ->
-            PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder (loc.offset.ToString("X")) d.[loc])) sb locs
+            PrettyPrinting.appendLine sb (sprintf "%s\t\t%s <- %d" placeHolder ((int loc.offset).ToString("X")) d.[loc])) sb locs
         PrettyPrinting.appendLine sb (sprintf "%s]" placeHolder)
 
     let printDict placeHolder sb (d : Dictionary<codeLocation, uint>) =
@@ -62,7 +62,7 @@ type public SILIStatistics() =
 
         if method.IsAbstract then None
         else
-            let cfg = CFG.applicationGraph.GetCfg method
+            let cfg = Application.applicationGraph.GetCfg method
             cfg.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
@@ -82,7 +82,7 @@ type public SILIStatistics() =
 
         if method.IsAbstract then None
         else
-            let cfg = CFG.applicationGraph.GetCfg method
+            let cfg = Application.applicationGraph.GetCfg method
             cfg.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
@@ -113,7 +113,7 @@ type public SILIStatistics() =
             if not <| visitedWithHistory.TryGetValue(current, historyRef) then
                 historyRef <- ref <| HashSet<_>()
                 visitedWithHistory.Add(current, historyRef.Value)
-            (historyRef.Value).UnionWith visited
+            historyRef.Value.UnionWith visited
 
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u

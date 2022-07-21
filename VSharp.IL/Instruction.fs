@@ -4,14 +4,9 @@ open System
 open VSharp
 open System.Reflection
 open System.Reflection.Emit
-open VSharp.Core
 
-type offset = int
 type term = VSharp.Core.term
 type state = VSharp.Core.state
-
-type ip = VSharp.Core.ip
-type level = VSharp.Core.level
 
 type ipTransition =
     | FallThrough of offset
@@ -20,24 +15,6 @@ type ipTransition =
     | ConditionalBranch of offset * offset list
     // TODO: use this thing? #do
     | ExceptionMechanism
-
-module NumberCreator =
-    let public extractInt32 (ilBytes : byte []) pos =
-        BitConverter.ToInt32(ilBytes, pos)
-    let public extractUnsignedInt32 (ilBytes : byte []) pos =
-        BitConverter.ToUInt32(ilBytes, pos)
-    let public extractUnsignedInt16 (ilBytes : byte []) pos =
-        BitConverter.ToUInt16(ilBytes, pos)
-    let public extractInt64 (ilBytes : byte []) pos =
-        BitConverter.ToInt64(ilBytes, pos)
-    let public extractInt8 (ilBytes : byte []) pos =
-        ilBytes.[pos] |> sbyte |> int
-    let public extractUnsignedInt8 (ilBytes : byte []) pos =
-        ilBytes.[pos]
-    let public extractFloat64 (ilBytes : byte []) pos =
-        BitConverter.ToDouble(ilBytes, pos)
-    let public extractFloat32 (ilBytes : byte []) pos =
-        BitConverter.ToSingle(ilBytes, pos)
 
 module TokenResolver =
     let private extractToken = NumberCreator.extractInt32
@@ -49,33 +26,39 @@ module TokenResolver =
 
 module Instruction =
 
-    let private operandType2operandSize = [| 4; 4; 4; 8; 4; 0; -1; 8; 4; 4; 4; 4; 4; 4; 2; 1; 1; 4; 1|]
+    let private operandType2operandSize = [| 4<offsets>; 4<offsets>; 4<offsets>; 8<offsets>; 4<offsets>
+                                             0<offsets>; -1<offsets>; 8<offsets>; 4<offsets>; 4<offsets>
+                                             4<offsets>; 4<offsets>; 4<offsets>; 4<offsets>; 2<offsets>
+                                             1<offsets>; 1<offsets>; 4<offsets>; 1<offsets>|]
 
-    let private jumpTargetsForNext (opCode : OpCode) _ pos =
-        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+    let private jumpTargetsForNext (opCode : OpCode) _ (pos : offset) =
+        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize.[int opCode.OperandType]
         FallThrough nextInstruction
 
-    let private jumpTargetsForBranch (opCode : OpCode) ilBytes pos =
+    let private jumpTargetsForBranch (opCode : OpCode) ilBytes (pos : offset) =
+        let opcodeSize = Offset.from opCode.Size
         let offset =
             match opCode.OperandType with
-            | OperandType.InlineBrTarget -> NumberCreator.extractInt32 ilBytes (pos + opCode.Size)
-            | _ -> NumberCreator.extractInt8 ilBytes (pos + opCode.Size)
+            | OperandType.InlineBrTarget -> NumberCreator.extractInt32 ilBytes (pos + opcodeSize)
+            | _ -> NumberCreator.extractInt8 ilBytes (pos + opcodeSize)
 
-        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize.[int opCode.OperandType]
         if offset = 0 && opCode <> OpCodes.Leave && opCode <> OpCodes.Leave_S
         then UnconditionalBranch nextInstruction
-        else UnconditionalBranch <| offset + nextInstruction
+        else UnconditionalBranch <| Offset.from offset + nextInstruction
 
-    let private inlineBrTarget extract (opCode : OpCode) ilBytes pos =
-        let offset = extract ilBytes (pos + opCode.Size)
-        let nextInstruction = pos + opCode.Size + operandType2operandSize.[int opCode.OperandType]
+    let private inlineBrTarget extract (opCode : OpCode) ilBytes (pos : offset) =
+        let opcodeSize = Offset.from opCode.Size
+        let offset = extract ilBytes (pos + opcodeSize)
+        let nextInstruction = pos + opcodeSize + operandType2operandSize.[int opCode.OperandType]
         ConditionalBranch(nextInstruction, [nextInstruction + offset])
 
-    let private inlineSwitch (opCode : OpCode) ilBytes pos =
-        let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opCode.Size) |> int
-        let nextInstruction = pos + opCode.Size + 4 * n + 4
+    let private inlineSwitch (opCode : OpCode) ilBytes (pos : offset) =
+        let opcodeSize = Offset.from opCode.Size
+        let n = NumberCreator.extractUnsignedInt32 ilBytes (pos + opcodeSize) |> int
+        let nextInstruction = pos + opcodeSize + 4<offsets> * n + 4<offsets>
         let nextOffsets =
-            List.init n (fun x -> nextInstruction + NumberCreator.extractInt32 ilBytes (pos + opCode.Size + 4 * (x + 1)))
+            List.init n (fun x -> nextInstruction + Offset.from (NumberCreator.extractInt32 ilBytes (pos + opcodeSize + 4<offsets> * (x + 1))))
         ConditionalBranch(nextInstruction, nextOffsets)
 
     let private jumpTargetsForReturn _ _ _ = Return
@@ -90,8 +73,8 @@ module Instruction =
         | FlowControl.Branch -> jumpTargetsForBranch
         | FlowControl.Cond_Branch ->
             match opCode.OperandType with
-            | OperandType.InlineBrTarget -> inlineBrTarget NumberCreator.extractInt32
-            | OperandType.ShortInlineBrTarget -> inlineBrTarget NumberCreator.extractInt8
+            | OperandType.InlineBrTarget -> inlineBrTarget NumberCreator.extractOffset
+            | OperandType.ShortInlineBrTarget -> inlineBrTarget (fun x y -> NumberCreator.extractInt8 x y |> Offset.from)
             | OperandType.InlineSwitch -> inlineSwitch
             | _ -> __notImplemented__()
         | FlowControl.Return -> jumpTargetsForReturn
@@ -110,14 +93,14 @@ module Instruction =
         opCode = OpCodes.Newobj
     let isDemandingCallOpCode (opCode : OpCode) =
         isCallOpCode opCode || isNewObjOpCode opCode
-    let isFinallyClause (ehc : ExceptionHandlingClause) =
+    let isFinallyClause (ehc : VSharp.ExceptionHandlingClause) =
         match ehc.ehcType with Finally -> true | _ -> false
-    let isFilterClause (ehc : ExceptionHandlingClause) =
-        match ehc.ehcType with Filter _ -> true | _ -> false
-    let isCatchClause (ehc : ExceptionHandlingClause) =
+    let isFilterClause (ehc : VSharp.ExceptionHandlingClause) =
+        match ehc.ehcType with ehcType.Filter _ -> true | _ -> false
+    let isCatchClause (ehc : VSharp.ExceptionHandlingClause) =
         match ehc.ehcType with Catch _ -> true | _ -> false
 
-    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : VSharp.ExceptionHandlingClause) =
 //        let srcOffset, dstOffset = src.Offset(), dst.Offset()
         let isInside offset = ehc.tryOffset <= offset && offset < ehc.tryOffset + ehc.tryLength
         isInside src && not <| isInside dst
@@ -129,7 +112,7 @@ module Instruction =
     let (|TailCall|_|) (opCode : OpCode) = if opCode = OpCodes.Tailcall then Some () else None
     let (|NewObj|_|) (opCode : OpCode) = if opCode = OpCodes.Newobj then Some () else None
 
-    let private methodBytesCache = System.Collections.Generic.Dictionary<MethodBase, byte [] * ExceptionHandlingClause []>()
+    let private methodBytesCache = System.Collections.Generic.Dictionary<MethodBase, byte [] * VSharp.ExceptionHandlingClause []>()
 
     let private rewriteMethodBytes (m : MethodBase) =
         let methodBody = m.GetMethodBody()
@@ -150,20 +133,24 @@ module Instruction =
             let ehs = methodBody.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
             let body : VSharp.Concolic.rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
-            let rewriter = VSharp.Concolic.ILRewriter(body)
+            let rewriter = ILRewriter(body)
             rewriter.Import()
             let result = rewriter.Export()
             let parseEH (eh : VSharp.Concolic.rawExceptionHandler) =
                 let oldEH = ehcs.[int eh.matcher]
                 let ehcType =
-                    if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then Filter (int eh.matcher)
+                    if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (eh.matcher |> int |> Offset.from)
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault || oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
                     else Catch oldEH.CatchType
-                {tryOffset = int eh.tryOffset; tryLength = int eh.tryLength; handlerOffset = int eh.handlerOffset; handlerLength = int eh.handlerLength; ehcType = ehcType }
+                {tryOffset = eh.tryOffset |> int |> Offset.from
+                 tryLength = eh.tryLength |> int |> Offset.from
+                 handlerOffset = eh.handlerOffset |> int |> Offset.from
+                 handlerLength = eh.handlerLength |> int |> Offset.from
+                 ehcType = ehcType }
             result.il, Array.map parseEH result.ehs
 
     let getILBytes (m : MethodBase) : byte [] =
-        let result : ref<byte [] * ExceptionHandlingClause []> = ref (null, null)
+        let result : ref<byte [] * VSharp.ExceptionHandlingClause []> = ref (null, null)
         if methodBytesCache.TryGetValue(m, result) then fst result.Value
         else
             let ilBytes = rewriteMethodBytes m
@@ -172,7 +159,7 @@ module Instruction =
             fst ilBytes
 
     let getEHSBytes (m : MethodBase) =
-        let result : ref<byte [] * ExceptionHandlingClause []> = ref (null, null)
+        let result : ref<byte [] * VSharp.ExceptionHandlingClause []> = ref (null, null)
         if methodBytesCache.TryGetValue(m, result) then snd result.Value
         else
             let ilBytes = rewriteMethodBytes m
@@ -197,8 +184,8 @@ module Instruction =
     let parseCallSite (m : MethodBase) pos =
         let ilBytes = getILBytes m
         let opCode = OpCodeOperations.getOpCode ilBytes pos
-        let calledMethod = TokenResolver.resolveMethodFromMetadata m ilBytes (pos + opCode.Size)
-        {sourceMethod = m; calledMethod = calledMethod; opCode = opCode; offset = pos}
+        let calledMethod = TokenResolver.resolveMethodFromMetadata m ilBytes (pos + Offset.from opCode.Size)
+        opCode, calledMethod
 
     let getIpTransition (m : MethodBase) pos =
         let ilBytes = getILBytes m

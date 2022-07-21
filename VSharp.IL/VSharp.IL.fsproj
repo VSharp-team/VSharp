@@ -8,6 +8,7 @@
     <ItemGroup>
       <Compile Include="OpCodes.fs" />
       <Compile Include="Communication.fs" />
+      <Compile Include="CodeLocation.fs" />
       <Compile Include="ILRewriter.fs" />
       <Compile Include="Instruction.fs" />
       <Compile Include="CFG.fs" />

@@ -9,6 +9,7 @@ open ipOperations
 [<ReferenceEquality>]
 type cilState =
     { mutable ipStack : ipStack
+      // TODO: get rid of currentLoc!
       mutable currentLoc : codeLocation // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
       state : state
       mutable filterResult : term option
@@ -63,7 +64,7 @@ module internal CilStateOperations =
           lastPushInfo = None
         }
 
-    let makeInitialState m state = makeCilState (instruction m 0) 0u state
+    let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
 
     let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
 
@@ -134,7 +135,7 @@ module internal CilStateOperations =
 
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
-        | Instruction (0, _) -> true
+        | Instruction (0<offsets>, _) -> true
         | _ -> false
 
     let private moveCodeLoc (cilState : cilState) (ip : ip) =
@@ -147,7 +148,7 @@ module internal CilStateOperations =
         match ip2codeLocation ip with
         | Some loc' when loc'.method.GetMethodBody() <> null ->
             cilState.currentLoc <- loc'
-            CFG.applicationGraph.AddCallEdge loc loc'
+            Application.applicationGraph.AddCallEdge loc loc'
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 
@@ -280,7 +281,7 @@ module internal CilStateOperations =
     // ------------------------------- Helper functions for cilState -------------------------------
 
     let moveIp offset m cilState =
-        let cfg = CFG.applicationGraph.GetCfg m
+        let cfg = Application.applicationGraph.GetCfg m
         let opCode = Instruction.parseInstruction m offset
         let newIps =
             let nextTargets = Instruction.findNextInstructionOffsetAndEdges opCode cfg.IlBytes offset

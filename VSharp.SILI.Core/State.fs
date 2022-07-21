@@ -10,8 +10,6 @@ type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
 
 type stackBufferKey = concreteHeapAddress
 
-type offset = int
-
 [<CustomEquality;NoComparison>]
 type physicalAddress = {object : obj}
     with
@@ -23,29 +21,6 @@ type physicalAddress = {object : obj}
     override x.ToString() = PrettyPrinting.printConcrete x.object
 
 type concreteMemory = Dictionary<concreteHeapAddress, physicalAddress>
-
-// last fields are determined by above fields
-// TODO: remove it when CFA is gone #Kostya
-[<CustomEquality;CustomComparison>]
-type callSite = { sourceMethod : System.Reflection.MethodBase; offset : offset
-                  calledMethod : System.Reflection.MethodBase; opCode : System.Reflection.Emit.OpCode }
-    with
-    member x.HasNonVoidResult = Reflection.hasNonVoidResult x.calledMethod
-    member x.SymbolicType = x.calledMethod |> Reflection.getMethodReturnType |> fromDotNetType
-    override x.GetHashCode() = (x.sourceMethod, x.offset).GetHashCode()
-    override x.Equals(o : obj) =
-        match o with
-        | :? callSite as other -> x.offset = other.offset && x.sourceMethod = other.sourceMethod
-        | _ -> false
-    interface IComparable with
-        override x.CompareTo(other) =
-            match other with
-            | :? callSite as other when x.sourceMethod.Equals(other.sourceMethod) -> x.offset.CompareTo(other.offset)
-            | :? callSite as other -> x.sourceMethod.MetadataToken.CompareTo(other.sourceMethod.MetadataToken)
-            | _ -> -1
-    override x.ToString() =
-        sprintf "sourceMethod = %s\noffset=%x\nopcode=%O\ncalledMethod = %s"
-            (Reflection.getFullMethodName x.sourceMethod) x.offset x.opCode (Reflection.getFullMethodName x.calledMethod)
 
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =

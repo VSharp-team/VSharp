@@ -150,7 +150,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
-        cilState.ipStack <- [Instruction(int c.offset, Memory.GetCurrentExploringFunction cilState.state)]
+        cilState.ipStack <- [Instruction(c.offset |> int |> Offset.from, Memory.GetCurrentExploringFunction cilState.state)]
         cilState.lastPushInfo <- None
 
     member x.State with get() = cilState
@@ -189,7 +189,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         match term.term with
         | Concrete(obj, typ) -> Some (obj, typ)
         | _ when term = NullRef -> Some (null, Null)
-        | HeapRef({term = ConcreteHeapAddress addr}, _) -> __notImplemented__()
+        | HeapRef({term = ConcreteHeapAddress _}, _) -> __notImplemented__()
         | Ref address ->
             let baseAddress, offset = AddressToBaseAndOffset address
             evalRefType baseAddress offset (TypeOf term)

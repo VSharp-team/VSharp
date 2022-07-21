@@ -338,7 +338,7 @@ module internal InstructionsSet =
             performCILBinaryOperation op makeUnsignedInteger makeUnsignedInteger idTransformation cilState
         else internalfailf "arguments for %O are not Integers!" op
     let ldstr (cfg : cfg) offset (cilState : cilState) =
-        let stringToken = NumberCreator.extractInt32 cfg.IlBytes (offset + OpCodes.Ldstr.Size)
+        let stringToken = NumberCreator.extractInt32 cfg.IlBytes (offset + Offset.from OpCodes.Ldstr.Size)
         let string = cfg.MethodBase.Module.ResolveString stringToken
         let reference = Memory.AllocateString string cilState.state
         push reference cilState
@@ -377,7 +377,7 @@ module internal InstructionsSet =
         let fallThroughGuard = Arithmetics.(>>=) value (makeUnsignedInteger (List.length restIps |> MakeNumber) id)
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (cfg : cfg) offset (cilState : cilState) =
-        let memberInfo = resolveTokenFromMetadata cfg (offset + OpCodes.Ldtoken.Size)
+        let memberInfo = resolveTokenFromMetadata cfg (offset + Offset.from OpCodes.Ldtoken.Size)
         let res =
             match memberInfo with // TODO: should create real RuntimeHandle struct #hack
             | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle (Types.FromDotNetType typeof<RuntimeFieldHandle>)
@@ -386,12 +386,12 @@ module internal InstructionsSet =
             | _ -> internalfailf "Could not resolve token"
         push res cilState
     let ldftn (cfg : cfg) offset (cilState : cilState) =
-        let methodInfo = resolveMethodFromMetadata cfg (offset + OpCodes.Ldftn.Size)
+        let methodInfo = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Ldftn.Size)
         let methodPtr = Terms.Concrete methodInfo (Types.FromDotNetType (methodInfo.GetType()))
         push methodPtr cilState
     let initobj (cfg : cfg) offset (cilState : cilState) =
         let targetAddress = pop cilState
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Initobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Initobj.Size)
         let states = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
         states |> List.map (changeState cilState)
     let ldind t reportError (cilState : cilState) =
@@ -413,7 +413,7 @@ module internal InstructionsSet =
         else __notImplemented__()
     let isinst (cfg : cfg) offset (cilState : cilState) =
         let object = pop cilState
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Isinst.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Isinst.Size)
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsNullReference object, state))
             (fun cilState k -> push NullRef cilState; k [cilState])
@@ -431,13 +431,13 @@ module internal InstructionsSet =
         else binaryOperationWithBoolResult OperationType.Greater_Un makeUnsignedInteger makeUnsignedInteger cilState
     let ldobj (cfg : cfg) offset (cilState : cilState) =
         let address = pop cilState
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Ldobj.Size)
         let value = Memory.Read cilState.state address
         let typedValue = Types.Cast value typ
         push typedValue cilState
     let stobj reportError (cfg : cfg) offset (cilState : cilState) =
         let src, dest = pop2 cilState
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stobj.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Stobj.Size)
         let value = Types.Cast src typ
         ConfigureErrorReporter (changeState cilState >> reportError)
         let states = Memory.Write cilState.state dest value
@@ -449,7 +449,7 @@ module internal InstructionsSet =
         let states = Memory.Write cilState.state address value
         states |> List.map (changeState cilState)
     let sizeofInstruction (cfg : cfg) offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Sizeof.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
         push (MakeNumber size) cilState
     let leave (cfg : cfg) offset (cilState : cilState) =
@@ -459,7 +459,7 @@ module internal InstructionsSet =
             getEHSBytes m
             |> Seq.filter isFinallyClause
             |> Seq.filter (shouldExecuteFinallyClause offset dst)
-            |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.handlerOffset - ehc2.handlerOffset)
+            |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.handlerOffset - ehc2.handlerOffset |> int)
             |> List.ofSeq
         let currentIp =
             match ehcs with
@@ -489,7 +489,7 @@ module internal InstructionsSet =
     let constrained (cfg : cfg) offset (cilState : cilState) =
         match findNextInstructionOffsetAndEdges OpCodes.Constrained cfg.IlBytes offset with
         | FallThrough offset ->
-            let method = resolveMethodFromMetadata cfg (offset + OpCodes.Callvirt.Size)
+            let method = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Callvirt.Size)
             let n = method.GetParameters().Length
             let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
             setEvaluationStack evaluationStack cilState
@@ -794,7 +794,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         Memory.PopFrame cilState.state
         ILInterpreter.InitFunctionFrame cilState.state methodInfo thisOption (Some args)
         x.InitializeStatics cilState methodInfo.DeclaringType (fun cilState ->
-            setCurrentIp (instruction methodInfo 0) cilState
+            setCurrentIp (instruction methodInfo 0<offsets>) cilState
             [cilState])
 
     member private x.IsArrayGetOrSet (methodBase : MethodBase) =
@@ -838,7 +838,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member x.InitFunctionFrameCIL (cilState : cilState) (methodBase : MethodBase) this paramValues =
         ILInterpreter.InitFunctionFrame cilState.state methodBase this paramValues
-        pushToIp (instruction methodBase 0) cilState
+        pushToIp (instruction methodBase 0<offsets>) cilState
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
@@ -906,7 +906,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.InlineMethodBaseCallIfNeeded (methodBase : MethodBase) (cilState : cilState) k =
         // [NOTE] Asserting correspondence between ips and frames
-        assert(currentMethod cilState = methodBase && currentOffset cilState = Some 0)
+        assert(currentMethod cilState = methodBase && currentOffset cilState = Some 0<offsets>)
         let fullMethodName, args, thisOption = x.GetFullMethodNameArgsAndThis cilState.state methodBase
         let moveIpToExit (cilState : cilState) =
             // [NOTE] else current method non method
@@ -1087,7 +1087,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             k
     member private x.CastClass (cfg : cfg) offset (cilState : cilState) : cilState list =
         let term = pop cilState
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Castclass.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Castclass.Size)
         x.CommonCastClass cilState term typ id
 
     member private x.PushNewObjResultOnEvaluationStack (cilState : cilState) reference (calledMethod : MethodBase) =
@@ -1111,7 +1111,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         this, args
 
     member x.Call (cfg : cfg) offset (cilState : cilState) =
-        let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
+        let calledMethod = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Call.Size)
         let getArgsAndCall cilState =
             let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
@@ -1132,7 +1132,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             match methodPtr.term with
             | Concrete(:? Tuple<MethodInfo, term> as tuple, _) -> snd tuple, (fst tuple :> MethodBase)
             | _ -> __unreachable__()
-        let ancestorMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Call.Size)
+        let ancestorMethod = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Call.Size)
         let thisOption, args = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         let this, methodToCall =
             match thisOption with
@@ -1202,7 +1202,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 //            else nonDelegateCase cilState |> k
 
     member x.NewObj (cfg : cfg) offset (cilState : cilState) =
-        let calledMethod = resolveMethodFromMetadata cfg (offset + OpCodes.Newobj.Size)
+        let calledMethod = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Newobj.Size)
         assert calledMethod.IsConstructor
         let constructorInfo = calledMethod :?> ConstructorInfo
         let typ = constructorInfo.DeclaringType
@@ -1251,7 +1251,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member x.LdsFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
         let newIp = moveInstruction (fallThroughTarget cfg.MethodBase offset) (currentIp cilState)
-        let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldsfld.Size)
+        let fieldInfo = resolveFieldFromMetadata cfg (offset + Offset.from OpCodes.Ldsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
         let declaringTermType = Types.FromDotNetType fieldInfo.DeclaringType
@@ -1264,7 +1264,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         [cilState])
     member private x.StsFld (cfg : cfg) offset (cilState : cilState) =
         let newIp = moveInstruction (fallThroughTarget cfg.MethodBase offset) (currentIp cilState) // TODO: remove this copy-paste
-        let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stsfld.Size)
+        let fieldInfo = resolveFieldFromMetadata cfg (offset + Offset.from OpCodes.Stsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
         let declaringTermType = Types.FromDotNetType fieldInfo.DeclaringType
@@ -1292,10 +1292,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 else Memory.ReadField cilState.state target fieldId |> createCilState
         x.NpeOrInvokeStatementCIL cilState target loadWhenTargetIsNotNull id
     member x.LdFld addressNeeded (cfg : cfg) offset (cilState : cilState) =
-        let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Ldfld.Size)
+        let fieldInfo = resolveFieldFromMetadata cfg (offset + Offset.from OpCodes.Ldfld.Size)
         x.LdFldWithFieldInfo fieldInfo addressNeeded cilState
     member x.StFld (cfg : cfg) offset (cilState : cilState) =
-        let fieldInfo = resolveFieldFromMetadata cfg (offset + OpCodes.Stfld.Size)
+        let fieldInfo = resolveFieldFromMetadata cfg (offset + Offset.from OpCodes.Stfld.Size)
         assert(not fieldInfo.IsStatic)
         let value, targetRef = pop2 cilState
         let storeWhenTargetIsNotNull (cilState : cilState) k =
@@ -1324,11 +1324,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.LdElemCommon typ cilState arrayRef [index]
     member private x.LdElemTyp typ (cilState : cilState) = x.LdElemWithCast (Some typ) cilState
     member private x.LdElem (cfg : cfg) offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelem.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Ldelem.Size)
         x.LdElemTyp typ cilState
     member private x.LdElemRef = x.LdElemWithCast None
     member private x.LdElema (cfg : cfg) offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Ldelema.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Ldelema.Size)
         let index, arrayRef = pop2 cilState
         let referenceLocation (cilState : cilState) k =
             let value = Memory.ReferenceArrayIndex cilState.state arrayRef [index] (Some typ)
@@ -1372,7 +1372,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.StElemTyp typ (cilState : cilState) =
         x.StElemWithCast (Some typ) cilState
     member private x.StElem cfg offset (cilState : cilState) =
-        let typ = resolveTermTypeFromMetadata cfg (offset + OpCodes.Stelem.Size)
+        let typ = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Stelem.Size)
         x.StElemWithCast (Some typ) cilState
     member private x.StElemRef = x.StElemWithCast None
     member private x.LdLen (cilState : cilState) =
@@ -1383,7 +1383,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState arrayRef ldlen id
     member private x.LdVirtFtn (cfg : cfg) offset (cilState : cilState) =
-        let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + OpCodes.Ldvirtftn.Size)
+        let ancestorMethodBase = resolveMethodFromMetadata cfg (offset + Offset.from OpCodes.Ldvirtftn.Size)
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
@@ -1422,7 +1422,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         Cps.List.mapk boxNullable hasValueResults List.concat
 
     member x.Box (cfg : cfg) offset (cilState : cilState) =
-        let t = resolveTypeFromMetadata cfg (offset + OpCodes.Box.Size)
+        let t = resolveTypeFromMetadata cfg (offset + Offset.from OpCodes.Box.Size)
         let termType = Types.FromDotNetType t
         if Types.IsValueType termType then
             let v = pop cilState
@@ -1489,7 +1489,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 k [cilState])
             id
     member private x.Unbox (cfg : cfg) offset (cilState : cilState) =
-        let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox.Size)
+        let t = resolveTypeFromMetadata cfg (offset + Offset.from OpCodes.Unbox.Size)
         let obj = pop cilState
         // TODO: Nullable.GetUnderlyingType for generics; use meta-information of generic type parameter
         if t.IsGenericParameter then
@@ -1499,7 +1499,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         else
             x.UnboxCommon cilState obj t (fun _ x -> x) id
     member private x.UnboxAny (cfg : cfg) offset (cilState : cilState) =
-        let t = resolveTypeFromMetadata cfg (offset + OpCodes.Unbox_Any.Size)
+        let t = resolveTypeFromMetadata cfg (offset + Offset.from OpCodes.Unbox_Any.Size)
         let termType = Types.FromDotNetType t
         let valueType = Types.FromDotNetType typeof<ValueType>
         let obj = pop cilState
@@ -1784,7 +1784,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         this.SignedCheckOverflow checkOverflowForSigned cilState
     member private x.Newarr (cfg : cfg) offset (cilState : cilState) =
         let (>>=) = API.Arithmetics.(>>=)
-        let elemType = resolveTermTypeFromMetadata cfg (offset + OpCodes.Newarr.Size)
+        let elemType = resolveTermTypeFromMetadata cfg (offset + Offset.from OpCodes.Newarr.Size)
         let numElements = pop cilState
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
@@ -1865,7 +1865,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     if cfg.SortedOffsets.[mid] <= startingOffset then binarySearch mid r
                     else binarySearch l mid
             let index = binarySearch 0 (Seq.length cfg.SortedOffsets)
-            if cfg.SortedOffsets.[index] = lastOffset then cfg.IlBytes.Length
+            if cfg.SortedOffsets.[index] = lastOffset then Offset.from cfg.IlBytes.Length
             else cfg.SortedOffsets.[index + 1]
 
         let isIpOfCurrentBasicBlock (ip : ip) =
@@ -1901,13 +1901,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IncrementLevelIfNeeded (cfg : cfg) (offset : offset) (cilState : cilState) =
         let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
-        if offset = 0 || cfg.IsLoopEntry offset then
+        if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = cfg.MethodBase}
         if cfg.HasSiblings offset then
             addIntoHistory cilState {offset = offset; method = cfg.MethodBase}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
-        let key = {offset = 0; method = method}
+        let key = {offset = 0<offsets>; method = method}
         decrementLevel cilState key
 
     member private x.FindNeededEHCBlock offset moreSuitable (ehcs : ExceptionHandlingClause seq) =
@@ -1941,15 +1941,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let newIp = moveInstruction (fallThroughTarget caller offset) ip
                 popFrameOf cilState
                 setCurrentIp newIp cilState
-                let callSite = parseCallSite caller offset
-                if callSite.opCode = OpCodes.Newobj && callSite.calledMethod.DeclaringType.IsValueType then
+                let callOpCode, calledMethod = parseCallSite caller offset
+                if callOpCode = OpCodes.Newobj && calledMethod.DeclaringType.IsValueType then
                     pushNewObjForValueTypes cilState
             | Exit _ :: Exit _ :: _ -> __unreachable__()
             | _ -> __unreachable__()
         let rec makeStep' ip k =
             match ip with
             | Instruction(offset, m) ->
-                if offset = 0 then Logger.printLogLazy Logger.Info "Starting to explore method %O" (lazy Reflection.getFullMethodName m)
+                if offset = 0<offsets> then Logger.printLogLazy Logger.Info "Starting to explore method %O" (lazy Reflection.getFullMethodName m)
                 x.ExecuteInstruction m offset cilState |> k
             | Exit m ->
                 exit m
@@ -2038,7 +2038,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.ExecuteInstruction m offset (cilState : cilState) =
 //        Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
-        let cfg = CFG.applicationGraph.GetCfg m
+        let cfg = Application.applicationGraph.GetCfg m
         let opCode = parseInstruction m offset
 //        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)
 
@@ -2064,15 +2064,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Xor -> (fun _ _ -> bitwiseOrBoolOperation OperationType.BitwiseXor OperationType.LogicalXor) |> fallThrough cfg offset cilState
             | OpCodeValues.Neg -> (fun _ _ -> performCILUnaryOperation OperationType.UnaryMinus) |> fallThrough cfg offset cilState
             | OpCodeValues.Not -> (fun _ _ -> bitwiseOrBoolNot) |> fallThrough cfg offset cilState
-            | OpCodeValues.Stloc -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Stloc.Size) |> int) |> forkThrough cfg offset cilState
+            | OpCodeValues.Stloc -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Stloc.Size) |> int) |> forkThrough cfg offset cilState
             | OpCodeValues.Stloc_0 -> stloc (fun _ _ -> 0) |> forkThrough cfg offset cilState
             | OpCodeValues.Stloc_1 -> stloc (fun _ _ -> 1) |> forkThrough cfg offset cilState
             | OpCodeValues.Stloc_2 -> stloc (fun _ _ -> 2) |> forkThrough cfg offset cilState
             | OpCodeValues.Stloc_3 -> stloc (fun _ _ -> 3) |> forkThrough cfg offset cilState
-            | OpCodeValues.Stloc_S -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Stloc_S.Size) |> int) |> forkThrough cfg offset cilState
-            | OpCodeValues.Starg -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Starg.Size) |> int) |> forkThrough cfg offset cilState
-            | OpCodeValues.Starg_S -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Starg_S.Size) |> int) |> forkThrough cfg offset cilState
-            | OpCodeValues.Ldc_I4 -> ldc (fun ilBytes offset -> NumberCreator.extractInt32 ilBytes (offset + OpCodes.Ldc_I4.Size)) typedefof<int32> |> fallThrough cfg offset cilState
+            | OpCodeValues.Stloc_S -> stloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Stloc_S.Size) |> int) |> forkThrough cfg offset cilState
+            | OpCodeValues.Starg -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Starg.Size) |> int) |> forkThrough cfg offset cilState
+            | OpCodeValues.Starg_S -> starg (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Starg_S.Size) |> int) |> forkThrough cfg offset cilState
+            | OpCodeValues.Ldc_I4 -> ldc (fun ilBytes offset -> NumberCreator.extractInt32 ilBytes (offset + Offset.from OpCodes.Ldc_I4.Size)) typedefof<int32> |> fallThrough cfg offset cilState
             | OpCodeValues.Ldc_I4_0 -> ldc (fun _ _ -> 0) typedefof<int32> |> fallThrough cfg offset cilState
             | OpCodeValues.Ldc_I4_1 -> ldc (fun _ _ -> 1) typedefof<int32> |> fallThrough cfg offset cilState
             | OpCodeValues.Ldc_I4_2 -> ldc (fun _ _ -> 2) typedefof<int32> |> fallThrough cfg offset cilState
@@ -2083,25 +2083,25 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Ldc_I4_7 -> ldc (fun _ _ -> 7) typedefof<int32> |> fallThrough cfg offset cilState
             | OpCodeValues.Ldc_I4_8 -> ldc (fun _ _ -> 8) typedefof<int32> |> fallThrough cfg offset cilState
             | OpCodeValues.Ldc_I4_M1 -> ldc (fun _ _ -> -1) typedefof<int32> |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldc_I4_S -> ldc (fun ilBytes offset -> NumberCreator.extractInt8 ilBytes (offset + OpCodes.Ldc_I4_S.Size)) typedefof<int32> |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldc_I8 -> ldc (fun ilBytes offset -> NumberCreator.extractInt64 ilBytes (offset + OpCodes.Ldc_I8.Size)) typedefof<int64> |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldc_R4 -> ldc (fun ilBytes offset -> NumberCreator.extractFloat32 ilBytes (offset + OpCodes.Ldc_R4.Size)) typedefof<float32> |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldc_R8 -> ldc (fun ilBytes offset -> NumberCreator.extractFloat64 ilBytes (offset + OpCodes.Ldc_R8.Size)) typedefof<double> |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldarg -> ldarg (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarg.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldc_I4_S -> ldc (fun ilBytes offset -> NumberCreator.extractInt8 ilBytes (offset + Offset.from OpCodes.Ldc_I4_S.Size)) typedefof<int32> |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldc_I8 -> ldc (fun ilBytes offset -> NumberCreator.extractInt64 ilBytes (offset + Offset.from OpCodes.Ldc_I8.Size)) typedefof<int64> |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldc_R4 -> ldc (fun ilBytes offset -> NumberCreator.extractFloat32 ilBytes (offset + Offset.from OpCodes.Ldc_R4.Size)) typedefof<float32> |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldc_R8 -> ldc (fun ilBytes offset -> NumberCreator.extractFloat64 ilBytes (offset + Offset.from OpCodes.Ldc_R8.Size)) typedefof<double> |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldarg -> ldarg (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldarg.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarg_0 -> ldarg (fun _ _ -> 0) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarg_1 -> ldarg (fun _ _ -> 1) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarg_2 -> ldarg (fun _ _ -> 2) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldarg_3 -> ldarg (fun _ _ -> 3) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldarg_S -> ldarg (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarg_S.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldarg_S -> ldarg (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldarg_S.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Nop -> fallThrough cfg offset cilState (fun _ _ _ -> ())
-            | OpCodeValues.Ldloc -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldloc.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldloc -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldloc.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldloc_0 -> ldloc (fun _ _ -> 0) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldloc_1 -> ldloc (fun _ _ -> 1) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldloc_2 -> ldloc (fun _ _ -> 2) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldloc_3 -> ldloc (fun _ _ -> 3) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldloc_S -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldloc_S.Size) |> int) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldloca -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldloca.Size) |> int) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldloca_S -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldloca_S.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldloc_S -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloc_S.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldloca -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldloca.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldloca_S -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloca_S.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ret -> ret cfg cilState; [cilState]
             | OpCodeValues.Dup -> (fun _ _ -> dup) |> fallThrough cfg offset cilState
 
@@ -2152,8 +2152,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Ldftn -> ldftn |> fallThrough cfg offset cilState
             | OpCodeValues.Pop -> (fun _ _ -> pop >> ignore) |> fallThrough cfg offset cilState
             | OpCodeValues.Initobj -> initobj |> forkThrough cfg offset cilState
-            | OpCodeValues.Ldarga -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + OpCodes.Ldarga.Size) |> int) |> fallThrough cfg offset cilState
-            | OpCodeValues.Ldarga_S -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + OpCodes.Ldarga_S.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldarga -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldarga.Size) |> int) |> fallThrough cfg offset cilState
+            | OpCodeValues.Ldarga_S -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldarga_S.Size) |> int) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind TypeUtils.int32Type reportError) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind TypeUtils.int8Type reportError) |> fallThrough cfg offset cilState
             | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind TypeUtils.int16Type reportError) |> fallThrough cfg offset cilState

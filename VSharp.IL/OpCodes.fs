@@ -233,6 +233,12 @@ type OpCodeValues =
     | Refanytype        = 0xFE1Ds
     | Readonly_         = 0xFE1Es
 
+[<Measure>]
+type offsets
+type offset = int<offsets>
+module Offset =
+    let from (x : int) : offset = LanguagePrimitives.Int32WithMeasure x
+
 module internal OpCodeOperations =
 
     let isSingleByteOpCodeValue (opCode : OpCode) = opCode.Size = 1
@@ -252,13 +258,15 @@ module internal OpCodeOperations =
             | _ -> ()
         typeof<OpCodes>.GetRuntimeFields() |> Seq.iter resolve
 
-    let getOpCode (ilBytes : byte []) offset =
+    let getOpCode (ilBytes : byte []) (offset : offset) =
+        let offset = int offset
         let b1 = int16 ilBytes.[offset]
         if isSingleByteOpCode b1 then singleByteOpCodes.[int b1]
         elif offset + 1 >= ilBytes.Length then raise (IncorrectCIL("Prefix instruction FE without suffix!"))
         else twoBytesOpCodes.[int ilBytes.[offset + 1]]
 
-    let writeOpCode (ilBytes : byte []) offset opCode =
+    let writeOpCode (ilBytes : byte []) (offset : offset) opCode =
+        let offset = int offset
         if isSingleByteOpCodeValue opCode then
             ilBytes.[offset] <- byte (opCode.Value &&& 0xFFs)
         else
