@@ -42,6 +42,9 @@ type cilState =
             | _ when x.state.exceptionsRegister.UnhandledError -> Nop
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
+        
+    interface IGraphTrackableState with
+        member this.CodeLocation = this.currentLoc        
 
 module internal CilStateOperations =
 
@@ -131,7 +134,7 @@ module internal CilStateOperations =
         match ip2codeLocation ip with
         | Some loc' when loc'.method.GetMethodBody() <> null ->
             cilState.currentLoc <- loc'
-            CFG.appGraph.AddCallEdge (CFG.findCfg loc.method) loc.offset (CFG.findCfg loc'.method)
+            CFG.applicationGraph.AddCallEdge loc loc'
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 

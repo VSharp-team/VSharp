@@ -12,7 +12,6 @@
       <Compile Include="Instruction.fs" />
       <Compile Include="CFG.fs" />
       <Compile Include="Coverage.fs" />
-      <Compile Include="Reachability.fs" />
     </ItemGroup>
 
     <ItemGroup>

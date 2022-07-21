@@ -472,8 +472,8 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
 
     member x.PlaceProbes() =
         let instructions = x.rewriter.CopyInstructions()
-        let cfg = CFG.findCfg x.m
-        let basicBlocks = cfg.sortedOffsets
+        let cfg = CFG.applicationGraph.GetCfg x.m
+        let basicBlocks = cfg.SortedOffsets
         let mutable currentBasicBlockIndex = 0
         assert(not <| Array.isEmpty instructions)
         let mutable atLeastOneReturnFound = false
