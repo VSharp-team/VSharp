@@ -61,12 +61,11 @@ type TargetedSearcher(maxBound, target) =
 type ITargetCalculator =
     abstract member CalculateTarget : cilState -> codeLocation option
 
-type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : coverageZone) =
+type StatisticsTargetCalculator(statistics : SILIStatistics) =
     interface ITargetCalculator with
         override x.CalculateTarget state =
-            let startingLoc = startingLoc state
             let locStack = state.ipStack |> Seq.choose ipOperations.ip2codeLocation
-            let inCoverageZone loc = inCoverageZone coverageZone startingLoc loc
+            let inCoverageZone loc = loc.method.InCoverageZone
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
             | None when inCoverageZone loc ->
@@ -77,7 +76,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics, coverageZone : cove
             | _ -> k reachingLoc) None locStack id
 
 
-type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator, coverageZone) =
+type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator) =
     let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
     let reachedOrUnreachableTargets = HashSet<codeLocation> ()

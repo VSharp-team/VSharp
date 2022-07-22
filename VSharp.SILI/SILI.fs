@@ -41,6 +41,12 @@ type public SILI(options : SiliOptions) =
         if options.visualize then
             DotVisualizer options.outputDirectory :> IVisualizer |> Application.setVisualizer
 
+    let inCoverageZone coverageZone (startingMethod : Method) method =
+        match coverageZone with
+        | MethodZone -> method = startingMethod
+        | ClassZone -> method.DeclaringType = startingMethod.DeclaringType
+        | ModuleZone -> method.Module = startingMethod.Module
+
     let isSat pc =
         // TODO: consider trivial cases
         emptyState.pc <- pc
@@ -49,18 +55,18 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
 
-    let rec mkForwardSearcher coverageZone = function
+    let rec mkForwardSearcher = function
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
         | GuidedMode baseMode ->
-            let baseSearcher = mkForwardSearcher coverageZone baseMode
-            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics, coverageZone), coverageZone) :> IForwardSearcher
+            let baseSearcher = mkForwardSearcher baseMode
+            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
-        | TestCoverageMode(coverageZone, searchMode) ->
-            BidirectionalSearcher(mkForwardSearcher coverageZone searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
+        | TestCoverageMode(_, searchMode) ->
+            BidirectionalSearcher(mkForwardSearcher searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
     let releaseBranches() =
@@ -192,6 +198,10 @@ type public SILI(options : SiliOptions) =
             | Stop -> __unreachable__()
 
     member private x.AnswerPobs entryPoint initialStates =
+        match options.explorationMode with
+        | TestCoverageMode(coverageZone, _) ->
+            Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
+        | StackTraceReproductionMode _ -> __notImplemented__()
         statistics.ExplorationStarted()
         branchesReleased <- false
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)

@@ -286,6 +286,8 @@ and Method internal (m : MethodBase) as this =
                 instr <- instr.next
         }
 
+    member val InCoverageZone = true with get, set
+
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
     with
@@ -462,9 +464,19 @@ module Application =
     let loadedMethods = _loadedMethods :> seq<_>
     let graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
+    let mutable coverageZone : Method -> bool = fun _ -> true
 
     let getMethod (m : MethodBase) : Method =
-        Dict.getValueOrUpdate methods m (fun () -> Method(m))
+        Dict.getValueOrUpdate methods m (fun () ->
+            let result = Method(m)
+            result.InCoverageZone <- coverageZone result
+            result)
+
+    let setCoverageZone (zone : Method -> bool) =
+        coverageZone <- zone
+        methods |> Seq.iter (fun kvp ->
+            let m = kvp.Value
+            m.InCoverageZone <- zone m)
 
     let setVisualizer (v : IVisualizer) =
         visualizer <- v

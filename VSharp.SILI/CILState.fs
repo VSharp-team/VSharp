@@ -128,12 +128,6 @@ module internal CilStateOperations =
 
     let currentOffset = currentIp >> offsetOf
 
-    let inCoverageZone coverageZone startingLoc loc =
-        match coverageZone with
-        | MethodZone -> loc.method = startingLoc.method
-        | ClassZone -> loc.method.DeclaringType = startingLoc.method.DeclaringType
-        | ModuleZone -> loc.method.Module = startingLoc.method.Module
-
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with
         | Instruction (0<offsets>, _) -> true
