@@ -580,12 +580,11 @@ type Communicator(pipeFile) =
 
     member x.ReadProbes() = x.ReadStructure<probes>()
 
-    member x.SendEntryPoint (m : Reflection.MethodBase) =
-        let moduleName = m.Module.FullyQualifiedName
+    member x.SendEntryPoint (moduleName : string) (metadataToken : int) =
         let moduleNameBytes = Encoding.Unicode.GetBytes moduleName
         let moduleSize = BitConverter.GetBytes moduleName.Length
 //        let moduleID = BitConverter.GetBytes m.Module.MetadataToken
-        let methodDef = BitConverter.GetBytes m.MetadataToken
+        let methodDef = BitConverter.GetBytes metadataToken
         Array.concat [moduleSize; methodDef; moduleNameBytes] |> writeBuffer
 
     member x.SendCommand (command : commandForConcolic) =

@@ -212,11 +212,11 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyModel : MethodBase -> model
+        val EmptyModel : IMethod -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
-        val NewStackFrame : state -> MethodBase -> (stackKey * term option * symbolicType) list -> unit
+        val NewStackFrame : state -> IMethod option -> (stackKey * term option * symbolicType) list -> unit
         val NewTypeVariables : state -> (typeId * symbolicType) list -> unit
 
         val ReferenceArrayIndex : state -> term -> term list -> symbolicType option -> term
@@ -224,7 +224,7 @@ module API =
 
         val Read : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
-        val ReadThis : state -> MethodBase -> term
+        val ReadThis : state -> IMethod -> term
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> symbolicType option -> term
@@ -243,13 +243,13 @@ module API =
 
         val DefaultOf : symbolicType -> term
 
-        val MakeSymbolicThis : MethodBase -> term
+        val MakeSymbolicThis : IMethod -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
         val FillWithParametersAndThis : state -> MethodBase -> unit
 
-        val CallStackContainsFunction : state -> MethodBase -> bool
+        val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
-        val GetCurrentExploringFunction : state -> MethodBase
+        val GetCurrentExploringFunction : state -> IMethod
 
         val BoxValueType : state -> term -> term
 

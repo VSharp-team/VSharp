@@ -1,16 +1,28 @@
 namespace VSharp.Core
 
+open System.Reflection.Metadata
 open VSharp
 open VSharp.CSharpUtils
 open System
 open System.Collections.Generic
 open Types.Constructor
 
+type IMethod =
+    inherit IComparable
+    abstract FullName : string
+    abstract DeclaringType : Type
+    abstract Parameters : Reflection.ParameterInfo[]
+    abstract LocalVariables : IList<Reflection.LocalVariableInfo>
+    abstract HasThis : bool
+    abstract IsConstructor : bool
+    abstract GenericArguments : Type[]
+    abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
+
 [<CustomEquality;CustomComparison>]
 type stackKey =
-    | ThisKey of Reflection.MethodBase
+    | ThisKey of IMethod
     | ParameterKey of Reflection.ParameterInfo
-    | LocalVariableKey of Reflection.LocalVariableInfo * Reflection.MethodBase
+    | LocalVariableKey of Reflection.LocalVariableInfo * IMethod
     | TemporaryLocalVariableKey of Type
     override x.ToString() =
         match x with
@@ -21,9 +33,9 @@ type stackKey =
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" (Reflection.getFullMethodName m)
+            | ThisKey m -> sprintf "%s##this" m.FullName
             | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" (Reflection.getFullMethodName m) (lvi.ToString())
+            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
             | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
     interface IComparable with
@@ -52,9 +64,12 @@ type stackKey =
         |> fromDotNetType
     member x.Map typeSubst =
         match x with
-        | ThisKey m -> ThisKey (Reflection.concretizeMethodBase m typeSubst)
+        | ThisKey m -> ThisKey (m.SubstituteTypeVariables typeSubst)
         | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
-        | LocalVariableKey(l, m) -> LocalVariableKey (Reflection.concretizeLocalVariable l m typeSubst)
+        | LocalVariableKey(l, m) ->
+            let m' = m.SubstituteTypeVariables typeSubst
+            let l' = m.LocalVariables.[l.LocalIndex]
+            LocalVariableKey(l', m')
         | TemporaryLocalVariableKey typ -> TemporaryLocalVariableKey (Reflection.concretizeType typeSubst typ)
 
 type concreteHeapAddress = vectorTime

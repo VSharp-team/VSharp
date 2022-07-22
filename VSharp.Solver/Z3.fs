@@ -690,8 +690,10 @@ module internal Z3 =
             let state = {Memory.EmptyState() with complete = true}
             let frame = stackEntries |> Seq.map (fun kvp ->
                     let key = kvp.Key
-                    let term = !kvp.Value
-                    Memory.AllocateOnStack targetModel.state key term)
+                    let term = kvp.Value.Value
+                    let typ = TypeOf term
+                    (key, Some term, typ))
+            Memory.NewStackFrame state None (List.ofSeq frame)
 
             let defaultValues = Dictionary<regionSort, term ref>()
             encodingCache.regionConstants |> Seq.iter (fun kvp ->

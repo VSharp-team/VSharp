@@ -13,7 +13,7 @@ type action =
     | Stop
 
 type IBidirectionalSearcher =
-    abstract member Init : System.Reflection.MethodBase -> cilState list -> pob seq -> unit
+    abstract member Init : Method -> cilState list -> pob seq -> unit
     abstract member UpdateStates : cilState -> cilState seq -> unit
     abstract member UpdatePobs : pob -> pob -> unit
     abstract member Pick : unit -> action
@@ -35,7 +35,7 @@ type ITargetedSearcher =
 type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
 
 type IBackwardSearcher =
-    abstract member Init : System.Reflection.MethodBase -> pob seq -> unit
+    abstract member Init : Method -> pob seq -> unit
     abstract member Update : pob -> pob -> unit
     abstract member Answer : pob -> pobStatus -> unit
     abstract member Statuses : unit -> seq<pob * pobStatus>
