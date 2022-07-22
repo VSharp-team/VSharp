@@ -19,6 +19,7 @@
 
     <ItemGroup>
         <Compile Include="Options.fs" />
+        <Compile Include="InstructionPointer.fs" />
         <Compile Include="CILState.fs" />
         <Compile Include="Lambdas.fs" />
         <Compile Include="Statistics.fs" />

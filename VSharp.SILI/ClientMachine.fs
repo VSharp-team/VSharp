@@ -10,7 +10,7 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 
 [<AllowNullLiteral>]
-type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, cilState : cilState) =
+type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilState : cilState) =
     let extension =
         if RuntimeInformation.IsOSPlatform(OSPlatform.Windows) then ".dll"
         elif RuntimeInformation.IsOSPlatform(OSPlatform.Linux) then ".so"
@@ -22,21 +22,21 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     [<DefaultValue>] val mutable probes : probes
     [<DefaultValue>] val mutable instrumenter : Instrumenter
 
-    let initSymbolicFrame state (method : MethodBase) =
-        let parameters = method.GetParameters() |> Seq.map (fun param ->
+    let initSymbolicFrame state (method : Method) =
+        let parameters = method.Parameters |> Seq.map (fun param ->
             (ParameterKey param, None, Types.FromDotNetType param.ParameterType)) |> List.ofSeq
         let locals =
-            match method.GetMethodBody() with
+            match method.LocalVariables with
             | null -> []
-            | body ->
-                body.LocalVariables
+            | lv ->
+                lv
                 |> Seq.map (fun local -> (LocalVariableKey(local, method), None, Types.FromDotNetType local.LocalType))
                 |> List.ofSeq
         let parametersAndThis =
-            if Reflection.hasThis method then
+            if method.HasThis then
                 (ThisKey method, None, Types.FromDotNetType method.DeclaringType) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
-        Memory.NewStackFrame state method (parametersAndThis @ locals)
+        Memory.NewStackFrame state (Some method) (parametersAndThis @ locals)
 
     let mutable cilState : cilState =
         cilState.suspended <- true
@@ -59,7 +59,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
     let mutable callIsSkipped = false
     let mutable mainReached = false
     let mutable operands : list<_> = List.Empty
-    let environment (method : MethodBase) pipePath =
+    let environment (method : Method) pipePath =
         let result = ProcessStartInfo()
         let profiler = sprintf "%s%c%s" (Directory.GetCurrentDirectory()) Path.DirectorySeparatorChar pathToClient
         result.EnvironmentVariables.["CORECLR_PROFILER"] <- "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}"
@@ -71,7 +71,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         result.UseShellExecute <- false
         result.RedirectStandardOutput <- true
         result.RedirectStandardError <- true
-        if method = (method.Module.Assembly.EntryPoint :> MethodBase) then
+        if method.IsEntryPoint then
             result.Arguments <- method.Module.Assembly.Location
         else
             let runnerPath = "VSharp.TestRunner.dll"
@@ -80,8 +80,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
-        assert(entryPoint <> null)
-        let test = UnitTest(entryPoint)
+        let test = UnitTest(entryPoint.MethodBase)
         test.Serialize(tempTest id)
 
         let pipe, pipePath =
@@ -103,8 +102,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Logger.info "Successfully spawned pid %d, working dir \"%s\"" proc.Id env.WorkingDirectory
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
-            x.communicator.SendEntryPoint entryPoint
-            x.instrumenter <- Instrumenter(x.communicator, entryPoint, x.probes)
+            x.communicator.SendEntryPoint entryPoint.Module.FullyQualifiedName entryPoint.MetadataToken
+            x.instrumenter <- Instrumenter(x.communicator, entryPoint.MethodBase, x.probes)
             true
         else false
 
@@ -112,8 +111,8 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         Memory.ForcePopFrames (int c.callStackFramesPops) cilState.state
         assert(Memory.CallStackSize cilState.state > 0)
         let initFrame state token =
-            let topMethod = Memory.GetCurrentExploringFunction state
-            let method = Reflection.resolveMethod topMethod token
+            let topMethod = Memory.GetCurrentExploringFunction state :?> Method
+            let method = topMethod.ResolveMethod token |> Application.getMethod
             initSymbolicFrame state method
         Array.iter (initFrame cilState.state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
@@ -150,7 +149,7 @@ type ClientMachine(entryPoint : MethodBase, requestMakeStep : cilState -> unit, 
         operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
         cilState.state.evaluationStack <- evalStack
-        cilState.ipStack <- [Instruction(c.offset |> int |> Offset.from, Memory.GetCurrentExploringFunction cilState.state)]
+        cilState.ipStack <- [Instruction(c.offset |> int |> Offset.from, Memory.GetCurrentExploringFunction cilState.state :?> Method)]
         cilState.lastPushInfo <- None
 
     member x.State with get() = cilState

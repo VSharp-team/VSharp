@@ -9,7 +9,7 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 
 //    let starts = Queue<MethodBase>()
 //    let addedStarts = HashSet<MethodBase>()
-    let mutable mainMethod = null
+    let mutable mainMethod : Method = Unchecked.defaultof<Method>
 //    let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null
 
 //    let rememberStart (m : MethodBase) =
@@ -100,7 +100,7 @@ type BackwardSearcher() =
     let ancestorOf = Dictionary<pob, List<pob>>()
     let answeredPobs = Dictionary<pob, pobStatus>()
     let loc2pob = Dictionary<codeLocation, List<pob>>()
-    let mutable mainMethod : MethodBase = null
+    let mutable mainMethod : Method = Unchecked.defaultof<Method>
 
     let doAddPob (pob : pob) =
         currentPobs.Add(pob)
@@ -151,7 +151,7 @@ type BackwardSearcher() =
                     answerYes s' ancestor) ancestorOf.[p']
 
     let clear() =
-        mainMethod <- null
+        mainMethod <- Unchecked.defaultof<Method>
         mainPobs.Clear()
         currentPobs.Clear()
         qBack.Clear()

@@ -336,7 +336,7 @@ module API =
         let Read state reference =
             transformBoxedRef reference |> Memory.read state (ErrorReporter())
         let ReadLocalVariable state location = Memory.readStackLocation state location
-        let ReadThis state methodBase = Memory.readStackLocation state (ThisKey methodBase)
+        let ReadThis state method = Memory.readStackLocation state (ThisKey method)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
         let ReadField state term field =
             let doRead target =

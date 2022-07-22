@@ -1,39 +1,16 @@
-namespace VSharp
+namespace VSharp.Interpreter.IL
 
-open System.Reflection
-
-[<CustomEquality; CustomComparison>]
-type public codeLocation = {offset : offset; method : MethodBase}
-    with
-    override x.Equals y =
-        match y with
-        | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
-        | _ -> false
-    override x.GetHashCode() = (x.offset, x.method).GetHashCode()
-    override x.ToString() = sprintf "[method = %s\noffset = %s]" (Reflection.getFullMethodName x.method) ((int x.offset).ToString("X"))
-    interface System.IComparable with
-        override x.CompareTo y =
-            match y with
-            | :? codeLocation as y when x.method.Equals(y.method) -> compare x.offset y.offset
-            | :? codeLocation as y -> x.method.MetadataToken.CompareTo(y.method.MetadataToken)
-            | _ -> -1
-
-type ehcType =
-    | Filter of offset
-    | Catch of System.Type
-    | Finally
-
-type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
+open VSharp
 
 [<CustomEquality; CustomComparison>]
 type ip =
-    | Exit of MethodBase
-    | Instruction of offset * MethodBase
-    | Leave of ip * ExceptionHandlingClause list * offset * MethodBase
+    | Exit of Method
+    | Instruction of offset * Method
+    | Leave of ip * ExceptionHandlingClause list * offset * Method
     // frames to observe catch clause; frames to observe finally clauses
     | SearchingForHandler of codeLocation list * codeLocation list
     // ip of filter function; previous searching handler information
-    | InFilterHandler of offset * MethodBase * codeLocation list * int
+    | InFilterHandler of offset * Method * codeLocation list * int
     // ``None'' -- we are seeking for next finally or fault handler, ``Some _'' -- we are executing handler;
     // rest frames of possible handlers; starting code location of handler
     | SecondBypass of ip option * codeLocation list * codeLocation
@@ -64,20 +41,18 @@ type ip =
     override x.GetHashCode() = x.ToString().GetHashCode()
     interface System.IComparable with
         override x.CompareTo y =
-            let methodCompare (m1 : MethodBase) (m2 : MethodBase) =
-                m1.MetadataToken.CompareTo(m2.MetadataToken)
             match y with
             | :? ip as y ->
                 match x, y with
-                | Exit m1, Exit m2 -> methodCompare m1 m2
+                | Exit m1, Exit m2 -> compare m1 m2
                 | Exit _, _ -> -1
-                | Instruction(offset1, m1), Instruction(offset2, m2) when methodCompare m1 m2 = 0 ->
+                | Instruction(offset1, m1), Instruction(offset2, m2) when compare m1 m2 = 0 ->
                     compare offset1 offset2
-                | Instruction(_, m1), Instruction(_, m2) -> methodCompare m1 m2
+                | Instruction(_, m1), Instruction(_, m2) -> compare m1 m2
                 | Instruction _, _ -> -1
                 | Leave(ip1, _, offset1, m1), Leave(ip2, _, offset2, m2)
-                    when compare ip1 ip2 = 0 && methodCompare m1 m2 = 0 ->compare offset1 offset2
-                | Leave(ip1, _, _, m1), Leave(ip2, _, _, m2) when compare ip1 ip2 = 0 -> methodCompare m1 m2
+                    when compare ip1 ip2 = 0 && compare m1 m2 = 0 ->compare offset1 offset2
+                | Leave(ip1, _, _, m1), Leave(ip2, _, _, m2) when compare ip1 ip2 = 0 -> compare m1 m2
                 | Leave(ip1,_,_,_), Leave(ip2,_,_, _) -> compare ip1 ip2
                 | Leave _, _ -> -1
                 | SearchingForHandler(toObserve1, pop1), SearchingForHandler(toObserve2, pop2)
@@ -85,10 +60,10 @@ type ip =
                 | SearchingForHandler(toObserve1, _), SearchingForHandler(toObserve2, _) -> compare toObserve1 toObserve2
                 | SearchingForHandler _, _ -> -1
                 | InFilterHandler(offset1, m1, toObserve1, pop1), InFilterHandler(offset2, m2, toObserve2, pop2)
-                    when compare offset1 offset2 = 0 && methodCompare m1 m2 = 0 &&  compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
+                    when compare offset1 offset2 = 0 && compare m1 m2 = 0 &&  compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
                 | InFilterHandler(offset1, m1, toObserve1, _), InFilterHandler(offset2, m2 ,toObserve2, _)
-                    when compare offset1 offset2 = 0 && methodCompare m1 m2 = 0 -> compare toObserve1 toObserve2
-                | InFilterHandler(offset1, m1, _, _), InFilterHandler(offset2, m2 ,_, _) when compare offset1 offset2 = 0 -> methodCompare m1 m2
+                    when compare offset1 offset2 = 0 && compare m1 m2 = 0 -> compare toObserve1 toObserve2
+                | InFilterHandler(offset1, m1, _, _), InFilterHandler(offset2, m2 ,_, _) when compare offset1 offset2 = 0 -> compare m1 m2
                 | InFilterHandler _, _ -> -1
                 | SecondBypass(ip1, toFinalize1, location1), SecondBypass(ip2, toFinalize2, location2)
                     when compare ip1 ip2 = 0 && compare toFinalize1 toFinalize2 = 0 -> compare location1 location2
@@ -99,11 +74,11 @@ type ip =
             | _ -> -1
     override x.ToString() =
         match x with
-        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" ((int offset).ToString("X")) (Reflection.getFullMethodName m)
-        | Exit m -> sprintf "{Exit from M = %s}" (Reflection.getFullMethodName m)
-        | Leave(ip, _, offset, m) -> sprintf "{M = %s; Leaving to %d\n;Currently in %O}" (Reflection.getFullMethodName m) offset ip
-        | SearchingForHandler(toObserve, checkFinally) -> sprintf "SearchingForHandler(%O, %O)" toObserve checkFinally
-        | SecondBypass(ip, restFrames, handler) -> sprintf "SecondBypass(%O, %O, %O)" ip restFrames handler
+        | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" ((int offset).ToString("X")) m.FullName
+        | Exit m -> $"{{Exit from M = %s{m.FullName}}}"
+        | Leave(ip, _, offset, m) -> $"{{M = %s{m.FullName}; Leaving to %d{offset}\n;Currently in {ip}}}"
+        | SearchingForHandler(toObserve, checkFinally) -> $"SearchingForHandler({toObserve}, {checkFinally})"
+        | SecondBypass(ip, restFrames, handler) -> $"SecondBypass({ip}, {restFrames}, {handler})"
         | _ -> __notImplemented__()
 
 and ipStack = ip list
@@ -153,10 +128,6 @@ module ipOperations =
             Some loc
         | _ -> __unreachable__()
 
-    let buildIpFromOffset (m : MethodBase) (offset : offset) =
-        // TODO: what about Leave-constructor?
-        instruction m offset
-
 module Level =
     // TODO: implement level
     let zero : level = PersistentDict.empty
@@ -165,12 +136,12 @@ module Level =
     let isZero (l : level) = (l = zero)
     let isInf (l : level) = (l = inf)
 
-    let next (l : level) : level = __notImplemented__()
+    let next (_ : level) : level = __notImplemented__()
 
-    let prev (l : level) : level = __notImplemented__()
-    let toUInt (l : level) : uint32 = __notImplemented__()
+    let prev (_ : level) : level = __notImplemented__()
+    let toUInt (_ : level) : uint32 = __notImplemented__()
 
-    let toInt (l : level) : int = 0
+    let toInt (_ : level) : int = 0
 
     let toString (lvl : level) =
         if isInf lvl then "inf" else lvl.ToString()

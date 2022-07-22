@@ -126,6 +126,9 @@ module public Reflection =
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
+    let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
+        compare m1.MethodHandle.Value m2.MethodHandle.Value
+
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
@@ -205,12 +208,6 @@ module public Reflection =
         assert(p.Member :? MethodBase)
         let method = concretizeMethodBase (p.Member :?> MethodBase) subst
         method.GetParameters() |> Array.find (fun pi -> pi.Name = p.Name)
-
-    let concretizeLocalVariable (l : LocalVariableInfo) (m : MethodBase) (subst : Type -> Type) =
-        let m = concretizeMethodBase m subst
-        let mb = m.GetMethodBody()
-        assert(mb <> null)
-        mb.LocalVariables.[l.LocalIndex], m
 
     let concretizeField (f : fieldId) (subst : Type -> Type) =
         let declaringType = concretizeType subst f.declaringType

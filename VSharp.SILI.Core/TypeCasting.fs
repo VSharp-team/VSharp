@@ -281,7 +281,7 @@ module internal TypeCasting =
                                      notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
             |> List.ofSeq
         let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = if m.IsConstructor then [||] else m.GetGenericArguments()
+        let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments
         let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
         | TypeSat(refsTypes, typeParams) ->

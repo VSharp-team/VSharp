@@ -331,17 +331,17 @@ module internal Memory =
         let name = picker.mkname key
         makeSymbolicValue source name typ
 
-    let makeSymbolicThis (m : System.Reflection.MethodBase) =
+    let makeSymbolicThis (m : IMethod) =
         let declaringType = fromDotNetType m.DeclaringType
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} AddressType) declaringType
 
 
-    let fillWithParametersAndThis state (method : System.Reflection.MethodBase) =
-        let parameters = method.GetParameters() |> Seq.map (fun param ->
+    let fillWithParametersAndThis state (method : IMethod) =
+        let parameters = method.Parameters |> Seq.map (fun param ->
             (ParameterKey param, None, fromDotNetType param.ParameterType)) |> List.ofSeq
         let parametersAndThis =
-            if Reflection.hasThis method then
+            if method.HasThis then
                 let t = fromDotNetType method.DeclaringType
                 let addr = [-1]
                 let thisRef = HeapRef (ConcreteHeapAddress addr) t
@@ -349,7 +349,7 @@ module internal Memory =
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
-        newStackFrame state method parametersAndThis
+        newStackFrame state (Some method) parametersAndThis
 
 // =============== Marshalling/unmarshalling without state changing ===============
 

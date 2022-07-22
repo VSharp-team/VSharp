@@ -7,7 +7,7 @@ open VSharp.Core.Types
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : symbolicType }
-type private frame = internal { func : MethodBase; entries : pdict<stackKey, entry> }
+type private frame = internal { func : IMethod option; entries : pdict<stackKey, entry> }
 type callStack = private { frames : frame stack }
 
 module internal CallStack =
@@ -62,7 +62,7 @@ module internal CallStack =
         | None -> findFrameAndRead frames key k
 
     let readStackLocation (stack : callStack) key makeSymbolic =
-        if stack.frames.Length = 1 && stack.frames.Head.func = null && (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key')) then
+        if stack.frames.Length = 1 && stack.frames.Head.func = None && (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key')) then
             // This state is formed by SMT solver model, just return the default value
             match key with
             | ParameterKey pi -> Constructor.fromDotNetType pi.ParameterType |> makeDefaultValue
@@ -115,13 +115,16 @@ module internal CallStack =
         {frames = Stack.union restFrames' frames}
 
     let containsFunc stack funcId =
-        let isRecursiveFrame (frame : frame) = funcId = frame.func
+        let isRecursiveFrame (frame : frame) =
+            match frame.func with
+            | Some func -> funcId = func
+            | None -> false
         let _, frames = Stack.pop stack.frames
         Stack.exists isRecursiveFrame frames
 
     let getCurrentFunc stack =
         let frame, _ = Stack.pop stack.frames
-        frame.func
+        Option.get frame.func
 
     let size stack = Stack.size stack.frames
 
@@ -134,4 +137,9 @@ module internal CallStack =
         |> join "\n"
 
     let stackTrace (stack : callStack) =
-        Stack.map (fun f -> Reflection.getFullMethodName f.func) stack.frames |> join "\n"
+        stack.frames
+        |> Stack.map (fun f ->
+            match f.func with
+            | Some f -> f.FullName
+            | _ -> "<unknown function>")
+        |> join "\n"

@@ -91,14 +91,14 @@ module TestGenerator =
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term
 
-    let model2test (test : UnitTest) isError hasException indices (m : MethodBase) model cmdArgs (cilState : cilState) =
+    let model2test (test : UnitTest) isError hasException indices (m : Method) model cmdArgs (cilState : cilState) =
         match SolveTypes model cilState.state with
         | None -> None
         | Some(classParams, methodParams) ->
             test.SetTypeGenericParameters classParams // TODO: take this from elsewhere? #do
             test.SetMethodGenericParameters methodParams
 
-            let parametersInfo = m.GetParameters()
+            let parametersInfo = m.Parameters
             match cmdArgs with
             | Some args ->
                 // NOTE: entry point with specified args case
@@ -110,7 +110,7 @@ module TestGenerator =
                     let concreteValue : obj = term2obj model cilState.state indices test value
                     test.AddArg pi concreteValue)
 
-            if Reflection.hasThis m then
+            if m.HasThis then
                 let value = Memory.ReadThis model.state m |> model.Complete
                 let concreteValue : obj = term2obj model cilState.state indices test value
                 test.ThisArg <- concreteValue
@@ -120,9 +120,9 @@ module TestGenerator =
                 test.Expected <- term2obj model cilState.state indices test retVal
             Some test
 
-    let state2test isError (m : MethodBase) cmdArgs (cilState : cilState) =
+    let state2test isError (m : Method) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
-        let test = UnitTest m
+        let test = UnitTest m.MethodBase
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled e ->
