@@ -12,6 +12,10 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_OverflowException" state
 
+    let internal get_Arg_SystemException (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_SystemException" state
+
     let internal get_Arg_IndexOutOfRangeException (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_IndexOutOfRangeException" state

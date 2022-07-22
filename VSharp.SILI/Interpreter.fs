@@ -1962,7 +1962,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | Some _ -> acc
             | None ->
                 // NOTE: check that this block protects current ip
-                if x.tryOffset < offset && x.tryOffset + x.tryLength > offset then Some x else None
+                if x.tryOffset <= offset && x.tryOffset + x.tryLength > offset then Some x else None
         Seq.fold findBlock None ehcs
 
     member x.MakeStep (cilState : cilState) =
@@ -2032,7 +2032,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError())
                 let isSuitable ehc =
                     match ehc.ehcType with
-                    | Catch t -> t = exceptionType
+                    | Catch t -> TypeUtils.isSubtypeOrEqual exceptionType t
                     | _ -> false
                 let suitableCatchBlocks = ehcs |> Seq.filter isSuitable
                 let isNarrower (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
