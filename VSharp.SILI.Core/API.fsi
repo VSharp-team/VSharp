@@ -245,7 +245,7 @@ module API =
 
         val MakeSymbolicThis : IMethod -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
-        val FillWithParametersAndThis : state -> MethodBase -> unit
+        val FillWithParametersAndThis : state -> IMethod -> unit
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
