@@ -26,12 +26,12 @@ module internal Memory =
 
     let mutable memoryMode = SymbolicMemory
 
-    let copy state =
+    let copy state newPc =
         let state =
             match memoryMode with
             | ConcreteMemory -> ConcreteMemory.deepCopy state
             | SymbolicMemory -> state
-        { state with id = Guid.NewGuid().ToString() }
+        { state with id = Guid.NewGuid().ToString(); pc = newPc }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -366,21 +366,6 @@ module internal Memory =
             else parameters
         newStackFrame state method parametersAndThis
 
-
-    let fillWithParametersAndThis state (method : System.Reflection.MethodBase) =
-        let parameters = method.GetParameters() |> Seq.map (fun param ->
-            (ParameterKey param, None, fromDotNetType param.ParameterType)) |> List.ofSeq
-        let parametersAndThis =
-            if Reflection.hasThis method then
-                let t = fromDotNetType method.DeclaringType
-                let addr = [-1]
-                let thisRef = HeapRef (ConcreteHeapAddress addr) t
-                state.allocatedTypes <- PersistentDict.add addr t state.allocatedTypes
-                state.startingTime <- [-2]
-                (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
-            else parameters
-        newStackFrame state method parametersAndThis
-
 // =============== Marshalling/unmarshalling without state changing ===============
 
     // ------------------ Object to term ------------------
@@ -683,7 +668,7 @@ module internal Memory =
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe (State.makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte endByte
+        readFieldsUnsafe (State.makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
     and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
@@ -1010,7 +995,7 @@ module internal Memory =
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe (State.makeEmpty()) (fun _ -> __unreachable__()) readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (State.makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 
@@ -1417,7 +1402,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     id = Guid.NewGuid().ToString()
-                    pc = if isTrue g then pc else PC.add g pc
+                    pc = if isTrue g then pc else PC.add pc g
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack

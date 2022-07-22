@@ -169,7 +169,7 @@ module API =
         let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
         let IsFalsePathCondition conditionState = conditionState.pc.IsFalse
         let Contradicts state condition = 
-            let copy = PC.add condition state.pc
+            let copy = PC.add state.pc condition
             copy.IsFalse
         let PathConditionToSeq (pc : IPathCondition) = pc.ToSeq()
         let EmptyPathCondition() = PC.create()
@@ -277,9 +277,9 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = Memory.makeEmpty false
+        let EmptyState() = State.makeEmpty false
         let EmptyModel method =
-            let modelState = Memory.makeEmpty true
+            let modelState = State.makeEmpty true
             Memory.fillWithParametersAndThis modelState method
             {subst = Dictionary<_,_>(); state = modelState}
 

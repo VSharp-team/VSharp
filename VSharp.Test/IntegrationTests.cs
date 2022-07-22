@@ -15,13 +15,6 @@ using VSharp.Solver;
 
 namespace VSharp.Test
 {
-    public enum SearchStrategy
-    {
-        DFS,
-        BFS,
-        ShortestDistance
-    }
-
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
@@ -33,7 +26,7 @@ namespace VSharp.Test
 
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
-        private static siliOptions _options = null;
+        private static SiliOptions _options = null;
 
         static TestSvmAttribute()
         {

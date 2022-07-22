@@ -104,7 +104,7 @@ module internal Merging =
 
     let commonGuardedMapkWithPC (pc : IPathCondition) mapper gvs merge k =
         let foldFunc gvs (g, v) k =
-            let pc' = PC.add g pc
+            let pc' = PC.add pc g
             if pc'.IsFalse then k gvs
             else mapper v (fun t -> k ((g, t) :: gvs))
         Cps.List.foldlk foldFunc [] gvs (merge >> k)

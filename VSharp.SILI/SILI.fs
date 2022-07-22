@@ -13,7 +13,7 @@ open CilStateOperations
 open VSharp.Interpreter.IL
 open VSharp.Solver
 
-type public SILI(options : siliOptions) =
+type public SILI(options : SiliOptions) =
 
     let stopwatch = Stopwatch()
     let () = stopwatch.Start()
@@ -71,7 +71,7 @@ type public SILI(options : siliOptions) =
     let coveragePobsForMethod (method : MethodBase) =
         let cfg = Application.applicationGraph.GetCfg method
         cfg.SortedOffsets |> Seq.map (fun offset ->
-            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
+            {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition()})
         |> List.ofSeq
 
     let reportState reporter isError method cmdArgs state =

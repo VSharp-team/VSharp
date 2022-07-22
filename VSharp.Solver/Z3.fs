@@ -664,7 +664,7 @@ module internal Z3 =
             encodingCache.termToExpression |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
-                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     let decoded = x.Decode t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
@@ -697,7 +697,7 @@ module internal Z3 =
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
-                let arr = m.Eval(constant, false)
+                let arr = z3Model.Eval(constant, false)
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
                     else fields.Head.typ |> Types.FromDotNetType
@@ -766,7 +766,7 @@ module internal Z3 =
 //            pathAtoms
 
         interface ISolver with
-            member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
+            member x.CheckSat (encCtx : encodingContext) (q : term) (currentModel : model) : smtResult =
                 printLog Trace "SOLVER: trying to solve constraints..."
                 printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
@@ -783,7 +783,7 @@ module internal Z3 =
                     | Status.SATISFIABLE ->
                         trace "SATISFIABLE"
                         let z3Model = optCtx.Model
-                        let updatedModel = {q.currentModel with state = {q.currentModel.state with model = q.currentModel.state.model}}
+                        let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}
                         builder.UpdateModel z3Model updatedModel                      
                         builder.ClearTermToExpressionCache()
                         SmtSat { mdl = updatedModel }
@@ -807,7 +807,7 @@ module internal Z3 =
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
                 optCtx.Assert(encoded)
 
-            member x.CheckAssumptions encCtx currentModel formulas =
+            member x.CheckAssumptions encCtx formulas currentModel  =
                 let encodeToBoolExprs formula =
                     let encoded = builder.EncodeTerm encCtx formula
                     seq {
@@ -839,7 +839,7 @@ module internal Z3 =
                         let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
                         builder.UpdateModel z3Model updatedModel
                         builder.ClearTermToExpressionCache()
-                        SmtSat { mdl = updatedModel; usedPaths = [] }
+                        SmtSat { mdl = updatedModel }
                     | Status.UNSATISFIABLE ->
                         builder.ClearTermToExpressionCache()
                         SmtUnsat { core = Array.empty }

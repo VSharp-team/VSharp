@@ -1,3 +1,4 @@
+(*
 namespace VSharp.Core
 
 open System.Collections.Generic
@@ -185,12 +186,22 @@ module internal Branching =
             executionWithConstraintIndependence true copy state conditionInvocation thenBranch elseBranch merge2Results k
         else
             executionWithoutConstraintIndependence true copy state conditionInvocation thenBranch elseBranch merge2Results k
+*)
 
 namespace VSharp.Core
 
 open VSharp
 
-module Branching =
+module internal Branching =
+    
+    let private keepDependentWith (pc : IPathCondition) cond =
+        if FeatureFlags.isConstraintIndependenceEnabled() then
+            pc.Fragments
+            |> Seq.tryFind (fun pc -> pc.ToSeq() |> Seq.contains cond)
+            |> Option.defaultValue pc
+        else
+            pc
+    
     let checkSat state = TypeCasting.checkSatWithSubtyping state
 
     let commonGuardedStatedApplyk f state term mergeResults k =
@@ -198,7 +209,7 @@ module Branching =
         | Union gvs ->
             let filterUnsat (g, v) k =
                 let pc = PC.add state.pc g
-                if PC.isFalse pc then k None
+                if pc.IsFalse then k None
                 else Some (pc, v) |> k
             Cps.List.choosek filterUnsat gvs (fun pcs ->
             match pcs with
@@ -251,11 +262,13 @@ module Branching =
             | Some model -> model.Eval condition
             | None -> __unreachable__()
         if isTrue evaled then
-            let elsePc = PC.add pc !!condition
-            if PC.isFalse elsePc then
+            let notCondition = !!condition
+            let elsePc = PC.add pc notCondition
+            if elsePc.IsFalse then
                 thenBranch conditionState (List.singleton >> k)
             elif not branchesReleased then
-                conditionState.pc <- elsePc
+                let independentElsePc = keepDependentWith elsePc notCondition
+                conditionState.pc <- independentElsePc
                 match checkSat conditionState with
                 | SolverInteraction.SmtUnsat _ ->
                     conditionState.pc <- pc
@@ -275,10 +288,11 @@ module Branching =
         elif isFalse evaled then
             let notCondition = !!condition
             let thenPc = PC.add state.pc condition
-            if PC.isFalse thenPc then
+            if thenPc.IsFalse then
                 elseBranch conditionState (List.singleton >> k)
             elif not branchesReleased then
-                conditionState.pc <- thenPc
+                let independentThenPc = keepDependentWith thenPc condition
+                conditionState.pc <- independentThenPc
                 match checkSat conditionState with
                 | SolverInteraction.SmtUnsat _ ->
                     conditionState.pc <- pc
@@ -290,7 +304,7 @@ module Branching =
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState (PC.add pc notCondition)
                     thenState.model <- Some model.mdl
-                    elseState.pc <- PC.add pc notCondition
+                    thenState.pc <- thenPc
                     execution thenState elseState condition k
             else
                 conditionState.pc <- PC.add pc notCondition

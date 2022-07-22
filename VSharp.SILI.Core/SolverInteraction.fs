@@ -20,9 +20,9 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : encodingContext -> term -> smtResult
+        abstract CheckSat : encodingContext -> term -> model -> smtResult
         abstract Assert : encodingContext -> term -> unit
-        abstract CheckAssumptions : encodingContext -> model -> formula seq -> smtResult
+        abstract CheckAssumptions : encodingContext -> term seq -> model -> smtResult
 
     let mutable private mSolver : ISolver option = None
     let mutable private isIncrementalModeEnabled : bool = false
@@ -38,20 +38,20 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
         
-    let private getOrEmpty = Option.defaultValue { state = State.makeEmpty(); subst = Dictionary<_, _>(); complete = true }
+    let private getOrEmpty = Option.defaultValue { state = State.makeEmpty true; subst = Dictionary<_, _>() }
         
     let private checkSatPlainly state =
         let ctx = getEncodingContext state
         let formula = state.pc.ToSeq() |> conjunction
         match mSolver with
-        | Some s -> s.CheckSat ctx { lvl = Level.zero; queryFml = formula; currentModel = getOrEmpty state.model }
+        | Some s -> s.CheckSat ctx formula (getOrEmpty state.model)
         | None -> SmtUnknown "Solver not configured"
  
     let private checkSatIncrementally state =
         let ctx = getEncodingContext state
         let conditions = state.pc |> PC.toSeq
         match mSolver with
-        | Some s -> s.CheckAssumptions ctx (getOrEmpty state.model) conditions
+        | Some s -> s.CheckAssumptions ctx conditions (getOrEmpty state.model)
         | None -> SmtUnknown "Solver not configured"
         
     let checkSat state =

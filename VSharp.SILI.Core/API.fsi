@@ -212,7 +212,6 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyStateWithModel : state -> state
         val EmptyModel : MethodBase -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit

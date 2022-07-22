@@ -265,7 +265,7 @@ module internal PC =
                     
             member this.Constants = constants.Keys
 
-    let public add newConstraint (pc : IPathCondition) =
+    let public add (pc : IPathCondition) newConstraint =
         let copy = pc.Copy()
         copy.Add newConstraint
         copy

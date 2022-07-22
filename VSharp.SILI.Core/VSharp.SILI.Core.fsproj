@@ -35,7 +35,6 @@
         <Compile Include="State.fs" />
         <Compile Include="ConcreteMemory.fs" />
         <Compile Include="SolverInteraction.fs" />
-        <Compile Include="Branching.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="ArrayInitialization.fs" />
         <Compile Include="TypeCasting.fs" />

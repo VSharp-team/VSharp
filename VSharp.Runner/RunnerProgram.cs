@@ -115,7 +115,7 @@ namespace VSharp.Runner
             var timeoutOption =
                 new Option<int>(aliases: new[] { "--timeout", "-t" },
                     () => -1,
-                    "Time for test generation. Negative values mean no timeout.");
+                    "Time for test generation. Negative values mean no timeout");
             var outputOption =
                 new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),
@@ -182,9 +182,9 @@ namespace VSharp.Runner
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], DirectoryInfo, bool, bool, bool>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool, bool, bool>
             (
-                (assemblyPath, args, output, unknownArgs, cIndependence, incrementality) =>
+                (assemblyPath, args, timeout, output, unknownArgs, cIndependence, incrementality) =>
                 {
                     var assembly = ResolveAssembly(assemblyPath);
                     if (unknownArgs)
@@ -194,16 +194,17 @@ namespace VSharp.Runner
                         var options = new CoverOptions(
                             OutputDirectory: output.FullName,
                             IsConstraintIndependenceEnabled: cIndependence,
-                            IsSolverIncrementalityEnabled: incrementality
+                            IsSolverIncrementalityEnabled: incrementality,
+                            Timeout: timeout
                         );
                         
                         PostProcess(TestGenerator.Cover(assembly, args, options));
                     }
                 }
             );
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, DirectoryInfo, bool, bool>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, bool>
             (
-                (assemblyPath, output, cIndependence, incrementality) =>
+                (assemblyPath, timeout, output, cIndependence, incrementality) =>
                 {
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
@@ -211,16 +212,17 @@ namespace VSharp.Runner
                         var options = new CoverOptions(
                             OutputDirectory: output.FullName,
                             IsConstraintIndependenceEnabled: cIndependence,
-                            IsSolverIncrementalityEnabled: incrementality
+                            IsSolverIncrementalityEnabled: incrementality,
+                            Timeout: timeout
                         );
                         
                         PostProcess(TestGenerator.Cover(assembly, options));
                     }
                 }
             );
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, bool>
             (
-                (className, assemblyPath, output, cIndependence, incrementality) =>
+                (className, assemblyPath, timeout, output, cIndependence, incrementality) =>
                 {
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
@@ -231,7 +233,8 @@ namespace VSharp.Runner
                             var options = new CoverOptions(
                                 OutputDirectory: output.FullName,
                                 IsConstraintIndependenceEnabled: cIndependence,
-                                IsSolverIncrementalityEnabled: incrementality
+                                IsSolverIncrementalityEnabled: incrementality,
+                                Timeout: timeout
                             );
                             
                             PostProcess(TestGenerator.Cover(type, options));
@@ -239,9 +242,9 @@ namespace VSharp.Runner
                     }
                 }
             );
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, DirectoryInfo, bool, bool>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, bool>
             (
-                (methodName, assemblyPath, output, cIndependence, incrementality) =>
+                (methodName, assemblyPath, timeout, output, cIndependence, incrementality) =>
                 {
                     var assembly = ResolveAssembly(assemblyPath);
                     if (assembly != null)
@@ -252,7 +255,8 @@ namespace VSharp.Runner
                             var options = new CoverOptions(
                                 OutputDirectory: output.FullName,
                                 IsConstraintIndependenceEnabled: cIndependence,
-                                IsSolverIncrementalityEnabled: incrementality
+                                IsSolverIncrementalityEnabled: incrementality,
+                                Timeout: timeout
                             );
                             
                             PostProcess(TestGenerator.Cover(method, options));

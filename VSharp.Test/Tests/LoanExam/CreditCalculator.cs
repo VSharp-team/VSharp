@@ -1,6 +1,5 @@
-using InstantCredit.Shared.Models.Enums;
-using LoanExam.Models;
 using System;
+using VSharp;
 using VSharp.Test;
 
 namespace LoanExam;
