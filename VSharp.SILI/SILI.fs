@@ -37,6 +37,10 @@ type public SILI(options : SiliOptions) =
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
 
+    let () =
+        if options.visualize then
+            DotVisualizer options.outputDirectory :> IVisualizer |> Application.setVisualizer
+
     let isSat pc =
         // TODO: consider trivial cases
         emptyState.pc <- pc
@@ -85,13 +89,16 @@ type public SILI(options : SiliOptions) =
 
     let wrapOnTest (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) =
         Logger.info "Result of method %s is %O" method.FullName state.Result
+        Application.terminateState state
         reportState action.Invoke false method cmdArgs state
 
     let wrapOnError (action : Action<UnitTest>) method cmdArgs state =
+        Application.terminateState state
         reportState action.Invoke true method cmdArgs state
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
+        Application.terminateState state
         action.Invoke state.iie.Value
 
     let wrapOnInternalFail (action : Action<Exception>) (e : Exception) =
@@ -148,8 +155,7 @@ type public SILI(options : SiliOptions) =
             if not <| LanguagePrimitives.PhysicalEquality s cilState' then
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
-        Application.applicationGraph.MoveState loc s
-        Application.applicationGraph.AddForkedStates (s, Seq.cast<_> newStates)
+        Application.moveState loc s (Seq.cast<_> newStates)
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -164,7 +170,7 @@ type public SILI(options : SiliOptions) =
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
                 Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
-                Application.applicationGraph.AddGoal p.loc
+                Application.addGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
@@ -189,7 +195,8 @@ type public SILI(options : SiliOptions) =
         statistics.ExplorationStarted()
         branchesReleased <- false
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
-        mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.applicationGraph.AddGoals
+        Application.spawnStates (Seq.cast<_> initialStates)
+        mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
         AssemblyManager.reset()
         entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs

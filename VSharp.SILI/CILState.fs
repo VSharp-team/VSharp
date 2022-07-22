@@ -39,7 +39,8 @@ type cilState =
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 
     interface IGraphTrackableState with
-        member this.CodeLocation = this.currentLoc
+        override this.CodeLocation = this.currentLoc
+        override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
 
 type cilStateComparer(comparer) =
     interface IComparer<cilState> with
@@ -148,7 +149,7 @@ module internal CilStateOperations =
         match ip2codeLocation ip with
         | Some loc' when loc'.method.HasBody ->
             cilState.currentLoc <- loc'
-            Application.applicationGraph.AddCallEdge loc loc'
+            Application.addCallEdge loc loc'
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 

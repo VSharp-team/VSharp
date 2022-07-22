@@ -142,7 +142,7 @@ type BackwardSearcher() =
             mainPobs.Remove(p') |> ignore
         if not(answeredPobs.ContainsKey p') then answeredPobs.Add(p', Witnessed s')
         else answeredPobs.[p'] <- Witnessed s'
-        Application.applicationGraph.RemoveGoal p'.loc
+        Application.removeGoal p'.loc
         if ancestorOf.ContainsKey p' then
 //            assert(ancestorOf.[p'] <> null)
             Seq.iter (fun (ancestor : pob) ->

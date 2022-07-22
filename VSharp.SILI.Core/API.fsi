@@ -274,7 +274,8 @@ module API =
 
         val IsTypeInitialized : state -> symbolicType -> term
         val Dump : state -> string
-        val StackTrace : callStack -> string
+        val StackTrace : callStack -> IMethod list
+        val StackTraceString : callStack -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term

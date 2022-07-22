@@ -478,6 +478,7 @@ module API =
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
         let Dump state = Memory.dump state
         let StackTrace stack = CallStack.stackTrace stack
+        let StackTraceString stack = CallStack.stackTraceString stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with

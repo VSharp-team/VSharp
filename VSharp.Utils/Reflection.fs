@@ -218,7 +218,7 @@ module public Reflection =
         let returnsSomething = hasNonVoidResult m
         let argsCount = m.GetParameters().Length
         if m.DeclaringType = null then m.Name
-        else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.FullName m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
+        else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.Name m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
 
     // --------------------------------- Fields ---------------------------------
 
