@@ -45,7 +45,7 @@ type MethodWithBody internal (m : MethodBase) =
     let methodBodyBytes = m.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
-        if methodBodyBytes = null then None, None
+        if methodBodyBytes = null then None, None, None, None
         else
             let ilBytes = methodBodyBytes.GetILAsByteArray()
             let methodModule = m.Module
@@ -76,11 +76,12 @@ type MethodWithBody internal (m : MethodBase) =
                  handlerOffset = eh.handlerOffset |> int |> Offset.from
                  handlerLength = eh.handlerLength |> int |> Offset.from
                  ehcType = ehcType }
-            Some result.il, Some (Array.map parseEH result.ehs))
+            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some (rewriter.CopyInstructions()))
 
     member x.Name = name
     member x.FullName = fullName
     member x.FullGenericMethodName with get() = fullGenericMethodName.Force()
+    member x.Id = int64 m.MethodHandle.Value
     member x.ReturnType = returnType
     member x.Module = m.Module
     member x.DeclaringType = m.DeclaringType
@@ -122,16 +123,28 @@ type MethodWithBody internal (m : MethodBase) =
     member x.HasBody = methodBodyBytes <> null
 
     member x.ILBytes with get() =
-        let ilBytes, _ = methodBody.Force()
+        let ilBytes, _, _, _ = methodBody.Force()
         match ilBytes with
         | Some bytes -> bytes
         | None -> internalfailf $"Getting IL bytes of method {x} without body (extern or abstract)"
 
     member x.ExceptionHandlers with get() =
-        let _, exceptionHandlers = methodBody.Force()
+        let _, exceptionHandlers, _, _ = methodBody.Force()
         match exceptionHandlers with
         | Some handlers -> handlers
         | None -> Array.empty
+
+    member x.ILRewriter with get() =
+        let _, _, rewriter, _ = methodBody.Force()
+        match rewriter with
+        | Some rewriter -> rewriter
+        | None -> internalfailf $"Getting IL rewriter of method {x} without body (extern or abstract)"
+
+    member x.ParsedInstructions with get() =
+        let _, _, _, instructions = methodBody.Force()
+        match instructions with
+        | Some instructions -> instructions
+        | None -> internalfailf $"Getting instructions of method {x} without body (extern or abstract)"
 
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private instantiator : MethodBase -> MethodWithBody

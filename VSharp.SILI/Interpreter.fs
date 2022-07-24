@@ -934,10 +934,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
         elif x.IsExternalMethod method then
-            let stackTrace = Memory.StackTrace cilState.state.stack
+            let stackTrace = Memory.StackTraceString cilState.state.stack
             internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif x.IsNotImplementedIntrinsic method fullMethodName then
-            let stackTrace = Memory.StackTrace cilState.state.stack
+            let stackTrace = Memory.StackTraceString cilState.state.stack
             internalfailf "new intrinsic method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif method.HasBody then cilState |> List.singleton |> k
         else internalfailf "non-extern method %s without body!" method.FullName
