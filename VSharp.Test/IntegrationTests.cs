@@ -127,7 +127,6 @@ namespace VSharp.Test
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
-                            "",
                             explorationMode.NewTestCoverageMode(coverageZone.MethodZone, _searchStrat),
                             _executionMode,
                             unitTests.TestDirectory,
