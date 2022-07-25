@@ -74,8 +74,8 @@ namespace VSharp
         private static Statistics StartExploration(List<MethodBase> methods, CoverOptions options = new(), string[] mainArguments = null)
         {
             // TODO: customize search strategies via console options
+            UnitTests unitTests = new UnitTests(options.OutputDirectory.FullName);
             SILI explorer = new SILI(options.ToSiliOptions());
-            UnitTests unitTests = new UnitTests(options.OutputDirectory);
             Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
             Core.API.SetConstraintIndependenceEnabled(options.IsConstraintIndependenceEnabled);
             

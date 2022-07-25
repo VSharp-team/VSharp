@@ -192,7 +192,7 @@ namespace VSharp.Runner
                     if (assembly != null)
                     {
                         var options = new CoverOptions(
-                            OutputDirectory: output.FullName,
+                            OutputDirectory: output,
                             IsConstraintIndependenceEnabled: cIndependence,
                             IsSolverIncrementalityEnabled: incrementality,
                             Timeout: timeout
@@ -210,7 +210,7 @@ namespace VSharp.Runner
                     if (assembly != null)
                     {
                         var options = new CoverOptions(
-                            OutputDirectory: output.FullName,
+                            OutputDirectory: output,
                             IsConstraintIndependenceEnabled: cIndependence,
                             IsSolverIncrementalityEnabled: incrementality,
                             Timeout: timeout
@@ -231,7 +231,7 @@ namespace VSharp.Runner
                         if (type != null)
                         {
                             var options = new CoverOptions(
-                                OutputDirectory: output.FullName,
+                                OutputDirectory: output,
                                 IsConstraintIndependenceEnabled: cIndependence,
                                 IsSolverIncrementalityEnabled: incrementality,
                                 Timeout: timeout
@@ -253,7 +253,7 @@ namespace VSharp.Runner
                         if (method != null)
                         {
                             var options = new CoverOptions(
-                                OutputDirectory: output.FullName,
+                                OutputDirectory: output,
                                 IsConstraintIndependenceEnabled: cIndependence,
                                 IsSolverIncrementalityEnabled: incrementality,
                                 Timeout: timeout

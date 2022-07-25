@@ -1,4 +1,5 @@
-﻿using VSharp.Interpreter.IL;
+﻿using System.IO;
+using VSharp.Interpreter.IL;
 
 namespace VSharp
 {
@@ -43,16 +44,18 @@ namespace VSharp
     /// <param name="Timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
     /// <param name="IsConstraintIndependenceEnabled"></param>
     /// <param name="IsSolverIncrementalityEnabled"></param>
+    /// <param name="Visualize"></param>
     public readonly record struct CoverOptions(
-        string OutputDirectory = "",
-        SearchStrategy SearchStrategy = SearchStrategy.ShortestDistance,
+        DirectoryInfo OutputDirectory = null,
+        SearchStrategy SearchStrategy = SearchStrategy.DFS,
         CoverageZone CoverageZone = CoverageZone.Method,
         ExecutionMode ExecutionMode = ExecutionMode.Symbolic,
         bool GuidedSearch = false,
         uint RecThreshold = 0u,
         int Timeout = -1,
         bool IsConstraintIndependenceEnabled = true,
-        bool IsSolverIncrementalityEnabled = false
+        bool IsSolverIncrementalityEnabled = false,
+        bool Visualize = false
     )
     {
         internal SiliOptions ToSiliOptions()
@@ -83,11 +86,12 @@ namespace VSharp
             };
 
             return new SiliOptions(
-                OutputDirectory,
                 explorationMode.NewTestCoverageMode(coverageZone, searchMode),
                 executionMode,
+                OutputDirectory,
                 RecThreshold,
-                Timeout
+                Timeout,
+                Visualize
             );
         }
     }
