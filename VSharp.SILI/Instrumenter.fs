@@ -764,7 +764,7 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
                      let fieldInfo = Reflection.resolveField x.m instr.Arg32
                      let fieldOffset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
                      x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldOffset, &prependTarget)
-                     let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+                     let fieldSize = TypeUtils.internalSizeOf fieldInfo.FieldType
                      x.PrependInstr(OpCodes.Ldc_I4, Arg32 fieldSize, &prependTarget)
                      x.PrependProbeWithOffset(probes.ldfld, [], x.tokens.void_i_i4_i4_offset_sig, &prependTarget) |> ignore
                      x.PrependProbe(probes.unmem_p, [(OpCodes.Ldc_I4, Arg32 0)], x.tokens.i_i1_sig, &instr) |> ignore

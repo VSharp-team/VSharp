@@ -7,6 +7,6 @@ open VSharp.Core
 
 module Thread =
 
-    let internal GetFastDomainInternal (_ : state) (_ : term list) = NullRef
+    let internal GetFastDomainInternal (_ : state) (_ : term list) = NullRef typeof<AppDomain>
 
     let internal GetDomainInternal state args = GetFastDomainInternal state args

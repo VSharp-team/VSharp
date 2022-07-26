@@ -21,7 +21,7 @@ type pobStatus =
     | Witnessed of cilState
     | Unreachable
 
-// TODO: transform to ``module'' with functions #mb do
+// TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
@@ -30,6 +30,12 @@ type public SILIStatistics() =
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
     let iies = List<cilState>()
+
+    let mutable coveringStepsInsideZone = 0
+    let mutable nonCoveringStepsInsideZone = 0
+    let mutable coveringStepsOutsideZone = 0
+    let mutable nonCoveringStepsOutsideZone = 0
+
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
         if method.HasBody then
@@ -105,6 +111,13 @@ type public SILIStatistics() =
             if not <| totalVisited.TryGetValue(current, totalRef) then
                 totalRef <- ref 0u
                 totalVisited.Add(current, 0u)
+
+            if totalRef.Value = 0u then
+                if current.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1
+                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1
+            elif current.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1
+            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1
+
             totalVisited.[current] <- totalRef.Value + 1u
 
             let mutable historyRef = ref null
@@ -141,6 +154,7 @@ type public SILIStatistics() =
         x.Clear()
         startTime <- DateTime.Now
 
+
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
     member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
@@ -164,18 +178,36 @@ type public SILIStatistics() =
             writer.WriteLine()
             writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
-//        let sb = StringBuilder()
-//        let sb = PrettyPrinting.appendLine sb searcherName
-//        let sb =
-//            if unansweredPobs.Count = 0 then sb
-//            else
-//                let sb = PrettyPrinting.dumpSection "Unanswered Pobs" sb
-//                Seq.fold (fun sb p -> PrettyPrinting.appendLine sb (p.ToString())) sb unansweredPobs
-//        let sb =
-//            if startIp2currentIp.Keys.Count > 1 then
-//                let sb = PrettyPrinting.dumpSection "Total" sb
-//                printDict "" sb totalVisited
-//            else sb
-//        let sb = PrettyPrinting.dumpSection "Parts" sb
-//        let sb = Seq.foldi printPart sb startIp2currentIp
-//        sb.ToString()
+
+    member x.PrintDebugStatistics (writer : TextWriter) =
+        x.PrintStatistics writer
+        writer.WriteLine("Covering steps inside coverage zone: {0}", coveringStepsInsideZone)
+        writer.WriteLine("Revisting steps inside coverage zone: {0}", nonCoveringStepsInsideZone)
+        writer.WriteLine("Covering steps outside coverage zone: {0}", coveringStepsOutsideZone)
+        writer.WriteLine("Revisting steps outside coverage zone: {0}", nonCoveringStepsOutsideZone)
+        let topN = 5
+        let topVisitedByMethods =
+            totalVisited
+            |> Seq.groupBy (fun kvp -> kvp.Key.method)
+            |> Seq.map (snd >> Seq.maxBy (fun kvp -> kvp.Value))
+            |> Seq.sortByDescending (fun kvp -> kvp.Value)
+        let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
+        let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
+        if not <| Seq.isEmpty topVisitedByMethodsInZone then
+            writer.WriteLine("Top {0} visited locations (one per method) in zone:", Seq.length topVisitedByMethodsInZone)
+        for kvp in topVisitedByMethodsInZone do
+            let offset = kvp.Key.offset
+            let method = kvp.Key.method
+            let times = kvp.Value
+            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
+                                (int offset).ToString("X"), method.FullName, times,
+                                (if times = 1u then "" else "s"))
+        if not <| Seq.isEmpty topVisitedByMethodsOutOfZone then
+            writer.WriteLine("Top {0} visited locations (one per method) out of zone:", Seq.length topVisitedByMethodsOutOfZone)
+        for kvp in topVisitedByMethodsOutOfZone do
+            let offset = kvp.Key.offset
+            let method = kvp.Key.method
+            let times = kvp.Value
+            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
+                                (int offset).ToString("X"), method.FullName, times,
+                                (if times = 1u then "" else "s"))

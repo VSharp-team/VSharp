@@ -11,12 +11,12 @@ module internal Copying =
     type private symbolicArrayIndexSource =
         { lowerBound : term; upperBound : term }
         interface INonComposableSymbolicConstantSource with
-            override x.SubTerms = seq[] :> term seq
+            override x.SubTerms = seq [] :> term seq
             override x.Time = VectorTime.zero
 
     let private makeArrayIndexConstant state lowerBound upperBound =
         let source = {lowerBound = lowerBound; upperBound = upperBound}
-        let constant = Constant "i" source Types.Int32
+        let constant = Constant "i" source typeof<int32>
         let leftBound = simplifyLessOrEqual lowerBound constant id
         let rightBound = simplifyLessOrEqual constant upperBound id
         let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
@@ -67,13 +67,13 @@ module internal Copying =
         | ConcreteHeapAddress concreteAddress when ConcreteMemory.contains cm concreteAddress ->
             ConcreteMemory.copyCharArrayToString state concreteAddress stringConcreteAddress
         | _ ->
-            let arrayType = (Types.Char, 1, true)
+            let arrayType = (typeof<char>, 1, true)
             let length = readLength state arrayAddress (makeNumber 0) arrayType
             let lengthPlus1 = add length (makeNumber 1)
             let stringAddress = ConcreteHeapAddress stringConcreteAddress
             copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType length
             writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
-            writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' Types.Char)
+            writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' typeof<char>)
             writeClassField state stringAddress Reflection.stringLengthField length
 
     // TODO: add heuristic for concrete memory

@@ -8,6 +8,8 @@ type IPropositionalSimplifier =
 [<AutoOpen>]
 module internal Propositional =
 
+    let private bool = typeof<bool>
+
     let mutable private simplifier : IPropositionalSimplifier option = None
     let configureSimplifier s = simplifier <- Some s
 
@@ -16,21 +18,21 @@ module internal Propositional =
     let makeBin operation x y =
         match x.term, y.term with
         | Expression(Operator op', list', _), Expression(Operator op'', list'', _) when op' = operation && op'' = operation ->
-            makeNAry operation (List.append list' list'') Bool
+            makeNAry operation (List.append list' list'') bool
         | Expression(Operator _, [], _), _ -> y
         | _, Expression(Operator _, [], _) -> y
         | Expression(Operator op', list', _), _ when op' = operation ->
-            makeNAry operation (y::list') Bool
+            makeNAry operation (y::list') bool
         | _, Expression(Operator op', list', _) when op' = operation ->
-            makeNAry operation (x::list') Bool
-        | _ -> makeNAry operation [x; y] Bool
+            makeNAry operation (x::list') bool
+        | _ -> makeNAry operation [x; y] bool
 
 
     let private makeCoOpBinaryTerm x list listOp op =
         match list with
         | [] -> x
         | [y] -> makeBin op x y
-        | _ -> makeBin op (Expression (Operator listOp) list Bool) x
+        | _ -> makeBin op (Expression (Operator listOp) list bool) x
 
 
     let private (|IntersectionExceptOneNegation|_|) (list1 : term list) (list2 : term list) =
@@ -160,15 +162,15 @@ module internal Propositional =
         // Co(a ys) op Co(!a ys zs) = ys co (a op Co(zs)) if (a op Co(zs)) simplifies
         // Co(a ys) op Co(!a ys zs) = Co(a ys) op Co(ys zs)
         | _, Expression(Operator co', IntersectionExceptOneNegation list (a, ys, zs), _) when co' = co ->
-            if zs.IsEmpty then makeNAry co ys Bool |> matched
+            if zs.IsEmpty then makeNAry co ys bool |> matched
             else
-                let coZs = makeNAry co zs Bool
+                let coZs = makeNAry co zs bool
                 simplifyExt op co stopValue ignoreValue a coZs
-                    (fun aOpZs -> makeNAry co (aOpZs::ys) Bool |> matched)
+                    (fun aOpZs -> makeNAry co (aOpZs::ys) bool |> matched)
                     (fun () ->
-                        let y' = makeNAry co (List.append ys zs) Bool
+                        let y' = makeNAry co (List.append ys zs) bool
                         simplifyCoOp op co stopValue ignoreValue x list y' matched (fun () ->
-                        makeNAry op [x; y'] Bool |> matched))
+                        makeNAry op [x; y'] bool |> matched))
         // Co(list) op Co(permutation of list) -> Co(list)
         // TODO: sort terms to avoid permutation checking
         | _, Expression(Operator co', ys, _)  when co' = co && isPermutationOf list ys -> matched x
@@ -195,16 +197,16 @@ module internal Propositional =
 
     and internal simplifyNegation x k =
         match simplifier with
-        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNot x Bool) |> k
+        | Some simplifier -> simplifier.Simplify(makeUnary OperationType.LogicalNot x bool) |> k
         | None ->
             match x.term with
             | Concrete(b, t) -> Concrete (not (b :?> bool)) t |> k
             | Negation x -> k x
-            | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l Bool |> k)
-            | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l Bool |> k)
+            | Conjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalOr l bool |> k)
+            | Disjunction xs -> Cps.List.mapk simplifyNegation xs (fun l -> makeNAry OperationType.LogicalAnd l bool |> k)
             | GuardedValues(gs, vs) ->
                 Cps.List.mapk simplifyNegation vs (List.zip gs >> Union >> k)
-            | _ -> makeUnary OperationType.LogicalNot x Bool |> k
+            | _ -> makeUnary OperationType.LogicalNot x bool |> k
 
     and private simplifyExtWithType op co stopValue ignoreValue _ x y matched unmatched =
         simplifyExt op co stopValue ignoreValue x y matched unmatched
@@ -275,7 +277,7 @@ module internal Propositional =
         | _ -> internalfailf "%O is not an unary logical operator" op
 
     let isLogicalOperation op t1 t2 =
-        Types.isBool t1 && Types.isBool t2 &&
+        t1 = bool && t2 = bool &&
         match op with
         | OperationType.LogicalAnd
         | OperationType.LogicalOr

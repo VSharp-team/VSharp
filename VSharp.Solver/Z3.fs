@@ -4,6 +4,7 @@ open System
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp
+open VSharp.TypeUtils
 open VSharp.Core
 open VSharp.Core.SolverInteraction
 open Logger
@@ -37,11 +38,11 @@ module internal Z3 =
 // ------------------------------- Cache -------------------------------
 
     type private encodingCache = {
-        sorts : IDictionary<symbolicType, Sort>
+        sorts : IDictionary<Type, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
-        heapAddresses : IDictionary<symbolicType * Expr, vectorTime>
-        staticKeys : IDictionary<Expr, symbolicType>
+        heapAddresses : IDictionary<Type * Expr, vectorTime>
+        staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
     } with
@@ -59,11 +60,11 @@ module internal Z3 =
                 result)
 
     let private freshCache () = {
-        sorts = Dictionary<symbolicType, Sort>()
+        sorts = Dictionary<Type, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
-        heapAddresses = Dictionary<symbolicType * Expr, vectorTime>()
-        staticKeys = Dictionary<Expr, symbolicType>()
+        heapAddresses = Dictionary<Type * Expr, vectorTime>()
+        staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
     }
@@ -76,7 +77,7 @@ module internal Z3 =
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
-            if encodingCache.regionConstants.TryGetValue(typ, result) then !result
+            if encodingCache.regionConstants.TryGetValue(typ, result) then result.Value
             else
                 let regConst = mkConst()
                 encodingCache.regionConstants.Add(typ, regConst)
@@ -95,20 +96,19 @@ module internal Z3 =
             Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
-                | Numeric(Id typ) when typ.IsEnum -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
-                | Numeric(Id typ) as t when Types.IsInteger t -> ctx.MkBitVecSort(TypeUtils.numericSizeOf typ) :> Sort
-                | Numeric _ as t when Types.IsReal t -> failToEncode "encoding real numbers is not implemented"
+                | typ when typ.IsEnum -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
+                | typ when Types.IsInteger typ -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
+                | typ when Types.IsReal typ -> failToEncode "encoding real numbers is not implemented"
                 | AddressType -> x.AddressSort
                 | StructType _ -> internalfailf "struct should not appear while encoding! type: %O" typ
                 | Numeric _ -> __notImplemented__()
                 | ArrayType _
-                | Void
-                | Null
                 | ClassType _
                 | InterfaceType _
                 | TypeVariable _
                 | ByRef _
-                | Pointer _ -> __unreachable__())
+                | Pointer _
+                | _ -> __unreachable__())
 
         member private x.True = ctx.MkTrue()
 
@@ -137,7 +137,7 @@ module internal Z3 =
 
         member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort AddressType)
+            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
             // TODO: cache in heapAddresses?
 
         member private x.CreateConstant name typ =
@@ -159,8 +159,8 @@ module internal Z3 =
             let expr =
                 match typ with
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
-                | Numeric(Id t) when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-                | Numeric(Id t) when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
+                | t when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
+                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
@@ -286,18 +286,18 @@ module internal Z3 =
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation encCtx (fun x -> ctx.MkApp(decl, x)) args
-                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isLessForNumericTypes t1 t2 ->
+                | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t1 t2 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
-                    let difference = TypeUtils.numericSizeOf t2 - TypeUtils.numericSizeOf t1
-                    let extend = if TypeUtils.isUnsigned t2 then ctx.MkZeroExt else ctx.MkSignExt
+                    let difference = numericSizeOf t2 - numericSizeOf t1
+                    let extend = if isUnsigned t2 then ctx.MkZeroExt else ctx.MkSignExt
                     {expr = extend(difference, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
-                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isLessForNumericTypes t2 t1 ->
+                | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t2 t1 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
-                    let from = TypeUtils.numericSizeOf t2 - 1u
+                    let from = numericSizeOf t2 - 1u
                     {expr = ctx.MkExtract(from, 0u, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
-                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.isReal t1 || TypeUtils.isReal t2 ->
+                | Cast(Numeric t1, Numeric t2) when isReal t1 || isReal t2 ->
                     failToEncode "encoding real numbers is not implemented"
-                | Cast(Numeric (Id t1), Numeric (Id t2)) when TypeUtils.numericSizeOf t1 = TypeUtils.numericSizeOf t2 ->
+                | Cast(Numeric t1, Numeric t2) when numericSizeOf t1 = numericSizeOf t2 ->
                     x.EncodeTerm encCtx (List.head args)
                 | Cast _ -> __notImplemented__()
                 | Combine -> x.EncodeCombine encCtx args typ)
@@ -340,11 +340,11 @@ module internal Z3 =
 // ------------------------------- Encoding: memory reading -------------------------------
 
         member private x.EncodeSymbolicAddress encCtx (heapRefSource : IMemoryAccessConstantSource) structFields name =
-            x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields AddressType
+            x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
 
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
             let onePointCondition acc (y : vectorTime endpoint) =
-                let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort AddressType) :?> BitVecExpr
+                let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort addressType) :?> BitVecExpr
                 let condition =
                     match y.sort with
                     | endpointSort.OpenRight -> ctx.MkBVSLT(key :?> BitVecExpr, bound)
@@ -431,7 +431,7 @@ module internal Z3 =
         member private x.HeapReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let regionSort = GetHeapReadingRegionSort source
             let array = x.GetRegionConstant name sort structFields regionSort
             let inst (k : Expr) = ctx.MkSelect(array, k)
@@ -461,7 +461,7 @@ module internal Z3 =
 
         member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
-            let domainSort = x.Type2Sort AddressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
+            let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
             let valueSort = x.Type2Sort typ
             let inst (k : Expr[]) =
                 if hasDefaultValue then x.DefaultValue valueSort
@@ -470,7 +470,7 @@ module internal Z3 =
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
             let res = x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
-            let res = if typ = Types.Char then x.GenerateCharAssumptions res else res
+            let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
             | _ -> res
@@ -478,7 +478,7 @@ module internal Z3 =
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort AddressType, x.Type2Sort typ)
+            let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let inst (k : Expr) = ctx.MkSelect(array, k)
             x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey inst structFields key mo
@@ -521,7 +521,7 @@ module internal Z3 =
             | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source structFields name
             | StructFieldSource(structSource, field) -> x.StructReading encCtx structSource field typ structFields name
             | HeapAddressSource source ->
-                assert(typ = AddressType)
+                assert(typ = addressType)
                 x.EncodeSymbolicAddress encCtx source structFields name
             | _ -> x.CreateConstant name typ
 
@@ -532,30 +532,28 @@ module internal Z3 =
             Expression (Operator op) (expr.Args |> Seq.map (x.Decode t) |> List.ofSeq) t
 
         member private x.DecodeBoolExpr op (expr : Expr) =
-            x.DecodeExpr op Bool expr
+            x.DecodeExpr op typeof<bool> expr
 
         member private x.GetTypeOfBV (bv : BitVecExpr) =
-            let dotNetType =
-                if bv.SortSize = 32u then typeof<int32>
-                elif bv.SortSize = 64u then typeof<int64>
-                elif bv.SortSize = 8u then typeof<int8>
-                elif bv.SortSize = 16u then typeof<int16>
-                else __unreachable__()
-            Numeric (Id dotNetType)
+            if bv.SortSize = 32u then typeof<int32>
+            elif bv.SortSize = 64u then typeof<int64>
+            elif bv.SortSize = 8u then typeof<int8>
+            elif bv.SortSize = 16u then typeof<int16>
+            else __unreachable__()
 
         member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
             let result = ref vectorTime.Empty
             let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
-            let charArray = ArrayType(Types.Char, Vector)
+            let charArray = typeof<char[]>
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
             elif checkAndGet (typ, expr) then result.Value
-            elif typ = Types.String && checkAndGet (charArray, expr) then
+            elif typ = typeof<string> && checkAndGet (charArray, expr) then
                 // NOTE: storing most concrete type for string
                 encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
                 encodingCache.heapAddresses.Add((typ, expr), result.Value)
                 result.Value
-            elif typ = charArray && checkAndGet (Types.String, expr) then result.Value
+            elif typ = charArray && checkAndGet (typeof<string>, expr) then result.Value
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
@@ -563,18 +561,18 @@ module internal Z3 =
                 addr
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
-            let result = ref Void
-            if encodingCache.staticKeys.TryGetValue(expr, result) then !result
+            let result = ref typeof<Void>
+            if encodingCache.staticKeys.TryGetValue(expr, result) then result.Value
             else __notImplemented__()
 
         member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
-            let toType (elementType, rank, isVector) =
-                let dim = if isVector then Vector else ConcreteDimension rank
-                ArrayType(elementType, dim)
+            let toType (elementType : Type, rank, isVector) =
+                if isVector then elementType.MakeArrayType()
+                else elementType.MakeArrayType(rank)
             match reg with
             | HeapFieldSort field ->
                 assert(exprs.Length = 1)
-                let address = exprs.[0] |> x.DecodeConcreteHeapAddress (field.declaringType |> Types.FromDotNetType) |> ConcreteHeapAddress
+                let address = exprs.[0] |> x.DecodeConcreteHeapAddress field.declaringType |> ConcreteHeapAddress
                 ClassField(address, field)
             | StaticFieldSort field ->
                 assert(exprs.Length = 1)
@@ -597,15 +595,15 @@ module internal Z3 =
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
                 assert(exprs.Length = 1)
-                let index = x.Decode Types.Int8 exprs.[0]
+                let index = x.Decode typeof<int8> exprs.[0]
                 StackBufferIndex(key, index)
 
         member private x.DecodeBv t (bv : BitVecNum) =
             match bv.SortSize with
-            | 32u -> Concrete (TypeUtils.convert bv.Int64 (Types.ToDotNetType t)) t
-            | 64u -> Concrete (TypeUtils.convert (uint64 bv.BigInteger) (Types.ToDotNetType t)) t
-            | 16u -> Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
-            | 8u  -> Concrete (TypeUtils.convert bv.Int (Types.ToDotNetType t)) t
+            | 32u -> Concrete (convert bv.Int64 t) t
+            | 64u -> Concrete (convert (uint64 bv.BigInteger) t) t
+            | 16u -> Concrete (convert bv.Int t) t
+            | 8u  -> Concrete (convert bv.Int t) t
             | _ -> __notImplemented__()
 
         member public x.Decode t (expr : Expr) =
@@ -617,8 +615,8 @@ module internal Z3 =
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String
-            | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
-            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
+            | :? IntNum as i -> Concrete i.Int typeof<int>
+            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
             | _ ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
                 elif expr.IsTrue then True
@@ -697,7 +695,7 @@ module internal Z3 =
                 let arr = m.Eval(constant, false)
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
-                    else fields.Head.typ |> Types.FromDotNetType
+                    else fields.Head.typ
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)

@@ -129,6 +129,16 @@ module public Reflection =
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare m1.MethodHandle.Value m2.MethodHandle.Value
 
+    let getMethodDescriptor (m : MethodBase) =
+        let declaringType = m.DeclaringType
+        let declaringTypeVars =
+            if declaringType.IsGenericType then declaringType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
+            else [||]
+        let methodVars =
+            if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
+            else [||]
+        m.MethodHandle.Value, declaringTypeVars, methodVars
+
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
@@ -252,12 +262,12 @@ module public Reflection =
     let fieldIntersects (field : fieldId) =
         let fieldInfo = getFieldInfo field
         let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-        let size = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
         let intersects o s = o + s > offset && o < offset + size
         let fields = fieldsOf false field.declaringType
         let checkIntersects (_, fieldInfo : FieldInfo) =
             let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-            let s = TypeUtils.internalSizeOf fieldInfo.FieldType |> int
+            let s = TypeUtils.internalSizeOf fieldInfo.FieldType
             intersects o s
         let intersectingFields = Array.filter checkIntersects fields
         Array.length intersectingFields > 1

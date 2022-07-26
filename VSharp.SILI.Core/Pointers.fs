@@ -1,7 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
-open VSharp.CSharpUtils
+open VSharp.TypeUtils
 open VSharp.Core.Common
 
 module internal Pointers =
@@ -10,7 +10,7 @@ module internal Pointers =
 
     let private sizeOfUnderlyingPointerType = term >> function // for `T* ptr` returns `sizeof(T)`
         | Ptr(_, Void, _) -> makeNumber 1
-        | Ptr(_, typ, _) -> makeNumber (Types.sizeOf typ)
+        | Ptr(_, typ, _) -> makeNumber (internalSizeOf typ)
         | t -> internalfailf "Taking sizeof underlying type of not pointer type: %O" t
 
     // NOTE: returns 'ptr', shifted by 'shift' bytes
@@ -25,8 +25,7 @@ module internal Pointers =
     let rec addressToBaseAndOffset (address : address) =
         match address with
         | ClassField(heapAddress, field) ->
-            let typ = Types.Constructor.fromDotNetType field.declaringType
-            HeapLocation(heapAddress, typ), getFieldOffset field
+            HeapLocation(heapAddress, field.declaringType), getFieldOffset field
         | StructField(address, field) ->
             let baseAddress, structOffset = addressToBaseAndOffset address
             baseAddress, getFieldOffset field |> add structOffset
@@ -34,7 +33,7 @@ module internal Pointers =
             StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
         | ArrayIndex(heapAddress, [index], (elementType, _, true as arrayType)) ->
-            let sizeOfElement = Types.sizeOf elementType |> makeNumber
+            let sizeOfElement = internalSizeOf elementType |> makeNumber
             let typ = arrayTypeToSymbolicType arrayType
             HeapLocation(heapAddress, typ), mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
@@ -96,7 +95,7 @@ module internal Pointers =
             (fun x y k -> simplifyReferenceEqualityk x y k)
 
     let isNull heapReference =
-        simplifyReferenceEqualityk heapReference nullRef id
+        simplifyReferenceEqualityk heapReference (nullRef (typeOf heapReference)) id
 
 // -------------------------- Address arithmetic --------------------------
 
@@ -119,7 +118,7 @@ module internal Pointers =
             commonPointerAddition
 
     let private simplifyPointerAddition x y k =
-        let x', y' = if isNumeric y then x, y else y, x
+        let x', y' = if Terms.isNumeric y then x, y else y, x
         commonPointerAddition x' y' k
 
     let private pointerDifference x y k =
@@ -137,7 +136,7 @@ module internal Pointers =
             commonPointerSubtraction
 
     let private simplifyPointerSubtraction x y k =
-        if isNumeric y
+        if Terms.isNumeric y
         then commonPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
@@ -160,16 +159,18 @@ module internal Pointers =
         simplifyBinaryOperation OperationType.Subtract x y id
 
     let isPointerOperation op t1 t2 =
-        let isReferenceTypeOrNull t = Types.concreteIsReferenceType t || Types.isNull t
+        let isReferenceType = function
+            | ReferenceType _ -> true
+            | _ -> false
         // NOTE: safe pointer is Ref, unsafe pointer is Ptr
-        let isPointer t = Types.isPointer t || Types.isByRef t
-        let isPtrOrNull t = isPointer t || Types.isNull t
+        let isPointer t = isPointer t || t.IsByRef
+        let isPtrOrNull t = isPointer t
 
         match op with
         | OperationType.Equal
         | OperationType.NotEqual ->
-            (isReferenceTypeOrNull t1 && isReferenceTypeOrNull t2) || (isPtrOrNull t1 && isPtrOrNull t2)
-        | OperationType.Subtract -> isPointer t1 && (isPointer t2 || Types.isNumeric t2)
+            isReferenceType t1 || isReferenceType t2 || isPtrOrNull t1 || isPtrOrNull t2
+        | OperationType.Subtract -> isPointer t1 && (isPointer t2 || isNumeric t2)
         | OperationType.Add ->
-            (isPointer t1 && Types.isNumeric t2) || (isPointer t2 && Types.isNumeric t1)
+            (isPointer t1 && isNumeric t2) || (isPointer t2 && isNumeric t1)
         | _ -> false

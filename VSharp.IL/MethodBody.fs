@@ -21,6 +21,7 @@ type ehcType =
 type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
 
 type MethodWithBody internal (m : MethodBase) =
+    let desc = Reflection.getMethodDescriptor m
     let name = m.Name
     let fullName = Reflection.getFullMethodName m
     let fullGenericMethodName = lazy(Reflection.fullGenericMethodName m)
@@ -52,20 +53,20 @@ type MethodWithBody internal (m : MethodBase) =
             let moduleName = methodModule.FullyQualifiedName
             let assemblyName = methodModule.Assembly.FullName
             let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
-            let props : VSharp.Concolic.rawMethodProperties =
+            let props : rawMethodProperties =
                 {token = uint m.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
-            let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<VSharp.Concolic.signatureTokens>) :?> VSharp.Concolic.signatureTokens
-            let createEH (eh : System.Reflection.ExceptionHandlingClause) : VSharp.Concolic.rawExceptionHandler =
+            let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
+            let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
                 ehcs.Add(matcher, eh)
                 {flags = int eh.Flags; tryOffset = uint eh.TryOffset; tryLength = uint eh.TryLength; handlerOffset = uint eh.HandlerOffset; handlerLength = uint eh.HandlerLength; matcher = uint matcher}
             let ehs = methodBodyBytes.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
-            let body : VSharp.Concolic.rawMethodBody =
+            let body : rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
             let rewriter = ILRewriter(body)
             rewriter.Import()
             let result = rewriter.Export()
-            let parseEH (eh : VSharp.Concolic.rawExceptionHandler) =
+            let parseEH (eh : rawExceptionHandler) =
                 let oldEH = ehcs.[int eh.matcher]
                 let ehcType =
                     if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (eh.matcher |> int |> Offset.from)
@@ -81,7 +82,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.Name = name
     member x.FullName = fullName
     member x.FullGenericMethodName with get() = fullGenericMethodName.Force()
-    member x.Id = int64 m.MethodHandle.Value
+    member x.Id = desc.GetHashCode()
     member x.ReturnType = returnType
     member x.Module = m.Module
     member x.DeclaringType = m.DeclaringType
@@ -114,10 +115,10 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsDelegateConstructor with get() = isDelegateConstructor.Force()
 
     override x.ToString() = x.FullName
-    override x.GetHashCode() = m.MethodHandle.GetHashCode()
+    override x.GetHashCode() = desc.GetHashCode()
     override x.Equals(y : obj) =
         match y with
-        | :? MethodWithBody as y -> m.MethodHandle.Value = y.MethodBase.MethodHandle.Value
+        | :? MethodWithBody as y -> x.Descriptor = y.Descriptor
         | _ -> false
 
     member x.HasBody = methodBodyBytes <> null
@@ -167,6 +168,7 @@ type MethodWithBody internal (m : MethodBase) =
 
     // TODO: make it private!
     member x.MethodBase : MethodBase = m
+    member private x.Descriptor = desc
 
     member x.ResolveMethod token = Reflection.resolveMethod m token
     member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField m

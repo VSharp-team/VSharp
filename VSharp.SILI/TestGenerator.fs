@@ -2,8 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Collections.Generic
-open System.IO
-open System.Reflection
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -13,13 +11,12 @@ module TestGenerator =
     let private obj2test eval (indices : Dictionary<concreteHeapAddress, int>) (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
-            let referenceRepr : referenceRepr = {index = !index}
+            let referenceRepr : referenceRepr = {index = index.Value}
             referenceRepr :> obj
         else
             let cha = ConcreteHeapAddress addr
-            let dnt = Types.ToDotNetType typ
             match typ with
-            | ArrayType(elemType, dim) ->
+            | TypeUtils.ArrayType(elemType, dim) ->
                 let index = test.MemoryGraph.ReserveRepresentation()
                 indices.Add(addr, index)
                 let arrayType, (lengths : int array), (lowerBounds : int array) =
@@ -40,41 +37,38 @@ module TestGenerator =
                     let indices = Seq.delinearizeArrayIndex i lengths lowerBounds
                     let indexTerms = indices |> Seq.map (fun i -> Concrete i Types.IndexType) |> List.ofSeq
                     ArrayIndex(cha, indexTerms, arrayType) |> eval)
-                let repr = test.MemoryGraph.AddArray dnt contents lengths lowerBounds index
+                let repr = test.MemoryGraph.AddArray typ contents lengths lowerBounds index
                 repr :> obj
-            | _ when dnt.IsValueType -> BoxedLocation(addr, typ) |> eval
-            | _ when dnt = typeof<string> ->
+            | _ when typ.IsValueType -> BoxedLocation(addr, typ) |> eval
+            | _ when typ = typeof<string> ->
                 let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
-                let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (Types.Char, 1, true)) |> eval |> unbox)
+                let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
                 String(contents) :> obj
             | _ ->
                 let index = test.MemoryGraph.ReserveRepresentation()
                 indices.Add(addr, index)
-                let typ = Types.ToDotNetType typ
                 let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
                     ClassField(cha, field) |> eval)
                 let repr = test.MemoryGraph.AddClass typ fields index
                 repr :> obj
 
     let rec private term2obj (model : model) state indices (test : UnitTest) = function
-        | {term = Concrete(_, AddressType)} -> __unreachable__()
-        | {term = Concrete(v, t)} when Types.IsEnum t -> test.MemoryGraph.RepresentEnum v
+        | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
+        | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
         | {term = Constant _ } as c -> model.Eval c |> term2obj model state indices test
         | {term = Struct(fields, t)} when Types.IsNullable t ->
-            let t = Types.ToDotNetType t
             let valueField, hasValueField = Reflection.fieldsOfNullable t
             let hasValue : bool = fields.[hasValueField] |> term2obj model state indices test |> unbox
             if hasValue then
                 fields.[valueField] |> term2obj model state indices test
             else null
         | {term = Struct(fields, t)} ->
-            let t = Types.ToDotNetType t
             let fieldReprs =
                 t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> model.Complete fields.[field] |> term2obj model state indices test)
             test.MemoryGraph.RepresentStruct t fieldReprs
-        | NullRef
+        | NullRef _
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             let eval address =
@@ -126,7 +120,7 @@ module TestGenerator =
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled e ->
-                let t = MostConcreteTypeOfHeapRef cilState.state e |> Types.ToDotNetType
+                let t = MostConcreteTypeOfHeapRef cilState.state e
                 test.Exception <- t
                 true
             | _ -> false

@@ -3,7 +3,6 @@ namespace VSharp.Concolic
 open System
 open System.Diagnostics
 open System.IO
-open System.Reflection
 open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
@@ -24,17 +23,17 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
 
     let initSymbolicFrame state (method : Method) =
         let parameters = method.Parameters |> Seq.map (fun param ->
-            (ParameterKey param, None, Types.FromDotNetType param.ParameterType)) |> List.ofSeq
+            (ParameterKey param, None, param.ParameterType)) |> List.ofSeq
         let locals =
             match method.LocalVariables with
             | null -> []
             | lv ->
                 lv
-                |> Seq.map (fun local -> (LocalVariableKey(local, method), None, Types.FromDotNetType local.LocalType))
+                |> Seq.map (fun local -> (LocalVariableKey(local, method), None, local.LocalType))
                 |> List.ofSeq
         let parametersAndThis =
             if method.HasThis then
-                (ThisKey method, None, Types.FromDotNetType method.DeclaringType) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+                (ThisKey method, None, method.DeclaringType) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
         Memory.NewStackFrame state (Some method) (parametersAndThis @ locals)
 
@@ -50,7 +49,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
 
     let metadataSizeOfAddress state address =
         let t = TypeOfAddress state address
-        if t = Types.String then CSharpUtils.LayoutUtils.StringElementsOffset
+        if t = typeof<string> then CSharpUtils.LayoutUtils.StringElementsOffset
         elif Types.IsArrayType t then CSharpUtils.LayoutUtils.ArrayElementsOffset
         else 0
 
@@ -116,7 +115,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
             initSymbolicFrame state method
         Array.iter (initFrame cilState.state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
-        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] (Types.FromDotNetType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
+        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] typ types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
         cilState.state.allocatedTypes <- allocatedTypes
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (function
@@ -144,7 +143,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
                 else
                     let offset = int offset - metadataSizeOfAddress cilState.state address
                     let offset = Concrete offset Types.TLength
-                    Ptr (HeapLocation(address, typ)) Void offset)
+                    Ptr (HeapLocation(address, typ)) typeof<Void> offset)
         let _, evalStack = EvaluationStack.PopMany maxIndex evalStack
         operands <- Array.toList newEntries
         let evalStack = Array.fold (fun stack x -> EvaluationStack.Push x stack) evalStack newEntries
@@ -185,15 +184,15 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
                 Some (obj, typ)
             // TODO: stack and statics location #do
             | _ -> None
-        match term.term with
-        | Concrete(obj, typ) -> Some (obj, typ)
-        | _ when term = NullRef -> Some (null, Null)
-        | HeapRef({term = ConcreteHeapAddress _}, _) -> __notImplemented__()
-        | Ref address ->
+        match term with
+        | {term = Concrete(obj, typ)} -> Some (obj, typ)
+        | NullRef t -> Some (null, t)
+        | {term = HeapRef({term = ConcreteHeapAddress _}, _)} -> __notImplemented__()
+        | {term = Ref address} ->
             let baseAddress, offset = AddressToBaseAndOffset address
             evalRefType baseAddress offset (TypeOf term)
-        | Ptr(baseAddress, sightType, offset) ->
-            evalRefType baseAddress offset (Pointer sightType)
+        | {term = Ptr(baseAddress, sightType, offset)} ->
+            evalRefType baseAddress offset (sightType.MakePointerType())
         | _ -> None
 
     member private x.EvalOperands cilState =

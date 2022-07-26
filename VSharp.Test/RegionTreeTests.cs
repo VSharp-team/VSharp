@@ -66,9 +66,9 @@ namespace UnitTests
             Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<points<int>>) zero).CompareTo(zero));
         }
 
-        private symbolicType WrapType(Type t)
+        private typeWrapper WrapType(Type t)
         {
-            return API.Types.FromDotNetType(t);
+            return new typeWrapper(t);
         }
 
         [Test]
@@ -83,33 +83,33 @@ namespace UnitTests
             var dict_double_t2 = dict_t1_t2.MakeGenericType(typeof(double), t2);
             var dict_t1_int = dict_t1_t2.MakeGenericType(t1, typeof(int));
 
-            var dict_int_int_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_int_int));
-            var dict_double_double_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_double_double));
-            var dict_t1_t2_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_t1_t2));
-            var dict_int_t2_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_int_t2));
-            var dict_double_t2_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_double_t2));
-            var dict_t1_int_reg = freeRegion<symbolicType>.Singleton<symbolicType>(WrapType(dict_t1_int));
+            var dict_int_int_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_int_int));
+            var dict_double_double_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_double_double));
+            var dict_t1_t2_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_t1_t2));
+            var dict_int_t2_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_int_t2));
+            var dict_double_t2_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_double_t2));
+            var dict_t1_int_reg = freeRegion<typeWrapper>.Singleton<typeWrapper>(WrapType(dict_t1_int));
 
-            Assert.AreEqual(dict_int_int_reg, ((IRegion<freeRegion<symbolicType>>) dict_int_int_reg).Intersect(dict_int_int_reg));
-            Assert.AreEqual(freeRegion<symbolicType>.Empty, ((IRegion<freeRegion<symbolicType>>) dict_int_int_reg).Subtract(dict_int_int_reg));
+            Assert.AreEqual(dict_int_int_reg, ((IRegion<freeRegion<typeWrapper>>) dict_int_int_reg).Intersect(dict_int_int_reg));
+            Assert.AreEqual(freeRegion<typeWrapper>.Empty, ((IRegion<freeRegion<typeWrapper>>) dict_int_int_reg).Subtract(dict_int_int_reg));
 
-            Assert.AreEqual(RegionComparisonResult.Disjoint, ((IRegion<freeRegion<symbolicType>>) dict_t1_int_reg).CompareTo(dict_double_double_reg));
-            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<freeRegion<symbolicType>>) dict_t1_int_reg).CompareTo(dict_t1_t2_reg));
-            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<symbolicType>>) dict_double_t2_reg).CompareTo(dict_double_double_reg));
-            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<freeRegion<symbolicType>>) dict_t1_int_reg).CompareTo(dict_double_t2_reg));
+            Assert.AreEqual(RegionComparisonResult.Disjoint, ((IRegion<freeRegion<typeWrapper>>) dict_t1_int_reg).CompareTo(dict_double_double_reg));
+            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<freeRegion<typeWrapper>>) dict_t1_int_reg).CompareTo(dict_t1_t2_reg));
+            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<typeWrapper>>) dict_double_t2_reg).CompareTo(dict_double_double_reg));
+            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<freeRegion<typeWrapper>>) dict_t1_int_reg).CompareTo(dict_double_t2_reg));
 
-            var d1 = ((IRegion<freeRegion<symbolicType>>) dict_t1_int_reg).Intersect(dict_int_t2_reg);
-            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<symbolicType>>) d1).CompareTo(dict_int_int_reg));
-            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<symbolicType>>) dict_int_int_reg).CompareTo(d1));
+            var d1 = ((IRegion<freeRegion<typeWrapper>>) dict_t1_int_reg).Intersect(dict_int_t2_reg);
+            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<typeWrapper>>) d1).CompareTo(dict_int_int_reg));
+            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<typeWrapper>>) dict_int_int_reg).CompareTo(d1));
 
-            var d2 = ((IRegion<freeRegion<symbolicType>>) dict_t1_int_reg).Subtract(dict_int_t2_reg);
-            Assert.AreEqual(RegionComparisonResult.Disjoint, ((IRegion<freeRegion<symbolicType>>) d2).CompareTo(dict_int_int_reg));
+            var d2 = ((IRegion<freeRegion<typeWrapper>>) dict_t1_int_reg).Subtract(dict_int_t2_reg);
+            Assert.AreEqual(RegionComparisonResult.Disjoint, ((IRegion<freeRegion<typeWrapper>>) d2).CompareTo(dict_int_int_reg));
 
-            var d3 = ((IRegion<freeRegion<symbolicType>>) dict_t1_t2_reg).Subtract(dict_int_int_reg);
-            var d4 = ((IRegion<freeRegion<symbolicType>>) d3).Subtract(dict_double_double_reg);
-            var d5 = ((IRegion<freeRegion<symbolicType>>) d3).Subtract(d4);
-            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<symbolicType>>) d5).CompareTo(dict_double_double_reg));
-            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<symbolicType>>) dict_double_double_reg).CompareTo(d5));
+            var d3 = ((IRegion<freeRegion<typeWrapper>>) dict_t1_t2_reg).Subtract(dict_int_int_reg);
+            var d4 = ((IRegion<freeRegion<typeWrapper>>) d3).Subtract(dict_double_double_reg);
+            var d5 = ((IRegion<freeRegion<typeWrapper>>) d3).Subtract(d4);
+            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<typeWrapper>>) d5).CompareTo(dict_double_double_reg));
+            Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<freeRegion<typeWrapper>>) dict_double_double_reg).CompareTo(d5));
         }
 
         [Test]

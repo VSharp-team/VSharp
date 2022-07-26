@@ -28,6 +28,7 @@
         <Compile Include="DistanceWeighter.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
+        <Compile Include="Communication.fs" />
         <Compile Include="Instrumenter.fs" />
         <Compile Include="ClientMachine.fs" />
         <Compile Include="TestGenerator.fs" />

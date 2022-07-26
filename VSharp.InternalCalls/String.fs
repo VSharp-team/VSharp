@@ -60,7 +60,7 @@ module internal String =
         assert(List.length args = 1)
         let char = List.head args
         match char.term with
-        | Concrete(symbol, Numeric(Id typ)) when typ = typeof<char> ->
+        | Concrete(symbol, typ) when typ = typeof<char> ->
             let char = symbol :?> char
             Char.ToUpper(char) |> MakeNumber
         | _ -> __insufficientInformation__ "Char.ToUpper works only for concrete chars right now"

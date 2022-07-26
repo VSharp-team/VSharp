@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open TypeUtils
 
 [<AutoOpen>]
 module internal Operators =
@@ -29,8 +30,8 @@ module internal Operators =
     let simplifyUnaryOperation op arg k =
         match typeOf arg with
         | Bool -> simplifyUnaryConnective op arg k
-        | Numeric(Id t) -> simplifyUnaryOperation op arg t k
-        | Types.StringType -> __notImplemented__()
+        | Numeric t -> simplifyUnaryOperation op arg t k
+        | StringType -> __notImplemented__()
         | _ -> __notImplemented__()
 
     let simplifyOperation op args k =

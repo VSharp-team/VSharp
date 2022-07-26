@@ -286,7 +286,9 @@ and Method internal (m : MethodBase) as this =
                 instr <- instr.next
         }
 
-    member val InCoverageZone = true with get, set
+    static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
+
+    member x.InCoverageZone with get() = Method.CoverageZone x
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -344,8 +346,9 @@ type ApplicationGraph() as this =
     let messagesProcessor = MailboxProcessor.Start(fun inbox ->
         let tryGetCfgInfo (method : Method) =
             if method.HasBody then
+                // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
+                // TODO: fix it
                 let cfg = method.CFG
-                // TODO: add cfg if needed
                 Some cfg
             else None
 
@@ -459,24 +462,19 @@ type NullVisualizer() =
 
 
 module Application =
-    let private methods = Dictionary<MethodBase, Method>()
+    let private methods = Dictionary<nativeint * nativeint array * nativeint array, Method>()
     let private _loadedMethods = HashSet<_>()
     let loadedMethods = _loadedMethods :> seq<_>
     let graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
-    let mutable coverageZone : Method -> bool = fun _ -> true
 
     let getMethod (m : MethodBase) : Method =
-        Dict.getValueOrUpdate methods m (fun () ->
-            let result = Method(m)
-            result.InCoverageZone <- coverageZone result
-            result)
+        let desc = Reflection.getMethodDescriptor m
+        lock methods (fun () ->
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m)))
 
     let setCoverageZone (zone : Method -> bool) =
-        coverageZone <- zone
-        methods |> Seq.iter (fun kvp ->
-            let m = kvp.Value
-            m.InCoverageZone <- zone m)
+        Method.CoverageZone <- zone
 
     let setVisualizer (v : IVisualizer) =
         visualizer <- v

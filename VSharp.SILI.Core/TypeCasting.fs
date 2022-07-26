@@ -6,12 +6,12 @@ open System
 open System.Collections.Generic
 open VSharp
 open VSharp.Core
-open VSharp.Core.Types
+open VSharp.TypeUtils
 
 module internal TypeCasting =
     type private subtypeElement =
         | SymbolicType of heapAddress
-        | ConcreteType of symbolicType
+        | ConcreteType of Type
         override x.ToString() =
             match x with
             | SymbolicType address -> toString address
@@ -63,25 +63,25 @@ module internal TypeCasting =
     let private makeSubtypeBoolConst left right =
         let subtypeName = sprintf "(%O <: %O)" left right
         let source = {left = left; right = right}
-        Constant subtypeName source Bool
+        Constant subtypeName source typeof<bool>
 
-    let rec commonTypeIsType nullCase leftType rightType =
+    let rec commonTypeIsType leftType rightType =
         let boolConst left right = makeSubtypeBoolConst (ConcreteType left) (ConcreteType right)
-        isConcreteSubtype nullCase leftType rightType makeBool boolConst
+        isConcreteSubtype leftType rightType makeBool boolConst
 
     // left is subtype of right
-    let typeIsType = commonTypeIsType (always false)
+    let typeIsType = commonTypeIsType
 
-    let commonAddressIsType nullCase leftAddress leftType targetTyp =
+    let commonAddressIsType leftAddress leftType targetTyp =
         let typeCheck address =
             let boolConst address =
                 match address.term with
                 | ConcreteHeapAddress _ -> False
                 | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetTyp)
-            commonTypeIsType nullCase leftType targetTyp ||| boolConst address
+            commonTypeIsType leftType targetTyp ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
 
-    let addressIsType = commonAddressIsType (always false)
+    let addressIsType = commonAddressIsType
 
     let typeIsAddress leftType rightAddress rightType =
         let typeCheck rightAddress =
@@ -113,16 +113,16 @@ module internal TypeCasting =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, typeIsRef state typ v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
-    let rec commonRefIsType nullCase state ref typ =
+    let rec commonRefIsType state ref typ =
         match ref.term with
         | HeapRef(addr, sightType) ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
-            commonAddressIsType nullCase addr leftType typ
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType nullCase state v typ)) |> Merging.merge
+            commonAddressIsType addr leftType typ
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType state v typ)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
-    let refIsType = commonRefIsType (always false)
-    let refIsAssignableToType = commonRefIsType (not << isValueType)
+    let refIsType = commonRefIsType
+    let refIsAssignableToType = commonRefIsType
 
     let rec refIsRef state leftRef rightRef =
         match leftRef.term, rightRef.term with
@@ -157,7 +157,7 @@ module internal TypeCasting =
         | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
-        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef _ when address = zeroAddress && offset = 0 -> nullRef
+        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef t when address = zeroAddress && offset = 0 -> nullRef t
         // CASE: pointer from concolic
         | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
         | Ptr _, ByRef _ ->
@@ -183,8 +183,8 @@ module internal TypeCasting =
         let castCheck term =
             match term.term with
             | Concrete(value, _) -> canCastConcrete value targetType |> makeBool
-            | Ptr(_, typ, _) -> typeIsType (Pointer typ) targetType
-            | Ref address -> typeIsType (Memory.baseTypeOfAddress state address |> ByRef) targetType
+            | Ptr(_, typ, _) -> typeIsType (typ.MakePointerType()) targetType
+            | Ref address -> typeIsType ((Memory.baseTypeOfAddress state address).MakeByRefType()) targetType
             | HeapRef(address, sightType) ->
                 let baseType = Memory.mostConcreteTypeOfHeapRef state address sightType
                 addressIsType address baseType targetType
@@ -204,23 +204,22 @@ module internal TypeCasting =
             | InterfaceType _
             | TypeVariable _
             | ArrayType _ -> doCast term targetType
-            | Null -> nullRef
             | _ -> __unreachable__()
         Merging.guardedApply castUnguarded term
 
     let rec private nearestBiggerTypeForEvaluationStack (t : Type) =
         match t with
-        | _ when t = typeof<int8>    -> Int32
-        | _ when t = typeof<int16>   -> Int32
-        | _ when t = typeof<int32>   -> Int32
-        | _ when t = typeof<int64>   -> Int64
-        | _ when t = typeof<byte>    -> UInt32 // TODO: need to use signed?
-        | _ when t = typeof<char>    -> UInt32 // TODO: need to use signed?
-        | _ when t = typeof<uint16>  -> UInt32 // TODO: need to use signed?
-        | _ when t = typeof<uint32>  -> UInt32
-        | _ when t = typeof<uint64>  -> UInt64
-        | _ when t = typeof<float32> -> F
-        | _ when t = typeof<float>   -> D
+        | _ when t = typeof<int8>    -> typeof<int32>
+        | _ when t = typeof<int16>   -> typeof<int32>
+        | _ when t = typeof<int32>   -> typeof<int32>
+        | _ when t = typeof<int64>   -> typeof<int64>
+        | _ when t = typeof<byte>    -> typeof<uint32> // TODO: need to use signed?
+        | _ when t = typeof<char>    -> typeof<uint32> // TODO: need to use signed?
+        | _ when t = typeof<uint16>  -> typeof<uint32> // TODO: need to use signed?
+        | _ when t = typeof<uint32>  -> typeof<uint32>
+        | _ when t = typeof<uint64>  -> typeof<uint64>
+        | _ when t = typeof<float32> -> typeof<float32>
+        | _ when t = typeof<float>   -> typeof<float>
         | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 
@@ -230,7 +229,7 @@ module internal TypeCasting =
         | _ when isReference x -> x
         // TODO: need to add conversion from bool to int?
         // | Bool -> cast x Int32
-        | Numeric(Id typ) -> nearestBiggerTypeForEvaluationStack typ |> cast x
+        | Numeric typ -> nearestBiggerTypeForEvaluationStack typ |> cast x
         | _ -> x
 
     let solveTypes (model : model) (state : state) =
@@ -247,7 +246,7 @@ module internal TypeCasting =
             addresses.Add(addr) |> ignore
             Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
                 let list = List<Type>()
-                addr |> typeOfAddress |> toDotNetType |> list.Add
+                addr |> typeOfAddress |> list.Add
                 list) |> ignore)
 
         let add dict address typ =
@@ -255,7 +254,6 @@ module internal TypeCasting =
             | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
                 addresses.Add addr |> ignore
                 let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
-                let typ = toDotNetType typ
                 if not <| list.Contains typ then
                     list.Add typ
             | {term = ConcreteHeapAddress _} -> ()
@@ -286,10 +284,9 @@ module internal TypeCasting =
         match solverResult with
         | TypeSat(refsTypes, typeParams) ->
             let refineTypes addr (t : Type) =
-                let typ = Constructor.fromDotNetType t
-                model.state.allocatedTypes <- PersistentDict.add addr typ model.state.allocatedTypes
+                model.state.allocatedTypes <- PersistentDict.add addr t model.state.allocatedTypes
                 if t.IsValueType then
-                    let value = makeDefaultValue typ
+                    let value = makeDefaultValue t
                     model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
             Seq.iter2 refineTypes addresses refsTypes
             let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams

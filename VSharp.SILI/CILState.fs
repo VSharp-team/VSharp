@@ -33,7 +33,7 @@ type cilState =
         | 1 ->
             let result = EvaluationStack.Pop x.state.evaluationStack |> fst
             match x.ipStack with
-            | [Exit m] -> Types.Cast result (Types.FromDotNetType m.ReturnType)
+            | [Exit m] -> Types.Cast result m.ReturnType
             | _ when x.state.exceptionsRegister.UnhandledError -> Nop
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"

@@ -18,7 +18,6 @@
 
     <ItemGroup>
         <Compile Include="Operations.fs" />
-        <Compile Include="Types.fs" />
         <Compile Include="Terms.fs" />
         <Compile Include="Propositional.fs" />
         <Compile Include="PathCondition.fs" />

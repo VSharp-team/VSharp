@@ -41,11 +41,11 @@ type public SILI(options : SiliOptions) =
         if options.visualize then
             DotVisualizer options.outputDirectory :> IVisualizer |> Application.setVisualizer
 
-    let inCoverageZone coverageZone (startingMethod : Method) method =
+    let inCoverageZone coverageZone (startingMethod : Method) =
         match coverageZone with
-        | MethodZone -> method = startingMethod
-        | ClassZone -> method.DeclaringType = startingMethod.DeclaringType
-        | ModuleZone -> method.Module = startingMethod.Module
+        | MethodZone -> (=) startingMethod
+        | ClassZone -> fun method -> method.DeclaringType.TypeHandle = startingMethod.DeclaringType.TypeHandle
+        | ModuleZone -> fun method -> method.Module.ModuleHandle = startingMethod.Module.ModuleHandle
 
     let isSat pc =
         // TODO: consider trivial cases
@@ -249,7 +249,7 @@ type public SILI(options : SiliOptions) =
         state.model <- Some (Memory.EmptyModel method)
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
-            let stringType = Types.FromDotNetType typeof<string>
+            let stringType = typeof<string>
             let argsNumber = MakeNumber mainArguments.Length
             Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
         let arguments = Option.map (argsToState >> List.singleton) optionArgs
@@ -261,7 +261,7 @@ type public SILI(options : SiliOptions) =
             let argsParameter = Array.head parameters
             let argsParameterTerm = Memory.ReadArgument state argsParameter
             AddConstraint state (!!(IsNullReference argsParameterTerm))
-        Memory.InitializeStaticMembers state (Types.FromDotNetType method.DeclaringType)
+        Memory.InitializeStaticMembers state method.DeclaringType
         let initialState = makeInitialState method state
         x.AnswerPobs method [initialState]
 

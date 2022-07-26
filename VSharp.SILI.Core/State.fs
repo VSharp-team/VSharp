@@ -3,10 +3,10 @@ namespace VSharp.Core
 open System
 open System.Collections.Generic
 open VSharp
-open VSharp.Core.Types.Constructor
+open VSharp.Core
 open VSharp.Utils
 
-type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
+type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
@@ -58,7 +58,7 @@ type exceptionRegister =
         | NoException -> NoException
 
 type arrayCopyInfo =
-    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : symbolicType; dstSightType : symbolicType} with
+    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
@@ -70,7 +70,7 @@ with
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
-            | HeapRef({term = Constant _}, _) -> nullRef
+            | HeapRef({term = Constant _}, t) -> nullRef t
             | _ -> value
         else value
 
@@ -102,7 +102,7 @@ and
     mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
     concreteMemory : concreteMemory                                    // Fully concrete objects
     mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
-    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+    mutable allocatedTypes : pdict<concreteHeapAddress, Type>          // Types of heap locations allocated via new
     mutable typeVariables : typeVariables                              // Type variables assignment in the current state
     mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state

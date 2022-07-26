@@ -3,12 +3,15 @@ namespace VSharp.Core
 open System
 open System.Text
 open VSharp
+open VSharp.CSharpUtils
+open TypeUtils
+open VSharp.Core
 
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
 //    abstract IsAllocated : bool
     abstract Region : 'reg
-    abstract Map : (term -> term) -> (symbolicType -> symbolicType) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
+    abstract Map : (term -> term) -> (Type -> Type) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
 
@@ -22,11 +25,11 @@ type regionSort =
     member x.TypeOfLocation =
         match x with
         | HeapFieldSort field
-        | StaticFieldSort field -> field.typ |> Types.Constructor.fromDotNetType
+        | StaticFieldSort field -> field.typ
         | ArrayIndexSort(elementType, _, _) -> elementType
         | ArrayLengthSort _
-        | ArrayLowerBoundSort _ -> Types.Int32
-        | StackBufferSort _ -> Types.Numeric typeof<int8>
+        | ArrayLowerBoundSort _ -> typeof<int32>
+        | StackBufferSort _ -> typeof<int8>
 
 module private MemoryKeyUtils =
 
@@ -35,7 +38,7 @@ module private MemoryKeyUtils =
         | addr -> intervals<vectorTime>.Closed VectorTime.minfty (timeOf addr)
 
     let regionOfIntegerTerm = function
-        | {term = Concrete(:? int as value, typ)} when typ = Types.lengthType -> points<int>.Singleton value
+        | {term = Concrete(:? int as value, typ)} when typ = lengthType -> points<int>.Singleton value
         | _ -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
@@ -141,17 +144,43 @@ type stackBufferIndexKey =
             | _ -> -1
     override x.ToString() = x.index.ToString()
 
-[<StructuralEquality;StructuralComparison>]
+[<CustomEquality;CustomComparison>]
+type typeWrapper = {t : Type}
+with
+    interface IAtomicRegion<typeWrapper> with
+        override x.Intersect y = structuralInfimum x.t y.t |> Option.map (fun t -> {t = t})
+    override x.GetHashCode() = x.t.GetDeterministicHashCode()
+    override x.Equals(o : obj) =
+        match o with
+        | :? typeWrapper as y -> x.t.TypeHandle = y.t.TypeHandle
+        | _ -> false
+    interface IComparable with
+        override x.CompareTo(other) =
+            match other with
+            | :? typeWrapper as y -> compare x.t.TypeHandle.Value y.t.TypeHandle.Value
+            | _ -> -1
+
+[<CustomEquality;CustomComparison>]
 type symbolicTypeKey =
-    {typ : symbolicType}
-    interface IMemoryKey<symbolicTypeKey, freeRegion<symbolicType>> with
+    {typ : Type}
+    interface IMemoryKey<symbolicTypeKey, freeRegion<typeWrapper>> with
 //        override x.IsAllocated = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
-        override x.Region = freeRegion<symbolicType>.Singleton x.typ
+        override x.Region = freeRegion<typeWrapper>.Singleton {t = x.typ}
         override x.Map _ mapper _ reg =
-            reg.Map mapper, {typ = mapper x.typ}
+            reg.Map (fun t -> {t = mapper t.t}), {typ = mapper x.typ}
         override x.IsUnion = false
         override x.Unguard = [(True, x)]
     override x.ToString() = x.typ.ToString()
+    override x.GetHashCode() = x.typ.GetDeterministicHashCode()
+    override x.Equals(o : obj) =
+        match o with
+        | :? symbolicTypeKey as y -> x.typ.TypeHandle.Value = y.typ.TypeHandle.Value
+        | _ -> false
+    interface IComparable with
+        override x.CompareTo(other) =
+            match other with
+            | :? symbolicTypeKey as y -> compare x.typ.TypeHandle.Value y.typ.TypeHandle.Value
+            | _ -> -1
 
 type updateTreeKey<'key, 'value when 'key : equality> =
     {key : 'key; value : 'value}
@@ -192,8 +221,8 @@ module private UpdateTree =
     let compose (earlier : updateTree<'key, 'value, 'reg>) (later : updateTree<'key, 'value, 'reg>) =
         later |> RegionTree.foldr (fun reg key trees ->
             list {
-                let! (g, tree) = trees
-                let! (g', k) = key.key.Unguard
+                let! g, tree = trees
+                let! g', k = key.key.Unguard
                 let key' = {key with key = k}
                 return (g &&& g', RegionTree.write reg key' tree)
             }) [(True, earlier)]
@@ -214,7 +243,7 @@ module private UpdateTree =
 
 [<StructuralEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : symbolicType; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
+    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
 
 module MemoryRegion =
 
@@ -237,7 +266,7 @@ module MemoryRegion =
 
     let validateWrite value cellType =
         let typ = typeOf value
-        Types.canCastImplicitly typ cellType
+        canCastImplicitly typ cellType
 
     let memset mr keysAndValues =
         {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue}
@@ -246,7 +275,7 @@ module MemoryRegion =
         assert(validateWrite value mr.typ)
         {typ = mr.typ; updates = UpdateTree.write key value mr.updates; defaultValue = mr.defaultValue}
 
-    let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) mr =
+    let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
         {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
 
     let deterministicCompose earlier later =
@@ -299,7 +328,7 @@ module SymbolicSet =
         | _ ->
             RegionTree.write x.Region {key=x} s
     let ofSeq s = Seq.fold (fun s x -> add x s) empty s
-    let map (mapTerm : term -> term) (mapType : symbolicType -> symbolicType) (mapTime : vectorTime -> vectorTime) (s : symbolicSet<'key, 'reg>) =
+    let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) (s : symbolicSet<'key, 'reg>) =
         s |> RegionTree.map (fun reg k -> let reg, k' = k.key.Map mapTerm mapType mapTime reg in (reg, k'.Region, {key=k'}))
     let union x y = RegionTree.foldr (fun _ k acc -> add k.key acc) x y
     let print s =
@@ -310,5 +339,5 @@ type heapRegion = memoryRegion<heapAddressKey, vectorTime intervals>
 type arrayRegion = memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>
 type vectorRegion = memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
 type stackBufferRegion = memoryRegion<stackBufferIndexKey, int points>
-type staticsRegion = memoryRegion<symbolicTypeKey, freeRegion<symbolicType>>
-type symbolicTypeSet = symbolicSet<symbolicTypeKey, freeRegion<symbolicType>>
+type staticsRegion = memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>
+type symbolicTypeSet = symbolicSet<symbolicTypeKey, freeRegion<typeWrapper>>

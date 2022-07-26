@@ -21,9 +21,8 @@ module internal Type =
 
     let private allocateType state (typeToAllocate : Type) =
         // NOTE: allocating empty RuntimeType
-        let symbolicRuntimeType = Types.FromDotNetType systemRuntimeType
-        let ref = Memory.AllocateDefaultClass state symbolicRuntimeType
-        let value = Concrete typeToAllocate symbolicRuntimeType
+        let ref = Memory.AllocateDefaultClass state systemRuntimeType
+        let value = Concrete typeToAllocate systemRuntimeType
         // NOTE: add field with information about actual type
         let states = Memory.WriteClassField state ref fieldWithTypeInfo value
         List.map (withFst ref) states
@@ -55,7 +54,7 @@ module internal Type =
         assert(List.length args = 1)
         let ref = List.head args
         let typ = MostConcreteTypeOfHeapRef state ref
-        allocateType state (Types.ToDotNetType typ)
+        allocateType state typ
 
     let GetElementType (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)
@@ -69,9 +68,9 @@ module internal Type =
         let runtimeType2 = args |> List.tail |> List.head
         let eq =
             match runtimeType1, runtimeType2 with
-            | NullRef, NullRef -> True
-            | NullRef, _
-            | _, NullRef -> False
+            | NullRef _, NullRef _ -> True
+            | NullRef _, _
+            | _, NullRef _ -> False
             | _ ->
                 let actualType1 = getActualType state runtimeType1
                 let actualType2 = getActualType state runtimeType2
@@ -117,8 +116,7 @@ module internal Type =
         let actualType = getActualType state runtimeType
         let values : obj seq = Enum.GetValues(actualType) |> System.Linq.Enumerable.OfType<obj>
         let length = Seq.length values |> MakeNumber
-        let elementType = Types.FromDotNetType actualType
-        Memory.AllocateConcreteVectorArray state length elementType values
+        Memory.AllocateConcreteVectorArray state length actualType values
 
     let getEnumUnderlyingType (state : state) (args : term list) =
         assert(List.length args = 1)

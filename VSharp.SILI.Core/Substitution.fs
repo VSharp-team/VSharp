@@ -47,7 +47,7 @@ module Substitution =
             if gvs' = gvs then term else Merging.merge gvs'
         | HeapRef(address, typ) ->
             let addr' = recur address
-            let typ' = if addr' = zeroAddress then Null else typeSubst typ
+            let typ' = typeSubst typ
             HeapRef addr' typ'
         | Struct(contents, typ) ->
             let contents' = PersistentDict.map id recur contents

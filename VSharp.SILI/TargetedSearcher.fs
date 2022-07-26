@@ -69,10 +69,10 @@ type StatisticsTargetCalculator(statistics : SILIStatistics) =
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
             | None when inCoverageZone loc ->
-                    let localHistory = Seq.filter inCoverageZone (history state)
-                    match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
-                    | None -> k None
-                    | Some l -> Some l
+                let localHistory = Seq.filter inCoverageZone (history state)
+                match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
+                | None -> k None
+                | Some l -> Some l
             | _ -> k reachingLoc) None locStack id
 
 
