@@ -29,16 +29,17 @@ module internal PC =
         new() = PathCondition(HashSet<term>(), false)
             
         override this.ToString() =
-            if (this :> IPathCondition).IsEmpty then "true"
+            if (this :> IPathCondition).IsEmpty then
+                if isFalse then "false" else "true"
             else Seq.map (fun c -> $"({c})") constraints |> join " /\ "
 
         interface IPathCondition with
         
             member this.Add newConstraint =
                 match newConstraint with
+                | _ when isFalse -> ()
                 | True -> ()
                 | False -> becomeTrivialFalse()
-                | _ when isFalse -> ()
                 | _ when constraints.Contains(newConstraint) -> ()
                 // what if constraint is not equal to newConstraint structurally, but is equal logically?
                 | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()
@@ -211,7 +212,8 @@ module internal PC =
         internal new() = IndependentPathCondition(Dictionary<term, node>(), HashSet<term>(), false)
 
         override this.ToString() =
-            if (this :> IPathCondition).IsEmpty then "true"
+            if (this :> IPathCondition).IsEmpty then
+                if isFalse then "false" else "true"
             else Seq.map (fun c -> $"({c})") constraints |> join " /\ "
             
         interface IPathCondition with
@@ -226,9 +228,9 @@ module internal PC =
 
             member this.Add newConstraint =
                 match newConstraint with
+                | _ when isFalse -> ()
                 | True -> ()
                 | False -> becomeTrivialFalse()
-                | _ when isFalse -> ()
                 | _ when constraints.Contains(newConstraint) -> ()
                 // what if constraint is not equal to newConstraint structurally, but is equal logically?
                 | _ when constraints.Contains(!!newConstraint) -> becomeTrivialFalse()

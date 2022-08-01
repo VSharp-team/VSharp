@@ -660,6 +660,7 @@ module internal Z3 =
                 structureRef.Value <- x.WriteFields structureRef.Value value fields
 
         member x.UpdateModel (z3Model : Model) (targetModel : model) =
+            encodingCache.lastSymbolicAddress <- targetModel.state.startingTime.Head
             let stackEntries = Dictionary<stackKey, term ref>()
             encodingCache.termToExpression |> Seq.iter (fun kvp ->
                 match kvp.Key with
@@ -686,14 +687,14 @@ module internal Z3 =
                     let term = x.Decode t refinedExpr
                     targetModel.subst.[source] <- term
                 | _ -> ())
+            
+            if Memory.IsStackEmpty targetModel.state then
+                Memory.NewStackFrame targetModel.state None List.empty
 
-            let state = {Memory.EmptyState() with complete = true}
-            let frame = stackEntries |> Seq.map (fun kvp ->
-                    let key = kvp.Key
-                    let term = kvp.Value.Value
-                    let typ = TypeOf term
-                    (key, Some term, typ))
-            Memory.NewStackFrame state None (List.ofSeq frame)
+            stackEntries |> Seq.iter (fun kvp ->
+                let key = kvp.Key
+                let term = kvp.Value.Value
+                Memory.AllocateOnStack targetModel.state key term)
 
             let defaultValues = Dictionary<regionSort, term ref>()
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
@@ -732,7 +733,7 @@ module internal Z3 =
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
-                let constantValue = !kvp.Value
+                let constantValue = kvp.Value.Value
                 Memory.FillRegion targetModel.state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->

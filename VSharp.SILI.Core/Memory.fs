@@ -275,7 +275,7 @@ module internal Memory =
             override x.IndependentWith otherSource =
                 match otherSource with
                 | :? structField as otherField ->
-                    x.field <> otherField.field || x.baseSource.IndependentWith otherField.baseSource
+                    x.field <> otherField.field && x.baseSource.IndependentWith otherField.baseSource
                 | _ -> true
 
     let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =

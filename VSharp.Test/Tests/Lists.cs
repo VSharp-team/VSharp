@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using VSharp.Test;
+
 #pragma warning disable CS0108, CS0114, CS0649
 
 namespace IntegrationTests
@@ -1337,7 +1338,7 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public bool ContainsOurCustomer(Customerrr other)
+        public bool EqualsOurCustomer(Customerrr other)
         {
             if (other.Equals(_customer))
             {

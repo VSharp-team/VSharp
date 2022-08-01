@@ -26,7 +26,7 @@ module TaggedLogger =
     /// </summary>
     let public copy fromTag toTag =
         let from = logs.GetValueOrDefault(fromTag, StringBuilder()).ToString()
-        logs.[toTag] <- StringBuilder().AppendLine(from)
+        logs.[toTag] <- StringBuilder().Append(from)
     
     /// <summary>
     /// Saves all logs with the specified tag to the file 
