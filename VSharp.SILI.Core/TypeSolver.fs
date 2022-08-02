@@ -72,58 +72,32 @@ type typeSolvingResult =
     | TypeUnsat
 
 module TypeSolver =
-    type private 'a searchResult =
-        | Found of 'a
-        | NotFound
-        | NotExists
-
-    type private typeSearchResult = Type list searchResult
-
     type private substitution = pdict<Type, symbolicType>
 
-    let private typeVarsCache = Dictionary<Type * substitution, substitution searchResult>()
-    let private inputsCache = Dictionary<typeConstraints * substitution, typeSearchResult>()
-
-    let private findNonAbstractSupertype predicate (typ : Type) =
-        let rec findRec predicate (typ : Type) sure =
-            if typ = null then
-                if sure then NotExists else NotFound
-            else
-                match if typ.IsAbstract then NotExists else predicate typ with
-                | Found ts -> Found ts
-                | NotExists -> findRec predicate typ.BaseType sure
-                | NotFound -> findRec predicate typ.BaseType false
-        findRec predicate typ true
-
-    let private findType (supertypes : Type list) (mock : ITypeMock option) searchRest (assemblies : Assembly seq) =
-        let mutable sure = true
-        let mutable result = NotExists
-        let predicate t =
-            match searchRest (ConcreteType t) with
-            | Found res -> result <- Found res; true
-            | NotExists -> false
-            | NotFound -> sure <- false; false
-        if Seq.exists predicate supertypes then result
+    let rec private enumerateNonAbstractSupertypes predicate (typ : Type) =
+        if typ = null || typ.IsAbstract then []
         else
+            let supertypes = enumerateNonAbstractSupertypes predicate typ.BaseType
+            if predicate typ then typ::supertypes else supertypes
+
+    let private enumerateTypes (supertypes : Type list) (mock : ITypeMock option) validate (assemblies : Assembly seq) =
+        seq {
+            let mutable sure = true
+            yield! supertypes |> Seq.filter validate |> Seq.map ConcreteType
             let assemblies =
                 match supertypes |> Seq.tryFind (fun u -> u.IsNotPublic) with
                 | Some u -> [u.Assembly] :> _ seq
                 | None -> sure <- false; assemblies
-            let found = assemblies |> Seq.exists (fun assembly -> assembly.GetExportedTypes() |> Seq.exists predicate)
-            if found then result
-            elif sure then NotExists
-            else
-                let t =
-                    match mock with
-                    | Some mock -> mock.WithSuperTypes supertypes
-                    | None -> TypeMock(supertypes)
-                    |> MockType
-                searchRest t
+            for assembly in assemblies do
+                yield! assembly.GetExportedTypes() |> Seq.filter validate |> Seq.map ConcreteType
+            match mock with
+            | Some mock -> mock.WithSuperTypes supertypes
+            | None -> TypeMock(supertypes)
+            |> MockType
+        }
 
-    let private findNonAbstractType supertypes mock searchRest (assemblies : Assembly seq) =
-        findType supertypes mock (function
-            | ConcreteType t when t.IsAbstract -> NotExists
-            | t -> searchRest t) assemblies
+    let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
+        enumerateTypes supertypes mock (fun t -> not t.IsAbstract && validate t) assemblies
 
     let private isContradicting (c : typeConstraints) =
         // X <: u and u <: t and X </: t
@@ -170,28 +144,16 @@ module TypeSolver =
         constraints.notSubtypes |> List.forall (substitute subst >> candidate.IsAssignableFrom >> not) &&
         constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
 
-    let private satisfyInput constraints subst validate =
-//        match PersistentDict.tryFind inputsCache (constraints, subst) with
-//        | Some t when validate t -> Found t
-//        | _ ->
-            let validateConcrete typ =
-                if satisfiesConstraints constraints subst typ then
-                    validate (ConcreteType typ)
-                else NotExists
-            let validate = function
-                | ConcreteType t -> validateConcrete t
-                | t -> validate t
-            match constraints.subtypes with
-            | [] -> findNonAbstractType constraints.supertypes constraints.mock validate  (AssemblyManager.assemblies())
-            | t :: _ -> findNonAbstractSupertype validateConcrete t//)
+    let private inputCandidates constraints subst =
+        let validate = satisfiesConstraints constraints subst
+        match constraints.subtypes with
+        | [] -> enumerateNonAbstractTypes constraints.supertypes constraints.mock validate (AssemblyManager.assemblies())
+        | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
-    let private satisfyTypeParameter parameter subst validate =
-//        Dict.getValueOrUpdate typeVarsCache (parameter, subst) (fun () ->
-            let validate = function
-                | ConcreteType typ when not <| satisfiesTypeParameterConstraints parameter subst typ -> NotExists
-                | typ -> validate typ
+    let private typeParameterCandidates parameter subst =
+            let validate typ = satisfiesTypeParameterConstraints parameter subst typ
             let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-            findType supertypes None validate (AssemblyManager.assemblies())//)
+            enumerateTypes supertypes None validate (AssemblyManager.assemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then
@@ -216,28 +178,28 @@ module TypeSolver =
                             acc) typeVars
             let decodeTypeSubst (subst : substitution) =
                  List.map (PersistentDict.find subst) typeParameters
-            let mutable inputs = []
-            let mutable typeVariablesUnknown = true
+            let mutable resultInputs = []
+            let mutable resultSubst = PersistentDict.empty
             let rec solveInputsRec acc subst = function
-                | [] -> Found (List.rev acc)
+                | [] -> Some (List.rev acc)
                 | constraints::rest ->
-                    satisfyInput constraints subst (fun t -> solveInputsRec (t::acc) subst rest) // TODO: for ref <: ref constraints we should also accumulate t into another subst
+                    // TODO: for ref <: ref constraints we should also accumulate t into another subst
+                    match inputCandidates constraints subst |> Seq.tryHead with
+                    | Some c -> solveInputsRec (c::acc) subst rest
+                    | None -> None
             let rec solveTypesVarsRec subst = function
                 // TODO: this should be done in more complex way!
                 // 1. clusterize type parameters by equality (i.e. squash loops in type variables subtyping graph)
                 // 2. supertypes of mocks can contain mocks (for instance, we have constraint T <: U, where U is assigned a fresh mock)
                 | [] ->
-                    typeVariablesUnknown <- false
                     match solveInputsRec [] subst inputConstraintsList with
-                    | Found ts -> inputs <- ts; Found subst
-                    | NotFound -> NotFound
-                    | NotExists -> NotExists
+                    | Some ts -> resultInputs <- ts; resultSubst <- subst; true
+                    | None -> false
                 | t::ts ->
-                   satisfyTypeParameter t subst (fun u -> solveTypesVarsRec (PersistentDict.add t u subst) ts)
-            match solveTypesVarsRec PersistentDict.empty typeVars with
-            | Found subst -> TypeSat(inputs, decodeTypeSubst subst)
-            | NotExists -> TypeUnsat
-            | NotFound -> __unreachable__()
+                   typeParameterCandidates t subst |> Seq.exists (fun u -> solveTypesVarsRec (PersistentDict.add t u subst) ts)
+            if solveTypesVarsRec PersistentDict.empty typeVars then
+                TypeSat(resultInputs, decodeTypeSubst resultSubst)
+            else TypeUnsat
 
 
 // ------------------------------------------------- Type solver wrappers -------------------------------------------------
@@ -328,5 +290,4 @@ module TypeSolver =
         | result -> result
 
     let reset() =
-        typeVarsCache.Clear();
-        inputsCache.Clear()
+        ()
