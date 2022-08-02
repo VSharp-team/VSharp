@@ -10,6 +10,22 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
+type IMethodMock =
+    abstract BaseMethod : System.Reflection.MethodInfo
+    abstract Call : term list -> term option
+    abstract GetImplementationClauses : unit -> term array
+
+type ITypeMock =
+    abstract Name : string
+    abstract SuperTypes : Type seq
+    abstract MethodMock : IMethod -> IMethodMock
+    abstract MethodMocks : IMethodMock seq
+    abstract WithSuperTypes : Type seq -> ITypeMock
+
+type symbolicType =
+    | ConcreteType of Type
+    | MockType of ITypeMock
+
 [<CustomEquality;NoComparison>]
 type physicalAddress = {object : obj}
     with
@@ -102,7 +118,7 @@ and
     mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
     concreteMemory : concreteMemory                                    // Fully concrete objects
     mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
-    mutable allocatedTypes : pdict<concreteHeapAddress, Type>          // Types of heap locations allocated via new
+    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
     mutable typeVariables : typeVariables                              // Type variables assignment in the current state
     mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state

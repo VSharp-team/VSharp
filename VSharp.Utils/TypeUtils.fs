@@ -107,6 +107,7 @@ module TypeUtils =
             then Activator.CreateInstance t
             else null
 
+    // TODO: wrap Type, cache size there
     let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
         let gen = meth.GetILGenerator()

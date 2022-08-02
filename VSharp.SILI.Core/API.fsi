@@ -29,7 +29,7 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
-    val SolveTypes : model -> state -> (Type[] * Type[]) option
+    val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
     val TryGetModel : state -> model option
 
     val ConfigureErrorReporter : (state -> unit) -> unit

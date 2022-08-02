@@ -732,7 +732,7 @@ module internal Z3 =
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr typ state.allocatedTypes)
+                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes)
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()

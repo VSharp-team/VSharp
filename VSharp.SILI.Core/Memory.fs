@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Text
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
 open VSharp.TypeUtils
 open VSharp.Utils
 
@@ -160,7 +161,10 @@ module internal Memory =
 
     let private typeOfConcreteHeapAddress state address =
         if address = VectorTime.zero then typeof<obj>
-        else PersistentDict.find state.allocatedTypes address
+        else
+            match PersistentDict.find state.allocatedTypes address with
+            | ConcreteType t -> t
+            | MockType _ -> __unreachable__() // Mock types may appear only in models
 
     // TODO: use only mostConcreteTypeOfHeapRef someday
     let rec typeOfHeapLocation state (address : heapAddress) =
@@ -357,7 +361,7 @@ module internal Memory =
                 let t = method.DeclaringType
                 let addr = [-1]
                 let thisRef = HeapRef (ConcreteHeapAddress addr) t
-                state.allocatedTypes <- PersistentDict.add addr t state.allocatedTypes
+                state.allocatedTypes <- PersistentDict.add addr (ConcreteType t) state.allocatedTypes
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
@@ -878,7 +882,7 @@ module internal Memory =
 
     let writeBoxedLocation state (address : concreteHeapAddress) value =
         state.boxedLocations <- PersistentDict.add address value state.boxedLocations
-        state.allocatedTypes <- PersistentDict.add address (typeOf value) state.allocatedTypes
+        state.allocatedTypes <- PersistentDict.add address (value |> typeOf |> ConcreteType) state.allocatedTypes
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
@@ -1097,7 +1101,7 @@ module internal Memory =
     let allocateType state typ =
         let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
-        state.allocatedTypes <- PersistentDict.add concreteAddress typ state.allocatedTypes
+        state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
         concreteAddress
 
     let allocateOnStack state key term =
@@ -1168,7 +1172,7 @@ module internal Memory =
             writeArrayIndexSymbolic state address [length] (typeof<char>, 1, true) (Concrete '\000' typeof<char>)
             let heapAddress = getConcreteHeapAddress address
             writeClassField state address Reflection.stringLengthField length
-            state.allocatedTypes <- PersistentDict.add heapAddress typeof<string> state.allocatedTypes
+            state.allocatedTypes <- PersistentDict.add heapAddress (ConcreteType typeof<string>) state.allocatedTypes
             address
 
     let allocateEmptyString state length =
@@ -1192,7 +1196,7 @@ module internal Memory =
         let concreteAddress = freshAddress state
         let address = ConcreteHeapAddress concreteAddress
         state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
-        state.allocatedTypes <- PersistentDict.add concreteAddress (typeOf delegateTerm) state.allocatedTypes
+        state.allocatedTypes <- PersistentDict.add concreteAddress (delegateTerm |> typeOf |> ConcreteType) state.allocatedTypes
         HeapRef address (typeOf delegateTerm)
 
     let rec lengthOfString state heapRef =
@@ -1369,6 +1373,9 @@ module internal Memory =
         assert(VectorTime.isDescending state.currentTime)
         assert(VectorTime.isDescending state'.currentTime)
         assert(not <| VectorTime.isEmpty state.currentTime)
+        let substituteTypeVariablesToSymbolicType state = function
+            | ConcreteType t -> t |> substituteTypeVariables state |> ConcreteType
+            | MockType _ -> __unreachable__()
         // TODO: do nothing if state is empty!
         list {
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
@@ -1386,7 +1393,7 @@ module internal Memory =
             let initializedTypes = composeInitializedTypes state state'.initializedTypes
             composeConcreteMemory (composeTime state) state.concreteMemory state'.concreteMemory
             let physToVirt = composeConcreteDictionaries id (composeTime state) state.physToVirt state'.physToVirt
-            let allocatedTypes = composeConcreteDictionaries (composeTime state) (substituteTypeVariables state) state.allocatedTypes state'.allocatedTypes
+            let allocatedTypes = composeConcreteDictionaries (composeTime state) (substituteTypeVariablesToSymbolicType state) state.allocatedTypes state'.allocatedTypes
             let typeVariables = composeTypeVariablesOf state state'
             let delegates = composeConcreteDictionaries (composeTime state) id state.delegates state'.delegates
             let currentTime = composeTime state state'.currentTime

@@ -8,7 +8,9 @@ open System.Collections.Generic
 
 type IMethod =
     inherit IComparable
+    abstract Name : string
     abstract FullName : string
+    abstract ReturnType : Type
     abstract DeclaringType : Type
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
@@ -16,6 +18,7 @@ type IMethod =
     abstract IsConstructor : bool
     abstract GenericArguments : Type[]
     abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
+    abstract MethodBase : System.Reflection.MethodBase
 
 [<CustomEquality;CustomComparison>]
 type stackKey =

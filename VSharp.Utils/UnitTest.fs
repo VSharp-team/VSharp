@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Reflection
 open System.Xml.Serialization
+open VSharp
 
 [<CLIMutable>]
 [<Serializable>]
@@ -23,8 +24,11 @@ type testInfo = {
     throwsException : typeRepr
     classTypeParameters : typeRepr array
     methodTypeParameters : typeRepr array
+    mockClassTypeParameters : typeMockRepr array
+    mockMethodTypeParameters : typeMockRepr array
     memory : memoryRepr
     extraAssemblyLoadDirs : string array
+    typeMocks : typeMockRepr array
 }
 with
     static member OfMethod(m : MethodBase) = {
@@ -37,13 +41,18 @@ with
         expectedResult = null
         classTypeParameters = Array.empty
         methodTypeParameters = Array.empty
+        mockClassTypeParameters = Array.empty
+        mockMethodTypeParameters = Array.empty
         throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
         memory = {objects = Array.empty; types = Array.empty}
         extraAssemblyLoadDirs = Array.empty
+        typeMocks = Array.empty
     }
 
 type UnitTest private (m : MethodBase, info : testInfo) =
-    let memoryGraph = MemoryGraph(info.memory)
+    let mocker = Mocking.Mocker(info.typeMocks)
+    let typeMocks = info.typeMocks |> Array.map Mocking.Type |> ResizeArray
+    let memoryGraph = MemoryGraph(info.memory, mocker)
     let exceptionInfo = info.throwsException
     let throwsException =
         if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
@@ -52,9 +61,10 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let isError = info.isError
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
-    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
-    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
+//    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
+//    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
+
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
 
@@ -88,15 +98,40 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let v = Serialization.encodeType e
             p.SetValue(info, v)
 
-    member x.SetTypeGenericParameters (parameters : Type array) =
-            let t = typeof<testInfo>
-            let p = t.GetProperty("classTypeParameters")
-            p.SetValue(info, parameters |> Array.map Serialization.encodeType)
+    member x.TypeMocks with get() = typeMocks
 
-    member x.SetMethodGenericParameters (parameters : Type array) =
+    member x.DefineTypeMock(name : string) =
+        let mock = Mocking.Type(name)
+        typeMocks.Add mock
+        mock
+
+    member x.AllocateMockObject (typ : Mocking.Type) =
+        let index = typeMocks.IndexOf typ
+        mocker.MakeMockObject index :> obj
+
+    // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
+    // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa
+    member x.SetTypeGenericParameters (concreteParameters : Type array) (mockedParameters : Mocking.Type option array) =
         let t = typeof<testInfo>
-        let p = t.GetProperty("methodTypeParameters")
-        p.SetValue(info, parameters |> Array.map Serialization.encodeType)
+        let cp = t.GetProperty("classTypeParameters")
+        cp.SetValue(info, concreteParameters |> Array.map Serialization.encodeType)
+        let mp = t.GetProperty("mockClassTypeParameters")
+        mp.SetValue(info, mockedParameters |> Array.map (fun m ->
+            match m with
+            | Some m -> m.Serialize memoryGraph
+            | None -> typeMockRepr.NullRepr))
+
+    // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
+    // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa
+    member x.SetMethodGenericParameters (concreteParameters : Type array) (mockedParameters : Mocking.Type option array) =
+        let t = typeof<testInfo>
+        let cp = t.GetProperty("methodTypeParameters")
+        cp.SetValue(info, concreteParameters |> Array.map Serialization.encodeType)
+        let mp = t.GetProperty("mockMethodTypeParameters")
+        mp.SetValue(info, mockedParameters |> Array.map (fun m ->
+            match m with
+            | Some m -> m.Serialize memoryGraph
+            | None -> typeMockRepr.NullRepr))
 
     member x.MemoryGraph with get() = memoryGraph
 
@@ -117,8 +152,10 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     member x.Serialize(destination : string) =
         memoryGraph.Serialize info.memory
         let t = typeof<testInfo>
-        let p = t.GetProperty("extraAssemblyLoadDirs")
-        p.SetValue(info, Array.ofList extraAssemblyLoadDirs)
+        let extraAssempliesProperty = t.GetProperty("extraAssemblyLoadDirs")
+        extraAssempliesProperty.SetValue(info, Array.ofList extraAssemblyLoadDirs)
+        let typeMocksProperty = t.GetProperty("typeMocks")
+        typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize memoryGraph))
         let serializer = XmlSerializer t
         use stream = File.Create(destination)
         serializer.Serialize(stream, info)
@@ -135,8 +172,14 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
-            let tp = ti.classTypeParameters |> Array.map Serialization.decodeType
-            let mp = ti.methodTypeParameters |> Array.map Serialization.decodeType
+            let mocker = Mocking.Mocker([||])
+            let decodeTypeParameter (concrete : typeRepr) (mock : typeMockRepr) =
+                let t = Serialization.decodeType concrete
+                if t = null then
+                    mocker.BuildDynamicType mock |> snd
+                else t
+            let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
+            let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
             let method = mdle.ResolveMethod(ti.token)
             let declaringType = method.DeclaringType
             let declaringType =

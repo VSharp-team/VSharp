@@ -152,7 +152,9 @@ type MethodWithBody internal (m : MethodBase) =
     static member internal InstantiateNew with get() = MethodWithBody.instantiator and set v = MethodWithBody.instantiator <- v
 
     interface VSharp.Core.IMethod with
+        override x.Name = name
         override x.FullName = fullName
+        override x.ReturnType = returnType
         override x.DeclaringType = m.DeclaringType
         override x.Parameters = parameters
         override x.LocalVariables = localVariables
@@ -163,11 +165,11 @@ type MethodWithBody internal (m : MethodBase) =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
         override x.CompareTo(y : obj) =
             match y with
-            | :? MethodWithBody as y -> Reflection.compareMethods x.MethodBase y.MethodBase
+            | :? MethodWithBody as y -> Reflection.compareMethods (x :> Core.IMethod).MethodBase (y :> Core.IMethod).MethodBase
             | _ -> -1
+        // TODO: make it private!
+        override x.MethodBase : MethodBase = m
 
-    // TODO: make it private!
-    member x.MethodBase : MethodBase = m
     member private x.Descriptor = desc
 
     member x.ResolveMethod token = Reflection.resolveMethod m token

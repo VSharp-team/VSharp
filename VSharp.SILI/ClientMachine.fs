@@ -79,7 +79,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
 
     [<DefaultValue>] val mutable private communicator : Communicator
     member x.Spawn() =
-        let test = UnitTest(entryPoint.MethodBase)
+        let test = UnitTest((entryPoint :> IMethod).MethodBase)
         test.Serialize(tempTest id)
 
         let pipe, pipePath =
@@ -102,7 +102,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
         if x.communicator.Connect() then
             x.probes <- x.communicator.ReadProbes()
             x.communicator.SendEntryPoint entryPoint.Module.FullyQualifiedName entryPoint.MetadataToken
-            x.instrumenter <- Instrumenter(x.communicator, entryPoint.MethodBase, x.probes)
+            x.instrumenter <- Instrumenter(x.communicator, (entryPoint :> IMethod).MethodBase, x.probes)
             true
         else false
 
@@ -115,7 +115,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
             initSymbolicFrame state method
         Array.iter (initFrame cilState.state) c.newCallStackFrames
         let evalStack = EvaluationStack.PopMany (int c.evaluationStackPops) cilState.state.evaluationStack |> snd
-        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] typ types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
+        let allocatedTypes = Array.fold2 (fun types address typ -> PersistentDict.add [int address] (ConcreteType typ) types) cilState.state.allocatedTypes c.newAddresses c.newAddressesTypes
         cilState.state.allocatedTypes <- allocatedTypes
         let mutable maxIndex = 0
         let newEntries = c.evaluationStackPushes |> Array.map (function

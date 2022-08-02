@@ -3,7 +3,6 @@ namespace VSharp.Core
 #nowarn "69"
 
 open System
-open System.Collections.Generic
 open VSharp
 open VSharp.Core
 open VSharp.TypeUtils
@@ -231,78 +230,3 @@ module internal TypeCasting =
         // | Bool -> cast x Int32
         | Numeric typ -> nearestBiggerTypeForEvaluationStack typ |> cast x
         | _ -> x
-
-    let solveTypes (model : model) (state : state) =
-        let m = CallStack.getCurrentFunc state.stack
-        let typeOfAddress addr =
-            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
-            else state.allocatedTypes.[addr]
-        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let addresses = HashSet<concreteHeapAddress>()
-        model.state.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
-            addresses.Add(addr) |> ignore
-            Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
-                let list = List<Type>()
-                addr |> typeOfAddress |> list.Add
-                list) |> ignore)
-
-        let add dict address typ =
-            match model.Eval address with
-            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
-                addresses.Add addr |> ignore
-                let list = Dict.getValueOrUpdate dict addr (fun () -> List<Type>())
-                if not <| list.Contains typ then
-                    list.Add typ
-            | {term = ConcreteHeapAddress _} -> ()
-            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
-
-        PC.toSeq state.pc |> Seq.iter (term >> function
-            | Constant(_, TypeSubtypeTypeSource _, _) -> __notImplemented__()
-            | Constant(_, RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
-            | Constant(_, TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
-            | Constant(_, RefSubtypeRefSource _, _) -> __notImplemented__()
-            | Negation({term = Constant(_, TypeSubtypeTypeSource _, _)})-> __notImplemented__()
-            | Negation({term = Constant(_, RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
-            | Negation({term = Constant(_, TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
-            | Negation({term = Constant(_, RefSubtypeRefSource _, _)}) -> __notImplemented__()
-            | _ -> ())
-        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
-            let l = Dict.tryGetValue d addr null
-            if l = null then [] else List.ofSeq l
-        let addresses = List.ofSeq addresses
-        let inputConstraints =
-            addresses
-            |> Seq.map (fun addr -> {supertypes = toList supertypeConstraints addr; subtypes = toList subtypeConstraints addr
-                                     notSupertypes = toList notSupertypeConstraints addr; notSubtypes = toList notSubtypeConstraints addr})
-            |> List.ofSeq
-        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments
-        let solverResult = TypeSolver.solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
-        match solverResult with
-        | TypeSat(refsTypes, typeParams) ->
-            let refineTypes addr (t : Type) =
-                model.state.allocatedTypes <- PersistentDict.add addr t model.state.allocatedTypes
-                if t.IsValueType then
-                    let value = makeDefaultValue t
-                    model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
-            Seq.iter2 refineTypes addresses refsTypes
-            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
-            Some(Array.ofList classParams, Array.ofList methodParams)
-        | TypeUnsat -> None
-        | TypeVariablesUnknown -> raise (InsufficientInformationException "Could not detect appropriate substitution of generic parameters")
-        | TypesOfInputsUnknown -> raise (InsufficientInformationException "Could not detect appropriate types of inputs")
-
-    let checkSatWithSubtyping state =
-        match SolverInteraction.checkSat state with
-        | SolverInteraction.SmtSat satInfo ->
-            let model = satInfo.mdl
-            try
-                match solveTypes model state with
-                | None -> SolverInteraction.SmtUnsat {core = Array.empty}
-                | Some _ -> SolverInteraction.SmtSat {satInfo with mdl = model}
-            with :? InsufficientInformationException as e ->
-                SolverInteraction.SmtUnknown e.Message
-        | result -> result

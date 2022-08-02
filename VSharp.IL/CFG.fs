@@ -282,7 +282,7 @@ and Method internal (m : MethodBase) as this =
             else parsedInstrs.[parsedInstrs.Length - 1].next
         seq {
             while not <| LanguagePrimitives.PhysicalEquality instr endInstr do
-                yield ILRewriter.PrintILInstr None None x.MethodBase instr
+                yield ILRewriter.PrintILInstr None None (x :> Core.IMethod).MethodBase instr
                 instr <- instr.next
         }
 

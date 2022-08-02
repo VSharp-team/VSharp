@@ -36,6 +36,7 @@
         <Compile Include="Memory.fs" />
         <Compile Include="ArrayInitialization.fs" />
         <Compile Include="TypeCasting.fs" />
+        <Compile Include="TypeSolver.fs" />
         <Compile Include="Copying.fs" />
         <Compile Include="Branching.fs" />
         <Compile Include="API.fsi" />

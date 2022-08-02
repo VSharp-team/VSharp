@@ -41,12 +41,12 @@ module API =
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let SolveTypes (model : model) (state : state) = TypeCasting.solveTypes model state
+    let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
     let TryGetModel state =
         match state.model with
         | Some model -> Some model
         | None ->
-            match TypeCasting.checkSatWithSubtyping state with
+            match TypeSolver.checkSatWithSubtyping state with
             | SolverInteraction.SmtSat model -> Some model.mdl
             | SolverInteraction.SmtUnknown _ -> None
             // NOTE: irrelevant case, because exploring branch must be valid

@@ -2,6 +2,7 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
+open System.Diagnostics.CodeAnalysis
 open System.Xml.Serialization
 open VSharp
 
@@ -71,13 +72,26 @@ type memoryRepr = {
 
 module Serialization =
 
-    let encodeType (t : Type) : typeRepr =
-        {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; fullName = t.FullName}
-    let decodeType (t : typeRepr) =
-        let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
-        mdle.GetType(t.fullName)
+    let encodeType ([<MaybeNull>] t : Type) : typeRepr =
+        if t = null then {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
+        else
+            {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; fullName = t.FullName}
 
-type MemoryGraph(repr : memoryRepr) =
+    [<MaybeNull>]
+    let decodeType (t : typeRepr) =
+        if t.assemblyName = null then null
+        else
+            let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
+            mdle.GetType(t.fullName)
+
+
+type ITypeMockSerializer =
+    abstract IsMockObject : obj -> bool
+    abstract IsMockRepresentation : obj -> bool
+    abstract Serialize : obj -> obj
+    abstract Deserialize : MemoryGraph -> obj -> obj
+
+and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) as this =
 
     let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
 
@@ -113,6 +127,7 @@ type MemoryGraph(repr : memoryRepr) =
         | :? enumRepr as repr ->
             let t = sourceTypes.[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
+        | _ when mocker.IsMockRepresentation obj -> mocker.Deserialize this obj
         | _ -> obj
 
     and decodeStructure (repr : structureRepr) obj =
@@ -199,6 +214,7 @@ type MemoryGraph(repr : memoryRepr) =
         | :? arrayRepr -> obj
         | :? pointerRepr -> obj
         | :? enumRepr -> obj
+        | _ when mocker.IsMockObject obj -> mocker.Serialize obj
         | _ ->
             // TODO: delegates?
             let t = obj.GetType()

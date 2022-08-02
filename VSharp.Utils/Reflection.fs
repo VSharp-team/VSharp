@@ -126,9 +126,6 @@ module public Reflection =
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
-    let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
-        compare m1.MethodHandle.Value m2.MethodHandle.Value
-
     let getMethodDescriptor (m : MethodBase) =
         let declaringType = m.DeclaringType
         let declaringTypeVars =
@@ -138,6 +135,9 @@ module public Reflection =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
         m.MethodHandle.Value, declaringTypeVars, methodVars
+
+    let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
+        compare (getMethodDescriptor m1) (getMethodDescriptor m2)
 
     // ----------------------------------- Creating objects ----------------------------------
 
@@ -205,7 +205,10 @@ module public Reflection =
         if typ.IsGenericParameter then subst typ
         elif typ.IsGenericType then
             let args = typ.GetGenericArguments()
-            typ.GetGenericTypeDefinition().MakeGenericType(Array.map (concretizeType subst) args)
+            let args' = args |> Array.map (concretizeType subst)
+            if args = args' then typ
+            else
+                typ.GetGenericTypeDefinition().MakeGenericType(args')
         else typ
 
     let concretizeMethodBase (m : MethodBase) (subst : Type -> Type) =
@@ -307,7 +310,7 @@ module public Reflection =
 
     let isReferenceOrContainsReferences (t : Type) =
         let result = ref false
-        if cachedTypes.TryGetValue(t, result) then !result
+        if cachedTypes.TryGetValue(t, result) then result.Value
         else
             let result = isReferenceOrContainsReferencesHelper t
             cachedTypes.Add(t, result)
