@@ -17,6 +17,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="FeatureFlags.fs" />
         <Compile Include="Operations.fs" />
         <Compile Include="Types.fs" />
         <Compile Include="Terms.fs" />

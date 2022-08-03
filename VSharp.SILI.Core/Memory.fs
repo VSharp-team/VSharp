@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Text
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
 open VSharp.Core.Types
 open VSharp.Core.Types.Constructor
 open VSharp.Utils
@@ -18,31 +19,7 @@ type IMemoryAccessConstantSource =
 module internal Memory =
 
 // ------------------------------- Primitives -------------------------------
-
-    let makeEmpty complete = {
-        pc = PC.empty
-        evaluationStack = EvaluationStack.empty
-        exceptionsRegister = NoException
-        stack = CallStack.empty
-        stackBuffers = PersistentDict.empty
-        classFields = PersistentDict.empty
-        arrays = PersistentDict.empty
-        lengths = PersistentDict.empty
-        lowerBounds = PersistentDict.empty
-        staticFields = PersistentDict.empty
-        boxedLocations = PersistentDict.empty
-        initializedTypes = SymbolicSet.empty
-        concreteMemory = Dictionary<_,_>()
-        physToVirt = PersistentDict.empty
-        allocatedTypes = PersistentDict.empty
-        typeVariables = (MappedStack.empty, Stack.empty)
-        delegates = PersistentDict.empty
-        currentTime = [1]
-        startingTime = VectorTime.zero
-        model = None
-        complete = complete
-    }
-
+    
     type memoryMode =
         | ConcreteMemory
         | SymbolicMemory
@@ -54,13 +31,13 @@ module internal Memory =
             match memoryMode with
             | ConcreteMemory -> ConcreteMemory.deepCopy state
             | SymbolicMemory -> state
-        { state with pc = newPc }
+        { state with id = Guid.NewGuid().ToString(); pc = newPc }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
 
     let addConstraint (s : state) cond =
-        s.pc <- PC.add s.pc cond
+        s.pc.Add cond
 
     let delinearizeArrayIndex ind lens lbs =
         let detachOne (acc, lens) lb =
@@ -179,6 +156,14 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? hashCodeSource as otherHashCodeSource ->
+                    match otherHashCodeSource.object, x.object with
+                    | ConstantT(_, otherConstantSource, _), ConstantT(_, constantSource, _) ->
+                        otherConstantSource.IndependentWith constantSource
+                    | _ -> true
+                | _ -> true 
 
     let hashConcreteAddress (address : concreteHeapAddress) =
         address.GetHashCode() |> makeNumber
@@ -215,14 +200,29 @@ module internal Memory =
                 | Some time -> time
                 | None -> internalfailf "Requesting time of primitive stack location %O" x.key
             override x.TypeOfLocation = x.key.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? stackReading as otherReading -> x <> otherReading
+                | _ -> true
 
     [<StructuralEquality;NoComparison>]
     type private heapReading<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
         {picker : regionPicker<'key, 'reg>; key : 'key; memoryObject : memoryRegion<'key, 'reg>; time : vectorTime}
         interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
+            override x.SubTerms =
+                let addKeySubTerms _ (regionKey : updateTreeKey<'key, term>) acc =
+                    Seq.fold PersistentSet.add acc regionKey.key.SubTerms
+                RegionTree.foldr addKeySubTerms PersistentSet.empty x.memoryObject.updates
+                |> PersistentSet.toSeq
+                |> Seq.append x.key.SubTerms
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? heapReading<'key, 'reg> as otherReading ->
+                    let rootRegions hr = match hr.memoryObject.updates with | Node dict -> PersistentDict.keys dict
+                    Seq.allPairs (rootRegions x) (rootRegions otherReading) |> Seq.forall (fun (reg1, reg2) -> reg1.CompareTo reg2 = Disjoint)
+                | _ -> true
 
     let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -272,6 +272,11 @@ module internal Memory =
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = fromDotNetType x.field.typ
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? structField as otherField ->
+                    x.field <> otherField.field && x.baseSource.IndependentWith otherField.baseSource
+                | _ -> true
 
     let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -285,6 +290,10 @@ module internal Memory =
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.baseSource.TypeOfLocation
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? heapAddressSource as otherAddress -> x.baseSource.IndependentWith otherAddress.baseSource
+                | _ -> true
 
     let (|HeapAddressSource|_|) (src : IMemoryAccessConstantSource) =
         match src with
@@ -297,6 +306,13 @@ module internal Memory =
         interface IStatedSymbolicConstantSource  with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+            override x.IndependentWith otherSource =
+                match otherSource with
+                | :? typeInitialized as otherType ->
+                    let xDotNetType = toDotNetType x.typ
+                    let otherDotNetType = toDotNetType otherType.typ
+                    structuralInfimum xDotNetType otherDotNetType = None
+                | _ -> true
 
     let (|TypeInitializedSource|_|) (src : IStatedSymbolicConstantSource) =
         match src with
@@ -630,7 +646,7 @@ module internal Memory =
     let private checkBlockBounds state reportError blockSize startByte endByte =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        state.pc.Add (makeExpressionNoOvf failCondition id)
         reportError state failCondition
 
     let private readAddressUnsafe address startByte endByte =
@@ -653,7 +669,7 @@ module internal Memory =
 
     and private readStructUnsafe fields structType startByte endByte =
         let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe (makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte endByte
+        readFieldsUnsafe (State.makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte endByte
 
     and private getAffectedFields state reportError readField isStatic (blockType : symbolicType) startByte endByte =
         let t = toDotNetType blockType
@@ -980,7 +996,7 @@ module internal Memory =
 
     and private writeStructUnsafe structTerm fields structType startByte value =
         let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe (makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte value
+        let updatedFields = writeFieldsUnsafe (State.makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 
@@ -1364,7 +1380,7 @@ module internal Memory =
         assert(not <| VectorTime.isEmpty state.currentTime)
         // TODO: do nothing if state is empty!
         list {
-            let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
+            let pc = PC.map (fillHoles state) state'.pc |> PC.unionWith state.pc
             // Note: this is not final evaluationStack of resulting cilState, here we forget left state's opStack at all
             let evaluationStack = composeEvaluationStacksOf state state'.evaluationStack
             let exceptionRegister = composeRaisedExceptionsOf state state'.exceptionsRegister
@@ -1386,6 +1402,7 @@ module internal Memory =
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
+                    id = Guid.NewGuid().ToString()
                     pc = if isTrue g then pc else PC.add pc g
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
@@ -1460,7 +1477,7 @@ module internal Memory =
         // TODO: print lower bounds?
         let sortBy sorter = Seq.sortBy (fst >> sorter)
         let sb = StringBuilder()
-        let sb = if PC.isEmpty s.pc then sb else s.pc |> PC.toString |> sprintf "Path condition: %s" |> PrettyPrinting.appendLine sb
+        let sb = if s.pc.IsEmpty then sb else s.pc.ToString() |> sprintf ("Path condition: %s") |> PrettyPrinting.appendLine sb
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Concrete memory" sortVectorTime VectorTime.print toString sb (s.concreteMemory |> Seq.map (fun kvp -> (kvp.Key, kvp.Value)) |> PersistentDict.ofSeq)
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays

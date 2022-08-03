@@ -5,7 +5,8 @@ open System.Reflection
 
 [<AutoOpen>]
 module API =
-    val ConfigureSolver : SolverInteraction.ISolver -> unit
+    val SetConstraintIndependenceEnabled : bool -> unit    
+    val ConfigureSolver : SolverInteraction.ISolver -> bool -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
@@ -18,7 +19,7 @@ module API =
     val StatedConditionalExecutionAppendResults : (state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (state list -> 'a) -> 'a) -> (state -> (state list -> 'a) -> 'a) -> (state list -> 'a) -> 'b)
 
     val GuardedApplyExpression : term -> (term -> term) -> term
-    val GuardedApplyExpressionWithPC : pathCondition -> term -> (term -> term) -> term
+    val GuardedApplyExpressionWithPC : IPathCondition -> term -> (term -> term) -> term
     val GuardedStatedApplyStatementK : state -> term -> (state -> term -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
@@ -107,8 +108,8 @@ module API =
         val AddConstraint : state -> term -> unit
         val IsFalsePathCondition : state -> bool
         val Contradicts : state -> term -> bool
-        val PathConditionToSeq : pathCondition -> term seq
-        val EmptyPathCondition : pathCondition
+        val PathConditionToSeq : IPathCondition -> term seq
+        val EmptyPathCondition : unit -> IPathCondition
 
     module Types =
         val Numeric : System.Type -> symbolicType
@@ -244,6 +245,7 @@ module API =
 
         val MakeSymbolicThis : IMethod -> term
         val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> symbolicType -> term
+        val FillWithParametersAndThis : state -> IMethod -> unit
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int
@@ -253,6 +255,7 @@ module API =
 
         val InitializeStaticMembers : state -> symbolicType -> unit
 
+        val AllocateOnStack : state -> stackKey -> term -> unit
         val AllocateTemporaryLocalVariable : state -> System.Type -> term -> term
         val AllocateDefaultClass : state -> symbolicType -> term
         val AllocateDefaultArray : state -> term list -> symbolicType -> term
@@ -288,16 +291,18 @@ module API =
 
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list
-        val WLP : state -> pathCondition -> pathCondition
+        val WLP : state -> IPathCondition -> IPathCondition
 
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
         val FillRegion : state -> term -> regionSort -> unit
+        
+        val IsStackEmpty : state -> bool
 
     module Print =
         val Dump : state -> string
-        val PrintPC : pathCondition -> string
+        val PrintPC : IPathCondition -> string
 
 //    module Marshalling =
 //        val Unmarshal : state -> obj -> term * state

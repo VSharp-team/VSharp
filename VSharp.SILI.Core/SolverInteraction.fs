@@ -1,6 +1,8 @@
 namespace VSharp.Core
 
+open System.Collections.Generic
 open FSharpx.Collections
+open Microsoft.FSharp.Core
 open VSharp
 
 module public SolverInteraction =
@@ -19,12 +21,16 @@ module public SolverInteraction =
         | SmtUnknown of string
 
     type ISolver =
-        abstract CheckSat : encodingContext -> term -> smtResult
+        abstract CheckSat : encodingContext -> term -> model -> smtResult
         abstract Assert : encodingContext -> term -> unit
+        abstract CheckAssumptions : encodingContext -> term seq -> model -> smtResult
 
-    let mutable private solver : ISolver option = None
+    let mutable private mSolver : ISolver option = None
+    let mutable private isIncrementalModeEnabled : bool = false
 
-    let configureSolver s = solver <- Some s
+    let configureSolver solver enableIncrementalMode =
+        mSolver <- Some solver
+        isIncrementalModeEnabled <- enableIncrementalMode
 
     let getEncodingContext (state : state) =
         let addresses = PersistentDict.keys state.allocatedTypes
@@ -32,10 +38,24 @@ module public SolverInteraction =
         let order = Seq.fold (fun (map, i) address -> Map.add address i map, i + 1) (Map.empty, 1) sortedAddresses |> fst
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
-
-    let checkSat state = // TODO: need to solve types here? #do
+        
+    let private getOrEmpty = Option.defaultValue { state = State.makeEmpty true; subst = Dictionary<_, _>() }
+        
+    let private checkSatPlainly state =
         let ctx = getEncodingContext state
-        let formula = PC.toSeq state.pc |> conjunction
-        match solver with
-        | Some s -> s.CheckSat ctx formula
-        | None -> SmtUnknown ""
+        let formula = state.pc.ToSeq() |> conjunction
+        match mSolver with
+        | Some s -> s.CheckSat ctx formula (getOrEmpty state.model)
+        | None -> SmtUnknown "Solver not configured"
+ 
+    let private checkSatIncrementally state =
+        let ctx = getEncodingContext state
+        let conditions = state.pc |> PC.toSeq
+        match mSolver with
+        | Some s -> s.CheckAssumptions ctx conditions (getOrEmpty state.model)
+        | None -> SmtUnknown "Solver not configured"
+        
+    let checkSat state =
+        // TODO: need to solve types here? #do
+        if isIncrementalModeEnabled then checkSatIncrementally state
+        else checkSatPlainly state

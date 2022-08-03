@@ -45,6 +45,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="27.2.1" />
       <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
     </ItemGroup>
 

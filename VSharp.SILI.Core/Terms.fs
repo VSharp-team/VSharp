@@ -247,6 +247,7 @@ and
     ISymbolicConstantSource =
         abstract SubTerms : term seq
         abstract Time : vectorTime
+        abstract IndependentWith : ISymbolicConstantSource -> bool
 
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
@@ -535,6 +536,10 @@ module internal Terms =
     let (|UnionT|_|) = term >> function
         | Union gvs -> Some(UnionT gvs)
         | _ -> None
+        
+    let (|ConstantT|_|) = term >> function
+        | Constant(name, src, typ) -> Some(ConstantT name, src, typ)
+        | _ -> None
 
     let (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
         | Union gvs -> Some(GuardedValues(List.unzip gvs))
@@ -736,10 +741,9 @@ module internal Terms =
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state |> foldSeq folder vs
         | Slice(t, s, e, pos) ->
-            let state = folder state t
-            let state = folder state s
-            let state = folder state e
-            folder state pos
+            foldSeq folder [t; s; e; pos] state
+        | Union(terms) ->
+            foldSeq folder (List.unzip terms |> (fun (l1, l2) -> List.append l1 l2)) state
         | _ -> state
 
     and doFold folder state term =

@@ -123,6 +123,7 @@ module TestGenerator =
     let state2test isError (m : Method) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest m.MethodBase
+        test.StateId <- Some cilState.state.id
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled e ->

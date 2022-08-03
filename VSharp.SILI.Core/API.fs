@@ -6,8 +6,10 @@ open FSharpx.Collections
 open VSharp
 
 module API =
-    let ConfigureSolver solver =
-        SolverInteraction.configureSolver solver
+    let SetConstraintIndependenceEnabled enabled =
+        FeatureFlags.setConstraintIndependenceEnabled enabled
+    let ConfigureSolver solver enableIncrementalMode =
+        SolverInteraction.configureSolver solver enableIncrementalMode
     let ConfigureSimplifier simplifier =
         configureSimplifier simplifier
 
@@ -165,10 +167,12 @@ module API =
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
         let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
-        let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
-        let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
-        let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
-        let EmptyPathCondition = PC.empty
+        let IsFalsePathCondition conditionState = conditionState.pc.IsFalse
+        let Contradicts state condition = 
+            let copy = PC.add state.pc condition
+            copy.IsFalse
+        let PathConditionToSeq (pc : IPathCondition) = pc.ToSeq()
+        let EmptyPathCondition() = PC.create()
 
     module Types =
         let Numeric t = Types.Numeric t
@@ -273,9 +277,9 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
-        let EmptyState() = Memory.makeEmpty false
+        let EmptyState() = State.makeEmpty false
         let EmptyModel method =
-            let modelState = Memory.makeEmpty true
+            let modelState = State.makeEmpty true
             Memory.fillWithParametersAndThis modelState method
             {subst = Dictionary<_,_>(); state = modelState}
 
@@ -390,6 +394,7 @@ module API =
 
         let MakeSymbolicThis m = Memory.makeSymbolicThis m
         let MakeSymbolicValue source name typ = Memory.makeSymbolicValue source name typ
+        let FillWithParametersAndThis state method = Memory.fillWithParametersAndThis state method
 
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
@@ -403,6 +408,8 @@ module API =
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
+            
+        let AllocateOnStack state key term = Memory.allocateOnStack state key term
 
         let AllocateTemporaryLocalVariable state typ term =
             let tmpKey = TemporaryLocalVariableKey typ
@@ -523,7 +530,7 @@ module API =
             | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
 
         let ComposeStates state state' = Memory.composeStates state state'
-        let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
+        let WLP state (pc' : IPathCondition) = PC.map (Memory.fillHoles state) pc' |> PC.unionWith state.pc
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
@@ -546,7 +553,9 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty Types.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty Types.Int8) (MemoryRegion.fillRegion value)
+        
+        let IsStackEmpty state = CallStack.isEmpty state.stack
 
     module Print =
         let Dump state = Memory.dump state
-        let PrintPC pc = PC.toString pc
+        let PrintPC (pc : IPathCondition) = pc.ToString()

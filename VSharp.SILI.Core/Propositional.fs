@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open VSharp.Core
 
 type IPropositionalSimplifier =
     abstract member Simplify : term -> term
@@ -245,6 +246,11 @@ module internal Propositional =
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
         | _ -> True
+        
+    let splitConjunction term =
+        match term.term with
+        | Conjunction args -> List.toSeq args
+        | _ -> Seq.singleton term
 
     let disjunction = function
         | Seq.Cons(x, xs) ->

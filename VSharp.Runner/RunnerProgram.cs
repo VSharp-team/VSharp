@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -111,20 +110,45 @@ namespace VSharp.Runner
 
         public static int Main(string[] args)
         {
+            var defaultOptions = new CoverOptions();
+            
             var assemblyPathArgument =
                 new Argument<FileInfo>("assembly-path", description: "Path to the target assembly");
-            var timeoutOption =
-                new Option<int>(aliases: new[] { "--timeout", "-t" },
-                    () => -1,
-                    "Time for test generation. Negative values mean no timeout.");
-            var outputOption =
-                new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
-                () => new DirectoryInfo(Directory.GetCurrentDirectory()),
-                "Path where unit tests will be generated");
+            
+            var timeoutOption = new Option<int>(
+                aliases: new[] { "--timeout", "-t" },
+                description: "Time for test generation. Negative values mean no timeout",
+                getDefaultValue: () => defaultOptions.Timeout
+            );
+            
+            var outputOption = new Option<DirectoryInfo>(
+                aliases: new[] { "--output", "-o" },
+                description: "Path where unit tests will be generated. Process working directory by default",
+                getDefaultValue: () => defaultOptions.OutputDirectory
+            );
+            
             var concreteArguments =
                 new Argument<string[]>("args", description: "Command line arguments");
-            var unknownArgsOption =
-                new Option("--unknown-args", description: "Force engine to generate various input console arguments");
+            
+            var unknownArgsOption = new Option<bool>(
+                "--unknown-args",
+                description: "Force engine to generate various input console arguments",
+                getDefaultValue: () => false
+            );
+            
+            var constraintIndependenceOption = new Option<bool>(
+                "--c-independence",
+                description: "If true, constraint independence optimization is enabled: independent constraint sets are maintained " +
+                             "during symbolic execution. In general, improves execution time",
+                getDefaultValue: () => defaultOptions.IsConstraintIndependenceEnabled
+            );
+            
+            var incrementalityOption = new Option<bool>(
+                "--incrementality",
+                description: "If true, SMT solver works in incremental mode during symbolic execution. May improve execution time" +
+                             " in some cases",
+                getDefaultValue: () => defaultOptions.IsSolverIncrementalityEnabled
+            );
 
             var rootCommand = new RootCommand();
 
@@ -136,12 +160,18 @@ namespace VSharp.Runner
             entryPointCommand.AddGlobalOption(timeoutOption);
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
+            entryPointCommand.AddOption(constraintIndependenceOption);
+            entryPointCommand.AddOption(incrementalityOption);
+            
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
             allPublicMethodsCommand.AddArgument(assemblyPathArgument);
             allPublicMethodsCommand.AddGlobalOption(timeoutOption);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
+            allPublicMethodsCommand.AddOption(constraintIndependenceOption);
+            allPublicMethodsCommand.AddOption(incrementalityOption);
+            
             var publicMethodsOfClassCommand =
                 new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
@@ -150,6 +180,9 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
             publicMethodsOfClassCommand.AddGlobalOption(timeoutOption);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
+            publicMethodsOfClassCommand.AddOption(constraintIndependenceOption);
+            publicMethodsOfClassCommand.AddOption(incrementalityOption);
+
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
@@ -158,47 +191,93 @@ namespace VSharp.Runner
             specificMethodCommand.AddArgument(assemblyPathArgument);
             specificMethodCommand.AddGlobalOption(timeoutOption);
             specificMethodCommand.AddGlobalOption(outputOption);
+            specificMethodCommand.AddOption(constraintIndependenceOption);
+            specificMethodCommand.AddOption(incrementalityOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool>((assemblyPath, args, timeout, output, unknownArgs) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (unknownArgs)
-                    args = null;
-                if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, args, timeout, output.FullName));
-            });
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo>((assemblyPath, timeout, output) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName));
-            });
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo>((className, assemblyPath, timeout, output) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool, bool, bool>
+            (
+                (assemblyPath, args, timeout, output, unknownArgs, cIndependence, incrementality) =>
                 {
-                    var type = ResolveType(assembly, className);
-                    if (type != null)
+                    var assembly = ResolveAssembly(assemblyPath);
+                    if (unknownArgs)
+                        args = null;
+                    if (assembly != null)
                     {
-                        PostProcess(TestGenerator.Cover(type, timeout, output.FullName));
+                        var options = new CoverOptions(
+                            OutputDirectory: output,
+                            IsConstraintIndependenceEnabled: cIndependence,
+                            IsSolverIncrementalityEnabled: incrementality,
+                            Timeout: timeout
+                        );
+                        
+                        PostProcess(TestGenerator.Cover(assembly, args, options));
                     }
                 }
-            });
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo>((methodName, assemblyPath, timeout, output) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
+            );
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, bool>
+            (
+                (assemblyPath, timeout, output, cIndependence, incrementality) =>
                 {
-                    var method = ResolveMethod(assembly, methodName);
-                    if (method != null)
+                    var assembly = ResolveAssembly(assemblyPath);
+                    if (assembly != null)
                     {
-                        PostProcess(TestGenerator.Cover(method, timeout, output.FullName));
+                        var options = new CoverOptions(
+                            OutputDirectory: output,
+                            IsConstraintIndependenceEnabled: cIndependence,
+                            IsSolverIncrementalityEnabled: incrementality,
+                            Timeout: timeout
+                        );
+                        
+                        PostProcess(TestGenerator.Cover(assembly, options));
                     }
                 }
-            });
+            );
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, bool>
+            (
+                (className, assemblyPath, timeout, output, cIndependence, incrementality) =>
+                {
+                    var assembly = ResolveAssembly(assemblyPath);
+                    if (assembly != null)
+                    {
+                        var type = ResolveType(assembly, className);
+                        if (type != null)
+                        {
+                            var options = new CoverOptions(
+                                OutputDirectory: output,
+                                IsConstraintIndependenceEnabled: cIndependence,
+                                IsSolverIncrementalityEnabled: incrementality,
+                                Timeout: timeout
+                            );
+                            
+                            PostProcess(TestGenerator.Cover(type, options));
+                        }
+                    }
+                }
+            );
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, bool>
+            (
+                (methodName, assemblyPath, timeout, output, cIndependence, incrementality) =>
+                {
+                    var assembly = ResolveAssembly(assemblyPath);
+                    if (assembly != null)
+                    {
+                        var method = ResolveMethod(assembly, methodName);
+                        if (method != null)
+                        {
+                            var options = new CoverOptions(
+                                OutputDirectory: output,
+                                IsConstraintIndependenceEnabled: cIndependence,
+                                IsSolverIncrementalityEnabled: incrementality,
+                                Timeout: timeout
+                            );
+                            
+                            PostProcess(TestGenerator.Cover(method, options));
+                        }
+                    }
+                }
+            );
 
             return rootCommand.InvokeAsync(args).Result;
         }

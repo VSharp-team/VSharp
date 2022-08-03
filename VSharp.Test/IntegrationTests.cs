@@ -1,8 +1,8 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
@@ -15,13 +15,6 @@ using VSharp.Solver;
 
 namespace VSharp.Test
 {
-    public enum SearchStrategy
-    {
-        DFS,
-        BFS,
-        ShortestDistance
-    }
-
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
@@ -126,7 +119,9 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
-                Core.API.ConfigureSolver(SolverPool.mkSolver());
+                Core.API.ConfigureSolver(SolverPool.mkSolver(), false);
+                Core.API.SetConstraintIndependenceEnabled(true);
+                
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try
                 {
@@ -169,7 +164,7 @@ namespace VSharp.Test
                 }
                 catch (Exception e)
                 {
-                    context.CurrentResult.SetResult(ResultState.Error, e.Message);
+                    context.CurrentResult.SetResult(ResultState.Error, e.Message, e.StackTrace);
                 }
 
                 return context.CurrentResult;

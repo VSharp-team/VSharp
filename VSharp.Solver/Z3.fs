@@ -9,7 +9,6 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -38,30 +37,30 @@ module internal Z3 =
 
     type private encodingCache = {
         sorts : IDictionary<symbolicType, Sort>
-        e2t : IDictionary<Expr, term>
-        t2e : IDictionary<term, encodingResult>
+        expressionToTerm : IDictionary<Expr, term>
+        termToExpression : IDictionary<term, encodingResult>
         heapAddresses : IDictionary<symbolicType * Expr, vectorTime>
         staticKeys : IDictionary<Expr, symbolicType>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
-            Dict.tryGetValue2 x.t2e term (fun () ->
+            Dict.tryGetValue2 x.termToExpression term (fun () ->
                 let result = {expr = encoder(); assumptions = List.empty}
-                x.e2t.[result.expr] <- term
-                x.t2e.[term] <- result
+                x.expressionToTerm.[result.expr] <- term
+                x.termToExpression.[term] <- result
                 result)
         member x.Get(term, encoder : unit -> encodingResult) =
-            Dict.tryGetValue2 x.t2e term (fun () ->
+            Dict.tryGetValue2 x.termToExpression term (fun () ->
                 let result = encoder()
-                x.e2t.[result.expr] <- term
-                x.t2e.[term] <- result
+                x.expressionToTerm.[result.expr] <- term
+                x.termToExpression.[term] <- result
                 result)
 
     let private freshCache () = {
         sorts = Dictionary<symbolicType, Sort>()
-        e2t = Dictionary<Expr, term>()
-        t2e = Dictionary<term, encodingResult>()
+        expressionToTerm = Dictionary<Expr, term>()
+        termToExpression = Dictionary<term, encodingResult>()
         heapAddresses = Dictionary<symbolicType * Expr, vectorTime>()
         staticKeys = Dictionary<Expr, symbolicType>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
@@ -76,7 +75,7 @@ module internal Z3 =
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
-            if encodingCache.regionConstants.TryGetValue(typ, result) then !result
+            if encodingCache.regionConstants.TryGetValue(typ, result) then result.Value
             else
                 let regConst = mkConst()
                 encodingCache.regionConstants.Add(typ, regConst)
@@ -84,6 +83,11 @@ module internal Z3 =
 
         member x.Reset() =
             encodingCache <- freshCache()
+            
+        member x.ClearQueryScopedCache() =
+            encodingCache.termToExpression.Clear()
+            encodingCache.heapAddresses.Clear()
+            encodingCache.regionConstants.Clear()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -615,12 +619,12 @@ module internal Z3 =
                 let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
-                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                if encodingCache.expressionToTerm.ContainsKey(expr) then encodingCache.expressionToTerm.[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String
             | :? IntNum as i -> Concrete i.Int (Numeric (Id typeof<int>))
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) (Numeric (Id typeof<int>))
             | _ ->
-                if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
+                if encodingCache.expressionToTerm.ContainsKey(expr) then encodingCache.expressionToTerm.[expr]
                 elif expr.IsTrue then True
                 elif expr.IsFalse then False
                 elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
@@ -657,44 +661,48 @@ module internal Z3 =
                     Memory.DefaultOf structureType |> ref)
                 structureRef.Value <- x.WriteFields structureRef.Value value fields
 
-        member x.MkModel (m : Model) =
-            let subst = Dictionary<ISymbolicConstantSource, term>()
+        member x.UpdateModel (z3Model : Model) (targetModel : model) =
+            encodingCache.lastSymbolicAddress <- targetModel.state.startingTime.Head
             let stackEntries = Dictionary<stackKey, term ref>()
-            encodingCache.t2e |> Seq.iter (fun kvp ->
+            encodingCache.termToExpression |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
-                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     let decoded = x.Decode t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
+                | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} ->
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
+                    x.Decode t refinedExpr
+                    |> x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
-                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
                         let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} ->
-                    let refinedExpr = m.Eval(kvp.Value.expr, false)
+                    let refinedExpr = z3Model.Eval(kvp.Value.expr, false)
                     let term = x.Decode t refinedExpr
-                    subst.Add(source, term)
+                    targetModel.subst.[source] <- term
                 | _ -> ())
+            
+            if Memory.IsStackEmpty targetModel.state then
+                Memory.NewStackFrame targetModel.state None List.empty
 
-            let state = {Memory.EmptyState() with complete = true}
-            let frame = stackEntries |> Seq.map (fun kvp ->
-                    let key = kvp.Key
-                    let term = kvp.Value.Value
-                    let typ = TypeOf term
-                    (key, Some term, typ))
-            Memory.NewStackFrame state None (List.ofSeq frame)
+            stackEntries |> Seq.iter (fun kvp ->
+                let key = kvp.Key
+                let term = kvp.Value.Value
+                Memory.AllocateOnStack targetModel.state key term)
 
             let defaultValues = Dictionary<regionSort, term ref>()
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
-                let arr = m.Eval(constant, false)
+                let arr = z3Model.Eval(constant, false)
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
                     else fields.Head.typ |> Types.FromDotNetType
@@ -720,33 +728,31 @@ module internal Z3 =
                                 let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
                                 HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.Write state (Ref address) value
-                        assert(states.Length = 1 && states.[0] = state)
+                        let states = Memory.Write targetModel.state (Ref address) value
+                        assert(states.Length = 1 && states.[0] = targetModel.state)
                     elif arr.IsConst then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
-                let constantValue = !kvp.Value
-                Memory.FillRegion state constantValue region)
+                let constantValue = kvp.Value.Value
+                Memory.FillRegion targetModel.state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr typ state.allocatedTypes)
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
-
-            encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst}
-
+                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr targetModel.state.allocatedTypes then
+                    targetModel.state.allocatedTypes <- PersistentDict.add addr typ targetModel.state.allocatedTypes)
+            targetModel.state.startingTime <- VectorTime.min targetModel.state.startingTime [encodingCache.lastSymbolicAddress - 1]
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
     type internal Z3Solver() =
 //        let optCtx = ctx.MkOptimize()
+        // Why Solver is named optCtx?
         let optCtx = ctx.MkSolver()
+        let assumptions = Dictionary<BoolExpr, string>()
 
 //        let addSoftConstraints lvl =
 //            let pathAtoms =
@@ -762,42 +768,96 @@ module internal Z3 =
 //            pathAtoms
 
         interface ISolver with
-            member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
+            member x.CheckSat (encCtx : encodingContext) (q : term) (currentModel : model) : smtResult =
                 printLog Trace "SOLVER: trying to solve constraints..."
                 printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
-                    let query = builder.EncodeTerm encCtx q
-                    let assumptions = query.assumptions
-                    let assumptions =
-                        seq {
-                            yield! (Seq.cast<_> assumptions)
-                            yield query.expr
-                        } |> Array.ofSeq
-//                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
-                    match result with
-                    | Status.SATISFIABLE ->
-                        trace "SATISFIABLE"
-                        let z3Model = optCtx.Model
-                        let model = builder.MkModel z3Model
-                        SmtSat { mdl = model }
-                    | Status.UNSATISFIABLE ->
-                        trace "UNSATISFIABLE"
-                        SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
-                    | Status.UNKNOWN ->
-                        trace "UNKNOWN"
-                        SmtUnknown optCtx.ReasonUnknown
-                    | _ -> __unreachable__()
-                with
-                | :? EncodingException as e ->
-                    printLog Info "SOLVER: exception was thrown: %s" e.Message
-                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    try
+                        let query = builder.EncodeTerm encCtx q
+                        let assumptions = query.assumptions
+                        let assumptions =
+                            seq {
+                                yield! (Seq.cast<_> assumptions)
+                                yield query.expr
+                            }
+                            |> Seq.distinct |> Array.ofSeq
+//                      let pathAtoms = addSoftConstraints q.lvl
+                        let result = optCtx.Check assumptions
+                        match result with
+                        | Status.SATISFIABLE ->
+                            trace "SATISFIABLE"
+                            let z3Model = optCtx.Model
+                            let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}
+                            builder.UpdateModel z3Model updatedModel
+                            SmtSat { mdl = updatedModel }
+                        | Status.UNSATISFIABLE ->
+                            trace "UNSATISFIABLE"
+                            SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
+                        | Status.UNKNOWN ->
+                            trace "UNKNOWN"
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    builder.ClearQueryScopedCache()
+                    
 
             member x.Assert encCtx (fml : term) =
                 printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
                 optCtx.Assert(encoded)
+
+            member x.CheckAssumptions encCtx formulas currentModel  =
+                let encodeToBoolExprs formula =
+                    let encoded = builder.EncodeTerm encCtx formula
+                    seq {
+                        yield! Seq.cast<BoolExpr> encoded.assumptions
+                        yield encoded.expr :?> BoolExpr
+                    }
+                try
+                    try                    
+                        let exprs = Seq.collect encodeToBoolExprs formulas |> Seq.distinct
+                        let boolConsts = seq {
+                            for expr in exprs do
+                                let mutable name = ""
+                                if assumptions.TryGetValue(expr, &name) then
+                                    yield ctx.MkBoolConst name
+                                else
+                                    name <- $"p{assumptions.Count}"
+                                    printLog Trace $"SOLVER: assert: {name} => {expr}"
+                                    assumptions.[expr] <- name
+                                    let boolConst = ctx.MkBoolConst name
+                                    let implication = ctx.MkImplies(boolConst, expr)
+                                    optCtx.Assert implication
+                                    yield boolConst
+                        }
+                        let names = boolConsts |> Seq.map (fun c -> c.ToString())
+                        printLog Trace $"""SOLVER: check: {join " & " names}"""
+                        let result = optCtx.Check boolConsts
+                        match result with
+                        | Status.SATISFIABLE ->
+                            trace "SATISFIABLE"
+                            let z3Model = optCtx.Model
+                            let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
+                            builder.UpdateModel z3Model updatedModel
+                            SmtSat { mdl = updatedModel }
+                        | Status.UNSATISFIABLE ->
+                            trace "UNSATISFIABLE"
+                            SmtUnsat { core = Array.empty }
+                        | Status.UNKNOWN ->
+                            trace "UNKNOWN"
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    builder.ClearQueryScopedCache()
 
     let reset() =
         builder.Reset()
