@@ -120,7 +120,7 @@ namespace VSharp.Test
             private TestResult Explore(TestExecutionContext context)
             {
                 Core.API.ConfigureSolver(SolverPool.mkSolver(), false);
-                Core.API.SetConstraintIndependenceEnabled(true);
+                Core.API.SetConstraintIndependenceEnabled(false);
                 
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 try

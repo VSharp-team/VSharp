@@ -75,7 +75,7 @@ namespace VSharp
         {
             // TODO: customize search strategies via console options
             UnitTests unitTests = new UnitTests(options.OutputDirectory.FullName);
-            SILI explorer = new SILI(options.ToSiliOptions());
+            SILI explorer = new SILI(options.ToSiliOptions(coverageZone.MethodZone));
             Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
             Core.API.SetConstraintIndependenceEnabled(options.IsConstraintIndependenceEnabled);
             

@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System.Collections.Generic
 open FSharpx.Collections
+open Microsoft.FSharp.Core
 open VSharp
 
 module public SolverInteraction =

@@ -4,11 +4,18 @@ using VSharp.Interpreter.IL;
 namespace VSharp
 {
     /// <summary>
-    /// 
+    /// Symbolic virtual machine execution mode.
     /// </summary>
     public enum ExecutionMode
     {
+        /// <summary>
+        /// Pure symbolic execution. Cannot cope with external dependencies in code. 
+        /// </summary>
         Symbolic,
+        /// <summary>
+        /// (Experimental) Concrete and symbolic execution combination. Allows to explore code with external dependencies by
+        /// instantiating concrete objects.
+        /// </summary>
         Concolic
     }
 
@@ -23,32 +30,24 @@ namespace VSharp
     }
 
     /// <summary>
-    /// 
+    /// Parameters of the test generation run. 
     /// </summary>
-    public enum CoverageZone
-    {
-        Method,
-        Class,
-        Module
-    }
-
-    /// <summary>
-    /// 
-    /// </summary>
-    /// <param name="OutputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+    /// <param name="OutputDirectory">Directory to place generated <c>*.vst</c> tests. If <c>null</c> or empty, process working directory is used.
+    /// <c>null</c> by default. </param>
     /// <param name="SearchStrategy"></param>
-    /// <param name="CoverageZone"></param>
-    /// <param name="ExecutionMode"></param>
+    /// <param name="ExecutionMode">Symbolic virtual machine execution mode. <see cref="F:ExecutionMode.Symbolic"/> by default.</param>
     /// <param name="GuidedSearch"></param>
     /// <param name="RecThreshold"></param>
-    /// <param name="Timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-    /// <param name="IsConstraintIndependenceEnabled"></param>
-    /// <param name="IsSolverIncrementalityEnabled"></param>
-    /// <param name="Visualize"></param>
+    /// <param name="Timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).
+    /// -1 by default</param>
+    /// <param name="IsConstraintIndependenceEnabled">If true, constraint independence optimization is enabled: independent constraint sets are maintained
+    /// during symbolic execution. In general, improves execution time. <c>true</c> by default.</param>
+    /// <param name="IsSolverIncrementalityEnabled">If true, SMT solver works in incremental mode during symbolic execution. May improve execution
+    /// time in some cases. <c>false</c> by default.</param>
+    /// <param name="Visualize">If true, symbolic execution process animation is saved in <c>/visualize</c> subdirectory of the <see cref="OutputDirectory"/>.</param>
     public readonly record struct CoverOptions(
         DirectoryInfo OutputDirectory = null,
         SearchStrategy SearchStrategy = SearchStrategy.DFS,
-        CoverageZone CoverageZone = CoverageZone.Method,
         ExecutionMode ExecutionMode = ExecutionMode.Symbolic,
         bool GuidedSearch = false,
         uint RecThreshold = 0u,
@@ -58,15 +57,8 @@ namespace VSharp
         bool Visualize = false
     )
     {
-        internal SiliOptions ToSiliOptions()
+        internal SiliOptions ToSiliOptions(coverageZone coverageZone)
         {
-            var coverageZone = CoverageZone switch
-            {
-                CoverageZone.Method => Interpreter.IL.coverageZone.MethodZone,
-                CoverageZone.Class => Interpreter.IL.coverageZone.ClassZone,
-                CoverageZone.Module => Interpreter.IL.coverageZone.ModuleZone
-            };
-            
             var searchMode = SearchStrategy switch
             {
                 SearchStrategy.DFS => Interpreter.IL.searchMode.DFSMode,

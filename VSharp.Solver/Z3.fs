@@ -75,7 +75,7 @@ module internal Z3 =
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
-            if encodingCache.regionConstants.TryGetValue(typ, result) then !result
+            if encodingCache.regionConstants.TryGetValue(typ, result) then result.Value
             else
                 let regConst = mkConst()
                 encodingCache.regionConstants.Add(typ, regConst)
@@ -84,8 +84,10 @@ module internal Z3 =
         member x.Reset() =
             encodingCache <- freshCache()
             
-        member x.ClearTermToExpressionCache() =
+        member x.ClearQueryScopedCache() =
             encodingCache.termToExpression.Clear()
+            encodingCache.heapAddresses.Clear()
+            encodingCache.regionConstants.Clear()
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -743,9 +745,6 @@ module internal Z3 =
                     targetModel.state.allocatedTypes <- PersistentDict.add addr typ targetModel.state.allocatedTypes)
             targetModel.state.startingTime <- VectorTime.min targetModel.state.startingTime [encodingCache.lastSymbolicAddress - 1]
 
-            encodingCache.heapAddresses.Clear()
-            encodingCache.termToExpression.Clear()
-
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
@@ -773,36 +772,38 @@ module internal Z3 =
                 printLog Trace "SOLVER: trying to solve constraints..."
                 printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
-                    let query = builder.EncodeTerm encCtx q
-                    let assumptions = query.assumptions
-                    let assumptions =
-                        seq {
-                            yield! (Seq.cast<_> assumptions)
-                            yield query.expr
-                        } |> Array.ofSeq
-//                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
-                    match result with
-                    | Status.SATISFIABLE ->
-                        trace "SATISFIABLE"
-                        let z3Model = optCtx.Model
-                        let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}
-                        builder.UpdateModel z3Model updatedModel                      
-                        builder.ClearTermToExpressionCache()
-                        SmtSat { mdl = updatedModel }
-                    | Status.UNSATISFIABLE ->
-                        trace "UNSATISFIABLE"
-                        builder.ClearTermToExpressionCache()
-                        SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
-                    | Status.UNKNOWN ->
-                        trace "UNKNOWN"
-                        builder.ClearTermToExpressionCache()
-                        SmtUnknown optCtx.ReasonUnknown
-                    | _ -> __unreachable__()
-                with
-                | :? EncodingException as e ->
-                    printLog Info "SOLVER: exception was thrown: %s" e.Message
-                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    try
+                        let query = builder.EncodeTerm encCtx q
+                        let assumptions = query.assumptions
+                        let assumptions =
+                            seq {
+                                yield! (Seq.cast<_> assumptions)
+                                yield query.expr
+                            }
+                            |> Seq.distinct |> Array.ofSeq
+//                      let pathAtoms = addSoftConstraints q.lvl
+                        let result = optCtx.Check assumptions
+                        match result with
+                        | Status.SATISFIABLE ->
+                            trace "SATISFIABLE"
+                            let z3Model = optCtx.Model
+                            let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}
+                            builder.UpdateModel z3Model updatedModel
+                            SmtSat { mdl = updatedModel }
+                        | Status.UNSATISFIABLE ->
+                            trace "UNSATISFIABLE"
+                            SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
+                        | Status.UNKNOWN ->
+                            trace "UNKNOWN"
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    builder.ClearQueryScopedCache()
+                    
 
             member x.Assert encCtx (fml : term) =
                 printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
@@ -817,43 +818,46 @@ module internal Z3 =
                         yield! Seq.cast<BoolExpr> encoded.assumptions
                         yield encoded.expr :?> BoolExpr
                     }
-                try                    
-                    let exprs = Seq.collect encodeToBoolExprs formulas
-                    let boolConsts = seq {
-                        for expr in exprs do
-                            let mutable name = ""
-                            if assumptions.TryGetValue(expr, &name) then
-                                yield ctx.MkBoolConst name
-                            else
-                                name <- $"p{assumptions.Count}"
-                                printLog Trace $"SOLVER: assert: {name} => {expr}"
-                                assumptions.[expr] <- name
-                                let boolConst = ctx.MkBoolConst name
-                                let implication = ctx.MkImplies(boolConst, expr)
-                                optCtx.Assert implication
-                                yield boolConst
-                    }
-                    let names = boolConsts |> Seq.map (fun c -> c.ToString())
-                    printLog Trace $"""SOLVER: check: {join " & " names}"""
-                    let result = optCtx.Check boolConsts
-                    match result with
-                    | Status.SATISFIABLE ->
-                        let z3Model = optCtx.Model
-                        let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
-                        builder.UpdateModel z3Model updatedModel
-                        builder.ClearTermToExpressionCache()
-                        SmtSat { mdl = updatedModel }
-                    | Status.UNSATISFIABLE ->
-                        builder.ClearTermToExpressionCache()
-                        SmtUnsat { core = Array.empty }
-                    | Status.UNKNOWN ->
-                        builder.ClearTermToExpressionCache()
-                        SmtUnknown optCtx.ReasonUnknown
-                    | _ -> __unreachable__()
-                with
-                | :? EncodingException as e ->
-                    printLog Info "SOLVER: exception was thrown: %s" e.Message
-                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                try
+                    try                    
+                        let exprs = Seq.collect encodeToBoolExprs formulas |> Seq.distinct
+                        let boolConsts = seq {
+                            for expr in exprs do
+                                let mutable name = ""
+                                if assumptions.TryGetValue(expr, &name) then
+                                    yield ctx.MkBoolConst name
+                                else
+                                    name <- $"p{assumptions.Count}"
+                                    printLog Trace $"SOLVER: assert: {name} => {expr}"
+                                    assumptions.[expr] <- name
+                                    let boolConst = ctx.MkBoolConst name
+                                    let implication = ctx.MkImplies(boolConst, expr)
+                                    optCtx.Assert implication
+                                    yield boolConst
+                        }
+                        let names = boolConsts |> Seq.map (fun c -> c.ToString())
+                        printLog Trace $"""SOLVER: check: {join " & " names}"""
+                        let result = optCtx.Check boolConsts
+                        match result with
+                        | Status.SATISFIABLE ->
+                            trace "SATISFIABLE"
+                            let z3Model = optCtx.Model
+                            let updatedModel = {currentModel with state = {currentModel.state with model = currentModel.state.model}}  
+                            builder.UpdateModel z3Model updatedModel
+                            SmtSat { mdl = updatedModel }
+                        | Status.UNSATISFIABLE ->
+                            trace "UNSATISFIABLE"
+                            SmtUnsat { core = Array.empty }
+                        | Status.UNKNOWN ->
+                            trace "UNKNOWN"
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    builder.ClearQueryScopedCache()
 
     let reset() =
         builder.Reset()
