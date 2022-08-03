@@ -73,20 +73,16 @@ namespace VSharp
     {
         private static Statistics StartExploration(List<MethodBase> methods, CoverOptions options = new(), string[] mainArguments = null)
         {
+            var outputDirectory = options.OutputDirectory ?? new DirectoryInfo(Directory.GetCurrentDirectory());
             // TODO: customize search strategies via console options
-            UnitTests unitTests = new UnitTests(options.OutputDirectory.FullName);
+            UnitTests unitTests = new UnitTests(outputDirectory.FullName);
             SILI explorer = new SILI(options.ToSiliOptions(coverageZone.MethodZone));
+            // TODO: refresh solver ctx for each method in incremental mode
+            Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
             Core.API.SetConstraintIndependenceEnabled(options.IsConstraintIndependenceEnabled);
 
-            var i = 0;
             foreach (var method in methods)
             {
-                // When solver works in incremental mode, it should be recreated for each scope to clear cached stuff
-                if (i == 0 || options.IsSolverIncrementalityEnabled)
-                {
-                    Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
-                }
-
                 if (method == method.Module.Assembly.EntryPoint)
                 {
                     explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
@@ -97,8 +93,6 @@ namespace VSharp
                     explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                         e => throw e);
                 }
-
-                ++i;
             }
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,

@@ -110,30 +110,44 @@ namespace VSharp.Runner
 
         public static int Main(string[] args)
         {
+            var defaultOptions = new CoverOptions();
+            
             var assemblyPathArgument =
                 new Argument<FileInfo>("assembly-path", description: "Path to the target assembly");
-            var timeoutOption =
-                new Option<int>(aliases: new[] { "--timeout", "-t" },
-                    () => -1,
-                    "Time for test generation. Negative values mean no timeout");
-            var outputOption =
-                new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
-                () => new DirectoryInfo(Directory.GetCurrentDirectory()),
-                "Path where unit tests will be generated");
+            
+            var timeoutOption = new Option<int>(
+                aliases: new[] { "--timeout", "-t" },
+                description: "Time for test generation. Negative values mean no timeout",
+                getDefaultValue: () => defaultOptions.Timeout
+            );
+            
+            var outputOption = new Option<DirectoryInfo>(
+                aliases: new[] { "--output", "-o" },
+                description: "Path where unit tests will be generated. Process working directory by default",
+                getDefaultValue: () => defaultOptions.OutputDirectory
+            );
+            
             var concreteArguments =
                 new Argument<string[]>("args", description: "Command line arguments");
-            var unknownArgsOption =
-                new Option("--unknown-args", description: "Force engine to generate various input console arguments");
-
+            
+            var unknownArgsOption = new Option<bool>(
+                "--unknown-args",
+                description: "Force engine to generate various input console arguments",
+                getDefaultValue: () => false
+            );
+            
             var constraintIndependenceOption = new Option<bool>(
                 "--c-independence",
-                description: "Maintain independent constraint sets (constraint independence optimization). True by default",
-                getDefaultValue: () => true
+                description: "If true, constraint independence optimization is enabled: independent constraint sets are maintained " +
+                             "during symbolic execution. In general, improves execution time",
+                getDefaultValue: () => defaultOptions.IsConstraintIndependenceEnabled
             );
+            
             var incrementalityOption = new Option<bool>(
                 "--incrementality",
-                description: "Enable SMT solver incremental mode. False by default",
-                getDefaultValue: () => false
+                description: "If true, SMT solver works in incremental mode during symbolic execution. May improve execution time" +
+                             " in some cases",
+                getDefaultValue: () => defaultOptions.IsSolverIncrementalityEnabled
             );
 
             var rootCommand = new RootCommand();
