@@ -28,7 +28,7 @@ namespace VSharp
         public TimeSpan TestGenerationTime { get; }
 
         /// <summary>
-        /// Directory where *.vst tests are placed
+        /// Directory where *.vst tests are placed.
         /// </summary>
         public DirectoryInfo OutputDir { get; }
 
@@ -76,12 +76,17 @@ namespace VSharp
             // TODO: customize search strategies via console options
             UnitTests unitTests = new UnitTests(options.OutputDirectory.FullName);
             SILI explorer = new SILI(options.ToSiliOptions(coverageZone.MethodZone));
-            Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
             Core.API.SetConstraintIndependenceEnabled(options.IsConstraintIndependenceEnabled);
-            
-            // TODO: single solver instance for multiple methods causes problems in incrementality mode
+
+            var i = 0;
             foreach (var method in methods)
             {
+                // When solver works in incremental mode, it should be recreated for each scope to clear cached stuff
+                if (i == 0 || options.IsSolverIncrementalityEnabled)
+                {
+                    Core.API.ConfigureSolver(SolverPool.mkSolver(), options.IsSolverIncrementalityEnabled);
+                }
+
                 if (method == method.Module.Assembly.EntryPoint)
                 {
                     explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
@@ -92,6 +97,8 @@ namespace VSharp
                     explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                         e => throw e);
                 }
+
+                ++i;
             }
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
