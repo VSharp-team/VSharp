@@ -89,7 +89,7 @@ type ITypeMockSerializer =
     abstract IsMockObject : obj -> bool
     abstract IsMockRepresentation : obj -> bool
     abstract Serialize : obj -> obj
-    abstract Deserialize : MemoryGraph -> obj -> obj
+    abstract Deserialize : (obj -> obj) -> obj -> obj
 
 and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) as this =
 
@@ -127,7 +127,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) as this =
         | :? enumRepr as repr ->
             let t = sourceTypes.[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
-        | _ when mocker.IsMockRepresentation obj -> mocker.Deserialize this obj
+        | _ when mocker.IsMockRepresentation obj -> mocker.Deserialize decodeValue obj
         | _ -> obj
 
     and decodeStructure (repr : structureRepr) obj =

@@ -26,6 +26,7 @@ module internal TypeCasting =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = optCons (optCons [] x.left.SubTerm) x.right.SubTerm :> term seq
             override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<bool>
 
     let (|TypeSubtypeTypeSource|_|) (src : ISymbolicConstantSource) =
         match src with
@@ -148,7 +149,13 @@ module internal TypeCasting =
                     addressIsType l (Memory.typeOfHeapLocation state l) (fillType r)
                 | ConcreteType l, SymbolicType r ->
                     let r = fillTerm r
-                    typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
+                    let notMock() = typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
+                    match r with
+                    | {term = ConcreteHeapAddress addr} ->
+                        match state.allocatedTypes.[addr] with
+                        | MockType _ -> False
+                        | _ -> notMock()
+                    | _ -> notMock()
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
 
     let private doCast term targetType =

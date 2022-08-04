@@ -339,7 +339,7 @@ module internal Z3 =
 
 // ------------------------------- Encoding: memory reading -------------------------------
 
-        member private x.EncodeSymbolicAddress encCtx (heapRefSource : IMemoryAccessConstantSource) structFields name =
+        member private x.EncodeSymbolicAddress encCtx (heapRefSource : ISymbolicConstantSource) structFields name =
             x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
 
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
@@ -497,10 +497,10 @@ module internal Z3 =
                 encodingCache.staticKeys.Add(encodedKey, key.typ)
                 {expr = ctx.MkSelect(array, encodedKey); assumptions = List.empty}
 
-        member private x.StructReading encCtx (structSource : IMemoryAccessConstantSource) (field : fieldId) typ structFields name =
+        member private x.StructReading encCtx (structSource : ISymbolicConstantSource) (field : fieldId) typ structFields name =
             x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
 
-        member private x.EncodeMemoryAccessConstant encCtx name (source : IMemoryAccessConstantSource) (structFields : fieldId list) typ : encodingResult =
+        member private x.EncodeMemoryAccessConstant encCtx name (source : ISymbolicConstantSource) (structFields : fieldId list) typ : encodingResult =
             match source with
             | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source structFields name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
@@ -658,6 +658,7 @@ module internal Z3 =
         member x.MkModel (m : Model) =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
+            let state = {Memory.EmptyState() with complete = true}
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
@@ -680,7 +681,6 @@ module internal Z3 =
                     subst.Add(source, term)
                 | _ -> ())
 
-            let state = {Memory.EmptyState() with complete = true}
             let frame = stackEntries |> Seq.map (fun kvp ->
                     let key = kvp.Key
                     let term = kvp.Value.Value
@@ -725,7 +725,7 @@ module internal Z3 =
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
-                let constantValue = !kvp.Value
+                let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->

@@ -31,6 +31,7 @@ module API =
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
     val TryGetModel : state -> model option
+    val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> unit) -> unit
     val ErrorReporter : unit -> (state -> term -> unit)
@@ -88,21 +89,22 @@ module API =
         val (|NullPtr|_|) : term -> unit option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
-        val (|HeapReading|_|) : IMemoryAccessConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
-        val (|ArrayIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
-        val (|VectorIndexReading|_|) : IMemoryAccessConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
-        val (|StackBufferReading|_|) : IMemoryAccessConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
-        val (|StaticsReading|_|) : IMemoryAccessConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>>
-        val (|StructFieldSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource * fieldId>
-        val (|StructFieldChain|_|) : ISymbolicConstantSource -> option<fieldId list * IMemoryAccessConstantSource>
-        val (|HeapAddressSource|_|) : IMemoryAccessConstantSource -> option<IMemoryAccessConstantSource>
+        val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
+        val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
+        val (|VectorIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
+        val (|StackBufferReading|_|) : ISymbolicConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
+        val (|StaticsReading|_|) : ISymbolicConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>>
+        val (|StructFieldSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource * fieldId>
+        val (|StructFieldChain|_|) : ISymbolicConstantSource -> option<fieldId list * ISymbolicConstantSource>
+        val (|HeapAddressSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource>
         val (|TypeInitializedSource|_|) : IStatedSymbolicConstantSource -> option<Type * symbolicTypeSet>
         val (|TypeSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<Type * Type>
         val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
+        val (|MockResultSource|_|) : ISymbolicConstantSource -> option<concreteHeapAddress * MethodMock>
 
-        val GetHeapReadingRegionSort : IMemoryAccessConstantSource -> regionSort
+        val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
         val HeapReferenceToBoxReference : term -> term
 
@@ -234,7 +236,7 @@ module API =
         val DefaultOf : Type -> term
 
         val MakeSymbolicThis : IMethod -> term
-        val MakeSymbolicValue : IMemoryAccessConstantSource -> string -> Type -> term
+        val MakeSymbolicValue : ISymbolicConstantSource -> string -> Type -> term
 
         val CallStackContainsFunction : state -> IMethod -> bool
         val CallStackSize : state -> int

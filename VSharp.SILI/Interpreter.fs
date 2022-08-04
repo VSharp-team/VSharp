@@ -1001,15 +1001,66 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     (callForConcreteType baseType)
                     (fun s k -> x.CallAbstract ancestorMethod s k)
                     k
-            if baseType.IsInterface
+            if baseType.IsAbstract
                 then x.CallAbstract ancestorMethod cilState k
                 else tryToCallForBaseType cilState k
         GuardedApplyCIL cilState this callVirtual k
 
-    member x.CallAbstract (method : Method) cilState k =
-        let iie = createInsufficientInformation "Can't call abstract method %O, need more information about the object type" method
-        cilState.iie <- Some iie
-        k (List.singleton cilState)
+    member x.CallAbstract (ancestorMethod : Method) cilState k =
+        let this = Memory.ReadThis cilState.state ancestorMethod
+        let thisInModel, candidateTypes = ResolveCallVirt cilState.state this
+        let candidateTypes = List.ofSeq candidateTypes |> List.distinct
+        let signature = ancestorMethod.Parameters |> Array.map (fun p -> p.ParameterType)
+        let candidateMethods = seq {
+            for t in candidateTypes do
+                match t with
+                | ConcreteType t ->
+                    let overriden = t.GetMethod(ancestorMethod.Name, ancestorMethod.GenericArguments.Length, signature)
+                    let overriden = Application.getMethod overriden
+                    // TODO: more complex criteria here...
+                    if overriden.InCoverageZone then
+                        yield (t, overriden)
+                | _ -> ()}
+        let candidateMethods = candidateMethods |> Seq.toList |> List.distinctBy snd
+        let typeMocks = seq {
+            for t in candidateTypes do
+                match t with
+                | MockType mock -> yield mock
+                | _ -> ()
+        }
+        let invokeMock cilState k =
+            match List.ofSeq typeMocks with
+            | [] -> ()
+            | [mock : ITypeMock] ->
+                popFrameOf cilState
+                let model = Option.get cilState.state.model
+                model.state.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) model.state.allocatedTypes
+                candidateTypes |> Seq.iter (function
+                    | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
+                    | _ -> ())
+//                let methodMock = mock.MethodMocks |> Seq.find (fun m -> m.BaseMethod.Name = ancestorMethod.Name && m.BaseMethod.GetParameters() |> Array.forall (fun p -> p.ParameterType = signature.[p.Position]))
+                let methodMock = mock.MethodMock ancestorMethod
+                match methodMock.Call thisInModel [] with // TODO: pass args!
+                | Some result ->
+                    assert(ancestorMethod.ReturnType <> typeof<Void>)
+                    push result cilState
+                | None ->
+                    assert(ancestorMethod.ReturnType = typeof<Void>)
+            | _ -> internalfail "Got more than one mock for callvirt!"
+            match tryCurrentLoc cilState with
+             | Some loc ->
+                 fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
+             | _ -> __unreachable__()
+        let rec dispatch candidates cilState k =
+            match candidates with
+            | [] -> invokeMock cilState k
+            | (t, method)::rest ->
+                StatedConditionalExecutionCIL cilState
+                    (fun cilState k -> k (API.Types.TypeIsRef cilState t this, cilState))
+                    (fun cilState k -> x.InvokeVirtualMethod cilState ancestorMethod method k)
+                    (dispatch rest)
+                    k
+        dispatch candidateMethods cilState k
 
     member private x.ConvOvf targetType (cilState : cilState) =
         let supersetsOf =

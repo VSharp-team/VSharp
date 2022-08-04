@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
+open VSharp.Core
 
 module API =
     let ConfigureSolver solver =
@@ -13,7 +14,6 @@ module API =
 
     let Reset() =
         IdGenerator.reset()
-        TypeSolver.reset()
     let SaveConfiguration() =
         IdGenerator.saveConfiguration()
     let Restore() =
@@ -51,6 +51,7 @@ module API =
             | SolverInteraction.SmtUnknown _ -> None
             // NOTE: irrelevant case, because exploring branch must be valid
             | SolverInteraction.SmtUnsat _ -> __unreachable__()
+    let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
     let mutable private reportError = fun _ -> ()
     let ConfigureErrorReporter errorReporter =
@@ -130,7 +131,7 @@ module API =
             | {term = HeapRef(addr, t)} when addr = zeroAddress -> Some(t)
             | _ -> None
         let (|NonNullRef|_|) = function
-            | {term = HeapRef(addr, t)} when addr = zeroAddress -> None
+            | {term = HeapRef(addr, _)} when addr = zeroAddress -> None
             | _ -> Some()
         let (|NullPtr|_|) = function
             | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
@@ -157,6 +158,10 @@ module API =
         let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
+        let (|MockResultSource|_|) (src : ISymbolicConstantSource) =
+            match src with
+            | :? functionResultConstantSource as fr -> Some(fr.concreteThis, fr.mock)
+            | _ -> None
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 

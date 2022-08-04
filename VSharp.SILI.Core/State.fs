@@ -12,7 +12,7 @@ type stackBufferKey = concreteHeapAddress
 
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
-    abstract Call : term list -> term option
+    abstract Call : concreteHeapAddress -> term list -> term option
     abstract GetImplementationClauses : unit -> term array
 
 type ITypeMock =
@@ -20,7 +20,7 @@ type ITypeMock =
     abstract SuperTypes : Type seq
     abstract MethodMock : IMethod -> IMethodMock
     abstract MethodMocks : IMethodMock seq
-    abstract WithSuperTypes : Type seq -> ITypeMock
+    abstract Copy : unit -> ITypeMock
 
 type symbolicType =
     | ConcreteType of Type
@@ -126,6 +126,7 @@ and
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
     mutable model : model option                                       // Concrete valuation of symbolics
     complete : bool                                                    // If true, reading of undefined locations would result in default values
+    typeMocks : IDictionary<Type list, ITypeMock>
 }
 
 and

@@ -2,7 +2,7 @@ namespace IntegrationTests;
 
 using VSharp.Test;
 
-internal interface IDependence
+public interface IDependence
 {
     int F();
 }

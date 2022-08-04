@@ -13,6 +13,7 @@ module internal Copying =
         interface INonComposableSymbolicConstantSource with
             override x.SubTerms = seq [] :> term seq
             override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<int>
 
     let private makeArrayIndexConstant state lowerBound upperBound =
         let source = {lowerBound = lowerBound; upperBound = upperBound}

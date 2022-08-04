@@ -255,10 +255,6 @@ namespace IntegrationTests
         }
 
 
-        // #####################################################
-        // TESTS THAT SHOULD NOT HANDLE IIE
-
-        // expecting IIE
         [TestSvm(100)]
         public static int CallVirtualMethod_IIE_1(VirtualC virtualC)
         {
@@ -267,7 +263,6 @@ namespace IntegrationTests
         }
 
 
-        // expecting IIE
         [TestSvm(67)]
         public static int ArrayRank_IIE_1(Array array)
         {
@@ -275,9 +270,6 @@ namespace IntegrationTests
             return GetRank(array);
         }
 
-
-        // #####################################################
-        // TESTS THAT SHOULD AT FIRST NOT HANDLE IIE BUT THEN HANDLE
 
         // expecting 71
         [TestSvm]

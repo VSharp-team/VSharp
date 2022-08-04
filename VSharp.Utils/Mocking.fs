@@ -12,17 +12,17 @@ open VSharp
 [<Serializable>]
 [<XmlInclude(typeof<typeRepr>)>]
 type methodRepr = {
-    assemblyName : string
-    moduleFullyQualifiedName : string
+    declaringType : typeRepr
     token : int
 }
 with
     member x.Decode() =
-        let mdle = Reflection.resolveModule x.assemblyName x.moduleFullyQualifiedName
-        mdle.ResolveMethod x.token :?> MethodInfo
+        let declaringType = Serialization.decodeType x.declaringType
+        declaringType.GetMethods() |> Seq.find (fun m -> m.MetadataToken = x.token)
 
     static member Encode(m : MethodBase) : methodRepr = {
-        assemblyName = m.Module.Assembly.FullName; moduleFullyQualifiedName = m.Module.FullyQualifiedName; token = m.MetadataToken
+        declaringType = Serialization.encodeType m.DeclaringType
+        token = m.MetadataToken
     }
 
 [<CLIMutable>]
@@ -51,9 +51,9 @@ module Mocking =
     type Method(baseMethod : MethodInfo, clausesCount : int) =
         let returnValues : obj[] = Array.zeroCreate clausesCount
         let name = baseMethod.Name
-        let storageFieldName = baseMethod.Name + "_<Storage>"
-        let counterFieldName = baseMethod.Name + "_<Counter>"
-        let returnType = baseMethod.ReturnType
+        let storageFieldName = $"{baseMethod.Name}{baseMethod.MethodHandle.Value}_<Storage>"
+        let counterFieldName = $"{baseMethod.Name}{baseMethod.MethodHandle.Value}_<Counter>"
+        let mutable returnType = baseMethod.ReturnType
 
         member x.BaseMethod = baseMethod
         member x.ReturnValues = returnValues
@@ -62,11 +62,12 @@ module Mocking =
             clauses |> Array.iteri (fun i o -> returnValues.[i] <- o)
 
         member x.InitializeType (typ : Type) =
-            let field = typ.GetField(storageFieldName, BindingFlags.Static)
+            let field = typ.GetField(storageFieldName, BindingFlags.NonPublic ||| BindingFlags.Static)
             if field = null then
                 internalfail $"Could not detect field %s{storageFieldName} of mock!"
-            field.SetValue(null, returnValues)
-
+            let storage = Array.CreateInstance(returnType, clausesCount)
+            Array.Copy(returnValues, storage, clausesCount)
+            field.SetValue(null, storage)
 
         member x.Build (typeBuilder : TypeBuilder) =
             let methodAttributes = MethodAttributes.Public
@@ -75,13 +76,39 @@ module Mocking =
                                    ||| MethodAttributes.Virtual
                                    ||| MethodAttributes.Final
 
-            let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
-            let counterField = typeBuilder.DefineField(counterFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
             let methodBuilder = typeBuilder.DefineMethod(baseMethod.Name,
                                                         methodAttributes,
-                                                        baseMethod.ReturnType,
-                                                        baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
+                                                        CallingConventions.HasThis)
+            if baseMethod.IsGenericMethod then
+                let baseGenericArgs = baseMethod.GetGenericArguments()
+                let genericsBuilder = methodBuilder.DefineGenericParameters(baseGenericArgs |> Array.map (fun p -> p.Name))
+                baseGenericArgs |> Array.iteri (fun i p ->
+                    let constraints = p.GetGenericParameterConstraints()
+                    let builder = genericsBuilder.[i]
+                    let interfaceConstraints = constraints |> Array.filter (fun c -> if c.IsInterface then true else builder.SetBaseTypeConstraint c; false)
+                    if interfaceConstraints.Length > 0 then
+                        builder.SetInterfaceConstraints interfaceConstraints)
+                let rec convertType (typ : Type) =
+                    if typ.IsGenericMethodParameter then genericsBuilder.[Array.IndexOf(baseGenericArgs, typ)] :> Type
+                    elif typ.IsGenericType then
+                        let args = typ.GetGenericArguments()
+                        let args' = args |> Array.map convertType
+                        if args = args' then typ
+                        else
+                            typ.GetGenericTypeDefinition().MakeGenericType(args')
+                    else typ
+                methodBuilder.SetReturnType (convertType baseMethod.ReturnType)
+                let parameters = baseMethod.GetParameters() |> Array.map (fun p -> convertType p.ParameterType)
+                methodBuilder.SetParameters(parameters)
+            else
+                methodBuilder.SetReturnType baseMethod.ReturnType
+                methodBuilder.SetParameters(baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
+            returnType <- methodBuilder.ReturnType
             typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)
+
+            let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
+            let counterField = typeBuilder.DefineField(counterFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
+
             let ilGenerator = methodBuilder.GetILGenerator()
 
             let normalCase = ilGenerator.DefineLabel()
@@ -105,10 +132,10 @@ module Mocking =
             ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldelem, returnType)
 
-            ilGenerator.Emit(OpCodes.Ldsfld, storageField)
+            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldc_I4_1)
             ilGenerator.Emit(OpCodes.Add)
-            ilGenerator.Emit(OpCodes.Stsfld, storageField)
+            ilGenerator.Emit(OpCodes.Stsfld, counterField)
 
             ilGenerator.Emit(OpCodes.Ret)
 
@@ -152,43 +179,50 @@ module Mocking =
 
             if baseClass <> null then
                 typeBuilder.SetParent baseClass
+                let baseHasNoDefaultCtor = baseClass.GetConstructor [||] = null
+                if baseHasNoDefaultCtor then
+                    // Defining non-default ctor to eliminate the default one
+                    let nonDefaultCtor = typeBuilder.DefineConstructor(MethodAttributes.Private, CallingConventions.Standard, [|typeof<int32>|])
+                    let body = nonDefaultCtor.GetILGenerator()
+                    body.Emit(OpCodes.Ret)
+
             interfaces |> ResizeArray.iter typeBuilder.AddInterfaceImplementation
 
             methods |> ResizeArray.iter (fun methodMock -> methodMock.Build typeBuilder)
             typeBuilder.CreateType()
 
-        member x.Serialize(memory : MemoryGraph) =
+        member x.Serialize(encode : obj -> obj) =
             let interfaceMethods = interfaces |> ResizeArray.toArray |> Array.collect (fun i -> i.GetMethods())
             let methodsToImplement =
                 match baseClass with
                 | null -> interfaceMethods
                 | _ ->
-                    let superClassMethods = baseClass.GetMethods(BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance) |> Array.filter (fun m -> m.IsAbstract)
+                    let superClassMethods = baseClass.GetMethods(BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.FlattenHierarchy ||| BindingFlags.Instance) |> Array.filter (fun m -> m.IsAbstract)
                     Array.append superClassMethods interfaceMethods
 
-            let methods =
+            let abstractMethods =
                 methodsToImplement |> Array.map (fun m ->
                         match methods |> ResizeArray.tryFind (fun mock -> mock.BaseMethod = m) with
                         | Some mock -> mock
                         | None -> Method(m, 0))
+            let methods = Array.append abstractMethods (methods |> ResizeArray.filter (fun m -> not <| Array.contains m.BaseMethod methodsToImplement) |> ResizeArray.toArray)
 
             { name = repr.name
               baseClass = Serialization.encodeType baseClass
               interfaces = interfaces |> ResizeArray.map Serialization.encodeType |> ResizeArray.toArray
               baseMethods = methods |> Array.map (fun m -> methodRepr.Encode m.BaseMethod)
-              methodImplementations = methods |> Array.map (fun m -> m.ReturnValues |> Array.map memory.Encode) }
+              methodImplementations = methods |> Array.map (fun m -> m.ReturnValues |> Array.map encode) }
 
-        member x.EnsureInitialized (memory : MemoryGraph) (t : System.Type) =
+        member x.EnsureInitialized (decode : obj -> obj) (t : System.Type) =
             if initializedTypes.Add t then
                 Seq.iter2 (fun (m : Method) (clauses : obj array) ->
-                    let decodedClauses = Array.map memory.DecodeValue clauses
+                    let decodedClauses = Array.map decode clauses
                     m.SetClauses decodedClauses
                     m.InitializeType t) methods repr.methodImplementations
 
 
     [<CLIMutable>]
     [<Serializable>]
-    [<XmlInclude(typeof<typeRepr>)>]
     type mockObject = {typeMockIndex : int}
 
     type Mocker(mockTypeReprs : typeMockRepr array) =
@@ -213,7 +247,7 @@ module Mocking =
 
             override x.Serialize obj = obj
 
-            override x.Deserialize (memory : MemoryGraph) obj =
+            override x.Deserialize (decode : obj -> obj) obj =
                 match obj with
                 | :? mockObject as mock ->
                     let index = mock.typeMockIndex
@@ -222,10 +256,10 @@ module Mocking =
                         | Some t -> t
                         | None ->
                             let mockType, typ = x.BuildDynamicType mockTypeReprs.[index]
-                            mockType.EnsureInitialized memory typ
+                            mockType.EnsureInitialized decode typ
                             mockTypes.[index] <- Some typ
                             typ
-                    Activator.CreateInstance dynamicMockType
+                    Reflection.createObject dynamicMockType
                 | _ -> __unreachable__()
 
         member x.BuildDynamicType (repr : typeMockRepr) =

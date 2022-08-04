@@ -9,39 +9,51 @@ open VSharp.Core
 
 // ------------------------------------------------- Type mocks -------------------------------------------------
 
-type functionResultConstantSource = {mock : MethodMock; callIndex : int; args : term list}
+[<StructuralEquality; NoComparison>]
+type functionResultConstantSource = {mock : MethodMock; callIndex : int; concreteThis : concreteHeapAddress; args : term list}
 with
-    interface IMemoryAccessConstantSource with
+    interface ISymbolicConstantSource with
         override x.TypeOfLocation = x.mock.Method.ReturnType
-        override x.Compose _ = Constant (toString x) x x.mock.Method.ReturnType
         override x.SubTerms = []
         override x.Time = VectorTime.zero
     override x.ToString() =
         let args = x.args |> List.map toString |> join ", "
-        $"{x.mock.Method.Name}({args})"
+        $"{x.mock.Method.Name}({args}):{x.callIndex}"
 
-and MethodMock(method : IMethod) =
+and MethodMock(method : IMethod, typeMock : ITypeMock) =
     let mutable callIndex = 0
     let callResults = ResizeArray<term>()
 
     member x.Method : IMethod = method
+    member x.Type : ITypeMock = typeMock
     interface IMethodMock with
         override x.BaseMethod =
             match method.MethodBase with
             | :? MethodInfo as mi -> mi
             | _ -> __notImplemented__()
 
-        override x.Call args =
+        override x.Call concretizedThis args =
             let returnType = method.ReturnType
             if returnType = typeof<Void> then None
             else
-                let src : functionResultConstantSource = {mock = x; callIndex = callIndex; args = args}
+                let src : functionResultConstantSource = {mock = x; callIndex = callIndex; concreteThis = concretizedThis; args = args}
                 let result = Constant (toString src) src returnType
                 callIndex <- callIndex + 1
                 callResults.Add result
                 Some result
 
         override x.GetImplementationClauses() = callResults.ToArray()
+
+    member private x.SetIndex idx = callIndex <- idx
+    member private x.SetClauses clauses =
+        callResults.Clear()
+        callResults.AddRange clauses
+
+    member internal x.Copy(newTypeMock : ITypeMock) =
+        let result = MethodMock(method, newTypeMock)
+        result.SetIndex callIndex
+        result.SetClauses callResults
+        result
 
 type TypeMock private (supertypes : Type seq, methodMocks : IDictionary<IMethod, MethodMock>) =
     do
@@ -57,11 +69,16 @@ type TypeMock private (supertypes : Type seq, methodMocks : IDictionary<IMethod,
             $"Mock_{supertypeNames}_{uid}"
         override x.SuperTypes = supertypes
         override x.MethodMock m =
-            Dict.getValueOrUpdate methodMocks m (fun () -> MethodMock(m)) :> IMethodMock
+            Dict.getValueOrUpdate methodMocks m (fun () -> MethodMock(m, x)) :> IMethodMock
         override x.MethodMocks with get() = methodMocks.Values |> Seq.cast<_>
-        override x.WithSuperTypes supertypes' =
-            TypeMock(supertypes', Dictionary<_,_>(methodMocks))
+        override x.Copy() = x.WithSupertypes supertypes
     override x.ToString() = (x :> ITypeMock).Name
+    member x.WithSupertypes(supertypes' : Type seq) =
+        let newMethods = Dictionary<_,_>()
+        let result = TypeMock(supertypes', newMethods)
+        methodMocks |> Seq.iter (fun kvp -> newMethods.Add(kvp.Key, kvp.Value.Copy(result)))
+        result
+
 
 // ------------------------------------------------- Type solver core -------------------------------------------------
 
@@ -80,7 +97,7 @@ module TypeSolver =
             let supertypes = enumerateNonAbstractSupertypes predicate typ.BaseType
             if predicate typ then typ::supertypes else supertypes
 
-    let private enumerateTypes (supertypes : Type list) (mock : ITypeMock option) validate (assemblies : Assembly seq) =
+    let private enumerateTypes (supertypes : Type list) (mock : Type list -> ITypeMock) validate (assemblies : Assembly seq) =
         seq {
             let mutable sure = true
             yield! supertypes |> Seq.filter validate |> Seq.map ConcreteType
@@ -90,10 +107,8 @@ module TypeSolver =
                 | None -> sure <- false; assemblies
             for assembly in assemblies do
                 yield! assembly.GetExportedTypes() |> Seq.filter validate |> Seq.map ConcreteType
-            match mock with
-            | Some mock -> mock.WithSuperTypes supertypes
-            | None -> TypeMock(supertypes)
-            |> MockType
+            if supertypes |> Seq.forall (fun t -> t.IsPublic) then
+                yield mock supertypes |> MockType
         }
 
     let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
@@ -144,16 +159,16 @@ module TypeSolver =
         constraints.notSubtypes |> List.forall (substitute subst >> candidate.IsAssignableFrom >> not) &&
         constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
 
-    let private inputCandidates constraints subst =
+    let private inputCandidates getMock constraints subst =
         let validate = satisfiesConstraints constraints subst
         match constraints.subtypes with
-        | [] -> enumerateNonAbstractTypes constraints.supertypes constraints.mock validate (AssemblyManager.assemblies())
+        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.assemblies())
         | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
-    let private typeParameterCandidates parameter subst =
-            let validate typ = satisfiesTypeParameterConstraints parameter subst typ
-            let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-            enumerateTypes supertypes None validate (AssemblyManager.assemblies())
+    let private typeParameterCandidates getMock parameter subst =
+        let validate typ = satisfiesTypeParameterConstraints parameter subst typ
+        let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
+        enumerateTypes supertypes getMock validate (AssemblyManager.assemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then
@@ -166,7 +181,18 @@ module TypeSolver =
         else
             typ.GetGenericArguments() |> Array.fold collectTypeVariables acc
 
-    let private solve (inputConstraintsList : typeConstraints list) (typeParameters : Type list) =
+    let private getMock (typeMocks : IDictionary<Type list, ITypeMock>) (current : ITypeMock option) (supertypes : Type list) =
+        let supertypes = supertypes |> List.sortBy (fun t -> {t=t})
+        Dict.getValueOrUpdate typeMocks supertypes (fun () ->
+            match current with
+            | Some (:? TypeMock as current)  ->
+                let newMock = current.WithSupertypes supertypes
+                typeMocks.Add(supertypes, newMock)
+                newMock :> ITypeMock
+            | Some _  -> __unreachable__()
+            | None -> TypeMock(supertypes) :> ITypeMock)
+
+    let private solve (getMock : ITypeMock option -> Type list -> ITypeMock) (inputConstraintsList : typeConstraints list) (typeParameters : Type list) =
         if inputConstraintsList |> List.exists isContradicting then TypeUnsat
         else
             let typeVars = typeParameters |> List.fold collectTypeVariables []
@@ -184,7 +210,7 @@ module TypeSolver =
                 | [] -> Some (List.rev acc)
                 | constraints::rest ->
                     // TODO: for ref <: ref constraints we should also accumulate t into another subst
-                    match inputCandidates constraints subst |> Seq.tryHead with
+                    match inputCandidates getMock constraints subst |> Seq.tryHead with
                     | Some c -> solveInputsRec (c::acc) subst rest
                     | None -> None
             let rec solveTypesVarsRec subst = function
@@ -196,7 +222,7 @@ module TypeSolver =
                     | Some ts -> resultInputs <- ts; resultSubst <- subst; true
                     | None -> false
                 | t::ts ->
-                   typeParameterCandidates t subst |> Seq.exists (fun u -> solveTypesVarsRec (PersistentDict.add t u subst) ts)
+                   typeParameterCandidates (getMock None) t subst |> Seq.exists (fun u -> solveTypesVarsRec (PersistentDict.add t u subst) ts)
             if solveTypesVarsRec PersistentDict.empty typeVars then
                 TypeSat(resultInputs, decodeTypeSubst resultSubst)
             else TypeUnsat
@@ -204,8 +230,7 @@ module TypeSolver =
 
 // ------------------------------------------------- Type solver wrappers -------------------------------------------------
 
-    let solveTypes (model : model) (state : state) =
-        let m = CallStack.stackTrace state.stack |> List.last
+    let private generateConstraints (model : model) (state : state) =
         let typeOfAddress addr =
             if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
             else state.allocatedTypes.[addr]
@@ -250,18 +275,21 @@ module TypeSolver =
             let l = Dict.tryGetValue d addr null
             if l = null then [] else List.ofSeq l
         let addresses = List.ofSeq addresses
-        let inputConstraints =
-            addresses
-            |> Seq.map (fun addr ->
-                {supertypes = toList supertypeConstraints addr
-                 subtypes = toList subtypeConstraints addr
-                 notSupertypes = toList notSupertypeConstraints addr
-                 notSubtypes = toList notSubtypeConstraints addr
-                 mock = if mocks.ContainsKey addr then Some mocks.[addr] else None})
-            |> List.ofSeq
+        addresses, addresses
+        |> Seq.map (fun addr ->
+            {supertypes = toList supertypeConstraints addr
+             subtypes = toList subtypeConstraints addr
+             notSupertypes = toList notSupertypeConstraints addr
+             notSubtypes = toList notSubtypeConstraints addr
+             mock = if mocks.ContainsKey addr then Some mocks.[addr] else None})
+        |> List.ofSeq
+
+    let solveTypes (model : model) (state : state) =
+        let m = CallStack.stackTrace state.stack |> List.last
         let typeGenericParameters = m.DeclaringType.GetGenericArguments()
         let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments
-        let solverResult = solve inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
+        let addresses, inputConstraints = generateConstraints model state
+        let solverResult = solve (getMock state.typeMocks) inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
         | TypeSat(refsTypes, typeParams) ->
             let refineTypes addr t =
@@ -289,5 +317,13 @@ module TypeSolver =
                 SolverInteraction.SmtUnknown e.Message
         | result -> result
 
-    let reset() =
-        ()
+    let getCallVirtCandidates state (thisAddress : heapAddress) =
+        match state.model with
+        | Some model ->
+            match model.Eval thisAddress with
+            | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
+                let addresses, inputConstraints = generateConstraints (Option.get state.model) state
+                let index = List.findIndex ((=)thisAddress) addresses
+                thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
+            | _ -> __unreachable__()
+        | None -> __unreachable__()

@@ -13,6 +13,7 @@ open VSharp
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<Mocking.mockObject>)>]
 type testInfo = {
     assemblyName : string
     moduleFullyQualifiedName : string
@@ -118,7 +119,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let mp = t.GetProperty("mockClassTypeParameters")
         mp.SetValue(info, mockedParameters |> Array.map (fun m ->
             match m with
-            | Some m -> m.Serialize memoryGraph
+            | Some m -> m.Serialize memoryGraph.Encode
             | None -> typeMockRepr.NullRepr))
 
     // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
@@ -130,7 +131,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let mp = t.GetProperty("mockMethodTypeParameters")
         mp.SetValue(info, mockedParameters |> Array.map (fun m ->
             match m with
-            | Some m -> m.Serialize memoryGraph
+            | Some m -> m.Serialize memoryGraph.Encode
             | None -> typeMockRepr.NullRepr))
 
     member x.MemoryGraph with get() = memoryGraph
@@ -155,7 +156,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
         let extraAssempliesProperty = t.GetProperty("extraAssemblyLoadDirs")
         extraAssempliesProperty.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let typeMocksProperty = t.GetProperty("typeMocks")
-        typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize memoryGraph))
+        typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize memoryGraph.Encode))
         let serializer = XmlSerializer t
         use stream = File.Create(destination)
         serializer.Serialize(stream, info)

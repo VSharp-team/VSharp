@@ -13,7 +13,6 @@ open VSharp.Utils
 
 type IMemoryAccessConstantSource =
     inherit IStatedSymbolicConstantSource
-    abstract TypeOfLocation : Type
 
 module internal Memory =
 
@@ -41,6 +40,7 @@ module internal Memory =
         startingTime = VectorTime.zero
         model = None
         complete = complete
+        typeMocks = Dictionary<_,_>()
     }
 
     type memoryMode =
@@ -54,6 +54,8 @@ module internal Memory =
             match memoryMode with
             | ConcreteMemory -> ConcreteMemory.deepCopy state
             | SymbolicMemory -> state
+        let newTypeMocks = Dictionary<_,_>()
+        state.typeMocks |> Seq.iter (fun kvp -> newTypeMocks.Add(kvp.Key, kvp.Value.Copy()))
         { state with pc = newPc }
 
     let private isZeroAddress (x : concreteHeapAddress) =
@@ -195,6 +197,7 @@ module internal Memory =
         interface IStatedSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<int32>
 
     let hashConcreteAddress (address : concreteHeapAddress) =
         address.GetHashCode() |> makeNumber
@@ -240,12 +243,12 @@ module internal Memory =
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
-    let (|HeapReading|_|) (src : IMemoryAccessConstantSource) =
+    let (|HeapReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
         | _ -> None
 
-    let (|ArrayIndexReading|_|) (src : IMemoryAccessConstantSource) =
+    let (|ArrayIndexReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as ar ->
             Some(isConcreteHeapAddress ar.key.address, ar.key, ar.memoryObject)
@@ -253,7 +256,7 @@ module internal Memory =
 
     // VectorIndexKey is used for length and lower bounds
     // We suppose, that lower bounds will always be default -- 0
-    let (|VectorIndexReading|_|) (src : IMemoryAccessConstantSource) =
+    let (|VectorIndexReading|_|) (src : ISymbolicConstantSource) =
         let isLowerBoundKey = function
             | ArrayLowerBoundSort _ -> true
             | _ -> false
@@ -262,17 +265,17 @@ module internal Memory =
             Some(isConcreteHeapAddress vr.key.address || isLowerBoundKey vr.picker.sort, vr.key, vr.memoryObject)
         | _ -> None
 
-    let (|StackBufferReading|_|) (src : IMemoryAccessConstantSource) =
+    let (|StackBufferReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<stackBufferIndexKey, int points> as sbr -> Some(sbr.key, sbr.memoryObject)
         | _ -> None
 
-    let (|StaticsReading|_|) (src : IMemoryAccessConstantSource) =
+    let (|StaticsReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<symbolicTypeKey, freeRegion<typeWrapper>> as sr -> Some(sr.key, sr.memoryObject)
         | _ -> None
 
-    let getHeapReadingRegionSort (src : IMemoryAccessConstantSource) =
+    let getHeapReadingRegionSort (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<heapAddressKey, vectorTime intervals>                                                 as hr -> hr.picker.sort
         | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as hr -> hr.picker.sort
@@ -283,26 +286,26 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private structField =
-        {baseSource : IMemoryAccessConstantSource; field : fieldId}
+        {baseSource : ISymbolicConstantSource; field : fieldId}
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.field.typ
 
-    let (|StructFieldSource|_|) (src : IMemoryAccessConstantSource) =
+    let (|StructFieldSource|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? structField as sf -> Some(sf.baseSource, sf.field)
         | _ -> None
 
     [<StructuralEquality;NoComparison>]
     type private heapAddressSource =
-        {baseSource : IMemoryAccessConstantSource}
+        {baseSource : ISymbolicConstantSource}
         interface IMemoryAccessConstantSource  with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.baseSource.TypeOfLocation
 
-    let (|HeapAddressSource|_|) (src : IMemoryAccessConstantSource) =
+    let (|HeapAddressSource|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapAddressSource as heapAddress -> Some(heapAddress.baseSource)
         | _ -> None
@@ -313,13 +316,14 @@ module internal Memory =
         interface IStatedSymbolicConstantSource  with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
+            override x.TypeOfLocation = typeof<bool>
 
     let (|TypeInitializedSource|_|) (src : IStatedSymbolicConstantSource) =
         match src with
         | :? typeInitialized as ti -> Some(ti.typ, ti.matchingTypes)
         | _ -> None
 
-    let rec makeSymbolicValue (source : IMemoryAccessConstantSource) name typ =
+    let rec makeSymbolicValue (source : ISymbolicConstantSource) name typ =
         match typ with
         | Bool
         | AddressType
@@ -1266,13 +1270,24 @@ module internal Memory =
     type structField with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
-                let structTerm = x.baseSource.Compose state
+                let structTerm =
+                    match x.baseSource with
+                    | :? IStatedSymbolicConstantSource as baseSource ->
+                        baseSource.Compose state
+                    | _ ->
+                        makeSymbolicValue x.baseSource (x.baseSource.ToString()) x.baseSource.TypeOfLocation
                 readStruct structTerm x.field
 
     type private heapAddressSource with
         interface IMemoryAccessConstantSource  with
             override x.Compose state =
-                x.baseSource.Compose state |> extractAddress
+                let refTerm =
+                    match x.baseSource with
+                    | :? IStatedSymbolicConstantSource as baseSource ->
+                        baseSource.Compose state
+                    | _ ->
+                        makeSymbolicValue x.baseSource (x.baseSource.ToString()) x.baseSource.TypeOfLocation
+                extractAddress refTerm
 
     // state is untouched. It is needed because of this situation:
     // Effect: x' <- y + 5, y' <- x + 10
@@ -1397,6 +1412,8 @@ module internal Memory =
             let typeVariables = composeTypeVariablesOf state state'
             let delegates = composeConcreteDictionaries (composeTime state) id state.delegates state'.delegates
             let currentTime = composeTime state state'.currentTime
+            let mocks = Dictionary<_,_>(state.typeMocks)
+            state'.typeMocks |> Seq.iter (fun kvp -> mocks.Add(kvp.Key, kvp.Value.Copy()))
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -1421,6 +1438,7 @@ module internal Memory =
                     startingTime = state.startingTime
                     model = state.model // TODO: compose models?
                     complete = state.complete
+                    typeMocks = mocks
                 }
         }
 
