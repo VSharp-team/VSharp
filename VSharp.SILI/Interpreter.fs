@@ -146,8 +146,6 @@ module internal InstructionsSet =
             r |> List.map (fun (t, s) -> let s' = changeState cilState s in pushOnEvaluationStack(t, s'); s') |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
-    let isFSharpInternalCall (method : Method) = Map.containsKey method.FullGenericMethodName Loader.FSharpImplementations
-
     // ------------------------------- CIL instructions -------------------------------
 
     let referenceLocalVariable index (method : Method) =
@@ -554,6 +552,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
         ]
+    // NOTE: adding implementation names into Loader
+    do Loader.CilStateImplementations <- cilStateImplementations.Keys
 
     member x.ConfigureErrorReporter reporter =
         reportError <- reporter
@@ -758,12 +758,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
-    member private x.IsExternalMethod (method : Method) =
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let isInternalCall = method.MethodImplementationFlags &&& MethodImplAttributes.InternalCall
-        let isPInvokeImpl = method.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
-        int isInternalCall <> 0 || isPInvokeImpl
-
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with
         | Some this ->
@@ -927,7 +921,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsArrayGetOrSet method then
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
-        elif x.IsExternalMethod method then
+        elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
             internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif x.IsNotImplementedIntrinsic method fullMethodName then

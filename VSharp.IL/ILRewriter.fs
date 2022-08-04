@@ -1,6 +1,6 @@
 namespace VSharp
 
-open System
+open global.System
 open System.Reflection.Emit
 open VSharp
 open System.Runtime.InteropServices

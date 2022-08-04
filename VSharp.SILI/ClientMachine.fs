@@ -209,7 +209,8 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
         | None -> None
 
     member x.StepDone (steppedStates : cilState list) =
-        if CilStateOperations.currentMethod cilState |> InstructionsSet.isFSharpInternalCall then
+        let method = CilStateOperations.currentMethod cilState
+        if method.IsInternalCall then
             callIsSkipped <- true
             cilState
         else

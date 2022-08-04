@@ -1,6 +1,6 @@
 namespace VSharp
 
-open System
+open global.System
 open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections

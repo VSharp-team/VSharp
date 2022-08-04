@@ -1,6 +1,6 @@
 namespace VSharp
 
-open System
+open global.System
 open System.Reflection
 open System.Reflection.Emit
 open VSharp
@@ -42,8 +42,16 @@ type MethodWithBody internal (m : MethodBase) =
     let methodImplementationFlags = lazy(m.GetMethodImplementationFlags())
     let isDelegateConstructor = lazy(Reflection.isDelegateConstructor m)
     let isDelegate = lazy(Reflection.isDelegate m)
+    let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
+    let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
+    let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
+    let isInternalCall =
+        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
 
-    let methodBodyBytes = m.GetMethodBody()
+    let methodBodyBytes =
+        if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
+        elif isCSharpInternalCall.Value then Loader.CSharpImplementations[fullGenericMethodName.Value].GetMethodBody()
+        else m.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
         if methodBodyBytes = null then None, None, None, None
@@ -180,6 +188,10 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsEntryPoint with get() =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)
+
+    member x.IsInternalCall with get() = isInternalCall.Value
+
+    member x.IsExternalMethod with get() = Reflection.isExternalMethod m
 
     member x.Generalize() =
         let generalized, genericArgs, genericDefs = Reflection.generalizeMethodBase m
