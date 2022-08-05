@@ -37,11 +37,11 @@
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="MemoryGraph.fs" />
+        <Compile Include="Mocking.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
         <Compile Include="TestResultsChecker.fs" />
         <Compile Include="AssemblyManager.fs" />
-        <Compile Include="TypeSolver.fs" />
     </ItemGroup>
 
     <ItemGroup>

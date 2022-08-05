@@ -3,7 +3,7 @@ namespace VSharp.Core
 open VSharp
 
 module Branching =
-    let checkSat state = TypeCasting.checkSatWithSubtyping state
+    let checkSat state = TypeSolver.checkSatWithSubtyping state
 
     let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with

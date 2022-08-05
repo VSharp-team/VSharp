@@ -155,7 +155,7 @@ namespace IntegrationTests
             return p.MakeMove(c);
         }
 
-        [TestSvm(80)]
+        [TestSvm(100)]
         public static int VirtualCall(IVirtual a)
         {
             if (a == null) return 0;

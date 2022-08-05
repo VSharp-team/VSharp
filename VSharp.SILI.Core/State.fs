@@ -3,12 +3,28 @@ namespace VSharp.Core
 open System
 open System.Collections.Generic
 open VSharp
-open VSharp.Core.Types.Constructor
+open VSharp.Core
 open VSharp.Utils
 
-type typeVariables = mappedStack<typeId, symbolicType> * typeId list stack
+type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
+
+type IMethodMock =
+    abstract BaseMethod : System.Reflection.MethodInfo
+    abstract Call : concreteHeapAddress -> term list -> term option
+    abstract GetImplementationClauses : unit -> term array
+
+type ITypeMock =
+    abstract Name : string
+    abstract SuperTypes : Type seq
+    abstract MethodMock : IMethod -> IMethodMock
+    abstract MethodMocks : IMethodMock seq
+    abstract Copy : unit -> ITypeMock
+
+type symbolicType =
+    | ConcreteType of Type
+    | MockType of ITypeMock
 
 [<CustomEquality;NoComparison>]
 type physicalAddress = {object : obj}
@@ -58,7 +74,7 @@ type exceptionRegister =
         | NoException -> NoException
 
 type arrayCopyInfo =
-    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : symbolicType; dstSightType : symbolicType} with
+    {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
@@ -70,7 +86,7 @@ with
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
-            | HeapRef({term = Constant _}, _) -> nullRef
+            | HeapRef({term = Constant _}, t) -> nullRef t
             | _ -> value
         else value
 
@@ -110,6 +126,7 @@ and
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
     mutable model : model option                                       // Concrete valuation of symbolics
     complete : bool                                                    // If true, reading of undefined locations would result in default values
+    typeMocks : IDictionary<Type list, ITypeMock>
 }
 
 and

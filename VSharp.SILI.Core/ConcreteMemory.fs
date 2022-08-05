@@ -30,7 +30,7 @@ module internal ConcreteMemory =
     let tryFind (cm : concreteMemory) address =
         let result = ref {object = null}
         if cm.TryGetValue(address, result) then
-            getObject !result |> Some
+            getObject result.Value |> Some
         else None
 
 // ----------------------------- Allocation -----------------------------

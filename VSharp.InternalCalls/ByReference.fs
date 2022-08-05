@@ -9,7 +9,7 @@ open VSharp.Core
 module ByReference =
 
     let private referenceValueField state this =
-        let fields = Terms.TypeOfLocation this |> Types.ToDotNetType |> Reflection.fieldsOf false
+        let fields = Terms.TypeOfLocation this |> Reflection.fieldsOf false
         assert(Array.length fields = 1)
         let field = Array.head fields |> fst
         Memory.ReferenceField state this field

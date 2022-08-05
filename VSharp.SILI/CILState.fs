@@ -33,7 +33,7 @@ type cilState =
         | 1 ->
             let result = EvaluationStack.Pop x.state.evaluationStack |> fst
             match x.ipStack with
-            | [Exit m] -> Types.Cast result (Types.FromDotNetType m.ReturnType)
+            | [Exit m] -> Types.Cast result m.ReturnType
             | _ when x.state.exceptionsRegister.UnhandledError -> Nop
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
@@ -127,12 +127,6 @@ module internal CilStateOperations =
     let currentMethod = currentIp >> methodOf
 
     let currentOffset = currentIp >> offsetOf
-
-    let inCoverageZone coverageZone startingLoc loc =
-        match coverageZone with
-        | MethodZone -> loc.method = startingLoc.method
-        | ClassZone -> loc.method.DeclaringType = startingLoc.method.DeclaringType
-        | ModuleZone -> loc.method.Module = startingLoc.method.Module
 
     let startsFromMethodBeginning (s : cilState) =
         match s.startingIP with

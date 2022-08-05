@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open VSharp
+open TypeUtils
 
 module internal Merging =
 
@@ -18,13 +19,13 @@ module internal Merging =
         let gs, vs = List.unzip gvs
         let fss = vs |> List.map fieldsOf
         let mergedFields = PersistentDict.merge gs fss merge
-        [(Propositional.disjunction gs, Struct mergedFields typ)]
+        [(disjunction gs, Struct mergedFields typ)]
 
     and private simplify (|Unguard|_|) gvs =
         let rec loop gvs out =
             match gvs with
             | [] -> out
-            | ((True, _) as gv)::_ -> [gv]
+            | (True, _ as gv)::_ -> [gv]
             | (False, _)::gvs' -> loop gvs' out
             | (g, Unguard us)::gvs' ->
                 let guarded = us |> List.map (fun (g', v) -> (g &&& g', v))
@@ -68,7 +69,7 @@ module internal Merging =
     and merge (gvs : (term * term) list) : term =
         match compress (simplify (|UnionT|_|) gvs) with
         | [(True, v)] -> v
-        | [(g, v)] when Terms.isBool v -> g &&& v
+        | [(g, v)] when isBool v -> g &&& v
         | gvs' -> Union gvs'
 
     let merge2Terms g h u v =
@@ -128,7 +129,7 @@ module internal Merging =
         let rec loop gvs out =
             match gvs with
             | [] -> out
-            | ((True, _) as gv)::_ -> [gv]
+            | (True, _ as gv)::_ -> [gv]
             | (False, _)::gvs' -> loop gvs' out
             | gv::gvs' -> loop gvs' (gv::out)
         loop gvs [] |> mergeSame

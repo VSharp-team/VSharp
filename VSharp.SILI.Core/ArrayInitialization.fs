@@ -4,6 +4,7 @@ open System
 open System.Reflection
 open System.Runtime.InteropServices
 open VSharp
+open TypeUtils
 
 module internal ArrayInitialization =
 
@@ -61,11 +62,11 @@ module internal ArrayInitialization =
             | Concrete (:? byte as v, _) -> int v
             | Concrete (:? sbyte as v, _) -> int v
             | Concrete (:? char as v, _) -> int v
-            | Concrete (:? int64 as v, _) when v <= int64 System.Int32.MaxValue -> int v
+            | Concrete (:? int64 as v, _) when v <= int64 Int32.MaxValue -> int v
             | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
-        let dims = Types.rankOf typeOfArray
+        let dims = rankOf typeOfArray
         let arrayType = symbolicTypeToArrayType typeOfArray
         let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
         let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
@@ -81,11 +82,11 @@ module internal ArrayInitialization =
         | HeapRef(address, sightType), Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
             let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType
-            let t = Types.elementType arrayType |> Types.toDotNetType
-            assert(t.IsValueType) // TODO: be careful about type variables
+            let t = arrayType.GetElementType()
+            assert t.IsValueType // TODO: be careful about type variables
 
             let fieldValue : obj = fieldInfo.GetValue null
-            let size = ClassType (Id fieldInfo.FieldType, []) |> Types.sizeOf
+            let size = internalSizeOf fieldInfo.FieldType
             let rawData = reinterpretValueTypeAsByteArray fieldValue size
             let fillArray termCreator t = fillInArray termCreator state address arrayType t rawData
             match t with

@@ -7,7 +7,7 @@ open VSharp.Core
 module internal Globalization =
 
     let allocateCulture state =
-        let cultureType = Types.FromDotNetType typeof<System.Globalization.CultureInfo>
+        let cultureType = typeof<System.Globalization.CultureInfo>
         Memory.AllocateDefaultClass state cultureType
 
     let get_CurrentCulture (state : state) (args : term list) : term =
@@ -20,7 +20,7 @@ module internal Globalization =
 
     let get_CompareInfo (state : state) (args : term list) : term =
         assert(List.length args = 1)
-        let cultureType = Types.FromDotNetType typeof<System.Globalization.CompareInfo>
+        let cultureType = typeof<System.Globalization.CompareInfo>
         Memory.AllocateDefaultClass state cultureType
 
     let get_Invariant (_ : state) (args : term list) : term =

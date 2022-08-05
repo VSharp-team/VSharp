@@ -132,7 +132,7 @@ namespace VSharp.Test
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
-                            explorationMode.NewTestCoverageMode(coverageZone.MethodZone, _searchStrat),
+                            explorationMode.NewTestCoverageMode(coverageZone.ClassZone, _searchStrat),
                             _executionMode,
                             unitTests.TestDirectory,
                             _recThresholdForTest,
@@ -147,9 +147,9 @@ namespace VSharp.Test
                     {
                         throw new Exception("No states were obtained! Most probably this is bug.");
                     }
-                    explorer.Statistics.PrintStatistics(TestContext.Out);
+                    explorer.Statistics.PrintDebugStatistics(TestContext.Out);
                     TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
-                    unitTests.WriteReport(explorer.Statistics.PrintStatistics);
+                    unitTests.WriteReport(explorer.Statistics.PrintDebugStatistics);
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
@@ -169,7 +169,7 @@ namespace VSharp.Test
                 }
                 catch (Exception e)
                 {
-                    context.CurrentResult.SetResult(ResultState.Error, e.Message);
+                    context.CurrentResult.SetResult(ResultState.Error, e.Message, e.StackTrace);
                 }
 
                 return context.CurrentResult;

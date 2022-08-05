@@ -1,12 +1,11 @@
 namespace VSharp.Core
 
-open System.Reflection
+open System
 open VSharp
 open VSharp.Core
-open VSharp.Core.Types
 
 // TODO: need type here? we have key.TypeOfLocation
-type private entry = internal { value : term option; typ : symbolicType }
+type private entry = internal { value : term option; typ : Type }
 type private frame = internal { func : IMethod option; entries : pdict<stackKey, entry> }
 type callStack = private { frames : frame stack }
 
@@ -18,7 +17,7 @@ module internal CallStack =
     let private pushFrame (stack : callStack) frame =
         {frames = Stack.push stack.frames frame}
 
-    let newStackFrame (stack : callStack) funcId frame : callStack =
+    let newStackFrame (stack : callStack) funcId (frame : (stackKey * term option * Type) list) : callStack =
         let createEntries dict (key, value, typ) =
             PersistentDict.add key {value = value; typ = typ} dict
         let entries = List.fold createEntries PersistentDict.empty frame
@@ -65,8 +64,8 @@ module internal CallStack =
         if stack.frames.Length = 1 && stack.frames.Head.func = None && (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key')) then
             // This state is formed by SMT solver model, just return the default value
             match key with
-            | ParameterKey pi -> Constructor.fromDotNetType pi.ParameterType |> makeDefaultValue
-            | ThisKey _ -> nullRef
+            | ParameterKey pi -> pi.ParameterType |> makeDefaultValue
+            | ThisKey m -> nullRef m.DeclaringType
             | _ -> __unreachable__()
         else
             let entry = findFrameAndRead stack.frames key id
