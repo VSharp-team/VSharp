@@ -917,7 +917,7 @@ module EvaluationStackTyper =
 type ILRewriter(body : rawMethodBody) =
     // If this line throws exception, we should improve resolving assemblies by names. Probably we should track assemblies from the directory of executed assembly
     let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
-    let code = body.il // TODO: do we need to get il bytes? mb get them using m.GetMethodBody().GetAsILBytes()? (unify SILI getILBytes and import from concolic) #do
+    let code = body.il
     let codeSize = Array.length code
     let mutable instrCount = 0u
     let mutable maxStackSize = body.properties.maxStackSize

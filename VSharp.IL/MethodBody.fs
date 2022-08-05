@@ -48,21 +48,23 @@ type MethodWithBody internal (m : MethodBase) =
     let isInternalCall =
         lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
 
-    let methodBodyBytes =
+    let actualMethod =
+        if not isCSharpInternalCall.Value then m
+        else Loader.CSharpImplementations[fullGenericMethodName.Value]
+    let methodBodyBytes =        
         if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
-        elif isCSharpInternalCall.Value then Loader.CSharpImplementations[fullGenericMethodName.Value].GetMethodBody()
-        else m.GetMethodBody()
+        else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
         if methodBodyBytes = null then None, None, None, None
         else
             let ilBytes = methodBodyBytes.GetILAsByteArray()
-            let methodModule = m.Module
+            let methodModule = actualMethod.Module
             let moduleName = methodModule.FullyQualifiedName
             let assemblyName = methodModule.Assembly.FullName
             let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
             let props : rawMethodProperties =
-                {token = uint m.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
+                {token = uint actualMethod.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
             let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
             let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
@@ -126,7 +128,7 @@ type MethodWithBody internal (m : MethodBase) =
     override x.GetHashCode() = desc.GetHashCode()
     override x.Equals(y : obj) =
         match y with
-        | :? MethodWithBody as y -> x.Descriptor = y.Descriptor
+        | :? MethodWithBody as y -> x.GetHashCode() = y.GetHashCode()
         | _ -> false
 
     member x.HasBody = methodBodyBytes <> null
@@ -180,11 +182,11 @@ type MethodWithBody internal (m : MethodBase) =
 
     member private x.Descriptor = desc
 
-    member x.ResolveMethod token = Reflection.resolveMethod m token
-    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField m
-    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType m
-    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod m
-    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken m
+    member x.ResolveMethod token = Reflection.resolveMethod actualMethod token
+    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField actualMethod
+    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType actualMethod
+    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod actualMethod
+    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken actualMethod
 
     member x.IsEntryPoint with get() =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)

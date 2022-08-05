@@ -117,8 +117,11 @@ module public Dict =
         if dict.ContainsKey(key) then dict.[key]
         else
             let newVal = fallback()
-            dict.Add(key, newVal)
-            newVal
+            // NOTE: 'fallback' action may add 'key' to 'dict'
+            if dict.ContainsKey(key) then dict.[key]
+                else
+                    dict.Add(key, newVal)
+                    newVal
 
     let public setValueOrUpdate (dict : IDictionary<'a, 'b>) key value =
         if dict.ContainsKey(key) then dict.[key] <- value
