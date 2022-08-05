@@ -128,7 +128,7 @@ type MethodWithBody internal (m : MethodBase) =
     override x.GetHashCode() = desc.GetHashCode()
     override x.Equals(y : obj) =
         match y with
-        | :? MethodWithBody as y -> x.GetHashCode() = y.GetHashCode()
+        | :? MethodWithBody as y -> x.Descriptor = y.Descriptor
         | _ -> false
 
     member x.HasBody = methodBodyBytes <> null

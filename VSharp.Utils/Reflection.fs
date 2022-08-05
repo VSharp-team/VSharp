@@ -134,7 +134,7 @@ module public Reflection =
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
-        m.MethodHandle.Value, declaringTypeVars, methodVars
+        m.MethodHandle.Value, declaringTypeVars, methodVars, m.ReflectedType.TypeHandle.Value
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
