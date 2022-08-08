@@ -55,3 +55,11 @@ module SR =
     let internal getMessageFromNativeResources (state : state) (args : term list) : term =
         assert(List.length args = 1)
         Memory.AllocateString "getMessageFromNativeResources" state
+
+    let internal concurrencyLevelMustBePositive (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "concurrencyLevelMustBePositive" state
+
+    let internal concurrencyLevelMustBeNegative (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "concurrencyLevelMustBeNegative" state

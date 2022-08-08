@@ -41,3 +41,9 @@ module internal SR =
 
     [<Implements("System.String System.Exception.GetMessageFromNativeResources(System.Exception+ExceptionMessageKind)")>]
     val internal getMessageFromNativeResources : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBePositive()")>]
+    val internal concurrencyLevelMustBePositive : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBeNegative()")>]
+    val internal concurrencyLevelMustBeNegative : state -> term list -> term
