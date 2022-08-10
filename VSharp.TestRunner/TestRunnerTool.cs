@@ -93,8 +93,11 @@ namespace VSharp.TestRunner
         {
             try
             {
-                using var stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read);
-                testInfo ti = UnitTest.DeserializeTestInfo(stream);
+                testInfo ti;
+                using (FileStream stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read))
+                {
+                    ti = UnitTest.DeserializeTestInfo(stream);
+                }
                 _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
                 UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
                 // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;

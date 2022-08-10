@@ -201,8 +201,11 @@ module public Reflection =
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
-        if TypeUtils.isNullable t then null
-        else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+        match t with
+        | _ when t = typeof<String> -> String.Empty :> obj
+        | _ when TypeUtils.isNullable t -> null
+        | _ when t.IsArray -> Array.CreateInstance(typeof<obj>, 1)
+        | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
         if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
