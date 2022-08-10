@@ -273,7 +273,10 @@ namespace IntegrationTests
 //            return x;
 //        }
 
-        [TestSvm(100)]
+        // NOTE: this test works fine with configuration Debug and Release, but DebugTailRec
+        //       doesn't work, because dotnet generates non optimized IL, so there appears
+        //       target on unreachable code, and test is explored infinitely, so setting timeout
+        [TestSvm(100, timeout:10)]
         public static int ForsWithContinueAndBreak(int x)
         {
             int sum = 0;
