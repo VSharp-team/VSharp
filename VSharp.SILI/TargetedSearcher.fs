@@ -84,10 +84,6 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let calculateTarget (state : cilState): codeLocation option =
         targetCalculator.CalculateTarget state
 
-    let suspend (state : cilState) : unit =
-        state.suspended <- true
-    let resume (state : cilState) : unit =
-        state.suspended <- false
     let violatesRecursionLevel s =
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
@@ -175,6 +171,10 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let update parent newStates =
         baseSearcher.Update (parent, newStates)
         updateTargetedSearchers parent newStates
+
+    let suspend (state : cilState) : unit =
+        state.suspended <- true
+        update state Seq.empty
 
     let setTargetOrSuspend state =
         match calculateTarget state with
