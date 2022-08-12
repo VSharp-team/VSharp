@@ -4,7 +4,6 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Utils
-open VSharp.Core
 open CilStateOperations
 
 type action =
@@ -104,16 +103,13 @@ type IWeighter =
     abstract member Next : unit -> uint
 
 type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState>) =
-    let suspended = HashSet<cilState>()
     let modMax n =
         if storage.MaxPriority = 0u then 0u
         else n % storage.MaxPriority
     let isStopped s = isStopped s || violatesLevel s maxBound
     let optionWeight s =
         option {
-            if s.suspended then
-                suspended.Add s |> ignore
-            elif not <| isStopped s then
+            if not <| s.suspended && not <| isStopped s then
                 return! weighter.Weight s
         }
     let add (s : cilState) =
@@ -127,14 +123,11 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         let weight = optionWeight s
         match weight with
         | Some w ->
-            if suspended.Contains s || not <| storage.Contains s then
-                if suspended.Contains s then suspended.Remove s |> ignore
-                assert(not <| storage.Contains s)
+            if not <| storage.Contains s then
                 storage.Insert s w
             else storage.Update s w
         | None ->
-            if not <| suspended.Contains s then
-                assert(storage.Contains s)
+            if storage.Contains s then
                 storage.Remove s
 
     abstract member Insert : cilState seq -> unit
