@@ -20,6 +20,19 @@ type pobStatus =
     | Unknown
     | Witnessed of cilState
     | Unreachable
+    
+type statisticsDump =
+    {
+        time : TimeSpan
+        internalFails : Exception list
+        iies : InsufficientInformationException list
+        coveringStepsInsideZone : int
+        nonCoveringStepsInsideZone : int
+        coveringStepsOutsideZone : int
+        nonCoveringStepsOutsideZone : int
+        topVisitedLocationsInZone : (codeLocation * uint) list
+        topVisitedLocationsOutOfZone : (codeLocation * uint) list
+    }
 
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics() =
@@ -211,3 +224,24 @@ type public SILIStatistics() =
             writer.WriteLine("  offset {0} of {1}: {2} time{3}",
                                 (int offset).ToString("X"), method.FullName, times,
                                 (if times = 1u then "" else "s"))
+            
+    member x.DumpStatistics() =
+        let topN = 5
+        let topVisitedByMethods =
+            totalVisited
+            |> Seq.groupBy (fun kvp -> kvp.Key.method)
+            |> Seq.map (snd >> Seq.maxBy (fun kvp -> kvp.Value))
+            |> Seq.sortByDescending (fun kvp -> kvp.Value)
+        let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
+        let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
+        {
+            time = DateTime.Now - startTime
+            internalFails = internalFails |> List.ofSeq
+            iies = iies |> Seq.map (fun s -> s.iie.Value) |> List.ofSeq
+            coveringStepsInsideZone = coveringStepsInsideZone
+            nonCoveringStepsInsideZone = nonCoveringStepsInsideZone
+            coveringStepsOutsideZone = coveringStepsOutsideZone
+            nonCoveringStepsOutsideZone = nonCoveringStepsOutsideZone
+            topVisitedLocationsInZone = topVisitedByMethodsInZone |> Seq.map (|KeyValue|) |> List.ofSeq
+            topVisitedLocationsOutOfZone = topVisitedByMethodsOutOfZone |> Seq.map (|KeyValue|) |> List.ofSeq
+        }
