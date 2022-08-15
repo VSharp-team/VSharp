@@ -10,7 +10,8 @@ public record TestStatistics(
     SearchStrategy SearchStrategy,
     CoverageZone CoverageZone,
     statisticsDump SiliStatisticsDump = null,
-    int? Coverage = null,
-    uint TestsGenerated = 0,
+    uint? Coverage = null,
+    uint? TestsGenerated = null,
+    string TestsOutputDirectory = "",
     Exception Exception = null
 );

@@ -114,6 +114,9 @@ namespace VSharp.Test
             private readonly executionMode _executionMode;
             private readonly searchMode _searchStrat;
             private readonly coverageZone _coverageZone;
+
+            private readonly SearchStrategy _baseSearchStrat;
+            private readonly CoverageZone _baseCoverageZone;
             
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -125,6 +128,9 @@ namespace VSharp.Test
                 SearchStrategy strat,
                 CoverageZone coverageZone) : base(innerCommand)
             {
+                _baseCoverageZone = coverageZone;
+                _baseSearchStrat = strat;
+                
                 _expectedCoverage = expectedCoverage;
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
@@ -154,19 +160,38 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
+                IStatisticsReporter reporter = null;
+                    
+                var csvReportPath = TestContext.Parameters["csvPath"];
+                if (csvReportPath != null)
+                {
+                    reporter = new CsvStatisticsReporter(
+                        csvReportPath,
+                        "TestResults",
+                        TestContext.Parameters["runId"] ?? "" 
+                    );
+                }
+
                 Core.API.ConfigureSolver(SolverPool.mkSolver());
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
+                var stats = new TestStatistics(
+                    methodInfo,
+                    _searchStrat.IsGuidedMode,
+                    _baseSearchStrat,
+                    _baseCoverageZone
+                );
+                    
                 try
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
-                            explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                            _executionMode,
-                            unitTests.TestDirectory,
-                            _recThresholdForTest,
-                            _timeout,
-                            false
-                        );
+                        explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
+                        _executionMode,
+                        unitTests.TestDirectory,
+                        _recThresholdForTest,
+                        _timeout,
+                        false
+                    );
                     SILI explorer = new SILI(_options);
 
                     explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
@@ -179,6 +204,14 @@ namespace VSharp.Test
                     explorer.Statistics.PrintDebugStatistics(TestContext.Out);
                     TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
                     unitTests.WriteReport(explorer.Statistics.PrintDebugStatistics);
+
+                    stats = stats with
+                    {
+                        SiliStatisticsDump = explorer.Statistics.DumpStatistics(),
+                        TestsGenerated = unitTests.UnitTestsCount,
+                        TestsOutputDirectory = unitTests.TestDirectory.FullName
+                    };
+                    
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
@@ -186,19 +219,27 @@ namespace VSharp.Test
                         //       to enable coverage check use _expectedCoverage
                         var testChecker = new TestResultsChecker(unitTests.TestDirectory,
                             Directory.GetCurrentDirectory(), _expectedCoverage);
-                        if (testChecker.Check(methodInfo))
+                        if (testChecker.Check(methodInfo, out var actualCoverage))
+                        {
                             context.CurrentResult.SetResult(ResultState.Success);
+                            reporter?.Report(stats with { Coverage = actualCoverage });
+                        }
                         else
+                        {
                             context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
+                            reporter?.Report(stats with { Coverage = actualCoverage });
+                        }
                     }
                     else
                     {
                         context.CurrentResult.SetResult(ResultState.Success);
+                        reporter?.Report(stats);
                     }
                 }
                 catch (Exception e)
                 {
                     context.CurrentResult.SetResult(ResultState.Error, e.Message, e.StackTrace);
+                    reporter?.Report(stats with { Exception = e });
                 }
 
                 return context.CurrentResult;

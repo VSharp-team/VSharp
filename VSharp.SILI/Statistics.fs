@@ -26,10 +26,10 @@ type statisticsDump =
         time : TimeSpan
         internalFails : Exception list
         iies : InsufficientInformationException list
-        coveringStepsInsideZone : int
-        nonCoveringStepsInsideZone : int
-        coveringStepsOutsideZone : int
-        nonCoveringStepsOutsideZone : int
+        coveringStepsInsideZone : uint
+        nonCoveringStepsInsideZone : uint
+        coveringStepsOutsideZone : uint
+        nonCoveringStepsOutsideZone : uint
         topVisitedLocationsInZone : (codeLocation * uint) list
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
@@ -44,10 +44,10 @@ type public SILIStatistics() =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
 
-    let mutable coveringStepsInsideZone = 0
-    let mutable nonCoveringStepsInsideZone = 0
-    let mutable coveringStepsOutsideZone = 0
-    let mutable nonCoveringStepsOutsideZone = 0
+    let mutable coveringStepsInsideZone = 0u
+    let mutable nonCoveringStepsInsideZone = 0u
+    let mutable coveringStepsOutsideZone = 0u
+    let mutable nonCoveringStepsOutsideZone = 0u
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
@@ -126,10 +126,10 @@ type public SILIStatistics() =
                 totalVisited.Add(current, 0u)
 
             if totalRef.Value = 0u then
-                if current.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1
-                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1
-            elif current.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1
-            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1
+                if current.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
+                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
+            elif current.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
+            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
 
             totalVisited.[current] <- totalRef.Value + 1u
 
