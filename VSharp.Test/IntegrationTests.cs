@@ -103,7 +103,8 @@ namespace VSharp.Test
                 _guidedMode,
                 execMode,
                 _strat,
-                _coverageZone);
+                _coverageZone
+            );
         }
 
         private class TestSvmCommand : DelegatingTestCommand

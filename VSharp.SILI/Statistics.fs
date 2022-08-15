@@ -138,6 +138,25 @@ type public SILIStatistics() =
                 historyRef <- ref <| HashSet<_>()
                 visitedWithHistory.Add(current, historyRef.Value)
             historyRef.Value.UnionWith visited
+            
+    let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
+        writer.WriteLine(
+            "Total time: {0:00}:{1:00}:{2:00}.{3}.",
+            statisticsDump.time.Hours,
+            statisticsDump.time.Minutes,
+            statisticsDump.time.Seconds,
+            statisticsDump.time.Milliseconds
+        )
+        if not <| List.isEmpty statisticsDump.internalFails then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} error(s) occured!")
+            statisticsDump.internalFails |> List.iter writer.WriteLine
+        if not <| List.isEmpty statisticsDump.iies then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
+            statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
@@ -177,54 +196,7 @@ type public SILIStatistics() =
     member x.IncompleteStates with get() = iies
 
     member x.InternalFails with get() = internalFails
-
-    member x.PrintStatistics (writer : TextWriter) =
-        let time = DateTime.Now - startTime
-        writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", time.Hours, time.Minutes, time.Seconds, time.Milliseconds)
-        if internalFails.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!")
-            internalFails |> Seq.iter writer.WriteLine
-        if iies.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
-            iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
-
-    member x.PrintDebugStatistics (writer : TextWriter) =
-        x.PrintStatistics writer
-        writer.WriteLine("Covering steps inside coverage zone: {0}", coveringStepsInsideZone)
-        writer.WriteLine("Revisting steps inside coverage zone: {0}", nonCoveringStepsInsideZone)
-        writer.WriteLine("Covering steps outside coverage zone: {0}", coveringStepsOutsideZone)
-        writer.WriteLine("Revisting steps outside coverage zone: {0}", nonCoveringStepsOutsideZone)
-        let topN = 5
-        let topVisitedByMethods =
-            totalVisited
-            |> Seq.groupBy (fun kvp -> kvp.Key.method)
-            |> Seq.map (snd >> Seq.maxBy (fun kvp -> kvp.Value))
-            |> Seq.sortByDescending (fun kvp -> kvp.Value)
-        let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
-        let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
-        if not <| Seq.isEmpty topVisitedByMethodsInZone then
-            writer.WriteLine("Top {0} visited locations (one per method) in zone:", Seq.length topVisitedByMethodsInZone)
-        for kvp in topVisitedByMethodsInZone do
-            let offset = kvp.Key.offset
-            let method = kvp.Key.method
-            let times = kvp.Value
-            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
-                                (int offset).ToString("X"), method.FullName, times,
-                                (if times = 1u then "" else "s"))
-        if not <| Seq.isEmpty topVisitedByMethodsOutOfZone then
-            writer.WriteLine("Top {0} visited locations (one per method) out of zone:", Seq.length topVisitedByMethodsOutOfZone)
-        for kvp in topVisitedByMethodsOutOfZone do
-            let offset = kvp.Key.offset
-            let method = kvp.Key.method
-            let times = kvp.Value
-            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
-                                (int offset).ToString("X"), method.FullName, times,
-                                (if times = 1u then "" else "s"))
-            
+    
     member x.DumpStatistics() =
         let topN = 5
         let topVisitedByMethods =
@@ -245,3 +217,26 @@ type public SILIStatistics() =
             topVisitedLocationsInZone = topVisitedByMethodsInZone |> Seq.map (|KeyValue|) |> List.ofSeq
             topVisitedLocationsOutOfZone = topVisitedByMethodsOutOfZone |> Seq.map (|KeyValue|) |> List.ofSeq
         }
+
+    member x.PrintStatistics (writer : TextWriter) =
+        printStatistics writer <| x.DumpStatistics()
+
+    member x.PrintDebugStatistics (writer : TextWriter) =
+        let dump = x.DumpStatistics()
+        printStatistics writer dump
+        writer.WriteLine("Covering steps inside coverage zone: {0}", dump.coveringStepsInsideZone)
+        writer.WriteLine("Revisiting steps inside coverage zone: {0}", dump.nonCoveringStepsInsideZone)
+        writer.WriteLine("Covering steps outside coverage zone: {0}", dump.coveringStepsOutsideZone)
+        writer.WriteLine("Revisiting steps outside coverage zone: {0}", dump.nonCoveringStepsOutsideZone)
+        if not <| List.isEmpty dump.topVisitedLocationsInZone then
+            writer.WriteLine("Top {0} visited locations (one per method) in zone:", Seq.length dump.topVisitedLocationsInZone)
+        for loc, times in dump.topVisitedLocationsInZone do
+            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
+                                (int loc.offset).ToString("X"), loc.method.FullName, times,
+                                (if times = 1u then "" else "s"))
+        if not <| List.isEmpty dump.topVisitedLocationsOutOfZone then
+            writer.WriteLine("Top {0} visited locations (one per method) out of zone:", Seq.length dump.topVisitedLocationsOutOfZone)
+        for loc, times in dump.topVisitedLocationsOutOfZone do
+            writer.WriteLine("  offset {0} of {1}: {2} time{3}",
+                                (int loc.offset).ToString("X"), loc.method.FullName, times,
+                                (if times = 1u then "" else "s"))
