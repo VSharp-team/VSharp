@@ -145,8 +145,7 @@ type public SILIStatistics() =
             statisticsDump.time.Hours,
             statisticsDump.time.Minutes,
             statisticsDump.time.Seconds,
-            statisticsDump.time.Milliseconds
-        )
+            statisticsDump.time.Milliseconds)
         if not <| List.isEmpty statisticsDump.internalFails then
             writer.WriteLine()
             writer.WriteLine()

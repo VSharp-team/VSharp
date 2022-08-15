@@ -8,23 +8,22 @@ namespace VSharp.Test;
 
 internal class CsvStatisticsReporter : IStatisticsReporter
 {
-    private class CsvRecord
-    {
-        public string TimeReported { get; init; }
-        public string RunId { get; init; }
-        public string MethodName { get; init; }
-        public string SearchStrategy { get; init; }
-        public string CoverageZone { get; init; }
-        public string Exception { get; init; }
-        public string Duration { get; init; }
-        public string TestsGenerated { get; init; }
-        public string Coverage { get; init; }
-        public string CoveringStepsInsideZone { get; init; }
-        public string NonCoveringStepsInsideZone { get; init; }
-        public string CoveringStepsOutsideZone { get; init; }
-        public string NonCoveringStepsOutsideZone { get; init; }
-        public string TestsOutputDirectory { get; init; }
-    }
+    private record CsvRecord(
+        string TimeReported,
+        string RunId,
+        string MethodName,
+        string SearchStrategy,
+        string CoverageZone,
+        string Exception,
+        string Duration,
+        string TestsGenerated,
+        string Coverage,
+        string CoveringStepsInsideZone,
+        string NonCoveringStepsInsideZone,
+        string CoveringStepsOutsideZone,
+        string NonCoveringStepsOutsideZone,
+        string TestsOutputDirectory
+    );
 
     private const string DateFormat = "yyyy-MM-ddTHH-mm-ss";
 
@@ -55,23 +54,22 @@ internal class CsvStatisticsReporter : IStatisticsReporter
             ? $"Guided({testStatistics.SearchStrategy})"
             : testStatistics.SearchStrategy.ToString();
 
-        return new CsvRecord
-        {
-            TimeReported = DateTime.Now.ToString(DateFormat),
-            RunId = _runId,
-            MethodName = testStatistics.TestMethodInfo.Name,
-            SearchStrategy = searchStrategyString,
-            CoverageZone = testStatistics.CoverageZone.ToString(),
-            Exception = testStatistics.Exception?.GetType().Name ?? "",
-            Duration = testStatistics.SiliStatisticsDump?.time.ToString() ?? "",
-            TestsGenerated = testStatistics.TestsGenerated.ToString() ?? "",
-            Coverage = testStatistics.Coverage?.ToString() ?? "",
-            CoveringStepsInsideZone = testStatistics.SiliStatisticsDump?.coveringStepsInsideZone.ToString() ?? "",
-            NonCoveringStepsInsideZone = testStatistics.SiliStatisticsDump?.nonCoveringStepsInsideZone.ToString() ?? "",
-            CoveringStepsOutsideZone = testStatistics.SiliStatisticsDump?.coveringStepsOutsideZone.ToString() ?? "",
-            NonCoveringStepsOutsideZone = testStatistics.SiliStatisticsDump?.nonCoveringStepsOutsideZone.ToString() ?? "",
-            TestsOutputDirectory = testStatistics.TestsOutputDirectory ?? ""
-        };
+        return new CsvRecord(
+            TimeReported: DateTime.Now.ToString(DateFormat),
+            RunId: _runId,
+            MethodName: testStatistics.TestMethodInfo.Name,
+            SearchStrategy: searchStrategyString,
+            CoverageZone: testStatistics.CoverageZone.ToString(),
+            Exception: testStatistics.Exception?.GetType().Name ?? "",
+            Duration: testStatistics.SiliStatisticsDump?.time.ToString() ?? "",
+            TestsGenerated: testStatistics.TestsGenerated.ToString() ?? "",
+            Coverage: testStatistics.Coverage?.ToString() ?? "",
+            CoveringStepsInsideZone: testStatistics.SiliStatisticsDump?.coveringStepsInsideZone.ToString() ?? "",
+            NonCoveringStepsInsideZone: testStatistics.SiliStatisticsDump?.nonCoveringStepsInsideZone.ToString() ?? "",
+            CoveringStepsOutsideZone: testStatistics.SiliStatisticsDump?.coveringStepsOutsideZone.ToString() ?? "",
+            NonCoveringStepsOutsideZone: testStatistics.SiliStatisticsDump?.nonCoveringStepsOutsideZone.ToString() ?? "",
+            TestsOutputDirectory: testStatistics.TestsOutputDirectory ?? ""
+        );
     }
 
     public void Report(TestStatistics testStatistics)
