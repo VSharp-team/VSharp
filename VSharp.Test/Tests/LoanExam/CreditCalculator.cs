@@ -15,6 +15,11 @@ public class CreditResult
 [TestSvmFixture]
 public class CreditCalculationService
 {
+    // public CreditCalculationService(ILogger l)
+    // {
+    //     l.LogInformation("Info");
+    // }
+    
     private int CalculateByAge(int age, CreditInfo creditInfo)
     {
         var SumPoints = 0;
@@ -110,13 +115,13 @@ public class CreditCalculationService
     }
 
     [TestSvm(-1, 0, 20, false, SearchStrategy.ShortestDistance)]
-    public CreditResult Build(Request request)
+    public CreditResult Calculate(Request request)
     {
         var SumPoints = 0;
         
-        SumPoints += CalculateByAge(request.Personality.Age, request.CreditInfo);
+        SumPoints += CalculateByAge(request.PersonalInfo.Age, request.CreditInfo);
         SumPoints += CalculateByCriminal(request.CertificateOfNoCriminalRecord);
-        SumPoints += CalculateByEmployment(request.Personality.Employment, request.Personality.Age);
+        SumPoints += CalculateByEmployment(request.PersonalInfo.Employment, request.PersonalInfo.Age);
         SumPoints += CalculateByCreditInfo(request.CreditInfo!);
         SumPoints += CalculateByOtherCredits(request.OtherCredits, request.CreditInfo!.Purpose);
        

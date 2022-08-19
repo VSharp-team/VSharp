@@ -3,9 +3,9 @@ using System.ComponentModel.DataAnnotations;
 namespace LoanExam.Models;
 
 public record Request(
-    [Required]Personality Personality,
+    [Required]PersonalInfo PersonalInfo,
     [Required]CreditInfo CreditInfo,
-    [Required]Passport Passport,
+    [Required]PassportInfo PassportInfo,
     bool CertificateOfNoCriminalRecord,
     bool OtherCredits
 );

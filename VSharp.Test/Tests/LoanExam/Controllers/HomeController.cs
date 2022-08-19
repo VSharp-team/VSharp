@@ -9,12 +9,12 @@ public class HomeController: Controller
     public ActionResult Index()
     {
         return View(new Request(
-            new Personality(),
+            new PersonalInfo(),
             new CreditInfo()
             {
                 Sum = 100500
             },
-            new Passport()
+            new PassportInfo()
             {
                 Number = "123"
             },

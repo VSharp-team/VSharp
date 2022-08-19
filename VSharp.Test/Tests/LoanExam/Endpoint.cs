@@ -20,7 +20,7 @@ public class Endpoint : IEndpoint<IResult, Request>
     {
         app.MapPost("/", ([FromBody]Request r) =>
         {
-            return Results.Ok(r?.Passport?.Series);
+            return Results.Ok(r?.PassportInfo?.Series);
         });
     }
 }

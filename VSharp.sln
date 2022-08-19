@@ -22,6 +22,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.API", "VSharp.API\VS
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.IL", "VSharp.IL\VSharp.IL.fsproj", "{6AD7C7F8-A30A-4CBB-A5DC-19376A6634CD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.GeneratedTests", "VSharp.GeneratedTests\VSharp.GeneratedTests.csproj", "{C454B2BF-AF81-4C03-8C06-846716DAD9CA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.UnitTestStructureProposal", "VSharp.UnitTestStructureProposal\VSharp.UnitTestStructureProposal.csproj", "{93C6DC4A-133A-4E71-8A26-9D9838548D02}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,5 +105,17 @@ Global
 		{6AD7C7F8-A30A-4CBB-A5DC-19376A6634CD}.Release|Any CPU.Build.0 = Release|Any CPU
 		{6AD7C7F8-A30A-4CBB-A5DC-19376A6634CD}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
 		{6AD7C7F8-A30A-4CBB-A5DC-19376A6634CD}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{C454B2BF-AF81-4C03-8C06-846716DAD9CA}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.Release|Any CPU.Build.0 = Release|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{93C6DC4A-133A-4E71-8A26-9D9838548D02}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
