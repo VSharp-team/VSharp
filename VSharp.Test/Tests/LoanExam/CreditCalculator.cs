@@ -22,7 +22,7 @@ public class CreditCalculationService
     
     private int CalculateByAge(int age, CreditInfo creditInfo)
     {
-        var SumPoints = 0;
+        var sumPoints = 0;
         if (age.Between(21, 28))
         {
             switch (creditInfo.Sum)
@@ -38,15 +38,15 @@ public class CreditCalculationService
 
         if (age.Between(29, 59))
         {
-            SumPoints += 14;
-            return SumPoints;
+            sumPoints += 14;
+            return sumPoints;
         }
 
-        SumPoints += creditInfo.Deposit == Deposit.None 
+        sumPoints += creditInfo.Deposit == Deposit.None 
             ? 0 
             : 8;
         
-        return SumPoints;
+        return sumPoints;
     }
 
     private int CalculateByCriminal(bool certificateOfNoCriminalRecord)

@@ -12,12 +12,12 @@ public class CreditCalculationServiceTests
     // TODO: test name???
     public void Calculate_Positive(Request input, /*dependencies*/ CreditResult expected)
     {
-        var service = CreateServices(); // arrange
+        var service = Arrange(); // arrange
         var actual = service.Calculate(input); // act
         AssertExtensions.FieldsEqual(expected, actual); // assert
     }
 
-    private static CreditCalculationService CreateServices()
+    private static CreditCalculationService Arrange()
     {
         var loggerMock = SetupMock(/*dependencies*/);
         return new CreditCalculationService(/*loggerMock*/);
