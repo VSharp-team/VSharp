@@ -41,6 +41,7 @@
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
         <Compile Include="TestResultsChecker.fs" />
+        <Compile Include="TestResultsChecker2.fs" />
         <Compile Include="AssemblyManager.fs" />
     </ItemGroup>
 

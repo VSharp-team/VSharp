@@ -1,8 +1,8 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
@@ -59,6 +59,7 @@ namespace VSharp.Test
         private uint _recThresholdForTest = 0u;
         private int _timeout = -1;
         private bool _concolicMode = false;
+        private bool _stopOnCoverageAchieved;
         private SearchStrategy _strat = SearchStrategy.BFS;
 
         public TestSvmAttribute(
@@ -66,6 +67,7 @@ namespace VSharp.Test
             uint recThresholdForTest = 0u,
             int timeout = -1,
             bool concolicMode = false,
+            bool stopOnCoverageAchieved = false,
             SearchStrategy strat = SearchStrategy.BFS)
         {
             if (expectedCoverage < 0)
@@ -73,9 +75,16 @@ namespace VSharp.Test
             else if (expectedCoverage > 100)
                 _expectedCoverage = 100;
             else _expectedCoverage = expectedCoverage;
+
+            if (_expectedCoverage == null && stopOnCoverageAchieved)
+            {
+                throw new ArgumentException("StopOnCoverageAchieved cannot be enabled without expectedCoverage specified");
+            }
+
             _recThresholdForTest = recThresholdForTest;
             _timeout = timeout;
             _concolicMode = concolicMode;
+            _stopOnCoverageAchieved = stopOnCoverageAchieved;
             _strat = strat;
         }
 
@@ -86,7 +95,16 @@ namespace VSharp.Test
                 execMode = executionMode.ConcolicMode;
             else
                 execMode = executionMode.SymbolicMode;
-            return new TestSvmCommand(command, _expectedCoverage, _recThresholdForTest, _timeout, execMode, _strat);
+            
+            return new TestSvmCommand(
+                command,
+                _expectedCoverage,
+                _recThresholdForTest,
+                _timeout,
+                _stopOnCoverageAchieved,
+                execMode,
+                _strat
+            );
         }
 
         private class TestSvmCommand : DelegatingTestCommand
@@ -94,6 +112,7 @@ namespace VSharp.Test
             private int? _expectedCoverage;
             private uint _recThresholdForTest;
             private int _timeout;
+            private bool _stopOnCoverageAchieved;
             private executionMode _executionMode;
             private searchMode _searchStrat;
             public TestSvmCommand(
@@ -101,6 +120,7 @@ namespace VSharp.Test
                 int? expectedCoverage,
                 uint recThresholdForTest,
                 int timeout,
+                bool stopOnCoverageAchieved,
                 executionMode execMode,
                 SearchStrategy strat) : base(innerCommand)
             {
@@ -108,6 +128,8 @@ namespace VSharp.Test
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
                 _timeout = timeout;
+                _stopOnCoverageAchieved = stopOnCoverageAchieved;
+                
                 switch (strat)
                 {
                     case SearchStrategy.DFS:
@@ -141,7 +163,33 @@ namespace VSharp.Test
                         );
                     SILI explorer = new SILI(_options);
 
-                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    var testChecker = new TestResultsChecker2(methodInfo, Directory.CreateDirectory(Path.Combine(unitTests.TestDirectory.FullName, "temp")), new DirectoryInfo(Directory.GetCurrentDirectory()));
+
+                    var coverageAchieved = false;
+                    
+                    void OnFinished(UnitTest test)
+                    {
+                        var testPath = unitTests.GenerateTest(test);
+                        testChecker.AddTest(new FileInfo(testPath));
+
+                        if (_stopOnCoverageAchieved && _expectedCoverage != null)
+                        {
+                            TestContext.Out.WriteLine("Intermediate coverage check on test generated...");
+                            var actualCoverage = testChecker.Cover();
+                            
+                            if (actualCoverage >= _expectedCoverage)
+                            {
+                                explorer.Stop();
+                                TestContext.Out.WriteLine($"Coverage achieved: {actualCoverage}%");
+                                coverageAchieved = true;
+                                return;
+                            }
+                            
+                            TestContext.Out.WriteLine($"Coverage not achieved: {actualCoverage}%");
+                        }
+                    }
+
+                    explorer.InterpretIsolated(methodInfo, OnFinished, t => _ = unitTests.GenerateError(t), _ => { }, e => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
@@ -150,17 +198,29 @@ namespace VSharp.Test
                     explorer.Statistics.PrintDebugStatistics(TestContext.Out);
                     TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
                     unitTests.WriteReport(explorer.Statistics.PrintDebugStatistics);
+                    
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
-                        TestContext.Out.WriteLine("Starting coverage tool...");
-                        // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
-                        //       to enable coverage check use _expectedCoverage
-                        var testChecker = new TestResultsChecker(unitTests.TestDirectory,
-                            Directory.GetCurrentDirectory(), _expectedCoverage);
-                        if (testChecker.Check(methodInfo))
-                            context.CurrentResult.SetResult(ResultState.Success);
+                        if (_expectedCoverage != null && !coverageAchieved)
+                        {
+                            TestContext.Out.WriteLine("Starting coverage tool...");
+
+                            var actualCoverage = testChecker.RunAndCover();
+
+                            if (actualCoverage >= _expectedCoverage)
+                            {
+                                context.CurrentResult.SetResult(ResultState.Success);
+                            }
+                            else
+                            {
+                                context.CurrentResult.SetResult(ResultState.Failure, $"Incomplete coverage! Expected {_expectedCoverage}, but got {actualCoverage}");
+                            }
+                        }
                         else
-                            context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
+                        {
+                            testChecker.Run();
+                            context.CurrentResult.SetResult(ResultState.Success);
+                        }
                     }
                     else
                     {

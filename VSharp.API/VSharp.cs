@@ -90,12 +90,11 @@ namespace VSharp
             {
                 if (method == method.Module.Assembly.EntryPoint)
                 {
-                    explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => throw e);
+                    explorer.InterpretEntryPoint(method, mainArguments, t => _ = unitTests.GenerateTest(t), t => _ = unitTests.GenerateError(t), _ => { }, e => throw e);
                 }
                 else
                 {
-                    explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                    explorer.InterpretIsolated(method, t => _ = unitTests.GenerateTest(t), t => _ = unitTests.GenerateError(t), _ => { },
                         e => throw e);
                 }
             }

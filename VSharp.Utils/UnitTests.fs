@@ -24,7 +24,9 @@ type UnitTests(outputDir : string) =
         FileSystem.createSymlink currentDir.FullName linkName
 
     let generateTest (test : UnitTest) (name : string) =
-        test.Serialize $"%s{currentDir.FullName}%c{Path.DirectorySeparatorChar}%s{name}%s{testExtension}"
+        let path = $"%s{currentDir.FullName}%c{Path.DirectorySeparatorChar}%s{name}%s{testExtension}"
+        test.Serialize path
+        path
 
     interface IDisposable with
         override x.Dispose() =
