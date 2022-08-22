@@ -2,9 +2,12 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.IO
+open System.Reflection
 open System.Text
 open System.Collections.Generic
 
+open FSharpx.Collections
+open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.Utils
@@ -30,10 +33,11 @@ type public SILIStatistics() =
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
     let iies = List<cilState>()
+    
+    let coveringStepsByMethod = Dictionary<Method, uint>()
+    let totalInstructionsCountByMethod = Dictionary<Method, uint>()
 
-    let mutable coveringStepsInsideZone = 0
     let mutable nonCoveringStepsInsideZone = 0
-    let mutable coveringStepsOutsideZone = 0
     let mutable nonCoveringStepsOutsideZone = 0
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
@@ -57,6 +61,9 @@ type public SILIStatistics() =
         let sb = PrettyPrinting.appendLine sb $"Part %d{i}; Start from {k.Key}"
 //        let sb = PrettyPrinting.appendLine sb
         printDict "\t\t" sb k.Value
+        
+    let getInstructionsCountInCFG (method : Method) : uint =
+        if method.HasBody then method.CFG.SortedOffsets |> Seq.length |> uint else 0u
 
     let pickTotalUnvisitedInCFG (currentLoc : codeLocation) : codeLocation option =
         let infinity = UInt32.MaxValue
@@ -113,8 +120,7 @@ type public SILIStatistics() =
                 totalVisited.Add(current, 0u)
 
             if totalRef.Value = 0u then
-                if current.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1
-                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1
+                coveringStepsByMethod.[current.method] <- (Dict.tryGetValue coveringStepsByMethod current.method 0u) + 1u
             elif current.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1
             else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1
 
@@ -158,6 +164,15 @@ type public SILIStatistics() =
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
     member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
+    
+    member x.ApproximateMethodCoverage (method : MethodInfo) =
+        let method = Application.getMethod method
+        let totalInstructionsCount = Dict.getValueOrUpdate totalInstructionsCountByMethod method (fun _ -> getInstructionsCountInCFG method)
+        let coveringSteps = Dict.tryGetValue coveringStepsByMethod method 0u
+        if totalInstructionsCount <> 0u then
+            double coveringSteps / double totalInstructionsCount * 100.0
+        else
+            0.0
 
     member x.CurrentExplorationTime with get() = DateTime.Now - startTime
 
@@ -181,7 +196,11 @@ type public SILIStatistics() =
 
     member x.PrintDebugStatistics (writer : TextWriter) =
         x.PrintStatistics writer
+        let coveringStepsInsideZone =
+            coveringStepsByMethod |> Seq.filter (fun kvp -> kvp.Key.InCoverageZone) |> Seq.map (fun kvp -> kvp.Value) |> Seq.sum
         writer.WriteLine("Covering steps inside coverage zone: {0}", coveringStepsInsideZone)
+        let coveringStepsOutsideZone =
+            coveringStepsByMethod |> Seq.filter (fun kvp -> not kvp.Key.InCoverageZone) |> Seq.map (fun kvp -> kvp.Value) |> Seq.sum
         writer.WriteLine("Revisting steps inside coverage zone: {0}", nonCoveringStepsInsideZone)
         writer.WriteLine("Covering steps outside coverage zone: {0}", coveringStepsOutsideZone)
         writer.WriteLine("Revisting steps outside coverage zone: {0}", nonCoveringStepsOutsideZone)

@@ -163,29 +163,38 @@ namespace VSharp.Test
                         );
                     SILI explorer = new SILI(_options);
 
-                    var testChecker = new TestResultsChecker2(methodInfo, Directory.CreateDirectory(Path.Combine(unitTests.TestDirectory.FullName, "temp")), new DirectoryInfo(Directory.GetCurrentDirectory()));
+                    using var testChecker = new TestResultsChecker(methodInfo, unitTests.TestDirectory, new DirectoryInfo(Directory.GetCurrentDirectory()));
 
                     var coverageAchieved = false;
+                    var lastApproximateCoverage = 0.0;
                     
                     void OnFinished(UnitTest test)
                     {
                         var testPath = unitTests.GenerateTest(test);
                         testChecker.AddTest(new FileInfo(testPath));
-
+                        
+                        // NB: currently method coverage is checked regardless of selected coverage zone
                         if (_stopOnCoverageAchieved && _expectedCoverage != null)
                         {
-                            TestContext.Out.WriteLine("Intermediate coverage check on test generated...");
-                            var actualCoverage = testChecker.Cover();
-                            
-                            if (actualCoverage >= _expectedCoverage)
+                            var approximateCoverage = explorer.Statistics.ApproximateMethodCoverage(methodInfo);
+
+                            if (approximateCoverage > lastApproximateCoverage && approximateCoverage >= _expectedCoverage)
                             {
-                                explorer.Stop();
-                                TestContext.Out.WriteLine($"Coverage achieved: {actualCoverage}%");
-                                coverageAchieved = true;
-                                return;
-                            }
+                                lastApproximateCoverage = approximateCoverage;
+                                
+                                TestContext.Out.WriteLine("Intermediate coverage check on test generated...");
+                                
+                                var actualCoverage = testChecker.Cover();
+                                if (actualCoverage >= _expectedCoverage)
+                                {
+                                    explorer.Stop();
+                                    TestContext.Out.WriteLine($"Coverage achieved: {actualCoverage:0.##}%");
+                                    coverageAchieved = true;
+                                    return;
+                                }
                             
-                            TestContext.Out.WriteLine($"Coverage not achieved: {actualCoverage}%");
+                                TestContext.Out.WriteLine($"Coverage not achieved: {actualCoverage:0.##}%");
+                            }
                         }
                     }
 
@@ -213,7 +222,7 @@ namespace VSharp.Test
                             }
                             else
                             {
-                                context.CurrentResult.SetResult(ResultState.Failure, $"Incomplete coverage! Expected {_expectedCoverage}, but got {actualCoverage}");
+                                context.CurrentResult.SetResult(ResultState.Failure, $"Incomplete coverage! Expected {_expectedCoverage}%, but got {actualCoverage:0.##}%");
                             }
                         }
                         else
