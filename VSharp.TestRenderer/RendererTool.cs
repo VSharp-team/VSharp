@@ -27,6 +27,22 @@ public static class Renderer
     private static readonly TypeSyntax SystemType = ParseTypeName("Type");
     private static readonly TypeSyntax TargetInvocationExceptionType = ParseTypeName("TargetInvocationException");
 
+    // Prerendered 'BindingFlags' expression
+    private static readonly ExpressionSyntax BindingFlags =
+        BinaryExpression(
+            SyntaxKind.BitwiseOrExpression,
+            RenderMemberAccess("BindingFlags", "Static"),
+            BinaryExpression(
+                SyntaxKind.BitwiseOrExpression,
+                RenderMemberAccess("BindingFlags", "NonPublic"),
+                BinaryExpression(
+                    SyntaxKind.BitwiseOrExpression,
+                    RenderMemberAccess("BindingFlags", "Public"),
+                    RenderMemberAccess("BindingFlags", "Instance")
+                )
+            )
+        );
+
     static Renderer()
     {
         IdGenerator.reset();
@@ -102,12 +118,7 @@ public static class Renderer
         return RenderArrayCreation(type, initializer);
     }
 
-    private static ExpressionSyntax RenderStruct(ValueType v)
-    {
-        return RenderLiteral("struct ");
-    }
-
-    private static ExpressionSyntax RenderClass(List<StatementSyntax> block, object obj)
+    private static ExpressionSyntax RenderFields(List<StatementSyntax> block, object obj)
     {
         var type = obj.GetType();
         var typeId = AddTypeDecl(block, type);
@@ -119,7 +130,7 @@ public static class Renderer
         foreach (var (_, fieldInfo) in fields)
         {
             var getFieldId = RenderMemberAccess(typeId, "GetField");
-            var getField = RenderCall(getFieldId, RenderLiteral(fieldInfo.Name));
+            var getField = RenderCall(getFieldId, RenderLiteral(fieldInfo.Name), BindingFlags);
             var setValueId = RenderMemberAccess(getField, "SetValue");
             var fieldValue = fieldInfo.GetValue(obj);
             var setValue = RenderCall(setValueId, objId, RenderObject(block, fieldValue));
@@ -149,9 +160,9 @@ public static class Renderer
         nint n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
         string s    => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
         Array a     => RenderArray(block, a),
-        ValueType v => RenderStruct(v),
+        ValueType   => RenderFields(block, obj),
         _ when obj.GetType().IsPointer => throw new NotImplementedException("implement rendering of pointers"),
-        _           => RenderClass(block, obj)
+        _           => RenderFields(block, obj)
     };
 
     private static InvocationExpressionSyntax RenderCall(ExpressionSyntax function)
