@@ -139,9 +139,13 @@ type public SILI(options : SiliOptions) =
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
-        toReportFinished |> List.iter reportFinished
+        toReportFinished |> List.iter (fun s ->
+            statistics.TrackFinished s
+            reportFinished s)
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportExceptions |> List.iter reportFinished
+        toReportExceptions |> List.iter (fun s ->
+            statistics.TrackFinished s
+            reportFinished s)
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
         let newStates =
@@ -190,8 +194,8 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while pick() && stopwatch.ElapsedMilliseconds < timeout do
-            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
-                releaseBranches()
+(*            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
+                releaseBranches()*)
             match action with
             | GoFront s -> x.Forward(s)
             | GoBack(s, p) -> x.Backward p s EP

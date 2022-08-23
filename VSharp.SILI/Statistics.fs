@@ -26,6 +26,7 @@ type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
+    let coveredByTests = Dictionary<Method, HashSet<offset>>()
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
@@ -128,6 +129,15 @@ type public SILIStatistics() =
 
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
+       
+    member x.IsCoveredByTest (loc : codeLocation) =
+        coveredByTests.ContainsKey loc.method && coveredByTests.[loc.method].Contains loc.offset
+        
+    member x.TrackFinished (s : cilState) =
+        for loc in s.history do
+            if not <| coveredByTests.ContainsKey loc.method then
+                coveredByTests.[loc.method] <- HashSet()
+            coveredByTests.[loc.method].Add loc.offset |> ignore
 
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
