@@ -106,7 +106,7 @@ type TestResultsChecker(method : MethodInfo, outDirectory : DirectoryInfo, runne
                 sprintf "%s<%s>" trimmedName (args |> Array.map typeName4Dotcover |> join ",")
             names.[names.Length - 1] <- handleGenericsInName names.[names.Length - 1]
             names
-        else typ.FullName |> splitTypeName        
+        else typ.FullName |> splitTypeName
 
     let getCoverageFromReport() =
         if String.IsNullOrEmpty method.DeclaringType.Namespace then
@@ -152,7 +152,10 @@ type TestResultsChecker(method : MethodInfo, outDirectory : DirectoryInfo, runne
         not <| Directory.Exists(tempDirectoryPath) || Directory.EnumerateFiles(tempDirectoryPath, "*.vst") |> Seq.isEmpty
         
     let getCoverage() =
-        Math.Round(double coveredStatements.Count / double totalStatements * 100.0, MidpointRounding.AwayFromZero)
+        if totalStatements <> 0 then
+            Math.Round(double coveredStatements.Count / double totalStatements * 100.0, MidpointRounding.AwayFromZero)
+        else
+            100.0
     
     /// <summary>
     /// Adds .vst test to run queue.
