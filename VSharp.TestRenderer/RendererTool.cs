@@ -222,6 +222,52 @@ public static class Renderer
         return ExpressionStatement(RenderCall(assertId, x, y));
     }
 
+    private static (IdentifierNameSyntax, CatchDeclarationSyntax) RenderCatchDeclaration(TypeSyntax catchType)
+    {
+        var (exception, exceptionId) = GenerateIdentifier("ex");
+        var declaration = CatchDeclaration(catchType, exception);
+        return (exceptionId, declaration);
+    }
+
+    private static ExpressionSyntax RenderExceptionCondition(IdentifierNameSyntax caughtExObj, IdentifierNameSyntax expectedExType)
+    {
+        var innerException = RenderMemberAccess(caughtExObj, "InnerException");
+        var notNull =
+            BinaryExpression(SyntaxKind.NotEqualsExpression, innerException,
+                LiteralExpression(SyntaxKind.NullLiteralExpression));
+        var exGetTypeId = RenderMemberAccess(innerException, "GetType");
+        var exGetType = RenderCall(exGetTypeId);
+        var eq = BinaryExpression(SyntaxKind.EqualsExpression, exGetType, expectedExType);
+        return BinaryExpression(SyntaxKind.LogicalAndExpression, notNull, eq);
+        ;
+    }
+
+    private static CompilationUnitSyntax RenderProgram(
+        string[] usings,
+        string namespaceName,
+        string className,
+        AttributeListSyntax classAttributes,
+        MemberDeclarationSyntax[] methods)
+    {
+        var usingDetectives = new UsingDirectiveSyntax[usings.Length];
+        for (var i = 0; i < usings.Length; i++)
+        {
+            usingDetectives[i] = UsingDirective(ParseName(usings[i]));
+        }
+
+        var renderedClass =
+            ClassDeclaration(className)
+                .AddAttributeLists(classAttributes)
+                .AddMembers(methods);
+        var renderedNamespace =
+            NamespaceDeclaration(IdentifierName(namespaceName))
+                .AddMembers(renderedClass);
+        return
+            CompilationUnit()
+                .AddUsings(usingDetectives)
+                .AddMembers(renderedNamespace);
+    }
+
     internal class Block
     {
         private readonly List<StatementSyntax> _statements = new ();
@@ -291,6 +337,14 @@ public static class Renderer
         internal void AddAssert(ExpressionSyntax condition)
         {
             _statements.Add(RenderAssert(condition));
+        }
+
+        internal void AddTryCatch(BlockSyntax tryBlock, CatchDeclarationSyntax catchDecl, BlockSyntax catchBlock)
+        {
+            var catchClause = CatchClause(catchDecl, null, catchBlock);
+            var clauses = SingletonList(catchClause);
+            var tryCatchBlock = TryStatement(tryBlock, clauses, null);
+            _statements.Add(tryCatchBlock);
         }
 
         private ExpressionSyntax RenderArray(Array obj)
@@ -420,25 +474,12 @@ public static class Renderer
             // TODO: use Assert.Throws instead of catch clause
             var tryBlock = new Block();
             tryBlock.AddDecl("result", ObjectType, invokeMethod);
-            var (exception, exceptionId) = GenerateIdentifier("ex");
-            var innerException = RenderMemberAccess(exceptionId, "InnerException");
-            var notNull =
-                BinaryExpression(SyntaxKind.NotEqualsExpression, innerException,
-                    LiteralExpression(SyntaxKind.NullLiteralExpression));
-            var exGetTypeId = RenderMemberAccess(innerException, "GetType");
-            var exGetType = RenderCall(exGetTypeId);
             var catchBlock = new Block();
+            var (exceptionId, declaration) = RenderCatchDeclaration(TargetInvocationExceptionType);
             var expectedExType = catchBlock.AddTypeDecl(ex);
-            var eq =
-                BinaryExpression(SyntaxKind.EqualsExpression, exGetType, expectedExType);
-            var condition =
-                BinaryExpression(SyntaxKind.LogicalAndExpression, notNull, eq);
-            catchBlock.AddAssert(condition);
-            var declaration = CatchDeclaration(TargetInvocationExceptionType, exception);
-            var catchClause = CatchClause(declaration, null, catchBlock.GetBlock());
-            var clauses = SingletonList(catchClause);
-            var tryCatchBlock = TryStatement(tryBlock.GetBlock(), clauses, null);
-            body = mainBlock.GetBlock().AddStatements(tryCatchBlock);
+            catchBlock.AddAssert(RenderExceptionCondition(exceptionId, expectedExType));
+            mainBlock.AddTryCatch(tryBlock.GetBlock(), declaration, catchBlock.GetBlock());
+            body = mainBlock.GetBlock();
         }
 
         return
@@ -477,23 +518,22 @@ public static class Renderer
             i++;
         }
 
+        string[] usings =
+        {
+            "System",
+            "System.Reflection",
+            "System.Runtime.Serialization",
+            "System.Diagnostics",
+            "NUnit.Framework"
+        };
         var comp =
-            CompilationUnit()
-                .AddUsings(
-                    UsingDirective(ParseName("System")),
-                    UsingDirective(ParseName("System.Reflection")), 
-                    UsingDirective(ParseName("System.Runtime.Serialization")),
-                    UsingDirective(ParseName("System.Diagnostics")),
-                    UsingDirective(ParseName("NUnit.Framework"))
-                )
-                .AddMembers(
-                    NamespaceDeclaration(IdentifierName("GeneratedNamespace"))
-                        .AddMembers(
-                            ClassDeclaration("GeneratedClass")
-                                .AddAttributeLists(RenderAttributeList("TestFixture"))
-                                .AddMembers(generatedTests)
-                        )
-                );
+            RenderProgram(
+                usings,
+                "GeneratedNamespace",
+                "GeneratedClass",
+                RenderAttributeList("TestFixture"),
+                generatedTests
+            );
 
         // comp.NormalizeWhitespace().WriteTo(Console.Out);
         var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
