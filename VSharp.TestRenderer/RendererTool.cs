@@ -86,85 +86,6 @@ public static class Renderer
         return null;
     }
 
-    private static ExpressionSyntax RenderArray(List<StatementSyntax> block, Array obj)
-    {
-        var rank = obj.Rank;
-        var elemTypeName = obj.GetType().GetElementType()?.ToString();
-        if (elemTypeName == null)
-            throw new ArgumentException();
-        var type = RenderArrayType(elemTypeName, obj.Rank);
-        var initializer = new List<ExpressionSyntax>();
-        if (rank > 1)
-        {
-            throw new NotImplementedException("implement rendering for non-vector arrays");
-            // for (int i = 0; i < obj.Rank; i++)
-            // {
-            //     var innerInitializer = new List<ExpressionSyntax>();
-            //     for (int j = obj.GetLowerBound(i); j <= obj.GetUpperBound(i); j++)
-            //     {
-            //         
-            //     }
-            // }
-        }
-        else
-        {
-            for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
-            {
-                // TODO: if lower bound != 0, use Array.CreateInstance
-                initializer.Add(RenderObject(block, obj.GetValue(i)));
-            }
-        }
-
-        return RenderArrayCreation(type, initializer);
-    }
-
-    private static ExpressionSyntax RenderFields(List<StatementSyntax> block, object obj)
-    {
-        var type = obj.GetType();
-        var typeId = AddTypeDecl(block, type);
-        // TODO: minimize
-        var getUninitializedObjectId = RenderMemberAccess("FormatterServices", "GetUninitializedObject");
-        var getUninitializedObject = RenderCall(getUninitializedObjectId, typeId);
-        var objId = AddDecl(block, "obj", ObjectType, getUninitializedObject);
-        var fields = Reflection.fieldsOf(false, type);
-        foreach (var (_, fieldInfo) in fields)
-        {
-            var getFieldId = RenderMemberAccess(typeId, "GetField");
-            var getField = RenderCall(getFieldId, RenderLiteral(fieldInfo.Name), BindingFlags);
-            var setValueId = RenderMemberAccess(getField, "SetValue");
-            var fieldValue = fieldInfo.GetValue(obj);
-            var setValue = RenderCall(setValueId, objId, RenderObject(block, fieldValue));
-            block.Add(ExpressionStatement(setValue));
-        }
-        return objId;
-    }
-
-    private static ExpressionSyntax RenderObject(List<StatementSyntax> block, object? obj) => obj switch
-    {
-        null        => LiteralExpression(SyntaxKind.NullLiteralExpression),
-        true        => LiteralExpression(SyntaxKind.TrueLiteralExpression),
-        false       => LiteralExpression(SyntaxKind.FalseLiteralExpression),
-        byte n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        sbyte n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        char n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        short n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        ushort n    => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        int n       => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        uint n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        long n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        ulong n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        float n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        double n    => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        decimal n   => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        nuint n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        nint n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-        string s    => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
-        Array a     => RenderArray(block, a),
-        ValueType   => RenderFields(block, obj),
-        _ when obj.GetType().IsPointer => throw new NotImplementedException("implement rendering of pointers"),
-        _           => RenderFields(block, obj)
-    };
-
     private static InvocationExpressionSyntax RenderCall(ExpressionSyntax function)
     {
         return
@@ -181,19 +102,6 @@ public static class Renderer
                 function,
                 ArgumentList(
                     SeparatedList(args.Select(Argument))
-                )
-            );
-    }
-
-    private static InvocationExpressionSyntax RenderCall(ExpressionSyntax function, params string[] args)
-    {
-        return
-            InvocationExpression(
-                function,
-                ArgumentList(
-                    SeparatedList(
-                        args.Select(RenderLiteral).Select(Argument)
-                    )
                 )
             );
     }
@@ -286,19 +194,6 @@ public static class Renderer
         return RenderArrayType(elemTypeName, 1);
     }
 
-    private static IdentifierNameSyntax AddDecl(List<StatementSyntax> block, string varName, TypeSyntax type, ExpressionSyntax init, bool reuse = false)
-    {
-        // TODO: to check for equality of syntax nodes use 'AreEquivalent'
-        string initializerString = init.ToString();
-        if (reuse && VarsInitializers.TryGetValue(initializerString, out var result))
-            return result;
-        var (var, varId) = GenerateIdentifier(varName);
-        var varDecl = RenderVarDecl(type, var, init);
-        block.Add(LocalDeclarationStatement(varDecl));
-        VarsInitializers[initializerString] = varId;
-        return varId;
-    }
-
     private static LiteralExpressionSyntax RenderLiteral(string? literal)
     {
         return LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(literal ?? String.Empty));
@@ -307,38 +202,6 @@ public static class Renderer
     private static LiteralExpressionSyntax RenderLiteral(int literal)
     {
         return LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(literal));
-    }
-
-    private static IdentifierNameSyntax AddModuleDecl(List<StatementSyntax> block, Module module)
-    {
-        // TODO: care about dynamic modules (mocks and others)
-        var getModule =
-            RenderCall(
-                RenderMemberAccess(_assemblyId, "GetModule"), 
-                RenderLiteral(module.Name)
-            );
-        return AddDecl(block, "module", ModuleType, getModule, true);
-    }
-
-    private static IdentifierNameSyntax AddTypeDecl(List<StatementSyntax> block, Type type)
-    {
-        var moduleId = AddModuleDecl(block, type.Module);
-        var getType =
-            RenderCall(
-                RenderMemberAccess(moduleId, "GetType"),
-                RenderLiteral(type.FullName)
-            );
-        return AddDecl(block, "type", SystemType, getType, true);
-    }
-
-    private static IdentifierNameSyntax AddAssemblyDecl(List<StatementSyntax> block, Assembly assembly)
-    {
-        var loadAssembly =
-            RenderCall(
-                RenderMemberAccess(IdentifierName("Assembly"), "LoadFrom"),
-                RenderLiteral(assembly.Location)
-            );
-        return AddDecl(block, "assembly", AssemblyType, loadAssembly, true);
     }
 
     private static AttributeListSyntax RenderAttributeList(params string[] attributeNames)
@@ -359,6 +222,162 @@ public static class Renderer
         return ExpressionStatement(RenderCall(assertId, x, y));
     }
 
+    internal class Block
+    {
+        private readonly List<StatementSyntax> _statements = new ();
+
+        internal IdentifierNameSyntax AddDecl(string varName, TypeSyntax type, ExpressionSyntax init, bool reuse = false)
+        {
+            // TODO: to check for equality of syntax nodes use 'AreEquivalent'
+            string initializerString = init.ToString();
+            if (reuse && VarsInitializers.TryGetValue(initializerString, out var result))
+                return result;
+            var (var, varId) = GenerateIdentifier(varName);
+            var varDecl = RenderVarDecl(type, var, init);
+            _statements.Add(LocalDeclarationStatement(varDecl));
+            VarsInitializers[initializerString] = varId;
+            return varId;
+        }
+
+        internal IdentifierNameSyntax AddModuleDecl(Module module)
+        {
+            // TODO: care about dynamic modules (mocks and others)
+            var getModule =
+                RenderCall(
+                    RenderMemberAccess(_assemblyId, "GetModule"), 
+                    RenderLiteral(module.Name)
+                );
+            return AddDecl("module", ModuleType, getModule, true);
+        }
+
+        internal IdentifierNameSyntax AddTypeDecl(Type type)
+        {
+            var moduleId = AddModuleDecl(type.Module);
+            var getType =
+                RenderCall(
+                    RenderMemberAccess(moduleId, "GetType"),
+                    RenderLiteral(type.FullName)
+                );
+            return AddDecl("type", SystemType, getType, true);
+        }
+
+        internal IdentifierNameSyntax AddMethodDecl(MethodBase method, IdentifierNameSyntax? moduleId = null!)
+        {
+            moduleId ??= AddModuleDecl(method.Module);
+            var resolveMethod =
+                RenderCall(
+                    RenderMemberAccess(moduleId, "ResolveMethod"),
+                    RenderLiteral(method.MetadataToken)
+                );
+
+            return AddDecl("method", MethodBaseType, resolveMethod);
+        }
+
+        internal IdentifierNameSyntax AddAssemblyDecl(Assembly assembly)
+        {
+            var loadAssembly =
+                RenderCall(
+                    RenderMemberAccess(IdentifierName("Assembly"), "LoadFrom"),
+                    RenderLiteral(assembly.Location)
+                );
+            return AddDecl("assembly", AssemblyType, loadAssembly, true);
+        }
+
+        internal void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
+        {
+            _statements.Add(RenderAssertEqual(x, y));
+        }
+
+        internal void AddAssert(ExpressionSyntax condition)
+        {
+            _statements.Add(RenderAssert(condition));
+        }
+
+        private ExpressionSyntax RenderArray(Array obj)
+        {
+            var rank = obj.Rank;
+            var elemTypeName = obj.GetType().GetElementType()?.ToString();
+            if (elemTypeName == null)
+                throw new ArgumentException();
+            var type = RenderArrayType(elemTypeName, obj.Rank);
+            var initializer = new List<ExpressionSyntax>();
+            if (rank > 1)
+            {
+                throw new NotImplementedException("implement rendering for non-vector arrays");
+                // for (int i = 0; i < obj.Rank; i++)
+                // {
+                //     var innerInitializer = new List<ExpressionSyntax>();
+                //     for (int j = obj.GetLowerBound(i); j <= obj.GetUpperBound(i); j++)
+                //     {
+                //         
+                //     }
+                // }
+            }
+            else
+            {
+                for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
+                {
+                    // TODO: if lower bound != 0, use Array.CreateInstance
+                    initializer.Add(RenderObject(obj.GetValue(i)));
+                }
+            }
+
+            return RenderArrayCreation(type, initializer);
+        }
+
+        private ExpressionSyntax RenderFields(object obj)
+        {
+            var type = obj.GetType();
+            var typeId = AddTypeDecl(type);
+            // TODO: minimize
+            var getUninitializedObjectId = RenderMemberAccess("FormatterServices", "GetUninitializedObject");
+            var getUninitializedObject = RenderCall(getUninitializedObjectId, typeId);
+            var objId = AddDecl("obj", ObjectType, getUninitializedObject);
+            var fields = Reflection.fieldsOf(false, type);
+            foreach (var (_, fieldInfo) in fields)
+            {
+                var getFieldId = RenderMemberAccess(typeId, "GetField");
+                var getField = RenderCall(getFieldId, RenderLiteral(fieldInfo.Name), BindingFlags);
+                var setValueId = RenderMemberAccess(getField, "SetValue");
+                var fieldValue = fieldInfo.GetValue(obj);
+                var setValue = RenderCall(setValueId, objId, RenderObject(fieldValue));
+                _statements.Add(ExpressionStatement(setValue));
+            }
+            return objId;
+        }
+
+        internal ExpressionSyntax RenderObject(object? obj) => obj switch
+        {
+            null        => LiteralExpression(SyntaxKind.NullLiteralExpression),
+            true        => LiteralExpression(SyntaxKind.TrueLiteralExpression),
+            false       => LiteralExpression(SyntaxKind.FalseLiteralExpression),
+            byte n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            sbyte n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            char n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            short n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            ushort n    => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            int n       => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            uint n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            long n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            ulong n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            float n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            double n    => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            decimal n   => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            nuint n     => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            nint n      => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            string s    => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
+            Array a     => RenderArray(a),
+            ValueType   => RenderFields(obj),
+            _ when obj.GetType().IsPointer => throw new NotImplementedException("implement rendering of pointers"),
+            _           => RenderFields(obj)
+        };
+
+        public BlockSyntax GetBlock()
+        {
+            return Block(_statements);
+        }
+    }
+
     private static MethodDeclarationSyntax RenderTest(
         MethodBase method,
         int i,
@@ -368,23 +387,18 @@ public static class Renderer
         object expected)
     {
         ResetCache();
-        var globalStatements = new List<StatementSyntax>();
+        var mainBlock = new Block();
 
         // NOTE: declaring assembly and module of testing method 
         var methodModule = method.Module;
-        _assemblyId = AddAssemblyDecl(globalStatements, methodModule.Assembly);
-        var moduleId = AddModuleDecl(globalStatements, methodModule);
-        var resolveMethod =
-            RenderCall(
-                RenderMemberAccess(moduleId, "ResolveMethod"),
-                RenderLiteral(method.MetadataToken)
-            );
-        var methodId = AddDecl(globalStatements, "method", MethodBaseType, resolveMethod);
+        _assemblyId = mainBlock.AddAssemblyDecl(methodModule.Assembly);
+        var moduleId = mainBlock.AddModuleDecl(methodModule);
+        var methodId = mainBlock.AddMethodDecl(method, moduleId);
 
         // NOTE: declaring arguments and 'this' of testing method
-        var createArray = RenderArrayCreation(VectorOfObjects, args.Select(o => RenderObject(globalStatements, o)));
-        var argsId = AddDecl(globalStatements, "args", VectorOfObjects, createArray);
-        var thisArgId = AddDecl(globalStatements, "thisArg", ObjectType, RenderObject(globalStatements, thisArg));
+        var createArray = RenderArrayCreation(VectorOfObjects, args.Select(mainBlock.RenderObject));
+        var argsId = mainBlock.AddDecl("args", VectorOfObjects, createArray);
+        var thisArgId = mainBlock.AddDecl("thisArg", ObjectType, mainBlock.RenderObject(thisArg));
 
         // NOTE: calling testing method
         var invokeMethod =
@@ -393,20 +407,19 @@ public static class Renderer
                 thisArgId, argsId
             );
 
-        // NOTE: handling exceptions
-        // TODO: use Assert.Throws instead of catch clause
         BlockSyntax body;
         if (ex == null)
         {
-            var resultId = AddDecl(globalStatements, "result", ObjectType, invokeMethod);
-            // TODO: add object comparison function 
-            var resultAssert = RenderAssertEqual(resultId, RenderObject(globalStatements, expected));
-            body = Block(globalStatements).AddStatements(resultAssert);
+            var resultId = mainBlock.AddDecl("result", ObjectType, invokeMethod);
+            mainBlock.AddAssertEqual(resultId, mainBlock.RenderObject(expected));
+            body = mainBlock.GetBlock();
         }
         else
         {
-            var tryStatements = new List<StatementSyntax>();
-            AddDecl(tryStatements, "result", ObjectType, invokeMethod);
+            // NOTE: handling exceptions
+            // TODO: use Assert.Throws instead of catch clause
+            var tryBlock = new Block();
+            tryBlock.AddDecl("result", ObjectType, invokeMethod);
             var (exception, exceptionId) = GenerateIdentifier("ex");
             var innerException = RenderMemberAccess(exceptionId, "InnerException");
             var notNull =
@@ -414,18 +427,18 @@ public static class Renderer
                     LiteralExpression(SyntaxKind.NullLiteralExpression));
             var exGetTypeId = RenderMemberAccess(innerException, "GetType");
             var exGetType = RenderCall(exGetTypeId);
-            var catchStatements = new List<StatementSyntax>();
-            var expectedExType = AddTypeDecl(catchStatements, ex);
+            var catchBlock = new Block();
+            var expectedExType = catchBlock.AddTypeDecl(ex);
             var eq =
                 BinaryExpression(SyntaxKind.EqualsExpression, exGetType, expectedExType);
             var condition =
                 BinaryExpression(SyntaxKind.LogicalAndExpression, notNull, eq);
-            catchStatements.Add(RenderAssert(condition));
+            catchBlock.AddAssert(condition);
             var declaration = CatchDeclaration(TargetInvocationExceptionType, exception);
-            var catchClause = CatchClause(declaration, null, Block(catchStatements));
+            var catchClause = CatchClause(declaration, null, catchBlock.GetBlock());
             var clauses = SingletonList(catchClause);
-            var tryCatchBlock = TryStatement(Block(tryStatements), clauses, null);
-            body = Block(globalStatements).AddStatements(tryCatchBlock);
+            var tryCatchBlock = TryStatement(tryBlock.GetBlock(), clauses, null);
+            body = mainBlock.GetBlock().AddStatements(tryCatchBlock);
         }
 
         return
