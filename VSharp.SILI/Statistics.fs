@@ -7,6 +7,7 @@ open System.Collections.Generic
 
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 open VSharp.Utils
 
 open CilStateOperations
@@ -27,6 +28,7 @@ type public SILIStatistics() =
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let coveredByTests = Dictionary<Method, HashSet<offset>>()
+    let uncoveredByTests = Dictionary<cilState, HashSet<codeLocation>>()
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
@@ -131,13 +133,23 @@ type public SILIStatistics() =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
        
     member x.IsCoveredByTest (loc : codeLocation) =
-        coveredByTests.ContainsKey loc.method && coveredByTests.[loc.method].Contains loc.offset
+        let offsets = ref null
+        coveredByTests.TryGetValue(loc.method, offsets) && offsets.Value.Contains loc.offset
+        
+    member x.UncoveredByTestsLocationsCount (s : cilState) =
+        let locations = ref null
+        if uncoveredByTests.TryGetValue(s, locations) then locations.Value.Count else invalidOp "State not started or already finished"
         
     member x.TrackFinished (s : cilState) =
         for loc in s.history do
             if not <| coveredByTests.ContainsKey loc.method then
                 coveredByTests.[loc.method] <- HashSet()
             coveredByTests.[loc.method].Add loc.offset |> ignore
+            
+            for kvp in uncoveredByTests do
+                kvp.Value.Remove loc |> ignore
+                
+            uncoveredByTests.Remove s |> ignore
 
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
@@ -146,6 +158,11 @@ type public SILIStatistics() =
         match startLoc, currentLoc with
         | Some startLoc, Some currentLoc ->
             rememberForward startLoc currentLoc visited
+            
+            if not <| x.IsCoveredByTest currentLoc then
+                if not <| uncoveredByTests.ContainsKey s then
+                    uncoveredByTests.[s] <- HashSet()
+                uncoveredByTests.[s].Add currentLoc |> ignore
         | _ -> ()
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
