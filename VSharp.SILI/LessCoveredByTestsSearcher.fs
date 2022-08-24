@@ -1,5 +1,7 @@
 namespace VSharp.Interpreter.IL
 
+open System
+
 type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
     
     let weight state =
@@ -9,7 +11,7 @@ type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
     
     interface IWeighter with
         override x.Weight(state) = weight state
-        override x.Next() = 0u
+        override x.Next() = UInt32.MaxValue
         
 type internal LessCoveredByTestsSearcher(maxBound, statistics) =
     inherit SampledWeightedSearcher(maxBound, LessCoveredByTestsWeighter(statistics))

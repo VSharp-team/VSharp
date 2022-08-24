@@ -147,7 +147,7 @@ type public SILIStatistics() =
                 visitedBlocksNotCoveredByTests.[s].Add currentLoc |> ignore
                 
             if not <| visitedBlocks.ContainsKey s then
-                    visitedBlocks.[s] <- HashSet()
+                visitedBlocks.[s] <- HashSet()
             visitedBlocks.[s].Add currentLoc |> ignore
         | _ -> ()
 
@@ -161,15 +161,15 @@ type public SILIStatistics() =
         if visitedBlocksNotCoveredByTests.TryGetValue(s, locations) then Some locations.Value.Count else None
         
     member x.TrackFinished (s : cilState) =
-        let visited = ref null
-        if visitedBlocks.TryGetValue(s, visited) then
-            for loc in visited.Value do
-                if not <| blocksCoveredByTests.ContainsKey loc.method then
-                    blocksCoveredByTests.[loc.method] <- HashSet()
-                blocksCoveredByTests.[loc.method].Add loc.offset |> ignore
-                
-                for kvp in visitedBlocksNotCoveredByTests do
-                    kvp.Value.Remove loc |> ignore
+        assert(visitedBlocks.ContainsKey s)
+        assert(visitedBlocksNotCoveredByTests.ContainsKey s)
+        for loc in visitedBlocks.[s] do
+            if not <| blocksCoveredByTests.ContainsKey loc.method then
+                blocksCoveredByTests.[loc.method] <- HashSet()
+            blocksCoveredByTests.[loc.method].Add loc.offset |> ignore
+            
+            for kvp in visitedBlocksNotCoveredByTests do
+                kvp.Value.Remove loc |> ignore
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
         visitedBlocks.Remove s |> ignore
