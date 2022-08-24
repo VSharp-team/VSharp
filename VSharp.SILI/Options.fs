@@ -7,6 +7,7 @@ type searchMode =
     | DFSMode
     | BFSMode
     | ShortestDistanceBasedMode
+    | LessCoveredByTestsMode
     | GuidedMode of searchMode
 
 type coverageZone =

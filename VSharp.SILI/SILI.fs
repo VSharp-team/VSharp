@@ -59,6 +59,7 @@ type public SILI(options : SiliOptions) =
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
+        | LessCoveredByTestsMode -> LessCoveredByTestsSearcher(infty, statistics)
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
@@ -194,8 +195,8 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while pick() && stopwatch.ElapsedMilliseconds < timeout do
-(*            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
-                releaseBranches()*)
+            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
+                releaseBranches()
             match action with
             | GoFront s -> x.Forward(s)
             | GoBack(s, p) -> x.Backward p s EP

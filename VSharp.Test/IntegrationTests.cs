@@ -1,8 +1,8 @@
 ﻿using System;
-using System.IO;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using NUnit.Framework;
@@ -19,7 +19,8 @@ namespace VSharp.Test
     {
         DFS,
         BFS,
-        ShortestDistance
+        ShortestDistance,
+        LessCoveredByTests
     }
 
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
@@ -118,6 +119,9 @@ namespace VSharp.Test
                         break;
                     case SearchStrategy.ShortestDistance:
                         _searchStrat = searchMode.ShortestDistanceBasedMode;
+                        break;
+                    case SearchStrategy.LessCoveredByTests:
+                        _searchStrat = searchMode.LessCoveredByTestsMode;
                         break;
                 }
 

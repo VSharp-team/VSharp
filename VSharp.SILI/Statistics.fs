@@ -138,7 +138,7 @@ type public SILIStatistics() =
         
     member x.UncoveredByTestsLocationsCount (s : cilState) =
         let locations = ref null
-        if uncoveredByTests.TryGetValue(s, locations) then locations.Value.Count else invalidOp "State not started or already finished"
+        if uncoveredByTests.TryGetValue(s, locations) then Some locations.Value.Count else None
         
     member x.TrackFinished (s : cilState) =
         for loc in s.history do
