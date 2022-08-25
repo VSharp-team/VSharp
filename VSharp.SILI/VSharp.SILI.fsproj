@@ -25,6 +25,8 @@
         <Compile Include="Statistics.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="WeightCombinators.fs" />
+        <Compile Include="CombinedWeighter.fs" />
         <Compile Include="DistanceWeighter.fs" />
         <Compile Include="LessCoveredByTestsSearcher.fs" />
         <Compile Include="TargetedSearcher.fs" />

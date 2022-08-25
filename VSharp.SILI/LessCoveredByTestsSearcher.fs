@@ -15,3 +15,13 @@ type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
         
 type internal LessCoveredByTestsSearcher(maxBound, statistics) =
     inherit SampledWeightedSearcher(maxBound, LessCoveredByTestsWeighter(statistics))
+    
+type internal LessCoveredWithDistanceAsFallbackWeighter(statistics) =
+    inherit CombinedWeighter(
+        LessCoveredByTestsWeighter(statistics),
+        IntraproceduralShortestDistanceToUncoveredWeighter(statistics),
+        UInt32.MaxValue,
+        WeightCombinators.withInverseLogFallback 100u)
+    
+type internal LessCoveredWithDistanceAsFallbackSearcher(maxBound, statistics) =
+    inherit SampledWeightedSearcher(maxBound, LessCoveredWithDistanceAsFallbackWeighter(statistics))
