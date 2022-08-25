@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open VSharp.Utils
 
 type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
     
@@ -24,4 +25,4 @@ type internal LessCoveredWithDistanceAsFallbackWeighter(statistics) =
         WeightCombinators.withInverseLinearFallback 100u)
     
 type internal LessCoveredWithDistanceAsFallbackSearcher(maxBound, statistics) =
-    inherit SampledWeightedSearcher(maxBound, LessCoveredWithDistanceAsFallbackWeighter(statistics))
+    inherit WeightedSearcher(maxBound, LessCoveredWithDistanceAsFallbackWeighter(statistics), BidictionaryPriorityQueue())
