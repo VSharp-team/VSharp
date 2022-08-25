@@ -21,7 +21,7 @@ type internal LessCoveredWithDistanceAsFallbackWeighter(statistics) =
         LessCoveredByTestsWeighter(statistics),
         IntraproceduralShortestDistanceToUncoveredWeighter(statistics),
         UInt32.MaxValue,
-        WeightCombinators.withInverseLogFallback 100u)
+        WeightCombinators.withInverseLinearFallback 100u)
     
 type internal LessCoveredWithDistanceAsFallbackSearcher(maxBound, statistics) =
     inherit SampledWeightedSearcher(maxBound, LessCoveredWithDistanceAsFallbackWeighter(statistics))
