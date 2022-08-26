@@ -200,6 +200,7 @@ namespace VSharp.Test
                     methodInfo,
                     _searchStrat.IsGuidedMode,
                     _releaseBranches,
+                    _timeout,
                     _baseSearchStrat,
                     _baseCoverageZone
                 );
