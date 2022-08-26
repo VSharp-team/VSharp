@@ -29,6 +29,7 @@
         <Compile Include="CombinedWeighter.fs" />
         <Compile Include="DistanceWeighter.fs" />
         <Compile Include="LessCoveredByTestsSearcher.fs" />
+        <Compile Include="DFSSortedByLessCoveredSearcher.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="Communication.fs" />

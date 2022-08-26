@@ -162,7 +162,6 @@ type public SILIStatistics() =
         
     member x.TrackFinished (s : cilState) =
         assert(visitedBlocks.ContainsKey s)
-        assert(visitedBlocksNotCoveredByTests.ContainsKey s)
         for loc in visitedBlocks.[s] do
             if not <| blocksCoveredByTests.ContainsKey loc.method then
                 blocksCoveredByTests.[loc.method] <- HashSet()

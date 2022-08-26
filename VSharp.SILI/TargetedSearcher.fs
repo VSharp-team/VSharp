@@ -219,11 +219,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             insertInTargetedSearchers states
         override x.Pick() = pick ()
         override x.Update (parent, newStates) = update parent newStates
-        override x.States() =
-            seq {
-                yield baseSearcher.States()
-                yield! targetedSearchers |> Seq.map (fun kvp -> (kvp.Value :> IForwardSearcher).States())
-            } |> Seq.concat
+        override x.States() = baseSearcher.States()
 
 type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
-    inherit SampledWeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics))
+    inherit WeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())

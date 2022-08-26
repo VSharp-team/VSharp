@@ -15,7 +15,7 @@ type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
         override x.Next() = UInt32.MaxValue
         
 type internal LessCoveredByTestsSearcher(maxBound, statistics) =
-    inherit SampledWeightedSearcher(maxBound, LessCoveredByTestsWeighter(statistics))
+    inherit WeightedSearcher(maxBound, LessCoveredByTestsWeighter(statistics), BidictionaryPriorityQueue())
     
 type internal LessCoveredWithDistanceAsFallbackWeighter(statistics) =
     inherit CombinedWeighter(

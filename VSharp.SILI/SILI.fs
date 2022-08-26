@@ -73,7 +73,7 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
-            let dfsSearcher = DFSSearcher(infty) :> IForwardSearcher
+            let dfsSearcher = DFSSortedByLessCoveredSearcher(infty, statistics) :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
