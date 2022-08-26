@@ -7,6 +7,7 @@ namespace VSharp.Test;
 public record TestStatistics(
     MethodInfo TestMethodInfo,
     bool IsGuidedMode,
+    bool ReleaseBranchesEnabled,
     SearchStrategy SearchStrategy,
     CoverageZone CoverageZone,
     statisticsDump SiliStatisticsDump = null,

@@ -18,7 +18,7 @@ type public SILI(options : SiliOptions) =
     let stopwatch = Stopwatch()
     let () = stopwatch.Start()
     let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
-    let branchReleaseTimeout = if options.timeout <= 0 then Int64.MaxValue else timeout * 80L / 100L
+    let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Int64.MaxValue else timeout * 80L / 100L
     let mutable branchesReleased = false
 
     let statistics = SILIStatistics()
@@ -76,7 +76,6 @@ type public SILI(options : SiliOptions) =
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
-
 
     let coveragePobsForMethod (method : Method) =
         let cfg = method.CFG

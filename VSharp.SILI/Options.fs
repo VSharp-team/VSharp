@@ -29,4 +29,5 @@ type SiliOptions = {
     recThreshold : uint32
     timeout : int
     visualize : bool
+    releaseBranches : bool
 }

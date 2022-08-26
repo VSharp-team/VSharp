@@ -69,6 +69,7 @@ namespace VSharp.Test
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
         private readonly bool _guidedMode;
+        private readonly bool _releaseBranches;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -76,6 +77,7 @@ namespace VSharp.Test
             int timeout = -1,
             bool concolicMode = false,
             bool guidedMode = true,
+            bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class)
         {
@@ -88,6 +90,7 @@ namespace VSharp.Test
             _timeout = timeout;
             _concolicMode = concolicMode;
             _guidedMode = guidedMode;
+            _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
         }
@@ -101,6 +104,7 @@ namespace VSharp.Test
                 _recThresholdForTest,
                 _timeout,
                 _guidedMode,
+                _releaseBranches,
                 execMode,
                 _strat,
                 _coverageZone
@@ -112,6 +116,7 @@ namespace VSharp.Test
             private readonly int? _expectedCoverage;
             private readonly uint _recThresholdForTest;
             private readonly int _timeout;
+            private readonly bool _releaseBranches;
             private readonly executionMode _executionMode;
             private readonly searchMode _searchStrat;
             private readonly coverageZone _coverageZone;
@@ -125,6 +130,7 @@ namespace VSharp.Test
                 uint recThresholdForTest,
                 int timeout,
                 bool guidedMode,
+                bool releaseBranches,
                 executionMode execMode,
                 SearchStrategy strat,
                 CoverageZone coverageZone) : base(innerCommand)
@@ -136,6 +142,7 @@ namespace VSharp.Test
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
                 _timeout = timeout;
+                _releaseBranches = releaseBranches;
 
                 _searchStrat = strat switch
                 {
@@ -178,6 +185,7 @@ namespace VSharp.Test
                 var stats = new TestStatistics(
                     methodInfo,
                     _searchStrat.IsGuidedMode,
+                    _releaseBranches,
                     _baseSearchStrat,
                     _baseCoverageZone
                 );
@@ -191,7 +199,8 @@ namespace VSharp.Test
                         unitTests.TestDirectory,
                         _recThresholdForTest,
                         _timeout,
-                        false
+                        false,
+                        _releaseBranches
                     );
                     SILI explorer = new SILI(_options);
 
