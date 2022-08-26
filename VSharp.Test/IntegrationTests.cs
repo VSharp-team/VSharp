@@ -40,6 +40,13 @@ namespace VSharp.Test
 
     public class TestSvmAttribute : NUnitAttribute, IWrapTestMethod, ISimpleTestBuilder
     {
+        private const string CsvPathParameterName = "csvPath";
+        private const string RunIdParameterName = "runId";
+        private const string SearchStrategyParameterName = "searchStrategy";
+        private const string ExpectedCoverageParameterName = "expectedCoverage";
+        private const string TimeoutParameterName = "timeout";
+        private const string ReleaseBranchesParameterName = "releaseBranches";
+
         private static SiliOptions _options = null;
 
         static TestSvmAttribute()
@@ -136,15 +143,22 @@ namespace VSharp.Test
                 CoverageZone coverageZone) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
-                _baseSearchStrat = strat;
+                _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
+                    strat : (SearchStrategy)Enum.Parse(typeof(SearchStrategy), TestContext.Parameters[SearchStrategyParameterName], true);
+
+                _expectedCoverage = TestContext.Parameters[ExpectedCoverageParameterName] == null ?
+                    expectedCoverage : int.Parse(TestContext.Parameters[ExpectedCoverageParameterName]);
                 
-                _expectedCoverage = expectedCoverage;
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
-                _timeout = timeout;
-                _releaseBranches = releaseBranches;
+                
+                _timeout = TestContext.Parameters[TimeoutParameterName] == null ?
+                    timeout : int.Parse(TestContext.Parameters[TimeoutParameterName]);
+                
+                _releaseBranches = TestContext.Parameters[ReleaseBranchesParameterName] == null ?
+                    releaseBranches : bool.Parse(TestContext.Parameters[ReleaseBranchesParameterName]);
 
-                _searchStrat = strat switch
+                _searchStrat = _baseSearchStrat switch
                 {
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
@@ -170,13 +184,13 @@ namespace VSharp.Test
             {
                 IStatisticsReporter reporter = null;
                     
-                var csvReportPath = TestContext.Parameters["csvPath"];
+                var csvReportPath = TestContext.Parameters[CsvPathParameterName];
                 if (csvReportPath != null)
                 {
                     reporter = new CsvStatisticsReporter(
                         csvReportPath,
                         "TestResults",
-                        TestContext.Parameters["runId"] ?? "" 
+                        TestContext.Parameters[RunIdParameterName] ?? "" 
                     );
                 }
 
