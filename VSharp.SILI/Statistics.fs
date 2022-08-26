@@ -29,6 +29,7 @@ type public SILIStatistics() =
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     
+    let totalBlocksCount = Dictionary<Method, uint>()    
     let blocksCoveredByTests = Dictionary<Method, HashSet<offset>>()
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, HashSet<codeLocation>>()
     let visitedBlocks = Dictionary<cilState, HashSet<codeLocation>>()
@@ -42,6 +43,9 @@ type public SILIStatistics() =
     let mutable nonCoveringStepsInsideZone = 0
     let mutable coveringStepsOutsideZone = 0
     let mutable nonCoveringStepsOutsideZone = 0
+    
+    let getTotalBlocksCount (method : Method) : uint =
+        Dict.getValueOrUpdate totalBlocksCount method (fun _ -> if method.HasBody then method.CFG.SortedOffsets |> Seq.length |> uint else 0u)
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
@@ -159,6 +163,15 @@ type public SILIStatistics() =
     member x.UncoveredByTestsLocationsCount (s : cilState) =
         let locations = ref null
         if visitedBlocksNotCoveredByTests.TryGetValue(s, locations) then Some locations.Value.Count else None
+        
+    member x.MethodCoverage method =
+        let totalInstructionsCount = getTotalBlocksCount method
+        let methodBlocksCoveredByTest = ref null
+        let coveringSteps = if blocksCoveredByTests.TryGetValue(method, methodBlocksCoveredByTest) then methodBlocksCoveredByTest.Value.Count else 0
+        if totalInstructionsCount <> 0u then
+            uint <| floor (double coveringSteps / double totalInstructionsCount * 100.0)
+        else
+            0u
         
     member x.TrackFinished (s : cilState) =
         assert(visitedBlocks.ContainsKey s)

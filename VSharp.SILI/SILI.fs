@@ -20,6 +20,7 @@ type public SILI(options : SiliOptions) =
     let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
     let branchReleaseTimeout = if options.timeout <= 0 then Int64.MaxValue else timeout * 80L / 100L
     let mutable branchesReleased = false
+    let mutable isStopped = false
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
@@ -194,7 +195,7 @@ type public SILI(options : SiliOptions) =
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while pick() && stopwatch.ElapsedMilliseconds < timeout do
+        while not isStopped && pick() && stopwatch.ElapsedMilliseconds < timeout do
             if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
                 releaseBranches()
             match action with
@@ -287,5 +288,7 @@ type public SILI(options : SiliOptions) =
         if not initialStates.IsEmpty then
             x.AnswerPobs method initialStates
         Restore()
+        
+    member x.Stop() = isStopped <- true
 
     member x.Statistics with get() = statistics

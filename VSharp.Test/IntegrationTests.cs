@@ -145,7 +145,37 @@ namespace VSharp.Test
                         );
                     SILI explorer = new SILI(_options);
 
-                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    void GenerateTestAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateTest(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        if (explorer.Statistics.MethodCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+                    
+                    void GenerateErrorAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateError(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        if (explorer.Statistics.MethodCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+
+                    explorer.InterpretIsolated(methodInfo, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, e => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
