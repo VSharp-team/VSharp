@@ -83,7 +83,8 @@ namespace VSharp
                     unitTests.TestDirectory,
                     recThreshold,
                     timeout,
-                    false);
+                    false,
+                    true);
             SILI explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
             foreach (var method in methods)
