@@ -22,7 +22,6 @@ internal class ClassRenderer
         SyntaxToken[]? modifiers)
     {
         // Creating identifiers cache
-        IdGenerator.reset();
         cache = new IdentifiersCache();
 
         declaration = ClassDeclaration(className);
@@ -77,10 +76,5 @@ internal class ClassRenderer
         members.AddRange(fields);
         members.AddRange(renderingMethods.Select(method => method.Render()));
         return declaration.WithMembers(List(members));
-    }
-
-    ~ClassRenderer()
-    {
-        IdGenerator.restore();
     }
 }
