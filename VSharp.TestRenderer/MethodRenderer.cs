@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net.Cache;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -17,10 +16,13 @@ using ExprCreator = Func<IdentifierNameSyntax, ExpressionSyntax>;
 internal interface IBlock
 {
     IdentifierNameSyntax AddDecl(string varName, TypeSyntax? type, ExpressionSyntax init, bool reuse = false);
+    IdentifierNameSyntax AddModuleDecl(IdentifierNameSyntax asemblyId, Module module);
     IdentifierNameSyntax AddModuleDecl(Module module);
+    IdentifierNameSyntax AddTypeDecl(IdentifierNameSyntax moduleId, Type type);
     IdentifierNameSyntax AddTypeDecl(Type type);
     IdentifierNameSyntax AddMethodDecl(MethodBase method, IdentifierNameSyntax? moduleId = null!);
     IdentifierNameSyntax AddAssemblyViaPathDecl(Assembly assembly);
+    IdentifierNameSyntax AddAssemblyViaNameDecl(Assembly assembly);
     void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y);
     void AddAssert(ExpressionSyntax condition);
     void AddTryCatch(BlockCreator tryBlockCreator, TypeSyntax catchType, string exVarName, BlockCreatorWithVar catchBlockCreator);
@@ -38,26 +40,33 @@ internal class MethodRenderer
 {
     private readonly IdentifiersCache cache;
     private readonly MethodDeclarationSyntax declaration;
-    // private readonly IdentifierNameSyntax[] parametersIds;
+
     public IdentifierNameSyntax[] ParametersIds { get; }
     public IdentifierNameSyntax MethodId { get; }
     public IBlock Body { get; }
 
+    // TODO: configure useful methods? (like 'LoadAssembly')
+    // 'AssemblyLoader' is rendered method, which takes assembly name and it's path,
+    // loads it and returns assembly id
+    public static IdentifierNameSyntax? AssemblyLoader = null!;
+    public static IdentifierNameSyntax? BindingFlags = null!;
+
     public MethodRenderer(
-        string methodName,
+        SyntaxToken methodToken,
+        IdentifierNameSyntax methodId,
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
         TypeSyntax resultType,
         params (TypeSyntax, string)[] args)
     {
         // Creating identifiers cache
-        IdGenerator.reset();
+        // TODO: create own IdGenerator
+        // IdGenerator.reset();
         cache = new IdentifiersCache();
 
         // Creating method declaration
-        var (method, methodId) = cache.GenerateIdentifier(methodName);
         MethodId = methodId;
-        declaration = MethodDeclaration(resultType, method);
+        declaration = MethodDeclaration(resultType, methodToken);
         if (attributes != null)
             declaration = declaration.AddAttributeLists(attributes);
         var parameters = new ParameterSyntax[args.Length];
@@ -81,32 +90,6 @@ internal class MethodRenderer
         Body = new BlockBuilder(cache);
     }
 
-    private class IdentifiersCache
-    {
-        private readonly Dictionary<string, IdentifierNameSyntax> idInitializers = new ();
-        private readonly Dictionary<string, SyntaxToken> identifiers = new ();
-
-        public (SyntaxToken, IdentifierNameSyntax) GenerateIdentifier(string identifierName)
-        {
-            identifierName = IdGenerator.startingWith(identifierName);
-            SyntaxToken identifier = Identifier(identifierName);
-            if (!identifiers.TryAdd(identifierName, identifier))
-                throw new ArgumentException("ID generator failed!");
-
-            return (identifier, IdentifierName(identifierName));
-        }
-
-        public bool TryGetVarByInit(string initializerString, out IdentifierNameSyntax? result)
-        {
-            return idInitializers.TryGetValue(initializerString, out result);
-        }
-
-        public void SetVarInit(IdentifierNameSyntax varId, string initializerString)
-        {
-            idInitializers[initializerString] = varId;
-        }
-    }
-
     private class BlockBuilder : IBlock
     {
         // Variables cache
@@ -114,7 +97,7 @@ internal class MethodRenderer
 
         private readonly List<StatementSyntax> _statements = new();
 
-        public BlockBuilder(in IdentifiersCache cache)
+        public BlockBuilder(IdentifiersCache cache)
         {
             this.cache = cache;
         }
@@ -127,13 +110,72 @@ internal class MethodRenderer
         {
             // TODO: to check for equality of syntax nodes use 'AreEquivalent'
             string initializerString = init.ToString();
-            if (reuse && cache.TryGetVarByInit(initializerString, out var result))
+            if (reuse && cache.TryGetIdByInit(initializerString, out var result))
                 return result;
             var (var, varId) = cache.GenerateIdentifier(varName);
             var varDecl = RenderVarDecl(type, var, init);
             _statements.Add(LocalDeclarationStatement(varDecl));
-            cache.SetVarInit(varId, initializerString);
+            cache.SetIdInit(varId, initializerString);
             return varId;
+        }
+
+        public IdentifierNameSyntax AddAssemblyViaPathDecl(Assembly assembly)
+        {
+            ExpressionSyntax assemblyId;
+            if (AssemblyLoader == null)
+            {
+                assemblyId =
+                    RenderCall(
+                        IdentifierName("Assembly"), "LoadFrom",
+                        RenderLiteral(assembly.Location)
+                    );
+            }
+            else
+            {
+                assemblyId =
+                    RenderCall(
+                        AssemblyLoader,
+                        RenderLiteral(assembly.Location),
+                        RenderLiteral(assembly.FullName)
+                    );
+            }
+
+            return AddDecl("assembly", AssemblyType, assemblyId, true);
+        }
+
+        public IdentifierNameSyntax AddAssemblyViaNameDecl(Assembly assembly)
+        {
+            ExpressionSyntax assemblyId;
+            if (AssemblyLoader == null)
+            {
+                assemblyId =
+                    RenderCall(
+                        IdentifierName("Assembly"), "Load",
+                        RenderLiteral(assembly.FullName)
+                    );
+            }
+            else
+            {
+                assemblyId =
+                    RenderCall(
+                        AssemblyLoader,
+                        RenderLiteral(assembly.Location),
+                        RenderLiteral(assembly.FullName)
+                    );
+            }
+
+            return AddDecl("assembly", AssemblyType, assemblyId, true);
+        }
+
+        public IdentifierNameSyntax AddModuleDecl(IdentifierNameSyntax assemblyId, Module module)
+        {
+            // TODO: care about dynamic modules (mocks and others)
+            var getModule =
+                RenderCall(
+                    assemblyId, "GetModule",
+                    RenderLiteral(module.Name)
+                );
+            return AddDecl("module", ModuleType, getModule, true);
         }
 
         public IdentifierNameSyntax AddModuleDecl(Module module)
@@ -146,6 +188,16 @@ internal class MethodRenderer
                     RenderLiteral(module.Name)
                 );
             return AddDecl("module", ModuleType, getModule, true);
+        }
+
+        public IdentifierNameSyntax AddTypeDecl(IdentifierNameSyntax moduleId, Type type)
+        {
+            var getType =
+                RenderCall(
+                    moduleId, "GetType",
+                    RenderLiteral(type.FullName)
+                );
+            return AddDecl("type", SystemType, getType, true);
         }
 
         public IdentifierNameSyntax AddTypeDecl(Type type)
@@ -171,26 +223,6 @@ internal class MethodRenderer
             return AddDecl("method", MethodBaseType, resolveMethod);
         }
 
-        public IdentifierNameSyntax AddAssemblyViaPathDecl(Assembly assembly)
-        {
-            var loadAssembly =
-                RenderCall(
-                    IdentifierName("Assembly"), "LoadFrom",
-                    RenderLiteral(assembly.Location)
-                );
-            return AddDecl("assembly", AssemblyType, loadAssembly, true);
-        }
-
-        public IdentifierNameSyntax AddAssemblyViaNameDecl(Assembly assembly)
-        {
-            var loadAssembly =
-                RenderCall(
-                    IdentifierName("Assembly"), "Load",
-                    RenderLiteral(assembly.FullName)
-                );
-            return AddDecl("assembly", AssemblyType, loadAssembly, true);
-        }
-
         public void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
         {
             _statements.Add(ExpressionStatement(RenderAssertEqual(x, y)));
@@ -205,8 +237,8 @@ internal class MethodRenderer
         {
             var (exceptionVar, exceptionId) = cache.GenerateIdentifier(exVarName);
             var declaration = CatchDeclaration(catchType, exceptionVar);
-            var tryBlock = tryBlockCreator(new BlockBuilder(cache));
-            var catchBlock = catchBlockCreator(new BlockBuilder(cache), exceptionId);
+            var tryBlock = tryBlockCreator(new BlockBuilder(new IdentifiersCache(cache)));
+            var catchBlock = catchBlockCreator(new BlockBuilder(new IdentifiersCache(cache)), exceptionId);
             var catchClause = CatchClause(declaration, null, catchBlock);
             var clauses = SingletonList(catchClause);
             var tryCatchBlock = TryStatement(tryBlock, clauses, null);
@@ -227,7 +259,7 @@ internal class MethodRenderer
             if (elseBranch != null) elseClause = ElseClause(elseBranch);
             var (isVar, isVarId) = cache.GenerateIdentifier(varName);
             var condition = RenderIsType(whatToCast, type, isVar);
-            var thenBranch = thenBranchCreator(new BlockBuilder(cache), isVarId);
+            var thenBranch = thenBranchCreator(new BlockBuilder(new IdentifiersCache(cache)), isVarId);
             var ifExpr = IfStatement(condition, thenBranch, elseClause);
             _statements.Add(ifExpr);
         }
@@ -247,14 +279,15 @@ internal class MethodRenderer
                     SeparatedList<ExpressionSyntax>(),
                     condition(iteratorId),
                     SingletonSeparatedList(increment(iteratorId)),
-                    creator(new BlockBuilder(cache), iteratorId)
+                    creator(new BlockBuilder(new IdentifiersCache(cache)), iteratorId)
                 );
             _statements.Add(forStatement);
         }
         
         public void AddWhile(ExpressionSyntax condition, BlockCreator blockCreator)
         {
-            var whileStatement = WhileStatement(condition, blockCreator(new BlockBuilder(cache)));
+            var block = blockCreator(new BlockBuilder(new IdentifiersCache(cache)));
+            var whileStatement = WhileStatement(condition, block);
             _statements.Add(whileStatement);
         }
         
@@ -262,7 +295,7 @@ internal class MethodRenderer
         {
             type ??= VarKeyword;
             var (elem, elemId) = cache.GenerateIdentifier(varName);
-            var block = blockCreator(new BlockBuilder(cache), elemId);
+            var block = blockCreator(new BlockBuilder(new IdentifiersCache(cache)), elemId);
             var forEach = ForEachStatement(type, elem, where, block);
             _statements.Add(forEach);
         }
@@ -313,10 +346,12 @@ internal class MethodRenderer
             var getUninitializedObject = RenderCall(getUninitializedObjectId, typeId);
             var objId = AddDecl("obj", ObjectType, getUninitializedObject);
             var fields = Reflection.fieldsOf(false, type);
+            var bindingFlags = BindingFlags ?? CodeRenderer.BindingFlags;
+                
             foreach (var (_, fieldInfo) in fields)
             {
                 var getField =
-                    RenderCall(typeId, "GetField", RenderLiteral(fieldInfo.Name), BindingFlags);
+                    RenderCall(typeId, "GetField", RenderLiteral(fieldInfo.Name), bindingFlags);
                 var fieldValue = fieldInfo.GetValue(obj);
                 var setValue =
                     RenderCall(getField, "SetValue", objId, RenderObject(fieldValue));
@@ -359,9 +394,9 @@ internal class MethodRenderer
     }
 
     // TODO: add 'GenerateIdentifier' to API instead of lambdas?
-    public IBlock NewBlock()
+    private IBlock NewBlock()
     {
-        return new BlockBuilder(cache);
+        return new BlockBuilder(new IdentifiersCache(cache));
     }
 
     public (IdentifierNameSyntax, IdentifierNameSyntax) GetTwoArgs()
@@ -373,5 +408,11 @@ internal class MethodRenderer
     public MethodDeclarationSyntax Render()
     {
         return declaration.WithBody(Body.GetBlock());
+    }
+
+    ~MethodRenderer()
+    {
+        // TODO: create own IdGenerator
+        // IdGenerator.restore();
     }
 }

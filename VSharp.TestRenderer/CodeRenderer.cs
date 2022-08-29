@@ -20,7 +20,9 @@ internal static class CodeRenderer
     public static readonly TypeSyntax SystemType = ParseTypeName("Type");
     public static readonly TypeSyntax SystemArray = ParseTypeName("Array");
     public static readonly TypeSyntax TargetInvocationExceptionType = ParseTypeName("TargetInvocationException");
+    public static readonly TypeSyntax ExceptionType = ParseTypeName("Exception");
     public static readonly TypeSyntax MulticastDelegate = ParseTypeName("MulticastDelegate");
+    public static readonly TypeSyntax BindingFlagsType = ParseTypeName("BindingFlags");
 
     // Prerendered tokends
     public static readonly SyntaxToken Public = Token(SyntaxKind.PublicKeyword);
@@ -32,7 +34,6 @@ internal static class CodeRenderer
     public static readonly ExpressionSyntax False = LiteralExpression(SyntaxKind.FalseLiteralExpression);
     public static readonly ExpressionSyntax Zero = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0));
 
-    // TODO: add 'BindingFlags' to static field of rendering class
     public static readonly ExpressionSyntax BindingFlags =
         BinaryExpression(
             SyntaxKind.BitwiseOrExpression,
@@ -272,9 +273,8 @@ internal static class CodeRenderer
     public static CompilationUnitSyntax RenderProgram(
         string[] usings,
         string namespaceName,
-        string className,
-        AttributeListSyntax classAttributes,
-        MemberDeclarationSyntax[] methods)
+        ClassDeclarationSyntax renderedClass)
+
     {
         var usingDetectives = new UsingDirectiveSyntax[usings.Length];
         for (var i = 0; i < usings.Length; i++)
@@ -282,10 +282,6 @@ internal static class CodeRenderer
             usingDetectives[i] = UsingDirective(ParseName(usings[i]));
         }
 
-        var renderedClass =
-            ClassDeclaration(className)
-                .AddAttributeLists(classAttributes)
-                .AddMembers(methods);
         var renderedNamespace =
             NamespaceDeclaration(IdentifierName(namespaceName))
                 .AddMembers(renderedClass);

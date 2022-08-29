@@ -27,7 +27,7 @@ public static class Renderer
             );
     }
 
-    private static MethodDeclarationSyntax RenderStructurallyEqual(
+    private static void RenderStructurallyEqual(
         MethodRenderer structEq,
         IdentifierNameSyntax compareObjects)
     {
@@ -36,7 +36,8 @@ public static class Renderer
 
         mainBlock.AddAssert(RenderNotNullTypesEqual(expected, got));
         var typeId = RenderGetType(expected);
-        var getFields = RenderCall(typeId, "GetFields", BindingFlags);
+        var bindingFlags = MethodRenderer.BindingFlags ?? BindingFlags;
+        var getFields = RenderCall(typeId, "GetFields", bindingFlags);
         var fieldsId = mainBlock.AddDecl("fields", null, getFields);
 
         var forEachBlockCreator = new BlockCreatorWithVar((foreachBlock, fieldId) =>
@@ -60,12 +61,9 @@ public static class Renderer
 
         mainBlock.AddForEach(null, "field", fieldsId, forEachBlockCreator);
         mainBlock.AddReturn(True);
-
-        return structEq.Render();
     }
 
-    // TODO: refactor
-    private static MethodDeclarationSyntax RenderContentwiseEqual(
+    private static void RenderContentwiseEqual(
         MethodRenderer contentwiseEq,
         IdentifierNameSyntax compareObjects)
     {
@@ -116,10 +114,9 @@ public static class Renderer
         var condition = RenderAnd(expectedMoveNext, gotMoveNext);
         mainBlock.AddWhile(condition, whileBlockCreator);
         mainBlock.AddReturn(True);
-        return contentwiseEq.Render();
     }
 
-    private static MethodDeclarationSyntax RenderCompareObjects(
+    private static void RenderCompareObjects(
         MethodRenderer compareObjects,
         IdentifierNameSyntax structEq,
         IdentifierNameSyntax contentwiseEq)
@@ -152,7 +149,6 @@ public static class Renderer
         });
         mainBlock.AddIfIsPattern(expected, SystemArray, "array", thenBranchCreator);
         mainBlock.AddReturn(RenderCall(structEq, expected, got));
-        return compareObjects.Render();
     }
 
     private static ExpressionSyntax RenderExceptionCondition(IdentifierNameSyntax caughtExObj, IdentifierNameSyntax expectedExType)
@@ -163,24 +159,42 @@ public static class Renderer
         var eq = RenderEq(exGetType, expectedExType);
         return RenderAnd(notNull, eq);
     }
+    private static void RenderAssemblyLoader(MethodRenderer assemblyLoader)
+    {
+        var mainBlock = assemblyLoader.Body;
+        var (path, name) = assemblyLoader.GetTwoArgs();
+        var tryBlock = new BlockCreator(block =>
+        {
+            var assembly =
+                RenderCall(
+                    IdentifierName("Assembly"), "LoadFrom",
+                    path
+                );
+            block.AddReturn(assembly);
+            return block.GetBlock();
+        });
+        var catchBlock = new BlockCreatorWithVar((block, _) =>
+        {
+            var assembly =
+                RenderCall(
+                    IdentifierName("Assembly"), "Load",
+                    name
+                );
+            block.AddReturn(assembly);
+            return block.GetBlock();
+        });
+        mainBlock.AddTryCatch(tryBlock, ExceptionType, "ex", catchBlock);
+    }
 
-    private static MethodDeclarationSyntax RenderTest(
+    private static void RenderTest(
+        MethodRenderer test,
         IdentifierNameSyntax compareObjects,
         MethodBase method,
-        int i,
         IEnumerable<object> args,
         object? thisArg,
         Type? ex,
         object expected)
     {
-        var test =
-            new MethodRenderer(
-                $"{method.Name}{i}Test",
-                RenderAttributeList("Test"),
-                new[] { Public, Static },
-                VoidType,
-                Array.Empty<(TypeSyntax, string)>()
-            );
         var mainBlock = test.Body;
 
         // NOTE: declaring assembly and module of testing method 
@@ -228,8 +242,6 @@ public static class Renderer
             });
             mainBlock.AddTryCatch(tryBlockCreator, TargetInvocationExceptionType, "ex", catchBlockCreator);
         }
-
-        return test.Render();
     }
 
     private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
@@ -254,16 +266,42 @@ public static class Renderer
     public static void RenderTests(IEnumerable<FileInfo> tests)
     {
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
+
+        // Creating class renderer
+        var generatedClass =
+            new ClassRenderer(
+                "GeneratedClass", 
+                RenderAttributeList("TestFixture"), 
+                null
+            );
+
+        // Rendering 'AssemblyLoader' method
         MethodRenderer assemblyLoader =
-            new MethodRenderer(
+            generatedClass.AddMethod(
                 "LoadAssembly",
                 null,
                 new[] { Private, Static },
                 AssemblyType,
                 (StringType, "path"), (StringType, "name")
             );
+        RenderAssemblyLoader(assemblyLoader);
+
+        // Configuring 'AssemblyLoader' method, which will be called for loading assembly
+        MethodRenderer.AssemblyLoader = assemblyLoader.MethodId;
+
+        // Configuring 'BindingFlags' static field
+        var bindingFlags =
+            generatedClass.AddField(
+                BindingFlagsType, 
+                "bindingFlags",
+                new[] { Private, Static },
+                BindingFlags
+            );
+        MethodRenderer.BindingFlags = bindingFlags;
+
+        // Creating and rendering methods for equality check
         MethodRenderer structurallyEqual =
-            new MethodRenderer(
+            generatedClass.AddMethod(
                 "StructurallyEqual",
                 null,
                 new[] { Private, Static },
@@ -271,7 +309,7 @@ public static class Renderer
                 (ObjectType, "expected"), (ObjectType, "got")
             );
         MethodRenderer contentwiseEqual =
-            new MethodRenderer(
+            generatedClass.AddMethod(
                 "ContentwiseEqual",
                 null,
                 new[] { Private, Static },
@@ -279,29 +317,17 @@ public static class Renderer
                 (SystemArray, "expected"), (SystemArray, "got")
             );
         MethodRenderer compareObjects =
-            new MethodRenderer(
+            generatedClass.AddMethod(
                 "CompareObjects",
                 null,
                 new[] { Private, Static },
                 BoolType,
                 (ObjectType, "expected"), (ObjectType, "got")
             );
-        var structEqDecl =
-            RenderStructurallyEqual(structurallyEqual, compareObjects.MethodId);
-        var contentwiseEqDecl =
-            RenderContentwiseEqual(contentwiseEqual, compareObjects.MethodId);
-        var compareObjectsDecl =
-            RenderCompareObjects(
-                compareObjects,
-                structurallyEqual.MethodId,
-                contentwiseEqual.MethodId
-            );
-        var testCount = tests.Count();
-        MemberDeclarationSyntax[] renderedMethods = new MemberDeclarationSyntax[testCount + 3];
-        renderedMethods[testCount] = structEqDecl;
-        renderedMethods[testCount + 1] = contentwiseEqDecl;
-        renderedMethods[testCount + 2] = compareObjectsDecl;
-        int i = 0;
+        RenderStructurallyEqual(structurallyEqual, compareObjects.MethodId);
+        RenderContentwiseEqual(contentwiseEqual, compareObjects.MethodId);
+        RenderCompareObjects(compareObjects, structurallyEqual.MethodId, contentwiseEqual.MethodId);
+
         foreach (FileInfo fi in tests)
         {
             testInfo ti;
@@ -322,17 +348,22 @@ public static class Renderer
             object thisArg = test.ThisArg;
             if (thisArg == null && !method.IsStatic)
                 thisArg = Reflection.createObject(method.DeclaringType);
-            renderedMethods[i] =
-                RenderTest(
-                    compareObjects.MethodId,
-                    method,
-                    i,
-                    parameters, 
-                    thisArg, 
-                    test.Exception, 
-                    test.Expected
-                );
-            i++;
+            var testRenderer = generatedClass.AddMethod(
+                $"{method.Name}Test",
+                RenderAttributeList("Test"),
+                new[] { Public, Static },
+                VoidType,
+                System.Array.Empty<(TypeSyntax, string)>()
+            );
+            RenderTest(
+                testRenderer,
+                compareObjects.MethodId,
+                method,
+                parameters,
+                thisArg,
+                test.Exception,
+                test.Expected
+            );
         }
 
         string[] usings =
@@ -343,13 +374,12 @@ public static class Renderer
             "System.Diagnostics",
             "NUnit.Framework"
         };
+
         var comp =
             RenderProgram(
                 usings,
                 "GeneratedNamespace",
-                "GeneratedClass",
-                RenderAttributeList("TestFixture"),
-                renderedMethods
+                generatedClass.Render()
             );
 
         // comp.NormalizeWhitespace().WriteTo(Console.Out);
