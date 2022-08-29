@@ -60,8 +60,6 @@ internal class MethodRenderer
         params (TypeSyntax, string)[] args)
     {
         // Creating identifiers cache
-        // TODO: create own IdGenerator
-        // IdGenerator.reset();
         cache = new IdentifiersCache();
 
         // Creating method declaration
@@ -408,11 +406,5 @@ internal class MethodRenderer
     public MethodDeclarationSyntax Render()
     {
         return declaration.WithBody(Body.GetBlock());
-    }
-
-    ~MethodRenderer()
-    {
-        // TODO: create own IdGenerator
-        // IdGenerator.restore();
     }
 }

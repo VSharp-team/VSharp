@@ -8,22 +8,28 @@ public class IdentifiersCache
 {
     private readonly Dictionary<string, IdentifierNameSyntax> idInitializers;
     private readonly Dictionary<string, SyntaxToken> identifiers;
+    private readonly Dictionary<string, int> idNames;
 
     public IdentifiersCache()
     {
         idInitializers = new Dictionary<string, IdentifierNameSyntax>();
         identifiers = new Dictionary<string, SyntaxToken>();
+        idNames = new Dictionary<string, int>();
     }
 
     public IdentifiersCache(IdentifiersCache cache)
     {
         idInitializers = new Dictionary<string, IdentifierNameSyntax>(cache.idInitializers);
         identifiers = new Dictionary<string, SyntaxToken>(cache.identifiers);
+        idNames = new Dictionary<string, int>(cache.idNames);
     }
 
     public (SyntaxToken, IdentifierNameSyntax) GenerateIdentifier(string identifierName)
     {
-        identifierName = IdGenerator.startingWith(identifierName);
+        idNames.TryGetValue(identifierName, out var i);
+        idNames[identifierName] = i + 1;
+        if (i > 0)
+            identifierName += i + 1;
         SyntaxToken identifier = Identifier(identifierName);
         if (!identifiers.TryAdd(identifierName, identifier))
             throw new ArgumentException("ID generator failed!");
