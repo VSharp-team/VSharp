@@ -31,8 +31,8 @@ type public SILIStatistics() =
     
     let totalBlocksCount = Dictionary<Method, uint>()    
     let blocksCoveredByTests = Dictionary<Method, HashSet<offset>>()
-    let visitedBlocksNotCoveredByTests = Dictionary<cilState, HashSet<codeLocation>>()
-    let visitedBlocks = Dictionary<cilState, HashSet<codeLocation>>()
+    let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
+    let visitedBlocks = Dictionary<cilState, Set<codeLocation>>()
     
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
@@ -147,12 +147,12 @@ type public SILIStatistics() =
             
             if not <| isCoveredByTest currentLoc then
                 if not <| visitedBlocksNotCoveredByTests.ContainsKey s then
-                    visitedBlocksNotCoveredByTests.[s] <- HashSet()
-                visitedBlocksNotCoveredByTests.[s].Add currentLoc |> ignore
+                    visitedBlocksNotCoveredByTests.[s] <- Set.empty
+                visitedBlocksNotCoveredByTests.[s] <- visitedBlocksNotCoveredByTests.[s].Add currentLoc
                 
             if not <| visitedBlocks.ContainsKey s then
-                visitedBlocks.[s] <- HashSet()
-            visitedBlocks.[s].Add currentLoc |> ignore
+                visitedBlocks.[s] <- Set.empty
+            visitedBlocks.[s] <- visitedBlocks.[s].Add currentLoc
         | _ -> ()
 
     member x.IsCovered (loc : codeLocation) =
@@ -161,8 +161,7 @@ type public SILIStatistics() =
     member x.IsCoveredByTest (loc : codeLocation) = isCoveredByTest loc
         
     member x.UncoveredByTestsLocationsCount (s : cilState) =
-        let locations = ref null
-        if visitedBlocksNotCoveredByTests.TryGetValue(s, locations) then Some locations.Value.Count else None
+        if visitedBlocksNotCoveredByTests.ContainsKey s then Some(Set.count visitedBlocksNotCoveredByTests.[s]) else None
         
     member x.MethodCoverage method =
         let totalInstructionsCount = getTotalBlocksCount method
@@ -181,7 +180,7 @@ type public SILIStatistics() =
             blocksCoveredByTests.[loc.method].Add loc.offset |> ignore
             
             for kvp in visitedBlocksNotCoveredByTests do
-                kvp.Value.Remove loc |> ignore
+                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Value.Remove loc
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
         visitedBlocks.Remove s |> ignore
@@ -191,6 +190,11 @@ type public SILIStatistics() =
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
         ()
+        
+    member x.TrackFork (parent : cilState) (children : cilState seq) =
+        for child in children do
+            visitedBlocks.[child] <- visitedBlocks.[parent]
+            visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
     member x.Clear() =
