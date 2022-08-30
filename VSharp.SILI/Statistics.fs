@@ -145,7 +145,7 @@ type public SILIStatistics() =
                 visitedWithHistory.Add(currentLoc, historyRef.Value)
             historyRef.Value.UnionWith visited
             
-            if not <| isCoveredByTest currentLoc then
+            if currentLoc.method.InCoverageZone && not <| isCoveredByTest currentLoc then                
                 if not <| visitedBlocksNotCoveredByTests.ContainsKey s then
                     visitedBlocksNotCoveredByTests.[s] <- Set.empty
                 visitedBlocksNotCoveredByTests.[s] <- visitedBlocksNotCoveredByTests.[s].Add currentLoc
@@ -179,8 +179,9 @@ type public SILIStatistics() =
                 blocksCoveredByTests.[loc.method] <- HashSet()
             blocksCoveredByTests.[loc.method].Add loc.offset |> ignore
             
-            for kvp in visitedBlocksNotCoveredByTests do
-                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Value.Remove loc
+            if loc.method.InCoverageZone then
+                for kvp in visitedBlocksNotCoveredByTests do
+                    visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Value.Remove loc
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
         visitedBlocks.Remove s |> ignore
