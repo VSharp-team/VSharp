@@ -1,6 +1,6 @@
+using System;
 using InstantCredit.Shared.Models.Enums;
 using LoanExam.Models;
-using System;
 using VSharp.Test;
 
 namespace LoanExam;
@@ -109,7 +109,7 @@ public class CreditCalculationService
         }
     }
 
-    [TestSvm(-1, 0, 20, false, SearchStrategy.ShortestDistance)]
+    [TestSvm(95, 0, 10, false, SearchStrategy.ShortestDistance)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;

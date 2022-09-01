@@ -7,6 +7,11 @@ open VSharp.Interpreter.IL
 open System.Linq
 open CilStateOperations
 
+/// <summary>
+/// Works like DFS searcher, but on each update sorts its state storage by the number
+/// of visited basic blocks not covered yet by tests. Stable sorting is used to maintain the
+/// DFS-like logic.
+/// </summary>
 type DFSSortedByLessCoveredSearcher(maxBound, statistics) =
     inherit SimpleForwardSearcher(maxBound)
     
