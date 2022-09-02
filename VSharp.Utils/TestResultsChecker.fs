@@ -4,6 +4,7 @@ open System
 open System.Diagnostics
 open System.IO
 open System.Reflection
+open System.Runtime.InteropServices
 open System.Text
 open System.Xml
 
@@ -105,17 +106,20 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCov
             (elem :?> XmlAttribute).Value |> Int32.Parse
         | _ -> raise (InvalidOperationException <| sprintf "Invalid query of coverage results for %O!" m)
 
-    member x.Check(methodInfo : MethodInfo) : bool =
+    member x.Check(methodInfo : MethodInfo, [<Out>] actualCoverage : Nullable<uint> byref) : bool =
         let success, error = run testDir
         if not success then
             raise <| InvalidOperationException ("Running test results checker failed: " + error)
         match expectedCoverage with
         | Some expectedCoverage ->
             let coverage = getCoverage methodInfo
+            actualCoverage <- Nullable(uint coverage)
             if coverage = expectedCoverage then true
             else
                 resultMessage <- sprintf "Incomplete coverage! Expected %d, but got %d" expectedCoverage coverage
                 false
-        | None -> true
+        | None ->
+            actualCoverage <- Nullable()
+            true
 
     member x.ResultMessage = resultMessage
