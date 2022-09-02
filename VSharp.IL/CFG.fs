@@ -289,6 +289,8 @@ and Method internal (m : MethodBase) as this =
     static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
 
     member x.InCoverageZone with get() = Method.CoverageZone x
+    
+    member x.BasicBlocksCount with get() = if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}

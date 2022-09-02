@@ -112,7 +112,7 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCov
         match expectedCoverage with
         | Some expectedCoverage ->
             let coverage = getCoverage methodInfo
-            if coverage >= expectedCoverage then true
+            if coverage = expectedCoverage then true
             else
                 resultMessage <- sprintf "Incomplete coverage! Expected %d, but got %d" expectedCoverage coverage
                 false
