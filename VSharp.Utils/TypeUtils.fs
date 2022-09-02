@@ -133,7 +133,7 @@ module TypeUtils =
         | _ when typ = typeof<float> -> 64u
         | _ -> __unreachable__()
 
-    let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t1 = t2 || t1.IsSubclassOf(t2)
+    let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t2.IsAssignableFrom(t1)
     let isPointer (t : Type) = t.IsPointer || t = typeof<IntPtr> || t = typeof<UIntPtr>
 
     let isValueType = function

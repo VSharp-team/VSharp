@@ -1322,6 +1322,8 @@ namespace IntegrationTests
             return l.Contains(_customer);
         }
 
+        // TODO: this test works fine with configuration Debug and Release, but
+        // TODO: DebugTailRec doesn't work, because Mocking works incorrect (all args objects must be mocked)
         [TestSvm(100)]
         public bool ArrayContainsOurCustomer(Customerrr[] customers)
         {

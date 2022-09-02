@@ -146,8 +146,6 @@ module internal InstructionsSet =
             r |> List.map (fun (t, s) -> let s' = changeState cilState s in pushOnEvaluationStack(t, s'); s') |> k
         | _ -> internalfail "internal call should return tuple term * state!"
 
-    let isFSharpInternalCall (method : Method) = Map.containsKey method.FullGenericMethodName Loader.FSharpImplementations
-
     // ------------------------------- CIL instructions -------------------------------
 
     let referenceLocalVariable index (method : Method) =
@@ -554,6 +552,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
         ]
+    // NOTE: adding implementation names into Loader
+    do Loader.CilStateImplementations <- cilStateImplementations.Keys
 
     member x.ConfigureErrorReporter reporter =
         reportError <- reporter
@@ -758,12 +758,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
-    member private x.IsExternalMethod (method : Method) =
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let isInternalCall = method.MethodImplementationFlags &&& MethodImplAttributes.InternalCall
-        let isPInvokeImpl = method.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
-        int isInternalCall <> 0 || isPInvokeImpl
-
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with
         | Some this ->
@@ -927,7 +921,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsArrayGetOrSet method then
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
-        elif x.IsExternalMethod method then
+        elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
             internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
         elif x.IsNotImplementedIntrinsic method fullMethodName then
@@ -1076,22 +1070,23 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 TypeUtils.float32Type, [|TypeUtils.float32Type; TypeUtils.float64Type|]
                 TypeUtils.float64Type, [|TypeUtils.float64Type|] ]
         let isSubset leftTyp rightTyp = Array.contains rightTyp supersetsOf.[leftTyp]
-        let minMaxOf = // TODO: implement big numbers, instead of double #hack
+        let minMaxOf =
             PersistentDict.ofSeq [
-                TypeUtils.int8Type,    (SByte.MinValue  |> double, SByte.MaxValue  |> double)
-                TypeUtils.int16Type,   (Int16.MinValue  |> double, Int16.MaxValue  |> double)
-                TypeUtils.int32Type,   (Int32.MinValue  |> double, Int32.MaxValue  |> double)
-                TypeUtils.int64Type,   (Int64.MinValue  |> double, Int64.MaxValue  |> double)
-                TypeUtils.uint8Type,   (Byte.MinValue   |> double, Byte.MaxValue   |> double)
-                TypeUtils.uint16Type,  (UInt16.MinValue |> double, UInt16.MaxValue |> double)
-                TypeUtils.uint32Type,  (UInt32.MinValue |> double, UInt32.MaxValue |> double)
-                TypeUtils.uint64Type,  (UInt64.MinValue |> double, UInt64.MaxValue |> double)
-                TypeUtils.float32Type, (Single.MinValue |> double, Single.MaxValue |> double)
-                TypeUtils.float64Type, (Double.MinValue |> double, Double.MaxValue |> double) ]
+                TypeUtils.int8Type,    (SByte.MinValue  :> IConvertible, SByte.MaxValue  :> IConvertible)
+                TypeUtils.int16Type,   (Int16.MinValue  :> IConvertible, Int16.MaxValue  :> IConvertible)
+                TypeUtils.int32Type,   (Int32.MinValue  :> IConvertible, Int32.MaxValue  :> IConvertible)
+                TypeUtils.int64Type,   (Int64.MinValue  :> IConvertible, Int64.MaxValue  :> IConvertible)
+                TypeUtils.uint8Type,   (Byte.MinValue   :> IConvertible, Byte.MaxValue   :> IConvertible)
+                TypeUtils.uint16Type,  (UInt16.MinValue :> IConvertible, UInt16.MaxValue :> IConvertible)
+                TypeUtils.uint32Type,  (UInt32.MinValue :> IConvertible, UInt32.MaxValue :> IConvertible)
+                TypeUtils.uint64Type,  (UInt64.MinValue :> IConvertible, UInt64.MaxValue :> IConvertible)
+                TypeUtils.float32Type, (Single.MinValue :> IConvertible, Single.MaxValue :> IConvertible)
+                TypeUtils.float64Type, (Double.MinValue :> IConvertible, Double.MaxValue :> IConvertible) ]
         let getSegment leftTyp rightTyp =
             let min1, max1 = minMaxOf.[leftTyp]
             let min2, max2 = minMaxOf.[rightTyp]
-            match min1 < min2, max1 < max2 with
+            let c = System.Globalization.CultureInfo.CurrentCulture
+            match min1.ToDouble(c) < min2.ToDouble(c), max1.ToDouble(c) < max2.ToDouble(c) with
             | true, true   -> min2, max1
             | true, false  -> min2, max2
             | false, true  -> min1, max1
@@ -1967,7 +1962,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | Some _ -> acc
             | None ->
                 // NOTE: check that this block protects current ip
-                if x.tryOffset < offset && x.tryOffset + x.tryLength > offset then Some x else None
+                if x.tryOffset <= offset && x.tryOffset + x.tryLength > offset then Some x else None
         Seq.fold findBlock None ehcs
 
     member x.MakeStep (cilState : cilState) =
@@ -2037,7 +2032,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError())
                 let isSuitable ehc =
                     match ehc.ehcType with
-                    | Catch t -> t = exceptionType
+                    | Catch t -> TypeUtils.isSubtypeOrEqual exceptionType t
                     | _ -> false
                 let suitableCatchBlocks = ehcs |> Seq.filter isSuitable
                 let isNarrower (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =

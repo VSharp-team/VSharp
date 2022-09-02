@@ -12,6 +12,10 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_OverflowException" state
 
+    let internal get_Arg_SystemException (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_SystemException" state
+
     let internal get_Arg_IndexOutOfRangeException (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_IndexOutOfRangeException" state
@@ -55,3 +59,11 @@ module SR =
     let internal getMessageFromNativeResources (state : state) (args : term list) : term =
         assert(List.length args = 1)
         Memory.AllocateString "getMessageFromNativeResources" state
+
+    let internal concurrencyLevelMustBePositive (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "concurrencyLevelMustBePositive" state
+
+    let internal concurrencyLevelMustBeNegative (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "concurrencyLevelMustBeNegative" state

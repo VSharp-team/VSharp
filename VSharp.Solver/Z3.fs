@@ -147,13 +147,28 @@ module internal Z3 =
 
         member public x.EncodeTerm encCtx (t : term) : encodingResult =
             let getResult () =
-                match t.term with
-                | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ
-                | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
-                | Expression(op, args, typ) -> x.EncodeExpression encCtx t op args typ
-                | HeapRef(address, _) -> x.EncodeTerm encCtx address
-                | _ -> internalfailf "unexpected term: %O" t
+                let result =
+                    match t.term with
+                    | Concrete(obj, typ) -> x.EncodeConcrete encCtx obj typ
+                    | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
+                    | Expression(op, args, typ) -> x.EncodeExpression encCtx t op args typ
+                    | HeapRef(address, _) -> x.EncodeTerm encCtx address
+                    | _ -> internalfailf "unexpected term: %O" t
+                let typ = TypeOf t
+                if typ.IsEnum then x.AddEnumAssumptions encCtx typ result
+                else result
             encodingCache.Get(t, getResult)
+
+        member private x.AddEnumAssumptions encCtx typ (encodingResult : encodingResult) =
+            assert(typ.IsEnum)
+            let expr = encodingResult.expr
+            let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
+            let createAssumption assumptions value =
+                let assumptions', concrete = x.EncodeConcrete encCtx value typ |> toTuple
+                ctx.MkEq(expr, concrete), assumptions @ assumptions'
+            let options, assumptions = Seq.mapFold createAssumption encodingResult.assumptions values
+            let enumAssumptions = ctx.MkOr options
+            {expr = expr; assumptions = enumAssumptions :: assumptions}
 
         member private x.EncodeConcrete encCtx (obj : obj) typ : encodingResult =
             let expr =
@@ -675,10 +690,11 @@ module internal Z3 =
                         stackEntries.Add(key, HeapRef addr t |> ref)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
-                | {term = Constant(_, source, t)} ->
+                | {term = Constant(_, source, t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
                     let term = x.Decode t refinedExpr
-                    subst.Add(source, term)
+                    assert(not (constant = term) || kvp.Value.expr = refinedExpr)
+                    if constant <> term then subst.Add(source, term)
                 | _ -> ())
 
             let frame = stackEntries |> Seq.map (fun kvp ->

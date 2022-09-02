@@ -9,6 +9,9 @@ module internal SR =
     [<Implements("System.String System.SR.get_Arg_OverflowException()")>]
     val internal get_Arg_OverflowException : state -> term list -> term
 
+    [<Implements("System.String System.SR.get_Arg_SystemException()")>]
+    val internal get_Arg_SystemException : state -> term list -> term
+
     [<Implements("System.String System.SR.get_Arg_IndexOutOfRangeException()")>]
     val internal get_Arg_IndexOutOfRangeException : state -> term list -> term
 
@@ -41,3 +44,9 @@ module internal SR =
 
     [<Implements("System.String System.Exception.GetMessageFromNativeResources(System.Exception+ExceptionMessageKind)")>]
     val internal getMessageFromNativeResources : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBePositive()")>]
+    val internal concurrencyLevelMustBePositive : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBeNegative()")>]
+    val internal concurrencyLevelMustBeNegative : state -> term list -> term

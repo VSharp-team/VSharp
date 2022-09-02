@@ -39,6 +39,9 @@ module Loader =
         |> Seq.singleton
         |> collectImplementations
 
+    let mutable public CilStateImplementations : string seq =
+        Seq.empty
+
     let public hasRuntimeExceptionsImplementation (fullMethodName : string) =
         Map.containsKey fullMethodName runtimeExceptionsConstructors
 
