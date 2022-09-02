@@ -154,7 +154,7 @@ namespace VSharp.Test
                             return;
                         }
 
-                        if (explorer.Statistics.MethodCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
                         {
                             explorer.Stop();
                         }
@@ -169,7 +169,7 @@ namespace VSharp.Test
                             return;
                         }
 
-                        if (explorer.Statistics.MethodCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
                         {
                             explorer.Stop();
                         }

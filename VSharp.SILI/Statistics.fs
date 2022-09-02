@@ -2,6 +2,7 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.IO
+open System.Reflection
 open System.Text
 open System.Collections.Generic
 
@@ -13,6 +14,7 @@ open VSharp.Utils
 
 open CilStateOperations
 open ipOperations
+open CodeLocation
 
 type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
     with
@@ -28,10 +30,9 @@ type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
-       
-    let blocksCoveredByTests = Dictionary<Method, HashSet<offset>>()
+
+    let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
-    let visitedBlocks = Dictionary<cilState, Set<codeLocation>>()
     
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
@@ -99,10 +100,6 @@ type public SILIStatistics() =
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         else None
-        
-    let isCoveredByTest (loc : codeLocation) =
-        let offsets = ref null
-        blocksCoveredByTests.TryGetValue(loc.method, offsets) && offsets.Value.Contains loc.offset
 
     let rememberForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
@@ -141,46 +138,44 @@ type public SILIStatistics() =
                 visitedWithHistory.Add(currentLoc, historyRef.Value)
             historyRef.Value.UnionWith visited
             
-            if currentLoc.method.InCoverageZone && not <| isCoveredByTest currentLoc then                
-                if not <| visitedBlocksNotCoveredByTests.ContainsKey s then
+            if currentLoc.method.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
+                if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
                     visitedBlocksNotCoveredByTests.[s] <- Set.empty
-                visitedBlocksNotCoveredByTests.[s] <- visitedBlocksNotCoveredByTests.[s].Add currentLoc
+                isVisitedBlocksNotCoveredByTestsRelevant <- false
                 
-            if not <| visitedBlocks.ContainsKey s then
-                visitedBlocks.[s] <- Set.empty
-            visitedBlocks.[s] <- visitedBlocks.[s].Add currentLoc
+            basicBlockIsVisited s currentLoc
         | _ -> ()
-
+        
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
-       
-    member x.IsCoveredByTest (loc : codeLocation) = isCoveredByTest loc
+
+    member x.NotCoveredByTestsLocations (s : cilState) =
+        if not isVisitedBlocksNotCoveredByTestsRelevant then
+            for kvp in visitedBlocksNotCoveredByTests do
+                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.visitedBasicBlocks |> Set.filter (not << isBasicBlockCoveredByTest)
+            isVisitedBlocksNotCoveredByTestsRelevant <- true
         
-    member x.UncoveredByTestsLocationsCount (s : cilState) =
-        if visitedBlocksNotCoveredByTests.ContainsKey s then Some(Set.count visitedBlocksNotCoveredByTests.[s]) else None
-        
-    member x.MethodCoverage (method : Method) =
-        let totalInstructionsCount = method.BasicBlocksCount
-        let methodBlocksCoveredByTest = ref null
-        let coveringSteps = if blocksCoveredByTests.TryGetValue(method, methodBlocksCoveredByTest) then methodBlocksCoveredByTest.Value.Count else 0
-        if totalInstructionsCount <> 0u then
-            uint <| floor (double coveringSteps / double totalInstructionsCount * 100.0)
+        if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
+            
+    member x.GetApproximateCoverage (methods : Method seq) =
+        let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
+        let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
+        let coveredBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCoveredByTests.Count)
+        if totalBlocksCount <> 0u then
+            uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
         else
             0u
+            
+    member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
         
     member x.TrackFinished (s : cilState) =
-        assert(visitedBlocks.ContainsKey s)
-        for loc in visitedBlocks.[s] do
-            if not <| blocksCoveredByTests.ContainsKey loc.method then
-                blocksCoveredByTests.[loc.method] <- HashSet()
-            blocksCoveredByTests.[loc.method].Add loc.offset |> ignore
+        for block in s.visitedBasicBlocks do
+            block.method.SetBasicBlockIsCoveredByTest block.offset |> ignore
             
-            if loc.method.InCoverageZone then
-                for kvp in visitedBlocksNotCoveredByTests do
-                    visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Value.Remove loc
+            if block.method.InCoverageZone then        
+                isVisitedBlocksNotCoveredByTestsRelevant <- false
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
-        visitedBlocks.Remove s |> ignore
 
     member x.TrackStepForward (s : cilState) = rememberForward s
 
@@ -190,7 +185,6 @@ type public SILIStatistics() =
         
     member x.TrackFork (parent : cilState) (children : cilState seq) =
         for child in children do
-            visitedBlocks.[child] <- visitedBlocks.[parent]
             visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)

@@ -23,6 +23,7 @@ type cilState =
       mutable suspended : bool
       mutable targets : Set<codeLocation> option
       mutable lastPushInfo : term option
+      mutable visitedBasicBlocks : Set<codeLocation>
     }
     with
     member x.Result with get() =
@@ -63,6 +64,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
+          visitedBasicBlocks = Set.empty
         }
 
     let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
@@ -197,6 +199,9 @@ module internal CilStateOperations =
 
     let history (cilState : cilState) =
         seq cilState.history
+        
+    let basicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+        cilState.visitedBasicBlocks <- Set.add loc cilState.visitedBasicBlocks
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 

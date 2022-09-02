@@ -79,7 +79,6 @@ type public SILI(options : SiliOptions) =
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
 
-
     let coveragePobsForMethod (method : Method) =
         let cfg = method.CFG
         cfg.SortedOffsets |> Seq.map (fun offset ->
@@ -88,9 +87,11 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method cmdArgs state with
-            | Some test -> reporter test
-            | None -> ()
+            if state.visitedBasicBlocks |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
+                statistics.TrackFinished state
+                match TestGenerator.state2test isError method cmdArgs state with
+                | Some test -> reporter test
+                | None -> ()
         with :? InsufficientInformationException as e ->
             state.iie <- Some e
             reportIncomplete state
@@ -141,13 +142,9 @@ type public SILI(options : SiliOptions) =
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
-        toReportFinished |> List.iter (fun s ->
-            statistics.TrackFinished s
-            reportFinished s)
+        toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportExceptions |> List.iter (fun s ->
-            statistics.TrackFinished s
-            reportFinished s)
+        toReportExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
         let newStates =

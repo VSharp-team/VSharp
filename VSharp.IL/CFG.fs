@@ -258,6 +258,8 @@ and Method internal (m : MethodBase) as this =
             Method.ReportCFGLoaded this
             cfg |> CfgInfo |> Some
         else None)
+    
+    let basicBlocksCoveredByTests = HashSet<offset>()
 
     member x.CFG with get() =
         match cfg.Force() with
@@ -291,6 +293,9 @@ and Method internal (m : MethodBase) as this =
     member x.InCoverageZone with get() = Method.CoverageZone x
     
     member x.BasicBlocksCount with get() = if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+    
+    member x.BasicBlocksCoveredByTests with get() = basicBlocksCoveredByTests :> IReadOnlySet<offset>
+    member x.SetBasicBlockIsCoveredByTest(offset : offset) = basicBlocksCoveredByTests.Add(offset)
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -307,6 +312,10 @@ type public codeLocation = {offset : offset; method : Method}
             | :? codeLocation as y when x.method.Equals(y.method) -> compare x.offset y.offset
             | :? codeLocation as y -> (x.method :> IComparable).CompareTo(y.method)
             | _ -> -1
+
+module public CodeLocation =
+    let isBasicBlockCoveredByTest (blockStart : codeLocation) =
+        blockStart.method.BasicBlocksCoveredByTests.Contains blockStart.offset
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
