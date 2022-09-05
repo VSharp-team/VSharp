@@ -66,14 +66,14 @@ internal static class CodeRenderer
 
     public static ExpressionSyntax RenderAnd(params ExpressionSyntax[] expressions)
     {
-        var result = expressions.Aggregate((x, y) => 
+        var result = expressions.Aggregate((x, y) =>
             BinaryExpression(SyntaxKind.LogicalAndExpression, x, y));
         return result;
     }
 
     public static ExpressionSyntax RenderOr(params ExpressionSyntax[] expressions)
     {
-        var result = expressions.Aggregate((x, y) => 
+        var result = expressions.Aggregate((x, y) =>
             BinaryExpression(SyntaxKind.LogicalOrExpression, x, y));
         return result;
     }
@@ -234,7 +234,7 @@ internal static class CodeRenderer
     {
         return RenderEq(expr, LiteralExpression(SyntaxKind.NullLiteralExpression));
     }
-    
+
     public static ExpressionSyntax RenderGetType(ExpressionSyntax expr)
     {
         return RenderCall(expr, "GetType");

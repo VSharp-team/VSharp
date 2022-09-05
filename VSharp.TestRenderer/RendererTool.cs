@@ -93,7 +93,7 @@ public static class Renderer
         });
         var increment = new ExprCreator(iteratorId =>
             PrefixUnaryExpression(SyntaxKind.PreIncrementExpression, iteratorId));
-        var conditionCreator = new ExprCreator(iteratorId => 
+        var conditionCreator = new ExprCreator(iteratorId =>
             BinaryExpression(SyntaxKind.LessThanExpression, iteratorId, expectedRank));
         mainBlock.AddFor(null, "i", conditionCreator, increment, forBlockCreator);
 
@@ -139,7 +139,7 @@ public static class Renderer
             );
         var equals = RenderCall(got, "Equals", expected);
         mainBlock.AddIf(condition, ReturnStatement(equals));
-        
+
         var gotAsArray = RenderAsType(got, SystemArray);
         var thenBranchCreator = new BlockCreatorWithVar((block, arrayId) =>
         {
@@ -197,7 +197,7 @@ public static class Renderer
     {
         var mainBlock = test.Body;
 
-        // NOTE: declaring assembly and module of testing method 
+        // NOTE: declaring assembly and module of testing method
         var methodModule = method.Module;
         var moduleId = mainBlock.AddModuleDecl(methodModule);
         var methodId = mainBlock.AddMethodDecl(method, moduleId);
@@ -219,8 +219,8 @@ public static class Renderer
             var resultId = mainBlock.AddDecl("result", ObjectType, invokeMethod);
             var condition =
                 RenderCall(
-                    compareObjects, 
-                    resultId, 
+                    compareObjects,
+                    resultId,
                     mainBlock.RenderObject(expected)
                 );
             mainBlock.AddAssert(condition);
@@ -270,8 +270,8 @@ public static class Renderer
         // Creating class renderer
         var generatedClass =
             new ClassRenderer(
-                "GeneratedClass", 
-                RenderAttributeList("TestFixture"), 
+                "GeneratedClass",
+                RenderAttributeList("TestFixture"),
                 null
             );
 
@@ -292,7 +292,7 @@ public static class Renderer
         // Configuring 'BindingFlags' static field
         var bindingFlags =
             generatedClass.AddField(
-                BindingFlagsType, 
+                BindingFlagsType,
                 "bindingFlags",
                 new[] { Private, Static },
                 BindingFlags

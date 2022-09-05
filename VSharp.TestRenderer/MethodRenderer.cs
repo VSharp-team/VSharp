@@ -16,7 +16,7 @@ using ExprCreator = Func<IdentifierNameSyntax, ExpressionSyntax>;
 internal interface IBlock
 {
     IdentifierNameSyntax AddDecl(string varName, TypeSyntax? type, ExpressionSyntax init, bool reuse = false);
-    IdentifierNameSyntax AddModuleDecl(IdentifierNameSyntax asemblyId, Module module);
+    IdentifierNameSyntax AddModuleDecl(IdentifierNameSyntax assemblyId, Module module);
     IdentifierNameSyntax AddModuleDecl(Module module);
     IdentifierNameSyntax AddTypeDecl(IdentifierNameSyntax moduleId, Type type);
     IdentifierNameSyntax AddTypeDecl(Type type);
@@ -281,14 +281,14 @@ internal class MethodRenderer
                 );
             _statements.Add(forStatement);
         }
-        
+
         public void AddWhile(ExpressionSyntax condition, BlockCreator blockCreator)
         {
             var block = blockCreator(new BlockBuilder(new IdentifiersCache(cache)));
             var whileStatement = WhileStatement(condition, block);
             _statements.Add(whileStatement);
         }
-        
+
         public void AddForEach(TypeSyntax? type, string varName, IdentifierNameSyntax where, BlockCreatorWithVar blockCreator)
         {
             type ??= VarKeyword;
@@ -319,7 +319,7 @@ internal class MethodRenderer
                 //     var innerInitializer = new List<ExpressionSyntax>();
                 //     for (int j = obj.GetLowerBound(i); j <= obj.GetUpperBound(i); j++)
                 //     {
-                //         
+                //
                 //     }
                 // }
             }
@@ -345,7 +345,7 @@ internal class MethodRenderer
             var objId = AddDecl("obj", ObjectType, getUninitializedObject);
             var fields = Reflection.fieldsOf(false, type);
             var bindingFlags = BindingFlags ?? CodeRenderer.BindingFlags;
-                
+
             foreach (var (_, fieldInfo) in fields)
             {
                 var getField =
