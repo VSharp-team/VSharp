@@ -22,7 +22,7 @@ internal static class RendererProgram
             // throw new ArgumentException();
             return 1;
         }
-        
+
         if (File.Exists(path))
         {
             var file = new FileInfo(path);
