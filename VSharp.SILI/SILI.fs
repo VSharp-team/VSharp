@@ -87,7 +87,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            if state.visitedBasicBlocks |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
+            if state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
                 statistics.TrackFinished state
                 match TestGenerator.state2test isError method cmdArgs state with
                 | Some test -> reporter test

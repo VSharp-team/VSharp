@@ -316,6 +316,9 @@ type public codeLocation = {offset : offset; method : Method}
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
         blockStart.method.BasicBlocksCoveredByTests.Contains blockStart.offset
+        
+    let hasSiblings (blockStart : codeLocation) =
+        blockStart.method.HasBody && blockStart.method.CFG.HasSiblings blockStart.offset
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation

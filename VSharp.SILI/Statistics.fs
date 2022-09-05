@@ -2,7 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.IO
-open System.Reflection
 open System.Text
 open System.Collections.Generic
 
@@ -104,7 +103,8 @@ type public SILIStatistics() =
             let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
             let validDistance = distance <> infinity && distance <> 0u
             let emptyHistory = totalHistory.Count = 0
-            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
+            
+            let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
         if method.HasBody then
@@ -136,7 +136,6 @@ type public SILIStatistics() =
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
-        let visited = history s
         match startLoc, currentLoc with
         | Some startLoc, Some currentLoc when isHeadOfBasicBlock currentLoc ->
             let mutable startRefDict = ref null
@@ -168,23 +167,24 @@ type public SILIStatistics() =
             if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
                 historyRef <- ref <| HashSet<_>()
                 visitedWithHistory.Add(currentLoc, historyRef.Value)
-            historyRef.Value.UnionWith visited
+            for visitedState in s.history do
+                if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
             
             if currentLoc.method.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
                 if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
                     visitedBlocksNotCoveredByTests.[s] <- Set.empty
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
                 
-            basicBlockIsVisited s currentLoc
+            setBasicBlockIsVisited s currentLoc
         | _ -> ()
         
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
 
-    member x.NotCoveredByTestsLocations (s : cilState) =
+    member x.GetVisitedBasicBlocksNotCoveredByTests (s : cilState) =
         if not isVisitedBlocksNotCoveredByTestsRelevant then
             for kvp in visitedBlocksNotCoveredByTests do
-                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.visitedBasicBlocks |> Set.filter (not << isBasicBlockCoveredByTest)
+                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << isBasicBlockCoveredByTest)
             isVisitedBlocksNotCoveredByTestsRelevant <- true
         
         if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
@@ -201,7 +201,7 @@ type public SILIStatistics() =
     member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
         
     member x.TrackFinished (s : cilState) =
-        for block in s.visitedBasicBlocks do
+        for block in s.history do
             block.method.SetBasicBlockIsCoveredByTest block.offset |> ignore
             
             if block.method.InCoverageZone then        

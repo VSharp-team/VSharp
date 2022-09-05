@@ -8,7 +8,7 @@ open VSharp.Utils
 /// </summary>
 type internal LessCoveredByTestsWeighter(statistics : SILIStatistics) =
     
-    let weight state = Some(statistics.NotCoveredByTestsLocations(state).Count |> uint)
+    let weight state = Some(statistics.GetVisitedBasicBlocksNotCoveredByTests(state).Count |> uint)
     
     interface IWeighter with
         override x.Weight(state) = weight state
