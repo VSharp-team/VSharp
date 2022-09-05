@@ -296,6 +296,8 @@ and Method internal (m : MethodBase) as this =
     
     member x.BasicBlocksCoveredByTests with get() = basicBlocksCoveredByTests :> IReadOnlySet<offset>
     member x.SetBasicBlockIsCoveredByTest(offset : offset) = basicBlocksCoveredByTests.Add(offset)
+    
+    member x.ResetStatistics() = basicBlocksCoveredByTests.Clear()
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -511,6 +513,11 @@ module Application =
     let addGoal = graph.AddGoal
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
+    
+    let resetMethodStatistics() =
+        lock methods (fun () ->
+            for method in methods.Values do
+                method.ResetStatistics())
 
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody

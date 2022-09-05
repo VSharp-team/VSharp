@@ -206,6 +206,7 @@ type public SILI(options : SiliOptions) =
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
         | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.resetMethodStatistics()
         statistics.ExplorationStarted()
         branchesReleased <- false
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
