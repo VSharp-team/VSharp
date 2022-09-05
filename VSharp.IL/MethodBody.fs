@@ -1,6 +1,6 @@
 namespace VSharp
 
-open System
+open global.System
 open System.Reflection
 open System.Reflection.Emit
 open VSharp
@@ -42,19 +42,29 @@ type MethodWithBody internal (m : MethodBase) =
     let methodImplementationFlags = lazy(m.GetMethodImplementationFlags())
     let isDelegateConstructor = lazy(Reflection.isDelegateConstructor m)
     let isDelegate = lazy(Reflection.isDelegate m)
+    let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
+    let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
+    let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
+    let isInternalCall =
+        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
 
-    let methodBodyBytes = m.GetMethodBody()
+    let actualMethod =
+        if not isCSharpInternalCall.Value then m
+        else Loader.CSharpImplementations[fullGenericMethodName.Value]
+    let methodBodyBytes =        
+        if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
+        else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
         if methodBodyBytes = null then None, None, None, None
         else
             let ilBytes = methodBodyBytes.GetILAsByteArray()
-            let methodModule = m.Module
+            let methodModule = actualMethod.Module
             let moduleName = methodModule.FullyQualifiedName
             let assemblyName = methodModule.Assembly.FullName
             let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
             let props : rawMethodProperties =
-                {token = uint m.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
+                {token = uint actualMethod.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
             let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
             let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
@@ -172,14 +182,18 @@ type MethodWithBody internal (m : MethodBase) =
 
     member private x.Descriptor = desc
 
-    member x.ResolveMethod token = Reflection.resolveMethod m token
-    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField m
-    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType m
-    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod m
-    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken m
+    member x.ResolveMethod token = Reflection.resolveMethod actualMethod token
+    member x.ResolveFieldFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveField actualMethod
+    member x.ResolveTypeFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveType actualMethod
+    member x.ResolveMethodFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveMethod actualMethod
+    member x.ResolveTokenFromMetadata = NumberCreator.extractInt32 x.ILBytes >> Reflection.resolveToken actualMethod
 
     member x.IsEntryPoint with get() =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)
+
+    member x.IsInternalCall with get() = isInternalCall.Value
+
+    member x.IsExternalMethod with get() = Reflection.isExternalMethod m
 
     member x.Generalize() =
         let generalized, genericArgs, genericDefs = Reflection.generalizeMethodBase m

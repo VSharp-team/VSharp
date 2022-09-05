@@ -24,6 +24,19 @@ type pobStatus =
     | Unknown
     | Witnessed of cilState
     | Unreachable
+    
+type statisticsDump =
+    {
+        time : TimeSpan
+        internalFails : Exception list
+        iies : InsufficientInformationException list
+        coveringStepsInsideZone : uint
+        nonCoveringStepsInsideZone : uint
+        coveringStepsOutsideZone : uint
+        nonCoveringStepsOutsideZone : uint
+        topVisitedLocationsInZone : (codeLocation * uint) list
+        topVisitedLocationsOutOfZone : (codeLocation * uint) list
+    }
 
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics() =
@@ -39,11 +52,12 @@ type public SILIStatistics() =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
 
-    let mutable coveringStepsInsideZone = 0
-    let mutable nonCoveringStepsInsideZone = 0
-    let mutable coveringStepsOutsideZone = 0
-    let mutable nonCoveringStepsOutsideZone = 0
-    
+    let mutable coveringStepsInsideZone = 0u
+    let mutable nonCoveringStepsInsideZone = 0u
+    let mutable coveringStepsOutsideZone = 0u
+    let mutable nonCoveringStepsOutsideZone = 0u
+
+
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
         if method.HasBody then
@@ -100,8 +114,26 @@ type public SILIStatistics() =
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         else None
+            
+    let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
+        writer.WriteLine(
+            "Total time: {0:00}:{1:00}:{2:00}.{3}.",
+            statisticsDump.time.Hours,
+            statisticsDump.time.Minutes,
+            statisticsDump.time.Seconds,
+            statisticsDump.time.Milliseconds)
+        if not <| List.isEmpty statisticsDump.internalFails then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} error(s) occured!")
+            statisticsDump.internalFails |> List.iter writer.WriteLine
+        if not <| List.isEmpty statisticsDump.iies then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
+            statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
-    let rememberForward (s : cilState) =
+    member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
         let visited = history s
@@ -125,10 +157,10 @@ type public SILIStatistics() =
                 totalVisited.Add(currentLoc, 0u)
 
             if totalRef.Value = 0u then
-                if currentLoc.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1
-                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1
-            elif currentLoc.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1
-            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1
+                if currentLoc.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
+                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
+            elif currentLoc.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
+            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
 
             totalVisited.[currentLoc] <- totalRef.Value + 1u
 
@@ -177,8 +209,6 @@ type public SILIStatistics() =
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
-    member x.TrackStepForward (s : cilState) = rememberForward s
-
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
         ()
@@ -188,6 +218,7 @@ type public SILIStatistics() =
             visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
+
     member x.Clear() =
         startIp2currentIp.Clear()
         totalVisited.Clear()
@@ -199,7 +230,6 @@ type public SILIStatistics() =
         x.Clear()
         startTime <- DateTime.Now
 
-
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
     member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
@@ -209,27 +239,8 @@ type public SILIStatistics() =
     member x.IncompleteStates with get() = iies
 
     member x.InternalFails with get() = internalFails
-
-    member x.PrintStatistics (writer : TextWriter) =
-        let time = DateTime.Now - startTime
-        writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", time.Hours, time.Minutes, time.Seconds, time.Milliseconds)
-        if internalFails.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!")
-            internalFails |> Seq.iter writer.WriteLine
-        if iies.Count > 0 then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
-            iies |> Seq.iter (fun state -> writer.WriteLine state.iie.Value.Message)
-
-    member x.PrintDebugStatistics (writer : TextWriter) =
-        x.PrintStatistics writer
-        writer.WriteLine("Covering steps inside coverage zone: {0}", coveringStepsInsideZone)
-        writer.WriteLine("Revisting steps inside coverage zone: {0}", nonCoveringStepsInsideZone)
-        writer.WriteLine("Covering steps outside coverage zone: {0}", coveringStepsOutsideZone)
-        writer.WriteLine("Revisting steps outside coverage zone: {0}", nonCoveringStepsOutsideZone)
+    
+    member x.DumpStatistics() =
         let topN = 5
         let topVisitedByMethods =
             totalVisited
@@ -238,21 +249,37 @@ type public SILIStatistics() =
             |> Seq.sortByDescending (fun kvp -> kvp.Value)
         let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
         let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
-        if not <| Seq.isEmpty topVisitedByMethodsInZone then
-            writer.WriteLine("Top {0} visited locations (one per method) in zone:", Seq.length topVisitedByMethodsInZone)
-        for kvp in topVisitedByMethodsInZone do
-            let offset = kvp.Key.offset
-            let method = kvp.Key.method
-            let times = kvp.Value
+        {
+            time = DateTime.Now - startTime
+            internalFails = internalFails |> List.ofSeq
+            iies = iies |> Seq.map (fun s -> s.iie.Value) |> List.ofSeq
+            coveringStepsInsideZone = coveringStepsInsideZone
+            nonCoveringStepsInsideZone = nonCoveringStepsInsideZone
+            coveringStepsOutsideZone = coveringStepsOutsideZone
+            nonCoveringStepsOutsideZone = nonCoveringStepsOutsideZone
+            topVisitedLocationsInZone = topVisitedByMethodsInZone |> Seq.map (|KeyValue|) |> List.ofSeq
+            topVisitedLocationsOutOfZone = topVisitedByMethodsOutOfZone |> Seq.map (|KeyValue|) |> List.ofSeq
+        }
+
+    member x.PrintStatistics (writer : TextWriter) =
+        printStatistics writer <| x.DumpStatistics()
+
+    member x.PrintDebugStatistics (writer : TextWriter) =
+        let dump = x.DumpStatistics()
+        printStatistics writer dump
+        writer.WriteLine("Covering steps inside coverage zone: {0}", dump.coveringStepsInsideZone)
+        writer.WriteLine("Revisiting steps inside coverage zone: {0}", dump.nonCoveringStepsInsideZone)
+        writer.WriteLine("Covering steps outside coverage zone: {0}", dump.coveringStepsOutsideZone)
+        writer.WriteLine("Revisiting steps outside coverage zone: {0}", dump.nonCoveringStepsOutsideZone)
+        if not <| List.isEmpty dump.topVisitedLocationsInZone then
+            writer.WriteLine("Top {0} visited locations (one per method) in zone:", Seq.length dump.topVisitedLocationsInZone)
+        for loc, times in dump.topVisitedLocationsInZone do
             writer.WriteLine("  offset {0} of {1}: {2} time{3}",
-                                (int offset).ToString("X"), method.FullName, times,
+                                (int loc.offset).ToString("X"), loc.method.FullName, times,
                                 (if times = 1u then "" else "s"))
-        if not <| Seq.isEmpty topVisitedByMethodsOutOfZone then
-            writer.WriteLine("Top {0} visited locations (one per method) out of zone:", Seq.length topVisitedByMethodsOutOfZone)
-        for kvp in topVisitedByMethodsOutOfZone do
-            let offset = kvp.Key.offset
-            let method = kvp.Key.method
-            let times = kvp.Value
+        if not <| List.isEmpty dump.topVisitedLocationsOutOfZone then
+            writer.WriteLine("Top {0} visited locations (one per method) out of zone:", Seq.length dump.topVisitedLocationsOutOfZone)
+        for loc, times in dump.topVisitedLocationsOutOfZone do
             writer.WriteLine("  offset {0} of {1}: {2} time{3}",
-                                (int offset).ToString("X"), method.FullName, times,
+                                (int loc.offset).ToString("X"), loc.method.FullName, times,
                                 (if times = 1u then "" else "s"))

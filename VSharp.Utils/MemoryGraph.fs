@@ -100,7 +100,9 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) as this =
         match obj with
         | :? structureRepr as repr ->
             let t = sourceTypes.[repr.typ]
-            System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+            if t.ContainsGenericParameters then
+                internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
+            else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
         | :? arrayRepr as repr ->
             let t = sourceTypes.[repr.typ]
             let elementType = t.GetElementType()
