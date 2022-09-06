@@ -208,6 +208,7 @@ type public SILI(options : SiliOptions) =
         | StackTraceReproductionMode _ -> __notImplemented__()
         Application.resetMethodStatistics()
         statistics.ExplorationStarted()
+        isStopped <- false
         branchesReleased <- false
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
         Application.spawnStates (Seq.cast<_> initialStates)
