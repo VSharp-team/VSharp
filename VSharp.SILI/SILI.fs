@@ -247,51 +247,57 @@ type public SILI(options : SiliOptions) =
     member x.InterpretEntryPoint (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
                                  (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                  (onInternalFail : Action<Exception>) : unit =
-        assert method.IsStatic
-        let optionArgs = if mainArguments = null then None else Some mainArguments
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method optionArgs
-        reportError <- wrapOnError onException method optionArgs
-        reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
-        interpreter.ConfigureErrorReporter reportError
-        let state = Memory.EmptyState()
-        state.model <- Some (Memory.EmptyModel method)
-        let argsToState args =
-            let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
-            let stringType = typeof<string>
-            let argsNumber = MakeNumber mainArguments.Length
-            Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
-        let arguments = Option.map (argsToState >> List.singleton) optionArgs
-        ILInterpreter.InitFunctionFrame state method None arguments
-        if Option.isNone optionArgs then
-            // NOTE: if args are symbolic, constraint 'args != null' is added
-            let parameters = method.Parameters
-            assert(Array.length parameters = 1)
-            let argsParameter = Array.head parameters
-            let argsParameterTerm = Memory.ReadArgument state argsParameter
-            AddConstraint state (!!(IsNullReference argsParameterTerm))
-        Memory.InitializeStaticMembers state method.DeclaringType
-        let initialState = makeInitialState method state
-        x.AnswerPobs method [initialState]
+        try
+            assert method.IsStatic
+            let optionArgs = if mainArguments = null then None else Some mainArguments
+            let method = Application.getMethod method
+            reportFinished <- wrapOnTest onFinished method optionArgs
+            reportError <- wrapOnError onException method optionArgs
+            reportIncomplete <- wrapOnIIE onIIE
+            interpreter.ConfigureErrorReporter reportError
+            let state = Memory.EmptyState()
+            state.model <- Some (Memory.EmptyModel method)
+            let argsToState args =
+                let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
+                let stringType = typeof<string>
+                let argsNumber = MakeNumber mainArguments.Length
+                Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+            let arguments = Option.map (argsToState >> List.singleton) optionArgs
+            ILInterpreter.InitFunctionFrame state method None arguments
+            if Option.isNone optionArgs then
+                // NOTE: if args are symbolic, constraint 'args != null' is added
+                let parameters = method.Parameters
+                assert(Array.length parameters = 1)
+                let argsParameter = Array.head parameters
+                let argsParameterTerm = Memory.ReadArgument state argsParameter
+                AddConstraint state (!!(IsNullReference argsParameterTerm))
+            Memory.InitializeStaticMembers state method.DeclaringType
+            let initialState = makeInitialState method state
+            x.AnswerPobs method [initialState]
+        with
+        | e -> reportInternalFail e
 
     member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
                                (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                (onInternalFail : Action<Exception>) : unit =
-        Reset()
-        SolverPool.reset()
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method None
-        reportError <- wrapOnError onException method None
-        reportIncomplete <- wrapOnIIE onIIE
         reportInternalFail <- wrapOnInternalFail onInternalFail
-        interpreter.ConfigureErrorReporter reportError
-        let initialStates = x.FormInitialStates method
-        let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
-        iieStates |> List.iter reportIncomplete
-        if not initialStates.IsEmpty then
-            x.AnswerPobs method initialStates
-        Restore()
+        try
+            Reset()
+            SolverPool.reset()
+            let method = Application.getMethod method
+            reportFinished <- wrapOnTest onFinished method None
+            reportError <- wrapOnError onException method None
+            reportIncomplete <- wrapOnIIE onIIE
+            interpreter.ConfigureErrorReporter reportError
+            let initialStates = x.FormInitialStates method
+            let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
+            iieStates |> List.iter reportIncomplete
+            if not initialStates.IsEmpty then
+                x.AnswerPobs method initialStates
+            Restore()
+        with
+        | e -> reportInternalFail e
         
     member x.Stop() = isStopped <- true
 

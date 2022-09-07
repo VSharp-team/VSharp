@@ -87,17 +87,23 @@ namespace VSharp
                     true);
             SILI explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
+
+            void HandleInternalFail(MethodBase method, Exception exception)
+            {
+                Console.WriteLine($"EXCEPTION | {method.DeclaringType}.{method.Name} | {exception.GetType().Name} {exception.Message}");
+            }
+
             foreach (var method in methods)
             {
                 if (method == method.Module.Assembly.EntryPoint)
                 {
                     explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => throw e);
+                        e => HandleInternalFail(method, e));
                 }
                 else
                 {
                     explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => throw e);
+                        e => HandleInternalFail(method, e));
                 }
             }
 
@@ -165,13 +171,15 @@ namespace VSharp
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
             methods = new List<MethodBase>();
+
             foreach (var t in assembly.GetTypes())
             {
                 if (t.IsPublic)
                 {
                     foreach (var m in t.GetMethods(bindingFlags))
                     {
-                        methods.Add(m);
+                        if (m.GetMethodBody() != null)
+                            methods.Add(m);
                     }
                 }
             }
