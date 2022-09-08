@@ -274,6 +274,8 @@ type public SILI(options : SiliOptions) =
         Application.resetMethodStatistics()
         statistics.ExplorationStarted()
         isStopped <- false
+        SolverInteraction.setOnSolverStarted statistics.SolverStarted
+        SolverInteraction.setOnSolverStopped statistics.SolverStopped
         branchesReleased <- false
         AcquireBranches()
         searcher.Reset()

@@ -25,8 +25,12 @@ module public SolverInteraction =
         abstract SetMaxBufferSize : int -> unit
 
     let mutable private solver : ISolver option = None
+    let mutable private onSolverStarted : unit -> unit = id
+    let mutable private onSolverStopped : unit -> unit = id    
 
     let configureSolver s = solver <- Some s
+    let setOnSolverStarted action = onSolverStarted <- action
+    let setOnSolverStopped action = onSolverStopped <- action
 
     let setMaxBufferSize size =
         match solver with
@@ -44,5 +48,9 @@ module public SolverInteraction =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s -> s.CheckSat ctx formula
+        | Some s ->
+            onSolverStarted()
+            let result = s.CheckSat ctx formula
+            onSolverStopped()
+            result
         | None -> SmtUnknown ""

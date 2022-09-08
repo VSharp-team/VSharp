@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Text
 open System.Collections.Generic
@@ -27,6 +28,7 @@ type pobStatus =
 type statisticsDump =
     {
         time : TimeSpan
+        solverTime : TimeSpan
         internalFails : Exception list
         iies : InsufficientInformationException list
         coveringStepsInsideZone : uint
@@ -51,11 +53,15 @@ type public SILIStatistics() =
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
     let iies = List<cilState>()
+    let solverStopwatch = Stopwatch()
 
     let mutable coveringStepsInsideZone = 0u
     let mutable nonCoveringStepsInsideZone = 0u
     let mutable coveringStepsOutsideZone = 0u
     let mutable nonCoveringStepsOutsideZone = 0u
+    
+    let formatTimeSpan (span : TimeSpan) =
+        String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
 
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
@@ -117,12 +123,7 @@ type public SILIStatistics() =
         else None
             
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
-        writer.WriteLine(
-            "Total time: {0:00}:{1:00}:{2:00}.{3}.",
-            statisticsDump.time.Hours,
-            statisticsDump.time.Minutes,
-            statisticsDump.time.Seconds,
-            statisticsDump.time.Milliseconds)
+        writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
         if not <| List.isEmpty statisticsDump.internalFails then
             writer.WriteLine()
             writer.WriteLine()
@@ -189,7 +190,7 @@ type public SILIStatistics() =
                 
             setBasicBlockIsVisited s currentLoc
         | _ -> ()
-        
+
     member x.IsCovered (loc : codeLocation) =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
 
@@ -243,8 +244,14 @@ type public SILIStatistics() =
         unansweredPobs.Clear()
         internalFails.Clear()
         iies.Clear()
+        solverStopwatch.Reset()
 
-    member x.ExplorationStarted() = ()
+    member x.ExplorationStarted() =
+        x.Clear()
+        startTime <- DateTime.Now
+        
+    member x.SolverStarted() = solverStopwatch.Start()
+    member x.SolverStopped() = solverStopwatch.Stop()
 
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
@@ -267,6 +274,7 @@ type public SILIStatistics() =
         let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
         {
             time = DateTime.Now - startTime
+            solverTime = solverStopwatch.Elapsed
             internalFails = internalFails |> List.ofSeq
             iies = iies |> Seq.map (fun s -> s.iie.Value) |> List.ofSeq
             coveringStepsInsideZone = coveringStepsInsideZone
@@ -283,6 +291,8 @@ type public SILIStatistics() =
     member x.PrintDebugStatistics (writer : TextWriter) =
         let dump = x.DumpStatistics()
         printStatistics writer dump
+        let solverTimePercent = float dump.solverTime.TotalMilliseconds / float dump.time.TotalMilliseconds * 100.0
+        writer.WriteLine($"Solver time percent: {solverTimePercent:F1}%% ({formatTimeSpan dump.solverTime})")
         writer.WriteLine("Covering steps inside coverage zone: {0}", dump.coveringStepsInsideZone)
         writer.WriteLine("Revisiting steps inside coverage zone: {0}", dump.nonCoveringStepsInsideZone)
         writer.WriteLine("Covering steps outside coverage zone: {0}", dump.coveringStepsOutsideZone)
