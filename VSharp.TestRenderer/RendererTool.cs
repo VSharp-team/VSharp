@@ -32,7 +32,16 @@ public static class Renderer
         if (thisArg != null)
         {
             Debug.Assert(Reflection.hasThis(method));
-            thisArgId = mainBlock.AddDecl("thisArg", ObjectType, mainBlock.RenderObject(thisArg));
+            var renderedThis = mainBlock.RenderObject(thisArg);
+            if (renderedThis is IdentifierNameSyntax id)
+            {
+                thisArgId = id;
+            }
+            else
+            {
+                var thisType = RenderType(method.DeclaringType ?? typeof(object));
+                thisArgId = mainBlock.AddDecl("thisArg", thisType, mainBlock.RenderObject(thisArg));
+            }
         }
 
         // Calling testing method
@@ -155,6 +164,8 @@ public static class Renderer
     {
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
+        PrepareCache();
+
         // Creating main class for generating tests
         var generatedClass =
             new ClassRenderer(
@@ -184,7 +195,7 @@ public static class Renderer
             var testRenderer = generatedClass.AddMethod(
                 $"{method.Name}Test",
                 RenderAttributeList("Test"),
-                new[] { Public, Static },
+                new[] { Public },
                 VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
             );
@@ -198,9 +209,9 @@ public static class Renderer
             );
 
         compilation = Format(compilation);
-        compilation.WriteTo(Console.Out);
-        // var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
-        // using var streamWriter = new StreamWriter(File.Create(dir));
-        // compilation.WriteTo(streamWriter);
+        // compilation.WriteTo(Console.Out);
+        var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
+        using var streamWriter = new StreamWriter(File.Create(dir));
+        compilation.WriteTo(streamWriter);
     }
 }

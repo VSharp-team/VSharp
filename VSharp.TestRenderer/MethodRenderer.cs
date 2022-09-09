@@ -264,7 +264,11 @@ internal class MethodRenderer
             var i = 0;
             foreach (var (_, fieldInfo) in fields)
             {
-                var fieldName = RenderObject(fieldInfo.Name);
+                var name = fieldInfo.Name;
+                var index = name.IndexOf(">k__BackingField", StringComparison.Ordinal);
+                if (index > 0)
+                    name = name[1 .. index];
+                var fieldName = RenderObject(name);
                 var fieldValue = RenderObject(fieldInfo.GetValue(obj));
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
@@ -274,8 +278,8 @@ internal class MethodRenderer
             var allocator =
                 RenderObjectCreation(AllocatorType(typeExpr), fieldsWithValues);
 
-            var call = RenderCall(RenderMemberAccess(allocator, AllocatorToObject));
-            var objId = AddDecl("obj", typeExpr, call);
+            var resultObject = RenderMemberAccess(allocator, AllocatorObject);
+            var objId = AddDecl("obj", typeExpr, resultObject);
             return objId;
         }
 

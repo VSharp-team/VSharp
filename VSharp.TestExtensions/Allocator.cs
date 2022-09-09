@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Serialization;
 
 namespace VSharp.TestExtensions;
@@ -12,12 +13,13 @@ public class Allocator<T>
         set
         {
             var field = ObjectType.GetField(fieldName, Reflection.allBindingFlags);
-            field?.SetValue(_toAllocate, value);
+            var property = ObjectType.GetField($"<{fieldName}>k__BackingField", Reflection.allBindingFlags);
+            Debug.Assert(field != null || property != null);
+            field ??= property;
+            if (field != null)
+                field.SetValue(_toAllocate, value);
         }
     }
 
-    public T ToObject()
-    {
-        return (T) _toAllocate;
-    }
+    public T Object => (T) _toAllocate;
 }
