@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
@@ -82,6 +83,74 @@ public static class Renderer
         return null;
     }
 
+    private class IndentsRewriter : CSharpSyntaxRewriter
+    {
+        private const int TabSize = 4;
+        private int _currentOffset = 0;
+
+        private static SyntaxTrivia WhitespaceTrivia(int offset)
+        {
+            return Whitespace(new string(' ', offset));
+        }
+
+        public override SyntaxNode? Visit(SyntaxNode? node)
+        {
+            if (node == null)
+                return null;
+
+            if (node.HasLeadingTrivia)
+            {
+                var triviaList = node.GetLeadingTrivia();
+                var whitespaces =
+                    triviaList
+                        .Where(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+                        .ToArray();
+                Debug.Assert(whitespaces.Length == 1);
+                _currentOffset = whitespaces[0].ToFullString().Length;
+            }
+
+            if (node is ObjectCreationExpressionSyntax objCreation)
+            {
+                var init = objCreation.Initializer;
+                if (init != null)
+                {
+                    var expressions = init.Expressions;
+                    if (expressions.Count > 0)
+                    {
+                        var formattedExpressions = new List<ExpressionSyntax>();
+                        foreach (var assign in expressions)
+                        {
+                            var formatted =
+                                assign.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset + TabSize));
+                            formattedExpressions.Add(formatted);
+                        }
+
+                        init = init.WithExpressions(SeparatedList(formattedExpressions));
+                        var formattedCloseBrace =
+                            init.CloseBraceToken
+                                .WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
+                        init = init.WithCloseBraceToken(formattedCloseBrace);
+                    }
+
+                    node = objCreation.WithInitializer(init);
+                }
+
+                return base.Visit(node);
+            }
+
+            return base.Visit(node);
+        }
+    }
+
+    public static SyntaxNode Format(SyntaxNode node)
+    {
+        var normalized = node.NormalizeWhitespace();
+        var myRewriter = new IndentsRewriter();
+        var formatted = myRewriter.Visit(normalized);
+        Debug.Assert(formatted != null);
+        return formatted;
+    }
+
     public static void RenderTests(IEnumerable<FileInfo> tests)
     {
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
@@ -94,22 +163,22 @@ public static class Renderer
                 null
             );
 
-        foreach (FileInfo fi in tests)
+        foreach (var fi in tests)
         {
             testInfo ti;
-            using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
+            using (var stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
             {
                 ti = UnitTest.DeserializeTestInfo(stream);
             }
 
             _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-            UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+            var test = UnitTest.DeserializeFromTestInfo(ti);
             // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
             var method = test.Method;
-            object[] parameters = test.Args ?? method.GetParameters()
+            var parameters = test.Args ?? method.GetParameters()
                 .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
-            object thisArg = test.ThisArg;
+            var thisArg = test.ThisArg;
             if (thisArg == null && !method.IsStatic)
                 thisArg = Reflection.createObject(method.DeclaringType);
             var testRenderer = generatedClass.AddMethod(
@@ -119,25 +188,19 @@ public static class Renderer
                 VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
             );
-            RenderTest(
-                testRenderer,
-                method,
-                parameters,
-                thisArg,
-                test.Exception,
-                test.Expected
-            );
+            RenderTest(testRenderer, method, parameters, thisArg, test.Exception, test.Expected);
         }
 
-        var comp =
+        SyntaxNode compilation =
             RenderProgram(
                 "GeneratedNamespace",
                 generatedClass.Render()
             );
 
-        comp.NormalizeWhitespace().WriteTo(Console.Out);
-        var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
-        using var streamWriter = new StreamWriter(File.Create(dir));
-        // comp.NormalizeWhitespace().WriteTo(streamWriter);
+        compilation = Format(compilation);
+        compilation.WriteTo(Console.Out);
+        // var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
+        // using var streamWriter = new StreamWriter(File.Create(dir));
+        // compilation.WriteTo(streamWriter);
     }
 }
