@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using VSharp.TestExtensions;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
@@ -19,7 +20,12 @@ internal static class CodeRenderer
         nameof(System),
         nameof(System.Reflection),
         "NUnit.Framework",
-        nameof(System.Runtime.Serialization.FormatterServices)
+        "VSharp.TestExtensions"
+    };
+
+    private static readonly Assembly[] PrerenderedAssemblies =
+    {
+        Assembly.GetAssembly(typeof(ObjectsComparer))
     };
 
     public static void PrepareCache()
@@ -27,6 +33,7 @@ internal static class CodeRenderer
         usings.Clear();
         usings.UnionWith(PrerenderedUsings);
         assemblies.Clear();
+        assemblies.UnionWith(PrerenderedAssemblies);
     }
 
     public static Assembly[] UsedAssemblies()
@@ -47,11 +54,16 @@ internal static class CodeRenderer
 
     private static GenericNameSyntax RenderGenericName(string name, params TypeSyntax[] genericArgs)
     {
-        return
-            GenericName(name)
-                .WithTypeArgumentList(
+        var typeArgsStart = name.IndexOf('`');
+        if (typeArgsStart >= 0)
+            name = name.Remove(typeArgsStart);
+        var genericName = GenericName(name);
+        if (genericArgs.Length > 0)
+            genericName =
+                genericName.WithTypeArgumentList(
                     TypeArgumentList(SeparatedList(genericArgs))
                 );
+        return genericName;
     }
 
     public static TypeSyntax RenderType(Type type)
@@ -88,6 +100,10 @@ internal static class CodeRenderer
         return IdentifierName(method.Name);
     }
 
+    // Prerendered extern function
+    public static readonly IdentifierNameSyntax CompareObjects = IdentifierName(nameof(ObjectsComparer.CompareObjects));
+    public static readonly IdentifierNameSyntax AllocatorToObject = IdentifierName(nameof(Allocator<int>.ToObject));
+
     // Prerendered program types
     public static readonly TypeSyntax ObjectType = RenderType(typeof(object));
     public static readonly TypeSyntax StringType = RenderType(typeof(string));
@@ -103,7 +119,12 @@ internal static class CodeRenderer
     public static readonly TypeSyntax ExceptionType = RenderType(typeof(Exception));
     public static readonly TypeSyntax MulticastDelegate = RenderType(typeof(MulticastDelegate));
     public static readonly TypeSyntax BindingFlagsType = RenderType(typeof(BindingFlags));
-    public static readonly TypeSyntax FieldsMapType = RenderType(typeof(Dictionary<string, object>));
+
+    public static TypeSyntax AllocatorType(TypeSyntax typeArg)
+    {
+        var type = typeof(Allocator<int>).GetGenericTypeDefinition();
+        return RenderGenericName(type.Name, typeArg);
+    }
 
     // Prerendered tokens
     public static readonly SyntaxToken Public = Token(SyntaxKind.PublicKeyword);
@@ -225,7 +246,7 @@ internal static class CodeRenderer
             );
     }
 
-    public static ObjectCreationExpressionSyntax RenderDictCreation(TypeSyntax type, params (ExpressionSyntax, ExpressionSyntax)[] init)
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type, params (ExpressionSyntax, ExpressionSyntax)[] init)
     {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
         var i = 0;

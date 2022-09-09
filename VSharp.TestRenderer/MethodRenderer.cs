@@ -25,7 +25,7 @@ internal interface IBlock
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax iterator, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax[] iterators, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddReturn(ExpressionSyntax? whatToReturn);
-    ExpressionSyntax RenderObject(object? obj, GenericNameSyntax fieldsRenderer);
+    ExpressionSyntax RenderObject(object? obj);
     BlockSyntax Render();
 }
 
@@ -226,7 +226,7 @@ internal class MethodRenderer
             _statements.Add(ReturnStatement(whatToReturn));
         }
 
-        private ExpressionSyntax RenderArray(Array obj, GenericNameSyntax fieldsRenderer)
+        private ExpressionSyntax RenderArray(System.Array obj)
         {
             var rank = obj.Rank;
             var type = (ArrayTypeSyntax) RenderType(obj.GetType());
@@ -249,14 +249,14 @@ internal class MethodRenderer
                 for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
                 {
                     // TODO: if lower bound != 0, use Array.CreateInstance
-                    initializer.Add(RenderObject(obj.GetValue(i), fieldsRenderer));
+                    initializer.Add(RenderObject(obj.GetValue(i)));
                 }
             }
 
             return RenderArrayCreation(type, initializer);
         }
 
-        private ExpressionSyntax RenderFields(object obj, GenericNameSyntax fieldsRenderer)
+        private ExpressionSyntax RenderFields(object obj)
         {
             var type = obj.GetType();
             var fields = Reflection.fieldsOf(false, type);
@@ -264,22 +264,22 @@ internal class MethodRenderer
             var i = 0;
             foreach (var (_, fieldInfo) in fields)
             {
-                var fieldName = RenderObject(fieldInfo.Name, fieldsRenderer);
-                var fieldValue = RenderObject(fieldInfo.GetValue(obj), fieldsRenderer);
+                var fieldName = RenderObject(fieldInfo.Name);
+                var fieldValue = RenderObject(fieldInfo.GetValue(obj));
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
 
-            var dictInit = RenderDictCreation(FieldsMapType, fieldsWithValues);
-            var fieldsId = AddDecl("fields", FieldsMapType, dictInit);
-
             var typeExpr = RenderType(type);
-            var call = RenderCall(fieldsRenderer, RenderType(type), fieldsId);
+            var allocator =
+                RenderObjectCreation(AllocatorType(typeExpr), fieldsWithValues);
+
+            var call = RenderCall(RenderMemberAccess(allocator, AllocatorToObject));
             var objId = AddDecl("obj", typeExpr, call);
             return objId;
         }
 
-        public ExpressionSyntax RenderObject(object? obj, GenericNameSyntax fieldsRenderer) => obj switch
+        public ExpressionSyntax RenderObject(object? obj) => obj switch
         {
             null => LiteralExpression(SyntaxKind.NullLiteralExpression),
             true => True,
@@ -299,11 +299,11 @@ internal class MethodRenderer
             nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
-            Array a => RenderArray(a, fieldsRenderer),
+            System.Array a => RenderArray(a),
             Enum e => RenderEnum(e),
             Pointer => throw new NotImplementedException("RenderObject: implement rendering of pointers"),
-            ValueType => RenderFields(obj, fieldsRenderer),
-            _ when obj.GetType().IsClass => RenderFields(obj, fieldsRenderer),
+            ValueType => RenderFields(obj),
+            _ when obj.GetType().IsClass => RenderFields(obj),
             _ => throw new NotImplementedException($"RenderObject: unexpected object {obj}")
         };
 
