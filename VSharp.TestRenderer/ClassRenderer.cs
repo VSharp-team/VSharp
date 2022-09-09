@@ -1,4 +1,5 @@
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
@@ -96,7 +97,8 @@ internal class ClassRenderer
     {
         var members = new List<MemberDeclarationSyntax>();
         members.AddRange(_fields);
-        members.AddRange(_renderingMethods.Select(method => method.Render()));
+        members.AddRange(_renderingMethods.Select(method => method.Render().WithSemicolonToken(
+            MissingToken(SyntaxKind.SemicolonToken))));
         return _declaration.WithMembers(List(members));
     }
 }
