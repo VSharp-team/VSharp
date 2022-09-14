@@ -49,11 +49,19 @@
 <!--Building concolic every project build, to disable this, uncomment line bellow-->
 <!--    <Target Name="BuildConcolic" AfterTargets="BeforeBuild" Condition =" !Exists('../VSharp.ClrInteraction/cmake-build-debug') ">-->
     <Target Name="UnixBuildConcolic" AfterTargets="BeforeBuild" Condition="! $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xD;&#xA;            cd ../VSharp.ClrInteraction&#xD;&#xA;            mkdir cmake-build-debug&#xD;&#xA;            cd cmake-build-debug&#xD;&#xA;            cmake -G &quot;Unix Makefiles&quot; -DCMAKE_BUILD_TYPE=Debug ../&#xD;&#xA;            cmake --build . --target vsharpConcolic -j 6" />
+        <Exec Command='
+            cd ../VSharp.ClrInteraction
+            mkdir cmake-build-debug
+            cd cmake-build-debug
+            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Debug ../
+            cmake --build . --target vsharpConcolic -j 6'/>
     </Target>
 
     <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xD;&#xA;            cd ../VSharp.ClrInteraction&#xD;&#xA;            mkdir build&#xD;&#xA;            msbuild VSharp.ClrInteraction.vcxproj /p:Configuration=&quot;Debug&quot; /p:BuildOS=&quot;Windows_NT&quot; /p:BuildType=&quot;Debug&quot; /p:BuildArch=&quot;x64&quot; /p:Platform=&quot;x64&quot;" />
+        <Exec Command='
+            cd ../VSharp.ClrInteraction
+            mkdir build
+            msbuild VSharp.ClrInteraction.vcxproj /p:Configuration="Debug" /p:BuildOS="Windows_NT" /p:BuildType="Debug" /p:BuildArch="x64" /p:Platform="x64"'/>
     </Target>
 
     <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
