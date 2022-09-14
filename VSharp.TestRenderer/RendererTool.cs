@@ -13,6 +13,7 @@ using static CodeRenderer;
 public static class Renderer
 {
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
+    private static readonly List<string> CallingTests = new ();
 
     // TODO: create class 'Expression' with operators?
 
@@ -50,6 +51,10 @@ public static class Renderer
         if (ex == null)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
+            CallingTests.Add(callMethod.ToString());
+
+            // Adding namespace of objects comparer to usings
+            AddObjectsComparer();
             var condition =
                 RenderCall(
                     CompareObjects,
@@ -69,6 +74,7 @@ public static class Renderer
                     new []{ RenderType(ex) },
                     delegateExpr
                 );
+            CallingTests.Add(assertThrows.Expression.ToString());
             mainBlock.AddCall(assertThrows);
         }
     }
@@ -118,33 +124,65 @@ public static class Renderer
                 _currentOffset = whitespaces[0].ToFullString().Length;
             }
 
-            if (node is ObjectCreationExpressionSyntax objCreation)
+            switch (node)
             {
-                var init = objCreation.Initializer;
-                if (init != null)
+                case PostfixUnaryExpressionSyntax unary
+                    when unary.IsKind(SyntaxKind.SuppressNullableWarningExpression):
                 {
-                    var expressions = init.Expressions;
-                    if (expressions.Count > 0)
+                    var operand = unary.Operand.WithTrailingTrivia();
+                    var unaryOperator = unary.OperatorToken.WithLeadingTrivia();
+                    node = unary.WithOperatorToken(unaryOperator).WithOperand(operand);
+                    return base.Visit(node);
+                }
+                case LocalDeclarationStatementSyntax varDecl:
+                {
+                    var vars = varDecl.Declaration.Variables;
+                    if (vars.Count > 0)
                     {
-                        var formattedExpressions = new List<ExpressionSyntax>();
-                        foreach (var assign in expressions)
+                        var init = vars[0].Initializer;
+                        if (init != null && CallingTests.Contains(init.Value.ToString()))
                         {
-                            var formatted =
-                                assign.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset + TabSize));
-                            formattedExpressions.Add(formatted);
+                            node = node.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
+                            node = node.WithTrailingTrivia(LineFeed, LineFeed);
+                            return base.Visit(node);
+                        }
+                    }
+                    break;
+                }
+                case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
+                    when CallingTests.Contains(call.Expression.ToString()):
+                {
+                    node = node.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
+                    return base.Visit(node);
+                }
+                case ObjectCreationExpressionSyntax objCreation:
+                {
+                    var init = objCreation.Initializer;
+                    if (init != null)
+                    {
+                        var expressions = init.Expressions;
+                        if (expressions.Count > 0)
+                        {
+                            var formattedExpressions = new List<ExpressionSyntax>();
+                            foreach (var assign in expressions)
+                            {
+                                var formatted =
+                                    assign.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset + TabSize));
+                                formattedExpressions.Add(formatted);
+                            }
+
+                            init = init.WithExpressions(SeparatedList(formattedExpressions));
+                            var formattedCloseBrace =
+                                init.CloseBraceToken
+                                    .WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
+                            init = init.WithCloseBraceToken(formattedCloseBrace);
                         }
 
-                        init = init.WithExpressions(SeparatedList(formattedExpressions));
-                        var formattedCloseBrace =
-                            init.CloseBraceToken
-                                .WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
-                        init = init.WithCloseBraceToken(formattedCloseBrace);
+                        node = objCreation.WithInitializer(init);
                     }
 
-                    node = objCreation.WithInitializer(init);
+                    return base.Visit(node);
                 }
-
-                return base.Visit(node);
             }
 
             return base.Visit(node);
@@ -165,6 +203,9 @@ public static class Renderer
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
         PrepareCache();
+        CallingTests.Clear();
+        // Adding NUnit namespace to usings
+        AddNUnit();
 
         // Creating main class for generating tests
         var generatedClass =

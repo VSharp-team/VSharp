@@ -258,6 +258,9 @@ internal class MethodRenderer
 
         private ExpressionSyntax RenderFields(object obj)
         {
+            // Adding namespace of allocator to usings
+            AddTestExtensions();
+
             var type = obj.GetType();
             var fields = Reflection.fieldsOf(false, type);
             var fieldsWithValues = new (ExpressionSyntax, ExpressionSyntax)[fields.Length];
@@ -285,7 +288,7 @@ internal class MethodRenderer
 
         public ExpressionSyntax RenderObject(object? obj) => obj switch
         {
-            null => LiteralExpression(SyntaxKind.NullLiteralExpression),
+            null => RenderNull(),
             true => True,
             false => False,
             byte n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
