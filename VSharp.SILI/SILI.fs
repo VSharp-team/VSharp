@@ -61,7 +61,8 @@ type public SILI(options : SiliOptions) =
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
         | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
-        | InterleavedMode(base1, stepCount1, base2, stepCount2) -> InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
+        | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
+            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
@@ -75,6 +76,7 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
+            ReleaseBranches()
             let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
@@ -211,6 +213,7 @@ type public SILI(options : SiliOptions) =
         statistics.ExplorationStarted()
         isStopped <- false
         branchesReleased <- false
+        AcquireBranches()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals

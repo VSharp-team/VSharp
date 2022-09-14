@@ -232,7 +232,10 @@ namespace VSharp.Test
                             return;
                         }
 
-                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        var method = Application.getMethod(unitTest.Method);
+                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
+                        
+                        if (approximateCoverage >= _expectedCoverage)
                         {
                             explorer.Stop();
                         }

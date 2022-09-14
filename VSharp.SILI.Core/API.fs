@@ -36,7 +36,7 @@ module API =
         Branching.commonGuardedStatedApplyk f state term mergeStates k
 
     let ReleaseBranches() = Branching.branchesReleased <- true
-    let AquireBranches() = Branching.branchesReleased <- false
+    let AcquireBranches() = Branching.branchesReleased <- false
 
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k

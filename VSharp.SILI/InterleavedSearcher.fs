@@ -16,9 +16,11 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
     // TODO: handle None
     let pick() = getCurrentSearcher().Pick()
     
-    let update (parent, newStates) = for searcher, _ in searchersWithStepCount do searcher.Update(parent, newStates)
+    let update (parent, newStates) =
+        for searcher, _ in searchersWithStepCount do
+            searcher.Update(parent, newStates)
     
-    let states() = searchersWithStepCount |> List.unzip |> fst |> Seq.collect (fun s -> s.States()) |> Seq.distinct 
+    let states() = searchersWithStepCount |> Seq.collect (fun (s, _) -> s.States()) |> Seq.distinct 
     
     interface IForwardSearcher with
         override x.Init states = init states

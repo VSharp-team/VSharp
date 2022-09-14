@@ -259,7 +259,7 @@ and Method internal (m : MethodBase) as this =
             cfg |> CfgInfo |> Some
         else None)
     
-    let basicBlocksCoveredByTests = HashSet<offset>()
+    let blocksCoveredByTests = HashSet<offset>()
 
     member x.CFG with get() =
         match cfg.Force() with
@@ -292,12 +292,13 @@ and Method internal (m : MethodBase) as this =
 
     member x.InCoverageZone with get() = Method.CoverageZone x
     
-    member x.BasicBlocksCount with get() = if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+    member x.BasicBlocksCount with get() =
+        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
     
-    member x.BasicBlocksCoveredByTests with get() = basicBlocksCoveredByTests :> IReadOnlySet<offset>
-    member x.SetBasicBlockIsCoveredByTest(offset : offset) = basicBlocksCoveredByTests.Add(offset)
+    member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
+    member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
     
-    member x.ResetStatistics() = basicBlocksCoveredByTests.Clear()
+    member x.ResetStatistics() = blocksCoveredByTests.Clear()
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -317,10 +318,11 @@ type public codeLocation = {offset : offset; method : Method}
 
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
-        blockStart.method.BasicBlocksCoveredByTests.Contains blockStart.offset
+        blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
         
     let hasSiblings (blockStart : codeLocation) =
-        blockStart.method.HasBody && blockStart.method.CFG.HasSiblings blockStart.offset
+        let method = blockStart.method
+        method.HasBody && method.CFG.HasSiblings blockStart.offset
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
