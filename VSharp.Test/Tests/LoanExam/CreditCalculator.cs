@@ -109,7 +109,7 @@ public class CreditCalculationService
         }
     }
 
-    [TestSvm(-1, 0, 20, false, strat: SearchStrategy.ShortestDistance)]
+    [TestSvm(95, 0, -1, false, strat: SearchStrategy.Interleaved, releaseBranches: false)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;

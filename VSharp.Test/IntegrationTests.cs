@@ -19,7 +19,9 @@ namespace VSharp.Test
     {
         DFS,
         BFS,
-        ShortestDistance
+        ShortestDistance,
+        ContributedCoverage,
+        Interleaved
     }
 
     public enum CoverageZone
@@ -163,6 +165,8 @@ namespace VSharp.Test
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
+                    SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                    SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
@@ -219,7 +223,40 @@ namespace VSharp.Test
                     );
                     SILI explorer = new SILI(_options);
 
-                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    void GenerateTestAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateTest(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        var method = Application.getMethod(unitTest.Method);
+                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
+                        
+                        if (approximateCoverage >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+                    
+                    void GenerateErrorAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateError(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+
+                    explorer.InterpretIsolated(methodInfo, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, e => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {

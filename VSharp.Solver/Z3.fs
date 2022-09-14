@@ -513,7 +513,21 @@ module internal Z3 =
                 {expr = ctx.MkSelect(array, encodedKey); assumptions = List.empty}
 
         member private x.StructReading encCtx (structSource : ISymbolicConstantSource) (field : fieldId) typ structFields name =
-            x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
+            let res = x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
+            match field with
+            | _ when field.declaringType = typeof<decimal> && field.name = "_flags" ->
+                let expr = res.expr :?> BitVecExpr
+                let lowerWord = ctx.MkExtract(15u, 0u, expr)
+                let lowerIsZero = ctx.MkEq(lowerWord, ctx.MkBV(0, lowerWord.SortSize))
+                let exp = ctx.MkExtract(23u, 16u, expr)
+                let expSize = exp.SortSize
+                let leftBound = ctx.MkBVUGE(exp, ctx.MkBV(0, expSize))
+                let rightBound = ctx.MkBVULE(exp, ctx.MkBV(28, expSize))
+                let expInBound = ctx.MkAnd(leftBound, rightBound)
+                let upper = ctx.MkExtract(30u, 24u, expr)
+                let upperIsZero = ctx.MkEq(upper, ctx.MkBV(0, upper.SortSize))
+                { res with assumptions = lowerIsZero::expInBound::upperIsZero::res.assumptions }
+            | _ -> res
 
         member private x.EncodeMemoryAccessConstant encCtx name (source : ISymbolicConstantSource) (structFields : fieldId list) typ : encodingResult =
             match source with

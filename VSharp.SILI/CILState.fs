@@ -16,13 +16,16 @@ type cilState =
       //TODO: #mb frames list #mb transfer to Core.State
       mutable iie : InsufficientInformationException option
       mutable level : level
-      mutable history : Set<codeLocation>
       mutable startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable suspended : bool
       mutable targets : Set<codeLocation> option
       mutable lastPushInfo : term option
+      /// <summary>
+      /// All basic blocks visited by the state.
+      /// </summary>
+      mutable history : Set<codeLocation>
     }
     with
     member x.Result with get() =
@@ -56,13 +59,13 @@ module internal CilStateOperations =
           filterResult = None
           iie = None
           level = PersistentDict.empty
-          history = Set.empty
           startingIP = curV
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
           suspended = false
           targets = None
           lastPushInfo = None
+          history = Set.empty
         }
 
     let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
@@ -190,13 +193,9 @@ module internal CilStateOperations =
         match oldValue with
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
-
-    let addIntoHistory (cilState: cilState) k =
-        let history = cilState.history
-        cilState.history <- Set.add k history
-
-    let history (cilState : cilState) =
-        seq cilState.history
+        
+    let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+        cilState.history <- Set.add loc cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
 

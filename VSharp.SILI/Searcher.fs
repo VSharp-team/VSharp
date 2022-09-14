@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
+open VSharp.Interpreter.IL
 open VSharp.Utils
 open CilStateOperations
 
@@ -63,8 +64,7 @@ type SimpleForwardSearcher(maxBound) =
             states.Add(s)
 
     interface IForwardSearcher with
-        override x.Init states =
-            forPropagation.AddRange(states)
+        override x.Init states = x.Init forPropagation states
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update (parent, newStates) =
@@ -73,11 +73,15 @@ type SimpleForwardSearcher(maxBound) =
 
     abstract member Choose : seq<cilState> -> cilState option
     default x.Choose states = Seq.tryLast states
+    
     abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
     default x.Insert states (parent, newStates) =
         if isStopped parent then
             states.Remove(parent) |> ignore
         Seq.iter (add states) newStates
+        
+    abstract member Init : List<cilState> -> seq<cilState> -> unit
+    default x.Init states initStates = states.AddRange(initStates)
 
 type BFSSearcher(maxBound) =
     inherit SimpleForwardSearcher(maxBound) with
@@ -151,6 +155,3 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
     member x.Weighter = weighter
     member x.TryGetWeight state = storage.TryGetPriority state
     member x.ToSeq() = storage.ToSeq
-
-type SampledWeightedSearcher(maxBound, weighter : IWeighter) =
-    inherit WeightedSearcher(maxBound, weighter, DiscretePDF(CilStateOperations.mkCilStateHashComparer))

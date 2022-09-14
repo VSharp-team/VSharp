@@ -1947,8 +1947,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
-        if cfg.HasSiblings offset then
-            addIntoHistory cilState {offset = offset; method = m}
 
     member private x.DecrementMethodLevel (cilState : cilState) method =
         let key = {offset = 0<offsets>; method = method}

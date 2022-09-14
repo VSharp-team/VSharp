@@ -258,6 +258,8 @@ and Method internal (m : MethodBase) as this =
             Method.ReportCFGLoaded this
             cfg |> CfgInfo |> Some
         else None)
+    
+    let blocksCoveredByTests = HashSet<offset>()
 
     member x.CFG with get() =
         match cfg.Force() with
@@ -289,6 +291,14 @@ and Method internal (m : MethodBase) as this =
     static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
 
     member x.InCoverageZone with get() = Method.CoverageZone x
+    
+    member x.BasicBlocksCount with get() =
+        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+    
+    member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
+    member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
+    
+    member x.ResetStatistics() = blocksCoveredByTests.Clear()
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -305,6 +315,14 @@ type public codeLocation = {offset : offset; method : Method}
             | :? codeLocation as y when x.method.Equals(y.method) -> compare x.offset y.offset
             | :? codeLocation as y -> (x.method :> IComparable).CompareTo(y.method)
             | _ -> -1
+
+module public CodeLocation =
+    let isBasicBlockCoveredByTest (blockStart : codeLocation) =
+        blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
+        
+    let hasSiblings (blockStart : codeLocation) =
+        let method = blockStart.method
+        method.HasBody && method.CFG.HasSiblings blockStart.offset
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
@@ -497,6 +515,11 @@ module Application =
     let addGoal = graph.AddGoal
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
+    
+    let resetMethodStatistics() =
+        lock methods (fun () ->
+            for method in methods.Values do
+                method.ResetStatistics())
 
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody

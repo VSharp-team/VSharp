@@ -24,7 +24,7 @@ module API =
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
     val ReleaseBranches : unit -> unit
-    val AquireBranches : unit -> unit
+    val AcquireBranches : unit -> unit
 
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a

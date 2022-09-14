@@ -25,7 +25,11 @@
         <Compile Include="Statistics.fs" />
         <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
+        <Compile Include="CombinedWeighter.fs" />
         <Compile Include="DistanceWeighter.fs" />
+        <Compile Include="ContributedCoverageSearcher.fs" />
+        <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
+        <Compile Include="InterleavedSearcher.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="Communication.fs" />

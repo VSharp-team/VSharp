@@ -20,6 +20,7 @@ type public SILI(options : SiliOptions) =
     let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
     let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Int64.MaxValue else timeout * 80L / 100L
     let mutable branchesReleased = false
+    let mutable isStopped = false
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
@@ -59,6 +60,9 @@ type public SILI(options : SiliOptions) =
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
+        | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
+            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
@@ -72,7 +76,8 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
-            let dfsSearcher = DFSSearcher(infty) :> IForwardSearcher
+            ReleaseBranches()
+            let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
@@ -85,9 +90,11 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method cmdArgs state with
-            | Some test -> reporter test
-            | None -> ()
+            if state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
+                statistics.TrackFinished state
+                match TestGenerator.state2test isError method cmdArgs state with
+                | Some test -> reporter test
+                | None -> ()
         with :? InsufficientInformationException as e ->
             state.iie <- Some e
             reportIncomplete state
@@ -161,6 +168,7 @@ type public SILI(options : SiliOptions) =
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
         Application.moveState loc s (Seq.cast<_> newStates)
+        statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -188,7 +196,7 @@ type public SILI(options : SiliOptions) =
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while pick() && stopwatch.ElapsedMilliseconds < timeout do
+        while not isStopped && pick() && stopwatch.ElapsedMilliseconds < timeout do
             if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
                 releaseBranches()
             match action with
@@ -201,8 +209,11 @@ type public SILI(options : SiliOptions) =
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
         | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.resetMethodStatistics()
         statistics.ExplorationStarted()
+        isStopped <- false
         branchesReleased <- false
+        AcquireBranches()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
@@ -281,5 +292,7 @@ type public SILI(options : SiliOptions) =
         if not initialStates.IsEmpty then
             x.AnswerPobs method initialStates
         Restore()
+        
+    member x.Stop() = isStopped <- true
 
     member x.Statistics with get() = statistics
