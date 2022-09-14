@@ -7,7 +7,7 @@ type searchMode =
     | DFSMode
     | BFSMode
     | ShortestDistanceBasedMode
-    | LessCoveredByTestsMode
+    | ContributedCoverageMode
     | InterleavedMode of searchMode * int * searchMode * int
     | GuidedMode of searchMode
 

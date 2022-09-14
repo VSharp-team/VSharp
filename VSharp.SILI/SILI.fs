@@ -60,7 +60,7 @@ type public SILI(options : SiliOptions) =
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
-        | LessCoveredByTestsMode -> DFSSortedByLessCoveredSearcher(infty, statistics) //LessCoveredByTestsSearcher(infty, statistics)
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
         | InterleavedMode(base1, stepCount1, base2, stepCount2) -> InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
@@ -75,7 +75,7 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
-            let dfsSearcher = DFSSortedByLessCoveredSearcher(infty, statistics) :> IForwardSearcher
+            let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher

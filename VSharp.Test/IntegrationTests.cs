@@ -20,7 +20,7 @@ namespace VSharp.Test
         DFS,
         BFS,
         ShortestDistance,
-        LessCoveredByTests,
+        ContributedCoverage,
         Interleaved
     }
 
@@ -165,8 +165,8 @@ namespace VSharp.Test
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
-                    SearchStrategy.LessCoveredByTests => searchMode.LessCoveredByTestsMode,
-                    SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.LessCoveredByTestsMode, 9),
+                    SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                    SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
