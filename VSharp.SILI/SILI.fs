@@ -60,7 +60,8 @@ type public SILI(options : SiliOptions) =
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
-        | LessCoveredByTestsMode -> LessCoveredWithDistanceAsFallbackSearcher(infty, statistics)
+        | LessCoveredByTestsMode -> DFSSortedByLessCoveredSearcher(infty, statistics) //LessCoveredByTestsSearcher(infty, statistics)
+        | InterleavedMode(base1, stepCount1, base2, stepCount2) -> InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher

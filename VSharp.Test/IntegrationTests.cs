@@ -20,7 +20,8 @@ namespace VSharp.Test
         DFS,
         BFS,
         ShortestDistance,
-        LessCoveredByTests
+        LessCoveredByTests,
+        Interleaved
     }
 
     public enum CoverageZone
@@ -165,6 +166,7 @@ namespace VSharp.Test
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                     SearchStrategy.LessCoveredByTests => searchMode.LessCoveredByTestsMode,
+                    SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.LessCoveredByTestsMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
