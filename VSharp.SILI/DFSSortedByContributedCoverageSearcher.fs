@@ -12,12 +12,12 @@ open CilStateOperations
 /// of visited basic blocks not covered yet by tests. Stable sorting is used to maintain the
 /// DFS-like logic.
 /// </summary>
-type DFSSortedByLessCoveredSearcher(maxBound, statistics) =
+type DFSSortedByContributedCoverageSearcher(maxBound, statistics) =
     inherit SimpleForwardSearcher(maxBound)
     
     let isStopped s = isStopped s || violatesLevel s maxBound
     
-    let lessCoveredWeighter = LessCoveredByTestsWeighter(statistics) :> IWeighter
+    let contributedCoverageWeighter = ContributedCoverageWeighter(statistics) :> IWeighter
     
     let compareWeightOpts (one : uint option) (another : uint option) =
         match one, another with
@@ -27,7 +27,7 @@ type DFSSortedByLessCoveredSearcher(maxBound, statistics) =
         | None, None -> 0
         
     let comparer = Comparer.Create(compareWeightOpts)    
-    let getWeight = lessCoveredWeighter.Weight
+    let getWeight = contributedCoverageWeighter.Weight
     
     let add (states : List<cilState>) newState =
         if not <| isStopped newState then
