@@ -19,7 +19,7 @@ internal static class CodeRenderer
     // Used assemblies
     private static readonly HashSet<Assembly> assemblies = new ();
 
-    private static UsingDirectiveSyntax[] UsedUsings()
+    private static UsingDirectiveSyntax[] ProgramUsings()
     {
         var nonStaticElems = usings.Select(x =>
             UsingDirective(ParseName(x)));
@@ -28,30 +28,34 @@ internal static class CodeRenderer
         return nonStaticElems.Concat(staticElems).ToArray();
     }
 
-    private static readonly string[] PrerenderedUsings =
+    public static void AddNUnit()
     {
-        "NUnit.Framework",
-        "VSharp.TestExtensions"
-    };
+        usings.Add("NUnit.Framework");
+    }
 
-    private static readonly string[] PrerenderedStaticUsings =
+    public static void AddTestExtensions()
     {
-        typeof(ObjectsComparer).FullName
-    };
+        usings.Add("VSharp.TestExtensions");
+    }
 
-    private static readonly Assembly[] PrerenderedAssemblies =
+    private static bool _objectsComparerAdded = false;
+
+    public static void AddObjectsComparer()
     {
-        typeof(ObjectsComparer).Assembly
-    };
+        if (_objectsComparerAdded) return;
+        var name = typeof(ObjectsComparer).FullName;
+        Debug.Assert(name != null);
+        staticUsings.Add(name);
+        assemblies.Add(typeof(ObjectsComparer).Assembly);
+        _objectsComparerAdded = true;
+    }
 
     public static void PrepareCache()
     {
+        _objectsComparerAdded = false;
         usings.Clear();
-        usings.UnionWith(PrerenderedUsings);
         staticUsings.Clear();
-        staticUsings.UnionWith(PrerenderedStaticUsings);
         assemblies.Clear();
-        assemblies.UnionWith(PrerenderedAssemblies);
     }
 
     public static Assembly[] UsedAssemblies()
@@ -241,6 +245,15 @@ internal static class CodeRenderer
     public static ExpressionSyntax RenderNotEq(ExpressionSyntax x, ExpressionSyntax y)
     {
         return BinaryExpression(SyntaxKind.NotEqualsExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderNull()
+    {
+        return
+            PostfixUnaryExpression(
+                SyntaxKind.SuppressNullableWarningExpression,
+                LiteralExpression(SyntaxKind.NullLiteralExpression)
+            );
     }
 
     public static ExpressionSyntax RenderEnum(Enum e)
@@ -499,8 +512,7 @@ internal static class CodeRenderer
                 .AddMembers(renderedClasses);
         return
             CompilationUnit()
-                .AddUsings(UsedUsings())
+                .AddUsings(ProgramUsings())
                 .AddMembers(renderedNamespace);
     }
-
 }
