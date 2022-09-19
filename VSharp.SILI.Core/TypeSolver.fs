@@ -37,7 +37,7 @@ and MethodMock(method : IMethod, typeMock : ITypeMock) =
             if returnType = typeof<Void> then None
             else
                 let src : functionResultConstantSource = {mock = x; callIndex = callIndex; concreteThis = concretizedThis; args = args}
-                let result = Constant (toString src) src returnType
+                let result = Memory.makeSymbolicValue src (toString src) returnType
                 callIndex <- callIndex + 1
                 callResults.Add result
                 Some result
