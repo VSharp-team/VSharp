@@ -246,7 +246,7 @@ module internal Arithmetics =
             if tooBigShift then
                 castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator.Add(x, 1, xt)) xt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(x, 1, xt)) xt) matched
         | _ -> unmatched ()
 
     and private simplifyAdditionToExpression x y t matched unmatched =
@@ -316,7 +316,7 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "*" -------------------------------
 
     and private simplifyConcreteMultiplication t x y =
-        castConcrete (Calculator.Mul(x, y, t)) t
+        castConcrete (Calculator1.Mul(x, y, t)) t
 
     and private simplifyMultiplicationOfProduct t a b y matched unmatched =
         // Simplifying (a * b) * y at this step
@@ -368,10 +368,10 @@ module internal Arithmetics =
         // (a << b) * (c << d) = (a * c) << (b + d) if unchecked, b and d are conctere, b + d < (size of a) * 8
         // (a << b) * (c << d) = 0 if unchecked, b and d are conctere, b + d >= (size of a) * 8
         | Concrete(bval, bt), ShiftLeft(c, ConcreteT(dval, _), _) ->
-            let smallShift = Calculator1.Compare(Calculator.Add(bval, dval, t), bitSizeOf a t) = -1
+            let smallShift = Calculator1.Compare(Calculator1.Add(bval, dval, t), bitSizeOf a t) = -1
             if smallShift then
                 simplifyMultiplication t a c (fun mul ->
-                let bPlusD = castConcrete (Calculator.Add(bval, dval, bt)) bt
+                let bPlusD = castConcrete (Calculator1.Add(bval, dval, bt)) bt
                 simplifyShift OperationType.ShiftLeft t mul bPlusD matched)
             else
                 castConcrete 0 t |> matched
@@ -379,10 +379,10 @@ module internal Arithmetics =
         // (a << b) * 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
         | Concrete(bval, bt), ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) ->
             let n = Calculator.WhatPowerOf2(powOf2)
-            let tooBigShift = Calculator1.Compare(Calculator.Add(bval, n, t), bitSizeOf a t) >= 0
+            let tooBigShift = Calculator1.Compare(Calculator1.Add(bval, n, t), bitSizeOf a t) >= 0
             if tooBigShift then castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator.Add(bval, n, bt)) bt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(bval, n, bt)) bt) matched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationOfExpression t x y matched unmatched =
@@ -394,8 +394,8 @@ module internal Arithmetics =
 
     and private simplifyMultiplicationExt (t : System.Type) (x : term) y matched unmatched =
         match x.term, y.term with
-        | Concrete(xval, _), _ when Calculator.IsZero(xval) -> castConcrete 0 t |> matched
-        | _, Concrete(yval, _) when Calculator.IsZero(yval) -> castConcrete 0 t |> matched
+        | Concrete(xval, _), _ when Calculator1.IsZero(xval) -> castConcrete 0 t |> matched
+        | _, Concrete(yval, _) when Calculator1.IsZero(yval) -> castConcrete 0 t |> matched
         | Concrete(x, _), _ when Calculator.FuzzyEqual(x, System.Convert.ChangeType(1, t)) -> matched y
         | _, Concrete(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> matched x
         | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, System.Convert.ChangeType(-1, t)) ->
@@ -430,7 +430,7 @@ module internal Arithmetics =
             (fun x y k ->
                 match x, y with
                 // 0 / y = 0
-                | ConcreteT(xval, _), _ when Calculator.IsZero(xval) -> x |> k
+                | ConcreteT(xval, _), _ when Calculator1.IsZero(xval) -> x |> k
                 // x / 1 = x
                 | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, System.Convert.ChangeType(1, typeOf x)) -> x |> k
                 // x / -1 = -x
@@ -447,11 +447,11 @@ module internal Arithmetics =
                 | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
                     when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
                         let n = Calculator.WhatPowerOf2(powOf2)
-                        let tooBigShift = Calculator1.Compare(Calculator.Add(b, n, t), bitSizeOf a t) >= 0
+                        let tooBigShift = Calculator1.Compare(Calculator1.Add(b, n, t), bitSizeOf a t) >= 0
                         if tooBigShift then castConcrete 0 t |> k
                         else
                             let op = if isSigned then OperationType.ShiftRight else OperationType.ShiftRight_Un
-                            simplifyShift op t a (castConcrete (Calculator.Add(b, n, bt)) bt) k
+                            simplifyShift op t a (castConcrete (Calculator1.Add(b, n, bt)) bt) k
                 | _ ->
                     let op = if isSigned then OperationType.Divide else OperationType.Divide_Un
                     (makeBinary op x y t) |> k)
@@ -467,7 +467,7 @@ module internal Arithmetics =
 
     and private divides t x y =
         let success = ref true
-        Calculator.IsZero(Calculator.Rem(x, y, t, success)) && success.Value
+        Calculator1.IsZero(Calculator.Rem(x, y, t, success)) && success.Value
 
     and simplifyRemainder isSigned t x y k =
         simplifyGenericBinary "remainder" x y k
@@ -475,7 +475,7 @@ module internal Arithmetics =
             (fun x y k ->
                 match x, y with
                 // 0 % y = 0
-                | ConcreteT(xval, _), _ when Calculator.IsZero(xval) -> x |> k
+                | ConcreteT(xval, _), _ when Calculator1.IsZero(xval) -> x |> k
                 // x % 1 = 0
                 | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> castConcrete 0 t |> k
                 // x % -1 = 0
@@ -499,7 +499,7 @@ module internal Arithmetics =
         match operation with
         | OperationType.ShiftLeft -> castConcrete (Calculator.ShiftLeft(x, y, t)) t
         | OperationType.ShiftRight
-        | OperationType.ShiftRight_Un -> castConcrete (Calculator.ShiftRight(x, y, t)) t
+        | OperationType.ShiftRight_Un -> castConcrete (Calculator1.ShiftRight(x, y, t)) t
         | _ -> __unreachable__()
 
     and private simplifyShiftLeftMul t a b y matched unmatched =
@@ -510,10 +510,10 @@ module internal Arithmetics =
         | Concrete(powOf2, _), _, Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator1.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = Calculator1.Compare(Calculator1.Add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
-                    simplifyShift OperationType.ShiftLeft t b (castConcrete (Calculator.Add(yval, n, yt)) yt) matched
+                    simplifyShift OperationType.ShiftLeft t b (castConcrete (Calculator1.Add(yval, n, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftRightDiv op t a b y matched unmatched =
@@ -524,10 +524,10 @@ module internal Arithmetics =
         | Concrete(powOf2, _), Concrete(yval, yt)
             when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator1.Compare(Calculator.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = Calculator1.Compare(Calculator1.Add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
-                    simplifyShift op t a (castConcrete (Calculator.Add(yval, n, yt)) yt) matched
+                    simplifyShift op t a (castConcrete (Calculator1.Add(yval, n, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftLeftOfAddition t a y (matched : term -> 'a) unmatched =
@@ -539,15 +539,15 @@ module internal Arithmetics =
             let tooBigShift = Calculator1.Compare(yval, ((sizeOf a) * 8) - 1) = 0
             if tooBigShift then castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator.Add(yval, 1, yt)) yt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(yval, 1, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftOfShifted op t a b y matched unmatched =
         // Simplifying (a op b) op y at this step
         match b.term, y.term, op with
         // (a op b) op y = a op (b + y) if unchecked, b and y are concrete, b + y < (size of a) * 8
-        | Concrete(x, xt), Concrete(c, _), _ when Calculator1.Compare(Calculator.Add(x, c, t), bitSizeOf a t) = -1 ->
-            simplifyShift op t a (castConcrete (Calculator.Add(x, c, xt)) xt) matched
+        | Concrete(x, xt), Concrete(c, _), _ when Calculator1.Compare(Calculator1.Add(x, c, t), bitSizeOf a t) = -1 ->
+            simplifyShift op t a (castConcrete (Calculator1.Add(x, c, xt)) xt) matched
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
         | Concrete _, Concrete _, OperationType.ShiftLeft ->
             castConcrete 0 t |> matched
@@ -571,8 +571,8 @@ module internal Arithmetics =
 
     and private simplifyShiftExt op t x y matched unmatched =
         match x.term, y.term with
-        | Concrete(x, _), _ when Calculator.IsZero(x) -> castConcrete 0 t |> matched
-        | _, Concrete(y, _) when Calculator.IsZero(y) -> x |> matched
+        | Concrete(x, _), _ when Calculator1.IsZero(x) -> castConcrete 0 t |> matched
+        | _, Concrete(y, _) when Calculator1.IsZero(y) -> x |> matched
         | Expression _, Expression _
         | Expression _, _ -> simplifyShiftOfExpression op t x y matched unmatched
         | _ -> unmatched ()
