@@ -10,5 +10,11 @@ namespace VSharp.CSharpUtils
         {
             return IntPtr.Zero;
         }
+        
+        [Implements("System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)")]
+        public static object GCHandleInternalGet(IntPtr ptr)
+        {
+            return null;
+        }
     }
 }

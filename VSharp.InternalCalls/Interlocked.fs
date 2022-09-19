@@ -30,6 +30,11 @@ module internal Interlocked =
         assert(List.length args = 3)
         let location, value, compared = args.[0], args.[1], args.[2]
         compareExchange state location value compared
+        
+    let intPtrCompareExchange (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 3)
+        let location, value, compared = args.[0], args.[1], args.[2]
+        compareExchange state location value compared
 
     let genericExchange (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 3)
