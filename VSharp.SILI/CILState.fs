@@ -81,7 +81,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
-          history = Set.singleton currentLoc
+          history = Set.empty
           entryMethod = Some entryMethod
           id = getNextStateId()
         }
@@ -224,7 +224,7 @@ module internal CilStateOperations =
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
 
-    let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+    let addLocationToHistory (cilState : cilState) (loc : codeLocation) =
         cilState.history <- Set.add loc cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------

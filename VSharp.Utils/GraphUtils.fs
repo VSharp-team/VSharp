@@ -6,6 +6,9 @@ module GraphUtils =
     type graph<'a> = Dictionary<'a, HashSet<'a>>
     type distanceCache<'a> = Dictionary<'a, Dictionary<'a, uint>>
 
+    type IGraphNode<'t> =
+        abstract OutgoingEdges : seq<'t> with get
+
     let infinity = System.UInt32.MaxValue
 
     let floydAlgo nodes (graph : graph<'a>) =
@@ -42,23 +45,23 @@ module GraphUtils =
                     queue.Enqueue children
         dist
 
-    let incrementalSourcedDijkstraAlgo source (graph : graph<'a>) (allPairDist : Dictionary<'a, Dictionary<'a, uint>>) =
-        let dist = Dictionary<'a, uint>()
+    let inline incrementalSourcedDijkstraAlgo<'t when 't :> IGraphNode<'t> and 't : equality> (source : 't) (allPairDist : Dictionary<'t, Dictionary<'t, uint>>) =
+        let dist = Dictionary<'t, uint>()
         dist.Add (source, 0u)
         let queue = Queue<_>()
         queue.Enqueue source
         while not <| Seq.isEmpty queue do
             let parent = queue.Dequeue()
             if allPairDist.ContainsKey parent then
-                for parentDist in allPairDist.[parent] do
+                for parentDist in allPairDist[parent] do
                     if not <| dist.ContainsKey parentDist.Key then
-                        dist.Add (parentDist.Key, dist.[parent] + parentDist.Value)
+                        dist.Add (parentDist.Key, dist[parent] + parentDist.Value)
             else
-                for children in graph.[parent] do
-                    if dist.ContainsKey children && dist.[parent] + 1u < dist.[children] then
+                for children in parent.OutgoingEdges do
+                    if dist.ContainsKey children && dist[parent] + 1u < dist[children] then
                         dist.Remove children |> ignore
                     if not <| dist.ContainsKey children then
-                        dist.Add (children, dist.[parent] + 1u)
+                        dist.Add (children, dist[parent] + 1u)
                         queue.Enqueue children
         dist
 

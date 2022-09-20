@@ -645,7 +645,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
         let state = cilState.state
-        let dest, destPos, src = args.[0], args.[1], args.[2]
+        let dest, destPos, src = args[0], args[1], args[2]
         let srcPos = MakeNumber 0
         let srcLength = Memory.StringLength state src
         let destLength = Memory.StringLength state dest
@@ -662,7 +662,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.ClearArray (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
-        let array, index, length = args.[0], args.[1], args.[2]
+        let array, index, length = args[0], args[1], args[2]
         let (>>) = API.Arithmetics.(>>)
         let (<<) = API.Arithmetics.(<<)
         let clearCase (cilState : cilState) k =
@@ -748,12 +748,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.CopyArrayExtendedForm2 (cilState : cilState) _ (args : term list) =
         assert(List.length args = 5)
-        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+        let src, srcIndex, dst, dstIndex, length = args[0], args[1], args[2], args[3], args[4]
         x.CommonCopyArray cilState src srcIndex dst dstIndex length
 
     member private x.CopyArrayShortForm (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
-        let src, dst, length = args.[0], args.[1], args.[2]
+        let src, dst, length = args[0], args[1], args[2]
         let state = cilState.state
         let zero = TypeUtils.Int32.Zero
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
@@ -816,7 +816,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.FastMod (cilState : cilState) this (args : term list) =
         assert(List.length args = 3 && Option.isNone this)
-        let hashCode, length = args.[0], args.[1]
+        let hashCode, length = args[0], args[1]
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (length === MakeNumber 0, state))
             (x.Raise x.DivideByZeroException)
@@ -2018,16 +2018,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let startingOffset = ip.Offset()
         let cfg = m.ForceCFG
         let endOffset =
-            let lastOffset = Seq.last cfg.SortedOffsets
+            let lastOffset = Seq.last cfg.SortedBasicBlocks
             let rec binarySearch l r =
                 if l + 1 = r then l
                 else
                     let mid = (l + r) / 2
-                    if cfg.SortedOffsets.[mid] <= startingOffset then binarySearch mid r
+                    if cfg.SortedBasicBlocks.[mid].StartOffset <= startingOffset then binarySearch mid r
                     else binarySearch l mid
-            let index = binarySearch 0 (Seq.length cfg.SortedOffsets)
-            if cfg.SortedOffsets.[index] = lastOffset then Offset.from cfg.IlBytes.Length
-            else cfg.SortedOffsets.[index + 1]
+            let index = binarySearch 0 (Seq.length cfg.SortedBasicBlocks)
+            if cfg.SortedBasicBlocks.[index] = lastOffset then Offset.from cfg.IlBytes.Length
+            else cfg.SortedBasicBlocks.[index + 1].StartOffset
 
         let isIpOfCurrentBasicBlock (ip : ip) =
             match ip with

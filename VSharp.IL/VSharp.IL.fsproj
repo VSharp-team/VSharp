@@ -10,7 +10,6 @@
       <Compile Include="ILRewriter.fs" />
       <Compile Include="MethodBody.fs" />
       <Compile Include="CFG.fs" />
-      <Compile Include="CallGraph.fs" />
       <Compile Include="DotVisualizer.fs" />
     </ItemGroup>
 

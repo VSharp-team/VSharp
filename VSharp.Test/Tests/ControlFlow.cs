@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Reflection.Emit;
-using System.Runtime.InteropServices.ComTypes;
 using NUnit.Framework;
-using VSharp.Interpreter.IL;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -277,7 +273,7 @@ namespace IntegrationTests
         // NOTE: this test works fine with configuration Debug and Release, but DebugTailRec
         //       doesn't work, because dotnet generates non optimized IL, so there appears
         //       target on unreachable code, and test is explored infinitely, so setting timeout
-        [TestSvm(100, timeout:10)]
+        [TestSvm(100, timeout: 10)]
         public static int ForsWithContinueAndBreak(int x)
         {
             int sum = 0;
@@ -415,7 +411,7 @@ namespace IntegrationTests
             return -1;
         }
 
-        [TestSvm(100, timeout:5, guidedMode:false, strat:SearchStrategy.ShortestDistance)]
+        [TestSvm(100)]
         public static int BinarySearch(int[] a, int x, int lo, int hi)
         {
             if (a == null) throw new ArgumentException("a == null");
@@ -436,6 +432,27 @@ namespace IntegrationTests
                     lo = m + 1;
 
             return -1;
+        }
+
+        private static int F(int x)
+        {
+            int sum = 0;
+            for (int i = 1; i <= x; i++)
+            {
+                sum += i;
+            }
+            return sum;
+        }
+
+        [TestSvm(100)]
+        public static int IncomingCallGraphEdgesTest(int x)
+        {
+            if (F(x) > 0 & F(x + 1) > 0)
+            {
+                return 1;
+            }
+
+            return 0;
         }
 
 //        [TestSvm]

@@ -13,14 +13,14 @@ type ShortestDistanceWeighter(target : codeLocation) =
         elif weight = 1u then 1u
         else double weight |> Math.Log2 |> Math.Ceiling |> uint
 
-    let callGraphDistanceToTarget = CallGraph.findCallGraphDistanceTo target.method
+    let callGraphDistanceToTarget = target.method.CallGraphDistanceToMe
 
     // Returns the number proportional to distance from the offset in frameOffset of frameMethod to target. Uses both
     // call graph for interprocedural and CFG for intraprocedural distance approximation.
     let frameWeight (frameMethod : Method) frameOffset frameNumber =
         let frameMethodCFG = frameMethod.ForceCFG
         let frameDist = frameMethodCFG.DistancesFrom frameOffset
-        let checkDist () = Dict.tryGetValue frameDist target.offset infinity <> infinity
+        let checkDist() = Dict.tryGetValue frameDist target.ForceBasicBlock infinity <> infinity
         let callWeight callMethod =
             let callGraphDistance = Dict.tryGetValue callGraphDistanceToTarget callMethod infinity
             if callGraphDistance = infinity then infinity
@@ -57,7 +57,7 @@ type ShortestDistanceWeighter(target : codeLocation) =
         let localCFG = loc.method.ForceCFG
         let dist = localCFG.DistancesFrom loc.offset
         tagets
-        |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.offset infinity)) infinity
+        |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.ForceBasicBlock infinity)) infinity
         |> handleInfinity
         |> Option.map logarithmicScale
 
@@ -70,13 +70,13 @@ type ShortestDistanceWeighter(target : codeLocation) =
         let targets =
             localCFG.Calls
             |> Seq.filter (fun kv -> callGraphDistanceToTarget.ContainsKey kv.Value.Callee)
-            |> Seq.map (fun kv -> { offset = localCFG.ResolveBasicBlock kv.Key; method = currLoc.method })
+            |> Seq.map (fun kv -> { offset = kv.Key.StartOffset; method = currLoc.method })
         localWeight currLoc targets |> Option.map ((+) 32u)
 
     // Returns the number proportional to distance from loc to return of this method
     let postTargetWeight currLoc =
         let localCFG = currLoc.method.ForceCFG
-        let targets = localCFG.Sinks |> Seq.map (fun offset -> { offset = localCFG.ResolveBasicBlock offset; method = currLoc.method })
+        let targets = localCFG.Sinks |> Seq.map (fun basicBlock -> { offset = basicBlock.StartOffset; method = currLoc.method })
         localWeight currLoc targets |> Option.map ((+) 32u)
 
     interface IWeighter with
@@ -104,7 +104,7 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatist
             let minDistance =
                 cfg.DistancesFrom fromLoc
                 |> Seq.fold (fun min kvp ->
-                    let loc = { offset = kvp.Key; method = method }
+                    let loc = { offset = kvp.Key.Offset; method = method }
                     let distance = kvp.Value
                     if distance < min && distance <> 0u && not <| statistics.IsCovered loc then distance
                     else min) infinity
