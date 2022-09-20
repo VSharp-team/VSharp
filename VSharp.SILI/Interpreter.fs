@@ -1900,16 +1900,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let startingOffset = ip.Offset()
         let cfg = m.CFG
         let endOffset =
-            let lastOffset = Seq.last cfg.SortedOffsets
+            let lastOffset = Seq.last cfg.SortedBasicBlocks
             let rec binarySearch l r =
                 if l + 1 = r then l
                 else
                     let mid = (l + r) / 2
-                    if cfg.SortedOffsets.[mid] <= startingOffset then binarySearch mid r
+                    if cfg.SortedBasicBlocks.[mid].StartOffset <= startingOffset then binarySearch mid r
                     else binarySearch l mid
-            let index = binarySearch 0 (Seq.length cfg.SortedOffsets)
-            if cfg.SortedOffsets.[index] = lastOffset then Offset.from cfg.IlBytes.Length
-            else cfg.SortedOffsets.[index + 1]
+            let index = binarySearch 0 (Seq.length cfg.SortedBasicBlocks)
+            if cfg.SortedBasicBlocks.[index] = lastOffset then Offset.from cfg.IlBytes.Length
+            else cfg.SortedBasicBlocks.[index + 1].StartOffset
 
         let isIpOfCurrentBasicBlock (ip : ip) =
             match ip with
@@ -1944,7 +1944,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
         let cfg = m.CFG
-        let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
+        let isVertex offset = cfg.SortedBasicBlocks.BinarySearch(offset) >= 0
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
         if cfg.HasSiblings offset then

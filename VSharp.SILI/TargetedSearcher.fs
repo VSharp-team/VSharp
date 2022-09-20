@@ -110,7 +110,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let cfg = startingMethod.CFG
 
         for retOffset in cfg.Sinks do
-            let target = {offset = retOffset; method = startingMethod}
+            let target = {offset = retOffset.StartOffset; method = startingMethod}
 
             match state.targets with
             | Some targets ->

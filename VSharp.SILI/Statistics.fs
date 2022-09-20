@@ -52,7 +52,7 @@ type public SILIStatistics() =
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
         if method.HasBody then
-            method.CFG.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
+            method.CFG.IsBasicBlockStart codeLocation.offset
         else false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
@@ -82,9 +82,9 @@ type public SILIStatistics() =
         if method.HasBody then
             method.CFG.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
             |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
         else None
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
@@ -101,9 +101,9 @@ type public SILIStatistics() =
         if method.HasBody then
             method.CFG.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
+            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
             |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
+            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
         else None
 
     let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =

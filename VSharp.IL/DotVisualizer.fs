@@ -6,21 +6,18 @@ open System.Diagnostics
 open System.IO
 open VSharp
 
-type DotVisualizer(outputDirectory : DirectoryInfo) =
+type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryInfo) =
     let dotPath = Environment.GetEnvironmentVariable("DOT_PATH")
     let dotPath = if String.IsNullOrWhiteSpace dotPath then "dot" else dotPath
     let dotFile = Path.GetTempFileName()
     let outputDirectory = outputDirectory.CreateSubdirectory("visualization")
-    let ids = Dictionary<codeLocation, string>()
+    let ids = Dictionary<BasicBlock, string>()
     let mutable lastVertexId = 0
     let mutable lastPictureId = 0
-    let stateMarkers = Dictionary<codeLocation, int>()
-    let visitedVertices = HashSet<codeLocation>()
-    let visitedEdges = HashSet<codeLocation * codeLocation>()
+    let stateMarkers = Dictionary<BasicBlock, int>()
+    let visitedVertices = HashSet<BasicBlock>()
+    let visitedEdges = HashSet<BasicBlock * BasicBlock>()
     let states = ResizeArray<IGraphTrackableState>()
-
-    let loc2BB loc = {method = loc.method; offset = loc.method.CFG.ResolveBasicBlock loc.offset}
-
     let leave loc =
         stateMarkers.[loc] <- stateMarkers.[loc] - 1
     let visit loc =
@@ -45,28 +42,34 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
     let colorOfEdge fromLoc toLoc =
         if visitedEdges.Contains(fromLoc, toLoc) then visitedColor else unvisitedColor
 
-    let node loc =
-        let color, style = colorOfNode loc
-        let text = (loc.method.BasicBlockToString loc.offset |> join "\\l") + "\\l"
-        $"{id loc} [shape=box, label=\"{text}\", color=\"{color}\", style={style}]"
+    let node basicBlock =
+        let color, style = colorOfNode basicBlock
+        let shape = if basicBlock.IsGoal then "note" else "box"
+        let text = (basicBlock.ToString() |> join "\\l") + "\\l"
+        $"{id basicBlock} [shape={shape}, label=\"{text}\", color=\"{color}\", style={style}]"
     let edge fromLoc toLoc =
         $"{id fromLoc} -> {id toLoc} [color=\"{colorOfEdge fromLoc toLoc}\"]"
 
     let methodToDot (m : Method) =
         let cfg = m.CFG
+        let edges = ResizeArray<_>()
         seq{
             let name = m.FullName
             let id = m.Id
             yield $"subgraph cluster_{id} {{"
             yield $"label=%A{name}"
-            for vertex in cfg.SortedOffsets do
-                yield node {method = m; offset = vertex}
-            for kvp in cfg.Edges do
-                let from = {method = m; offset = kvp.Key}
-                for toOffset in kvp.Value do
-                    let toLoc = {method = m; offset = toOffset}
-                    yield edge from toLoc
+            for basicBlock in cfg.SortedBasicBlocks do
+                yield node basicBlock
+                if drawInterproceduralEdges
+                then 
+                    for kvp in basicBlock.OutgoingEdges do
+                        for _to in kvp.Value do            
+                            edges.Add (edge basicBlock _to)
+                else
+                    for _to in basicBlock.OutgoingEdges.[CfgInfo.TerminalForCFGEdge] do            
+                        edges.Add (edge basicBlock _to)
             yield "}"
+            yield! edges
         }
 
     let relevantMethods() =
@@ -77,6 +80,7 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
                     result.Add method
         result
 
+    new (outputDirectory) = DotVisualizer(false, outputDirectory)
     member private x.Compile() =
         lastPictureId <- lastPictureId + 1
         let format = "0000000000"
@@ -87,13 +91,13 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
         Process.Start(startInfo) |> ignore
 
     interface IVisualizer with
-
+        override x.DrawInterproceduralEdges = drawInterproceduralEdges
         override x.AddState state =
-            visit (loc2BB state.CodeLocation)
+            visit state.CodeLocation.BasicBlock
             states.Add state
 
         override x.TerminateState state =
-            leave (loc2BB state.CodeLocation)
+            leave state.CodeLocation.BasicBlock
             states.Remove state |> ignore
 
         override x.VisualizeGraph () =
@@ -108,14 +112,14 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
             x.Compile()
 
         override x.VisualizeStep fromLoc toState newStates =
-            let fromLoc = loc2BB fromLoc
-            let toLoc = loc2BB toState.CodeLocation
+            let fromLoc = fromLoc.BasicBlock
+            let toLoc = toState.CodeLocation.BasicBlock
             let transited = fromLoc <> toLoc
             if transited then
                 leave fromLoc
                 move fromLoc toLoc
             newStates |> Seq.iter (fun state ->
-                move fromLoc state.CodeLocation
+                move fromLoc (state.CodeLocation.method.CFG.ResolveBasicBlock state.CodeLocation.offset)
                 states.Add state)
             if transited || not <| Seq.isEmpty newStates then
                 (x :> IVisualizer).VisualizeGraph()

@@ -2,6 +2,7 @@ namespace VSharp
 
 open System.Collections.Generic
 open System.Reflection
+open VSharp.GraphUtils
 
 // TODO: ideally, we don't need CallGraph: it gets lazily bundled into application graph. Get rid of it when CFL reachability is ready.
 module CallGraph =
@@ -17,8 +18,8 @@ module CallGraph =
     let callGraphs = Dictionary<Assembly, callGraph>()
     let callGraphDijkstras = Dictionary<Assembly, Dictionary<Method * Method, uint>>()
     let callGraphFloyds = Dictionary<Assembly, Dictionary<Method * Method, uint>>()
-    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<Method>>()
-    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<Method>>()
+    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
+    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
 
     let private fromCurrentAssembly assembly (current : Method) = current.Module.Assembly = assembly
 
@@ -101,9 +102,9 @@ module CallGraph =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let callGraph = findCallGraph assembly method
-        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.graph callGraphDist
-        let distFromNode = Dictionary<Method, uint>()
+        //let callGraph = findCallGraph assembly method
+        let dist = GraphUtils.incrementalSourcedDijkstraAlgo (method :> ICallGraphNode) callGraphDist
+        let distFromNode = Dictionary<ICallGraphNode, uint>()
         for i in dist do
             if i.Value <> GraphUtils.infinity then
                 distFromNode.Add(i.Key, i.Value)
@@ -113,9 +114,9 @@ module CallGraph =
         let assembly = method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist method (fun () ->
-        let callGraph = findCallGraph assembly method
-        let dist = GraphUtils.incrementalSourcedDijkstraAlgo method callGraph.reverseGraph callGraphDist
-        let distToNode = Dictionary<Method, uint>()
+        //let callGraph = findCallGraph assembly method
+        let dist = GraphUtils.incrementalSourcedDijkstraAlgo (method:>IReversedCallGraphNode)  callGraphDist
+        let distToNode = Dictionary<IReversedCallGraphNode, uint>()
         for i in dist do
             if i.Value <> GraphUtils.infinity then
                 distToNode.Add(i.Key, i.Value)
