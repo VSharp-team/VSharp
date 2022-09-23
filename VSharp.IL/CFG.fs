@@ -99,66 +99,94 @@ and CfgInfo internal (method : MethodWithBody) =
 
     let dfs (startVertices : array<offset>) =
         let used = HashSet<offset>()
-        let basicBlocks = HashSet<BasicBlock> (Array.map (fun v -> BasicBlock(method,v)) startVertices)
+        let basicBlocks = HashSet<BasicBlock> ()
         let addBasicBlock v = basicBlocks.Add v |> ignore
         let greyVertices = HashSet<offset>()
         let vertexToBasicBlock: array<Option<BasicBlock>> = Array.init ilBytes.Length (fun _ -> None)
-
+    
+        let findFinalVertex intermediatePoint block =
+            let mutable index = 0
+            let mutable currentIndex = int intermediatePoint - 1
+            let mutable found = false
+            while not found do
+                if vertexToBasicBlock.[currentIndex].IsSome
+                   && vertexToBasicBlock.[currentIndex].Value = block
+                then
+                    found <- true
+                    index <- currentIndex
+                else currentIndex <- currentIndex - 1
+            index * 1<offsets>
+        
         let splitBasicBlock (block:BasicBlock) intermediatePoint =
-            let newBlock = BasicBlock (method, intermediatePoint)
-            newBlock.FinalOffset <- block.FinalOffset            
-            for v in int intermediatePoint .. int block.FinalOffset  do
-                vertexToBasicBlock.[v] <- Some newBlock
-            block.FinalOffset <- intermediatePoint
-            let finalVertex =
-                (vertexToBasicBlock |> Array.findIndexBack (fun b -> b.IsSome && b.Value = block))
-                 * 1<offsets>
-            block.FinalOffset <- finalVertex
-            for kvp in block.OutgoingEdges do
-                newBlock.OutgoingEdges.Add(kvp.Key, kvp.Value)
-            block.OutgoingEdges.Clear()
-            block.OutgoingEdges.Add(CfgInfo.TerminalForCFGEdge, HashSet[|newBlock|])
-            newBlock
             
+            let newBlock = BasicBlock (method, block.StartOffset)
+            addBasicBlock newBlock
+            block.StartOffset <- intermediatePoint
+            
+            newBlock.FinalOffset <- findFinalVertex intermediatePoint block
+            for v in int newBlock.StartOffset .. int intermediatePoint - 1  do
+                vertexToBasicBlock.[v] <- Some newBlock
+            
+            for parent in block.IncomingCFGEdges do
+                let removed =
+                    parent.OutgoingEdges |> Seq.map (fun kvp -> kvp.Key, kvp.Value.Remove block)
+                    |> Seq.filter snd
+                    |> Array.ofSeq
+                assert (removed.Length = 1)
+                let added = parent.OutgoingEdges.[fst removed.[0]].Add newBlock                
+                assert added
+                let added = newBlock.IncomingCFGEdges.Add parent
+                assert added
+            block.IncomingCFGEdges.Clear()
+            let added = block.IncomingCFGEdges.Add newBlock
+            assert added
+            newBlock.OutgoingEdges.Add(CfgInfo.TerminalForCFGEdge, HashSet[|block|])
+            block
+
         let makeNewBasicBlock startVertex =
             match vertexToBasicBlock.[int startVertex] with
             | None ->
                 let newBasicBlock = BasicBlock (method, startVertex)
-                addBasicBlock newBasicBlock
+                vertexToBasicBlock.[int startVertex] <- Some newBasicBlock
+                addBasicBlock newBasicBlock                
                 newBasicBlock
             | Some block ->
                 if block.StartOffset = startVertex
                 then block
                 else splitBasicBlock block startVertex
+            
 
         let addEdge (src:BasicBlock) (dst:BasicBlock) =
-            let srcGraphVertex = src
-            let dstGraphVertex = dst
             let added = dst.IncomingCFGEdges.Add src
             assert added
-            let exists, edges = srcGraphVertex.OutgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge 
+            let exists, edges = src.OutgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge 
             if exists
             then
-                let added = edges.Add dstGraphVertex
+                let added = edges.Add dst
                 assert added
             else
-                srcGraphVertex.OutgoingEdges.Add(CfgInfo.TerminalForCFGEdge, HashSet [|dstGraphVertex|])
+                src.OutgoingEdges.Add(CfgInfo.TerminalForCFGEdge, HashSet [|dst|])
 
         let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) =
-
-            vertexToBasicBlock.[int currentVertex] <- Some currentBasicBlock
-
             if used.Contains currentVertex
-            then                
+            then
+                let existingBasicBlock = vertexToBasicBlock.[int currentVertex]
+                if currentBasicBlock <> existingBasicBlock.Value
+                then
+                    currentBasicBlock.FinalOffset <- findFinalVertex currentVertex currentBasicBlock
+                    addEdge currentBasicBlock existingBasicBlock.Value                                
                 if greyVertices.Contains currentVertex
                 then loopEntries.Add currentVertex |> ignore
             else
-                greyVertices.Add currentVertex |> ignore
-                used.Add currentVertex |> ignore
+                vertexToBasicBlock.[int currentVertex] <- Some currentBasicBlock
+                let added = greyVertices.Add currentVertex
+                assert added
+                let added = used.Add currentVertex
+                assert added
                 let opCode = MethodBody.parseInstruction method currentVertex
 
                 let dealWithJump srcBasicBlock dst =
-                    let newBasicBlock = makeNewBasicBlock dst 
+                    let newBasicBlock = makeNewBasicBlock dst                   
                     addEdge srcBasicBlock newBasicBlock
                     dfs' newBasicBlock  dst
 
@@ -185,6 +213,7 @@ and CfgInfo internal (method : MethodWithBody) =
                     currentBasicBlock.FinalOffset <- offset
                     dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
+                    currentBasicBlock.FinalOffset <- currentVertex
                     ()
                 | Return ->
                     sinks.Add currentBasicBlock
@@ -194,13 +223,13 @@ and CfgInfo internal (method : MethodWithBody) =
                     dealWithJump currentBasicBlock target
                 | ConditionalBranch (fallThrough, offsets) ->
                     currentBasicBlock.FinalOffset <- currentVertex
-                    dealWithJump currentBasicBlock fallThrough
-                    offsets |> List.iter (dealWithJump currentBasicBlock)
+                    HashSet(fallThrough :: offsets) |> Seq.iter (dealWithJump currentBasicBlock)
 
-                greyVertices.Remove currentVertex |> ignore
+                let removed = greyVertices.Remove currentVertex
+                assert removed
 
         startVertices
-        |> Array.iter (fun v -> dfs' (BasicBlock (method,v)) v)
+        |> Array.iter (fun v -> dfs' (makeNewBasicBlock v) v)
 
         basicBlocks
         |> Seq.sortBy (fun b -> b.StartOffset)
@@ -273,7 +302,7 @@ and Method internal (m : MethodBase) as this =
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
             let cfg = this |> CfgInfo |> Some
-            Method.ReportCFGLoaded this
+            Method.ReportCFGLoaded this            
             cfg
         else None)
 
@@ -345,7 +374,7 @@ type private ApplicationGraphMessage =
     | GetDistanceToNearestGoal
         of AsyncReplyChannel<seq<IGraphTrackableState * int>> * seq<IGraphTrackableState>
 
-type ApplicationGraph() as this =
+type ApplicationGraph() =
     
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
@@ -362,8 +391,13 @@ type ApplicationGraph() as this =
                 if callTarget.method.IsStaticConstructor || not exists // if not exists then it should be from exception mechanism
                 then callFrom
                 else
-                    needInvalidate <- callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge                    
-                    callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo                    
+                    let returnTo = callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
+                    //needInvalidate <-
+                    //    callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge
+                    //    && returnTo.IncomingCFGEdges.Remove callFrom
+                    returnTo
+                    
+                                        
             if not (callTarget.method.IsStaticConstructor || not exists)
             then
                 let exists,callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge

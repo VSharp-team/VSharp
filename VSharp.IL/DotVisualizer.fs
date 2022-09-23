@@ -51,14 +51,14 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
         $"{id fromLoc} -> {id toLoc} [color=\"{colorOfEdge fromLoc toLoc}\"]"
 
     let methodToDot (m : Method) =
-        let cfg = m.CFG
+        let basicBlocks = if m.HasBody then m.CFG.SortedBasicBlocks else ResizeArray()
         let edges = ResizeArray<_>()
         seq{
             let name = m.FullName
             let id = m.Id
             yield $"subgraph cluster_{id} {{"
             yield $"label=%A{name}"
-            for basicBlock in cfg.SortedBasicBlocks do
+            for basicBlock in basicBlocks do
                 yield node basicBlock
                 if drawInterproceduralEdges
                 then 
