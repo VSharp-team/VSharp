@@ -21,7 +21,7 @@ type internal CurrentDirectoryAssemblyResolver(assemblyPath : string) =
 type internal AssemblyResolveContext(assembly : Assembly) as this =
     let assemblyDir = Path.GetDirectoryName assembly.Location
     let depsContext = DependencyContext.Load assembly
-    let resolver : ICompilationAssemblyResolver = CompositeCompilationAssemblyResolver [|
+    let resolver : ICompilationAssemblyResolver = CSharpUtils.CompositeCompilationAssemblyResolver [|
                 CurrentDirectoryAssemblyResolver assemblyDir;
                 AppBaseCompilationAssemblyResolver assemblyDir :> ICompilationAssemblyResolver;
                 ReferenceAssemblyPathResolver() :> ICompilationAssemblyResolver;

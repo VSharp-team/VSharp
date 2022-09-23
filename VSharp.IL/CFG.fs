@@ -258,7 +258,7 @@ and Method internal (m : MethodBase) as this =
             Method.ReportCFGLoaded this
             cfg |> CfgInfo |> Some
         else None)
-    
+
     let blocksCoveredByTests = HashSet<offset>()
 
     member x.CFG with get() =
@@ -291,13 +291,13 @@ and Method internal (m : MethodBase) as this =
     static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
 
     member x.InCoverageZone with get() = Method.CoverageZone x
-    
+
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
-    
+
     member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
     member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
-    
+
     member x.ResetStatistics() = blocksCoveredByTests.Clear()
 
 [<CustomEquality; CustomComparison>]
@@ -319,7 +319,7 @@ type public codeLocation = {offset : offset; method : Method}
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
         blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
-        
+
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
         method.HasBody && method.CFG.HasSiblings blockStart.offset
@@ -515,7 +515,7 @@ module Application =
     let addGoal = graph.AddGoal
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
-    
+
     let resetMethodStatistics() =
         lock methods (fun () ->
             for method in methods.Values do

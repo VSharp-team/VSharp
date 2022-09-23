@@ -38,7 +38,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         match nOpt with
         | Some n -> n.SumWeight
         | None -> 0u
- 
+
     let update n =
         n.Height <- max (height n.Left) (height n.Right) + 1u
         n.SumWeight <- n.Weight + sumWeight n.Left + sumWeight n.Right
@@ -266,6 +266,11 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
             return! choose root scaledW
         }
 
+    member x.Clear() =
+        root <- None
+        maxWeight <- 0u
+        count <- 0u
+
     member x.ToSeq = enumerate root
     member x.Count = count
 
@@ -276,6 +281,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         override x.Choose priority = x.Choose(priority)
         override x.Contains item = x.Contains(item)
         override x.TryGetPriority item = x.TryGetWeight(item)
+        override x.Clear() = x.Clear()
         override x.MaxPriority = x.MaxWeight
         override x.Count = x.Count
         override x.ToSeq = x.ToSeq
