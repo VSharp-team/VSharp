@@ -287,6 +287,8 @@ module API =
 
         val FillRegion : state -> term -> regionSort -> unit
 
+        val ObjectToTerm : state -> obj -> Type -> term
+
     module Print =
         val Dump : state -> string
         val PrintPC : pathCondition -> string

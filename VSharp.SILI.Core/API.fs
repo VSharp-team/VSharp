@@ -534,6 +534,8 @@ module API =
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
 
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
+
     module Print =
         let Dump state = Memory.dump state
         let PrintPC pc = PC.toString pc

@@ -58,6 +58,8 @@
         <Compile Include="PlatformHelper.fsi" />
         <Compile Include="PlatformHelper.fs" />
         <Compile Include="Loader.fs" />
+        <Compile Include="DateTime.fsi" />
+        <Compile Include="DateTime.fs" />
     </ItemGroup>
 
     <ItemGroup>
