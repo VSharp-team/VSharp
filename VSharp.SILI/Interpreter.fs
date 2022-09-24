@@ -538,6 +538,12 @@ module internal InstructionsSet =
 
 open InstructionsSet
 
+type UnknownMethodException(message : string, methodInfo : Method, interpreterStackTrace : string) =
+    inherit Exception(message)
+    member x.Method with get() = methodInfo
+    member x.InterpreterStackTrace with get() = interpreterStackTrace
+
+
 type internal ILInterpreter(isConcolicMode : bool) as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
@@ -923,12 +929,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             List.map moveIpToExit cilStates |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
+            let message = sprintf "New extern method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
         elif x.IsNotImplementedIntrinsic method fullMethodName then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            internalfailf "new intrinsic method: %s\nStackTrace:\n%s" fullMethodName stackTrace
+            let message = sprintf "New intrinsic method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
         elif method.HasBody then cilState |> List.singleton |> k
-        else internalfailf "non-extern method %s without body!" method.FullName
+        else internalfailf "Non-extern method %s without body!" method.FullName
 
     member private x.ArrayMethods (arrayType : Type) =
         let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> Reflection.getAllMethods
