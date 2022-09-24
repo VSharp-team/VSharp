@@ -79,28 +79,41 @@ type arrayCopyInfo =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
 type model =
-    { state : state; subst : IDictionary<ISymbolicConstantSource, term> }
+    | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
+    | StateModel of state
 with
     member x.Complete value =
-        if x.state.complete then
+        match x with
+        | StateModel state when state.complete ->
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
             | HeapRef({term = Constant _}, t) -> nullRef t
             | _ -> value
-        else value
+        | _ -> value
+
+    static member private EvalDict (subst : IDictionary<ISymbolicConstantSource, term>) source term typ complete =
+        let value = ref Nop
+        if subst.TryGetValue(source, value) then value.Value
+        elif complete then makeDefaultValue typ
+        else term
 
     member x.Eval term =
-        Substitution.substitute (fun term ->
-            match term with
-            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), _) } ->
-                source.Compose x.state
-            | { term = Constant(_, source, typ) } ->
-                let value = ref Nop
-                if x.subst.TryGetValue(source, value) then value.Value
-                elif x.state.complete then makeDefaultValue typ
-                else term
-            | _ -> term) id id term
+        Substitution.substitute (function
+            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), typ) } as term ->
+                match x with
+                | StateModel state -> source.Compose state
+                | PrimitiveModel subst -> model.EvalDict subst source term typ true
+            | { term = Constant(_, source, typ) } as term ->
+                let subst, complete =
+                    match x with
+                    | PrimitiveModel dict -> dict, true
+                    | StateModel state ->
+                        match state.model with
+                        | PrimitiveModel dict -> dict, state.complete
+                        | _ -> __unreachable__()
+                model.EvalDict subst source term typ complete
+            | term -> term) id id term
 
 and
     [<ReferenceEquality>]
@@ -124,7 +137,7 @@ and
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
     mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    mutable model : model option                                       // Concrete valuation of symbolics
+    mutable model : model                                              // Concrete valuation of symbolics
     complete : bool                                                    // If true, reading of undefined locations would result in default values
     typeMocks : IDictionary<Type list, ITypeMock>
 }

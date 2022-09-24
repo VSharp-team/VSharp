@@ -30,7 +30,6 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
-    val TryGetModel : state -> model option
     val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> unit) -> unit

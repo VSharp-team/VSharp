@@ -222,6 +222,7 @@ namespace VSharp.Test
                         _releaseBranches
                     );
                     SILI explorer = new SILI(_options);
+                    AssemblyManager.Load(methodInfo.Module.Assembly);
 
                     void GenerateTestAndCheckCoverage(UnitTest unitTest)
                     {

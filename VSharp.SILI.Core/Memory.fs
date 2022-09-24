@@ -38,7 +38,7 @@ module internal Memory =
         delegates = PersistentDict.empty
         currentTime = [1]
         startingTime = VectorTime.zero
-        model = None
+        model = PrimitiveModel null
         complete = complete
         typeMocks = Dictionary<_,_>()
     }
@@ -1274,8 +1274,14 @@ module internal Memory =
                     match x.baseSource with
                     | :? IStatedSymbolicConstantSource as baseSource ->
                         baseSource.Compose state
-                    | _ ->
-                        makeSymbolicValue x.baseSource (x.baseSource.ToString()) x.baseSource.TypeOfLocation
+                    | src ->
+                        match state.model with
+                        | PrimitiveModel subst when state.complete ->
+                            let value = ref Nop
+                            if subst.TryGetValue(x, value) then value.Value
+                            else makeDefaultValue src.TypeOfLocation
+                        | _ ->
+                            makeSymbolicValue src (src.ToString()) src.TypeOfLocation
                 readStruct structTerm x.field
 
     type private heapAddressSource with
@@ -1285,8 +1291,14 @@ module internal Memory =
                     match x.baseSource with
                     | :? IStatedSymbolicConstantSource as baseSource ->
                         baseSource.Compose state
-                    | _ ->
-                        makeSymbolicValue x.baseSource (x.baseSource.ToString()) x.baseSource.TypeOfLocation
+                    | src ->
+                        match state.model with
+                        | PrimitiveModel subst when state.complete ->
+                            let value = ref Nop
+                            if subst.TryGetValue(x, value) then value.Value
+                            else makeDefaultValue src.TypeOfLocation
+                        | _ ->
+                            makeSymbolicValue src (src.ToString()) src.TypeOfLocation
                 extractAddress refTerm
 
     // state is untouched. It is needed because of this situation:

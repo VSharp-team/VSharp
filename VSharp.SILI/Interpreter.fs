@@ -1027,8 +1027,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | [] -> ()
             | [mock : ITypeMock] ->
                 popFrameOf cilState
-                let model = Option.get cilState.state.model
-                model.state.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) model.state.allocatedTypes
+                let modelState =
+                    match cilState.state.model with
+                    | StateModel s -> s
+                    | _ -> __unreachable__()
+                modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 candidateTypes |> Seq.iter (function
                     | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
                     | _ -> ())
@@ -1944,7 +1947,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
         let cfg = m.CFG
-        let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

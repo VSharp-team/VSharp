@@ -74,10 +74,13 @@ module TestGenerator =
         | NullRef _
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
-            let eval address =
-                address |> Ref |> Memory.Read model.state |> model.Complete |> term2obj model state indices mockCache test
-            let typ = model.state.allocatedTypes.[addr]
-            obj2test eval indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
+            match model with
+            | StateModel modelState ->
+                let eval address =
+                    address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
+                let typ = modelState.allocatedTypes.[addr]
+                obj2test eval indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
+            | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let eval address =
                 address |> Ref |> Memory.Read state |> model.Eval |> term2obj model state indices mockCache test
@@ -93,7 +96,7 @@ module TestGenerator =
             let freshMock = test.DefineTypeMock(mock.Name)
             mock.SuperTypes |> Seq.iter freshMock.AddSuperType
             mock.MethodMocks |> Seq.iter (fun m ->
-                let clauses = m.GetImplementationClauses() |> Array.map (term2obj model state indices mockCache test)
+                let clauses = m.GetImplementationClauses() |> Array.map (model.Eval >> term2obj model state indices mockCache test)
                 freshMock.AddMethod(m.BaseMethod, clauses))
             freshMock)
 
@@ -114,27 +117,30 @@ module TestGenerator =
             test.SetTypeGenericParameters concreteClassParams mockedClassParams
             test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
 
-            let parametersInfo = m.Parameters
-            match cmdArgs with
-            | Some args ->
-                // NOTE: entry point with specified args case
-                assert(Array.length parametersInfo = 1)
-                test.AddArg (Array.head parametersInfo) args
-            | None ->
-                parametersInfo |> Seq.iter (fun pi ->
-                    let value = Memory.ReadArgument model.state pi |> model.Complete
+            match model with
+            | StateModel modelState ->
+                let parametersInfo = m.Parameters
+                match cmdArgs with
+                | Some args ->
+                    // NOTE: entry point with specified args case
+                    assert(Array.length parametersInfo = 1)
+                    test.AddArg (Array.head parametersInfo) args
+                | None ->
+                    parametersInfo |> Seq.iter (fun pi ->
+                        let value = Memory.ReadArgument modelState pi |> model.Complete
+                        let concreteValue : obj = term2obj model cilState.state indices mockCache test value
+                        test.AddArg pi concreteValue)
+
+                if m.HasThis then
+                    let value = Memory.ReadThis modelState m |> model.Complete
                     let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                    test.AddArg pi concreteValue)
+                    test.ThisArg <- concreteValue
 
-            if m.HasThis then
-                let value = Memory.ReadThis model.state m |> model.Complete
-                let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                test.ThisArg <- concreteValue
-
-            if not isError && not hasException then
-                let retVal = model.Eval cilState.Result
-                test.Expected <- term2obj model cilState.state indices mockCache test retVal
-            Some test
+                if not isError && not hasException then
+                    let retVal = model.Eval cilState.Result
+                    test.Expected <- term2obj model cilState.state indices mockCache test retVal
+                Some test
+            | _ -> __unreachable__()
 
     let state2test isError (m : Method) cmdArgs (cilState : cilState) =
         let indices = Dictionary<concreteHeapAddress, int>()
@@ -149,7 +155,4 @@ module TestGenerator =
             | _ -> false
         test.IsError <- isError
 
-        match TryGetModel cilState.state with
-        | Some model ->
-            model2test test isError hasException indices mockCache m model cmdArgs cilState
-        | None -> None
+        model2test test isError hasException indices mockCache m cilState.state.model cmdArgs cilState

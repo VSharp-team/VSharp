@@ -160,7 +160,7 @@ module internal Z3 =
             encodingCache.Get(t, getResult)
 
         member private x.AddEnumAssumptions encCtx typ (encodingResult : encodingResult) =
-            assert(typ.IsEnum)
+            assert typ.IsEnum
             let expr = encodingResult.expr
             let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
             let createAssumption assumptions value =
@@ -766,7 +766,8 @@ module internal Z3 =
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst}
+            state.model <- PrimitiveModel subst
+            StateModel state
 
 
     let private ctx = new Context()

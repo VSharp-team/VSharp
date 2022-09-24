@@ -17,10 +17,9 @@ type internal CurrentDirectoryAssemblyResolver(assemblyPath : string) =
                 true
             else false
 
-
-type internal AssemblyResolveContext(assemblyPath : string) as this =
-    let assembly = Assembly.LoadFile(assemblyPath)
-    let assemblyDir = Path.GetDirectoryName assemblyPath
+[<AllowNullLiteral>]
+type internal AssemblyResolveContext(assembly : Assembly) as this =
+    let assemblyDir = Path.GetDirectoryName assembly.Location
     let depsContext = DependencyContext.Load assembly
     let resolver : ICompilationAssemblyResolver = CompositeCompilationAssemblyResolver [|
                 CurrentDirectoryAssemblyResolver assemblyDir;
@@ -29,9 +28,13 @@ type internal AssemblyResolveContext(assemblyPath : string) as this =
                 PackageCompilationAssemblyResolver() :> ICompilationAssemblyResolver |] :> ICompilationAssemblyResolver
     let assemblyContext = AssemblyLoadContext.GetLoadContext assembly
     let resolvingHandler = Func<_,_,_> this.OnResolving
+    let resolvedAssemblies = ResizeArray<Assembly>(seq {assembly})
 
     let () =
         assemblyContext.add_Resolving resolvingHandler
+
+    new(assemblyPath : string) =
+        new AssemblyResolveContext(Assembly.LoadFile(assemblyPath))
 
     member private x.OnResolving (_ : AssemblyLoadContext) (assemblyName : AssemblyName) : Assembly =
         let compLib = x.TryGetFromCompilationLibs(assemblyName)
@@ -40,18 +43,22 @@ type internal AssemblyResolveContext(assemblyPath : string) as this =
             | None -> x.TryGetFromRuntimeLibs(assemblyName)
             | _ -> compLib
 
-        match compLib with
-        | Some compLib ->
-            x.LoadLibrary compLib
-        | None ->
-            x.LoadFromSharedLibrary assemblyName
+        let resolved =
+            match compLib with
+            | Some compLib ->
+                x.LoadLibrary compLib
+            | None ->
+                x.LoadFromSharedLibrary assemblyName
+        if resolved <> null then
+            resolvedAssemblies.Add resolved
+        resolved
 
     member private x.LoadFromSharedLibrary(assemblyName : AssemblyName) =
-        let dllPath = Path.Combine(Path.GetDirectoryName(assemblyPath), sprintf "%s.dll" (assemblyName.Name.Split(',')).[0]);
+        let dllPath = Path.Combine(assemblyDir, $"%s{(assemblyName.Name.Split(',')).[0]}.dll");
         try
             assemblyContext.LoadFromAssemblyPath dllPath
         with ex ->
-            Logger.error "%O" ex
+            Logger.error $"[AssemblyManager] Assembly resolution failed: {ex}"
             null
 
     member x.TryGetFromCompilationLibs(assemblyName : AssemblyName) : CompilationLibrary option =
@@ -77,9 +84,10 @@ type internal AssemblyResolveContext(assemblyPath : string) as this =
                 assemblyContext.LoadFromAssemblyPath(assemblies.[0])
             else null
         with ex ->
-            Logger.error "%O" ex
+            Logger.error "[AssemblyManager] Assembly resolution failed: %O" ex
             null
 
+    member x.ResolvedAssemblies with get() = resolvedAssemblies
     member x.Assembly with get() = assembly
 
     interface IDisposable with
@@ -87,12 +95,18 @@ type internal AssemblyResolveContext(assemblyPath : string) as this =
             assemblyContext.remove_Resolving resolvingHandler
 
 module AssemblyManager =
-    let assemblies = List<Assembly>()
-    let Resolve assemblyPath =
-        let resolver = new AssemblyResolveContext(assemblyPath)
-        assemblies.Clear()
-        assemblies.Add resolver.Assembly
-        // TODO: add dependencies?
-        resolver.Assembly
+    let mutable private currentResolver : AssemblyResolveContext = null
 
-    let Assemblies() = assemblies
+    let Resolve (assemblyPath : string) =
+        if currentResolver <> null then
+            (currentResolver :> IDisposable).Dispose()
+        currentResolver <- new AssemblyResolveContext(assemblyPath)
+        currentResolver.Assembly
+
+    let Load (assembly : Assembly) =
+        if currentResolver <> null then
+            (currentResolver :> IDisposable).Dispose()
+        currentResolver <- new AssemblyResolveContext(assembly)
+
+    let Assemblies() =
+        if currentResolver <> null then currentResolver.ResolvedAssemblies else null

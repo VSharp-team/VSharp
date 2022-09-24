@@ -43,7 +43,7 @@ module Branching =
             | SolverInteraction.SmtSat model ->
                 let thenState = conditionState
                 let elseState = Memory.copy conditionState elsePc
-                elseState.model <- Some model.mdl
+                elseState.model <- model.mdl
                 thenState.pc <- thenPc
                 bothBranches thenState elseState condition k
         else
@@ -58,10 +58,7 @@ module Branching =
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
         let pc = state.pc
-        let evaled =
-            match state.model with
-            | Some model -> model.Eval condition
-            | None -> __unreachable__()
+        let evaled = state.model.Eval condition
         if isTrue evaled then
             let elsePc = PC.add pc !!condition
             if PC.isFalse elsePc then
@@ -78,7 +75,7 @@ module Branching =
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState elsePc
-                    elseState.model <- Some model.mdl
+                    elseState.model <- model.mdl
                     thenState.pc <- PC.add pc condition
                     execution thenState elseState condition k
             else
@@ -101,7 +98,7 @@ module Branching =
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState (PC.add pc notCondition)
-                    thenState.model <- Some model.mdl
+                    thenState.model <- model.mdl
                     elseState.pc <- PC.add pc notCondition
                     execution thenState elseState condition k
             else

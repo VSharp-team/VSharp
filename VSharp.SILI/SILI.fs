@@ -119,7 +119,7 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
-        initialState.model <- Some (Memory.EmptyModel method)
+        initialState.model <- Memory.EmptyModel method
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -255,7 +255,7 @@ type public SILI(options : SiliOptions) =
             reportIncomplete <- wrapOnIIE onIIE
             interpreter.ConfigureErrorReporter reportError
             let state = Memory.EmptyState()
-            state.model <- Some (Memory.EmptyModel method)
+            state.model <- Memory.EmptyModel method
             let argsToState args =
                 let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
                 let stringType = typeof<string>
