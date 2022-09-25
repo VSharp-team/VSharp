@@ -695,13 +695,18 @@ module internal Z3 =
                     let decoded = x.Decode t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
-                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
+                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), t)} as constant ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
                         let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
+                    | HeapAddressSource(:? functionResultConstantSource) ->
+                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let term = x.Decode t refinedExpr
+                        assert(not (constant = term) || kvp.Value.expr = refinedExpr)
+                        if constant <> term then subst.Add(ms, term)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} as constant ->

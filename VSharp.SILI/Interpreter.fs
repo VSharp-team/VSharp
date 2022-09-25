@@ -1202,17 +1202,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> Some target, mi
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
-        // NOTE: It is not quite strict to InitFunctionFrame here because, but it does not matter because signatures of virtual methods are the same
-        x.InitializeStatics cilState methodToCall.DeclaringType (fun cilState ->
-        // [NOTE] If DeclaringType has static constructor, InitializeStatics will add new state to queue.
-        //        But arguments and this was already popped, so when execution will return to callvirt,
-        //        evaluation stack won't contain arguments and this.
-        //        For this purpose initializing statics on cilState with this and arguments,
-        //        after that popping them again.
-///// TODO: can we pop args BEFORE calling static constructor? if yes, remove the comment above. If not, this code should be overwritten
-//        let _, _ = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
-        x.CommonCallVirt methodToCall cilState id)
+        x.CommonCallVirt methodToCall cilState id
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         Memory.AllocateDefaultArray cilState.state lengths arrayType |> k
@@ -1443,8 +1434,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
-            let thisType =  MostConcreteTypeOfHeapRef cilState.state this
-            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, Reflection.allBindingFlags)
+            let thisType = MostConcreteTypeOfHeapRef cilState.state this
+            let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
+            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
             let methodInfoType = methodInfo.GetType()
             let methodPtr = Terms.Concrete methodInfo methodInfoType
             push methodPtr cilState

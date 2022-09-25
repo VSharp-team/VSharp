@@ -87,7 +87,7 @@ type internal AssemblyResolveContext(assembly : Assembly) as this =
             Logger.error "[AssemblyManager] Assembly resolution failed: %O" ex
             null
 
-    member x.ResolvedAssemblies with get() = resolvedAssemblies
+    member x.ResolvedAssemblies with get() = ResizeArray(resolvedAssemblies)
     member x.Assembly with get() = assembly
 
     interface IDisposable with
