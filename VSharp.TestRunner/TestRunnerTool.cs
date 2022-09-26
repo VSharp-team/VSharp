@@ -77,7 +77,8 @@ namespace VSharp.TestRunner
             var type = expected.GetType();
             if (type != got.GetType())
                 return false;
-            if (type.IsPrimitive || expected is string || type.IsEnum)
+
+            if (type == typeof(Pointer) || type.IsPrimitive || expected is string || type.IsEnum)
             {
                 // TODO: compare double with epsilon?
                 return got.Equals(expected);
