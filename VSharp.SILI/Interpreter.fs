@@ -974,29 +974,28 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.InitFunctionFrameCIL cilState targetMethod (Some this) (Some args)
         x.InlineMethodBaseCallIfNeeded targetMethod cilState k
 
-    member x.CallVirtualMethodFromTermType (cilState : cilState) targetType (calledMethod : Method) k =
-        let genericCalledMethod = calledMethod.GetGenericMethodDefinition()
+    member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
+        let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | i when i.IsInterface -> x.FindSuitableForInterfaceMethod targetType genericCalledMethod
             | _ ->
                 let allMethods = Reflection.getAllMethods targetType
                 allMethods |> Seq.find (fun mi -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition())
-        let targetMethod =
-            if genericMethodInfo.IsGenericMethodDefinition then
-                genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments())
-            else genericMethodInfo
-            |> Application.getMethod
-        if targetMethod.IsAbstract
-            then x.CallAbstract targetMethod cilState k
-            else x.InvokeVirtualMethod cilState calledMethod targetMethod k
+        if genericMethodInfo.IsGenericMethodDefinition then
+            genericMethodInfo.MakeGenericMethod(ancestorMethod.GetGenericArguments())
+        else genericMethodInfo
+        |> Application.getMethod
 
     member x.CallVirtualMethod (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
             let callForConcreteType typ state k =
-                x.CallVirtualMethodFromTermType state typ ancestorMethod k
+                let targetMethod = x.ResolveVirtualMethod typ ancestorMethod
+                if targetMethod.IsAbstract
+                    then x.CallAbstract targetMethod cilState k
+                    else x.InvokeVirtualMethod cilState ancestorMethod targetMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
@@ -1012,13 +1011,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let thisInModel, candidateTypes = ResolveCallVirt cilState.state this
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
-        let signature = ancestorMethod.Parameters |> Array.map (fun p -> p.ParameterType)
         let candidateMethods = seq {
             for t in candidateTypes do
                 match t with
                 | ConcreteType t ->
-                    let overriden = t.GetMethod(ancestorMethod.Name, ancestorMethod.GenericArguments.Length, signature)
-                    let overriden = Application.getMethod overriden
+                    let overriden = x.ResolveVirtualMethod t ancestorMethod
                     // TODO: more complex criteria here...
                     if overriden.InCoverageZone then
                         yield (t, overriden)
