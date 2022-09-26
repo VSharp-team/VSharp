@@ -62,12 +62,13 @@ module Mocking =
             clauses |> Array.iteri (fun i o -> returnValues.[i] <- o)
 
         member x.InitializeType (typ : Type) =
-            let field = typ.GetField(storageFieldName, BindingFlags.NonPublic ||| BindingFlags.Static)
-            if field = null then
-                internalfail $"Could not detect field %s{storageFieldName} of mock!"
-            let storage = Array.CreateInstance(returnType, clausesCount)
-            Array.Copy(returnValues, storage, clausesCount)
-            field.SetValue(null, storage)
+            if returnType <> typeof<Void> then
+                let field = typ.GetField(storageFieldName, BindingFlags.NonPublic ||| BindingFlags.Static)
+                if field = null then
+                    internalfail $"Could not detect field %s{storageFieldName} of mock!"
+                let storage = Array.CreateInstance(returnType, clausesCount)
+                Array.Copy(returnValues, storage, clausesCount)
+                field.SetValue(null, storage)
 
         member x.Build (typeBuilder : TypeBuilder) =
             let methodAttributes = MethodAttributes.Public
@@ -106,36 +107,37 @@ module Mocking =
             returnType <- methodBuilder.ReturnType
             typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)
 
-            let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
-            let counterField = typeBuilder.DefineField(counterFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
-
             let ilGenerator = methodBuilder.GetILGenerator()
 
-            let normalCase = ilGenerator.DefineLabel()
-            let count = returnValues.Length
+            if returnType <> typeof<Void> then
+                let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
+                let counterField = typeBuilder.DefineField(counterFieldName, typeof<int>, FieldAttributes.Private ||| FieldAttributes.Static)
 
-            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
-            ilGenerator.Emit(OpCodes.Ldc_I4, count)
-            ilGenerator.Emit(OpCodes.Blt, normalCase)
+                let normalCase = ilGenerator.DefineLabel()
+                let count = returnValues.Length
 
-            ilGenerator.Emit(OpCodes.Ldstr, name)
-            ilGenerator.Emit(OpCodes.Newobj, typeof<UnexpectedMockCallException>.GetConstructor([|typeof<string>|]))
-            ilGenerator.Emit(OpCodes.Throw)
-            // Or we can return the defaultField:
-            // let defaultFieldName = baseMethod.Name + "_<Default>"
-            // let defaultField = typeBuilder.DefineField(defaultFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
-            // ilGenerator.Emit(OpCodes.Ldsfld, defaultField)
-            // ilGenerator.Emit(OpCodes.Ret)
+                ilGenerator.Emit(OpCodes.Ldsfld, counterField)
+                ilGenerator.Emit(OpCodes.Ldc_I4, count)
+                ilGenerator.Emit(OpCodes.Blt, normalCase)
 
-            ilGenerator.MarkLabel(normalCase)
-            ilGenerator.Emit(OpCodes.Ldsfld, storageField)
-            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
-            ilGenerator.Emit(OpCodes.Ldelem, returnType)
+                ilGenerator.Emit(OpCodes.Ldstr, name)
+                ilGenerator.Emit(OpCodes.Newobj, typeof<UnexpectedMockCallException>.GetConstructor([|typeof<string>|]))
+                ilGenerator.Emit(OpCodes.Throw)
+                // Or we can return the defaultField:
+                // let defaultFieldName = baseMethod.Name + "_<Default>"
+                // let defaultField = typeBuilder.DefineField(defaultFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
+                // ilGenerator.Emit(OpCodes.Ldsfld, defaultField)
+                // ilGenerator.Emit(OpCodes.Ret)
 
-            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
-            ilGenerator.Emit(OpCodes.Ldc_I4_1)
-            ilGenerator.Emit(OpCodes.Add)
-            ilGenerator.Emit(OpCodes.Stsfld, counterField)
+                ilGenerator.MarkLabel(normalCase)
+                ilGenerator.Emit(OpCodes.Ldsfld, storageField)
+                ilGenerator.Emit(OpCodes.Ldsfld, counterField)
+                ilGenerator.Emit(OpCodes.Ldelem, returnType)
+
+                ilGenerator.Emit(OpCodes.Ldsfld, counterField)
+                ilGenerator.Emit(OpCodes.Ldc_I4_1)
+                ilGenerator.Emit(OpCodes.Add)
+                ilGenerator.Emit(OpCodes.Stsfld, counterField)
 
             ilGenerator.Emit(OpCodes.Ret)
 

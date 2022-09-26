@@ -114,26 +114,35 @@ namespace VSharp.TestRunner
                         result = method.Invoke(test.ThisArg, parameters);
                     if (ex != null)
                     {
+                        Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} failed! The expected exception {1} was not thrown",
                             fileInfo.Name, ex);
+                        Console.ResetColor();
                         return false;
                     }
                     if (checkResult && !CompareObjects(test.Expected, result))
                     {
                         // TODO: use NUnit?
+                        Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fileInfo.Name,
                             test.Expected ?? "null",
                             result ?? "null");
+                        Console.ResetColor();
                         return false;
                     }
                 }
                 catch (TargetInvocationException e)
                 {
-                    if (e.InnerException != null && e.InnerException.GetType() == ex)
+                    if (e.InnerException != null && e.InnerException.GetType() == ex) {
+                        Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Test {0} throws the expected exception!", fileInfo.Name);
+                        Console.ResetColor();
+                    }
                     else if (e.InnerException != null && ex != null)
                     {
+                        Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fileInfo.Name, e.InnerException, ex);
+                        Console.ResetColor();
                         throw e.InnerException;
                     }
                     else throw;
@@ -141,11 +150,15 @@ namespace VSharp.TestRunner
             }
             catch (Exception e)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("Error ({0}): {1}", fileInfo.Name, e);
+                Console.ResetColor();
                 return false;
             }
 
+            Console.ForegroundColor = ConsoleColor.Green;
             Console.Out.WriteLine("{0} passed!", fileInfo.Name);
+            Console.ResetColor();
 
             return true;
         }
@@ -165,7 +178,9 @@ namespace VSharp.TestRunner
 
             if (testsList.Count == 0)
             {
+                Console.ForegroundColor = ConsoleColor.Red;
                 Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
+                Console.ResetColor();
                 return false;
             }
 
