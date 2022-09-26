@@ -122,4 +122,4 @@ module internal Type =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
-        actualType.GetEnumUnderlyingType() |> allocateType state
+        EnumUtils.getEnumUnderlyingTypeChecked actualType |> allocateType state

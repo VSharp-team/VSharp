@@ -1,5 +1,6 @@
 namespace VSharp
 
+open EnumUtils
 open System
 open System.Collections.Generic
 open System.Reflection
@@ -91,8 +92,8 @@ module TypeUtils =
             (typeof<float>,   widerThan64) ]
 
     let isLessForNumericTypes (t1 : Type) (t2 : Type) =
-        let t1 = if t1.IsEnum then t1.GetEnumUnderlyingType() else t1
-        let t2 = if t2.IsEnum then t2.GetEnumUnderlyingType() else t2
+        let t1 = if t1.IsEnum then getEnumUnderlyingTypeChecked t1 else t1
+        let t2 = if t2.IsEnum then getEnumUnderlyingTypeChecked t2 else t2
         assert(isNumeric t1 && isNumeric t2)
         Array.contains t2 isWiderForNumericTypesMap.[t1]
 
@@ -117,7 +118,7 @@ module TypeUtils =
         int size
 
     let numericSizeOf (typ: Type) : uint32 =
-        let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
+        let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
         | _ when typ = typeof<int8> -> 8u

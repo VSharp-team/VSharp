@@ -175,7 +175,7 @@ module internal Z3 =
                 match typ with
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
                 | t when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
+                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, EnumUtils.getEnumUnderlyingTypeChecked t) |> toString, x.Type2Sort typ)
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with

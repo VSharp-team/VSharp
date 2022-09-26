@@ -27,6 +27,7 @@
         <Compile Include="PriorityCollection.fs" />
         <Compile Include="GraphUtils.fs" />
         <Compile Include="DiscretePDF.fs" />
+        <Compile Include="EnumUtils.fs" />
         <Compile Include="TypeUtils.fs" />
         <Compile Include="AssemblyManager.fs" />
         <Compile Include="Reflection.fs" />

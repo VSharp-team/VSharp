@@ -499,7 +499,7 @@ module EvaluationStackTyper =
 
     let abstractType (typ : Type) =
         if typ.IsValueType then
-            let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
+            let typ = if typ.IsEnum then EnumUtils.getEnumUnderlyingTypeChecked typ else typ
             let result = ref evaluationStackCellType.I1
             if typeAbstraction.TryGetValue((typ.Module.MetadataToken, typ.MetadataToken), result) then result.Value
             else evaluationStackCellType.Struct
@@ -1164,6 +1164,7 @@ type ILRewriter(body : rawMethodBody) =
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
         EvaluationStackTyper.createBodyStackState m il.next
+
         if concolicMode then
             x.TraverseProgram (fun instr ->
                 match instr.opcode with
