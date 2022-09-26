@@ -111,7 +111,7 @@ namespace DemoProject2
 }
 ```
 
-Compile this project. Go to `<V# build directory>/VSharp.Runner/bin/Release/net5.0/publish`. Run 
+Compile this project. Run 
 ```bat
 dotnet VSharp.Runner/bin/Release/netcoreapp6.0/publish/VSharp.Runner.dll --public-methods-of-class DemoProject2.DemoClass2 <path to DemoProject2.dll>
 ``` 
