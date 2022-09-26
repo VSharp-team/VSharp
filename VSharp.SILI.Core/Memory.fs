@@ -38,7 +38,7 @@ module internal Memory =
         delegates = PersistentDict.empty
         currentTime = [1]
         startingTime = VectorTime.zero
-        model = PrimitiveModel null
+        model = PrimitiveModel (Dictionary())
         complete = complete
         typeMocks = Dictionary<_,_>()
     }
