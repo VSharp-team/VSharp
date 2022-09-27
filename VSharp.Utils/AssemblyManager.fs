@@ -20,7 +20,11 @@ type internal CurrentDirectoryAssemblyResolver(assemblyPath : string) =
 [<AllowNullLiteral>]
 type internal AssemblyResolveContext(assembly : Assembly) as this =
     let assemblyDir = Path.GetDirectoryName assembly.Location
+
+    // NB: DependencyContext.Load returns null for .NET Framework assemblies, and dependencies are
+    // loaded from shared libraries
     let depsContext = DependencyContext.Load assembly
+
     let resolver : ICompilationAssemblyResolver = CSharpUtils.CompositeCompilationAssemblyResolver [|
                 CurrentDirectoryAssemblyResolver assemblyDir;
                 AppBaseCompilationAssemblyResolver assemblyDir :> ICompilationAssemblyResolver;
@@ -62,20 +66,25 @@ type internal AssemblyResolveContext(assembly : Assembly) as this =
             null
 
     member x.TryGetFromCompilationLibs(assemblyName : AssemblyName) : CompilationLibrary option =
-        depsContext.CompileLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase))
+        match depsContext with
+        | null -> None
+        | _ -> depsContext.CompileLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase))
 
     member private x.TryGetFromRuntimeLibs(assemblyName : AssemblyName) : CompilationLibrary option =
-        match depsContext.RuntimeLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase)) with
-        | Some runLib ->
-            CompilationLibrary(
-                runLib.Type,
-                runLib.Name,
-                runLib.Version,
-                runLib.Hash,
-                runLib.RuntimeAssemblyGroups |> Seq.collect (fun g -> g.AssetPaths),
-                runLib.Dependencies,
-                runLib.Serviceable) |> Some
-        | None -> None
+        match depsContext with
+        | null -> None
+        | _ ->
+            match depsContext.RuntimeLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase)) with
+            | Some runLib ->
+                CompilationLibrary(
+                    runLib.Type,
+                    runLib.Name,
+                    runLib.Version,
+                    runLib.Hash,
+                    runLib.RuntimeAssemblyGroups |> Seq.collect (fun g -> g.AssetPaths),
+                    runLib.Dependencies,
+                    runLib.Serviceable) |> Some
+            | None -> None
 
     member private x.LoadLibrary(compLib : CompilationLibrary) =
         try
