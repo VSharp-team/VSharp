@@ -36,7 +36,7 @@ module TestGenerator =
                     // TODO: normalize model (for example, try to minimize lengths of generated arrays)
                     if length > 128 then raise <| InsufficientInformationException "Test generation for too large buffers disabled for now"
                     let contents = Array.init length (fun i ->
-                        let indices = Seq.delinearizeArrayIndex i lengths lowerBounds
+                        let indices = ArrayHelper.delinearizeArrayIndex i lengths lowerBounds
                         let indexTerms = indices |> Seq.map (fun i -> Concrete i Types.IndexType) |> List.ofSeq
                         ArrayIndex(cha, indexTerms, arrayType) |> eval)
                     let repr = test.MemoryGraph.AddArray typ contents lengths lowerBounds index

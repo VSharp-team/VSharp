@@ -398,7 +398,10 @@ module API =
             ref
 
         let AllocateDefaultClass state typ =
-            if typ = typeof<string> then Memory.allocateString state ""
+            if typ = typeof<string> then
+                // Allocating not empty string, because it should not be interned
+                // Constructor will mutate whole string
+                Memory.allocateString state (String('\000', 1))
             else Memory.allocateClass state typ
 
         let AllocateDefaultArray state lengths typ =
@@ -452,14 +455,31 @@ module API =
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
         let StringFromReplicatedChar state string char length =
-            match string.term with
-            | HeapRef(address, sightType) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+            let cm = state.concreteMemory
+            let concreteChar = Memory.tryTermToObj state char
+            let concreteLen = Memory.tryTermToObj state length
+            let symbolicCase address =
                 let arrayType = typeof<char>, 1, true
                 Copying.fillArray state address arrayType (makeNumber 0) length char
                 Memory.writeLengthSymbolic state address (makeNumber 0) arrayType (add length (makeNumber 1))
                 Memory.writeArrayIndex state address [length] arrayType (Concrete '\000' typeof<char>)
                 Memory.writeClassField state address Reflection.stringLengthField length
+            match string.term, concreteChar, concreteLen with
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), Some (:? char as c), Some (:? int as len)
+                when cm.Contains a ->
+                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                    let string = String(c, len)
+                    cm.Remove a
+                    cm.Allocate a string
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
+                when cm.Contains a ->
+                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                    Memory.unmarshall state a
+                    symbolicCase address
+            | HeapRef(address, sightType), _, _ ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                symbolicCase address
             | _ -> internalfailf "Creating string from replicated char: expected heapRef, but got %O" string
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
@@ -493,8 +513,8 @@ module API =
             | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
-        let StringCtorOfCharArray state arrayRef dstRef =
-            match dstRef.term with
+        let StringCtorOfCharArray state arrayRef stringRef =
+            match stringRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = typeof<string>)
                 Branching.guardedStatedMap (fun state arrayRef ->
@@ -507,7 +527,7 @@ module API =
                     state arrayRef
             | HeapRef _
             | Union _ -> __notImplemented__()
-            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
+            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" stringRef
 
         let ComposeStates state state' = Memory.composeStates state state'
         let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc

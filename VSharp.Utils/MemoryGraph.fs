@@ -149,7 +149,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) =
             let arr = obj :?> Array
             repr.contents |> Array.iteri (fun i r ->
                 let value = decodeValue r
-                let indices = Seq.delinearizeArrayIndex i lens lbs
+                let indices = ArrayHelper.delinearizeArrayIndex i lens lbs
                 arr.SetValue(value, indices))
 
     and decodeObject (repr : obj) obj =

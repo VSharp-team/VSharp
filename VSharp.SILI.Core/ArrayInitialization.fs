@@ -70,15 +70,16 @@ module internal ArrayInitialization =
         let arrayType = symbolicTypeToArrayType typeOfArray
         let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
         let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
-        let allIndices = Memory.allIndicesOfArray lbs lens
+        let allIndices = ArrayHelper.allIndicesOfArray lbs lens
         let indicesAndValues = allIndices |> Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) // TODO: sort if need
         Memory.initializeArray state address indicesAndValues arrayType
 
     let initializeArray state arrayRef handleTerm =
+        let cm = state.concreteMemory
         match arrayRef.term, handleTerm.term with
         | HeapRef({term = ConcreteHeapAddress address}, _), Concrete (:? RuntimeFieldHandle as rfh, _)
-            when ConcreteMemory.contains state.concreteMemory address ->
-                ConcreteMemory.initializeArray state address rfh
+            when cm.Contains address ->
+                cm.InitializeArray address rfh
         | HeapRef(address, sightType), Concrete (:? RuntimeFieldHandle as rfh, _) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
             let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType

@@ -103,11 +103,6 @@ module TypeUtils =
         if box value = null then null
         else value.GetType()
 
-    let defaultOf (t : Type) =
-        if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
-            then Activator.CreateInstance t
-            else null
-
     // TODO: wrap Type, cache size there
     let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);

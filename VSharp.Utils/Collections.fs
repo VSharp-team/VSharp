@@ -18,19 +18,6 @@ module public Seq =
         if Seq.isEmpty s then Empty
         else Cons (Seq.head s, Seq.tail s)
 
-    let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
-        let detachOne (acc, lensProd) dim =
-            let curOffset = acc / lensProd
-            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
-            let curIndex = curOffset + lb
-            let rest = acc % lensProd
-            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
-            curIndex, (rest, lensProd)
-        let mutable lenProd = 1
-        for i in 1 .. lengths.Length - 1 do
-            lenProd <- lenProd * lengths.[i]
-        Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
-
 module public List =
     let rec private mappedPartitionAcc f left right = function
         | [] -> (List.rev left, List.rev right)
@@ -90,6 +77,24 @@ module public List =
         | [x] -> [f x]
         | x::xs -> x::(mapLast f xs)
         | [] -> []
+
+module public ArrayHelper =
+
+    let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
+        let detachOne (acc, lensProd) dim =
+            let curOffset = acc / lensProd
+            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
+            let curIndex = curOffset + lb
+            let rest = acc % lensProd
+            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
+            curIndex, (rest, lensProd)
+        let mutable lenProd = 1
+        for i in 1 .. lengths.Length - 1 do
+            lenProd <- lenProd * lengths.[i]
+        Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
+
+    let allIndicesOfArray lowerBounds lengths =
+        List.map2 (fun lb len -> [lb .. lb + len - 1]) lowerBounds lengths |> List.cartesian
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)

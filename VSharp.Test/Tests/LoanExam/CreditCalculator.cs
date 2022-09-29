@@ -8,7 +8,7 @@ namespace LoanExam;
 public class CreditResult
 {
     public bool CreditIssued { get; set; }
-    
+
     public double Percent { get; set; }
 }
 
@@ -37,17 +37,17 @@ public class CreditCalculationService
             return SumPoints;
         }
 
-        SumPoints += creditInfo.Deposit == Deposit.None 
-            ? 0 
+        SumPoints += creditInfo.Deposit == Deposit.None
+            ? 0
             : 8;
-        
+
         return SumPoints;
     }
 
     private int CalculateByCriminal(bool certificateOfNoCriminalRecord)
     {
-        return certificateOfNoCriminalRecord 
-            ? 15 
+        return certificateOfNoCriminalRecord
+            ? 15
             : 0;
     }
 
@@ -109,23 +109,23 @@ public class CreditCalculationService
         }
     }
 
-    [TestSvm(95, 0, -1, false, strat: SearchStrategy.Interleaved, releaseBranches: false)]
+    [TestSvm(95, 0, 20, false, strat: SearchStrategy.Interleaved, releaseBranches: false)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;
-        
+
         SumPoints += CalculateByAge(request.Personality.Age, request.CreditInfo);
         SumPoints += CalculateByCriminal(request.CertificateOfNoCriminalRecord);
         SumPoints += CalculateByEmployment(request.Personality.Employment, request.Personality.Age);
         SumPoints += CalculateByCreditInfo(request.CreditInfo!);
         SumPoints += CalculateByOtherCredits(request.OtherCredits, request.CreditInfo!.Purpose);
-       
+
         var result = new CreditResult
         {
             Percent = 0,
             CreditIssued = SumPoints >= 80
         };
-        
+
         if (SumPoints < 80)
         {
             return result;

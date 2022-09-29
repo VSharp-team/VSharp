@@ -145,6 +145,11 @@ module public Reflection =
         if TypeUtils.isNullable t then null
         else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
+    let defaultOf (t : Type) =
+        if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
+            then Activator.CreateInstance t
+            else null
+
     // --------------------------------- Substitute generics ---------------------------------
 
     let private substituteMethod methodType (m : MethodBase) getMethods =
@@ -247,7 +252,7 @@ module public Reflection =
 
     let rec private retrieveFields isStatic f (t : Type) =
         let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
-        let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
+        let flags = if isStatic then staticBindingFlags else instanceBindingFlags // BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
         let fields = t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
         let ourFields = f fields
         if isStatic || t.BaseType = null then ourFields

@@ -10,6 +10,26 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
+// TODO: add empty concrete memory class
+type IConcreteMemory =
+    abstract Copy : unit -> IConcreteMemory
+    abstract Contains : concreteHeapAddress -> bool
+    abstract VirtToPhys : concreteHeapAddress -> obj
+    abstract TryVirtToPhys : concreteHeapAddress -> obj option
+    abstract PhysToVirt : obj -> concreteHeapAddress
+    abstract TryPhysToVirt : obj -> concreteHeapAddress option
+    abstract Allocate : concreteHeapAddress -> obj -> unit
+    abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
+    abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
+    abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
+    abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
+    abstract ReadArrayLength : concreteHeapAddress -> int -> obj
+    abstract WriteClassField : concreteHeapAddress -> fieldId -> obj -> unit
+    abstract WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
+    abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
+    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
+    abstract Remove : concreteHeapAddress -> unit
+
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
     abstract Call : concreteHeapAddress -> term list -> term option
@@ -25,18 +45,6 @@ type ITypeMock =
 type symbolicType =
     | ConcreteType of Type
     | MockType of ITypeMock
-
-[<CustomEquality;NoComparison>]
-type physicalAddress = {object : obj}
-    with
-    override x.GetHashCode() = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(x.object)
-    override x.Equals(o : obj) =
-        match o with
-        | :? physicalAddress as other -> x.object.Equals(other.object)
-        | _ -> false
-    override x.ToString() = PrettyPrinting.printConcrete x.object
-
-type concreteMemory = Dictionary<concreteHeapAddress, physicalAddress>
 
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
@@ -129,8 +137,7 @@ and
     mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
     mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
     mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-    concreteMemory : concreteMemory                                    // Fully concrete objects
-    mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
+    concreteMemory : IConcreteMemory                                   // Fully concrete objects
     mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
     mutable typeVariables : typeVariables                              // Type variables assignment in the current state
     mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
