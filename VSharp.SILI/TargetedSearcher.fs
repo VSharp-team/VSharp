@@ -213,6 +213,10 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
     let pick () = pick' id
 
+    let reset () =
+        baseSearcher.Reset()
+        for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Reset()
+
     interface IForwardSearcher with
         override x.Init states =
             baseSearcher.Init states
@@ -220,6 +224,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         override x.Pick() = pick ()
         override x.Update (parent, newStates) = update parent newStates
         override x.States() = baseSearcher.States()
+        override x.Reset() = reset ()
 
 type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
     inherit WeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())

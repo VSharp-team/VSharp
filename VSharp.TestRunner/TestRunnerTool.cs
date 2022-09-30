@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.Serialization;
-using System.Reflection;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Serialization;
 
 namespace VSharp.TestRunner
 {
@@ -78,7 +77,8 @@ namespace VSharp.TestRunner
             var type = expected.GetType();
             if (type != got.GetType())
                 return false;
-            if (type.IsPrimitive || expected is string || type.IsEnum)
+
+            if (type == typeof(Pointer) || type.IsPrimitive || expected is string || type.IsEnum)
             {
                 // TODO: compare double with epsilon?
                 return got.Equals(expected);
@@ -89,90 +89,109 @@ namespace VSharp.TestRunner
             return StructurallyEqual(expected, got);
         }
 
-        private static bool ReproduceTests(IEnumerable<FileInfo> tests, bool shouldReproduceError, bool checkResult)
+        private static bool ReproduceTest(FileInfo fileInfo, bool shouldReproduceError, bool checkResult)
         {
-            AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-
-            foreach (FileInfo fi in tests)
+            try
             {
+                using var stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read);
+                testInfo ti = UnitTest.DeserializeTestInfo(stream);
+                _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
+                UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+                // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
+
+                var method = test.Method;
+
+                Console.Out.WriteLine("Starting test reproducing for method {0}", method);
+                if (!checkResult)
+                    Console.Out.WriteLine("Result check is disabled");
+                object[] parameters = test.Args ?? method.GetParameters()
+                    .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
+                var ex = test.Exception;
                 try
                 {
-                    using (FileStream stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
+                    object result = null;
+                    if (!test.IsError || shouldReproduceError)
+                        result = method.Invoke(test.ThisArg, parameters);
+                    if (ex != null)
                     {
-                        testInfo ti = UnitTest.DeserializeTestInfo(stream);
-                        _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-                        UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
-                        // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
-
-                        var method = test.Method;
-
-                        Console.Out.WriteLine("Starting test reproducing for method {0}", method);
-                        if (!checkResult)
-                            Console.Out.WriteLine("Result check is disabled");
-                        object[] parameters = test.Args ?? method.GetParameters()
-                            .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
-                        var ex = test.Exception;
-                        try
-                        {
-                            object result = null;
-                            if (!test.IsError || shouldReproduceError)
-                                result = method.Invoke(test.ThisArg, parameters);
-                            if (ex != null)
-                            {
-                                Console.Error.WriteLine("Test {0} failed! The expected exception {1} was not thrown",
-                                    fi.Name, ex);
-                                return false;
-                            }
-                            if (checkResult && !CompareObjects(test.Expected, result))
-                            {
-                                // TODO: use NUnit?
-                                Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fi.Name,
-                                    test.Expected ?? "null",
-                                    result ?? "null");
-                                return false;
-                            }
-                        }
-                        catch (TargetInvocationException e)
-                        {
-                            if (e.InnerException != null && e.InnerException.GetType() == ex)
-                                Console.WriteLine("Test {0} throws the expected exception!", fi.Name);
-                            else if (e.InnerException != null && ex != null)
-                            {
-                                Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fi.Name, e.InnerException, ex);
-                                throw e.InnerException;
-                            }
-                            else throw;
-                        }
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Error.WriteLine("Test {0} failed! The expected exception {1} was not thrown",
+                            fileInfo.Name, ex);
+                        Console.ResetColor();
+                        return false;
+                    }
+                    if (checkResult && !CompareObjects(test.Expected, result))
+                    {
+                        // TODO: use NUnit?
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fileInfo.Name,
+                            test.Expected ?? "null",
+                            result ?? "null");
+                        Console.ResetColor();
+                        return false;
                     }
                 }
-                catch (Exception e)
+                catch (TargetInvocationException e)
                 {
-                    Console.Error.WriteLine("Error ({0}): {1}", fi.Name, e);
-                    return false;
+                    if (e.InnerException != null && e.InnerException.GetType() == ex) {
+                        Console.ForegroundColor = ConsoleColor.Green;
+                        Console.WriteLine("Test {0} throws the expected exception!", fileInfo.Name);
+                        Console.ResetColor();
+                    }
+                    else if (e.InnerException != null && ex != null)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fileInfo.Name, e.InnerException, ex);
+                        Console.ResetColor();
+                        throw e.InnerException;
+                    }
+                    else throw;
                 }
-
-                Console.Out.WriteLine("{0} passed!", fi.Name);
             }
+            catch (Exception e)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine("Error ({0}): {1}", fileInfo.Name, e);
+                Console.ResetColor();
+                return false;
+            }
+
+            Console.ForegroundColor = ConsoleColor.Green;
+            Console.Out.WriteLine("{0} passed!", fileInfo.Name);
+            Console.ResetColor();
 
             return true;
         }
 
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
-            return ReproduceTests(new[] {file}, true, checkResult);
+            AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
+            return ReproduceTest(file, true, checkResult);
         }
 
         public static bool ReproduceTests(DirectoryInfo testsDir)
         {
+            AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
+
             var tests = testsDir.EnumerateFiles("*.vst");
             var testsList = tests.ToList();
-            if (testsList.Count > 0)
+
+            if (testsList.Count == 0)
             {
-                return ReproduceTests(testsList, false, true);
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
+                Console.ResetColor();
+                return false;
             }
 
-            Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
-            return false;
+            var result = true;
+
+            foreach (var testFileInfo in testsList)
+            {
+                result &= ReproduceTest(testFileInfo, false, true);
+            }
+
+            return result;
         }
     }
 }

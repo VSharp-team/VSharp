@@ -42,15 +42,6 @@ module API =
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
-    let TryGetModel state =
-        match state.model with
-        | Some model -> Some model
-        | None ->
-            match TypeSolver.checkSatWithSubtyping state with
-            | SolverInteraction.SmtSat model -> Some model.mdl
-            | SolverInteraction.SmtUnknown _ -> None
-            // NOTE: irrelevant case, because exploring branch must be valid
-            | SolverInteraction.SmtUnsat _ -> __unreachable__()
     let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
     let mutable private reportError = fun _ -> ()
@@ -273,7 +264,7 @@ module API =
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
             Memory.fillWithParametersAndThis modelState method
-            {subst = Dictionary<_,_>(); state = modelState}
+            StateModel modelState
 
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
@@ -542,6 +533,8 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
+
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
 
     module Print =
         let Dump state = Memory.dump state

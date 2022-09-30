@@ -30,7 +30,6 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
-    val TryGetModel : state -> model option
     val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> unit) -> unit
@@ -287,6 +286,8 @@ module API =
         val Merge2Results : term * state -> term * state -> (term * state) list
 
         val FillRegion : state -> term -> regionSort -> unit
+
+        val ObjectToTerm : state -> obj -> Type -> term
 
     module Print =
         val Dump : state -> string

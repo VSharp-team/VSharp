@@ -39,6 +39,7 @@ module private MemoryKeyUtils =
 
     let regionOfIntegerTerm = function
         | {term = Concrete(:? int as value, typ)} when typ = lengthType -> points<int>.Singleton value
+        | {term = Concrete(:? uint as value, typ)} when typ = typeof<UInt32> -> points<int>.Singleton (int value)
         | _ -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq

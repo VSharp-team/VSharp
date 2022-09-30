@@ -1,6 +1,5 @@
 namespace VSharp.Interpreter.IL
 
-open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
@@ -78,6 +77,11 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //                        GoFront s
 //                    | None -> Stop
 
+        override x.Reset () =
+            forward.Reset()
+            backward.Reset()
+            targeted.Reset()
+
 type OnlyForwardSearcher(searcher : IForwardSearcher) =
     interface IBidirectionalSearcher with
         override x.Init _ cilStates _ = searcher.Init cilStates
@@ -90,6 +94,7 @@ type OnlyForwardSearcher(searcher : IForwardSearcher) =
             | Some s -> GoFront s
             | None -> Stop
         override x.States() = searcher.States()
+        override x.Reset() = searcher.Reset()
 
 // TODO: check pob duplicates
 type BackwardSearcher() =
@@ -191,6 +196,8 @@ type BackwardSearcher() =
                 // TODO: need this?
                 internalfail "olololo!"
 
+        override x.Reset() = clear()
+
 module DummyTargetedSearcher =
     open CilStateOperations
 
@@ -232,3 +239,9 @@ module DummyTargetedSearcher =
 
             override x.Pick () =
                 targets.Keys |> Seq.tryPick (fun ip -> forPropagation.[ip] |> Seq.tryHead)
+
+            override x.Reset () =
+                forPropagation.Clear()
+                finished.Clear()
+                reached.Clear()
+                targets.Clear()

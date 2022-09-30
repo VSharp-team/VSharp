@@ -196,17 +196,12 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
         | _ -> None
 
     member private x.EvalOperands cilState =
-        // NOTE: if there are no branching, TryGetModel forces solver to create model
-        // NOTE: this made to check communication between Concolic and SILI
-        // TODO: after all checks, change this to 'cilState.state.model'
-        match TryGetModel cilState.state with
-        | Some model ->
-            let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
-            if List.length operands <> List.length concretizedOps then None
-            else
-                bindNewCilState cilState
-                Some concretizedOps
-        | None -> None
+        let model = cilState.state.model
+        let concretizedOps = operands |> List.choose (model.Eval >> x.ConcreteToObj)
+        if List.length operands <> List.length concretizedOps then None
+        else
+            bindNewCilState cilState
+            Some concretizedOps
 
     member x.StepDone (steppedStates : cilState list) =
         let method = CilStateOperations.currentMethod cilState

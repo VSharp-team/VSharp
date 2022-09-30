@@ -11,7 +11,7 @@ namespace VSharp.CSharpUtils
         /// <summary>
         /// Returns true if <paramref name="x"/> is fuzzy equal to zero with the given precision <paramref name="eps"/>.
         /// </summary>
-        public static bool IsZero(object x, double eps = 1e-8)
+        private static bool IsZero(object x, double eps = 1e-8)
         {
             dynamic val = x;
             return val < eps && val > -eps;
@@ -46,125 +46,6 @@ namespace VSharp.CSharpUtils
         public static bool FuzzyEqual(object x, object y, double eps = 1e-8)
         {
             return IsZero((dynamic) x - (dynamic) y, eps);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> + <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object Add(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic) x + (dynamic) y, targetType);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> + <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object AddChecked(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType((dynamic)x + (dynamic)y, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> - <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object Sub(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic) x - (dynamic) y, targetType);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> - <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object SubChecked(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType((dynamic)x - (dynamic)y, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> * <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object Mul(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic) x * (dynamic) y, targetType);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> * <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object MulChecked(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType((dynamic)x * (dynamic)y, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> / <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// May return exception object if division by zero occured.
-        /// </summary>
-        public static object Div(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                return Convert.ChangeType((dynamic) x/(dynamic) y, targetType);
-            }
-            catch (DivideByZeroException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> / <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object DivChecked(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType((dynamic)x / (dynamic)y, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-            catch (DivideByZeroException e)
-            {
-                success = false;
-                return e;
-            }
         }
 
         /// <summary>
@@ -208,14 +89,6 @@ namespace VSharp.CSharpUtils
         public static object ShiftLeft(object x, object y, Type targetType)
         {
             return Convert.ChangeType((dynamic)x << (dynamic)y, targetType);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> << <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object ShiftRight(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic)x >> (dynamic)y, targetType);
         }
 
         /// <summary>

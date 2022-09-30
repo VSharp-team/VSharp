@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -14,7 +13,7 @@ namespace VSharp.Runner
         {
             try
             {
-                return Assembly.LoadFrom(assemblyPath.FullName);
+                return AssemblyManager.Resolve(assemblyPath.FullName);
             }
             catch (Exception)
             {
@@ -116,7 +115,7 @@ namespace VSharp.Runner
             var timeoutOption =
                 new Option<int>(aliases: new[] { "--timeout", "-t" },
                     () => -1,
-                    "Time for test generation. Negative values mean no timeout.");
+                    "Time for test generation in seconds. Negative values mean no timeout.");
             var outputOption =
                 new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),

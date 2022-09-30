@@ -38,7 +38,7 @@ module public Reflection =
                 try
                     Assembly.Load(assemblyName)
                 with _ ->
-                    Assembly.LoadFile(moduleName)
+                AssemblyManager.Resolve moduleName
         assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
 
     let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =

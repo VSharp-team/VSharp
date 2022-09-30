@@ -125,8 +125,18 @@ type public SILIStatistics() =
         if not <| List.isEmpty statisticsDump.internalFails then
             writer.WriteLine()
             writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!")
-            statisticsDump.internalFails |> List.iter writer.WriteLine
+            writer.WriteLine("{0} error(s) occured!", statisticsDump.internalFails.Length)
+            let sortedInternalFails = Dictionary<string, int>()
+            statisticsDump.internalFails |> List.iter (fun e ->
+                let failMessage = e.Message
+                let count = ref 1
+                if sortedInternalFails.TryGetValue(failMessage, count) then
+                   sortedInternalFails.[failMessage] <- count.Value + 1
+                else
+                    sortedInternalFails.Add(failMessage, 1))
+            sortedInternalFails |> Seq.sortByDescending (fun kvp -> kvp.Value) |> Seq.iter (fun kvp ->
+                writer.WriteLine("---------------------- {0} time(s): ----------------------", kvp.Value)
+                writer.WriteLine(kvp.Key))
         if not <| List.isEmpty statisticsDump.iies then
             writer.WriteLine()
             writer.WriteLine()
@@ -227,9 +237,7 @@ type public SILIStatistics() =
         internalFails.Clear()
         iies.Clear()
 
-    member x.ExplorationStarted() =
-        x.Clear()
-        startTime <- DateTime.Now
+    member x.ExplorationStarted() = ()
 
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 

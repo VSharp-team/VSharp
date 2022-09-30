@@ -1,6 +1,5 @@
 namespace VSharp.Utils
 
-open System.Collections
 open System.Collections.Generic
 
 open VSharp
@@ -12,6 +11,7 @@ type IPriorityCollection<'a> =
     abstract member Choose : uint -> 'a option
     abstract member Contains : 'a -> bool
     abstract member TryGetPriority : 'a -> uint option
+    abstract member Clear : unit -> unit
     abstract member MaxPriority : uint
     abstract member Count : uint
     abstract member ToSeq : 'a seq
@@ -58,6 +58,9 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         if valuesToPriority.ContainsKey item then
             Some <| valuesToPriority.[item]
         else None
+    let clear () =
+        valuesToPriority.Clear()
+        priorityToList.Clear()
 
     interface IPriorityCollection<'a> with
         override x.Insert item priority = insert item priority
@@ -68,7 +71,7 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         override x.Choose priority = choose priority
         override x.Contains item = contains item
         override x.TryGetPriority item = tryGetPriority item
+        override x.Clear() = clear ()
         override x.MaxPriority = maxPriority ()
         override x.Count = uint valuesToPriority.Count
         override x.ToSeq = valuesToPriority.Keys |> seq
-

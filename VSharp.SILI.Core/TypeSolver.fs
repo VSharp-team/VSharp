@@ -37,7 +37,7 @@ and MethodMock(method : IMethod, typeMock : ITypeMock) =
             if returnType = typeof<Void> then None
             else
                 let src : functionResultConstantSource = {mock = x; callIndex = callIndex; concreteThis = concretizedThis; args = args}
-                let result = Constant (toString src) src returnType
+                let result = Memory.makeSymbolicValue src (toString src) returnType
                 callIndex <- callIndex + 1
                 callResults.Add result
                 Some result
@@ -162,13 +162,13 @@ module TypeSolver =
     let private inputCandidates getMock constraints subst =
         let validate = satisfiesConstraints constraints subst
         match constraints.subtypes with
-        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.assemblies())
+        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.Assemblies())
         | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
     let private typeParameterCandidates getMock parameter subst =
         let validate typ = satisfiesTypeParameterConstraints parameter subst typ
         let supertypes = parameter.GetGenericParameterConstraints() |> Array.map (substitute subst) |> List.ofArray
-        enumerateTypes supertypes getMock validate (AssemblyManager.assemblies())
+        enumerateTypes supertypes getMock validate (AssemblyManager.Assemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then
@@ -231,58 +231,61 @@ module TypeSolver =
 // ------------------------------------------------- Type solver wrappers -------------------------------------------------
 
     let private generateConstraints (model : model) (state : state) =
-        let typeOfAddress addr =
-            if VectorTime.less addr VectorTime.zero then model.state.allocatedTypes.[addr]
-            else state.allocatedTypes.[addr]
-        let mocks = Dictionary<concreteHeapAddress, ITypeMock>()
-        let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
-        let addresses = HashSet<concreteHeapAddress>()
-        model.state.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
-            addresses.Add(addr) |> ignore
-            Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
-                let list = List<Type>()
-                match typeOfAddress addr with
-                | ConcreteType t -> list.Add t
-                | MockType m ->
-                    list.AddRange m.SuperTypes
-                    mocks.Add(addr, m)
-                list) |> ignore)
+        match model with
+        | StateModel modelState ->
+            let typeOfAddress addr =
+                if VectorTime.less addr VectorTime.zero then modelState.allocatedTypes.[addr]
+                else state.allocatedTypes.[addr]
+            let mocks = Dictionary<concreteHeapAddress, ITypeMock>()
+            let supertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+            let subtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+            let notSupertypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+            let notSubtypeConstraints = Dictionary<concreteHeapAddress, List<Type>>()
+            let addresses = HashSet<concreteHeapAddress>()
+            modelState.allocatedTypes |> PersistentDict.iter (fun (addr, _) ->
+                addresses.Add(addr) |> ignore
+                Dict.getValueOrUpdate supertypeConstraints addr (fun () ->
+                    let list = List<Type>()
+                    match typeOfAddress addr with
+                    | ConcreteType t -> list.Add t
+                    | MockType m ->
+                        list.AddRange m.SuperTypes
+                        mocks.Add(addr, m)
+                    list) |> ignore)
 
-        let add dict address typ =
-            match model.Eval address with
-            | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
-                addresses.Add addr |> ignore
-                let list = Dict.getValueOrUpdate dict addr (fun () -> List<_>())
-                if not <| list.Contains typ then
-                    list.Add typ
-            | {term = ConcreteHeapAddress _} -> ()
-            | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
+            let add dict address typ =
+                match model.Eval address with
+                | {term = ConcreteHeapAddress addr} when addr <> VectorTime.zero ->
+                    addresses.Add addr |> ignore
+                    let list = Dict.getValueOrUpdate dict addr (fun () -> List<_>())
+                    if not <| list.Contains typ then
+                        list.Add typ
+                | {term = ConcreteHeapAddress _} -> ()
+                | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
 
-        PC.toSeq state.pc |> Seq.iter (term >> function
-            | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
-            | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
-            | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
-            | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> __notImplemented__()
-            | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> __notImplemented__()
-            | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
-            | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
-            | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> __notImplemented__()
-            | _ -> ())
-        let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
-            let l = Dict.tryGetValue d addr null
-            if l = null then [] else List.ofSeq l
-        let addresses = List.ofSeq addresses
-        addresses, addresses
-        |> Seq.map (fun addr ->
-            {supertypes = toList supertypeConstraints addr
-             subtypes = toList subtypeConstraints addr
-             notSupertypes = toList notSupertypeConstraints addr
-             notSubtypes = toList notSubtypeConstraints addr
-             mock = if mocks.ContainsKey addr then Some mocks.[addr] else None})
-        |> List.ofSeq
+            PC.toSeq state.pc |> Seq.iter (term >> function
+                | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
+                | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
+                | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
+                | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> __notImplemented__()
+                | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> __notImplemented__()
+                | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
+                | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
+                | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> __notImplemented__()
+                | _ -> ())
+            let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
+                let l = Dict.tryGetValue d addr null
+                if l = null then [] else List.ofSeq l
+            let addresses = List.ofSeq addresses
+            addresses, addresses
+            |> Seq.map (fun addr ->
+                {supertypes = toList supertypeConstraints addr
+                 subtypes = toList subtypeConstraints addr
+                 notSupertypes = toList notSupertypeConstraints addr
+                 notSubtypes = toList notSubtypeConstraints addr
+                 mock = if mocks.ContainsKey addr then Some mocks.[addr] else None})
+            |> List.ofSeq
+        | PrimitiveModel _ -> __unreachable__()
 
     let solveTypes (model : model) (state : state) =
         let m = CallStack.stackTrace state.stack |> List.last
@@ -290,20 +293,23 @@ module TypeSolver =
         let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments
         let addresses, inputConstraints = generateConstraints model state
         let solverResult = solve (getMock state.typeMocks) inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
-        match solverResult with
-        | TypeSat(refsTypes, typeParams) ->
-            let refineTypes addr t =
-                model.state.allocatedTypes <- PersistentDict.add addr t model.state.allocatedTypes
-                match t with
-                | ConcreteType t ->
-                    if t.IsValueType then
-                        let value = makeDefaultValue t
-                        model.state.boxedLocations <- PersistentDict.add addr value model.state.boxedLocations
-                | _ -> ()
-            Seq.iter2 refineTypes addresses refsTypes
-            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
-            Some(Array.ofList classParams, Array.ofList methodParams)
-        | TypeUnsat -> None
+        match model with
+        | StateModel modelState ->
+            match solverResult with
+            | TypeSat(refsTypes, typeParams) ->
+                let refineTypes addr t =
+                    modelState.allocatedTypes <- PersistentDict.add addr t modelState.allocatedTypes
+                    match t with
+                    | ConcreteType t ->
+                        if t.IsValueType then
+                            let value = makeDefaultValue t
+                            modelState.boxedLocations <- PersistentDict.add addr value modelState.boxedLocations
+                    | _ -> ()
+                Seq.iter2 refineTypes addresses refsTypes
+                let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+                Some(Array.ofList classParams, Array.ofList methodParams)
+            | TypeUnsat -> None
+        | PrimitiveModel _ -> __unreachable__()
 
     let checkSatWithSubtyping state =
         match SolverInteraction.checkSat state with
@@ -319,11 +325,11 @@ module TypeSolver =
 
     let getCallVirtCandidates state (thisAddress : heapAddress) =
         match state.model with
-        | Some model ->
+        | StateModel _ as model ->
             match model.Eval thisAddress with
             | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
-                let addresses, inputConstraints = generateConstraints (Option.get state.model) state
+                let addresses, inputConstraints = generateConstraints state.model state
                 let index = List.findIndex ((=)thisAddress) addresses
                 thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
             | _ -> __unreachable__()
-        | None -> __unreachable__()
+        | PrimitiveModel _ -> __unreachable__()

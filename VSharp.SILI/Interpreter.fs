@@ -538,6 +538,12 @@ module internal InstructionsSet =
 
 open InstructionsSet
 
+type UnknownMethodException(message : string, methodInfo : Method, interpreterStackTrace : string) =
+    inherit Exception(message)
+    member x.Method with get() = methodInfo
+    member x.InterpreterStackTrace with get() = interpreterStackTrace
+
+
 type internal ILInterpreter(isConcolicMode : bool) as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
@@ -923,12 +929,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             List.map moveIpToExit cilStates |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            internalfailf "new extern method: %s\nStackTrace:\n%s" fullMethodName stackTrace
+            let message = sprintf "New extern method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
         elif x.IsNotImplementedIntrinsic method fullMethodName then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            internalfailf "new intrinsic method: %s\nStackTrace:\n%s" fullMethodName stackTrace
+            let message = sprintf "New intrinsic method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
         elif method.HasBody then cilState |> List.singleton |> k
-        else internalfailf "non-extern method %s without body!" method.FullName
+        else internalfailf "Non-extern method %s without body!" method.FullName
 
     member private x.ArrayMethods (arrayType : Type) =
         let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> Reflection.getAllMethods
@@ -966,29 +974,28 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.InitFunctionFrameCIL cilState targetMethod (Some this) (Some args)
         x.InlineMethodBaseCallIfNeeded targetMethod cilState k
 
-    member x.CallVirtualMethodFromTermType (cilState : cilState) targetType (calledMethod : Method) k =
-        let genericCalledMethod = calledMethod.GetGenericMethodDefinition()
+    member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
+        let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
         let genericMethodInfo =
             match genericCalledMethod.DeclaringType with
             | i when i.IsInterface -> x.FindSuitableForInterfaceMethod targetType genericCalledMethod
             | _ ->
                 let allMethods = Reflection.getAllMethods targetType
                 allMethods |> Seq.find (fun mi -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition())
-        let targetMethod =
-            if genericMethodInfo.IsGenericMethodDefinition then
-                genericMethodInfo.MakeGenericMethod(calledMethod.GetGenericArguments())
-            else genericMethodInfo
-            |> Application.getMethod
-        if targetMethod.IsAbstract
-            then x.CallAbstract targetMethod cilState k
-            else x.InvokeVirtualMethod cilState calledMethod targetMethod k
+        if genericMethodInfo.IsGenericMethodDefinition then
+            genericMethodInfo.MakeGenericMethod(ancestorMethod.GetGenericArguments())
+        else genericMethodInfo
+        |> Application.getMethod
 
     member x.CallVirtualMethod (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
             let callForConcreteType typ state k =
-                x.CallVirtualMethodFromTermType state typ ancestorMethod k
+                let targetMethod = x.ResolveVirtualMethod typ ancestorMethod
+                if targetMethod.IsAbstract
+                    then x.CallAbstract targetMethod cilState k
+                    else x.InvokeVirtualMethod cilState ancestorMethod targetMethod k
             let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
@@ -1004,13 +1011,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let thisInModel, candidateTypes = ResolveCallVirt cilState.state this
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
-        let signature = ancestorMethod.Parameters |> Array.map (fun p -> p.ParameterType)
         let candidateMethods = seq {
             for t in candidateTypes do
                 match t with
                 | ConcreteType t ->
-                    let overriden = t.GetMethod(ancestorMethod.Name, ancestorMethod.GenericArguments.Length, signature)
-                    let overriden = Application.getMethod overriden
+                    let overriden = x.ResolveVirtualMethod t ancestorMethod
                     // TODO: more complex criteria here...
                     if overriden.InCoverageZone then
                         yield (t, overriden)
@@ -1027,8 +1032,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | [] -> ()
             | [mock : ITypeMock] ->
                 popFrameOf cilState
-                let model = Option.get cilState.state.model
-                model.state.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) model.state.allocatedTypes
+                let modelState =
+                    match cilState.state.model with
+                    | StateModel s -> s
+                    | _ -> __unreachable__()
+                modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 candidateTypes |> Seq.iter (function
                     | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
                     | _ -> ())
@@ -1191,17 +1199,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> Some target, mi
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
-        // NOTE: It is not quite strict to InitFunctionFrame here because, but it does not matter because signatures of virtual methods are the same
-        x.InitializeStatics cilState methodToCall.DeclaringType (fun cilState ->
-        // [NOTE] If DeclaringType has static constructor, InitializeStatics will add new state to queue.
-        //        But arguments and this was already popped, so when execution will return to callvirt,
-        //        evaluation stack won't contain arguments and this.
-        //        For this purpose initializing statics on cilState with this and arguments,
-        //        after that popping them again.
-///// TODO: can we pop args BEFORE calling static constructor? if yes, remove the comment above. If not, this code should be overwritten
-//        let _, _ = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
-        x.CommonCallVirt methodToCall cilState id)
+        x.CommonCallVirt methodToCall cilState id
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         Memory.AllocateDefaultArray cilState.state lengths arrayType |> k
@@ -1432,8 +1431,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
-            let thisType =  MostConcreteTypeOfHeapRef cilState.state this
-            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, Reflection.allBindingFlags)
+            let thisType = MostConcreteTypeOfHeapRef cilState.state this
+            let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
+            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
             let methodInfoType = methodInfo.GetType()
             let methodPtr = Terms.Concrete methodInfo methodInfoType
             push methodPtr cilState
@@ -1944,7 +1944,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
         let cfg = m.CFG
-        let isVertex offset = cfg.SortedOffsets.BinarySearch(offset) >= 0
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

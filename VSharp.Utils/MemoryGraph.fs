@@ -91,7 +91,7 @@ type ITypeMockSerializer =
     abstract Serialize : obj -> obj
     abstract Deserialize : (obj -> obj) -> obj -> obj
 
-and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) as this =
+and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer) =
 
     let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
 

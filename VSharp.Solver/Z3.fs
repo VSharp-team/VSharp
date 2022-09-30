@@ -160,7 +160,7 @@ module internal Z3 =
             encodingCache.Get(t, getResult)
 
         member private x.AddEnumAssumptions encCtx typ (encodingResult : encodingResult) =
-            assert(typ.IsEnum)
+            assert typ.IsEnum
             let expr = encodingResult.expr
             let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
             let createAssumption assumptions value =
@@ -175,7 +175,7 @@ module internal Z3 =
                 match typ with
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
                 | t when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
+                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, EnumUtils.getEnumUnderlyingTypeChecked t) |> toString, x.Type2Sort typ)
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
@@ -695,13 +695,19 @@ module internal Z3 =
                     let decoded = x.Decode t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
-                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
+                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
                         let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
+                    | HeapAddressSource(:? functionResultConstantSource as frs) ->
+                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let t = (frs :> ISymbolicConstantSource).TypeOfLocation
+                        let term = x.Decode t refinedExpr
+                        assert(not (constant = term) || kvp.Value.expr = refinedExpr)
+                        if constant <> term then subst.Add(ms, term)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} as constant ->
@@ -766,7 +772,8 @@ module internal Z3 =
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst}
+            state.model <- PrimitiveModel subst
+            StateModel state
 
 
     let private ctx = new Context()
