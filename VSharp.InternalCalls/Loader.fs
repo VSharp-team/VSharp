@@ -50,3 +50,38 @@ module Loader =
 
     let public getRuntimeExceptionsImplementation (fullMethodName : string) =
         runtimeExceptionsConstructors.[fullMethodName]
+
+    let public ConcreteInvocations =
+        set [
+            // Types
+            "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
+            "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
+            "System.Reflection.RuntimeAssembly System.RuntimeTypeHandle.GetAssembly(System.RuntimeType)"
+            "System.Type System.RuntimeType.GetElementType(this)"
+            "System.Boolean System.Type.op_Inequality(System.Type, System.Type)"
+            "System.Boolean System.Type.op_Equality(System.Type, System.Type)"
+            "System.Boolean System.RuntimeTypeHandle.IsGenericTypeDefinition(System.RuntimeType)"
+            "System.Boolean System.RuntimeTypeHandle.IsInterface(System.RuntimeType)"
+            "System.Boolean System.RuntimeTypeHandle.IsGenericVariable(System.RuntimeType)"
+            "System.String System.RuntimeType.get_Name(this)"
+            "System.Boolean System.Type.get_IsValueType(this)"
+            "System.Array System.RuntimeType.GetEnumValues(this)"
+            "System.Type System.RuntimeType.GetEnumUnderlyingType(this)"
+            "System.Boolean System.RuntimeTypeHandle.CanCastTo(System.RuntimeType, System.RuntimeType)"
+            "System.Boolean System.Type.op_Equality(System.Type, System.Type)"
+            "System.Reflection.RuntimeModule System.RuntimeTypeHandle.GetModule(System.RuntimeType)"
+
+            // EqualityComparer
+            "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
+            "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultComparer(System.Type)"
+            "System.Collections.Generic.EqualityComparer`1[T] System.Collections.Generic.EqualityComparer`1[T].get_Default()"
+
+            // Thread
+            "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
+
+            // Interop
+            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
+        ]
+
+    let isInvokeInternalCall (fullMethodName : string) =
+        ConcreteInvocations.Contains fullMethodName

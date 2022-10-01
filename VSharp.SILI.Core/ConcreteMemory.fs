@@ -35,7 +35,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 
     let rec deepCopyObject (phys : physicalAddress) k =
         let obj = phys.object
-        let typ = if obj = null then null else obj.GetType()
+        let typ = TypeUtils.getTypeOfConcrete obj
         match obj with
         | null -> k phys
         | _ when TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> k phys

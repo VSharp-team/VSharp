@@ -905,6 +905,30 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
+    member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
+        let state = cilState.state
+        if Loader.isInvokeInternalCall fullMethodName then
+            // Before term args, type args are located
+            let termArgs = List.skip (List.length args - method.Parameters.Length) args
+            let objArgs = List.choose (TryTermToObj state) termArgs
+            let hasThis = Option.isSome thisOption
+            let thisObj = Option.bind (TryTermToObj state) thisOption
+            match thisObj with
+            | _ when List.length objArgs <> List.length termArgs -> false
+            | None when hasThis -> false
+            | _ ->
+                let result = method.Invoke thisObj (List.toArray objArgs)
+                let resultType = TypeUtils.getTypeOfConcrete result
+                let typ = TypeUtils.mostConcreteType resultType method.ReturnType
+                if typ <> typeof<Void> then
+                    let cm = state.concreteMemory
+                    if not typ.IsValueType && cm.TryPhysToVirt result |> Option.isNone then
+                        Memory.AllocateConcreteObject state result typ |> ignore
+                    let resultTerm = Memory.ObjectToTerm cilState.state result method.ReturnType
+                    push resultTerm cilState
+                true
+        else false
+
     member private x.InlineMethodBaseCallIfNeeded (method : Method) (cilState : cilState) k =
         // [NOTE] Asserting correspondence between ips and frames
         assert(currentMethod cilState = method && currentOffset cilState = Some 0<offsets>)
@@ -914,7 +938,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             if currentMethod cilState = method then
                 setCurrentIp (Exit method) cilState
             cilState
-        if Map.containsKey fullMethodName cilStateImplementations then
+        if x.TryConcreteInvoke method fullMethodName args thisOption cilState then
+            let cilState = moveIpToExit cilState
+            List.singleton cilState |> k
+        elif Map.containsKey fullMethodName cilStateImplementations then
             let states = cilStateImplementations.[fullMethodName] cilState thisOption args
             List.map moveIpToExit states |> k
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then

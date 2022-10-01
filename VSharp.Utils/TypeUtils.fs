@@ -99,7 +99,7 @@ module TypeUtils =
 
     // ---------------------------------- Basic type operations ----------------------------------
 
-    let getTypeOfConcrete value =
+    let inline getTypeOfConcrete value =
         if box value = null then null
         else value.GetType()
 
@@ -337,6 +337,8 @@ module TypeUtils =
         | _ when t.IsEnum -> Enum.ToObject(t, value)
         | _ -> convNumeric value t
 
+    // --------------------------------------- Subtyping ---------------------------------------
+
     // [NOTE] All heuristics of subtyping are here
     let rec private commonConcreteCanCast canCast leftType rightType certainK uncertainK =
         match leftType, rightType with
@@ -382,6 +384,13 @@ module TypeUtils =
         let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || canConvert lType rType
         commonConcreteCanCast canCast leftType rightType id (fun _ _ -> false)
 
+    let inline mostConcreteType (leftType : Type) (rightType : Type) =
+        if leftType = null then rightType
+        elif rightType = null then leftType
+        elif rightType.IsAssignableFrom(leftType) then leftType
+        else
+            assert(leftType.IsAssignableFrom(rightType))
+            rightType
     // --------------------------------------- Operation target type ---------------------------------------
 
     let failDeduceBinaryTargetType op x y =

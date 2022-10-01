@@ -68,6 +68,8 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
+        val TryTermToObj : state -> term -> obj option
+
         val IsStruct : term -> bool
         val IsReference : term -> bool
         val IsPtr : term -> bool
@@ -254,6 +256,8 @@ module API =
         val AllocateEmptyString : state -> term -> term
         val AllocateDelegate : state -> term -> term
         val CreateStringFromChar : state -> term -> term
+
+        val AllocateConcreteObject : state -> obj -> Type -> term
 
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 

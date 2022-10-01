@@ -109,6 +109,8 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
+        let TryTermToObj state term = Memory.tryTermToObj state term
+
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|Combined|_|) t = (|Combined|_|) t
@@ -422,6 +424,8 @@ module API =
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
         let CreateStringFromChar state char = Memory.createStringFromChar state char
+
+        let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
 
         let LinearizeArrayIndex state address indices (_, dim, _ as arrayType) =
             let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)

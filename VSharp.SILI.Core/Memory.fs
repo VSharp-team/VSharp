@@ -1209,6 +1209,17 @@ module internal Memory =
         state.allocatedTypes <- PersistentDict.add concreteAddress (delegateTerm |> typeOf |> ConcreteType) state.allocatedTypes
         HeapRef address (typeOf delegateTerm)
 
+    let allocateConcreteObject state obj typ =
+        match memoryMode with
+        | ConcreteMemory when isSubtypeOrEqual typ typeof<Delegate> ->
+            internalfailf "allocateConcreteObject: allocating concrete delegate %O in concrete memory is not implemented" obj
+        | ConcreteMemory ->
+            let cm = state.concreteMemory
+            let concreteAddress = allocateType state typ
+            cm.Allocate concreteAddress obj
+            HeapRef (ConcreteHeapAddress concreteAddress) typ
+        | SymbolicMemory -> internalfailf "allocateConcreteObject: allocating concrete object %O in symbolic memory is not implemented" obj
+
     let rec lengthOfString state heapRef =
         match heapRef.term with
         | HeapRef(address, typ) ->

@@ -199,6 +199,10 @@ type MethodWithBody internal (m : MethodBase) =
         let generalized, genericArgs, genericDefs = Reflection.generalizeMethodBase m
         MethodWithBody.InstantiateNew generalized, genericArgs, genericDefs
 
+    member x.Invoke (thisOption : obj option) args =
+        let this = Option.toObj thisOption
+        m.Invoke(this, args)
+
     member x.ParseCallSite pos =
         let ilBytes = x.ILBytes
         let opCode = OpCodeOperations.getOpCode ilBytes pos
