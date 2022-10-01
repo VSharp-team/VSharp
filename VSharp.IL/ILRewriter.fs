@@ -859,7 +859,7 @@ module EvaluationStackTyper =
                 else s
             | OpCodeValues.Calli ->
                 // TODO: resolve and parse signature
-                __notImplemented__()
+                internalfail "typeInstruction: Calli is not implemented"
             | OpCodeValues.Ret ->
                 let s = if Reflection.hasNonVoidResult m then Stack.drop 1 s else s
                 if not (Stack.isEmpty s) then fail()

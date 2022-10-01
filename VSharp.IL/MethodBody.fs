@@ -51,7 +51,7 @@ type MethodWithBody internal (m : MethodBase) =
     let actualMethod =
         if not isCSharpInternalCall.Value then m
         else Loader.CSharpImplementations[fullGenericMethodName.Value]
-    let methodBodyBytes =        
+    let methodBodyBytes =
         if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
         else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables

@@ -104,7 +104,7 @@ module ipOperations =
             | Leave(ip, ehcs, dst, m) ->
                 helper newOffset ip (fun ip' ->
                 leave ip' ehcs dst m |> k)
-            | SearchingForHandler _ -> __notImplemented__()
+            | SearchingForHandler _ -> internalfail "moveInstruction: SearchingForHandler is not implemented"
             | Exit _ -> __unreachable__()
             | _ -> __unreachable__()
         helper newOffset ip id

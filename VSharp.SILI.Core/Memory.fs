@@ -383,7 +383,7 @@ module internal Memory =
         | :? bool as b -> makeBool b
         | _ when isNumeric t -> makeNumber obj
         // TODO: need pointer?
-        | _ when isPointer t -> __notImplemented__()
+        | _ when isPointer t -> internalfailf "objToTerm: object to term conversion is not implemented for pointer %O" obj
         | _ when t.IsValueType -> structToTerm state obj t
         | _ -> referenceTypeToTerm state obj
 
@@ -779,7 +779,7 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
-                | StructType _ -> __notImplemented__() // TODO: boxed location?
+                | StructType _ -> internalfail "readUnsafe: unsafe reading is not implemented for structs" // TODO: boxed location?
                 | _ -> internalfailf "expected complex type, but got %O" typ
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
@@ -1047,7 +1047,7 @@ module internal Memory =
             | StringType -> writeStringUnsafe state reportError loc offset value
             | ClassType _ -> writeClassUnsafe state reportError loc typ offset value
             | ArrayType _ -> writeArrayUnsafe state reportError loc typ offset value
-            | StructType _ -> __notImplemented__() // TODO: boxed location?
+            | StructType _ -> internalfail "writeUnsafe: unsafe writing is not implemented for structs" // TODO: boxed location?
             | _ -> internalfailf "expected complex type, but got %O" typ
         | StackLocation loc -> writeStackUnsafe state reportError loc offset value
         | StaticLocation loc -> writeStaticUnsafe state reportError loc offset value
