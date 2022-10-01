@@ -24,6 +24,10 @@ module Unsafe =
         let typ = getTypeFromTerm typ
         Types.Cast ref typ
 
+    let internal AsRef (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        args.[1]
+
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         args.[2]

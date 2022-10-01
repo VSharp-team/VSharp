@@ -68,8 +68,8 @@ module Loader =
             "System.Array System.RuntimeType.GetEnumValues(this)"
             "System.Type System.RuntimeType.GetEnumUnderlyingType(this)"
             "System.Boolean System.RuntimeTypeHandle.CanCastTo(System.RuntimeType, System.RuntimeType)"
-            "System.Boolean System.Type.op_Equality(System.Type, System.Type)"
             "System.Reflection.RuntimeModule System.RuntimeTypeHandle.GetModule(System.RuntimeType)"
+            "System.Void System.ModuleHandle.GetModuleType(System.Runtime.CompilerServices.QCallModule, System.Runtime.CompilerServices.ObjectHandleOnStack)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -81,6 +81,7 @@ module Loader =
 
             // Interop
             "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
+            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =

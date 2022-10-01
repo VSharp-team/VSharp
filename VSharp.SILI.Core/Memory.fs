@@ -383,7 +383,7 @@ module internal Memory =
         | :? bool as b -> makeBool b
         | _ when isNumeric t -> makeNumber obj
         // TODO: need pointer?
-        | _ when isPointer t -> internalfailf "objToTerm: object to term conversion is not implemented for pointer %O" obj
+        | _ when isPointer t -> Concrete obj t
         | _ when t.IsValueType -> structToTerm state obj t
         | _ -> referenceTypeToTerm state obj
 
@@ -411,7 +411,7 @@ module internal Memory =
         match term.term with
         | Concrete(obj, _) -> Some obj
         | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
-        | Struct(fields, typ) -> tryStructTermToObj state fields typ
+        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
         | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state a
         | _ -> None
 

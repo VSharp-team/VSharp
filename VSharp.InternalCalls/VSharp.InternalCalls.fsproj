@@ -57,9 +57,11 @@
         <Compile Include="Globalization.fs" />
         <Compile Include="PlatformHelper.fsi" />
         <Compile Include="PlatformHelper.fs" />
-        <Compile Include="Loader.fs" />
         <Compile Include="DateTime.fsi" />
         <Compile Include="DateTime.fs" />
+        <Compile Include="ModuleHandle.fsi" />
+        <Compile Include="ModuleHandle.fs" />
+        <Compile Include="Loader.fs" />
     </ItemGroup>
 
     <ItemGroup>
