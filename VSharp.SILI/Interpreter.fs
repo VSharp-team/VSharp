@@ -779,6 +779,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let fullyGenericMethod, genericArgs, _ = method.Generalize()
         let fullGenericMethodName = fullyGenericMethod.FullName
         let wrapType arg = Concrete arg typeof<Type>
+        // TODO: do not wrap types, pass them through state.typeVariables!
         let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
         let termArgs = method.Parameters |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
         let args = typeArgs @ termArgs
@@ -812,7 +813,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | None -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey(lvi, method)
-            (stackKey, None, lvi.LocalType)
+            (stackKey, lvi.LocalType |> Memory.DefaultOf |> Some, lvi.LocalType)
         let locals =
             match method.LocalVariables with
             | null -> []
@@ -1016,7 +1017,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
-            let callForConcreteType typ state k =
+            let callForConcreteType typ _ k =
                 let targetMethod = x.ResolveVirtualMethod typ ancestorMethod
                 if targetMethod.IsAbstract
                     then x.CallAbstract targetMethod cilState k
