@@ -3,7 +3,6 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
-using Microsoft.CodeAnalysis.Formatting;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
@@ -48,20 +47,24 @@ public static class Renderer
         // Calling testing method
         var callMethod = RenderCall(thisArgId, method, renderedArgs.ToArray());
 
-        if (ex == null)
+        if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
-            CallingTests.Add(callMethod.ToString());
+            CallingTests.Add(callMethod.NormalizeWhitespace().ToString());
 
             // Adding namespace of objects comparer to usings
             AddObjectsComparer();
-            var condition =
-                RenderCall(
-                    CompareObjects,
-                    resultId,
-                    mainBlock.RenderObject(expected)
-                );
+            ExpressionSyntax expectedExpr;
+            expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected);
+            var condition = RenderCall(CompareObjects, resultId, expectedExpr);
             mainBlock.AddAssert(condition);
+        }
+        else if (ex == null)
+        {
+            mainBlock.AddCall(callMethod);
+            var call = callMethod as InvocationExpressionSyntax;
+            Debug.Assert(call != null);
+            CallingTests.Add(call.Expression.NormalizeWhitespace().ToString());
         }
         else
         {
@@ -74,7 +77,7 @@ public static class Renderer
                     new []{ RenderType(ex) },
                     delegateExpr
                 );
-            CallingTests.Add(assertThrows.Expression.ToString());
+            CallingTests.Add(assertThrows.Expression.NormalizeWhitespace().ToString());
             mainBlock.AddCall(assertThrows);
         }
     }
@@ -126,6 +129,7 @@ public static class Renderer
 
             switch (node)
             {
+                // Deleting whitespace between 'null' and '!'
                 case PostfixUnaryExpressionSyntax unary
                     when unary.IsKind(SyntaxKind.SuppressNullableWarningExpression):
                 {
@@ -134,6 +138,8 @@ public static class Renderer
                     node = unary.WithOperatorToken(unaryOperator).WithOperand(operand);
                     return base.Visit(node);
                 }
+                // TODO: add blank line, only if there is statement before/after
+                // Adding blank lines between args declaration, target method invocation and result checking
                 case LocalDeclarationStatementSyntax varDecl:
                 {
                     var vars = varDecl.Declaration.Variables;
@@ -149,12 +155,14 @@ public static class Renderer
                     }
                     break;
                 }
+                // Adding blank line before 'Assert.Throws'
                 case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
                     when CallingTests.Contains(call.Expression.ToString()):
                 {
                     node = node.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
                     return base.Visit(node);
                 }
+                // Formatting initializer with line breaks
                 case ObjectCreationExpressionSyntax objCreation:
                 {
                     var init = objCreation.Initializer;
@@ -233,8 +241,13 @@ public static class Renderer
             var thisArg = test.ThisArg;
             if (thisArg == null && !method.IsStatic)
                 thisArg = Reflection.createObject(method.DeclaringType);
+            string testName;
+            if (method.IsConstructor && method.DeclaringType != null)
+                testName = $"{RenderType(method.DeclaringType)}ConstructorTest";
+            else testName = $"{method.Name}Test";
+
             var testRenderer = generatedClass.AddMethod(
-                $"{method.Name}Test",
+                testName,
                 RenderAttributeList("Test"),
                 new[] { Public },
                 VoidType,
