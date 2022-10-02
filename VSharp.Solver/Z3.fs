@@ -74,6 +74,7 @@ module internal Z3 =
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
         let emptyState = Memory.EmptyState()
+        let mutable maxBufferSize = 128
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
@@ -85,6 +86,9 @@ module internal Z3 =
 
         member x.Reset() =
             encodingCache <- freshCache()
+
+        member x.SetMaxBufferSize size =
+            maxBufferSize <- size
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -461,9 +465,12 @@ module internal Z3 =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
             let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
-            let lengthIsNotGiant = ctx.MkBVSLE(expr, ctx.MkBV(20, expr.SortSize))
+            let assumptions = lengthIsNonNegative :: assumptions
+            let assumptions =
+                if maxBufferSize < 0 then assumptions
+                else (ctx.MkBVSLE(expr, ctx.MkBV(maxBufferSize, expr.SortSize))) :: assumptions
             // TODO: this limits length < 20, delete when model normalization is complete
-            { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
+            { encodingResult with assumptions = assumptions }
 
         // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
         // TODO: use another serializer
@@ -833,6 +840,9 @@ module internal Z3 =
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
                 optCtx.Assert(encoded)
+
+            member x.SetMaxBufferSize size =
+                builder.SetMaxBufferSize size
 
     let reset() =
         builder.Reset()

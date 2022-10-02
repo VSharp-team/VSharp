@@ -395,6 +395,25 @@ namespace IntegrationTests
             return x;
         }
 
+       [TestSvm(100)]
+        public static int BinarySearch(int value, int[] a)
+        {
+            var l = a.GetLowerBound(0);
+            var r = a.GetLength(0);
+            while (l < r)
+            {
+                var mid = (l + r) / 2;
+                int element = a[mid];
+                if (element == value)
+                    return mid;
+                if (element < value)
+                    r = mid - 1;
+                l = mid + 1;
+            }
+
+            return -1;
+        }
+
 //        [TestSvm]
 //        public static int CycleWith3EntryPoints(int x)
 //        {

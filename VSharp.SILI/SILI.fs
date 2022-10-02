@@ -40,6 +40,8 @@ type public SILI(options : SiliOptions) =
     let () =
         if options.visualize then
             DotVisualizer options.outputDirectory :> IVisualizer |> Application.setVisualizer
+        SetMaxBuferSize options.maxBufferSize
+        TestGenerator.setMaxBufferSize options.maxBufferSize
 
     let inCoverageZone coverageZone (startingMethod : Method) =
         match coverageZone with

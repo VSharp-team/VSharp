@@ -1,7 +1,6 @@
 namespace VSharp.Core
 
 open System
-open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -18,6 +17,8 @@ module API =
         IdGenerator.saveConfiguration()
     let Restore() =
         IdGenerator.restore()
+
+    let SetMaxBuferSize size = SolverInteraction.setMaxBufferSize size
 
     let BranchStatements state condition thenStatement elseStatement k =
         Branching.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k

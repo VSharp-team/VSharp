@@ -921,7 +921,7 @@ module internal Memory =
             let value = array.GetValue(Array.ofList indices) |> objToTerm state elemType
             let termIndices = List.map makeNumber indices
             writeArrayIndexSymbolic state address termIndices arrayType value
-        let allIndices = ArrayHelper.allIndicesOfArray lbs lens
+        let allIndices = Array.allIndicesOfArray lbs lens
         Seq.iter (writeIndex state) allIndices
         let termLBs = List.map (objToTerm state typeof<int>) lbs
         let termLens = List.map (objToTerm state typeof<int>) lens
@@ -1248,7 +1248,7 @@ module internal Memory =
             let dims = Array.init rank id
             let lengths = Array.map a.GetLength dims
             let lowerBounds = Array.map a.GetLowerBound dims
-            let indices = ArrayHelper.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+            let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
             for index in indices do
                 let index = List.toArray index
                 concreteAllocateRec state (a.GetValue index) typ

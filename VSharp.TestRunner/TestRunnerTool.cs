@@ -50,7 +50,7 @@ namespace VSharp.TestRunner
             return true;
         }
 
-        private static bool ContentwiseEqual(Array expected, Array got)
+        private static bool ContentwiseEqual(System.Array expected, System.Array got)
         {
             Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
             if (expected.Rank != got.Rank)
@@ -84,8 +84,8 @@ namespace VSharp.TestRunner
                 return got.Equals(expected);
             }
 
-            if (expected is Array array)
-                return ContentwiseEqual(array, got as Array);
+            if (expected is System.Array array)
+                return ContentwiseEqual(array, got as System.Array);
             return StructurallyEqual(expected, got);
         }
 
@@ -135,7 +135,7 @@ namespace VSharp.TestRunner
                 {
                     if (e.InnerException != null && e.InnerException.GetType() == ex) {
                         Console.ForegroundColor = ConsoleColor.Green;
-                        Console.WriteLine("Test {0} throws the expected exception!", fileInfo.Name);
+                        Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, e.InnerException.GetType().FullName);
                         Console.ResetColor();
                     }
                     else if (e.InnerException != null && ex != null)

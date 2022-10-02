@@ -219,7 +219,8 @@ namespace VSharp.Test
                         _recThresholdForTest,
                         _timeout,
                         false,
-                        _releaseBranches
+                        _releaseBranches,
+                        128
                     );
                     SILI explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);

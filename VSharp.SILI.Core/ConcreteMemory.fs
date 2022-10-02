@@ -62,7 +62,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let a' = Array.CreateInstance(typ.GetElementType(), lengths, lowerBounds)
             let phys' = {object = a'}
             copiedObjects.Add(phys, phys')
-            let indices = ArrayHelper.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+            let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
             for index in indices do
                 let index = List.toArray index
                 let v' = deepCopyObject {object = a.GetValue index}

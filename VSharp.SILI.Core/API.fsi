@@ -11,6 +11,7 @@ module API =
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
+    val SetMaxBuferSize : int -> unit
 
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a

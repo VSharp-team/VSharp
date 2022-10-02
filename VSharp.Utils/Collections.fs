@@ -1,6 +1,9 @@
 namespace VSharp
 
+open System
 open System.Collections.Generic
+open System.Runtime.InteropServices
+open System.Runtime.CompilerServices
 
 module public Seq =
     let foldi f st xs =
@@ -77,24 +80,6 @@ module public List =
         | [x] -> [f x]
         | x::xs -> x::(mapLast f xs)
         | [] -> []
-
-module public ArrayHelper =
-
-    let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
-        let detachOne (acc, lensProd) dim =
-            let curOffset = acc / lensProd
-            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
-            let curIndex = curOffset + lb
-            let rest = acc % lensProd
-            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
-            curIndex, (rest, lensProd)
-        let mutable lenProd = 1
-        for i in 1 .. lengths.Length - 1 do
-            lenProd <- lenProd * lengths.[i]
-        Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
-
-    let allIndicesOfArray lowerBounds lengths =
-        List.map2 (fun lb len -> [lb .. lb + len - 1]) lowerBounds lengths |> List.cartesian
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
@@ -193,3 +178,81 @@ module public Stack =
     let union = List.append
 
     let fold = List.fold
+
+module Array =
+    // TODO: this should be rewritten to seq { ... yield ... }
+    let allIndicesOfArray lbs lens =
+        List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
+
+    let fillFast<'a> (arr : Array) (value : 'a) =
+        let bytePtr = MemoryMarshal.GetArrayDataReference arr |> ref
+        let ptr = Unsafe.As<byte, 'a>(bytePtr) |> ref
+        let span = MemoryMarshal.CreateSpan<'a>(ptr, arr.Length)
+        span.Fill value
+
+    let copyFast<'a> (src : Array) (dst : Array) =
+        let srcBytePtr = MemoryMarshal.GetArrayDataReference src |> ref
+        let dstBytePtr = MemoryMarshal.GetArrayDataReference dst |> ref
+        let srcPtr = Unsafe.As<byte, 'a>(srcBytePtr) |> ref
+        let dstPtr = Unsafe.As<byte, 'a>(dstBytePtr) |> ref
+        let srcSpan = MemoryMarshal.CreateSpan<'a>(srcPtr, src.Length)
+        let dstSpan = MemoryMarshal.CreateSpan<'a>(dstPtr, dst.Length)
+        srcSpan.CopyTo dstSpan
+
+    // Fills zero-initialized array with value
+    let fill (arr : Array) (value : obj) =
+        match value with
+        | null -> () // Do nothing because arr is already filled with nulls
+        | _ ->
+            let t = value.GetType()
+            if arr = null || (t.IsValueType && Nullable.GetUnderlyingType(t) = null && value = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)) then
+                // Do nothing because arr is already filled with nulls
+                ()
+            else
+                let elementType = arr.GetType().GetElementType()
+                match value with
+                | :? int as i when elementType = typeof<int> -> fillFast arr i
+                | :? byte as i when elementType = typeof<byte> -> fillFast arr i
+                | :? char as i when elementType = typeof<char> -> fillFast arr i
+                | :? uint as i when elementType = typeof<uint> -> fillFast arr i
+                | :? int64 as i when elementType = typeof<int64> -> fillFast arr i
+                | :? uint64 as i when elementType = typeof<uint64> -> fillFast arr i
+                | :? sbyte as i when elementType = typeof<sbyte> -> fillFast arr i
+                | :? int16 as i when elementType = typeof<int16> -> fillFast arr i
+                | :? uint16 as i when elementType = typeof<uint16> -> fillFast arr i
+                | :? double as i when elementType = typeof<double> -> fillFast arr i
+                | :? float as i when elementType = typeof<float> -> fillFast arr i
+                | _ ->
+                    // Slow case
+                    Logger.trace "Slowly filling array with %d elements..." arr.Length
+                    let rank = arr.Rank
+                    let dims = Array.init rank id
+                    let lengths = Array.map arr.GetLength dims
+                    let lowerBounds = Array.map arr.GetLowerBound dims
+                    let indices = allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+                    for i in indices do
+                        arr.SetValue(value, Array.ofList i)
+
+    let delinearizeArrayIndex idx (lengths : int array) (lowerBounds : int array) =
+        let detachOne (acc, lensProd) dim =
+            let curOffset = acc / lensProd
+            let lb = if lowerBounds = null then 0 else lowerBounds.[dim]
+            let curIndex = curOffset + lb
+            let rest = acc % lensProd
+            let lensProd = if dim = lengths.Length - 1 then 1 else lensProd / lengths.[dim + 1]
+            curIndex, (rest, lensProd)
+        let mutable lenProd = 1
+        for i in 1 .. lengths.Length - 1 do
+            lenProd <- lenProd * lengths.[i]
+        Array.mapFold detachOne (idx, lenProd) (Array.init lengths.Length id) |> fst
+
+
+    let mapToOneDArray mapper (arr : Array) : obj[] =
+        if arr = null then null
+        else
+            let dest = Array.zeroCreate<obj> arr.Length
+            let mutable i = 0
+            for e in arr do
+                dest.[i] <- mapper e
+                i <- i + 1
+            dest

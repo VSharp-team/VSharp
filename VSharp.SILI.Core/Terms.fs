@@ -30,14 +30,14 @@ type stackKey =
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
-        | ParameterKey pi -> pi.Name
+        | ParameterKey pi -> if String.IsNullOrEmpty pi.Name then "#" + toString pi.Position else pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
         | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
     override x.GetHashCode() =
         let fullname =
             match x with
             | ThisKey m -> sprintf "%s##this" m.FullName
-            | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
+            | ParameterKey pi -> sprintf "%O##%O##%d" pi.Member pi pi.Position
             | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
             | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
