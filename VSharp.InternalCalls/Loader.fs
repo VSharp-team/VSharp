@@ -70,6 +70,11 @@ module Loader =
             "System.Boolean System.RuntimeTypeHandle.CanCastTo(System.RuntimeType, System.RuntimeType)"
             "System.Reflection.RuntimeModule System.RuntimeTypeHandle.GetModule(System.RuntimeType)"
             "System.Void System.ModuleHandle.GetModuleType(System.Runtime.CompilerServices.QCallModule, System.Runtime.CompilerServices.ObjectHandleOnStack)"
+            "System.Reflection.PropertyInfo System.Type.GetProperty(this, System.String, System.Reflection.BindingFlags)"
+            "System.Type[] System.RuntimeType.GetInterfaces(this)"
+            "System.Boolean System.Type.get_IsByRef(this)"
+            "System.RuntimeType System.RuntimeTypeHandle.GetBaseType(System.RuntimeType)"
+            "System.TypeCode System.Type.GetTypeCode(System.Type)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -82,6 +87,14 @@ module Loader =
             // Interop
             "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
             "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
+            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
+
+            // Diagnostics
+            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
+            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
+
+            // LINQ
+            "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =

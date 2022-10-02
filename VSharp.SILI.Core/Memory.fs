@@ -407,12 +407,23 @@ module internal Memory =
         if address = VectorTime.zero then Some null
         else state.concreteMemory.TryVirtToPhys address
 
+    let tryPointerToObj state address (offset : int) =
+        let cm = state.concreteMemory
+        match cm.TryVirtToPhys address with
+        | Some obj ->
+            let gch = Runtime.InteropServices.GCHandle.Alloc(obj, Runtime.InteropServices.GCHandleType.Pinned)
+            let pObj = gch.AddrOfPinnedObject() + (nativeint offset)
+            Some (pObj :> obj)
+        | None -> None
+
     let rec tryTermToObj (state : state) term =
         match term.term with
         | Concrete(obj, _) -> Some obj
         | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
         | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
         | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state a
+        | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, ConcreteT (:? int as offset, _)) ->
+            tryPointerToObj state a offset
         | _ -> None
 
     and tryStructTermToObj (state : state) fields typ =
@@ -769,6 +780,18 @@ module internal Memory =
         checkBlockBounds state reportError locSize offset endByte
         readTermUnsafe term offset endByte
 
+    let private readBoxedStructUnsafe state loc typ offset viewSize =
+        let address =
+            match loc.term with
+            | ConcreteHeapAddress address -> BoxedLocation(address, typ)
+            | _ -> internalfail "readUnsafe: struct case is not fully implemented"
+        let fields =
+            match readSafe state address with
+            | {term = Struct(fields, _)} -> fields
+            | term -> internalfailf "readUnsafe: reading struct resulted in term %O" term
+        let endByte = makeNumber viewSize |> add offset
+        readStructUnsafe fields typ offset endByte
+
     let private readUnsafe state reportError baseAddress offset sightType =
         let viewSize = internalSizeOf sightType
         let slices =
@@ -779,7 +802,7 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
-                | StructType _ -> internalfail "readUnsafe: unsafe reading is not implemented for structs" // TODO: boxed location?
+                | StructType _ -> readBoxedStructUnsafe state loc typ offset viewSize
                 | _ -> internalfailf "expected complex type, but got %O" typ
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
@@ -1209,15 +1232,52 @@ module internal Memory =
         state.allocatedTypes <- PersistentDict.add concreteAddress (delegateTerm |> typeOf |> ConcreteType) state.allocatedTypes
         HeapRef address (typeOf delegateTerm)
 
+    let private concreteAllocateOne state (obj : obj) (typ : Type) =
+        let cm = state.concreteMemory
+        let concreteAddress = allocateType state typ
+        cm.Allocate concreteAddress obj
+        concreteAddress
+
+    let rec private concreteAllocateMembers state (obj : obj) (typ : Type) =
+        match obj with
+        | null -> ()
+        | :? Array when typ.GetElementType().IsPrimitive -> ()
+        | :? Array as a ->
+            let rank = a.Rank
+            let typ = typ.GetElementType()
+            let dims = Array.init rank id
+            let lengths = Array.map a.GetLength dims
+            let lowerBounds = Array.map a.GetLowerBound dims
+            let indices = ArrayHelper.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+            for index in indices do
+                let index = List.toArray index
+                concreteAllocateRec state (a.GetValue index) typ
+        | _ when typ.IsClass ->
+            let fields = Reflection.fieldsOf false typ
+            for _, field in fields do
+                concreteAllocateRec state (field.GetValue obj) field.FieldType
+        | _ -> ()
+
+    and private concreteAllocateRec state (obj : obj) (typ : Type) =
+        let cm = state.concreteMemory
+        if obj <> null && not typ.IsValueType && Option.isNone (cm.TryPhysToVirt obj) then
+            concreteAllocateOne state obj typ |> ignore
+            concreteAllocateMembers state obj typ
+
     let allocateConcreteObject state obj typ =
         match memoryMode with
         | ConcreteMemory when isSubtypeOrEqual typ typeof<Delegate> ->
             internalfailf "allocateConcreteObject: allocating concrete delegate %O in concrete memory is not implemented" obj
         | ConcreteMemory ->
             let cm = state.concreteMemory
-            let concreteAddress = allocateType state typ
-            cm.Allocate concreteAddress obj
-            HeapRef (ConcreteHeapAddress concreteAddress) typ
+            match cm.TryPhysToVirt obj with
+            | Some address -> HeapRef (ConcreteHeapAddress address) typ
+            | None when typ.IsValueType -> internalfailf "allocateConcreteObject: value types should not be allocated, obj = %O" obj
+            | None when obj = null -> nullRef typ
+            | None ->
+                let address = concreteAllocateOne state obj typ
+                concreteAllocateMembers state obj typ
+                HeapRef (ConcreteHeapAddress address) typ
         | SymbolicMemory -> internalfailf "allocateConcreteObject: allocating concrete object %O in symbolic memory is not implemented" obj
 
     let rec lengthOfString state heapRef =

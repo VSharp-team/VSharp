@@ -293,6 +293,8 @@ module API =
 
         val ObjectToTerm : state -> obj -> Type -> term
 
+        val MarshallObject : state -> obj -> Type -> term
+
     module Print =
         val Dump : state -> string
         val PrintPC : pathCondition -> string

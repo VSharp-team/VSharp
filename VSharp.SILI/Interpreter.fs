@@ -382,11 +382,12 @@ module internal InstructionsSet =
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (m : Method) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata m (offset + Offset.from OpCodes.Ldtoken.Size)
+        let state = cilState.state
         let res =
-            match memberInfo with // TODO: should create real RuntimeHandle struct #hack
-            | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle typeof<RuntimeFieldHandle>
-            | :? Type as t -> Terms.Concrete t.TypeHandle typeof<RuntimeTypeHandle>
-            | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle typeof<RuntimeMethodHandle>
+            match memberInfo with
+            | :? FieldInfo as fi -> Memory.MarshallObject state fi.FieldHandle typeof<RuntimeFieldHandle>
+            | :? Type as t -> Memory.MarshallObject state t.TypeHandle typeof<RuntimeTypeHandle>
+            | :? MethodInfo as mi -> Memory.MarshallObject state mi.MethodHandle typeof<RuntimeMethodHandle>
             | _ -> internalfailf "Could not resolve token"
         push res cilState
     let ldftn (m : Method) offset (cilState : cilState) =
@@ -921,10 +922,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let resultType = TypeUtils.getTypeOfConcrete result
                 let typ = TypeUtils.mostConcreteType resultType method.ReturnType
                 if typ <> typeof<Void> then
-                    let cm = state.concreteMemory
-                    if not typ.IsValueType && cm.TryPhysToVirt result |> Option.isNone then
-                        Memory.AllocateConcreteObject state result typ |> ignore
-                    let resultTerm = Memory.ObjectToTerm cilState.state result method.ReturnType
+                    let resultTerm = Memory.MarshallObject cilState.state result typ
                     push resultTerm cilState
                 true
         else false

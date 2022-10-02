@@ -76,11 +76,12 @@ module internal ArrayInitialization =
 
     let initializeArray state arrayRef handleTerm =
         let cm = state.concreteMemory
-        match arrayRef.term, handleTerm.term with
-        | HeapRef({term = ConcreteHeapAddress address}, _), Concrete (:? RuntimeFieldHandle as rfh, _)
+        assert(Terms.isStruct handleTerm)
+        match arrayRef.term, Memory.tryTermToObj state handleTerm with
+        | HeapRef({term = ConcreteHeapAddress address}, _), Some(:? RuntimeFieldHandle as rfh)
             when cm.Contains address ->
                 cm.InitializeArray address rfh
-        | HeapRef(address, sightType), Concrete (:? RuntimeFieldHandle as rfh, _) ->
+        | HeapRef(address, sightType), Some(:? RuntimeFieldHandle as rfh) ->
             let fieldInfo = FieldInfo.GetFieldFromHandle rfh
             let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType
             let t = arrayType.GetElementType()
@@ -104,4 +105,4 @@ module internal ArrayInitialization =
             | _ when t = typedefof<bool> -> fillArray boolTermCreator sizeof<bool>
             | _ when t = typedefof<char> -> fillArray charTermCreator sizeof<char>
             | _ -> __notImplemented__()
-        | _ -> __notImplemented__()
+        | _ -> internalfailf "initializeArray: case for (arrayRef = %O), (handleTerm = %O) is not implemented" arrayRef handleTerm

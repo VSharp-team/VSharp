@@ -33,27 +33,27 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
-    let rec deepCopyObject (phys : physicalAddress) k =
+    let rec deepCopyObject (phys : physicalAddress) =
         let obj = phys.object
         let typ = TypeUtils.getTypeOfConcrete obj
         match obj with
-        | null -> k phys
-        | _ when TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> k phys
-        | :? System.Reflection.Pointer -> k phys
-        | _ -> deepCopyComplex phys typ k
+        | null -> phys
+        | _ when TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
+        | :? System.Reflection.Pointer -> phys
+        | _ -> deepCopyComplex phys typ
 
-    and deepCopyComplex (phys : physicalAddress) typ k =
+    and deepCopyComplex (phys : physicalAddress) typ =
         let copied = ref {object = null}
-        if copiedObjects.TryGetValue(phys, copied) then k copied.Value
-        else createCopyComplex phys typ k
+        if copiedObjects.TryGetValue(phys, copied) then copied.Value
+        else createCopyComplex phys typ
 
-    and createCopyComplex (phys : physicalAddress) typ k =
+    and createCopyComplex (phys : physicalAddress) typ =
         let obj = phys.object
         match obj with
         | :? Array as a when typ.GetElementType().IsPrimitive ->
             let phys' = {object = a.Clone()}
             copiedObjects.Add(phys, phys')
-            k phys'
+            phys'
         | :? Array as a ->
             let rank = a.Rank
             let dims = Array.init rank id
@@ -63,26 +63,24 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let phys' = {object = a'}
             copiedObjects.Add(phys, phys')
             let indices = ArrayHelper.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
-            let copyIndex _ (index : int list) k =
+            for index in indices do
                 let index = List.toArray index
-                deepCopyObject {object = a.GetValue index} (fun v' ->
-                a'.SetValue(v'.object, index) |> k)
-            Cps.List.foldlk copyIndex () (Seq.toList indices) (fun _ ->
-            k phys')
+                let v' = deepCopyObject {object = a.GetValue index}
+                a'.SetValue(v'.object, index)
+            phys'
         | :? String as s ->
             let phys' = {object = String(s)}
             copiedObjects.Add(phys, phys')
-            k phys'
+            phys'
         | _ when typ.IsClass || typ.IsValueType ->
             let obj' = FormatterServices.GetUninitializedObject typ
             let phys' = {object = obj'}
             copiedObjects.Add(phys, phys')
             let fields = Reflection.fieldsOf false typ
-            let copyField _ (_, field : System.Reflection.FieldInfo) k =
-                deepCopyObject {object = field.GetValue obj} (fun v' ->
-                field.SetValue(obj', v'.object) |> k)
-            Cps.List.foldlk copyField () (Seq.toList fields) (fun _ ->
-            k phys')
+            for _, field in fields do
+                let v' = deepCopyObject {object = field.GetValue obj}
+                field.SetValue(obj', v'.object)
+            phys'
         | _ -> internalfailf "ConcreteMemory, deepCopyObject: unexpected object %O" obj
 
 // ----------------------------- Constructor -----------------------------
@@ -113,7 +111,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             copiedObjects.Clear()
             for kvp in physToVirt do
                 let phys, virt = kvp.Key, kvp.Value
-                let phys' = deepCopyObject phys id
+                let phys' = deepCopyObject phys
                 if virtToPhys.ContainsKey virt then
                     virtToPhys'.Add(virt, phys')
                 physToVirt'.Add(phys', virt)
