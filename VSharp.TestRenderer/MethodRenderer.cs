@@ -14,7 +14,7 @@ internal interface IBlock
     IdentifierNameSyntax NewIdentifier(string idName);
     IBlock NewBlock();
     IdentifierNameSyntax AddDecl(string varName, TypeSyntax? type, ExpressionSyntax init, bool reuse = false);
-    void AddCall(InvocationExpressionSyntax function);
+    void AddCall(ExpressionSyntax function);
     void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y);
     void AddAssert(ExpressionSyntax condition);
     void AddTryCatch(BlockSyntax tryBlock, TypeSyntax catchType, IdentifierNameSyntax exVar, BlockSyntax catchBlock);
@@ -129,7 +129,7 @@ internal class MethodRenderer
             return var;
         }
 
-        public void AddCall(InvocationExpressionSyntax function)
+        public void AddCall(ExpressionSyntax function)
         {
             _statements.Add(ExpressionStatement(function));
         }

@@ -139,7 +139,11 @@ internal static class CodeRenderer
     {
         assemblies.Add(method.Module.Assembly);
         var type = method.DeclaringType;
-        var methodName = IdentifierName(method.Name);
+        IdentifierNameSyntax methodName;
+        if (method.IsConstructor && method.DeclaringType != null)
+            methodName = IdentifierName(RenderType(method.DeclaringType).ToString());
+        else
+            methodName = IdentifierName(method.Name);
 
         if (type == null)
             return methodName;
@@ -297,14 +301,20 @@ internal static class CodeRenderer
             );
     }
 
-    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type, params ExpressionSyntax[] init)
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(
+        TypeSyntax type,
+        bool withInitializer,
+        params ExpressionSyntax[] args)
     {
         InitializerExpressionSyntax? initializer = null;
-        ArgumentListSyntax? argumentList = ArgumentList();
-        if (init.Length > 0)
+        ArgumentListSyntax? argumentList = null;
+        if (withInitializer)
         {
-            initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(init));
-            argumentList = null;
+            initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(args));
+        }
+        else
+        {
+            argumentList = ArgumentList(SeparatedList(args.Select(Argument)));
         }
 
         return
@@ -332,7 +342,7 @@ internal static class CodeRenderer
             i++;
         }
 
-        return RenderObjectCreation(type, keysWithValues);
+        return RenderObjectCreation(type, true, keysWithValues);
     }
 
     // 'memberOf' is 'this' or some type
@@ -406,8 +416,14 @@ internal static class CodeRenderer
         return RenderCall(IdentifierName(functionName), args);
     }
 
-    public static InvocationExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
+    public static ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
     {
+        if (method.IsConstructor)
+        {
+            Debug.Assert(method.DeclaringType != null);
+            return RenderObjectCreation(RenderType(method.DeclaringType), false, args);
+        }
+
         ExpressionSyntax function;
         if (thisArg == null)
         {
