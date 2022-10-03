@@ -91,8 +91,14 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            if state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
-                statistics.TrackFinished state
+            if isError || state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            then
+                let hasException =
+                    match state.state.exceptionsRegister with
+                    | Unhandled _ -> true
+                    | _ -> false
+                if not isError || hasException
+                then statistics.TrackFinished state
                 match TestGenerator.state2test isError method cmdArgs state with
                 | Some test -> reporter test
                 | None -> ()
@@ -141,6 +147,9 @@ type public SILI(options : SiliOptions) =
 
     member private x.FormInitialStates (method : Method) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method
+        assert (List.length cilStates = 1)
+        let [cilState] = cilStates
         match options.executionMode with
         | ConcolicMode -> List.singleton cilState
         | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
@@ -217,6 +226,7 @@ type public SILI(options : SiliOptions) =
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
         | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.setAttributesZone (fun _ -> options.checkAttributes)
         Application.resetMethodStatistics()
         statistics.ExplorationStarted()
         isStopped <- false

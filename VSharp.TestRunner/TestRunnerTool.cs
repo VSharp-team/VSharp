@@ -129,7 +129,7 @@ namespace VSharp.TestRunner
                         Console.ResetColor();
                         return false;
                     }
-                    if (checkResult && !CompareObjects(test.Expected, result))
+                    if (checkResult && !test.IsError && !CompareObjects(test.Expected, result))
                     {
                         // TODO: use NUnit?
                         Console.ForegroundColor = ConsoleColor.Red;

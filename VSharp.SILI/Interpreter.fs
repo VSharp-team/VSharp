@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Diagnostics
 open System.Reflection
 open System.Reflection.Emit
 open FSharpx.Collections
@@ -850,6 +851,42 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         ILInterpreter.InitFunctionFrame cilState.state method this paramValues
         pushToIp (instruction method 0<offsets>) cilState
 
+    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) =
+        if method.CheckAttributes then
+            let assumptions = assumptions cilState method
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (assumptions, state))
+                (fun cilState k -> (); k [cilState])
+                (fun cilState k -> reportError cilState; cilState.suspended <- true; k [cilState])
+                (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+        else [cilState]
+
+    static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) =
+        let disallowNullAssumptions (cilState : cilState) (method : Method) =
+            method.Parameters
+            |> Seq.map (fun parameter ->
+                if Attribute.IsDefined(parameter, typeof<CodeAnalysis.DisallowNullAttribute>)
+                    then
+                        let termArg = Memory.ReadArgument cilState.state parameter
+                        !!(IsNullReference termArg)
+                    else True)
+            |> conjunction
+
+        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions
+
+    static member CheckNotNullAssumptions (cilState : cilState) (method : Method) =
+        let notNullAssumptions (cilState : cilState) (method : Method) =
+            method.Parameters
+            |> Seq.map (fun parameter ->
+                if Attribute.IsDefined(parameter, typeof<CodeAnalysis.NotNullAttribute>)
+                    then
+                        let termArg = Memory.ReadArgument cilState.state parameter
+                        !!(IsNullReference termArg)
+                    else True)
+            |> conjunction
+
+        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions
+
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
         let fieldType = f.FieldType
@@ -910,7 +947,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     then whenInitializedCont cilState
                     else
                         x.InitFunctionFrameCIL cilState cctor None (Some [])
-                        [cilState]
+                        ILInterpreter.CheckDisallowNullAssumptions cilState cctor
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
@@ -989,7 +1026,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         popFrameOf cilState
         // Creating valid frame with stackKeys corresponding to actual targetMethod
         x.InitFunctionFrameCIL cilState targetMethod (Some this) (Some args)
-        x.InlineMethodBaseCallIfNeeded targetMethod cilState k
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState targetMethod
+        Cps.List.mapk (x.InlineMethodBaseCallIfNeeded targetMethod) cilStates (List.concat >> k)
 
     member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
         let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
@@ -1182,7 +1220,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let getArgsAndCall cilState =
             let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
-            x.CommonCall calledMethod cilState id
+            let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState calledMethod
+            Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
         if isConcolicMode then getArgsAndCall cilState
         else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
@@ -1213,10 +1252,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
-        x.CommonCallVirt methodToCall cilState id
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState methodToCall
+        Cps.List.mapk (x.CommonCallVirt methodToCall) cilStates List.concat
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         Memory.AllocateDefaultArray cilState.state lengths arrayType |> k
+
+    member x.Ret (m : Method) (cilState : cilState) =
+        ret m cilState
+        ILInterpreter.CheckNotNullAssumptions cilState m
 
     member x.CommonCreateDelegate (ctor : Method) (cilState : cilState) (args : term list) k =
         let target, methodPtr =
@@ -1277,7 +1321,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
                 x.InitFunctionFrameCIL cilState constructorInfo (Some reference) (Some args)
-                x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall
+                let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState constructorInfo
+                Cps.List.mapk (x.InlineMethodBaseCallIfNeeded constructorInfo) cilStates (List.concat >> afterCall)
 
             if Types.IsValueType typ || TypeUtils.isPointer typ then
                 let freshValue = Memory.DefaultOf typ
@@ -2157,7 +2202,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Ldloc_S -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloc_S.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Ldloca -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldloca.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Ldloca_S -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloca_S.Size) |> int) |> fallThrough m offset cilState
-            | OpCodeValues.Ret -> ret m cilState; [cilState]
+            | OpCodeValues.Ret -> this.Ret m cilState
             | OpCodeValues.Dup -> (fun _ _ -> dup) |> fallThrough m offset cilState
 
             // branching

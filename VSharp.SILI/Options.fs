@@ -33,4 +33,5 @@ type SiliOptions = {
     visualize : bool
     releaseBranches : bool
     maxBufferSize : int
+    checkAttributes : bool
 }
