@@ -1118,7 +1118,8 @@ module internal Memory =
         state.currentTime <- VectorTime.advance state.currentTime
         state.currentTime
 
-    let allocateType state typ =
+    let allocateType state (typ : Type) =
+        assert(not typ.IsAbstract)
         let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
         state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
@@ -1243,27 +1244,31 @@ module internal Memory =
         | :? Array when typ.GetElementType().IsPrimitive -> ()
         | :? Array as a ->
             let rank = a.Rank
-            let typ = typ.GetElementType()
             let dims = Array.init rank id
             let lengths = Array.map a.GetLength dims
             let lowerBounds = Array.map a.GetLowerBound dims
             let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
             for index in indices do
                 let index = List.toArray index
-                concreteAllocateRec state (a.GetValue index) typ
+                let value = a.GetValue index
+                let typ = if value = null then typ.GetElementType() else value.GetType()
+                concreteAllocateRec state value typ
         | _ when typ.IsClass ->
             let fields = Reflection.fieldsOf false typ
             for _, field in fields do
-                concreteAllocateRec state (field.GetValue obj) field.FieldType
+                let fieldValue = field.GetValue obj
+                let typ = if fieldValue = null then field.FieldType else fieldValue.GetType()
+                concreteAllocateRec state fieldValue typ
         | _ -> ()
 
     and private concreteAllocateRec state (obj : obj) (typ : Type) =
         let cm = state.concreteMemory
-        if obj <> null && not typ.IsValueType && Option.isNone (cm.TryPhysToVirt obj) then
+        if obj <> null && not typ.IsValueType && typ <> typeof<System.Reflection.Pointer> && Option.isNone (cm.TryPhysToVirt obj) then
             concreteAllocateOne state obj typ |> ignore
             concreteAllocateMembers state obj typ
 
-    let allocateConcreteObject state obj typ =
+    let allocateConcreteObject state obj (typ : Type) =
+        assert(not typ.IsAbstract)
         match memoryMode with
         | ConcreteMemory when isSubtypeOrEqual typ typeof<Delegate> ->
             internalfailf "allocateConcreteObject: allocating concrete delegate %O in concrete memory is not implemented" obj

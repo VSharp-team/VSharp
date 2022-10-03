@@ -146,25 +146,6 @@ module public Reflection =
         let concreteMethods = Array.map makeSuitable methodsFromHelper
         Array.concat [concreteMethods; getAllMethods typeof<Array>; getAllMethods arrayType]
 
-    let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
-        let interfaceType = interfaceMethod.DeclaringType
-        assert interfaceType.IsInterface
-        let createSignature (m : MethodInfo) =
-            m.GetParameters()
-            |> Seq.map (fun p -> getFullTypeName p.ParameterType)
-            |> join ","
-        let onlyLastName (m : MethodInfo) =
-            match m.Name.LastIndexOf('.') with
-            | i when i < 0 -> m.Name
-            | i -> m.Name.Substring(i + 1)
-        let sign = createSignature interfaceMethod
-        let lastName = onlyLastName interfaceMethod
-        let methods =
-            match targetType with
-            | _ when targetType.IsArray -> getArrayMethods targetType
-            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
-
     let isOverrideOf (sourceMethod : MethodInfo) (method : MethodInfo) =
         sourceMethod.GetBaseDefinition() = method.GetBaseDefinition()
         ||
@@ -175,6 +156,28 @@ module public Reflection =
             let targetSig = method.GetParameters()
             targetSig.Length = sourceSig.Length &&
             Array.forall2 (fun (p : ParameterInfo) (p' : ParameterInfo) -> p.ParameterType = p'.ParameterType) sourceSig targetSig
+
+    let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
+        let interfaceType = interfaceMethod.DeclaringType
+        assert interfaceType.IsInterface
+        if interfaceType = targetType then interfaceMethod
+        else
+            let createSignature (m : MethodInfo) =
+                m.GetParameters()
+                |> Seq.map (fun p -> getFullTypeName p.ParameterType)
+                |> join ","
+            let onlyLastName (m : MethodInfo) =
+                match m.Name.LastIndexOf('.') with
+                | i when i < 0 -> m.Name
+                | i -> m.Name.Substring(i + 1)
+            let sign = createSignature interfaceMethod
+            let lastName = onlyLastName interfaceMethod
+            let methods =
+                match targetType with
+                | _ when targetType.IsArray -> getArrayMethods targetType
+                | _ when targetType.IsInterface -> getAllMethods targetType
+                | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
+            methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
 
     let resolveOverridingMethod targetType (virtualMethod : MethodInfo) =
         assert virtualMethod.IsVirtual
