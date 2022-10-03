@@ -32,6 +32,18 @@ namespace IntegrationTests
             return checked(x + y);
         }
 
+        [TestSvm(100)]
+        public static int CatchRuntimeException(int x, int y)
+        {
+            try
+            {
+                return x / y;
+            }
+            catch (DivideByZeroException)
+            {
+                return -42;
+            }
+        }
 
         // expecting 111
         [TestSvm]

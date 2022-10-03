@@ -307,8 +307,7 @@ module public Reflection =
         else field.declaringType.GetRuntimeField(field.name)
 
     let rec private retrieveFields isStatic f (t : Type) =
-        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
-        let flags = if isStatic then staticBindingFlags else instanceBindingFlags // BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
+        let flags = if isStatic then staticBindingFlags else instanceBindingFlags
         let fields = t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
         let ourFields = f fields
         if isStatic || t.BaseType = null then ourFields

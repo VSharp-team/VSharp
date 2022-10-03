@@ -11,7 +11,7 @@ open System.Xml
 // NOTE: if 'expectedCoverage' is null 'TestResultsChecker' runs all tests and checks results equality
 //       otherwise, it compares expected coverage to computed coverage of tests
 type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCoverage : Nullable<int>) =
-    let expectedCoverage = None//Option.ofNullable expectedCoverage
+    let expectedCoverage = Option.ofNullable expectedCoverage
     // NOTE: if 'TestResultsChecker' succeeds, 'resultMessage' is empty, otherwise, it contains failure message
     let mutable resultMessage = ""
     let runDotnet args =
