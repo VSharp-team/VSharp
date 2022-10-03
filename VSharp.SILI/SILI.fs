@@ -148,7 +148,9 @@ type public SILI(options : SiliOptions) =
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportExceptions |> List.iter reportFinished
+        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
+        runtimeExceptions |> List.iter reportError
+        userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
         let newStates =

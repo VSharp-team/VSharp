@@ -42,11 +42,17 @@ module Loader =
         |> Seq.singleton
         |> collectImplementations
 
+    let private runtimeExceptionsImplementations =
+        runtimeExceptionsConstructors.Values |> Seq.map Reflection.getFullMethodName |> set
+
     let mutable public CilStateImplementations : string seq =
         Seq.empty
 
     let public hasRuntimeExceptionsImplementation (fullMethodName : string) =
         Map.containsKey fullMethodName runtimeExceptionsConstructors
+
+    let public isRuntimeExceptionsImplementation (fullMethodName : string) =
+        Set.contains fullMethodName runtimeExceptionsImplementations
 
     let public getRuntimeExceptionsImplementation (fullMethodName : string) =
         runtimeExceptionsConstructors.[fullMethodName]
@@ -88,6 +94,7 @@ module Loader =
             "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
             "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
             "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
+            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
 
             // Diagnostics
             "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"

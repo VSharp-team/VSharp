@@ -89,7 +89,7 @@ namespace VSharp.TestRunner
             return StructurallyEqual(expected, got);
         }
 
-        private static bool ReproduceTest(FileInfo fileInfo, bool shouldReproduceError, bool checkResult)
+        private static bool ReproduceTest(FileInfo fileInfo, SuitType suitType, bool checkResult, bool fileMode = false)
         {
             try
             {
@@ -104,13 +104,22 @@ namespace VSharp.TestRunner
                 Console.Out.WriteLine("Starting test reproducing for method {0}", method);
                 if (!checkResult)
                     Console.Out.WriteLine("Result check is disabled");
+                if (suitType == SuitType.TestsOnly)
+                    Console.Out.WriteLine("Error reproducing is disabled");
                 object[] parameters = test.Args ?? method.GetParameters()
                     .Select(t => FormatterServices.GetUninitializedObject(t.ParameterType)).ToArray();
                 var ex = test.Exception;
                 try
                 {
                     object result = null;
-                    if (!test.IsError || shouldReproduceError)
+                    bool shouldInvoke = suitType switch
+                    {
+                        SuitType.TestsOnly => !test.IsError,
+                        SuitType.ErrorsOnly => test.IsError,
+                        SuitType.TestsAndErrors => true,
+                        _ => false
+                    };
+                    if (shouldInvoke)
                         result = method.Invoke(test.ThisArg, parameters);
                     if (ex != null)
                     {
@@ -133,7 +142,8 @@ namespace VSharp.TestRunner
                 }
                 catch (TargetInvocationException e)
                 {
-                    if (e.InnerException != null && e.InnerException.GetType() == ex) {
+                    var exceptionExpected = e.InnerException != null && e.InnerException.GetType() == ex;
+                    if (exceptionExpected || suitType == SuitType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, e.InnerException.GetType().FullName);
                         Console.ResetColor();
@@ -166,10 +176,10 @@ namespace VSharp.TestRunner
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-            return ReproduceTest(file, true, checkResult);
+            return ReproduceTest(file, SuitType.TestsAndErrors, checkResult);
         }
 
-        public static bool ReproduceTests(DirectoryInfo testsDir)
+        public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
@@ -188,7 +198,7 @@ namespace VSharp.TestRunner
 
             foreach (var testFileInfo in testsList)
             {
-                result &= ReproduceTest(testFileInfo, false, true);
+                result &= ReproduceTest(testFileInfo, suitType, true);
             }
 
             return result;

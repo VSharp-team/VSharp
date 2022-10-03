@@ -48,23 +48,23 @@ type symbolicType =
 
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
-    | Unhandled of term
+    | Unhandled of term * bool // Exception term * is runtime exception
     | Caught of term
     | NoException
     with
     member x.GetError () =
         match x with
-        | Unhandled error -> error
+        | Unhandled(error, _) -> error
         | Caught error -> error
         | _ -> internalfail "no error"
 
     member x.TransformToCaught () =
         match x with
-        | Unhandled e -> Caught e
+        | Unhandled(e, _) -> Caught e
         | _ -> internalfail "unable TransformToCaught"
     member x.TransformToUnhandled () =
         match x with
-        | Caught e -> Unhandled e
+        | Caught e -> Unhandled(e, false)
         | _ -> internalfail "unable TransformToUnhandled"
     member x.UnhandledError =
         match x with
@@ -72,12 +72,12 @@ type exceptionRegister =
         | _ -> false
     member x.ExceptionTerm =
         match x with
-        | Unhandled error
+        | Unhandled (error, _)
         | Caught error -> Some error
         | _ -> None
     static member map f x =
         match x with
-        | Unhandled e -> Unhandled <| f e
+        | Unhandled(e, isRuntime) -> Unhandled(f e, isRuntime)
         | Caught e -> Caught <| f e
         | NoException -> NoException
 

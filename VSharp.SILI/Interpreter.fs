@@ -919,6 +919,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | _ when List.length objArgs <> List.length termArgs -> false
             | None when hasThis -> false
             | _ ->
+                // TODO: catch exceptions
                 let result = method.Invoke thisObj (List.toArray objArgs)
                 let resultType = TypeUtils.getTypeOfConcrete result
                 let typ = TypeUtils.mostConcreteType resultType method.ReturnType
@@ -1518,12 +1519,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.Throw (cilState : cilState) =
         let error = peek cilState
+        let isRuntime = Loader.isRuntimeExceptionsImplementation (currentMethod cilState).FullName
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
             (fun cilState k ->
                 let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
                 setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-                setException (Unhandled error) cilState
+                setException (Unhandled(error, isRuntime)) cilState
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
@@ -1563,7 +1565,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 (fun cilState ->
                     StatedConditionalExecutionCIL cilState
                         (fun state k -> k ((x === minValue) &&& (y === minusOne), state))
-                        (this.Raise this.ArithmeticException)
+                        (this.Raise this.OverflowException)
                         (fun cilState k ->
                             push (performAction x y) cilState
                             k [cilState]))
@@ -2016,6 +2018,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     popFrameOf cilState
                 if List.length framesToPop > 1 then List.iter popFrameWithContents (List.tail framesToPop)
                 clearEvaluationStackLastFrame cilState
+                // TODO: need SecondBypass if handler was not found
                 setCurrentIp (SearchingForHandler([], [])) cilState
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->

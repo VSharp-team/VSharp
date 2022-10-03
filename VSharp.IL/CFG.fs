@@ -125,11 +125,8 @@ type internal CfgTemporaryData (method : MethodWithBody) =
                     currentBasicBlock.AddVertex offset
                     dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
-                    // TODO: gsv fix it.
-//                    currentBasicBlock.FinalVertex <- currentVertex
-//                    addEdge currentBasicBlock.StartVertex currentVertex
-//                    calls.Add(CallInfo(null, currentVertex, currentVertex + 1))
-                    ()
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
                 | Return ->
                     addVertex currentVertex
                     sinks.Add currentVertex

@@ -185,7 +185,7 @@ module TestGenerator =
         let test = UnitTest (m :> IMethod).MethodBase
         let hasException =
             match cilState.state.exceptionsRegister with
-            | Unhandled e ->
+            | Unhandled(e, _) when not isError ->
                 let t = MostConcreteTypeOfHeapRef cilState.state e
                 test.Exception <- t
                 true
