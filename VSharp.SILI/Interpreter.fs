@@ -964,32 +964,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif method.HasBody then cilState |> List.singleton |> k
         else internalfailf "Non-extern method %s without body!" method.FullName
 
-    member private x.ArrayMethods (arrayType : Type) =
-        let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> Reflection.getAllMethods
-        let makeSuitable (m : MethodInfo) =
-            if m.IsGenericMethod then m.MakeGenericMethod(arrayType.GetElementType()) else m
-        let concreteMethods = Array.map makeSuitable methodsFromHelper
-        Array.concat [concreteMethods; Reflection.getAllMethods typeof<Array>; Reflection.getAllMethods arrayType]
-
-    member private x.FindSuitableForInterfaceMethod (targetType : Type) (method : MethodInfo) =
-        let interfaceType = method.DeclaringType
-        assert interfaceType.IsInterface
-        let createSignature (m : MethodInfo) =
-            m.GetParameters()
-            |> Seq.map (fun p -> p.ParameterType |> Reflection.getFullTypeName)
-            |> join ","
-        let onlyLastName (m : MethodInfo) =
-            match m.Name.LastIndexOf('.') with
-            | i when i < 0 -> m.Name
-            | i -> m.Name.Substring(i + 1)
-        let sign = createSignature method
-        let lastName = onlyLastName method
-        let methods =
-            match targetType with
-            | _ when targetType.IsArray -> x.ArrayMethods targetType
-            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
-
     member private x.InvokeVirtualMethod (cilState : cilState) calledMethod targetMethod k =
         // Getting this and arguments values by old keys
         let this = Memory.ReadThis cilState.state calledMethod
@@ -1003,11 +977,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
         let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
         let genericMethodInfo =
-            match genericCalledMethod.DeclaringType with
-            | i when i.IsInterface -> x.FindSuitableForInterfaceMethod targetType genericCalledMethod
-            | _ ->
-                let allMethods = Reflection.getAllMethods targetType
-                allMethods |> Seq.find (fun mi -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition())
+            Reflection.resolveOverridingMethod targetType genericCalledMethod
         if genericMethodInfo.IsGenericMethodDefinition then
             genericMethodInfo.MakeGenericMethod(ancestorMethod.GetGenericArguments())
         else genericMethodInfo

@@ -324,12 +324,16 @@ module TypeSolver =
         | result -> result
 
     let getCallVirtCandidates state (thisAddress : heapAddress) =
-        match state.model with
-        | StateModel _ as model ->
-            match model.Eval thisAddress with
-            | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
-                let addresses, inputConstraints = generateConstraints state.model state
-                let index = List.findIndex ((=)thisAddress) addresses
-                thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
-            | _ -> __unreachable__()
-        | PrimitiveModel _ -> __unreachable__()
+        match thisAddress with
+        | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} when VectorTime.less VectorTime.zero thisAddress ->
+            thisAddress, [state.allocatedTypes.[thisAddress]] :> seq<symbolicType>
+        | _ ->
+            match state.model with
+            | StateModel _ as model ->
+                match model.Eval thisAddress with
+                | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
+                    let addresses, inputConstraints = generateConstraints state.model state
+                    let index = List.findIndex ((=)thisAddress) addresses
+                    thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
+                | _ -> __unreachable__()
+            | PrimitiveModel _ -> __unreachable__()
