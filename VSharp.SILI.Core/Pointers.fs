@@ -41,7 +41,7 @@ module internal Pointers =
         | BoxedLocation(concreteHeapAddress, typ) ->
             let baseAddress = HeapLocation(ConcreteHeapAddress concreteHeapAddress, typ)
             baseAddress, makeNumber 0
-        | StackBufferIndex _ -> __notImplemented__()
+        | StackBufferIndex _ -> internalfail "addressToBaseAndOffset: StackBufferIndex case is not implemented"
         | PrimitiveStackLocation loc ->
             StackLocation loc, makeNumber 0
         | _ -> __unreachable__()

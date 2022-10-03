@@ -84,7 +84,8 @@ namespace VSharp
                     recThreshold,
                     timeout,
                     false,
-                    true);
+                    true,
+                    128);
             SILI explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
 

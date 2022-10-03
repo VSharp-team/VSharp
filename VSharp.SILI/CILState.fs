@@ -101,6 +101,11 @@ module internal CilStateOperations =
         | SearchingForHandler([], []) -> true
         | _ -> false
 
+    let hasRuntimeException (s : cilState) =
+        match s.state.exceptionsRegister with
+        | Unhandled(_, isRuntime) -> isRuntime
+        | _ -> false
+
     let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
 
     let tryCurrentLoc = currentIp >> ip2codeLocation
@@ -193,7 +198,7 @@ module internal CilStateOperations =
         match oldValue with
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
-        
+
     let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
         cilState.history <- Set.add loc cilState.history
 

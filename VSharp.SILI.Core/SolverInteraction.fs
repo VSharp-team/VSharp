@@ -22,9 +22,16 @@ module public SolverInteraction =
         abstract CheckSat : encodingContext -> term -> smtResult
         abstract Assert : encodingContext -> term -> unit
 
+        abstract SetMaxBufferSize : int -> unit
+
     let mutable private solver : ISolver option = None
 
     let configureSolver s = solver <- Some s
+
+    let setMaxBufferSize size =
+        match solver with
+        | Some s -> s.SetMaxBufferSize size
+        | None -> ()
 
     let getEncodingContext (state : state) =
         let addresses = PersistentDict.keys state.allocatedTypes

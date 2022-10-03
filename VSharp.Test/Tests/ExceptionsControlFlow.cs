@@ -32,6 +32,18 @@ namespace IntegrationTests
             return checked(x + y);
         }
 
+        [TestSvm(100)]
+        public static int CatchRuntimeException(int x, int y)
+        {
+            try
+            {
+                return x / y;
+            }
+            catch (DivideByZeroException)
+            {
+                return -42;
+            }
+        }
 
         // expecting 111
         [TestSvm]
@@ -130,6 +142,26 @@ namespace IntegrationTests
                 globalMemory++;
             }
             return globalMemory;
+        }
+
+        public static int ConcreteThrow()
+        {
+            throw new NullReferenceException("Null reference!");
+        }
+
+        [TestSvm]
+        public static int ConcreteThrowInCall()
+        {
+            try
+            {
+                ConcreteThrow();
+            }
+            catch (Exception)
+            {
+                return 1;
+            }
+
+            return 2;
         }
 
         [TestSvm(100)]

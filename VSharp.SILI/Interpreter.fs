@@ -382,11 +382,12 @@ module internal InstructionsSet =
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (m : Method) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata m (offset + Offset.from OpCodes.Ldtoken.Size)
+        let state = cilState.state
         let res =
-            match memberInfo with // TODO: should create real RuntimeHandle struct #hack
-            | :? FieldInfo as fi -> Terms.Concrete fi.FieldHandle typeof<RuntimeFieldHandle>
-            | :? Type as t -> Terms.Concrete t.TypeHandle typeof<RuntimeTypeHandle>
-            | :? MethodInfo as mi -> Terms.Concrete mi.MethodHandle typeof<RuntimeMethodHandle>
+            match memberInfo with
+            | :? FieldInfo as fi -> Memory.MarshallObject state fi.FieldHandle typeof<RuntimeFieldHandle>
+            | :? Type as t -> Memory.MarshallObject state t.TypeHandle typeof<RuntimeTypeHandle>
+            | :? MethodInfo as mi -> Memory.MarshallObject state mi.MethodHandle typeof<RuntimeMethodHandle>
             | _ -> internalfailf "Could not resolve token"
         push res cilState
     let ldftn (m : Method) offset (cilState : cilState) =
@@ -778,6 +779,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let fullyGenericMethod, genericArgs, _ = method.Generalize()
         let fullGenericMethodName = fullyGenericMethod.FullName
         let wrapType arg = Concrete arg typeof<Type>
+        // TODO: do not wrap types, pass them through state.typeVariables!
         let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
         let termArgs = method.Parameters |> Seq.map (Memory.ReadArgument state) |> List.ofSeq
         let args = typeArgs @ termArgs
@@ -811,7 +813,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | None -> [], false
         let localVarsDecl (lvi : LocalVariableInfo) =
             let stackKey = LocalVariableKey(lvi, method)
-            (stackKey, None, lvi.LocalType)
+            (stackKey, lvi.LocalType |> Memory.DefaultOf |> Some, lvi.LocalType)
         let locals =
             match method.LocalVariables with
             | null -> []
@@ -905,6 +907,38 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
+    member private x.ConcreteInvokeCatch (e : Exception) cilState =
+        let state = cilState.state
+        let ref = Memory.AllocateConcreteObject state e (e.GetType())
+        popFrameOf cilState
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setException (Unhandled(ref, true)) cilState
+
+    member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
+        let state = cilState.state
+        if Loader.isInvokeInternalCall fullMethodName then
+            // Before term args, type args are located
+            let termArgs = List.skip (List.length args - method.Parameters.Length) args
+            let objArgs = List.choose (TryTermToObj state) termArgs
+            let hasThis = Option.isSome thisOption
+            let thisObj = Option.bind (TryTermToObj state) thisOption
+            match thisObj with
+            | _ when List.length objArgs <> List.length termArgs -> false
+            | None when hasThis -> false
+            | _ ->
+                try
+                    let result = method.Invoke thisObj (List.toArray objArgs)
+                    let resultType = TypeUtils.getTypeOfConcrete result
+                    let typ = TypeUtils.mostConcreteType resultType method.ReturnType
+                    if typ <> typeof<Void> then
+                        let resultTerm = Memory.MarshallObject cilState.state result typ
+                        push resultTerm cilState
+                    setCurrentIp (Exit method) cilState
+                with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
+                true
+        else false
+
     member private x.InlineMethodBaseCallIfNeeded (method : Method) (cilState : cilState) k =
         // [NOTE] Asserting correspondence between ips and frames
         assert(currentMethod cilState = method && currentOffset cilState = Some 0<offsets>)
@@ -914,7 +948,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             if currentMethod cilState = method then
                 setCurrentIp (Exit method) cilState
             cilState
-        if Map.containsKey fullMethodName cilStateImplementations then
+        if x.TryConcreteInvoke method fullMethodName args thisOption cilState then
+            List.singleton cilState |> k
+        elif Map.containsKey fullMethodName cilStateImplementations then
             let states = cilStateImplementations.[fullMethodName] cilState thisOption args
             List.map moveIpToExit states |> k
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then
@@ -938,32 +974,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif method.HasBody then cilState |> List.singleton |> k
         else internalfailf "Non-extern method %s without body!" method.FullName
 
-    member private x.ArrayMethods (arrayType : Type) =
-        let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> Reflection.getAllMethods
-        let makeSuitable (m : MethodInfo) =
-            if m.IsGenericMethod then m.MakeGenericMethod(arrayType.GetElementType()) else m
-        let concreteMethods = Array.map makeSuitable methodsFromHelper
-        Array.concat [concreteMethods; Reflection.getAllMethods typeof<Array>; Reflection.getAllMethods arrayType]
-
-    member private x.FindSuitableForInterfaceMethod (targetType : Type) (method : MethodInfo) =
-        let interfaceType = method.DeclaringType
-        assert interfaceType.IsInterface
-        let createSignature (m : MethodInfo) =
-            m.GetParameters()
-            |> Seq.map (fun p -> p.ParameterType |> Reflection.getFullTypeName)
-            |> join ","
-        let onlyLastName (m : MethodInfo) =
-            match m.Name.LastIndexOf('.') with
-            | i when i < 0 -> m.Name
-            | i -> m.Name.Substring(i + 1)
-        let sign = createSignature method
-        let lastName = onlyLastName method
-        let methods =
-            match targetType with
-            | _ when targetType.IsArray -> x.ArrayMethods targetType
-            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
-
     member private x.InvokeVirtualMethod (cilState : cilState) calledMethod targetMethod k =
         // Getting this and arguments values by old keys
         let this = Memory.ReadThis cilState.state calledMethod
@@ -977,11 +987,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
         let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
         let genericMethodInfo =
-            match genericCalledMethod.DeclaringType with
-            | i when i.IsInterface -> x.FindSuitableForInterfaceMethod targetType genericCalledMethod
-            | _ ->
-                let allMethods = Reflection.getAllMethods targetType
-                allMethods |> Seq.find (fun mi -> mi.GetBaseDefinition() = genericCalledMethod.GetBaseDefinition())
+            Reflection.resolveOverridingMethod targetType genericCalledMethod
         if genericMethodInfo.IsGenericMethodDefinition then
             genericMethodInfo.MakeGenericMethod(ancestorMethod.GetGenericArguments())
         else genericMethodInfo
@@ -991,7 +997,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
-            let callForConcreteType typ state k =
+            let callForConcreteType typ _ k =
                 let targetMethod = x.ResolveVirtualMethod typ ancestorMethod
                 if targetMethod.IsAbstract
                     then x.CallAbstract targetMethod cilState k
@@ -1522,12 +1528,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.Throw (cilState : cilState) =
         let error = peek cilState
+        let isRuntime = Loader.isRuntimeExceptionsImplementation (currentMethod cilState).FullName
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
             (fun cilState k ->
                 let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
                 setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-                setException (Unhandled error) cilState
+                setException (Unhandled(error, isRuntime)) cilState
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
@@ -1567,7 +1574,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 (fun cilState ->
                     StatedConditionalExecutionCIL cilState
                         (fun state k -> k ((x === minValue) &&& (y === minusOne), state))
-                        (this.Raise this.ArithmeticException)
+                        (this.Raise this.OverflowException)
                         (fun cilState k ->
                             push (performAction x y) cilState
                             k [cilState]))
@@ -2020,6 +2027,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     popFrameOf cilState
                 if List.length framesToPop > 1 then List.iter popFrameWithContents (List.tail framesToPop)
                 clearEvaluationStackLastFrame cilState
+                // TODO: need SecondBypass if handler was not found
                 setCurrentIp (SearchingForHandler([], [])) cilState
                 k [cilState]
             | SearchingForHandler(location :: otherLocations, framesToPop) ->

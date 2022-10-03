@@ -139,11 +139,72 @@ module public Reflection =
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
 
+    let getArrayMethods (arrayType : Type) =
+        let methodsFromHelper = Type.GetType("System.SZArrayHelper") |> getAllMethods
+        let makeSuitable (m : MethodInfo) =
+            if m.IsGenericMethod then m.MakeGenericMethod(arrayType.GetElementType()) else m
+        let concreteMethods = Array.map makeSuitable methodsFromHelper
+        Array.concat [concreteMethods; getAllMethods typeof<Array>; getAllMethods arrayType]
+
+    let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
+        let interfaceType = interfaceMethod.DeclaringType
+        assert interfaceType.IsInterface
+        let createSignature (m : MethodInfo) =
+            m.GetParameters()
+            |> Seq.map (fun p -> getFullTypeName p.ParameterType)
+            |> join ","
+        let onlyLastName (m : MethodInfo) =
+            match m.Name.LastIndexOf('.') with
+            | i when i < 0 -> m.Name
+            | i -> m.Name.Substring(i + 1)
+        let sign = createSignature interfaceMethod
+        let lastName = onlyLastName interfaceMethod
+        let methods =
+            match targetType with
+            | _ when targetType.IsArray -> getArrayMethods targetType
+            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
+        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
+
+    let isOverrideOf (sourceMethod : MethodInfo) (method : MethodInfo) =
+        sourceMethod.GetBaseDefinition() = method.GetBaseDefinition()
+        ||
+        // Return type covariance case
+        Attribute.IsDefined(method, typeof<System.Runtime.CompilerServices.PreserveBaseOverridesAttribute>) &&
+        method.Name = sourceMethod.Name &&
+            let sourceSig = sourceMethod.GetParameters()
+            let targetSig = method.GetParameters()
+            targetSig.Length = sourceSig.Length &&
+            Array.forall2 (fun (p : ParameterInfo) (p' : ParameterInfo) -> p.ParameterType = p'.ParameterType) sourceSig targetSig
+
+    let resolveOverridingMethod targetType (virtualMethod : MethodInfo) =
+        assert virtualMethod.IsVirtual
+        match virtualMethod.DeclaringType with
+        | i when i.IsInterface -> resolveInterfaceOverride targetType virtualMethod
+        | _ ->
+            let rec resolve targetType =
+                assert(targetType <> null)
+                if targetType = virtualMethod.DeclaringType then virtualMethod
+                else
+                    let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+                    let bindingFlags = BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance ||| BindingFlags.InvokeMethod ||| BindingFlags.DeclaredOnly
+                    let declaredMethods = targetType.GetMethods(bindingFlags)
+                    let resolvedMethod = declaredMethods |> Seq.tryFind (isOverrideOf virtualMethod)
+                    match resolvedMethod with
+                    | Some resolvedMethod -> resolvedMethod
+                    | None -> resolve targetType.BaseType
+            resolve targetType
+
+
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
         if TypeUtils.isNullable t then null
         else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+
+    let defaultOf (t : Type) =
+        if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
+            then Activator.CreateInstance t
+            else null
 
     // --------------------------------- Substitute generics ---------------------------------
 
@@ -246,8 +307,7 @@ module public Reflection =
         else field.declaringType.GetRuntimeField(field.name)
 
     let rec private retrieveFields isStatic f (t : Type) =
-        let staticFlag = if isStatic then BindingFlags.Static else BindingFlags.Instance
-        let flags = BindingFlags.Public ||| BindingFlags.NonPublic ||| staticFlag
+        let flags = if isStatic then staticBindingFlags else instanceBindingFlags
         let fields = t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
         let ourFields = f fields
         if isStatic || t.BaseType = null then ourFields

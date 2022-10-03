@@ -132,7 +132,7 @@ namespace VSharp.Test
 
             private readonly SearchStrategy _baseSearchStrat;
             private readonly CoverageZone _baseCoverageZone;
-            
+
             public TestSvmCommand(
                 TestCommand innerCommand,
                 int? expectedCoverage,
@@ -150,13 +150,13 @@ namespace VSharp.Test
 
                 _expectedCoverage = TestContext.Parameters[ExpectedCoverageParameterName] == null ?
                     expectedCoverage : int.Parse(TestContext.Parameters[ExpectedCoverageParameterName]);
-                
+
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
-                
+
                 _timeout = TestContext.Parameters[TimeoutParameterName] == null ?
                     timeout : int.Parse(TestContext.Parameters[TimeoutParameterName]);
-                
+
                 _releaseBranches = TestContext.Parameters[ReleaseBranchesParameterName] == null ?
                     releaseBranches : bool.Parse(TestContext.Parameters[ReleaseBranchesParameterName]);
 
@@ -187,14 +187,14 @@ namespace VSharp.Test
             private TestResult Explore(TestExecutionContext context)
             {
                 IStatisticsReporter reporter = null;
-                    
+
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
                 if (csvReportPath != null)
                 {
                     reporter = new CsvStatisticsReporter(
                         csvReportPath,
                         "TestResults",
-                        TestContext.Parameters[RunIdParameterName] ?? "" 
+                        TestContext.Parameters[RunIdParameterName] ?? ""
                     );
                 }
 
@@ -208,7 +208,7 @@ namespace VSharp.Test
                     _baseSearchStrat,
                     _baseCoverageZone
                 );
-                    
+
                 try
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
@@ -219,7 +219,8 @@ namespace VSharp.Test
                         _recThresholdForTest,
                         _timeout,
                         false,
-                        _releaseBranches
+                        _releaseBranches,
+                        128
                     );
                     SILI explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
@@ -235,13 +236,13 @@ namespace VSharp.Test
 
                         var method = Application.getMethod(unitTest.Method);
                         var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
-                        
+
                         if (approximateCoverage >= _expectedCoverage)
                         {
                             explorer.Stop();
                         }
                     }
-                    
+
                     void GenerateErrorAndCheckCoverage(UnitTest unitTest)
                     {
                         unitTests.GenerateError(unitTest);
@@ -274,7 +275,7 @@ namespace VSharp.Test
                         TestsGenerated = unitTests.UnitTestsCount,
                         TestsOutputDirectory = unitTests.TestDirectory.FullName
                     };
-                    
+
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
@@ -319,7 +320,7 @@ namespace VSharp.Test
         public TestMethod BuildFrom(IMethodInfo method, NUnit.Framework.Internal.Test suite)
         {
             var defaultParameters = method.GetParameters().Select(
-                parameter => TypeUtils.defaultOf(parameter.ParameterType)).ToArray();
+                parameter => Reflection.defaultOf(parameter.ParameterType)).ToArray();
             var parameters = new TestCaseParameters(defaultParameters);
             if (method.ReturnType.Type != typeof(void))
                 parameters.ExpectedResult = null;

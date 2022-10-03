@@ -12,6 +12,9 @@ module internal Unsafe =
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.As(System.Object)")>]
     val internal ObjectAsT : state -> term list -> term
 
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AsRef(T&)")>]
+    val internal AsRef : state -> term list -> term
+
     [<Implements("TTo& Internal.Runtime.CompilerServices.Unsafe.As(TFrom&)")>]
     val internal TFromAsTTo : state -> term list -> term
 

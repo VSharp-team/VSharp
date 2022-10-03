@@ -42,6 +42,12 @@ module internal SR =
     [<Implements("System.String System.SR.get_ArgumentNull_Generic()")>]
     val internal get_ArgumentNull_Generic : state -> term list -> term
 
+    [<Implements("System.String System.SR.get_Arg_DivideByZero()")>]
+    val internal get_Arg_DivideByZero : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Arg_ArithmeticException()")>]
+    val internal get_Arg_ArithmeticException : state -> term list -> term
+
     [<Implements("System.String System.Exception.GetMessageFromNativeResources(System.Exception+ExceptionMessageKind)")>]
     val internal getMessageFromNativeResources : state -> term list -> term
 

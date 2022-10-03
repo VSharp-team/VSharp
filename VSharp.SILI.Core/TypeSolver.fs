@@ -264,14 +264,14 @@ module TypeSolver =
                 | term -> internalfailf "Unexpected address %O in subtyping constraint!" term
 
             PC.toSeq state.pc |> Seq.iter (term >> function
-                | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> __notImplemented__()
+                | Constant(_, TypeCasting.TypeSubtypeTypeSource _, _) -> internalfail "TypeSolver is not fully implemented"
                 | Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _) -> add supertypeConstraints address typ
                 | Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _) -> add subtypeConstraints address typ
-                | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> __notImplemented__()
-                | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> __notImplemented__()
+                | Constant(_, TypeCasting.RefSubtypeRefSource _, _) -> internalfail "TypeSolver is not fully implemented"
+                | Negation({term = Constant(_, TypeCasting.TypeSubtypeTypeSource _, _)})-> internalfail "TypeSolver is not fully implemented"
                 | Negation({term = Constant(_, TypeCasting.RefSubtypeTypeSource(address, typ), _)}) -> add notSupertypeConstraints address typ
                 | Negation({term = Constant(_, TypeCasting.TypeSubtypeRefSource(typ, address), _)}) -> add notSubtypeConstraints address typ
-                | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> __notImplemented__()
+                | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) -> internalfail "TypeSolver is not fully implemented"
                 | _ -> ())
             let toList (d : Dictionary<concreteHeapAddress, List<Type>>) addr =
                 let l = Dict.tryGetValue d addr null
@@ -324,12 +324,16 @@ module TypeSolver =
         | result -> result
 
     let getCallVirtCandidates state (thisAddress : heapAddress) =
-        match state.model with
-        | StateModel _ as model ->
-            match model.Eval thisAddress with
-            | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
-                let addresses, inputConstraints = generateConstraints state.model state
-                let index = List.findIndex ((=)thisAddress) addresses
-                thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
-            | _ -> __unreachable__()
-        | PrimitiveModel _ -> __unreachable__()
+        match thisAddress with
+        | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} when VectorTime.less VectorTime.zero thisAddress ->
+            thisAddress, [state.allocatedTypes.[thisAddress]] :> seq<symbolicType>
+        | _ ->
+            match state.model with
+            | StateModel _ as model ->
+                match model.Eval thisAddress with
+                | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
+                    let addresses, inputConstraints = generateConstraints state.model state
+                    let index = List.findIndex ((=)thisAddress) addresses
+                    thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
+                | _ -> __unreachable__()
+            | PrimitiveModel _ -> __unreachable__()

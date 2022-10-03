@@ -74,7 +74,7 @@ type ClientMachine(entryPoint : Method, requestMakeStep : cilState -> unit, cilS
             result.Arguments <- method.Module.Assembly.Location
         else
             let runnerPath = "VSharp.TestRunner.dll"
-            result.Arguments <- sprintf "%s %s %O" runnerPath (tempTest id) false
+            result.Arguments <- sprintf "%s %s --disable-check" runnerPath (tempTest id)
         result
 
     [<DefaultValue>] val mutable private communicator : Communicator

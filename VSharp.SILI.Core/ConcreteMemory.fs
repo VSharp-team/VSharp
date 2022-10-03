@@ -1,133 +1,221 @@
 namespace VSharp.Core
 
+open System
+open System.Collections.Generic
+open System.Runtime.Serialization
+open System.Runtime.CompilerServices
 open VSharp
+open VSharp.Utils
 
-module internal PhysToVirt =
+[<CustomEquality;NoComparison>]
+type physicalAddress = {object : obj}
+    with
+    override x.GetHashCode() = RuntimeHelpers.GetHashCode(x.object)
+    override x.Equals(o : obj) =
+        match o with
+        | :? physicalAddress as other ->
+            Object.ReferenceEquals(x.object, other.object)
+        | _ -> false
+    override x.ToString() = PrettyPrinting.printConcrete x.object
 
-    let find (state : state) obj = PersistentDict.find state.physToVirt {object = obj}
+type public ConcreteMemory private (physToVirt, virtToPhys) =
 
-module internal ConcreteMemory =
+    let mutable physToVirt = physToVirt
+    let mutable virtToPhys = virtToPhys
 
-// ----------------------------- Primitives -----------------------------
+// ----------------------------- Helpers -----------------------------
 
-    let deepCopy (state : state) =
-        let cm = state.concreteMemory
-        let cm' = System.Collections.Generic.Dictionary<concreteHeapAddress, physicalAddress>()
-        let cmSeq = Seq.map (|KeyValue|) cm
-        let updateOne acc (k, v : physicalAddress) =
-            let v' = {object = v.object} // TODO: deep copy object
-            cm'.Add(k, v')
-            PersistentDict.add v' k acc
-        let physToVirt = Seq.fold updateOne PersistentDict.empty cmSeq
-        state.physToVirt <- physToVirt
-        { state with state.concreteMemory = cm' }
-
-    let getObject (physicalAddress : physicalAddress) = physicalAddress.object
-
-    let contains (cm : concreteMemory) address =
-        cm.ContainsKey address
-
-    let tryFind (cm : concreteMemory) address =
-        let result = ref {object = null}
-        if cm.TryGetValue(address, result) then
-            getObject result.Value |> Some
-        else None
-
-// ----------------------------- Allocation -----------------------------
-
-    let allocate (state : state) address (obj : obj) =
-        let cm = state.concreteMemory
-        assert(cm.ContainsKey address |> not)
-        let physicalAddress = {object = obj}
-        cm.Add(address, physicalAddress)
-        state.physToVirt <- PersistentDict.add physicalAddress address state.physToVirt
-
-// ------------------------------- Reading -------------------------------
-
-    let readObject (cm : concreteMemory) address =
-        assert(cm.ContainsKey address)
-        cm.[address] |> getObject
-
-    let readClassField (cm : concreteMemory) address (field : fieldId) =
-        let object = readObject cm address
-        let fieldInfo = Reflection.getFieldInfo field
-        fieldInfo.GetValue(object)
-
-    let readArrayIndex (cm : concreteMemory) address (indices : int list) =
-        match readObject cm address with
-        | :? System.Array as array -> array.GetValue(Array.ofList indices)
-        | :? System.String as string when List.length indices = 1 -> string.[List.head indices] :> obj
-        | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
-
-    let private getArrayIndicesWithValues (array : System.Array) =
+    let getArrayIndicesWithValues (array : Array) =
         let ubs = List.init array.Rank array.GetUpperBound
         let lbs = List.init array.Rank array.GetLowerBound
         let indices = List.map2 (fun lb ub -> [lb .. ub]) lbs ubs |> List.cartesian
         indices |> Seq.map (fun index -> index, array.GetValue(Array.ofList index))
 
-    let getAllArrayData (cm : concreteMemory) address =
-        match readObject cm address with
-        | :? System.Array as array -> getArrayIndicesWithValues array
-        | :? System.String as string -> string.ToCharArray() |> getArrayIndicesWithValues
-        | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
+    let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
-    let readArrayLowerBound (cm : concreteMemory) address dimension =
-        match readObject cm address with
-        | :? System.Array as array -> array.GetLowerBound(dimension)
-        | :? System.String when dimension = 0 -> 0
-        | obj -> internalfailf "reading array lower bound from concrete memory: expected to read array, but got %O" obj
+    let rec deepCopyObject (phys : physicalAddress) =
+        let obj = phys.object
+        let typ = TypeUtils.getTypeOfConcrete obj
+        match obj with
+        | null -> phys
+        | _ when TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
+        | :? System.Reflection.Pointer -> phys
+        | _ -> deepCopyComplex phys typ
 
-    let readArrayLength (cm : concreteMemory) address dimension =
-        match readObject cm address with
-        | :? System.Array as array -> array.GetLength(dimension)
-        | :? System.String as string when dimension = 0 -> string.Length
-        | obj -> internalfailf "reading array length from concrete memory: expected to read array, but got %O" obj
+    and deepCopyComplex (phys : physicalAddress) typ =
+        let copied = ref {object = null}
+        if copiedObjects.TryGetValue(phys, copied) then copied.Value
+        else createCopyComplex phys typ
+
+    and createCopyComplex (phys : physicalAddress) typ =
+        let obj = phys.object
+        match obj with
+        | :? Array as a when typ.GetElementType().IsPrimitive ->
+            let phys' = {object = a.Clone()}
+            copiedObjects.Add(phys, phys')
+            phys'
+        | :? Array as a ->
+            let rank = a.Rank
+            let dims = Array.init rank id
+            let lengths = Array.map a.GetLength dims
+            let lowerBounds = Array.map a.GetLowerBound dims
+            let a' = Array.CreateInstance(typ.GetElementType(), lengths, lowerBounds)
+            let phys' = {object = a'}
+            copiedObjects.Add(phys, phys')
+            let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+            for index in indices do
+                let index = List.toArray index
+                let v' = deepCopyObject {object = a.GetValue index}
+                a'.SetValue(v'.object, index)
+            phys'
+        | :? String as s ->
+            let phys' = {object = String(s)}
+            copiedObjects.Add(phys, phys')
+            phys'
+        | _ when typ.IsClass || typ.IsValueType ->
+            let obj' = FormatterServices.GetUninitializedObject typ
+            let phys' = {object = obj'}
+            copiedObjects.Add(phys, phys')
+            let fields = Reflection.fieldsOf false typ
+            for _, field in fields do
+                let v' = deepCopyObject {object = field.GetValue obj}
+                field.SetValue(obj', v'.object)
+            phys'
+        | _ -> internalfailf "ConcreteMemory, deepCopyObject: unexpected object %O" obj
+
+// ----------------------------- Constructor -----------------------------
+
+    new () =
+        let physToVirt = Dictionary<physicalAddress, concreteHeapAddress>()
+        let virtToPhys = Dictionary<concreteHeapAddress, physicalAddress>()
+        ConcreteMemory(physToVirt, virtToPhys)
+
+// ----------------------------- Primitives -----------------------------
+
+    member private x.ReadObject address =
+        assert(virtToPhys.ContainsKey address)
+        virtToPhys[address].object
+
+    member private x.WriteObject address obj =
+        assert(virtToPhys.ContainsKey address)
+        let physicalAddress = {object = obj}
+        virtToPhys[address] <- physicalAddress
+
+// ------------------------------- Copying -------------------------------
+
+    interface IConcreteMemory with
+
+        override x.Copy() =
+            let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
+            let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
+            copiedObjects.Clear()
+            for kvp in physToVirt do
+                let phys, virt = kvp.Key, kvp.Value
+                let phys' = deepCopyObject phys
+                if virtToPhys.ContainsKey virt then
+                    virtToPhys'.Add(virt, phys')
+                physToVirt'.Add(phys', virt)
+            ConcreteMemory(physToVirt', virtToPhys')
+
+// ----------------------------- Primitives -----------------------------
+
+        override x.Contains address =
+            virtToPhys.ContainsKey address
+
+        // TODO: leave only one function #refactor
+        override x.VirtToPhys virtAddress = x.ReadObject virtAddress
+
+        override x.TryVirtToPhys virtAddress =
+            let result = ref {object = null}
+            if virtToPhys.TryGetValue(virtAddress, result) then
+                Some result.Value.object
+            else None
+
+        override x.PhysToVirt physAddress =
+            let cm = x :> IConcreteMemory
+            match cm.TryPhysToVirt physAddress with
+            | Some address -> address
+            | None -> internalfailf "PhysToVirt: unable to get virtual address for object %O" physAddress
+
+        override x.TryPhysToVirt physAddress =
+            let result = ref List.empty
+            if physToVirt.TryGetValue({object = physAddress}, result) then
+                Some result.Value
+            else None
+
+// ----------------------------- Allocation -----------------------------
+
+        override x.Allocate address (obj : obj) =
+            assert(virtToPhys.ContainsKey address |> not)
+            let physicalAddress = {object = obj}
+            virtToPhys.Add(address, physicalAddress)
+            if obj = String.Empty then physToVirt[physicalAddress] <- address
+            else physToVirt.Add(physicalAddress, address)
+
+// ------------------------------- Reading -------------------------------
+
+        override x.ReadClassField address (field : fieldId) =
+            let object = x.ReadObject address
+            let fieldInfo = Reflection.getFieldInfo field
+            fieldInfo.GetValue(object)
+
+        override x.ReadArrayIndex address (indices : int list) =
+            match x.ReadObject address with
+            | :? Array as array -> array.GetValue(Array.ofList indices)
+            | :? String as string when List.length indices = 1 -> string.[List.head indices] :> obj
+            | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
+
+        override x.GetAllArrayData address =
+            match x.ReadObject address with
+            | :? Array as array -> getArrayIndicesWithValues array
+            | :? String as string -> string.ToCharArray() |> getArrayIndicesWithValues
+            | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
+
+        override x.ReadArrayLowerBound address dimension =
+            match x.ReadObject address with
+            | :? Array as array -> array.GetLowerBound(dimension)
+            | :? String when dimension = 0 -> 0
+            | obj -> internalfailf "reading array lower bound from concrete memory: expected to read array, but got %O" obj
+
+        override x.ReadArrayLength address dimension =
+            match x.ReadObject address with
+            | :? Array as array -> array.GetLength(dimension)
+            | :? String as string when dimension = 0 -> string.Length
+            | obj -> internalfailf "reading array length from concrete memory: expected to read array, but got %O" obj
 
 // ------------------------------- Writing -------------------------------
 
-    let private writeObject (state : state) address obj =
-        let cm = state.concreteMemory
-        assert(cm.ContainsKey address)
-        let physicalAddress = {object = obj}
-        state.concreteMemory.[address] <- physicalAddress
+        override x.WriteClassField address (field : fieldId) value =
+            let object = x.ReadObject address
+            let fieldInfo = Reflection.getFieldInfo field
+            fieldInfo.SetValue(object, value)
 
-    let writeClassField (state : state) address (field : fieldId) value =
-        let object = readObject state.concreteMemory address
-        let fieldInfo = Reflection.getFieldInfo field
-        fieldInfo.SetValue(object, value)
-        writeObject state address object
+        override x.WriteArrayIndex address (indices : int list) value =
+            match x.ReadObject address with
+            | :? Array as array ->
+                array.SetValue(value, Array.ofList indices)
+            // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
+            | :? String as string when List.length indices = 1 ->
+                let charArray = string.ToCharArray()
+                charArray.SetValue(value, List.head indices)
+                let newString = String(charArray)
+                x.WriteObject address newString
+            | obj -> internalfailf "writing array index to concrete memory: expected to read array, but got %O" obj
 
-    let writeArrayIndex (state : state) address (indices : int list) value =
-        match readObject state.concreteMemory address with
-        | :? System.Array as array ->
-            array.SetValue(value, Array.ofList indices)
-            writeObject state address array
-        // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
-        | :? System.String as string when List.length indices = 1 ->
-            let charArray = string.ToCharArray()
-            charArray.SetValue(value, List.head indices)
-            let newString = System.String(charArray)
-            writeObject state address newString
-        | obj -> internalfailf "writing array index to concrete memory: expected to read array, but got %O" obj
+        override x.InitializeArray address (rfh : RuntimeFieldHandle) =
+            match x.ReadObject address with
+            | :? Array as array -> RuntimeHelpers.InitializeArray(array, rfh)
+            | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
 
-    let initializeArray (state : state) address (rfh : System.RuntimeFieldHandle) =
-        match readObject state.concreteMemory address with
-        | :? System.Array as array ->
-            System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(array, rfh)
-            writeObject state address array
-        | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
+        override x.CopyCharArrayToString arrayAddress stringAddress =
+            let array = x.ReadObject arrayAddress :?> char array
+            let string = new string(array) :> obj
+            x.WriteObject stringAddress string
+            let physAddress = {object = string}
+            physToVirt[physAddress] <- stringAddress
 
-    let copyCharArrayToString (state : state) arrayAddress stringAddress =
-        let array = readObject state.concreteMemory arrayAddress :?> char array
-        let string = new string(array) :> obj
-        writeObject state stringAddress string
-        state.physToVirt <- PersistentDict.add {object = string} stringAddress state.physToVirt
+    // ------------------------------- Remove -------------------------------
 
-// ------------------------------- Remove -------------------------------
-
-    let remove (state : state) address =
-        let cm = state.concreteMemory
-        let object = readObject cm address
-        let removed = state.concreteMemory.Remove address
-        assert removed
-        state.physToVirt <- PersistentDict.remove {object = object} state.physToVirt
+        override x.Remove address =
+            let removed = virtToPhys.Remove address
+            assert removed

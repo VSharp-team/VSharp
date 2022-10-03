@@ -32,4 +32,5 @@ type SiliOptions = {
     timeout : int
     visualize : bool
     releaseBranches : bool
+    maxBufferSize : int
 }
