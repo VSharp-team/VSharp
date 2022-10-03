@@ -573,8 +573,11 @@ module API =
                 for _, field in fields do
                     let fieldType = field.FieldType
                     if not fieldType.IsValueType then
-                        AllocateConcreteObject state (field.GetValue(obj)) fieldType |> ignore
+                        let fieldValue = field.GetValue(obj)
+                        let typ = if fieldValue = null then fieldType else fieldValue.GetType()
+                        AllocateConcreteObject state (field.GetValue(obj)) typ |> ignore
                 ObjectToTerm state obj typ
+            elif typ = typeof<Reflection.Pointer> then ObjectToTerm state obj typ
             else AllocateConcreteObject state obj typ
 
     module Print =
