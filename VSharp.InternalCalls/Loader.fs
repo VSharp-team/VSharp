@@ -102,6 +102,8 @@ module Loader =
 
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
+
+            "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =

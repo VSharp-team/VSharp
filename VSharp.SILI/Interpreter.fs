@@ -907,6 +907,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
+    member private x.ConcreteInvokeCatch (e : Exception) cilState =
+        let state = cilState.state
+        let ref = Memory.AllocateConcreteObject state e (e.GetType())
+        popFrameOf cilState
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setException (Unhandled(ref, true)) cilState
+
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
         if Loader.isInvokeInternalCall fullMethodName then
@@ -919,13 +927,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | _ when List.length objArgs <> List.length termArgs -> false
             | None when hasThis -> false
             | _ ->
-                // TODO: catch exceptions
-                let result = method.Invoke thisObj (List.toArray objArgs)
-                let resultType = TypeUtils.getTypeOfConcrete result
-                let typ = TypeUtils.mostConcreteType resultType method.ReturnType
-                if typ <> typeof<Void> then
-                    let resultTerm = Memory.MarshallObject cilState.state result typ
-                    push resultTerm cilState
+                try
+                    let result = method.Invoke thisObj (List.toArray objArgs)
+                    let resultType = TypeUtils.getTypeOfConcrete result
+                    let typ = TypeUtils.mostConcreteType resultType method.ReturnType
+                    if typ <> typeof<Void> then
+                        let resultTerm = Memory.MarshallObject cilState.state result typ
+                        push resultTerm cilState
+                    setCurrentIp (Exit method) cilState
+                with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
                 true
         else false
 
@@ -939,7 +949,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 setCurrentIp (Exit method) cilState
             cilState
         if x.TryConcreteInvoke method fullMethodName args thisOption cilState then
-            let cilState = moveIpToExit cilState
             List.singleton cilState |> k
         elif Map.containsKey fullMethodName cilStateImplementations then
             let states = cilStateImplementations.[fullMethodName] cilState thisOption args
