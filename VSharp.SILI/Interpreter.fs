@@ -828,7 +828,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let typ = param.ParameterType
                     (stackKey, Some(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
-                | _ -> (stackKey, None, param.ParameterType)
+                | _ ->
+                    if param.ParameterType.IsByRef then
+                        if Memory.CallStackSize state = 0 then
+                            Memory.NewStackFrame state None []
+                        let stackRef = Memory.AllocateTemporaryLocalVariableOfType state param.Name (param.Position + 1) (param.ParameterType.GetElementType())
+                        (stackKey, Some stackRef, param.ParameterType)
+                    else
+                        (stackKey, None, param.ParameterType)
             | Some param, Some value -> (ParameterKey param, Some value, param.ParameterType)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
@@ -1274,7 +1281,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
             if Types.IsValueType typ || TypeUtils.isPointer typ then
                 let freshValue = Memory.DefaultOf typ
-                let ref = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
+                let ref = Memory.AllocateTemporaryLocalVariable cilState.state -1 typ freshValue
                 push ref cilState // NOTE: ref is used to retrieve constructed struct
                 let stackSizeBefore = Memory.CallStackSize cilState.state
                 callConstructor cilState ref (List.map (fun afterCall -> modifyValueResultIfConstructorWasCalled stackSizeBefore afterCall; afterCall))

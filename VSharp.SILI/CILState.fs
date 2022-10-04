@@ -4,6 +4,7 @@ open VSharp
 open System.Text
 open System.Collections.Generic
 open VSharp.Core
+open VSharp.Interpreter.IL
 open ipOperations
 
 [<ReferenceEquality>]
@@ -31,7 +32,7 @@ type cilState =
     member x.Result with get() =
 //        assert(Memory.CallStackSize x.state = 1)
         match EvaluationStack.Length x.state.evaluationStack with
-        | _ when Memory.CallStackSize x.state <> 1 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+        | _ when Memory.CallStackSize x.state > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
         | 0 -> Nop
         | 1 ->
             let result = EvaluationStack.Pop x.state.evaluationStack |> fst

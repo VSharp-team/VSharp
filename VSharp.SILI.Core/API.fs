@@ -266,7 +266,7 @@ module API =
         let EmptyState() = Memory.makeEmpty false
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
-            Memory.fillWithParametersAndThis modelState method
+            Memory.fillModelWithParametersAndThis modelState method
             StateModel modelState
 
         let PopFrame state = Memory.popFrame state
@@ -394,11 +394,13 @@ module API =
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
 
-        let AllocateTemporaryLocalVariable state typ term =
-            let tmpKey = TemporaryLocalVariableKey typ
+        let AllocateTemporaryLocalVariable state index typ term =
+            let tmpKey = TemporaryLocalVariableKey(typ, index)
             let ref = PrimitiveStackLocation tmpKey |> Ref
             Memory.allocateOnStack state tmpKey term
             ref
+
+        let AllocateTemporaryLocalVariableOfType state name index typ = Memory.allocateTemporaryLocalVariableOfType state name index typ
 
         let AllocateDefaultClass state typ =
             if typ = typeof<string> then
@@ -424,6 +426,7 @@ module API =
 
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
+
         let CreateStringFromChar state char = Memory.createStringFromChar state char
 
         let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
