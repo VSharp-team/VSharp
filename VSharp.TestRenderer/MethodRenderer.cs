@@ -134,6 +134,11 @@ internal class MethodRenderer
             _statements.Add(ExpressionStatement(function));
         }
 
+        public void AddAssignment(AssignmentExpressionSyntax assignment)
+        {
+            _statements.Add(ExpressionStatement(assignment));
+        }
+
         public void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
         {
             _statements.Add(ExpressionStatement(RenderAssertEqual(x, y)));
@@ -256,6 +261,53 @@ internal class MethodRenderer
             return RenderArrayCreation(type, initializer);
         }
 
+        private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj)
+        {
+            var array = obj.array;
+            var indices = obj.indices;
+            var values = obj.values;
+            var t = array.GetType();
+            var type = (ArrayTypeSyntax) RenderType(t);
+            Debug.Assert(type != null);
+            var defaultOf = Reflection.defaultOf(t.GetElementType());
+            var defaultValue = obj.defaultValue;
+            if (defaultValue == null || defaultValue.Equals(defaultOf))
+            {
+                if (t.IsSZArray)
+                {
+                    var createArray = RenderArrayCreation(type, array.Length);
+                    var arrayId = AddDecl("array", type, createArray);
+                    for (int i = 0; i < indices.Length; i++)
+                    {
+                        var value = RenderObject(values[i]);
+                        var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
+                        AddAssignment(assignment);
+                    }
+
+                    return arrayId;
+                }
+                else
+                {
+                    throw new Exception();
+                }
+            }
+            else
+            {
+                bool zeroLowerBounds = true;
+                for (int i = 0; i < array.Rank; i++)
+                    if (array.GetLowerBound(i) != 0)
+                        zeroLowerBounds = false;
+                if (zeroLowerBounds)
+                {
+                    throw new Exception();
+                }
+                else
+                {
+                    throw new Exception();
+                }
+            }
+        }
+
         private ExpressionSyntax RenderFields(object obj)
         {
             // Adding namespace of allocator to usings
@@ -307,6 +359,7 @@ internal class MethodRenderer
             nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
             System.Array a => RenderArray(a),
+            CompactArrayRepr a => RenderCompactArray(a),
             Enum e => RenderEnum(e),
             Pointer => throw new NotImplementedException("RenderObject: implement rendering of pointers"),
             ValueType => RenderFields(obj),

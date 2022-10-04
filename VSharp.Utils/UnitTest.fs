@@ -52,10 +52,10 @@ with
         typeMocks = Array.empty
     }
 
-type UnitTest private (m : MethodBase, info : testInfo) =
+type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool) =
     let mocker = Mocking.Mocker(info.typeMocks)
     let typeMocks = info.typeMocks |> Array.map Mocking.Type |> ResizeArray
-    let memoryGraph = MemoryGraph(info.memory, mocker)
+    let memoryGraph = MemoryGraph(info.memory, mocker, createCompactRepr)
     let exceptionInfo = info.throwsException
     let throwsException =
         if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
@@ -70,7 +70,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
 
     new(m : MethodBase) =
-        UnitTest(m, testInfo.OfMethod m)
+        UnitTest(m, testInfo.OfMethod m, false)
 
     member x.Method with get() = m
     member x.ThisArg
@@ -178,7 +178,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
-    static member DeserializeFromTestInfo(ti : testInfo) =
+    static member DeserializeFromTestInfo(ti : testInfo, createCompactRepr : bool) =
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
@@ -212,14 +212,14 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let method = Reflection.concretizeMethodParameters declaringType method mp
 
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
-            UnitTest(method, ti)
+            UnitTest(method, ti, createCompactRepr)
         with child ->
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
     static member Deserialize(stream : FileStream) =
         let testInfo = UnitTest.DeserializeTestInfo(stream)
-        UnitTest.DeserializeFromTestInfo(testInfo)
+        UnitTest.DeserializeFromTestInfo(testInfo, false)
 
     static member Deserialize(source : string) =
         use stream = new FileStream(source, FileMode.Open, FileAccess.Read)

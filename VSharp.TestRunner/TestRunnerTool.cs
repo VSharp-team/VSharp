@@ -42,7 +42,7 @@ namespace VSharp.TestRunner
                     ti = UnitTest.DeserializeTestInfo(stream);
                 }
                 _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-                UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+                UnitTest test = UnitTest.DeserializeFromTestInfo(ti, false);
                 // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                 var method = test.Method;

@@ -111,6 +111,10 @@ internal static class CodeRenderer
     public static TypeSyntax RenderType(Type type)
     {
         assemblies.Add(type.Assembly);
+
+        if (PrimitiveTypes.TryGetValue(type, out var name))
+            return ParseTypeName(name);
+
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
             usings.Add(typeNamespace);
@@ -129,10 +133,7 @@ internal static class CodeRenderer
             return RenderGenericName(type.Name, typeArgs);
         }
 
-        if (!PrimitiveTypes.TryGetValue(type, out var name))
-            name = type.Name;
-
-        return ParseTypeName(name);
+        return ParseTypeName(type.Name);
     }
 
     public static ExpressionSyntax RenderMethod(MethodBase method)
@@ -288,16 +289,57 @@ internal static class CodeRenderer
             );
     }
 
-    public static ArrayCreationExpressionSyntax RenderArrayCreation(ArrayTypeSyntax type, IEnumerable<ExpressionSyntax> init)
+    public static ArrayCreationExpressionSyntax RenderArrayCreation(ArrayTypeSyntax type, params int[] lengths)
     {
+        var arrayRankSpecifier =
+            ArrayRankSpecifier(
+                SeparatedList<ExpressionSyntax>(
+                    lengths.Select(RenderLiteral)
+                )
+            );
+        type = type.WithRankSpecifiers(SingletonList(arrayRankSpecifier));
         return
             ArrayCreationExpression(
                 Token(SyntaxKind.NewKeyword),
                 type,
+                null
+            );
+    }
+
+    public static ArrayCreationExpressionSyntax RenderArrayCreation(ArrayTypeSyntax type, IEnumerable<ExpressionSyntax>? init)
+    {
+        InitializerExpressionSyntax? initializer = null;
+        if (init != null)
+            initializer =
                 InitializerExpression(
                     SyntaxKind.ArrayInitializerExpression,
                     SeparatedList(init)
+                );
+        return
+            ArrayCreationExpression(
+                Token(SyntaxKind.NewKeyword),
+                type,
+                initializer
+            );
+    }
+
+    public static AssignmentExpressionSyntax RenderArrayAssignment(
+        ExpressionSyntax array,
+        ExpressionSyntax value,
+        params int[] index)
+    {
+        Debug.Assert(index.Length > 0);
+        var indexArgument =
+            BracketedArgumentList(
+                SeparatedList(
+                    index.Select(elem => Argument(RenderLiteral(elem)))
                 )
+            );
+        return
+            AssignmentExpression(
+                SyntaxKind.SimpleAssignmentExpression,
+                ElementAccessExpression(array).WithArgumentList(indexArgument),
+                value
             );
     }
 
