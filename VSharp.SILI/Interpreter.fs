@@ -977,10 +977,19 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 try
                     let result = method.Invoke thisObj (List.toArray objArgs)
                     let resultType = TypeUtils.getTypeOfConcrete result
-                    let typ = TypeUtils.mostConcreteType resultType method.ReturnType
-                    if typ <> typeof<Void> then
+                    let returnType = method.ReturnType
+                    match resultType with
+                    | _ when resultType <> null && resultType.IsValueType && returnType.IsInterface ->
+                        // When return type is interface, but real type is struct,
+                        // it should be boxed, so allocating it in heap
+                        let resultTerm = Memory.AllocateConcreteObject cilState.state result resultType
+                        push resultTerm cilState
+                    | _ when returnType <> typeof<Void> ->
+                        // Case when method returns something
+                        let typ = TypeUtils.mostConcreteType resultType method.ReturnType
                         let resultTerm = Memory.MarshallObject cilState.state result typ
                         push resultTerm cilState
+                    | _ -> ()
                     setCurrentIp (Exit method) cilState
                 with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
                 true
