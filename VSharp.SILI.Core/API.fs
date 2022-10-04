@@ -563,19 +563,6 @@ module API =
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
 
-        let MarshallObject (state : state) (obj : obj) (typ : Type) =
-            if typ.IsValueType then
-                let fields = Reflection.fieldsOf false typ
-                for _, field in fields do
-                    let fieldType = field.FieldType
-                    if not fieldType.IsValueType then
-                        let fieldValue = field.GetValue(obj)
-                        let typ = if fieldValue = null then fieldType else fieldValue.GetType()
-                        AllocateConcreteObject state (field.GetValue(obj)) typ |> ignore
-                ObjectToTerm state obj typ
-            elif typ = typeof<Reflection.Pointer> then ObjectToTerm state obj typ
-            else AllocateConcreteObject state obj typ
-
     module Print =
         let Dump state = Memory.dump state
         let PrintPC pc = PC.toString pc

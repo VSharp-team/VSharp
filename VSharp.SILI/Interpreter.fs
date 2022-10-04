@@ -387,9 +387,9 @@ module internal InstructionsSet =
         let state = cilState.state
         let res =
             match memberInfo with
-            | :? FieldInfo as fi -> Memory.MarshallObject state fi.FieldHandle typeof<RuntimeFieldHandle>
-            | :? Type as t -> Memory.MarshallObject state t.TypeHandle typeof<RuntimeTypeHandle>
-            | :? MethodInfo as mi -> Memory.MarshallObject state mi.MethodHandle typeof<RuntimeMethodHandle>
+            | :? FieldInfo as fi -> Memory.ObjectToTerm state fi.FieldHandle typeof<RuntimeFieldHandle>
+            | :? Type as t -> Memory.ObjectToTerm state t.TypeHandle typeof<RuntimeTypeHandle>
+            | :? MethodInfo as mi -> Memory.ObjectToTerm state mi.MethodHandle typeof<RuntimeMethodHandle>
             | _ -> internalfailf "Could not resolve token"
         push res cilState
     let ldftn (m : Method) offset (cilState : cilState) =
@@ -987,7 +987,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     | _ when returnType <> typeof<Void> ->
                         // Case when method returns something
                         let typ = TypeUtils.mostConcreteType resultType method.ReturnType
-                        let resultTerm = Memory.MarshallObject cilState.state result typ
+                        let resultTerm = Memory.ObjectToTerm cilState.state result typ
                         push resultTerm cilState
                     | _ -> ()
                     setCurrentIp (Exit method) cilState
