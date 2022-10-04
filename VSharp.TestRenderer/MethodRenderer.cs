@@ -240,14 +240,6 @@ internal class MethodRenderer
             if (rank > 1)
             {
                 throw new NotImplementedException("implement rendering for non-vector arrays");
-                // for (int i = 0; i < obj.Rank; i++)
-                // {
-                //     var innerInitializer = new List<ExpressionSyntax>();
-                //     for (int j = obj.GetLowerBound(i); j <= obj.GetUpperBound(i); j++)
-                //     {
-                //
-                //     }
-                // }
             }
             else
             {

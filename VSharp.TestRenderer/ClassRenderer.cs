@@ -7,11 +7,6 @@ namespace VSharp.TestRenderer;
 
 using static CodeRenderer;
 
-// internal interface IMethodContext
-// {
-//     IdentifierNameSyntax? ReferenceField()
-// }
-
 internal class ClassRenderer
 {
     private readonly IdentifiersCache _cache;
@@ -32,12 +27,6 @@ internal class ClassRenderer
             _declaration = _declaration.AddAttributeLists(attributes);
         if (modifiers != null)
             _declaration = _declaration.AddModifiers(modifiers);
-    }
-
-    // TODO: move this to method
-    public IdentifierNameSyntax NewGenericParameter(string name)
-    {
-        return _cache.GenerateIdentifier(name);
     }
 
     public IdentifierNameSyntax AddField(
@@ -65,7 +54,6 @@ internal class ClassRenderer
         IdentifierNameSyntax[]? genericNames,
         params (TypeSyntax, string)[] args)
     {
-        // TODO: use another function for generic methods
         SimpleNameSyntax methodId = _cache.GenerateIdentifier(methodName);
         if (genericNames != null)
             methodId = GenericName(methodId.ToString());
