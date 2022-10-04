@@ -203,7 +203,9 @@ module TypeSolver =
                             let acc = constraints.notSubtypes |> List.fold collectTypeVariables acc
                             acc) typeVars
             let decodeTypeSubst (subst : substitution) =
-                 List.map (PersistentDict.find subst) typeParameters
+                 let getSubst (typ : Type) =
+                     if typ.IsGenericParameter then PersistentDict.find subst typ else ConcreteType typ
+                 List.map getSubst typeParameters
             let mutable resultInputs = []
             let mutable resultSubst = PersistentDict.empty
             let rec solveInputsRec acc subst = function
@@ -287,12 +289,22 @@ module TypeSolver =
             |> List.ofSeq
         | PrimitiveModel _ -> __unreachable__()
 
+    let solveMethodParameters (m : IMethod) =
+        let typeGenericParameters = m.DeclaringType.GetGenericArguments() |> Array.filter (fun t -> t.IsGenericParameter)
+        let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments |> Array.filter (fun t -> t.IsGenericParameter)
+        let solverResult = solve (getMock (Dictionary())) [] (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
+        match solverResult with
+        | TypeSat(refsTypes, typeParams) ->
+            let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+            Some(Array.ofList classParams, Array.ofList methodParams)
+        | TypeUnsat -> None
+
     let solveTypes (model : model) (state : state) =
         let m = CallStack.stackTrace state.stack |> List.last
-        let typeGenericParameters = m.DeclaringType.GetGenericArguments()
-        let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments
+        let typeGenericArguments = m.DeclaringType.GetGenericArguments()
+        let methodGenericArguments = if m.IsConstructor then Array.empty else m.GenericArguments
         let addresses, inputConstraints = generateConstraints model state
-        let solverResult = solve (getMock state.typeMocks) inputConstraints (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
+        let solverResult = solve (getMock state.typeMocks) inputConstraints (Array.append typeGenericArguments methodGenericArguments |> List.ofArray)
         match model with
         | StateModel modelState ->
             match solverResult with
@@ -306,7 +318,7 @@ module TypeSolver =
                             modelState.boxedLocations <- PersistentDict.add addr value modelState.boxedLocations
                     | _ -> ()
                 Seq.iter2 refineTypes addresses refsTypes
-                let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
+                let classParams, methodParams = List.splitAt typeGenericArguments.Length typeParams
                 Some(Array.ofList classParams, Array.ofList methodParams)
             | TypeUnsat -> None
         | PrimitiveModel _ -> __unreachable__()

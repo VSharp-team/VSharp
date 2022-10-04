@@ -191,28 +191,26 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
             let method = mdle.ResolveMethod(ti.token)
+
             let declaringType = method.DeclaringType
-            let declaringType =
-                if method.DeclaringType.IsGenericType then
-                    assert(tp.Length = declaringType.GetGenericArguments().Length)
-                    declaringType.MakeGenericType(tp)
+
+            let getGenericTypeDefinition typ =
+                let decoded = Serialization.decodeType typ
+                if decoded.IsGenericType then
+                    decoded.GetGenericTypeDefinition()
                 else
-                    assert(tp.Length = 0)
-                    declaringType
-            let method =
-                match method with
-                | :? MethodInfo as mi ->
-                    let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
-                    if method.IsGenericMethod then
-                        assert(mp.Length = method.GetGenericArguments().Length)
-                        method.MakeGenericMethod(mp) :> MethodBase
-                    else
-                        assert(mp.Length = 0)
-                        method :> MethodBase
-                | :? ConstructorInfo as ci ->
-                    assert(mp.Length = 0)
-                    declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
-                | _ -> __notImplemented__()
+                    decoded
+            let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
+            let declaringTypeIndex = Array.IndexOf(typeDefinitions, declaringType)
+
+            let declaringType = Reflection.concretizeTypeParameters declaringType tp
+
+            // Ensure that parameters are substituted in memoryRepr
+            if not method.IsStatic && declaringType.IsGenericType && ti.memory.types.Length > 0 then
+                ti.memory.types.[declaringTypeIndex] <- Serialization.encodeType declaringType
+
+            let method = Reflection.concretizeMethodParameters declaringType method mp
+
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
             UnitTest(method, ti)
         with child ->

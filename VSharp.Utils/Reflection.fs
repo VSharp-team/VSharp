@@ -294,6 +294,28 @@ module public Reflection =
         if m.DeclaringType = null then m.Name
         else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.Name m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
 
+    let concretizeTypeParameters (typ : Type) (values : Type[]) =
+        if typ.IsGenericType then
+            assert(values.Length = typ.GetGenericArguments().Length)
+            typ.MakeGenericType(values)
+        else
+            assert(values.Length = 0)
+            typ
+
+    let concretizeMethodParameters (declaringType : Type) (method : MethodBase) (values : Type[]) =
+        match method with
+        | :? MethodInfo as mi ->
+            let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
+            if method.IsGenericMethod then
+                assert(values.Length = method.GetGenericArguments().Length)
+                method.MakeGenericMethod(values) :> MethodBase
+            else
+                method :> MethodBase
+        | :? ConstructorInfo as ci ->
+            assert(values.Length = 0)
+            declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
+        | _ -> __notImplemented__()
+
     // --------------------------------- Fields ---------------------------------
 
     // TODO: add cache: map from wrapped field to unwrapped
