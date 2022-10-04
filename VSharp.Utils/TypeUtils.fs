@@ -1,5 +1,6 @@
 namespace VSharp
 
+open EnumUtils
 open System
 open System.Collections.Generic
 open System.Reflection
@@ -91,21 +92,16 @@ module TypeUtils =
             (typeof<float>,   widerThan64) ]
 
     let isLessForNumericTypes (t1 : Type) (t2 : Type) =
-        let t1 = if t1.IsEnum then t1.GetEnumUnderlyingType() else t1
-        let t2 = if t2.IsEnum then t2.GetEnumUnderlyingType() else t2
+        let t1 = if t1.IsEnum then getEnumUnderlyingTypeChecked t1 else t1
+        let t2 = if t2.IsEnum then getEnumUnderlyingTypeChecked t2 else t2
         assert(isNumeric t1 && isNumeric t2)
         Array.contains t2 isWiderForNumericTypesMap.[t1]
 
     // ---------------------------------- Basic type operations ----------------------------------
 
-    let getTypeOfConcrete value =
+    let inline getTypeOfConcrete value =
         if box value = null then null
         else value.GetType()
-
-    let defaultOf (t : Type) =
-        if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
-            then Activator.CreateInstance t
-            else null
 
     // TODO: wrap Type, cache size there
     let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
@@ -117,7 +113,7 @@ module TypeUtils =
         int size
 
     let numericSizeOf (typ: Type) : uint32 =
-        let typ = if typ.IsEnum then typ.GetEnumUnderlyingType() else typ
+        let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
         | _ when typ = typeof<int8> -> 8u
@@ -341,6 +337,8 @@ module TypeUtils =
         | _ when t.IsEnum -> Enum.ToObject(t, value)
         | _ -> convNumeric value t
 
+    // --------------------------------------- Subtyping ---------------------------------------
+
     // [NOTE] All heuristics of subtyping are here
     let rec private commonConcreteCanCast canCast leftType rightType certainK uncertainK =
         match leftType, rightType with
@@ -386,6 +384,13 @@ module TypeUtils =
         let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || canConvert lType rType
         commonConcreteCanCast canCast leftType rightType id (fun _ _ -> false)
 
+    let inline mostConcreteType (leftType : Type) (rightType : Type) =
+        if leftType = null then rightType
+        elif rightType = null then leftType
+        elif rightType.IsAssignableFrom(leftType) then leftType
+        else
+            assert(leftType.IsAssignableFrom(rightType))
+            rightType
     // --------------------------------------- Operation target type ---------------------------------------
 
     let failDeduceBinaryTargetType op x y =

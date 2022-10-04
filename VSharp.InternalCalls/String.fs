@@ -12,13 +12,17 @@ module internal String =
     let CtorOfCharArray state args =
         assert (List.length args = 2)
         let this, arrayRef = List.item 0 args, List.item 1 args
+        let ctor state arrayRef k =
+            let states = Memory.StringCtorOfCharArray state arrayRef this
+            match states with
+            | [state] -> k (Nop, state)
+            | _ -> __notImplemented__()
         BranchStatementsOnNull state arrayRef
-            (fun state k -> k (Nop, state))
+            // TODO: if array is 'null', constructor should return String.Empty, which is interned #bug
             (fun state k ->
-                let states = Memory.StringCtorOfCharArray state arrayRef this
-                match states with
-                | [state] -> k (Nop, state)
-                | _ -> __notImplemented__())
+                let arrayRef = TypeOf arrayRef |> NullRef
+                ctor state arrayRef k)
+            (fun state k -> ctor state arrayRef k)
             id
 
     let CtorFromReplicatedChar state args =

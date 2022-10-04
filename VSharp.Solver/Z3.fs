@@ -74,6 +74,7 @@ module internal Z3 =
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
         let emptyState = Memory.EmptyState()
+        let mutable maxBufferSize = 128
 
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
@@ -85,6 +86,9 @@ module internal Z3 =
 
         member x.Reset() =
             encodingCache <- freshCache()
+
+        member x.SetMaxBufferSize size =
+            maxBufferSize <- size
 
         member private x.ValidateId id =
             assert(not <| String.IsNullOrWhiteSpace id)
@@ -160,7 +164,7 @@ module internal Z3 =
             encodingCache.Get(t, getResult)
 
         member private x.AddEnumAssumptions encCtx typ (encodingResult : encodingResult) =
-            assert(typ.IsEnum)
+            assert typ.IsEnum
             let expr = encodingResult.expr
             let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
             let createAssumption assumptions value =
@@ -175,7 +179,7 @@ module internal Z3 =
                 match typ with
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
                 | t when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
-                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, t.GetEnumUnderlyingType()) |> toString, x.Type2Sort typ)
+                | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, EnumUtils.getEnumUnderlyingTypeChecked t) |> toString, x.Type2Sort typ)
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
@@ -461,9 +465,12 @@ module internal Z3 =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
             let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
-            let lengthIsNotGiant = ctx.MkBVSLE(expr, ctx.MkBV(20, expr.SortSize))
+            let assumptions = lengthIsNonNegative :: assumptions
+            let assumptions =
+                if maxBufferSize < 0 then assumptions
+                else (ctx.MkBVSLE(expr, ctx.MkBV(maxBufferSize, expr.SortSize))) :: assumptions
             // TODO: this limits length < 20, delete when model normalization is complete
-            { encodingResult with assumptions = lengthIsNotGiant :: lengthIsNonNegative :: assumptions }
+            { encodingResult with assumptions = assumptions }
 
         // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
         // TODO: use another serializer
@@ -513,7 +520,21 @@ module internal Z3 =
                 {expr = ctx.MkSelect(array, encodedKey); assumptions = List.empty}
 
         member private x.StructReading encCtx (structSource : ISymbolicConstantSource) (field : fieldId) typ structFields name =
-            x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
+            let res = x.EncodeMemoryAccessConstant encCtx name structSource (field :: structFields) typ
+            match field with
+            | _ when field.declaringType = typeof<decimal> && field.name = "_flags" ->
+                let expr = res.expr :?> BitVecExpr
+                let lowerWord = ctx.MkExtract(15u, 0u, expr)
+                let lowerIsZero = ctx.MkEq(lowerWord, ctx.MkBV(0, lowerWord.SortSize))
+                let exp = ctx.MkExtract(23u, 16u, expr)
+                let expSize = exp.SortSize
+                let leftBound = ctx.MkBVUGE(exp, ctx.MkBV(0, expSize))
+                let rightBound = ctx.MkBVULE(exp, ctx.MkBV(28, expSize))
+                let expInBound = ctx.MkAnd(leftBound, rightBound)
+                let upper = ctx.MkExtract(30u, 24u, expr)
+                let upperIsZero = ctx.MkEq(upper, ctx.MkBV(0, upper.SortSize))
+                { res with assumptions = lowerIsZero::expInBound::upperIsZero::res.assumptions }
+            | _ -> res
 
         member private x.EncodeMemoryAccessConstant encCtx name (source : ISymbolicConstantSource) (structFields : fieldId list) typ : encodingResult =
             match source with
@@ -681,13 +702,19 @@ module internal Z3 =
                     let decoded = x.Decode t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
-                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} ->
+                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
                     match ms with
                     | HeapAddressSource(StackReading(key)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
                         let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
+                    | HeapAddressSource(:? functionResultConstantSource as frs) ->
+                        let refinedExpr = m.Eval(kvp.Value.expr, false)
+                        let t = (frs :> ISymbolicConstantSource).TypeOfLocation
+                        let term = x.Decode t refinedExpr
+                        assert(not (constant = term) || kvp.Value.expr = refinedExpr)
+                        if constant <> term then subst.Add(ms, term)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} as constant ->
@@ -752,7 +779,8 @@ module internal Z3 =
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
-            {state = state; subst = subst}
+            state.model <- PrimitiveModel subst
+            StateModel state
 
 
     let private ctx = new Context()
@@ -812,6 +840,9 @@ module internal Z3 =
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
                 optCtx.Assert(encoded)
+
+            member x.SetMaxBufferSize size =
+                builder.SetMaxBufferSize size
 
     let reset() =
         builder.Reset()

@@ -213,8 +213,8 @@ and CfgInfo internal (method : MethodWithBody) =
                     currentBasicBlock.FinalOffset <- offset
                     dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
-                    currentBasicBlock.FinalOffset <- currentVertex
-                    ()
+                    currentBasicBlock.FinalVertex <- currentVertex
+                    addEdge currentBasicBlock.StartVertex currentVertex
                 | Return ->
                     sinks.Add currentBasicBlock
                     currentBasicBlock.FinalOffset <- currentVertex
@@ -306,6 +306,8 @@ and Method internal (m : MethodBase) as this =
             cfg
         else None)
 
+    let blocksCoveredByTests = HashSet<offset>()
+
     member x.CFG with get() =
         match cfg.Force() with
         | Some cfg -> cfg
@@ -338,7 +340,16 @@ and Method internal (m : MethodBase) as this =
                 assert added
             edges |> Seq.cast<IReversedCallGraphNode>
 
-and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset; method : Method}
+    member x.BasicBlocksCount with get() =
+        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+
+    member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
+    member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
+
+    member x.ResetStatistics() = blocksCoveredByTests.Clear()
+
+[<CustomEquality; CustomComparison>]
+type public codeLocation = {offset : offset; method : Method}
     with
     member this.BasicBlock = this.method.CFG.ResolveBasicBlock this.offset
     override x.Equals y =
@@ -354,7 +365,15 @@ and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset;
             | :? codeLocation as y -> (x.method :> IComparable).CompareTo(y.method)
             | _ -> -1
 
-and IGraphTrackableState =
+module public CodeLocation =
+    let isBasicBlockCoveredByTest (blockStart : codeLocation) =
+        blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
+
+    let hasSiblings (blockStart : codeLocation) =
+        let method = blockStart.method
+        method.HasBody && method.CFG.HasSiblings blockStart.offset
+
+type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
 
@@ -592,6 +611,11 @@ module Application =
     let addGoal = graph.AddGoal
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
+
+    let resetMethodStatistics() =
+        lock methods (fun () ->
+            for method in methods.Values do
+                method.ResetStatistics())
 
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody

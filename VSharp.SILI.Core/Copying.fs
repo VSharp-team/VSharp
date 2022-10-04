@@ -65,9 +65,19 @@ module internal Copying =
     let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress =
         let cm = state.concreteMemory
         match arrayAddress.term with
-        | ConcreteHeapAddress concreteAddress when ConcreteMemory.contains cm concreteAddress ->
-            ConcreteMemory.copyCharArrayToString state concreteAddress stringConcreteAddress
+        | ConcreteHeapAddress concreteAddress when concreteAddress = VectorTime.zero ->
+            if cm.Contains stringConcreteAddress then
+                cm.Remove stringConcreteAddress
+            cm.Allocate stringConcreteAddress ""
+        | ConcreteHeapAddress concreteAddress when cm.Contains concreteAddress ->
+            if cm.Contains stringConcreteAddress |> not then
+                // Allocating not empty string, because it should not be interned
+                // Copying array will mutate whole string
+                cm.Allocate stringConcreteAddress "\000"
+            cm.CopyCharArrayToString concreteAddress stringConcreteAddress
         | _ ->
+            if cm.Contains stringConcreteAddress then
+                cm.Remove stringConcreteAddress
             let arrayType = (typeof<char>, 1, true)
             let length = readLength state arrayAddress (makeNumber 0) arrayType
             let lengthPlus1 = add length (makeNumber 1)

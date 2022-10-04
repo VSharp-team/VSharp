@@ -24,14 +24,17 @@ module Unsafe =
         let typ = getTypeFromTerm typ
         Types.Cast ref typ
 
+    let internal AsRef (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        args.[1]
+
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         args.[2]
 
-    let internal NullRef (state : state) (_ : term list) : term =
-        let _, methodTypeVariables = state.typeVariables
-        match methodTypeVariables with
-        | [t]::_ -> NullRef t
+    let internal NullRef (_ : state) (args : term list) : term =
+        match args with
+        | [{term = Concrete(:? Type as t, _)}] -> NullRef t
         | _ -> __unreachable__()
 
     let internal IsNullRef (_ : state) (args : term list) : term =

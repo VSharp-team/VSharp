@@ -21,11 +21,12 @@ module internal Type =
 
     let private allocateType state (typeToAllocate : Type) =
         // NOTE: allocating empty RuntimeType
-        let ref = Memory.AllocateDefaultClass state systemRuntimeType
-        let value = Concrete typeToAllocate systemRuntimeType
-        // NOTE: add field with information about actual type
-        let states = Memory.WriteClassField state ref fieldWithTypeInfo value
-        List.map (withFst ref) states
+        let ref = Memory.AllocateConcreteObject state typeToAllocate systemRuntimeType
+//        let value = Concrete typeToAllocate systemRuntimeType
+//        // NOTE: add field with information about actual type
+//        let states = Memory.WriteClassField state ref fieldWithTypeInfo value
+//        List.map (withFst ref) states
+        List.singleton (ref, state)
 
     let GetTypeFromHandle (state : state) (args : term list) : (term * state) list =
         assert (List.length args = 1)
@@ -122,4 +123,4 @@ module internal Type =
         assert(List.length args = 1)
         let runtimeType = List.head args
         let actualType = getActualType state runtimeType
-        actualType.GetEnumUnderlyingType() |> allocateType state
+        EnumUtils.getEnumUnderlyingTypeChecked actualType |> allocateType state

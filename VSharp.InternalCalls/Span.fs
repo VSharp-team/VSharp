@@ -38,35 +38,40 @@ module ReadOnlySpan =
     let internal GetItemFromSpan (state : state) (args : term list) : term =
         GetItemFromReadOnlySpan state args
 
-    let internal CtorFromFromArray (state : state) this arrayRef =
+    let private CommonCtor (state : state) this refToFirst length =
         let span = Memory.Read state this
         let spanFields = Terms.TypeOf span |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField, ptrFieldInfo = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_pointer")
         let ptrFieldType = ptrFieldInfo.FieldType
-        let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
         let byRef = Memory.DefaultOf ptrFieldType
         let byRefFields = Reflection.fieldsOf false ptrFieldType
         assert(Array.length byRefFields = 1)
         let valueField = byRefFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_value") |> fst
-        let initializedByRef = Memory.WriteStructField byRef valueField refToFirstElement
+        let initializedByRef = Memory.WriteStructField byRef valueField refToFirst
         let spanWithPtrField = Memory.WriteStructField span ptrField initializedByRef
-        let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
         let lengthField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
-        let initializedSpan = Memory.WriteStructField spanWithPtrField lengthField lengthOfArray
+        let initializedSpan = Memory.WriteStructField spanWithPtrField lengthField length
         Memory.Write state this initializedSpan |> List.map (withFst Nop)
+
+    let internal CtorFromFromArray (state : state) this arrayRef =
+        let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
+        let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
+        CommonCtor state this refToFirstElement lengthOfArray
 
     let internal CtorFromPtrForSpan (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 4)
         let this, wrappedType, ptr, size = args.[0], args.[1], args.[2], args.[3]
-        // [NOTE] Checking, that this ptr came from localloc instruction
-        assert(ptr = MakeNullPtr typeof<Void>)
-        let elementType =
-            match wrappedType.term with
-            | Concrete(:? Type as t, _) -> t
-            | _ -> __unreachable__()
-        let arrayRef = Memory.AllocateVectorArray state size elementType
-        CtorFromFromArray state this arrayRef
+        if ptr = MakeNullPtr typeof<Void> then
+            // Ptr came from localloc instruction
+            let elementType =
+                match wrappedType.term with
+                | Concrete(:? Type as t, _) -> t
+                | _ -> __unreachable__()
+            let arrayRef = Memory.AllocateVectorArray state size elementType
+            CtorFromFromArray state this arrayRef
+        else
+            CommonCtor state this ptr size
 
     let internal CtorFromPtrForReadOnlySpan (state : state) (args : term list) : (term * state) list =
         CtorFromPtrForSpan state args

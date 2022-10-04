@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
+open VSharp.Interpreter.IL
 open VSharp.Utils
 open CilStateOperations
 
@@ -19,17 +20,20 @@ type IBidirectionalSearcher =
     abstract member Answer : pob -> pobStatus -> unit
     abstract member Statuses : unit -> seq<pob * pobStatus>
     abstract member States : unit -> cilState seq
+    abstract member Reset : unit -> unit
 
 type IForwardSearcher =
     abstract member Init : cilState seq -> unit
     abstract member Update : cilState * cilState seq -> unit
     abstract member Pick : unit -> cilState option
     abstract member States : unit -> cilState seq
+    abstract member Reset : unit -> unit
 
 type ITargetedSearcher =
     abstract member SetTargets : ip -> ip seq -> unit
     abstract member Update : cilState -> cilState seq -> cilState seq // returns states that reached its target
     abstract member Pick : unit -> cilState option
+    abstract member Reset : unit -> unit
 
 type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
 
@@ -40,6 +44,7 @@ type IBackwardSearcher =
     abstract member Statuses : unit -> seq<pob * pobStatus>
     abstract member Pick : unit -> backwardAction
     abstract member AddBranch : cilState -> pob list
+    abstract member Reset : unit -> unit
 
     // TODO: get rid of this!
     abstract member RemoveBranch : cilState -> unit
@@ -63,21 +68,25 @@ type SimpleForwardSearcher(maxBound) =
             states.Add(s)
 
     interface IForwardSearcher with
-        override x.Init states =
-            forPropagation.AddRange(states)
+        override x.Init states = x.Init forPropagation states
         override x.Pick() =
             x.Choose (forPropagation |> Seq.filter (fun cilState -> not cilState.suspended))
         override x.Update (parent, newStates) =
             x.Insert forPropagation (parent, newStates)
         override x.States() = forPropagation
+        override x.Reset() = forPropagation.Clear()
 
     abstract member Choose : seq<cilState> -> cilState option
     default x.Choose states = Seq.tryLast states
+
     abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
     default x.Insert states (parent, newStates) =
         if isStopped parent then
             states.Remove(parent) |> ignore
         Seq.iter (add states) newStates
+
+    abstract member Init : List<cilState> -> seq<cilState> -> unit
+    default x.Init states initStates = states.AddRange(initStates)
 
 type BFSSearcher(maxBound) =
     inherit SimpleForwardSearcher(maxBound) with
@@ -147,10 +156,8 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         override x.Pick() = x.Pick()
         override x.Update (parent, newStates) = x.Update (parent, newStates)
         override x.States() = storage.ToSeq
+        override x.Reset() = storage.Clear()
 
     member x.Weighter = weighter
     member x.TryGetWeight state = storage.TryGetPriority state
     member x.ToSeq() = storage.ToSeq
-
-type SampledWeightedSearcher(maxBound, weighter : IWeighter) =
-    inherit WeightedSearcher(maxBound, weighter, DiscretePDF(CilStateOperations.mkCilStateHashComparer))

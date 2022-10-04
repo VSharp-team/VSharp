@@ -5,12 +5,15 @@ open System.IO
 open System.Text
 open System.Collections.Generic
 
+open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 open VSharp.Utils
 
 open CilStateOperations
 open ipOperations
+open CodeLocation
 
 type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
     with
@@ -39,6 +42,10 @@ type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
+
+    let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
+    let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
+    
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
@@ -48,6 +55,7 @@ type public SILIStatistics() =
     let mutable nonCoveringStepsInsideZone = 0u
     let mutable coveringStepsOutsideZone = 0u
     let mutable nonCoveringStepsOutsideZone = 0u
+
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
@@ -95,7 +103,8 @@ type public SILIStatistics() =
             let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
             let validDistance = distance <> infinity && (distance <> 0u || method.CFG.SortedBasicBlocks.Count = 1)
             let emptyHistory = totalHistory.Count = 0
-            let nontrivialHistory = not <| totalHistory.IsSupersetOf(history)
+            
+            let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
         if method.HasBody then
@@ -105,39 +114,6 @@ type public SILIStatistics() =
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
         else None
-
-    let rememberForward (start : codeLocation) (current : codeLocation) (visited : codeLocation seq) =
-        if isHeadOfBasicBlock current then
-            let mutable startRefDict = ref null
-            if not <| startIp2currentIp.TryGetValue(start, startRefDict) then
-                startRefDict <- ref (Dictionary<codeLocation, uint>())
-                startIp2currentIp.Add(start, startRefDict.Value)
-            let startDict = startRefDict.Value
-
-            let mutable currentRef = ref 0u
-            if not <| startDict.TryGetValue(current, currentRef) then
-                currentRef <- ref 0u
-                startDict.Add(current, 0u)
-            startDict.[current] <- currentRef.Value + 1u
-
-            let mutable totalRef = ref 0u
-            if not <| totalVisited.TryGetValue(current, totalRef) then
-                totalRef <- ref 0u
-                totalVisited.Add(current, 0u)
-
-            if totalRef.Value = 0u then
-                if current.method.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
-                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
-            elif current.method.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
-            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
-
-            totalVisited.[current] <- totalRef.Value + 1u
-
-            let mutable historyRef = ref null
-            if not <| visitedWithHistory.TryGetValue(current, historyRef) then
-                historyRef <- ref <| HashSet<_>()
-                visitedWithHistory.Add(current, historyRef.Value)
-            historyRef.Value.UnionWith visited
             
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine(
@@ -149,31 +125,111 @@ type public SILIStatistics() =
         if not <| List.isEmpty statisticsDump.internalFails then
             writer.WriteLine()
             writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!")
-            statisticsDump.internalFails |> List.iter writer.WriteLine
+            writer.WriteLine("{0} error(s) occured!", statisticsDump.internalFails.Length)
+            let sortedInternalFails = Dictionary<string, int>()
+            statisticsDump.internalFails |> List.iter (fun e ->
+                let failMessage = e.Message
+                let count = ref 1
+                if sortedInternalFails.TryGetValue(failMessage, count) then
+                   sortedInternalFails.[failMessage] <- count.Value + 1
+                else
+                    sortedInternalFails.Add(failMessage, 1))
+            sortedInternalFails |> Seq.sortByDescending (fun kvp -> kvp.Value) |> Seq.iter (fun kvp ->
+                writer.WriteLine("---------------------- {0} time(s): ----------------------", kvp.Value)
+                writer.WriteLine(kvp.Key))
         if not <| List.isEmpty statisticsDump.iies then
             writer.WriteLine()
             writer.WriteLine()
             writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
-    member x.IsCovered (loc : codeLocation) =
-       Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
-
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
-        let visited = history s
         match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc ->
-            rememberForward startLoc currentLoc visited
+        | Some startLoc, Some currentLoc when isHeadOfBasicBlock currentLoc ->
+            let mutable startRefDict = ref null
+            if not <| startIp2currentIp.TryGetValue(startLoc, startRefDict) then
+                startRefDict <- ref (Dictionary<codeLocation, uint>())
+                startIp2currentIp.Add(startLoc, startRefDict.Value)
+            let startDict = startRefDict.Value
+
+            let mutable currentRef = ref 0u
+            if not <| startDict.TryGetValue(currentLoc, currentRef) then
+                currentRef <- ref 0u
+                startDict.Add(currentLoc, 0u)
+            startDict.[currentLoc] <- currentRef.Value + 1u
+
+            let mutable totalRef = ref 0u
+            if not <| totalVisited.TryGetValue(currentLoc, totalRef) then
+                totalRef <- ref 0u
+                totalVisited.Add(currentLoc, 0u)
+
+            let currentMethod = currentLoc.method
+            if totalRef.Value = 0u then
+                if currentMethod.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
+                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
+            elif currentMethod.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
+            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
+
+            totalVisited.[currentLoc] <- totalRef.Value + 1u
+
+            let mutable historyRef = ref null
+            if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
+                historyRef <- ref <| HashSet<_>()
+                visitedWithHistory.Add(currentLoc, historyRef.Value)
+            for visitedState in s.history do
+                if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
+            
+            if currentMethod.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
+                if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
+                    visitedBlocksNotCoveredByTests.[s] <- Set.empty
+                isVisitedBlocksNotCoveredByTestsRelevant <- false
+                
+            setBasicBlockIsVisited s currentLoc
         | _ -> ()
+        
+    member x.IsCovered (loc : codeLocation) =
+       Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
+
+    member x.GetVisitedBlocksNotCoveredByTests (s : cilState) =
+        if not isVisitedBlocksNotCoveredByTestsRelevant then
+            for kvp in visitedBlocksNotCoveredByTests do
+                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << isBasicBlockCoveredByTest)
+            isVisitedBlocksNotCoveredByTestsRelevant <- true
+        
+        if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
+            
+    member x.GetApproximateCoverage (methods : Method seq) =
+        let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
+        let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
+        let coveredBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BlocksCoveredByTests.Count)
+        if totalBlocksCount <> 0u then
+            uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
+        else
+            0u
+            
+    member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
+        
+    member x.TrackFinished (s : cilState) =
+        for block in s.history do
+            block.method.SetBlockIsCoveredByTest block.offset |> ignore
+            
+            if block.method.InCoverageZone then        
+                isVisitedBlocksNotCoveredByTestsRelevant <- false
+                
+        visitedBlocksNotCoveredByTests.Remove s |> ignore
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
         ()
+        
+    member x.TrackFork (parent : cilState) (children : cilState seq) =
+        for child in children do
+            visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
+
     member x.Clear() =
         startIp2currentIp.Clear()
         totalVisited.Clear()
@@ -181,10 +237,7 @@ type public SILIStatistics() =
         internalFails.Clear()
         iies.Clear()
 
-    member x.ExplorationStarted() =
-        x.Clear()
-        startTime <- DateTime.Now
-
+    member x.ExplorationStarted() = ()
 
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 

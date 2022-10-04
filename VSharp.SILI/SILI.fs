@@ -16,10 +16,10 @@ open VSharp.Solver
 type public SILI(options : SiliOptions) =
 
     let stopwatch = Stopwatch()
-    let () = stopwatch.Start()
     let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
     let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Int64.MaxValue else timeout * 80L / 100L
     let mutable branchesReleased = false
+    let mutable isStopped = false
 
     let statistics = SILIStatistics()
     let infty = UInt32.MaxValue
@@ -40,6 +40,8 @@ type public SILI(options : SiliOptions) =
     let () =
         if options.visualize then
             DotVisualizer options.outputDirectory :> IVisualizer |> Application.setVisualizer
+        SetMaxBuferSize options.maxBufferSize
+        TestGenerator.setMaxBufferSize options.maxBufferSize
 
     let inCoverageZone coverageZone (startingMethod : Method) =
         match coverageZone with
@@ -59,6 +61,9 @@ type public SILI(options : SiliOptions) =
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
+        | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
+            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
@@ -72,7 +77,8 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
-            let dfsSearcher = DFSSearcher(infty) :> IForwardSearcher
+            ReleaseBranches()
+            let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
@@ -85,9 +91,11 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError method cmdArgs state =
         try
-            match TestGenerator.state2test isError method cmdArgs state with
-            | Some test -> reporter test
-            | None -> ()
+            if state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
+                statistics.TrackFinished state
+                match TestGenerator.state2test isError method cmdArgs state with
+                | Some test -> reporter test
+                | None -> ()
         with :? InsufficientInformationException as e ->
             state.iie <- Some e
             reportIncomplete state
@@ -112,7 +120,7 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
-        initialState.model <- Some (Memory.EmptyModel method)
+        initialState.model <- Memory.EmptyModel method
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -140,7 +148,9 @@ type public SILI(options : SiliOptions) =
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
-        toReportExceptions |> List.iter reportFinished
+        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
+        runtimeExceptions |> List.iter reportError
+        userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
         let newStates =
@@ -161,6 +171,7 @@ type public SILI(options : SiliOptions) =
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
         Application.moveState loc s (Seq.cast<_> newStates)
+        statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
 
     member private x.Backward p' s' EP =
@@ -188,7 +199,7 @@ type public SILI(options : SiliOptions) =
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while pick() && stopwatch.ElapsedMilliseconds < timeout do
+        while not isStopped && pick() && stopwatch.ElapsedMilliseconds < timeout do
             if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
                 releaseBranches()
             match action with
@@ -201,13 +212,15 @@ type public SILI(options : SiliOptions) =
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
         | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.resetMethodStatistics()
         statistics.ExplorationStarted()
+        isStopped <- false
         branchesReleased <- false
+        AcquireBranches()
+        searcher.Reset()
         let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
-        AssemblyManager.reset()
-        entryPoint.Module.Assembly |> AssemblyManager.load 1
         searcher.Init entryPoint initialStates mainPobs
         entryIP <- Instruction(0<offsets>, entryPoint)
         match options.executionMode with
@@ -236,50 +249,66 @@ type public SILI(options : SiliOptions) =
     member x.InterpretEntryPoint (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
                                  (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                  (onInternalFail : Action<Exception>) : unit =
-        assert method.IsStatic
-        let optionArgs = if mainArguments = null then None else Some mainArguments
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method optionArgs
-        reportError <- wrapOnError onException method optionArgs
-        reportIncomplete <- wrapOnIIE onIIE
+        stopwatch.Restart()
         reportInternalFail <- wrapOnInternalFail onInternalFail
-        interpreter.ConfigureErrorReporter reportError
-        let state = Memory.EmptyState()
-        state.model <- Some (Memory.EmptyModel method)
-        let argsToState args =
-            let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
-            let stringType = typeof<string>
-            let argsNumber = MakeNumber mainArguments.Length
-            Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
-        let arguments = Option.map (argsToState >> List.singleton) optionArgs
-        ILInterpreter.InitFunctionFrame state method None arguments
-        if Option.isNone optionArgs then
-            // NOTE: if args are symbolic, constraint 'args != null' is added
-            let parameters = method.Parameters
-            assert(Array.length parameters = 1)
-            let argsParameter = Array.head parameters
-            let argsParameterTerm = Memory.ReadArgument state argsParameter
-            AddConstraint state (!!(IsNullReference argsParameterTerm))
-        Memory.InitializeStaticMembers state method.DeclaringType
-        let initialState = makeInitialState method state
-        x.AnswerPobs method [initialState]
+        try
+            try
+                assert method.IsStatic
+                let optionArgs = if mainArguments = null then None else Some mainArguments
+                let method = Application.getMethod method
+                reportFinished <- wrapOnTest onFinished method optionArgs
+                reportError <- wrapOnError onException method optionArgs
+                reportIncomplete <- wrapOnIIE onIIE
+                interpreter.ConfigureErrorReporter reportError
+                let state = Memory.EmptyState()
+                state.model <- Memory.EmptyModel method
+                let argsToState args =
+                    let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
+                    let stringType = typeof<string>
+                    let argsNumber = MakeNumber mainArguments.Length
+                    Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+                let arguments = Option.map (argsToState >> List.singleton) optionArgs
+                ILInterpreter.InitFunctionFrame state method None arguments
+                if Option.isNone optionArgs then
+                    // NOTE: if args are symbolic, constraint 'args != null' is added
+                    let parameters = method.Parameters
+                    assert(Array.length parameters = 1)
+                    let argsParameter = Array.head parameters
+                    let argsParameterTerm = Memory.ReadArgument state argsParameter
+                    AddConstraint state (!!(IsNullReference argsParameterTerm))
+                Memory.InitializeStaticMembers state method.DeclaringType
+                let initialState = makeInitialState method state
+                x.AnswerPobs method [initialState]
+            with
+            | e -> reportInternalFail e
+        finally
+            searcher.Reset()
 
     member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
                                (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                (onInternalFail : Action<Exception>) : unit =
-        Reset()
-        SolverPool.reset()
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method None
-        reportError <- wrapOnError onException method None
-        reportIncomplete <- wrapOnIIE onIIE
+        stopwatch.Restart()
         reportInternalFail <- wrapOnInternalFail onInternalFail
-        interpreter.ConfigureErrorReporter reportError
-        let initialStates = x.FormInitialStates method
-        let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
-        iieStates |> List.iter reportIncomplete
-        if not initialStates.IsEmpty then
-            x.AnswerPobs method initialStates
-        Restore()
+        try
+            try
+                Reset()
+                SolverPool.reset()
+                let method = Application.getMethod method
+                reportFinished <- wrapOnTest onFinished method None
+                reportError <- wrapOnError onException method None
+                reportIncomplete <- wrapOnIIE onIIE
+                interpreter.ConfigureErrorReporter reportError
+                let initialStates = x.FormInitialStates method
+                let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
+                iieStates |> List.iter reportIncomplete
+                if not initialStates.IsEmpty then
+                    x.AnswerPobs method initialStates
+                Restore()
+            with
+            | e -> reportInternalFail e
+        finally
+            searcher.Reset()
+
+    member x.Stop() = isStopped <- true
 
     member x.Statistics with get() = statistics

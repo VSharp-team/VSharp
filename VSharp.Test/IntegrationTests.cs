@@ -19,7 +19,9 @@ namespace VSharp.Test
     {
         DFS,
         BFS,
-        ShortestDistance
+        ShortestDistance,
+        ContributedCoverage,
+        Interleaved
     }
 
     public enum CoverageZone
@@ -130,7 +132,7 @@ namespace VSharp.Test
 
             private readonly SearchStrategy _baseSearchStrat;
             private readonly CoverageZone _baseCoverageZone;
-            
+
             public TestSvmCommand(
                 TestCommand innerCommand,
                 int? expectedCoverage,
@@ -148,13 +150,13 @@ namespace VSharp.Test
 
                 _expectedCoverage = TestContext.Parameters[ExpectedCoverageParameterName] == null ?
                     expectedCoverage : int.Parse(TestContext.Parameters[ExpectedCoverageParameterName]);
-                
+
                 _recThresholdForTest = recThresholdForTest;
                 _executionMode = execMode;
-                
+
                 _timeout = TestContext.Parameters[TimeoutParameterName] == null ?
                     timeout : int.Parse(TestContext.Parameters[TimeoutParameterName]);
-                
+
                 _releaseBranches = TestContext.Parameters[ReleaseBranchesParameterName] == null ?
                     releaseBranches : bool.Parse(TestContext.Parameters[ReleaseBranchesParameterName]);
 
@@ -163,6 +165,8 @@ namespace VSharp.Test
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
+                    SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                    SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 
@@ -183,14 +187,14 @@ namespace VSharp.Test
             private TestResult Explore(TestExecutionContext context)
             {
                 IStatisticsReporter reporter = null;
-                    
+
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
                 if (csvReportPath != null)
                 {
                     reporter = new CsvStatisticsReporter(
                         csvReportPath,
                         "TestResults",
-                        TestContext.Parameters[RunIdParameterName] ?? "" 
+                        TestContext.Parameters[RunIdParameterName] ?? ""
                     );
                 }
 
@@ -204,7 +208,7 @@ namespace VSharp.Test
                     _baseSearchStrat,
                     _baseCoverageZone
                 );
-                    
+
                 try
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
@@ -215,11 +219,46 @@ namespace VSharp.Test
                         _recThresholdForTest,
                         _timeout,
                         false,
-                        _releaseBranches
+                        _releaseBranches,
+                        128
                     );
                     SILI explorer = new SILI(_options);
+                    AssemblyManager.Load(methodInfo.Module.Assembly);
 
-                    explorer.InterpretIsolated(methodInfo, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, e => throw e);
+                    void GenerateTestAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateTest(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        var method = Application.getMethod(unitTest.Method);
+                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
+
+                        if (approximateCoverage >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+
+                    void GenerateErrorAndCheckCoverage(UnitTest unitTest)
+                    {
+                        unitTests.GenerateError(unitTest);
+
+                        if (_expectedCoverage == null)
+                        {
+                            return;
+                        }
+
+                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        {
+                            explorer.Stop();
+                        }
+                    }
+
+                    explorer.InterpretIsolated(methodInfo, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, e => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
@@ -236,7 +275,7 @@ namespace VSharp.Test
                         TestsGenerated = unitTests.UnitTestsCount,
                         TestsOutputDirectory = unitTests.TestDirectory.FullName
                     };
-                    
+
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         TestContext.Out.WriteLine("Starting coverage tool...");
@@ -281,7 +320,7 @@ namespace VSharp.Test
         public TestMethod BuildFrom(IMethodInfo method, NUnit.Framework.Internal.Test suite)
         {
             var defaultParameters = method.GetParameters().Select(
-                parameter => TypeUtils.defaultOf(parameter.ParameterType)).ToArray();
+                parameter => Reflection.defaultOf(parameter.ParameterType)).ToArray();
             var parameters = new TestCaseParameters(defaultParameters);
             if (method.ReturnType.Type != typeof(void))
                 parameters.ExpectedResult = null;

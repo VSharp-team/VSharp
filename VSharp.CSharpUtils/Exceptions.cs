@@ -43,13 +43,13 @@ namespace VSharp.CSharpUtils
         [Implements("System.Void System.DivideByZeroException..ctor(this)")]
         public static void DivideByZeroException()
         {
-            throw new ArgumentException();
+            throw new DivideByZeroException();
         }
 
         [Implements("System.Void System.ArithmeticException..ctor(this)")]
         public static void ArithmeticException()
         {
-            throw new ArgumentException();
+            throw new ArithmeticException();
         }
 
         [Implements("System.Void System.ArrayTypeMismatchException..ctor(this)")]

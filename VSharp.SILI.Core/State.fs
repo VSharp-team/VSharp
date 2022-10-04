@@ -10,6 +10,26 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
+// TODO: add empty concrete memory class
+type IConcreteMemory =
+    abstract Copy : unit -> IConcreteMemory
+    abstract Contains : concreteHeapAddress -> bool
+    abstract VirtToPhys : concreteHeapAddress -> obj
+    abstract TryVirtToPhys : concreteHeapAddress -> obj option
+    abstract PhysToVirt : obj -> concreteHeapAddress
+    abstract TryPhysToVirt : obj -> concreteHeapAddress option
+    abstract Allocate : concreteHeapAddress -> obj -> unit
+    abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
+    abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
+    abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
+    abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
+    abstract ReadArrayLength : concreteHeapAddress -> int -> obj
+    abstract WriteClassField : concreteHeapAddress -> fieldId -> obj -> unit
+    abstract WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
+    abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
+    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
+    abstract Remove : concreteHeapAddress -> unit
+
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
     abstract Call : concreteHeapAddress -> term list -> term option
@@ -26,37 +46,25 @@ type symbolicType =
     | ConcreteType of Type
     | MockType of ITypeMock
 
-[<CustomEquality;NoComparison>]
-type physicalAddress = {object : obj}
-    with
-    override x.GetHashCode() = System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(x.object)
-    override x.Equals(o : obj) =
-        match o with
-        | :? physicalAddress as other -> x.object.Equals(other.object)
-        | _ -> false
-    override x.ToString() = PrettyPrinting.printConcrete x.object
-
-type concreteMemory = Dictionary<concreteHeapAddress, physicalAddress>
-
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
-    | Unhandled of term
+    | Unhandled of term * bool // Exception term * is runtime exception
     | Caught of term
     | NoException
     with
     member x.GetError () =
         match x with
-        | Unhandled error -> error
+        | Unhandled(error, _) -> error
         | Caught error -> error
         | _ -> internalfail "no error"
 
     member x.TransformToCaught () =
         match x with
-        | Unhandled e -> Caught e
+        | Unhandled(e, _) -> Caught e
         | _ -> internalfail "unable TransformToCaught"
     member x.TransformToUnhandled () =
         match x with
-        | Caught e -> Unhandled e
+        | Caught e -> Unhandled(e, false)
         | _ -> internalfail "unable TransformToUnhandled"
     member x.UnhandledError =
         match x with
@@ -64,12 +72,12 @@ type exceptionRegister =
         | _ -> false
     member x.ExceptionTerm =
         match x with
-        | Unhandled error
+        | Unhandled (error, _)
         | Caught error -> Some error
         | _ -> None
     static member map f x =
         match x with
-        | Unhandled e -> Unhandled <| f e
+        | Unhandled(e, isRuntime) -> Unhandled(f e, isRuntime)
         | Caught e -> Caught <| f e
         | NoException -> NoException
 
@@ -79,28 +87,41 @@ type arrayCopyInfo =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
 type model =
-    { state : state; subst : IDictionary<ISymbolicConstantSource, term> }
+    | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
+    | StateModel of state
 with
     member x.Complete value =
-        if x.state.complete then
+        match x with
+        | StateModel state when state.complete ->
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
             | HeapRef({term = Constant _}, t) -> nullRef t
             | _ -> value
-        else value
+        | _ -> value
+
+    static member private EvalDict (subst : IDictionary<ISymbolicConstantSource, term>) source term typ complete =
+        let value = ref Nop
+        if subst.TryGetValue(source, value) then value.Value
+        elif complete then makeDefaultValue typ
+        else term
 
     member x.Eval term =
-        Substitution.substitute (fun term ->
-            match term with
-            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), _) } ->
-                source.Compose x.state
-            | { term = Constant(_, source, typ) } ->
-                let value = ref Nop
-                if x.subst.TryGetValue(source, value) then value.Value
-                elif x.state.complete then makeDefaultValue typ
-                else term
-            | _ -> term) id id term
+        Substitution.substitute (function
+            | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), typ) } as term ->
+                match x with
+                | StateModel state -> source.Compose state
+                | PrimitiveModel subst -> model.EvalDict subst source term typ true
+            | { term = Constant(_, source, typ) } as term ->
+                let subst, complete =
+                    match x with
+                    | PrimitiveModel dict -> dict, true
+                    | StateModel state ->
+                        match state.model with
+                        | PrimitiveModel dict -> dict, state.complete
+                        | _ -> __unreachable__()
+                model.EvalDict subst source term typ complete
+            | term -> term) id id term
 
 and
     [<ReferenceEquality>]
@@ -116,15 +137,14 @@ and
     mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
     mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
     mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-    concreteMemory : concreteMemory                                    // Fully concrete objects
-    mutable physToVirt : pdict<physicalAddress, concreteHeapAddress>   // Map from physical address (obj) to concreteHeapAddress
+    concreteMemory : IConcreteMemory                                   // Fully concrete objects
     mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
     mutable typeVariables : typeVariables                              // Type variables assignment in the current state
     mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
     mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
     mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
     mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    mutable model : model option                                       // Concrete valuation of symbolics
+    mutable model : model                                              // Concrete valuation of symbolics
     complete : bool                                                    // If true, reading of undefined locations would result in default values
     typeMocks : IDictionary<Type list, ITypeMock>
 }

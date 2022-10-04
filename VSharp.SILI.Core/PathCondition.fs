@@ -24,9 +24,23 @@ module internal PC =
         match cond with
         | True -> pc
         | False -> falsePC
+        | {term = Disjunction xs} ->
+            let xs' = xs |> List.filter (fun x -> PersistentSet.contains !!x pc |> not)
+            if xs'.Length = xs.Length then
+                PersistentSet.add pc cond
+            else
+                PersistentSet.add pc (disjunction xs')
         | _ when isFalse pc -> falsePC
         | _ when PersistentSet.contains !!cond pc -> falsePC
-        | _ -> PersistentSet.add pc cond
+        | _ ->
+            let notCond = !!cond
+            let pc' = pc |> PersistentSet.fold (fun pc e ->
+                match e with
+                | {term = Disjunction xs} when List.contains notCond xs ->
+                    let e' = xs |> List.filter ((<>) notCond) |> disjunction
+                    PersistentSet.add (PersistentSet.remove pc e) e'
+                | _ -> pc) pc
+            PersistentSet.add pc' cond
 
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =

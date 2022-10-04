@@ -69,7 +69,7 @@ type StatisticsTargetCalculator(statistics : SILIStatistics) =
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with
             | None when inCoverageZone loc ->
-                let localHistory = Seq.filter inCoverageZone (history state)
+                let localHistory = Seq.filter inCoverageZone state.history
                 match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
                 | None -> k None
                 | Some l -> Some l
@@ -213,17 +213,18 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
     let pick () = pick' id
 
+    let reset () =
+        baseSearcher.Reset()
+        for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Reset()
+
     interface IForwardSearcher with
         override x.Init states =
             baseSearcher.Init states
             insertInTargetedSearchers states
         override x.Pick() = pick ()
         override x.Update (parent, newStates) = update parent newStates
-        override x.States() =
-            seq {
-                yield baseSearcher.States()
-                yield! targetedSearchers |> Seq.map (fun kvp -> (kvp.Value :> IForwardSearcher).States())
-            } |> Seq.concat
+        override x.States() = baseSearcher.States()
+        override x.Reset() = reset ()
 
 type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
-    inherit SampledWeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics))
+    inherit WeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())

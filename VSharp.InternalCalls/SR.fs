@@ -56,6 +56,14 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "ArgumentNull_Generic" state
 
+    let internal get_Arg_DivideByZero (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_DivideByZero" state
+
+    let internal get_Arg_ArithmeticException (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_ArithmeticException" state
+
     let internal getMessageFromNativeResources (state : state) (args : term list) : term =
         assert(List.length args = 1)
         Memory.AllocateString "getMessageFromNativeResources" state

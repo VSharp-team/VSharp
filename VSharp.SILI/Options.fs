@@ -7,6 +7,8 @@ type searchMode =
     | DFSMode
     | BFSMode
     | ShortestDistanceBasedMode
+    | ContributedCoverageMode
+    | InterleavedMode of searchMode * int * searchMode * int
     | GuidedMode of searchMode
 
 type coverageZone =
@@ -30,4 +32,5 @@ type SiliOptions = {
     timeout : int
     visualize : bool
     releaseBranches : bool
+    maxBufferSize : int
 }

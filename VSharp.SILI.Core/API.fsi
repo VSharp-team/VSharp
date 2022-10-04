@@ -11,6 +11,7 @@ module API =
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
+    val SetMaxBuferSize : int -> unit
 
     val BranchStatements : state -> (state -> (term * state -> 'a) -> 'b) -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'b
     val BranchStatementsOnNull : state -> term -> (state -> (term * state -> 'a) -> 'a) -> (state -> (term * state -> 'a) -> 'a) -> ((term * state) list -> 'a) -> 'a
@@ -24,13 +25,12 @@ module API =
     val GuardedStatedApplyk : (state -> term -> ('item -> 'a) -> 'a) -> state -> term -> ('item list -> 'item list) -> ('item list -> 'a) -> 'a
 
     val ReleaseBranches : unit -> unit
-    val AquireBranches : unit -> unit
+    val AcquireBranches : unit -> unit
 
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
-    val TryGetModel : state -> model option
     val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> unit) -> unit
@@ -68,6 +68,8 @@ module API =
         val GetHashCode : term -> term
 
         val ReinterpretConcretes : term list -> Type -> obj
+
+        val TryTermToObj : state -> term -> obj option
 
         val IsStruct : term -> bool
         val IsReference : term -> bool
@@ -256,6 +258,8 @@ module API =
         val AllocateDelegate : state -> term -> term
         val CreateStringFromChar : state -> term -> term
 
+        val AllocateConcreteObject : state -> obj -> Type -> term
+
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 
         val CopyArray : state -> term -> term -> Type -> term -> term -> Type -> term -> unit
@@ -287,6 +291,10 @@ module API =
         val Merge2Results : term * state -> term * state -> (term * state) list
 
         val FillRegion : state -> term -> regionSort -> unit
+
+        val ObjectToTerm : state -> obj -> Type -> term
+
+        val MarshallObject : state -> obj -> Type -> term
 
     module Print =
         val Dump : state -> string

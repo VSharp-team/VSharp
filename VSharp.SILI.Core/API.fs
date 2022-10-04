@@ -1,7 +1,6 @@
 namespace VSharp.Core
 
 open System
-open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -18,6 +17,8 @@ module API =
         IdGenerator.saveConfiguration()
     let Restore() =
         IdGenerator.restore()
+
+    let SetMaxBuferSize size = SolverInteraction.setMaxBufferSize size
 
     let BranchStatements state condition thenStatement elseStatement k =
         Branching.statedConditionalExecutionWithMergek state condition thenStatement elseStatement k
@@ -36,21 +37,12 @@ module API =
         Branching.commonGuardedStatedApplyk f state term mergeStates k
 
     let ReleaseBranches() = Branching.branchesReleased <- true
-    let AquireBranches() = Branching.branchesReleased <- false
+    let AcquireBranches() = Branching.branchesReleased <- false
 
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
-    let TryGetModel state =
-        match state.model with
-        | Some model -> Some model
-        | None ->
-            match TypeSolver.checkSatWithSubtyping state with
-            | SolverInteraction.SmtSat model -> Some model.mdl
-            | SolverInteraction.SmtUnknown _ -> None
-            // NOTE: irrelevant case, because exploring branch must be valid
-            | SolverInteraction.SmtUnsat _ -> __unreachable__()
     let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
     let mutable private reportError = fun _ -> ()
@@ -117,6 +109,8 @@ module API =
         let GetHashCode term = Memory.getHashCode term
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
+
+        let TryTermToObj state term = Memory.tryTermToObj state term
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
@@ -273,7 +267,7 @@ module API =
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
             Memory.fillWithParametersAndThis modelState method
-            {subst = Dictionary<_,_>(); state = modelState}
+            StateModel modelState
 
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
@@ -407,7 +401,10 @@ module API =
             ref
 
         let AllocateDefaultClass state typ =
-            if typ = typeof<string> then Memory.allocateString state ""
+            if typ = typeof<string> then
+                // Allocating not empty string, because it should not be interned
+                // Constructor will mutate whole string
+                Memory.allocateString state (String('\000', 1))
             else Memory.allocateClass state typ
 
         let AllocateDefaultArray state lengths typ =
@@ -428,6 +425,8 @@ module API =
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
         let CreateStringFromChar state char = Memory.createStringFromChar state char
+
+        let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
 
         let LinearizeArrayIndex state address indices (_, dim, _ as arrayType) =
             let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
@@ -461,14 +460,31 @@ module API =
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
         let StringFromReplicatedChar state string char length =
-            match string.term with
-            | HeapRef(address, sightType) ->
-                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+            let cm = state.concreteMemory
+            let concreteChar = Memory.tryTermToObj state char
+            let concreteLen = Memory.tryTermToObj state length
+            let symbolicCase address =
                 let arrayType = typeof<char>, 1, true
                 Copying.fillArray state address arrayType (makeNumber 0) length char
                 Memory.writeLengthSymbolic state address (makeNumber 0) arrayType (add length (makeNumber 1))
                 Memory.writeArrayIndex state address [length] arrayType (Concrete '\000' typeof<char>)
                 Memory.writeClassField state address Reflection.stringLengthField length
+            match string.term, concreteChar, concreteLen with
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), Some (:? char as c), Some (:? int as len)
+                when cm.Contains a ->
+                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                    let string = String(c, len)
+                    cm.Remove a
+                    cm.Allocate a string
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
+            | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
+                when cm.Contains a ->
+                    assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                    Memory.unmarshall state a
+                    symbolicCase address
+            | HeapRef(address, sightType), _, _ ->
+                assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
+                symbolicCase address
             | _ -> internalfailf "Creating string from replicated char: expected heapRef, but got %O" string
 
         let IsTypeInitialized state typ = Memory.isTypeInitialized state typ
@@ -502,8 +518,8 @@ module API =
             | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
-        let StringCtorOfCharArray state arrayRef dstRef =
-            match dstRef.term with
+        let StringCtorOfCharArray state arrayRef stringRef =
+            match stringRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = typeof<string>)
                 Branching.guardedStatedMap (fun state arrayRef ->
@@ -516,7 +532,7 @@ module API =
                     state arrayRef
             | HeapRef _
             | Union _ -> __notImplemented__()
-            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" dstRef
+            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" stringRef
 
         let ComposeStates state state' = Memory.composeStates state state'
         let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
@@ -542,6 +558,18 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
+
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
+
+        let MarshallObject (state : state) (obj : obj) (typ : Type) =
+            if typ.IsValueType then
+                let fields = Reflection.fieldsOf false typ
+                for _, field in fields do
+                    let fieldType = field.FieldType
+                    if not fieldType.IsValueType then
+                        AllocateConcreteObject state (field.GetValue(obj)) fieldType |> ignore
+                ObjectToTerm state obj typ
+            else AllocateConcreteObject state obj typ
 
     module Print =
         let Dump state = Memory.dump state

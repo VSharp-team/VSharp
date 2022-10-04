@@ -226,7 +226,7 @@ module internal TypeCasting =
         | _ when t = typeof<uint64>  -> typeof<uint64>
         | _ when t = typeof<float32> -> typeof<float32>
         | _ when t = typeof<float>   -> typeof<float>
-        | _ when t.IsEnum -> t.GetEnumUnderlyingType() |> nearestBiggerTypeForEvaluationStack
+        | _ when t.IsEnum -> EnumUtils.getEnumUnderlyingTypeChecked t |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 
     let castToEvaluationStackType x =

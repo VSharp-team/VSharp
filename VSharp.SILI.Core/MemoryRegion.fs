@@ -39,6 +39,7 @@ module private MemoryKeyUtils =
 
     let regionOfIntegerTerm = function
         | {term = Concrete(:? int as value, typ)} when typ = lengthType -> points<int>.Singleton value
+        | {term = Concrete(:? uint as value, typ)} when typ = typeof<UInt32> -> points<int>.Singleton (int value)
         | _ -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
@@ -250,7 +251,7 @@ module MemoryRegion =
     let empty typ =
         {typ = typ; updates = UpdateTree.empty; defaultValue = None}
 
-    let fillRegion defaultValue region =
+    let fillRegion defaultValue (region : memoryRegion<_,_>) =
         { region with defaultValue = Some defaultValue }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
@@ -279,14 +280,14 @@ module MemoryRegion =
         {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
 
     let deterministicCompose earlier later =
-        assert(later.defaultValue.IsNone)
+        assert later.defaultValue.IsNone
         if earlier.typ = later.typ then
             if UpdateTree.isEmpty earlier.updates then { later with defaultValue = earlier.defaultValue }
             else {typ = earlier.typ; updates = UpdateTree.deterministicCompose earlier.updates later.updates; defaultValue = earlier.defaultValue}
         else internalfail "Composing two incomparable memory objects!"
 
     let compose earlier later =
-        assert(later.defaultValue.IsNone)
+        assert later.defaultValue.IsNone
         if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
             [(True, deterministicCompose earlier later)]
         elif earlier.typ = later.typ then

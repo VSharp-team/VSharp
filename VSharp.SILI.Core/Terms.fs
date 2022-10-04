@@ -3,6 +3,7 @@ namespace VSharp.Core
 open VSharp
 open VSharp.CSharpUtils
 open VSharp.TypeUtils
+open EnumUtils
 open System
 open System.Collections.Generic
 
@@ -29,14 +30,14 @@ type stackKey =
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
-        | ParameterKey pi -> pi.Name
+        | ParameterKey pi -> if String.IsNullOrEmpty pi.Name then "#" + toString pi.Position else pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
         | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
     override x.GetHashCode() =
         let fullname =
             match x with
             | ThisKey m -> sprintf "%s##this" m.FullName
-            | ParameterKey pi -> sprintf "%O##%O" pi.Member pi
+            | ParameterKey pi -> sprintf "%O##%O##%d" pi.Member pi pi.Position
             | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
             | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
         fullname.GetDeterministicHashCode()
@@ -429,7 +430,7 @@ module internal Terms =
         if actualType = t then
             Concrete concrete t
         elif t.IsEnum && TypeUtils.isNumeric actualType then
-            let underlyingType = t.GetEnumUnderlyingType()
+            let underlyingType = getEnumUnderlyingTypeChecked t
             let underlyingValue = convert concrete underlyingType
             let enumValue = convert underlyingValue t
             Concrete enumValue t
@@ -632,7 +633,7 @@ module internal Terms =
         | :? bool as o -> BitConverter.GetBytes o
         | :? char as o -> BitConverter.GetBytes o
         | _ when obj.GetType().IsEnum ->
-            let i = Convert.ChangeType(obj, obj.GetType().GetEnumUnderlyingType())
+            let i = Convert.ChangeType(obj, getEnumUnderlyingTypeChecked (obj.GetType()))
             concreteToBytes i
         | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
@@ -652,7 +653,7 @@ module internal Terms =
         | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
         | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
         | _ when t.IsEnum ->
-            let i = t.GetEnumUnderlyingType() |> bytesToObj bytes
+            let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
         | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
 
