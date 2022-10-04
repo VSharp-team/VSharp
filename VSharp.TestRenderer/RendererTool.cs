@@ -21,6 +21,7 @@ public static class Renderer
         MethodBase method,
         IEnumerable<object> args,
         object? thisArg,
+        bool isError,
         Type? ex,
         object expected)
     {
@@ -47,7 +48,7 @@ public static class Renderer
         // Calling testing method
         var callMethod = RenderCall(thisArgId, method, renderedArgs.ToArray());
 
-        if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null)
+        if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null && !isError)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
             CallingTests.Add(callMethod.NormalizeWhitespace().ToString());
@@ -59,7 +60,7 @@ public static class Renderer
             var condition = RenderCall(CompareObjects, resultId, expectedExpr);
             mainBlock.AddAssert(condition);
         }
-        else if (ex == null)
+        else if (ex == null || isError)
         {
             mainBlock.AddCall(callMethod);
             var call = callMethod as InvocationExpressionSyntax;
@@ -232,7 +233,7 @@ public static class Renderer
             }
 
             _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-            var test = UnitTest.DeserializeFromTestInfo(ti);
+            var test = UnitTest.DeserializeFromTestInfo(ti, true);
             // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
             var method = test.Method;
@@ -241,19 +242,28 @@ public static class Renderer
             var thisArg = test.ThisArg;
             if (thisArg == null && !method.IsStatic)
                 thisArg = Reflection.createObject(method.DeclaringType);
+            string suitTypeName;
+            if (fi.Name.Contains("error"))
+                suitTypeName = "Error";
+            else
+            {
+                Debug.Assert(fi.Name.Contains("test"));
+                suitTypeName = "Test";
+            }
+
             string testName;
             if (method.IsConstructor && method.DeclaringType != null)
-                testName = $"{RenderType(method.DeclaringType)}ConstructorTest";
-            else testName = $"{method.Name}Test";
+                testName = $"{RenderType(method.DeclaringType)}Constructor";
+            else testName = method.Name;
 
             var testRenderer = generatedClass.AddMethod(
-                testName,
+                testName + suitTypeName,
                 RenderAttributeList("Test"),
                 new[] { Public },
                 VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
             );
-            RenderTest(testRenderer, method, parameters, thisArg, test.Exception, test.Expected);
+            RenderTest(testRenderer, method, parameters, thisArg, test.IsError, test.Exception, test.Expected);
         }
 
         SyntaxNode compilation =

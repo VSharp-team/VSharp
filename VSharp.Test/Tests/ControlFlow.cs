@@ -395,7 +395,7 @@ namespace IntegrationTests
             return x;
         }
 
-       [TestSvm(100)]
+        [TestSvm(100)]
         public static int BinarySearch(int value, int[] a)
         {
             var l = a.GetLowerBound(0);
