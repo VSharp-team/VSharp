@@ -161,6 +161,24 @@ type MethodWithBody internal (m : MethodBase) =
     [<DefaultValue>] static val mutable private instantiator : MethodBase -> MethodWithBody
     static member internal InstantiateNew with get() = MethodWithBody.instantiator and set v = MethodWithBody.instantiator <- v
 
+    member x.IsConcretelyInvokable with get () =
+        // All method generic parameters should be provided
+        not m.ContainsGenericParameters &&
+
+        // Method is not disallowed by ref-like type
+        not returnType.IsByRefLike &&
+
+        // Method is not disallowed by ref type
+        (not returnType.IsByRef ||
+            let elementType = returnType.GetElementType() in
+            not elementType.IsByRefLike && elementType <> typeof<Void>) &&
+
+        // All declaring type generic parameters should be provided, declaring type should not be ref-like
+        (m.DeclaringType = null || not m.DeclaringType.ContainsGenericParameters || not m.DeclaringType.IsByRefLike) &&
+
+        // Method should not contain varargs
+        (m.CallingConvention &&& CallingConventions.VarArgs) <> CallingConventions.VarArgs
+
     interface VSharp.Core.IMethod with
         override x.Name = name
         override x.FullName = fullName
