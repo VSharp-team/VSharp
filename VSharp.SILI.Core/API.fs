@@ -45,19 +45,21 @@ module API =
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
     let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
-    let mutable private reportError = fun _ -> ()
+    let mutable private reportError = fun _ _ -> ()
+    let reportUnspecifiedError state = reportError state "Unspecified"
     let ConfigureErrorReporter errorReporter =
         reportError <- errorReporter
-    let ErrorReporter() =
+    let ErrorReporter(message : string) =
         let result = fun state failCondition ->
             Branching.commonStatedConditionalExecutionk state
                 (fun state k -> k (!!failCondition, state))
                 (fun _ k -> k ())
-                (fun state k -> k (reportError state))
+                (fun state k -> k (reportError state message))
                 (fun _ _ -> [])
                 ignore
-        reportError <- fun _ -> ()
+        reportError <- fun _ _ -> ()
         result
+    let UnspecifiedErrorReporter() = ErrorReporter "Unspecified"
 
     [<AutoOpen>]
     module public Terms =
@@ -324,7 +326,7 @@ module API =
             | _ -> ref
 
         let Read state reference =
-            transformBoxedRef reference |> Memory.read state (ErrorReporter())
+            transformBoxedRef reference |> Memory.read state (UnspecifiedErrorReporter())
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state method = Memory.readStackLocation state (ThisKey method)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -332,7 +334,7 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
-                | Ref _ -> ReferenceField state target field |> Memory.read state (ErrorReporter())
+                | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
@@ -357,7 +359,7 @@ module API =
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
         let Write state reference value =
-            let errorReporter = ErrorReporter()
+            let errorReporter = UnspecifiedErrorReporter()
             Branching.guardedStatedMap (fun state reference -> Memory.write state errorReporter reference value) state reference
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =

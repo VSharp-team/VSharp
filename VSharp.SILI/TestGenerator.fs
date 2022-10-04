@@ -154,6 +154,15 @@ module TestGenerator =
             test.SetTypeGenericParameters concreteClassParams mockedClassParams
             test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
 
+            let suitableState cilState =
+                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                match () with
+                | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
+                    Memory.CallStackSize cilState.state = 2
+                | _ -> Memory.CallStackSize cilState.state = 1
+            if not <| suitableState cilState
+                then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+
             match model with
             | StateModel modelState ->
                 let parametersInfo = m.Parameters
@@ -190,10 +199,10 @@ module TestGenerator =
                 Some test
             | _ -> __unreachable__()
 
-    let state2test isError (m : Method) cmdArgs (cilState : cilState) =
+    let state2test isError (m : Method) cmdArgs (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
-        let test = UnitTest (m :> IMethod).MethodBase
+        let test = UnitTest((m :> IMethod).MethodBase)
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled(e, _) when not isError ->
@@ -202,5 +211,6 @@ module TestGenerator =
                 true
             | _ -> false
         test.IsError <- isError
+        test.ErrorMessage <- message
 
         model2test test isError hasException indices mockCache m cilState.state.model cmdArgs cilState

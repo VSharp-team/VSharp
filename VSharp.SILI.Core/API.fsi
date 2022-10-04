@@ -33,8 +33,9 @@ module API =
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
     val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
-    val ConfigureErrorReporter : (state -> unit) -> unit
-    val ErrorReporter : unit -> (state -> term -> unit)
+    val ConfigureErrorReporter : (state -> string -> unit) -> unit
+    val ErrorReporter : string -> (state -> term -> unit)
+    val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
     [<AutoOpen>]
     module Terms =
