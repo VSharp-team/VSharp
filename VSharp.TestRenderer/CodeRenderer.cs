@@ -63,6 +63,32 @@ internal static class CodeRenderer
         return assemblies.ToArray();
     }
 
+    public static bool IsGetPropertyMethod(MethodBase method, out string propertyName)
+    {
+        var name = method.Name;
+        if (method.IsSpecialName && method.DeclaringType != null && name.Contains("get_"))
+        {
+            propertyName = name.Substring(name.IndexOf('_') + 1);
+            return method.DeclaringType.GetProperty(propertyName, Reflection.allBindingFlags) != null;
+        }
+
+        propertyName = String.Empty;
+        return false;
+    }
+
+    public static bool IsSetPropertyMethod(MethodBase method, out string propertyName)
+    {
+        var name = method.Name;
+        if (method.IsSpecialName && method.DeclaringType != null && name.Contains("set_"))
+        {
+            propertyName = name.Substring(name.IndexOf('_') + 1);
+            return method.DeclaringType.GetProperty(propertyName, Reflection.allBindingFlags) != null;
+        }
+
+        propertyName = String.Empty;
+        return false;
+    }
+
     private static readonly Dictionary<Type, string> PrimitiveTypes = new()
         {
             [typeof(void)] = "void",
@@ -140,14 +166,19 @@ internal static class CodeRenderer
     {
         assemblies.Add(method.Module.Assembly);
         var type = method.DeclaringType;
-        IdentifierNameSyntax methodName;
-        if (method.IsConstructor && method.DeclaringType != null)
-            methodName = IdentifierName(RenderType(method.DeclaringType).ToString());
-        else
-            methodName = IdentifierName(method.Name);
+        var methodName = IdentifierName(method.Name);
 
         if (type == null)
             return methodName;
+
+        if (method.IsConstructor)
+            return IdentifierName(RenderType(type).ToString());
+
+        string propertyName;
+        if (IsGetPropertyMethod(method, out propertyName))
+            methodName = IdentifierName(propertyName);
+        if (IsSetPropertyMethod(method, out propertyName))
+            methodName = IdentifierName(propertyName);
 
         if (method.IsStatic)
             return RenderMemberAccess(RenderType(type), methodName);
@@ -477,6 +508,15 @@ internal static class CodeRenderer
             var rendered = RenderMethod(method);
             Debug.Assert(Reflection.hasThis(method) && rendered is SimpleNameSyntax);
             function = RenderMemberAccess(thisArg, (SimpleNameSyntax) rendered);
+        }
+
+        if (IsGetPropertyMethod(method, out _))
+            return function;
+
+        if (IsSetPropertyMethod(method, out _))
+        {
+            Debug.Assert(args.Length == 1);
+            return RenderAssignment(function, args[0]);
         }
 
         return RenderCall(function, args);
