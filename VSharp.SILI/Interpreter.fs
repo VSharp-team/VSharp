@@ -964,7 +964,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
-        if Loader.isInvokeInternalCall fullMethodName then
+        if method.IsConcretelyInvokable && Loader.isInvokeInternalCall fullMethodName then
             // Before term args, type args are located
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
             let objArgs = List.choose (TryTermToObj state) termArgs
