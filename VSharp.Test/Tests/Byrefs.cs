@@ -75,7 +75,7 @@ namespace IntegrationTests
             }
             else if (n < 0)
             {
-                return  -1;
+                return -1;
             }
 
             return 0;
@@ -101,6 +101,27 @@ namespace IntegrationTests
             }
 
             return 1;
+        }
+    }
+
+    [TestSvmFixture]
+    public struct ByrefsStruct
+    {
+        [TestSvm(100)]
+        public bool RefTest1(ref int n)
+        {
+            if (n + 1 > 0)
+            {
+                n = n + 10;
+                if (n > 100)
+                {
+                    return true;
+                }
+
+                return false;
+            }
+
+            return false;
         }
     }
 }

@@ -85,9 +85,59 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public int NotNullCallsDisallowNullTest3([NotNull] object obj, int n)
+        {
+            if (n > 3)
+            {
+                return NotNullCallsDisallowNullTest3(obj, 3);
+            }
+            if (n > 0)
+            {
+                return NotNullCallsDisallowNullTest3(obj, n - 1);
+            }
+            if (obj == null)
+            {
+                return DisallowNullTest1(obj);
+            }
+            return 1;
+        }
+
+        [TestSvm]
         public int DisallowNullCallsNotNullTest([DisallowNull] object obj)
         {
             return NotNullTest1(obj);
+        }
+    }
+
+    [TestSvmFixture]
+    public struct AttributesStruct
+    {
+        [TestSvm]
+        public int DisallowNullTest([DisallowNull] object obj)
+        {
+            if (obj == null)
+            {
+                throw new NullReferenceException();
+            }
+            return 1;
+        }
+
+        [TestSvm]
+        public int NotNullCallsDisallowNullTest([NotNull] object obj, int n)
+        {
+            if (n > 3)
+            {
+                return NotNullCallsDisallowNullTest(obj, 3);
+            }
+            if (n > 0)
+            {
+                return NotNullCallsDisallowNullTest(obj, n - 1);
+            }
+            if (obj == null)
+            {
+                return DisallowNullTest(obj);
+            }
+            return 1;
         }
     }
 }

@@ -72,7 +72,6 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
 
-
     member x.Method with get() = m
     member x.ThisArg
         with get() = thisArg

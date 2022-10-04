@@ -90,7 +90,7 @@ type public SILI(options : SiliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let reportState reporter isError method cmdArgs cilState message =
+    let reportState reporter isError (method : Method) cmdArgs cilState message =
         try
             if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
             then
@@ -100,6 +100,13 @@ type public SILI(options : SiliOptions) =
                     | _ -> false
                 if not isError || hasException
                 then statistics.TrackFinished cilState
+                let callStackSize = Memory.CallStackSize cilState.state
+                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                if isError && not hasException
+                    then
+                        if method.DeclaringType.IsValueType || methodHasByRefParameter method
+                        then Memory.ForcePopFrames (callStackSize - 2) cilState.state
+                        else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 match TestGenerator.state2test isError method cmdArgs cilState message with
                 | Some test -> reporter test
                 | None -> ()
