@@ -352,8 +352,7 @@ module internal Memory =
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} addressType) declaringType
 
-
-    let fillWithParametersAndThis state (method : IMethod) =
+    let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
             (ParameterKey param, None, param.ParameterType)) |> List.ofSeq
         let parametersAndThis =
@@ -365,7 +364,7 @@ module internal Memory =
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
-        newStackFrame state (Some method) parametersAndThis
+        newStackFrame state None parametersAndThis
 
 // =============== Marshalling/unmarshalling without state changing ===============
 
@@ -1279,6 +1278,13 @@ module internal Memory =
                 concreteAllocateMembers state obj typ
                 HeapRef (ConcreteHeapAddress address) typ
         | SymbolicMemory -> internalfailf "allocateConcreteObject: allocating concrete object %O in symbolic memory is not implemented" obj
+
+    let allocateTemporaryLocalVariableOfType state name index typ =
+        let tmpKey = TemporaryLocalVariableKey(typ, index)
+        let ref = PrimitiveStackLocation tmpKey |> Ref
+        let value = makeSymbolicValue {key = tmpKey; time = Some VectorTime.zero} name typ
+        allocateOnStack state tmpKey value
+        ref
 
     let rec lengthOfString state heapRef =
         match heapRef.term with

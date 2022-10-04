@@ -26,20 +26,20 @@ type stackKey =
     | ThisKey of IMethod
     | ParameterKey of Reflection.ParameterInfo
     | LocalVariableKey of Reflection.LocalVariableInfo * IMethod
-    | TemporaryLocalVariableKey of Type
+    | TemporaryLocalVariableKey of Type * int
     override x.ToString() =
         match x with
         | ThisKey _ -> "this"
         | ParameterKey pi -> if String.IsNullOrEmpty pi.Name then "#" + toString pi.Position else pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
-        | TemporaryLocalVariableKey typ -> sprintf "__tmp__%s" (Reflection.getFullTypeName typ)
+        | TemporaryLocalVariableKey (typ, index) -> sprintf "__tmp__%s%d" (Reflection.getFullTypeName typ) index
     override x.GetHashCode() =
         let fullname =
             match x with
             | ThisKey m -> sprintf "%s##this" m.FullName
             | ParameterKey pi -> sprintf "%O##%O##%d" pi.Member pi pi.Position
             | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
-            | TemporaryLocalVariableKey typ -> sprintf "temporary##%s" (Reflection.getFullTypeName typ)
+            | TemporaryLocalVariableKey (typ, index) -> sprintf "temporary##%s%d" (Reflection.getFullTypeName typ) index
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -63,7 +63,7 @@ type stackKey =
         | ThisKey m -> m.DeclaringType
         | ParameterKey p -> p.ParameterType
         | LocalVariableKey(l, _) -> l.LocalType
-        | TemporaryLocalVariableKey typ -> typ
+        | TemporaryLocalVariableKey (typ, _) -> typ
     member x.Map typeSubst =
         match x with
         | ThisKey m -> ThisKey (m.SubstituteTypeVariables typeSubst)
@@ -72,7 +72,9 @@ type stackKey =
             let m' = m.SubstituteTypeVariables typeSubst
             let l' = m.LocalVariables.[l.LocalIndex]
             LocalVariableKey(l', m')
-        | TemporaryLocalVariableKey typ -> TemporaryLocalVariableKey (Reflection.concretizeType typeSubst typ)
+        | TemporaryLocalVariableKey (typ, index) ->
+            // TODO: index may become inconsistent here
+            TemporaryLocalVariableKey((Reflection.concretizeType typeSubst typ), index)
 
 type concreteHeapAddress = vectorTime
 type arrayType = Type * int * bool // Element type * dimension * is vector

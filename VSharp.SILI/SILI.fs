@@ -126,7 +126,12 @@ type public SILI(options : SiliOptions) =
             let this(*, isMethodOfStruct*) =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
                 else
-                    let this = Memory.MakeSymbolicThis method
+                    let this =
+                        if Types.IsValueType method.DeclaringType then
+                            Memory.NewStackFrame initialState None []
+                            Memory.AllocateTemporaryLocalVariableOfType initialState "this" 0 method.DeclaringType
+                        else
+                            Memory.MakeSymbolicThis method
                     !!(IsNullReference this) |> AddConstraint initialState
                     Some this
             ILInterpreter.InitFunctionFrame initialState method this None

@@ -59,6 +59,8 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : string, expectedCov
             let trimmedName = if index >= 0 then name.Substring(0, index) else name
             sprintf "%s<%s>" trimmedName (args |> Array.map typeName4Dotcover |> join ",")
         elif typ.IsGenericParameter then typ.Name
+        elif typ.IsByRef then
+            typeName4Dotcover (typ.GetElementType())
         else typ.FullName.Replace("+", ".") // Replace + in inner class names with dots
 
     let splitTypeName (typeName : string) =

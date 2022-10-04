@@ -164,14 +164,25 @@ module TestGenerator =
                     test.AddArg (Array.head parametersInfo) args
                 | None ->
                     parametersInfo |> Seq.iter (fun pi ->
-                        let value = Memory.ReadArgument modelState pi |> model.Complete
+                        let value =
+                            if pi.ParameterType.IsByRef then
+                                let key = ParameterKey pi
+                                let stackRef = Memory.ReadLocalVariable cilState.state key
+                                Memory.Read modelState stackRef
+                            else
+                                Memory.ReadArgument modelState pi |> model.Complete
                         let concreteValue : obj = term2obj model cilState.state indices mockCache test value
                         test.AddArg pi concreteValue)
 
                 if m.HasThis then
-                    let value = Memory.ReadThis modelState m |> model.Complete
-                    let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                    test.ThisArg <- concreteValue
+                    let thisTerm =
+                        if m.DeclaringType.IsValueType then
+                            let stackRef = Memory.ReadThis cilState.state m
+                            Memory.Read modelState stackRef
+                        else
+                            Memory.ReadThis modelState m |> model.Complete
+                    let concreteThis = term2obj model cilState.state indices mockCache test thisTerm
+                    test.ThisArg <- concreteThis
 
                 if not isError && not hasException then
                     let retVal = model.Eval cilState.Result

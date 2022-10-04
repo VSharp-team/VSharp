@@ -66,6 +66,7 @@ module internal CallStack =
             match key with
             | ParameterKey pi -> pi.ParameterType |> makeDefaultValue
             | ThisKey m -> nullRef m.DeclaringType
+            | TemporaryLocalVariableKey (t, _) -> makeDefaultValue t
             | _ -> __unreachable__()
         else
             let entry = findFrameAndRead stack.frames key id
@@ -136,7 +137,7 @@ module internal CallStack =
         |> join "\n"
 
     let stackTrace (stack : callStack) =
-        stack.frames |> List.map (fun frame -> frame.func |> Option.get)
+        stack.frames |> List.choose (fun frame -> frame.func)
 
     let stackTraceString (stack : callStack) =
         stack.frames
