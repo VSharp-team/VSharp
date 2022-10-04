@@ -213,8 +213,9 @@ and CfgInfo internal (method : MethodWithBody) =
                     currentBasicBlock.FinalOffset <- offset
                     dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
-                    currentBasicBlock.FinalVertex <- currentVertex
-                    addEdge currentBasicBlock.StartVertex currentVertex
+                    //sinks.Add currentBasicBlock
+                    currentBasicBlock.FinalOffset <- currentVertex
+                    //addEdge currentBasicBlock.StartVertex currentVertex
                 | Return ->
                     sinks.Add currentBasicBlock
                     currentBasicBlock.FinalOffset <- currentVertex
@@ -341,15 +342,14 @@ and Method internal (m : MethodBase) as this =
             edges |> Seq.cast<IReversedCallGraphNode>
 
     member x.BasicBlocksCount with get() =
-        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+        if x.HasBody then x.CFG.SortedBasicBlocks.Count |> uint else 0u
 
     member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
     member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
 
     member x.ResetStatistics() = blocksCoveredByTests.Clear()
 
-[<CustomEquality; CustomComparison>]
-type public codeLocation = {offset : offset; method : Method}
+and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset; method : Method}
     with
     member this.BasicBlock = this.method.CFG.ResolveBasicBlock this.offset
     override x.Equals y =
@@ -365,6 +365,10 @@ type public codeLocation = {offset : offset; method : Method}
             | :? codeLocation as y -> (x.method :> IComparable).CompareTo(y.method)
             | _ -> -1
 
+and IGraphTrackableState =
+    abstract member CodeLocation: codeLocation
+    abstract member CallStack: list<Method>
+
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
         blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
@@ -372,10 +376,6 @@ module public CodeLocation =
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
         method.HasBody && method.CFG.HasSiblings blockStart.offset
-
-type IGraphTrackableState =
-    abstract member CodeLocation: codeLocation
-    abstract member CallStack: list<Method>
 
 type private ApplicationGraphMessage =
     | ResetQueryEngine
