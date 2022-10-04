@@ -32,7 +32,8 @@ type public SILI(options : SiliOptions) =
 
     let mutable entryIP : ip = Unchecked.defaultof<ip>
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
+    let reportUnspecifiedError state = reportError state "Unspecified"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
@@ -89,31 +90,33 @@ type public SILI(options : SiliOptions) =
             {loc = {offset = offset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let reportState reporter isError method cmdArgs state =
+    let reportState reporter isError method cmdArgs cilState message =
         try
-            if isError || state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
             then
                 let hasException =
-                    match state.state.exceptionsRegister with
+                    match cilState.state.exceptionsRegister with
                     | Unhandled _ -> true
                     | _ -> false
                 if not isError || hasException
-                then statistics.TrackFinished state
-                match TestGenerator.state2test isError method cmdArgs state with
+                then statistics.TrackFinished cilState
+                match TestGenerator.state2test isError method cmdArgs cilState message with
                 | Some test -> reporter test
                 | None -> ()
         with :? InsufficientInformationException as e ->
-            state.iie <- Some e
-            reportIncomplete state
+            cilState.iie <- Some e
+            reportIncomplete cilState
 
     let wrapOnTest (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) =
         Logger.info "Result of method %s is %O" method.FullName state.Result
         Application.terminateState state
-        reportState action.Invoke false method cmdArgs state
+        reportState action.Invoke false method cmdArgs state null
 
-    let wrapOnError (action : Action<UnitTest>) method cmdArgs state =
+    let wrapOnError (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) errorMessage =
+        let message = sprintf "%s error of method %s" errorMessage method.FullName
+        Logger.info "%s" message
         Application.terminateState state
-        reportState action.Invoke true method cmdArgs state
+        reportState action.Invoke true method cmdArgs state message
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
@@ -163,7 +166,7 @@ type public SILI(options : SiliOptions) =
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter reportError
+        runtimeExceptions |> List.iter reportUnspecifiedError
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete

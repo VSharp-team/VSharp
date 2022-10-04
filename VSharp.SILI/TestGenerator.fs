@@ -190,10 +190,10 @@ module TestGenerator =
                 Some test
             | _ -> __unreachable__()
 
-    let state2test isError (m : Method) cmdArgs (cilState : cilState) =
+    let state2test isError (m : Method) cmdArgs (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
-        let test = UnitTest (m :> IMethod).MethodBase
+        let test = UnitTest((m :> IMethod).MethodBase, message)
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled(e, _) when not isError ->

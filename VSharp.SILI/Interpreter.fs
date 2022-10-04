@@ -90,7 +90,8 @@ module internal TypeUtils =
 
 module internal InstructionsSet =
 
-    let mutable reportError : cilState -> unit = fun _ -> ()
+    let mutable reportError : cilState -> string -> unit = fun _ _ -> ()
+    let reportUnspecifiedError state = reportError state "Unspecified"
 
     let idTransformation term k = k term
 
@@ -851,13 +852,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         ILInterpreter.InitFunctionFrame cilState.state method this paramValues
         pushToIp (instruction method 0<offsets>) cilState
 
-    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) =
+    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) message =
         if method.CheckAttributes then
             let assumptions = assumptions cilState method
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (assumptions, state))
                 (fun cilState k -> (); k [cilState])
-                (fun cilState k -> reportError cilState; cilState.suspended <- true; k [cilState])
+                (fun cilState k -> reportError cilState message; cilState.suspended <- true; k [cilState])
                 (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
         else [cilState]
 
@@ -872,7 +873,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     else True)
             |> conjunction
 
-        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions
+        let message = "DisallowNullAttribute violation"
+        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message
 
     static member CheckNotNullAssumptions (cilState : cilState) (method : Method) =
         let notNullAssumptions (cilState : cilState) (method : Method) =
@@ -885,7 +887,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     else True)
             |> conjunction
 
-        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions
+        let message = "NotNullAttribute violation"
+        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic

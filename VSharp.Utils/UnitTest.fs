@@ -17,6 +17,7 @@ open VSharp
 type testInfo = {
     assemblyName : string
     moduleFullyQualifiedName : string
+    errorMessage : string
     token : int32
     thisArg : obj
     args : obj array
@@ -35,6 +36,7 @@ with
     static member OfMethod(m : MethodBase) = {
         assemblyName = m.Module.Assembly.FullName
         moduleFullyQualifiedName = m.Module.FullyQualifiedName
+        errorMessage = null
         token = m.MetadataToken
         thisArg = null
         args = null
@@ -61,6 +63,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let isError = info.isError
+    let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
 //    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
 //    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
@@ -68,6 +71,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
 
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m)
+
 
     member x.Method with get() = m
     member x.ThisArg
@@ -84,6 +88,12 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let t = typeof<testInfo>
             let p = t.GetProperty("isError")
             p.SetValue(info, e)
+    member x.ErrorMessage
+        with get() = errorMessage
+        and set (m : string) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("errorMessage")
+            p.SetValue(info, m)
     member x.Expected
         with get() = expectedResult
         and set r =
