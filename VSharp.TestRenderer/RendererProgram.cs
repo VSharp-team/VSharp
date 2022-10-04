@@ -19,7 +19,6 @@ internal static class RendererProgram
                 return 0;
             }
             Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
-            // throw new ArgumentException();
             return 1;
         }
 
@@ -30,7 +29,6 @@ internal static class RendererProgram
             return 0;
         }
 
-        // throw new ArgumentException();
         return 1;
     }
 }

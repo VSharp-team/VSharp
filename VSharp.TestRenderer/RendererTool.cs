@@ -12,7 +12,6 @@ using static CodeRenderer;
 public static class Renderer
 {
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
-    private static readonly List<string> CallingTests = new ();
 
     // TODO: create class 'Expression' with operators?
 
@@ -28,7 +27,6 @@ public static class Renderer
         var mainBlock = test.Body;
 
         // Declaring arguments and 'this' of testing method
-        var renderedArgs = args.Select(mainBlock.RenderObject);
         IdentifierNameSyntax thisArgId = null!;
         if (thisArg != null)
         {
@@ -44,14 +42,14 @@ public static class Renderer
                 thisArgId = mainBlock.AddDecl("thisArg", thisType, mainBlock.RenderObject(thisArg));
             }
         }
+        var renderedArgs = args.Select(mainBlock.RenderObject).ToArray();
 
         // Calling testing method
-        var callMethod = RenderCall(thisArgId, method, renderedArgs.ToArray());
+        var callMethod = RenderCall(thisArgId, method, renderedArgs);
 
         if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null && !isError)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
-            // CallingTests.Add(callMethod.NormalizeWhitespace().ToString());
 
             // Adding namespace of objects comparer to usings
             AddObjectsComparer();
@@ -63,22 +61,17 @@ public static class Renderer
         else if (ex == null || isError)
         {
             mainBlock.AddExpression(callMethod);
-            // var call = callMethod as InvocationExpressionSyntax;
-            // Debug.Assert(call != null);
-            // CallingTests.Add(call.Expression.NormalizeWhitespace().ToString());
         }
         else
         {
             // Handling exceptions
             var delegateExpr = ParenthesizedLambdaExpression(callMethod);
             var assertThrows =
-                // TODO: use parsing of AST to get names? (instead of strings)
                 RenderCall(
                     "Assert", "Throws",
                     new []{ RenderType(ex) },
                     delegateExpr
                 );
-            // CallingTests.Add(assertThrows.Expression.NormalizeWhitespace().ToString());
             mainBlock.AddExpression(assertThrows);
         }
     }
@@ -139,30 +132,6 @@ public static class Renderer
                     node = unary.WithOperatorToken(unaryOperator).WithOperand(operand);
                     return base.Visit(node);
                 }
-                // TODO: add blank line, only if there is statement before/after
-                // Adding blank lines between args declaration, target method invocation and result checking
-                case LocalDeclarationStatementSyntax varDecl:
-                {
-                    var vars = varDecl.Declaration.Variables;
-                    if (vars.Count > 0)
-                    {
-                        var init = vars[0].Initializer;
-                        if (init != null && CallingTests.Contains(init.Value.ToString()))
-                        {
-                            node = node.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
-                            node = node.WithTrailingTrivia(LineFeed, LineFeed);
-                            return base.Visit(node);
-                        }
-                    }
-                    break;
-                }
-                // Adding blank line before 'Assert.Throws'
-                case ExpressionStatementSyntax { Expression: InvocationExpressionSyntax call }
-                    when CallingTests.Contains(call.Expression.ToString()):
-                {
-                    node = node.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
-                    return base.Visit(node);
-                }
                 // Formatting initializer with line breaks
                 case ObjectCreationExpressionSyntax objCreation:
                 {
@@ -212,7 +181,6 @@ public static class Renderer
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
         PrepareCache();
-        CallingTests.Clear();
         // Adding NUnit namespace to usings
         AddNUnit();
 

@@ -193,10 +193,6 @@ internal static class CodeRenderer
 
     // Prerendered extern function
     public static readonly ExpressionSyntax CompareObjects = IdentifierName(nameof(ObjectsComparer.CompareObjects));
-        // RenderMemberAccess(
-        //     IdentifierName(nameof(ObjectsComparer)),
-        //     IdentifierName(nameof(ObjectsComparer.CompareObjects))
-        // );
 
     public static readonly IdentifierNameSyntax AllocatorObject = IdentifierName(nameof(Allocator<int>.Object));
 
@@ -227,21 +223,6 @@ internal static class CodeRenderer
     public static readonly ExpressionSyntax True = LiteralExpression(SyntaxKind.TrueLiteralExpression);
     public static readonly ExpressionSyntax False = LiteralExpression(SyntaxKind.FalseLiteralExpression);
     public static readonly ExpressionSyntax Zero = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(0));
-
-    public static readonly ExpressionSyntax BindingFlags =
-        BinaryExpression(
-            SyntaxKind.BitwiseOrExpression,
-            RenderEnum(System.Reflection.BindingFlags.Static),
-            BinaryExpression(
-                SyntaxKind.BitwiseOrExpression,
-                RenderEnum(System.Reflection.BindingFlags.NonPublic),
-                BinaryExpression(
-                    SyntaxKind.BitwiseOrExpression,
-                    RenderEnum(System.Reflection.BindingFlags.Public),
-                    RenderEnum(System.Reflection.BindingFlags.Instance)
-                )
-            )
-        );
 
     public static readonly IdentifierNameSyntax VarKeyword =
         IdentifierName(
