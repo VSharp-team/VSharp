@@ -51,7 +51,7 @@ public static class Renderer
         if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null && !isError)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
-            CallingTests.Add(callMethod.NormalizeWhitespace().ToString());
+            // CallingTests.Add(callMethod.NormalizeWhitespace().ToString());
 
             // Adding namespace of objects comparer to usings
             AddObjectsComparer();
@@ -62,10 +62,10 @@ public static class Renderer
         }
         else if (ex == null || isError)
         {
-            mainBlock.AddCall(callMethod);
-            var call = callMethod as InvocationExpressionSyntax;
-            Debug.Assert(call != null);
-            CallingTests.Add(call.Expression.NormalizeWhitespace().ToString());
+            mainBlock.AddExpression(callMethod);
+            // var call = callMethod as InvocationExpressionSyntax;
+            // Debug.Assert(call != null);
+            // CallingTests.Add(call.Expression.NormalizeWhitespace().ToString());
         }
         else
         {
@@ -78,8 +78,8 @@ public static class Renderer
                     new []{ RenderType(ex) },
                     delegateExpr
                 );
-            CallingTests.Add(assertThrows.Expression.NormalizeWhitespace().ToString());
-            mainBlock.AddCall(assertThrows);
+            // CallingTests.Add(assertThrows.Expression.NormalizeWhitespace().ToString());
+            mainBlock.AddExpression(assertThrows);
         }
     }
 
@@ -233,8 +233,7 @@ public static class Renderer
             }
 
             _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-            var test = UnitTest.DeserializeFromTestInfo(ti, true);
-            // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
+            UnitTest test = UnitTest.DeserializeFromTestInfo(ti, true);
 
             var method = test.Method;
             var parameters = test.Args ?? method.GetParameters()
@@ -252,9 +251,14 @@ public static class Renderer
             }
 
             string testName;
-            if (method.IsConstructor && method.DeclaringType != null)
+            if (method.IsConstructor)
                 testName = $"{RenderType(method.DeclaringType)}Constructor";
-            else testName = method.Name;
+            else if (IsGetPropertyMethod(method, out testName))
+                testName = $"Get{testName}";
+            else if (IsSetPropertyMethod(method, out testName))
+                testName = $"Set{testName}";
+            else
+                testName = method.Name;
 
             var testRenderer = generatedClass.AddMethod(
                 testName + suitTypeName,

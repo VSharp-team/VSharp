@@ -14,7 +14,7 @@ internal interface IBlock
     IdentifierNameSyntax NewIdentifier(string idName);
     IBlock NewBlock();
     IdentifierNameSyntax AddDecl(string varName, TypeSyntax? type, ExpressionSyntax init, bool reuse = false);
-    void AddCall(ExpressionSyntax function);
+    void AddExpression(ExpressionSyntax expression);
     void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y);
     void AddAssert(ExpressionSyntax condition);
     void AddTryCatch(BlockSyntax tryBlock, TypeSyntax catchType, IdentifierNameSyntax exVar, BlockSyntax catchBlock);
@@ -129,9 +129,9 @@ internal class MethodRenderer
             return var;
         }
 
-        public void AddCall(ExpressionSyntax function)
+        public void AddExpression(ExpressionSyntax expression)
         {
-            _statements.Add(ExpressionStatement(function));
+            _statements.Add(ExpressionStatement(expression));
         }
 
         public void AddAssignment(AssignmentExpressionSyntax assignment)
@@ -288,7 +288,7 @@ internal class MethodRenderer
                 }
                 else
                 {
-                    throw new Exception();
+                    throw new NotImplementedException();
                 }
             }
             else
@@ -299,11 +299,11 @@ internal class MethodRenderer
                         zeroLowerBounds = false;
                 if (zeroLowerBounds)
                 {
-                    throw new Exception();
+                    throw new NotImplementedException();
                 }
                 else
                 {
-                    throw new Exception();
+                    throw new NotImplementedException();
                 }
             }
         }
