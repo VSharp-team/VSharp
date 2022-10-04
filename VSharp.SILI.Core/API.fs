@@ -43,6 +43,7 @@ module API =
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
+    let SolveGenericMethodParameters (method : IMethod) = TypeSolver.solveMethodParameters method
     let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
     let mutable private reportError = fun _ _ -> ()
