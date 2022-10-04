@@ -622,10 +622,12 @@ module internal Memory =
         MemoryRegion.read (extractor state) key (isDefault state)
             (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
-    let readBoxedLocation state (address : concreteHeapAddress) =
-        match PersistentDict.tryFind state.boxedLocations address with
-        | Some value -> value
-        | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+    let readBoxedLocation state (address : concreteHeapAddress) typ =
+        let cm = state.concreteMemory
+        match cm.TryVirtToPhys address, PersistentDict.tryFind state.boxedLocations address with
+        | Some value, _ -> objToTerm state typ value
+        | None, Some value -> value
+        | _ -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
 
     let rec readDelegate state reference =
         match reference.term with
@@ -646,7 +648,7 @@ module internal Memory =
             let structTerm = readSafe state address
             readStruct structTerm field
         | ArrayLength(address, dimension, typ) -> readLength state address dimension typ
-        | BoxedLocation(address, _) -> readBoxedLocation state address
+        | BoxedLocation(address, typ) -> readBoxedLocation state address typ
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
@@ -899,9 +901,17 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
-    let writeBoxedLocation state (address : concreteHeapAddress) value =
+    let writeBoxedLocationSymbolic state (address : concreteHeapAddress) value =
         state.boxedLocations <- PersistentDict.add address value state.boxedLocations
         state.allocatedTypes <- PersistentDict.add address (value |> typeOf |> ConcreteType) state.allocatedTypes
+
+    let writeBoxedLocation state (address : concreteHeapAddress) value =
+        let cm = state.concreteMemory
+        match tryTermToObj state value with
+        | Some value when cm.Contains(address) ->
+            cm.Remove address
+            cm.Allocate address value
+        | _ -> writeBoxedLocationSymbolic state address value
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
@@ -1232,6 +1242,12 @@ module internal Memory =
         state.allocatedTypes <- PersistentDict.add concreteAddress (delegateTerm |> typeOf |> ConcreteType) state.allocatedTypes
         HeapRef address (typeOf delegateTerm)
 
+    let allocateBoxedLocation state value =
+        let concreteAddress = freshAddress state
+        let address = ConcreteHeapAddress concreteAddress
+        writeBoxedLocationSymbolic state concreteAddress value
+        HeapRef address typeof<obj>
+
     let private concreteAllocateOne state (obj : obj) (typ : Type) =
         let cm = state.concreteMemory
         let concreteAddress = allocateType state typ
@@ -1276,9 +1292,9 @@ module internal Memory =
             let cm = state.concreteMemory
             match cm.TryPhysToVirt obj with
             | Some address -> HeapRef (ConcreteHeapAddress address) typ
-            | None when typ.IsValueType -> internalfailf "allocateConcreteObject: value types should not be allocated, obj = %O" obj
             | None when obj = null -> nullRef typ
             | None ->
+                if typ.IsValueType then Logger.trace "allocateConcreteObject: boxing concrete struct %O" obj
                 let address = concreteAllocateOne state obj typ
                 concreteAllocateMembers state obj typ
                 HeapRef (ConcreteHeapAddress address) typ

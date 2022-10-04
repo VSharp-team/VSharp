@@ -388,11 +388,7 @@ module API =
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 
-        let BoxValueType state term =
-            let address = Memory.freshAddress state
-            let reference = HeapRef (ConcreteHeapAddress address) typeof<obj>
-            Memory.writeBoxedLocation state address term
-            reference
+        let BoxValueType state term = Memory.allocateBoxedLocation state term
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
