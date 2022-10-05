@@ -121,6 +121,11 @@ type MethodWithBody internal (m : MethodBase) =
     member x.CustomAttributes = customAttributes
     member x.MethodImplementationFlags with get() = methodImplementationFlags.Force()
 
+    member x.ReturnParameter with get() =
+        match m with
+        | :? MethodInfo as m -> Some m.ReturnParameter
+        | _ -> None
+
     member x.IsDelegate with get() = isDelegate.Force()
     member x.IsDelegateConstructor with get() = isDelegateConstructor.Force()
 

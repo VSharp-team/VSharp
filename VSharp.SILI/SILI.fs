@@ -176,7 +176,7 @@ type public SILI(options : SiliOptions) =
 
     member private x.FormInitialStates (method : Method) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
-        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
         assert (List.length cilStates = 1)
         let [cilState] = cilStates
         match options.executionMode with

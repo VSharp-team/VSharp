@@ -69,6 +69,20 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        [return : NotNull]
+        public object NotNullTest4([DisallowNull] object obj)
+        {
+            return obj;
+        }
+
+        [TestSvm]
+        [return : NotNull]
+        public object NotNullTest5(object obj)
+        {
+            return obj;
+        }
+
+        [TestSvm]
         public int NotNullCallsDisallowNullTest1([NotNull] object obj)
         {
             return DisallowNullTest1(obj);

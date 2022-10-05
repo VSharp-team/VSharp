@@ -539,6 +539,14 @@ module internal InstructionsSet =
         List.iter (fallThroughImpl stackSizeBefore newIp) cilStates
         cilStates
 
+    let readParameter (parameter : ParameterInfo) cilState =
+        if parameter.ParameterType.IsByRef then
+            let key = ParameterKey parameter
+            let stackRef = Memory.ReadLocalVariable cilState.state key
+            Memory.Read cilState.state stackRef
+        else
+            Memory.ReadArgument cilState.state parameter
+
 open InstructionsSet
 
 type UnknownMethodException(message : string, methodInfo : Method, interpreterStackTrace : string) =
@@ -852,43 +860,55 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         ILInterpreter.InitFunctionFrame cilState.state method this paramValues
         pushToIp (instruction method 0<offsets>) cilState
 
-    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) message =
+    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) message isError =
         if method.CheckAttributes then
             let assumptions = assumptions cilState method
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (assumptions, state))
                 (fun cilState k -> (); k [cilState])
-                (fun cilState k -> reportError cilState message; cilState.suspended <- true; k [cilState])
+                (fun cilState k ->
+                    if isError then reportError cilState message
+                    cilState.suspended <- true
+                    k [cilState])
                 (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
         else [cilState]
 
-    static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) =
+    static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) isError =
         let disallowNullAssumptions (cilState : cilState) (method : Method) =
             method.Parameters
             |> Seq.map (fun parameter ->
                 if Attribute.IsDefined(parameter, typeof<CodeAnalysis.DisallowNullAttribute>)
-                    then
-                        let termArg = Memory.ReadArgument cilState.state parameter
-                        !!(IsNullReference termArg)
+                    then !!(IsNullReference (readParameter parameter cilState))
                     else True)
             |> conjunction
 
         let message = "DisallowNullAttribute violation"
-        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message
+        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message isError
+
+    static member CheckDisallowNullAssumptionsAndReport cilState method =
+        ILInterpreter.CheckDisallowNullAssumptions cilState method true
 
     static member CheckNotNullAssumptions (cilState : cilState) (method : Method) =
         let notNullAssumptions (cilState : cilState) (method : Method) =
-            method.Parameters
-            |> Seq.map (fun parameter ->
-                if Attribute.IsDefined(parameter, typeof<CodeAnalysis.NotNullAttribute>)
-                    then
-                        let termArg = Memory.ReadArgument cilState.state parameter
-                        !!(IsNullReference termArg)
-                    else True)
-            |> conjunction
+            let parameterAssumptions =
+                method.Parameters
+                |> Seq.map (fun parameter ->
+                    if Attribute.IsDefined(parameter, typeof<CodeAnalysis.NotNullAttribute>)
+                        then !!(IsNullReference (readParameter parameter cilState))
+                        else True)
+                |> conjunction
+            let returnAssumptions =
+                match method.ReturnParameter with
+                | Some returnParameter when Attribute.IsDefined(returnParameter, typeof<CodeAnalysis.NotNullAttribute>) ->
+                    let res = pop cilState
+                    push res cilState
+                    !!(IsNullReference res)
+                | _ -> True
+
+            parameterAssumptions &&& returnAssumptions
 
         let message = "NotNullAttribute violation"
-        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message
+        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message true
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
@@ -950,7 +970,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     then whenInitializedCont cilState
                     else
                         x.InitFunctionFrameCIL cilState cctor None (Some [])
-                        ILInterpreter.CheckDisallowNullAssumptions cilState cctor
+                        ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState cctor
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
@@ -1038,7 +1058,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         popFrameOf cilState
         // Creating valid frame with stackKeys corresponding to actual targetMethod
         x.InitFunctionFrameCIL cilState targetMethod (Some this) (Some args)
-        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState targetMethod
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState targetMethod
         Cps.List.mapk (x.InlineMethodBaseCallIfNeeded targetMethod) cilStates (List.concat >> k)
 
     member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
@@ -1232,7 +1252,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let getArgsAndCall cilState =
             let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
-            let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState calledMethod
+            let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState calledMethod
             Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
         if isConcolicMode then getArgsAndCall cilState
         else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
@@ -1264,7 +1284,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
-        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState methodToCall
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState methodToCall
         Cps.List.mapk (x.CommonCallVirt methodToCall) cilStates List.concat
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
@@ -1333,7 +1353,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
                 x.InitFunctionFrameCIL cilState constructorInfo (Some reference) (Some args)
-                let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState constructorInfo
+                let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState constructorInfo
                 Cps.List.mapk (x.InlineMethodBaseCallIfNeeded constructorInfo) cilStates (List.concat >> afterCall)
 
             if Types.IsValueType typ || TypeUtils.isPointer typ then
