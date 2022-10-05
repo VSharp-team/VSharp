@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -90,12 +91,16 @@ internal class MethodRenderer
     {
         // Variables cache
         private readonly IdentifiersCache _cache;
+        private readonly Dictionary<physicalAddress, ExpressionSyntax> _renderedObjects;
+        private readonly HashSet<physicalAddress> _startToRender;
 
         private readonly List<StatementSyntax> _statements = new();
 
         public BlockBuilder(IdentifiersCache cache)
         {
             _cache = cache;
+            _renderedObjects = new Dictionary<physicalAddress, ExpressionSyntax>();
+            _startToRender = new HashSet<physicalAddress>();
         }
 
         public IdentifierNameSyntax NewIdentifier(string idName)
@@ -302,10 +307,32 @@ internal class MethodRenderer
 
         private ExpressionSyntax RenderFields(object obj)
         {
+            if (_renderedObjects.TryGetValue(new physicalAddress(obj), out var renderedResult))
+            {
+                return renderedResult;
+            }
+
+
             // Adding namespace of allocator to usings
             AddTestExtensions();
 
             var type = obj.GetType();
+            var typeExpr = RenderType(type);
+
+            if (_startToRender.Contains(new physicalAddress(obj)))
+            {
+                var emptyArgs = System.Array.Empty<ExpressionSyntax>();
+                var emptyInit = System.Array.Empty<(ExpressionSyntax, ExpressionSyntax)>();
+                var emptyAllocator = RenderObjectCreation(AllocatorType(typeExpr), emptyArgs, emptyInit);
+            
+                var emptyObject = RenderMemberAccess(emptyAllocator, AllocatorObject);
+                var emptyObjId = AddDecl("obj", typeExpr, emptyObject);
+                _renderedObjects[new physicalAddress(obj)] = emptyObjId;
+
+                return emptyObjId;
+            }
+            _startToRender.Add(new physicalAddress(obj));
+
             var fields = Reflection.fieldsOf(false, type);
             var fieldsWithValues = new (ExpressionSyntax, ExpressionSyntax)[fields.Length];
             var i = 0;
@@ -321,12 +348,31 @@ internal class MethodRenderer
                 i++;
             }
 
-            var typeExpr = RenderType(type);
+            ExpressionSyntax[] args;
+            if (_renderedObjects.TryGetValue(new physicalAddress(obj), out var result))
+            {
+                args = new ExpressionSyntax[1];
+                args[0] = result;
+            }
+            else
+            {
+                args = System.Array.Empty<ExpressionSyntax>();
+            }
             var allocator =
-                RenderObjectCreation(AllocatorType(typeExpr), fieldsWithValues);
+                RenderObjectCreation(AllocatorType(typeExpr), args, fieldsWithValues);
 
             var resultObject = RenderMemberAccess(allocator, AllocatorObject);
-            var objId = AddDecl("obj", typeExpr, resultObject);
+            ExpressionSyntax objId;
+            if (result == null)
+            {
+                objId = AddDecl("obj", typeExpr, resultObject);
+                _renderedObjects[new physicalAddress(obj)] = objId;
+            }
+            else
+            {
+                AddAssignment(RenderAssignment(result, resultObject));
+                objId = result;
+            }
             return objId;
         }
 
