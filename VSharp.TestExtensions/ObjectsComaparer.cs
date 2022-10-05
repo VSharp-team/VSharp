@@ -12,7 +12,7 @@ public static class ObjectsComparer
         var fields = expected.GetType().GetFields(flags);
         foreach (var field in fields)
         {
-            if (!TypeUtils.isSubtypeOrEqual(field.FieldType, typeof(MulticastDelegate)) &&
+            if (!typeof(MulticastDelegate).IsAssignableFrom(field.FieldType) &&
                 !field.Name.Contains("threadid", StringComparison.OrdinalIgnoreCase) &&
                 !CompareObjects(field.GetValue(expected), field.GetValue(got)))
             {
@@ -23,7 +23,7 @@ public static class ObjectsComparer
         return true;
     }
 
-    private static bool ContentwiseEqual(System.Array? expected, System.Array? got)
+    private static bool ContentwiseEqual(Array? expected, Array? got)
     {
         Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
         if (expected.Rank != got.Rank)
@@ -57,8 +57,8 @@ public static class ObjectsComparer
             return got.Equals(expected);
         }
 
-        if (expected is System.Array array)
-            return ContentwiseEqual(array, got as System.Array);
+        if (expected is Array array)
+            return ContentwiseEqual(array, got as Array);
         return StructurallyEqual(expected, got);
     }
 }
