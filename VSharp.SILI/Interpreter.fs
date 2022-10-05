@@ -568,6 +568,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
+            "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
+            "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -760,6 +762,24 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 List.singleton cilState |> k
             x.AccessArray getChar cilState length index id
         | None -> internalfailf "String.GetChars: unexpected this %O" this
+
+    member private x.MonitorReliableEnter (cilState : cilState) this (args : term list) =
+        assert(List.length args = 2 && Option.isNone this)
+        let obj, resultRef = args[0], args[1]
+        let success cilState k =
+            Memory.Write cilState.state resultRef True |> List.map (changeState cilState) |> k
+        BranchOnNullCIL cilState obj
+            (x.Raise x.ArgumentNullException)
+            success
+            id
+
+    member private x.MonitorEnter (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        let obj = List.head args
+        BranchOnNullCIL cilState obj
+            (x.Raise x.ArgumentNullException)
+            (fun cilState k -> List.singleton cilState |> k)
+            id
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName

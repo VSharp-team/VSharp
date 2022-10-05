@@ -32,6 +32,14 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_InvalidHandle" state
 
+    let internal get_Arg_InvalidOperationException (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_InvalidOperationException" state
+
+    let internal get_ArgumentOutOfRange_Index (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "ArgumentOutOfRange_Index" state
+
     let internal get_Arg_PlatformNotSupported (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_PlatformNotSupported" state
