@@ -21,8 +21,76 @@ internal static class CartesianProductExtension
     }
 }
 
-public static class Allocator
+public class Allocator<T>
 {
+    private static Type _objectType = typeof(T);
+    private readonly object _toAllocate;
+
+    public Allocator()
+    {
+        _toAllocate = FormatterServices.GetUninitializedObject(_objectType);
+    }
+
+    public Allocator(string typeName)
+    {
+        Type? notPublicType = Type.GetType(typeName);
+        _objectType = notPublicType ?? _objectType;
+        _toAllocate = FormatterServices.GetUninitializedObject(_objectType);
+    }
+
+    public Allocator(object? defaultValue, params int[] lengths)
+    {
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths);
+        Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public Allocator(object? defaultValue, int[] lengths, int[] lowerBounds)
+    {
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths, lowerBounds);
+        Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public Allocator(object allocated)
+    {
+        _toAllocate = allocated;
+    }
+
+    public Allocator(object allocated, object defaultValue)
+    {
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = allocated;
+        Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public object this[string fieldName]
+    {
+        set
+        {
+            var allBindingFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.NonPublic |
+                                  BindingFlags.Public;
+            var field = _objectType.GetField(fieldName, allBindingFlags);
+            var property = _objectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            Debug.Assert(field != null || property != null);
+            field ??= property;
+            if (field != null)
+                field.SetValue(_toAllocate, value);
+        }
+    }
+
+    public object this[params int[] index]
+    {
+        set
+        {
+            Debug.Assert(_objectType.IsArray);
+            var array = _toAllocate as Array;
+            array?.SetValue(value, index);
+        }
+    }
+
+    public T Object => (T) _toAllocate;
+
     private static void FillFast<TElem>(Array? arr, TElem value)
     {
         if (arr != null)
@@ -35,7 +103,7 @@ public static class Allocator
     }
 
     /// Fills zero-initialized array with value
-    public static void Fill(Array? arr, object? value)
+    private static void Fill(Array? arr, object? value)
     {
         if (value == null)
         {
@@ -98,76 +166,4 @@ public static class Allocator
             }
         }
     }
-}
-
-public class Allocator<T>
-{
-    private static Type ObjectType = typeof(T);
-    private object _toAllocate;
-
-    public Allocator()
-    {
-        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
-    }
-
-    public Allocator(string typeName)
-    {
-        Type? notPublicType = Type.GetType(typeName);
-        ObjectType = notPublicType ?? ObjectType;
-        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
-    }
-
-    public Allocator(object? defaultValue, params int[] lengths)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths);
-        Allocator.Fill(_toAllocate as Array, defaultValue);
-    }
-
-    public Allocator(object? defaultValue, int[] lengths, int[] lowerBounds)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths, lowerBounds);
-        Allocator.Fill(_toAllocate as Array, defaultValue);
-    }
-
-    public Allocator(object allocated)
-    {
-        _toAllocate = allocated;
-    }
-
-    public Allocator(object allocated, object defaultValue)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = allocated;
-        Allocator.Fill(_toAllocate as Array, defaultValue);
-    }
-
-    public object this[string fieldName]
-    {
-        set
-        {
-            var allBindingFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.NonPublic |
-                                  BindingFlags.Public;
-            var field = ObjectType.GetField(fieldName, allBindingFlags);
-            var property = ObjectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
-            Debug.Assert(field != null || property != null);
-            field ??= property;
-            if (field != null)
-                field.SetValue(_toAllocate, value);
-        }
-    }
-
-    public object this[params int[] index]
-    {
-        set
-        {
-            Debug.Assert(ObjectType.IsArray);
-            var array = _toAllocate as Array;
-            array?.SetValue(value, index);
-        }
-    }
-
-    public T Object => (T)_toAllocate;
-
 }
