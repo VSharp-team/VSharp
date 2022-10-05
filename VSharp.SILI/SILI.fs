@@ -134,6 +134,17 @@ type public SILI(options : SiliOptions) =
         statistics.InternalFails.Add(e)
         action.Invoke e
 
+    static member private AllocateByRefParameters initialState (method : Method) =
+        let allocateIfByRef (pi : ParameterInfo) =
+            if pi.ParameterType.IsByRef then
+                if Memory.CallStackSize initialState = 0 then
+                    Memory.NewStackFrame initialState None []
+                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name (pi.Position + 1) (pi.ParameterType.GetElementType())
+                Some stackRef
+            else
+                None
+        method.Parameters |> Array.map allocateIfByRef |> Array.toList
+
     static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
         initialState.model <- Memory.EmptyModel method
@@ -150,7 +161,8 @@ type public SILI(options : SiliOptions) =
                             Memory.MakeSymbolicThis method
                     !!(IsNullReference this) |> AddConstraint initialState
                     Some this
-            ILInterpreter.InitFunctionFrame initialState method this None
+            let parameters = SILI.AllocateByRefParameters initialState method
+            ILInterpreter.InitFunctionFrame initialState method this (Some parameters)
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
         cilState
@@ -292,8 +304,8 @@ type public SILI(options : SiliOptions) =
             | _ -> ())
 
     member private x.InterpretEntryPointInternal (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
-                                         (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                                         (onInternalFail : Action<Exception>) : unit =
+                                                 (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
+                                                 (onInternalFail : Action<Exception>) : unit =
         assert method.IsStatic
         stopwatch.Restart()
         Reset()
@@ -311,7 +323,7 @@ type public SILI(options : SiliOptions) =
             let stringType = typeof<string>
             let argsNumber = MakeNumber mainArguments.Length
             Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
-        let arguments = Option.map (argsToState >> List.singleton) optionArgs
+        let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
         ILInterpreter.InitFunctionFrame state method None arguments
         if Option.isNone optionArgs then
             // NOTE: if args are symbolic, constraint 'args != null' is added
