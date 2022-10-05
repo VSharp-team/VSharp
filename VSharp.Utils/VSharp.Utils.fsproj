@@ -43,6 +43,7 @@
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
         <Compile Include="TestResultsChecker.fs" />
+        <Compile Include="PhysicalAddress.fs" />
     </ItemGroup>
 
     <ItemGroup>

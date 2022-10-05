@@ -45,6 +45,18 @@ public class Allocator<T>
         Fill(_toAllocate as Array, defaultValue);
     }
 
+    public Allocator(object allocated)
+    {
+        _toAllocate = allocated;
+    }
+
+    public Allocator(object allocated, object defaultValue)
+    {
+        Debug.Assert(ObjectType.IsArray);
+        _toAllocate = allocated;
+        Array.fill(_toAllocate as System.Array, defaultValue);
+    }
+
     public object this[string fieldName]
     {
         set
