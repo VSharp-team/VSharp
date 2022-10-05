@@ -183,7 +183,7 @@ namespace VSharp
                 {
                     foreach (var m in t.GetMethods(bindingFlags))
                     {
-                        if (m.GetMethodBody() != null)
+                        if (m.GetMethodBody() != null && !Reflection.hasByRefLikes(m))
                             methods.Add(m);
                     }
                 }

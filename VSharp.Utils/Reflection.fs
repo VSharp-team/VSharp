@@ -197,6 +197,10 @@ module public Reflection =
                     | None -> resolve targetType.BaseType
             resolve targetType
 
+    let hasByRefLikes (method : MethodInfo) =
+        method.DeclaringType <> null && method.DeclaringType.IsByRefLike ||
+            method.GetParameters() |> Seq.exists (fun pi -> pi.ParameterType.IsByRefLike) ||
+            method.ReturnType.IsByRefLike;
 
     // ----------------------------------- Creating objects ----------------------------------
 
