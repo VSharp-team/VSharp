@@ -4,7 +4,6 @@ before_build:
   - dotnet tool restore
   - dotnet restore
   - git submodule update --init z3
-  - git submodule update --init runtime
 
 configuration: Release
 
