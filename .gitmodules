@@ -1,6 +1,3 @@
-[submodule "runtime"]
-	path = runtime
-	url = https://github.com/dotnet/runtime.git
 [submodule "z3"]
 	path = z3
 	url = https://github.com/MchKosticyn/z3
