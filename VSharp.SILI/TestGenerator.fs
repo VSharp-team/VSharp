@@ -138,7 +138,7 @@ module TestGenerator =
             freshMock)
 
 
-    let model2test (test : UnitTest) isError hasException indices mockCache (m : Method) model cmdArgs (cilState : cilState) =
+    let model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
         match SolveTypes model cilState.state with
         | None -> None
         | Some(classParams, methodParams) ->
@@ -193,6 +193,21 @@ module TestGenerator =
                     let concreteThis = term2obj model cilState.state indices mockCache test thisTerm
                     test.ThisArg <- concreteThis
 
+                let hasException, message =
+                    match cilState.state.exceptionsRegister with
+                    | Unhandled(e, _) ->
+                        let t = MostConcreteTypeOfHeapRef cilState.state e
+                        test.Exception <- t
+                        let message =
+                            if isError && String.IsNullOrEmpty message then
+                                let messageReference = Memory.ReadField cilState.state e Reflection.exceptionMessageField |> model.Eval
+                                term2obj model cilState.state indices mockCache test messageReference :?> string
+                            else message
+                        true, message
+                    | _ -> false, message
+                test.IsError <- isError
+                test.ErrorMessage <- message
+
                 if not isError && not hasException then
                     let retVal = model.Eval cilState.Result
                     test.Expected <- term2obj model cilState.state indices mockCache test retVal
@@ -203,14 +218,5 @@ module TestGenerator =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
-        let hasException =
-            match cilState.state.exceptionsRegister with
-            | Unhandled(e, _) when not isError ->
-                let t = MostConcreteTypeOfHeapRef cilState.state e
-                test.Exception <- t
-                true
-            | _ -> false
-        test.IsError <- isError
-        test.ErrorMessage <- message
 
-        model2test test isError hasException indices mockCache m cilState.state.model cmdArgs cilState
+        model2test test isError indices mockCache m cilState.state.model cmdArgs cilState message
