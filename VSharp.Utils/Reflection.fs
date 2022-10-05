@@ -407,6 +407,9 @@ module public Reflection =
         | [|(f1, _); (f2, _)|] when f1.name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("length", StringComparison.OrdinalIgnoreCase) -> f2, f1
         | _ -> internalfailf "System.String has unexpected fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
+    let exceptionMessageField =
+        {declaringType = typeof<Exception>; name = "_message"; typ = typeof<string>}
+
     let emptyStringField =
         let fs = fieldsOf true typeof<string>
         match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
