@@ -357,16 +357,16 @@ internal static class CodeRenderer
 
     public static ObjectCreationExpressionSyntax RenderObjectCreation(
         TypeSyntax type,
-        bool withInitializer,
-        params ExpressionSyntax[] args)
+        ExpressionSyntax[] args,
+        ExpressionSyntax[] init)
     {
         InitializerExpressionSyntax? initializer = null;
         ArgumentListSyntax? argumentList = null;
-        if (withInitializer)
+        if (init.Length != 0)
         {
-            initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(args));
+            initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(init));
         }
-        else
+        if (args.Length != 0 || init.Length == 0)
         {
             argumentList = ArgumentList(SeparatedList(args.Select(Argument)));
         }
@@ -380,7 +380,8 @@ internal static class CodeRenderer
             );
     }
 
-    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type, params (ExpressionSyntax, ExpressionSyntax)[] init)
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type, 
+        ExpressionSyntax[] args, (ExpressionSyntax, ExpressionSyntax)[] init)
     {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
         var i = 0;
@@ -396,7 +397,7 @@ internal static class CodeRenderer
             i++;
         }
 
-        return RenderObjectCreation(type, true, keysWithValues);
+        return RenderObjectCreation(type, args, keysWithValues);
     }
 
     // 'memberOf' is 'this' or some type
@@ -475,7 +476,8 @@ internal static class CodeRenderer
         if (method.IsConstructor)
         {
             Debug.Assert(method.DeclaringType != null);
-            return RenderObjectCreation(RenderType(method.DeclaringType), false, args);
+            var init = System.Array.Empty<ExpressionSyntax>();
+            return RenderObjectCreation(RenderType(method.DeclaringType), args, init);
         }
 
         ExpressionSyntax function;
