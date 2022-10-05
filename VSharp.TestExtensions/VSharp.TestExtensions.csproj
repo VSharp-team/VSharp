@@ -7,8 +7,4 @@
         <RootNamespace>VSharp.TestExtensions</RootNamespace>
     </PropertyGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
-    </ItemGroup>
-
 </Project>
