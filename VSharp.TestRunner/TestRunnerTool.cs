@@ -89,7 +89,7 @@ namespace VSharp.TestRunner
                 catch (TargetInvocationException e)
                 {
                     var exceptionExpected = e.InnerException != null && e.InnerException.GetType() == ex;
-                    if (exceptionExpected || suitType == SuitType.TestsAndErrors && !fileMode) {
+                    if (exceptionExpected || test.IsError && suitType == SuitType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, e.InnerException.GetType().FullName);
                         Console.ResetColor();

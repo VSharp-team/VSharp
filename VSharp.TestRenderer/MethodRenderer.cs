@@ -238,6 +238,7 @@ internal class MethodRenderer
 
         private ExpressionSyntax RenderArray(System.Array obj)
         {
+            // TODO: use compact array representation, if array is big enough?
             var rank = obj.Rank;
             var type = (ArrayTypeSyntax) RenderType(obj.GetType());
             Debug.Assert(type != null);
@@ -324,7 +325,7 @@ internal class MethodRenderer
                 var emptyArgs = System.Array.Empty<ExpressionSyntax>();
                 var emptyInit = System.Array.Empty<(ExpressionSyntax, ExpressionSyntax)>();
                 var emptyAllocator = RenderObjectCreation(AllocatorType(typeExpr), emptyArgs, emptyInit);
-            
+
                 var emptyObject = RenderMemberAccess(emptyAllocator, AllocatorObject);
                 var emptyObjId = AddDecl("obj", typeExpr, emptyObject);
                 _renderedObjects[new physicalAddress(obj)] = emptyObjId;

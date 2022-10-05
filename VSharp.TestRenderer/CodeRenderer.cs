@@ -152,14 +152,21 @@ internal static class CodeRenderer
             return RenderArrayType(RenderType(elemType), type.GetArrayRank());
         }
 
+        // TODO: use QualifiedName with list of types?
+        string typeName = type.Name;
+        if (type.IsNested && type.DeclaringType != null)
+        {
+            typeName = $"{RenderType(type.DeclaringType).ToString()}.{typeName}";
+        }
+
         if (type.IsGenericType)
         {
             Debug.Assert(type.IsConstructedGenericType);
             var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
-            return RenderGenericName(type.Name, typeArgs);
+            return RenderGenericName(typeName, typeArgs);
         }
 
-        return ParseTypeName(type.Name);
+        return ParseTypeName(typeName);
     }
 
     public static ExpressionSyntax RenderMethod(MethodBase method)
@@ -275,11 +282,12 @@ internal static class CodeRenderer
 
     public static ExpressionSyntax RenderEnum(Enum e)
     {
-        var type = RenderType(e.GetType());
-        var value = Enum.GetName(e.GetType(), e);
+        var type = e.GetType();
+        var typeExpr = RenderType(type);
+        var value = Enum.GetName(type, e);
         Debug.Assert(value != null);
 
-        return RenderMemberAccess(type, IdentifierName(value));
+        return RenderMemberAccess(typeExpr, IdentifierName(value));
     }
 
     public static AssignmentExpressionSyntax RenderAssignment(ExpressionSyntax left, ExpressionSyntax right)
@@ -357,7 +365,7 @@ internal static class CodeRenderer
 
     public static ObjectCreationExpressionSyntax RenderObjectCreation(
         TypeSyntax type,
-        ExpressionSyntax[] args,
+        ArgumentSyntax[] args,
         ExpressionSyntax[] init)
     {
         InitializerExpressionSyntax? initializer = null;
@@ -368,7 +376,7 @@ internal static class CodeRenderer
         }
         if (args.Length != 0 || init.Length == 0)
         {
-            argumentList = ArgumentList(SeparatedList(args.Select(Argument)));
+            argumentList = ArgumentList(SeparatedList(args));
         }
 
         return
@@ -380,7 +388,15 @@ internal static class CodeRenderer
             );
     }
 
-    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type, 
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(
+        TypeSyntax type,
+        ExpressionSyntax[] args,
+        ExpressionSyntax[] init)
+    {
+        return RenderObjectCreation(type, args.Select(Argument).ToArray(), init);
+    }
+
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type,
         ExpressionSyntax[] args, (ExpressionSyntax, ExpressionSyntax)[] init)
     {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
@@ -445,6 +461,17 @@ internal static class CodeRenderer
         return result;
     }
 
+    public static InvocationExpressionSyntax RenderCall(ExpressionSyntax function, params ArgumentSyntax[] args)
+    {
+        return
+            InvocationExpression(
+                function,
+                ArgumentList(
+                    SeparatedList(args)
+                )
+            );
+    }
+
     public static InvocationExpressionSyntax RenderCall(ExpressionSyntax function, params ExpressionSyntax[] args)
     {
         return
@@ -473,11 +500,27 @@ internal static class CodeRenderer
 
     public static ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
     {
+        var functionArgs = args.Select(Argument).ToArray();
+        var parameters = method.GetParameters();
+        Debug.Assert(parameters.Length == functionArgs.Length);
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var parameterInfo = parameters[i];
+            var arg = functionArgs[i];
+            if (parameterInfo.ParameterType.IsByRef)
+            {
+                if (parameterInfo.IsOut)
+                    functionArgs[i] = arg.WithRefOrOutKeyword(Token(SyntaxKind.OutKeyword));
+                else
+                    functionArgs[i] = arg.WithRefOrOutKeyword(Token(SyntaxKind.RefKeyword));
+            }
+        }
+
         if (method.IsConstructor)
         {
             Debug.Assert(method.DeclaringType != null);
             var init = System.Array.Empty<ExpressionSyntax>();
-            return RenderObjectCreation(RenderType(method.DeclaringType), args, init);
+            return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
         ExpressionSyntax function;
@@ -502,7 +545,7 @@ internal static class CodeRenderer
             return RenderAssignment(function, args[0]);
         }
 
-        return RenderCall(function, args);
+        return RenderCall(function, functionArgs);
     }
 
     public static InvocationExpressionSyntax RenderCall(ExpressionSyntax memberOf, string memberName, params ExpressionSyntax[] args)
