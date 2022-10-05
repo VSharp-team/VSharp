@@ -173,7 +173,17 @@ internal static class CodeRenderer
     {
         assemblies.Add(method.Module.Assembly);
         var type = method.DeclaringType;
-        var methodName = IdentifierName(method.Name);
+        SimpleNameSyntax methodName = IdentifierName(method.Name);
+
+        if (method.IsGenericMethod)
+        {
+            var typeArgs = method.GetGenericArguments().Select(RenderType).ToArray();
+            methodName =
+                GenericName(method.Name)
+                    .WithTypeArgumentList(
+                        TypeArgumentList(SeparatedList(typeArgs))
+                    );
+        }
 
         if (type == null)
             return methodName;
@@ -523,6 +533,28 @@ internal static class CodeRenderer
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
+        if (method.IsSpecialName && method.Name == "get_Item")
+        {
+            // Indexer may be only in non-static context
+            Debug.Assert(thisArg != null);
+            var indexArgument =
+                BracketedArgumentList(SeparatedList(args.Select(Argument)));
+            return ElementAccessExpression(thisArg).WithArgumentList(indexArgument);
+        }
+
+        if (method.IsSpecialName && method.Name == "set_Item")
+        {
+            // Indexer may be only in non-static context
+            Debug.Assert(thisArg != null);
+            // Last arg is value to write, all args before are indices
+            var value = args.Last();
+            var indices = args.SkipLast(1).Select(Argument);
+            var indexArgument =
+                BracketedArgumentList(SeparatedList(indices));
+            var access = ElementAccessExpression(thisArg).WithArgumentList(indexArgument);
+            return RenderAssignment(access, value);
+        }
+
         ExpressionSyntax function;
         if (thisArg == null)
         {
@@ -537,7 +569,10 @@ internal static class CodeRenderer
         }
 
         if (IsGetPropertyMethod(method, out _))
+        {
+            Debug.Assert(args.Length == 0);
             return function;
+        }
 
         if (IsSetPropertyMethod(method, out _))
         {
