@@ -91,18 +91,20 @@ module Loader =
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
 
             // Interop
-            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
-            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
-            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
-            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
+//            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
+//            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
+//            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
+//            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
 
             // Diagnostics
-            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
-            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
+//            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
+//            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
+            "System.Int64 System.Diagnostics.Stopwatch.GetTimestamp()"
 
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
 
+            // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
         ]
 

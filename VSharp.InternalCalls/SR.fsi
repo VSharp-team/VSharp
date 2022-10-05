@@ -24,6 +24,12 @@ module internal SR =
     [<Implements("System.String System.SR.get_Arg_InvalidHandle()")>]
     val internal get_Arg_InvalidHandle : state -> term list -> term
 
+    [<Implements("System.String System.SR.get_Arg_InvalidOperationException()")>]
+    val internal get_Arg_InvalidOperationException : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_Index()")>]
+    val internal get_ArgumentOutOfRange_Index : state -> term list -> term
+
     [<Implements("System.String System.SR.get_Arg_PlatformNotSupported()")>]
     val internal get_Arg_PlatformNotSupported : state -> term list -> term
 
