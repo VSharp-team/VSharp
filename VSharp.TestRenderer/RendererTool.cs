@@ -44,28 +44,59 @@ public static class Renderer
         }
         var renderedArgs = args.Select(mainBlock.RenderObject).ToArray();
 
+        var parameters = method.GetParameters();
+        Debug.Assert(parameters.Length == renderedArgs.Length);
+        for (int i = 0; i < parameters.Length; i++)
+        {
+            var parameterInfo = parameters[i];
+            var type = parameterInfo.ParameterType;
+            var value = renderedArgs[i];
+            if (type.IsByRef && value is not IdentifierNameSyntax)
+            {
+                Debug.Assert(type.GetElementType() != null);
+                var typeExpr = RenderType(type.GetElementType());
+                var id = mainBlock.AddDecl("obj", typeExpr, value);
+                renderedArgs[i] = id;
+            }
+        }
+
         // Calling testing method
         var callMethod = RenderCall(thisArgId, method, renderedArgs);
 
-        if ((Reflection.hasNonVoidResult(method) || method.IsConstructor) && ex == null && !isError)
+        var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
+        var shouldUseDecl = method.IsConstructor || IsGetPropertyMethod(method, out _);
+        var shouldCompareResult = hasResult && ex == null && !isError;
+
+        if (shouldCompareResult)
         {
             var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
 
             // Adding namespace of objects comparer to usings
             AddObjectsComparer();
-            ExpressionSyntax expectedExpr;
-            expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected);
+            var expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected);
             var condition = RenderCall(CompareObjects, resultId, expectedExpr);
             mainBlock.AddAssert(condition);
         }
         else if (ex == null || isError)
         {
-            mainBlock.AddExpression(callMethod);
+            if (shouldUseDecl)
+                mainBlock.AddDecl("unused", ObjectType, callMethod);
+            else
+                mainBlock.AddExpression(callMethod);
         }
         else
         {
             // Handling exceptions
-            var delegateExpr = ParenthesizedLambdaExpression(callMethod);
+            LambdaExpressionSyntax delegateExpr;
+            if (shouldUseDecl)
+            {
+                var block = mainBlock.NewBlock();
+                block.AddDecl("unused", ObjectType, callMethod);
+                delegateExpr = ParenthesizedLambdaExpression(block.Render());
+            }
+            else
+                delegateExpr = ParenthesizedLambdaExpression(callMethod);
+
             var assertThrows =
                 RenderCall(
                     "Assert", "Throws",
