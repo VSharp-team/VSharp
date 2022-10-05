@@ -798,7 +798,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | None, false -> internalfail "Calling non-static concrete implementation for static method"
             | _ -> thisOption, args
         Memory.PopFrame cilState.state
-        ILInterpreter.InitFunctionFrame cilState.state method thisOption (Some args)
+        ILInterpreter.InitFunctionFrame cilState.state method thisOption (args |> List.map Some |> Some)
         x.InitializeStatics cilState method.DeclaringType (fun cilState ->
             setCurrentIp (instruction method 0<offsets>) cilState
             [cilState])
@@ -830,15 +830,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let typ = param.ParameterType
                     (stackKey, Some(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
-                | _ ->
-                    if param.ParameterType.IsByRef then
-                        if Memory.CallStackSize state = 0 then
-                            Memory.NewStackFrame state None []
-                        let stackRef = Memory.AllocateTemporaryLocalVariableOfType state param.Name (param.Position + 1) (param.ParameterType.GetElementType())
-                        (stackKey, Some stackRef, param.ParameterType)
-                    else
-                        (stackKey, None, param.ParameterType)
-            | Some param, Some value -> (ParameterKey param, Some value, param.ParameterType)
+                | _ -> (stackKey, None, param.ParameterType)
+            | Some param, Some value -> (ParameterKey param, value, param.ParameterType)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
             match this with
@@ -849,7 +842,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         Memory.NewStackFrame state (Some method) (parametersAndThis @ locals)
 
     member x.InitFunctionFrameCIL (cilState : cilState) (method : Method) this paramValues =
-        ILInterpreter.InitFunctionFrame cilState.state method this paramValues
+        ILInterpreter.InitFunctionFrame cilState.state method this (paramValues |> Option.bind (List.map Some >> Some))
         pushToIp (instruction method 0<offsets>) cilState
 
     static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) message =
