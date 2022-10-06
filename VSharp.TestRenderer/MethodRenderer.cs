@@ -291,13 +291,22 @@ internal class MethodRenderer
             }
             else
             {
-                bool zeroLowerBounds = true;
-                for (int i = 0; i < array.Rank; i++)
-                    if (array.GetLowerBound(i) != 0)
-                        zeroLowerBounds = false;
-                if (zeroLowerBounds)
+                if (t.IsSZArray)
                 {
-                    throw new NotImplementedException();
+                    var defaultId = RenderObject(defaultValue);
+                    var createArray = RenderArrayCreation(type, array.Length);
+                    var arrayId = AddDecl("array", type, createArray);
+                    var call =
+                        RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
+                    AddExpression(call);
+                    for (int i = 0; i < indices.Length; i++)
+                    {
+                        var value = RenderObject(values[i]);
+                        var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
+                        AddAssignment(assignment);
+                    }
+
+                    return arrayId;
                 }
                 else
                 {
