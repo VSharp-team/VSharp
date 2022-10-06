@@ -54,7 +54,7 @@ public class Allocator<T>
     {
         Debug.Assert(ObjectType.IsArray);
         _toAllocate = allocated;
-        Array.fill(_toAllocate as System.Array, defaultValue);
+        Fill(_toAllocate as System.Array, defaultValue);
     }
 
     public object this[string fieldName]
