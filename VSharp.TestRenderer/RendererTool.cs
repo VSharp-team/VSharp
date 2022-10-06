@@ -259,10 +259,16 @@ public static class Renderer
             else
                 testName = method.Name;
 
+            bool isUnsafe =
+                Reflection.getMethodReturnType(method).IsPointer || method.GetParameters()
+                    .Select(arg => arg.ParameterType)
+                    .Any(type => type.IsPointer);
+            var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
+
             var testRenderer = generatedClass.AddMethod(
                 testName + suitTypeName,
                 RenderAttributeList("Test"),
-                new[] { Public },
+                modifiers,
                 VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
             );
