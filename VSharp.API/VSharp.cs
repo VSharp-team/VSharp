@@ -179,7 +179,7 @@ namespace VSharp
 
             foreach (var t in assembly.GetTypes())
             {
-                if (t.IsPublic)
+                if (t.IsPublic || t.IsNestedPublic)
                 {
                     foreach (var m in t.GetMethods(bindingFlags))
                     {

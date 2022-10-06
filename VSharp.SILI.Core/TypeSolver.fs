@@ -107,7 +107,7 @@ module TypeSolver =
                 | None -> sure <- false; assemblies
             for assembly in assemblies do
                 yield! assembly.GetExportedTypes() |> Seq.filter validate |> Seq.map ConcreteType
-            if supertypes |> Seq.forall (fun t -> t.IsPublic) then
+            if supertypes |> Seq.forall (fun t -> t.IsPublic || t.IsNestedPublic) then
                 yield mock supertypes |> MockType
         }
 
