@@ -231,6 +231,11 @@ internal static class CodeRenderer
         return RenderGenericName(type.Name, typeArg);
     }
 
+    public static TypeSyntax AllocatorType()
+    {
+        return RenderType(typeof(Allocator));
+    }
+
     // Prerendered tokens
     public static readonly SyntaxToken Public = Token(SyntaxKind.PublicKeyword);
     public static readonly SyntaxToken Private = Token(SyntaxKind.PrivateKeyword);

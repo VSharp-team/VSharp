@@ -8,81 +8,21 @@ namespace VSharp.TestExtensions;
 
 internal static class CartesianProductExtension
 {
-    internal static IEnumerable<IEnumerable<T>> CartesianProduct<T>(this IEnumerable<IEnumerable<T>> sequences) 
-    { 
-        IEnumerable<IEnumerable<T>> emptyProduct = 
-            new[] { Enumerable.Empty<T>() }; 
-        return sequences.Aggregate( 
-            emptyProduct, 
-            (accumulator, sequence) => 
-                from accseq in accumulator 
-                from item in sequence 
-                select accseq.Concat(new[] {item})); 
+    internal static IEnumerable<IEnumerable<T>> CartesianProduct<T>(this IEnumerable<IEnumerable<T>> sequences)
+    {
+        IEnumerable<IEnumerable<T>> emptyProduct =
+            new[] { Enumerable.Empty<T>() };
+        return sequences.Aggregate(
+            emptyProduct,
+            (accumulator, sequence) =>
+                from accseq in accumulator
+                from item in sequence
+                select accseq.Concat(new[] {item}));
     }
 }
 
-public class Allocator<T>
+public static class Allocator
 {
-    private static readonly Type ObjectType = typeof(T);
-    private object _toAllocate;
-
-    public Allocator()
-    {
-        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
-    }
-
-    public Allocator(object? defaultValue, params int[] lengths)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths);
-        Fill(_toAllocate as Array, defaultValue);
-    }
-
-    public Allocator(object? defaultValue, int[] lengths, int[] lowerBounds)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths, lowerBounds);
-        Fill(_toAllocate as Array, defaultValue);
-    }
-
-    public Allocator(object allocated)
-    {
-        _toAllocate = allocated;
-    }
-
-    public Allocator(object allocated, object defaultValue)
-    {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = allocated;
-        Fill(_toAllocate as System.Array, defaultValue);
-    }
-
-    public object this[string fieldName]
-    {
-        set
-        {
-            var allBindingFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            var field = ObjectType.GetField(fieldName, allBindingFlags);
-            var property = ObjectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
-            Debug.Assert(field != null || property != null);
-            field ??= property;
-            if (field != null)
-                field.SetValue(_toAllocate, value);
-        }
-    }
-
-    public object this[params int[] index]
-    {
-        set
-        {
-            Debug.Assert(ObjectType.IsArray);
-            var array = _toAllocate as Array;
-            array?.SetValue(value, index);
-        }
-    }
-
-    public T Object => (T) _toAllocate;
-
     private static void FillFast<TElem>(Array? arr, TElem value)
     {
         if (arr != null)
@@ -95,7 +35,7 @@ public class Allocator<T>
     }
 
     /// Fills zero-initialized array with value
-    private static void Fill(Array? arr, object? value)
+    public static void Fill(Array? arr, object? value)
     {
         if (value == null)
         {
@@ -158,4 +98,69 @@ public class Allocator<T>
             }
         }
     }
+}
+
+public class Allocator<T>
+{
+    private static readonly Type ObjectType = typeof(T);
+    private object _toAllocate;
+
+    public Allocator()
+    {
+        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
+    }
+
+    public Allocator(object? defaultValue, params int[] lengths)
+    {
+        Debug.Assert(ObjectType.IsArray);
+        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths);
+        Allocator.Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public Allocator(object? defaultValue, int[] lengths, int[] lowerBounds)
+    {
+        Debug.Assert(ObjectType.IsArray);
+        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths, lowerBounds);
+        Allocator.Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public Allocator(object allocated)
+    {
+        _toAllocate = allocated;
+    }
+
+    public Allocator(object allocated, object defaultValue)
+    {
+        Debug.Assert(ObjectType.IsArray);
+        _toAllocate = allocated;
+        Allocator.Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public object this[string fieldName]
+    {
+        set
+        {
+            var allBindingFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.NonPublic |
+                                  BindingFlags.Public;
+            var field = ObjectType.GetField(fieldName, allBindingFlags);
+            var property = ObjectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            Debug.Assert(field != null || property != null);
+            field ??= property;
+            if (field != null)
+                field.SetValue(_toAllocate, value);
+        }
+    }
+
+    public object this[params int[] index]
+    {
+        set
+        {
+            Debug.Assert(ObjectType.IsArray);
+            var array = _toAllocate as Array;
+            array?.SetValue(value, index);
+        }
+    }
+
+    public T Object => (T)_toAllocate;
+
 }

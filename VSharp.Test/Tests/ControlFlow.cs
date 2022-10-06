@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection.Emit;
 using System.Runtime.InteropServices.ComTypes;
 using NUnit.Framework;
+using VSharp.Interpreter.IL;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -410,6 +411,29 @@ namespace IntegrationTests
                     r = mid - 1;
                 l = mid + 1;
             }
+
+            return -1;
+        }
+
+        [TestSvm(100, timeout:5, guidedMode:false, strat:SearchStrategy.ShortestDistance)]
+        public static int BinarySearch(int[] a, int x, int lo, int hi)
+        {
+            if (a == null) throw new ArgumentException("a == null");
+
+            if (lo < 0) throw new ArgumentException("lo < 0");
+            if (lo > hi) throw new ArgumentException("lo > hi");
+            // if (hi >= a.Length) throw new ArgumentException("hi >= a.length");
+
+            var m = lo + (hi - lo) / 2;
+//        if (m < 0) throw new RuntimeException("");
+
+            while (lo < hi)
+                if (a[m] == x)
+                    return m;
+                else if (a[m] > x)
+                    hi = m;
+                else
+                    lo = m + 1;
 
             return -1;
         }
