@@ -327,13 +327,20 @@ internal class MethodRenderer
             AddTestExtensions();
 
             var type = obj.GetType();
-            var typeExpr = RenderType(type);
+            var isPublicType = type.IsPublic;
+            var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
             if (_startToRender.Contains(new physicalAddress(obj)))
             {
-                var emptyArgs = System.Array.Empty<ExpressionSyntax>();
+                var allocatorArgs = System.Array.Empty<ExpressionSyntax>();
+                if (!isPublicType)
+                {
+                    allocatorArgs = new ExpressionSyntax[1];
+                    allocatorArgs[0] = LiteralExpression(SyntaxKind.StringLiteralExpression,
+                        Literal(type.AssemblyQualifiedName));
+                }
                 var emptyInit = System.Array.Empty<(ExpressionSyntax, ExpressionSyntax)>();
-                var emptyAllocator = RenderObjectCreation(AllocatorType(typeExpr), emptyArgs, emptyInit);
+                var emptyAllocator = RenderObjectCreation(AllocatorType(typeExpr), allocatorArgs, emptyInit);
 
                 var emptyObject = RenderMemberAccess(emptyAllocator, AllocatorObject);
                 var emptyObjId = AddDecl("obj", typeExpr, emptyObject);
@@ -358,7 +365,7 @@ internal class MethodRenderer
                 i++;
             }
 
-            ExpressionSyntax[] args;
+            ExpressionSyntax[] args = System.Array.Empty<ExpressionSyntax>();
             if (_renderedObjects.TryGetValue(new physicalAddress(obj), out var result))
             {
                 args = new ExpressionSyntax[1];
@@ -366,7 +373,12 @@ internal class MethodRenderer
             }
             else
             {
-                args = System.Array.Empty<ExpressionSyntax>();
+                if (!isPublicType)
+                {
+                    args = new ExpressionSyntax[1];
+                    args[0] = LiteralExpression(SyntaxKind.StringLiteralExpression,
+                        Literal(type.AssemblyQualifiedName));
+                }
             }
             var allocator =
                 RenderObjectCreation(AllocatorType(typeExpr), args, fieldsWithValues);
