@@ -97,6 +97,8 @@ module TypeUtils =
         assert(isNumeric t1 && isNumeric t2)
         Array.contains t2 isWiderForNumericTypesMap.[t1]
 
+    let isDelegate typ = typeof<Delegate>.IsAssignableFrom typ
+
     // ---------------------------------- Basic type operations ----------------------------------
 
     let inline getTypeOfConcrete value =

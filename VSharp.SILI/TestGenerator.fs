@@ -18,6 +18,9 @@ module TestGenerator =
             referenceRepr :> obj
         else
             match typ with
+            | ConcreteType typ when TypeUtils.isDelegate typ->
+                // Obj is a delegate which mock hasn't been created yet
+                TypeMock(Seq.singleton typ) |> encodeMock
             | ConcreteType typ ->
                 let cha = ConcreteHeapAddress addr
                 match typ with

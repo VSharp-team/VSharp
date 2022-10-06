@@ -105,7 +105,9 @@ module Mocking =
                 methodBuilder.SetReturnType baseMethod.ReturnType
                 methodBuilder.SetParameters(baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
             returnType <- methodBuilder.ReturnType
-            typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)
+
+            if not <| TypeUtils.isDelegate baseMethod.DeclaringType then
+                typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)
 
             let ilGenerator = methodBuilder.GetILGenerator()
 
@@ -229,6 +231,8 @@ module Mocking =
 
     type Mocker(mockTypeReprs : typeMockRepr array) =
         let mockTypes : System.Type option array = Array.zeroCreate mockTypeReprs.Length
+        let delegateWrappers : System.Type option array = Array.zeroCreate mockTypeReprs.Length
+
         let moduleBuilder = lazy(
             let dynamicAssemblyName = "VSharpTypeMocks"
             let assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
@@ -253,18 +257,53 @@ module Mocking =
                 match obj with
                 | :? mockObject as mock ->
                     let index = mock.typeMockIndex
-                    let dynamicMockType =
-                        match mockTypes.[index] with
-                        | Some t -> t
-                        | None ->
-                            let mockType, typ = x.BuildDynamicType mockTypeReprs.[index]
-                            mockType.EnsureInitialized decode typ
-                            mockTypes.[index] <- Some typ
-                            typ
-                    Reflection.createObject dynamicMockType
+                    match mockTypes.[index] with
+                    | Some t when TypeUtils.isDelegate t ->
+                        let wrapper = delegateWrappers.[index].Value
+                        x.CreateDelegateFromWrapperType(t, wrapper)
+                    | Some t -> Reflection.createObject t
+                    | None ->
+                        let mockTypeRepr = mockTypeReprs.[index]
+                        let builtObj, typ =
+                            if TypeUtils.isDelegate (mockTypeRepr.baseClass |> Serialization.decodeType) then
+                                let o, baseType, wrapperType = x.BuildDelegate mockTypeRepr decode
+                                delegateWrappers.[index] <- Some wrapperType
+                                o, baseType
+                            else
+                                x.BuildMockObject mockTypeRepr decode
+                        mockTypes.[index] <- Some typ
+                        builtObj
                 | _ -> __unreachable__()
 
         member x.BuildDynamicType (repr : typeMockRepr) =
             let mockType = Type(repr)
             let moduleBuilder = moduleBuilder.Force()
             mockType, mockType.Build(moduleBuilder)
+
+        member x.BuildMockObject (mockTypeRepr : typeMockRepr) decode =
+            let mockType, typ = x.BuildDynamicType(mockTypeRepr)
+            mockType.EnsureInitialized decode typ
+            Reflection.createObject typ, typ
+
+        member x.CreateDelegateFromWrapperType (t : System.Type, wrapperType : System.Type) =
+            let invokeMethodInfo = wrapperType.GetMethod("Invoke")
+            Delegate.CreateDelegate(t, null, invokeMethodInfo) :> obj
+
+        member x.BuildDelegate (mockTypeRepr : typeMockRepr) decode =
+            let wrapperType = Type($"DelegateWrapper_{Guid.NewGuid()}")
+            let delegateType = mockTypeRepr.baseClass |> Serialization.decodeType
+
+            let invokeMethodInfo = delegateType.GetMethod("Invoke")
+            let implIndex = mockTypeRepr.baseMethods |> Array.tryFindIndex (fun m -> m.token = invokeMethodInfo.MetadataToken)
+            let returnValues =
+                match implIndex with
+                | Some i -> mockTypeRepr.methodImplementations.[i] |> Array.map decode
+                | _ -> [||]
+            wrapperType.AddMethod(invokeMethodInfo, returnValues)
+
+            let moduleBuilder = moduleBuilder.Force()
+            let built = wrapperType.Build(moduleBuilder)
+            let wrapperInvoke = wrapperType.Methods |> Seq.head
+            wrapperInvoke.InitializeType(built)
+
+            x.CreateDelegateFromWrapperType(delegateType, built), delegateType, built

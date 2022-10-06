@@ -662,9 +662,12 @@ module internal Memory =
         match reference.term with
         | HeapRef(address, _) ->
             match address.term with
-            | ConcreteHeapAddress address -> state.delegates.[address]
-            | _ -> __insufficientInformation__ "Unknown delegate %O!" address
-        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, readDelegate state v)) |> Merging.merge
+            | ConcreteHeapAddress address -> Some state.delegates.[address]
+            | _ -> None
+        | Union gvs ->
+            let delegates = gvs |> List.choose (fun (g, v) ->
+                Option.bind (fun d -> Some(g, d)) (readDelegate state v))
+            if delegates.Length = gvs.Length then delegates |> Merging.merge |> Some else None
         | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
 
     let rec private readSafe state = function

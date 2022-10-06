@@ -226,7 +226,7 @@ module API =
         val ReadArrayIndex : state -> term -> term list -> Type option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> Type -> fieldId -> term
-        val ReadDelegate : state -> term -> term
+        val ReadDelegate : state -> term -> term option
 
         val InitializeArray : state -> term -> term -> unit
 

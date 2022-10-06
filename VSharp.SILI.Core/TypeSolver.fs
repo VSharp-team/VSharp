@@ -82,7 +82,7 @@ type TypeMock private (supertypes : Type seq, methodMocks : IDictionary<IMethod,
 
 // ------------------------------------------------- Type solver core -------------------------------------------------
 
-type typeConstraints = { supertypes : Type list; subtypes : Type list; notSubtypes : Type list; notSupertypes : Type list; mock : ITypeMock option}
+type typeConstraints = { supertypes : Type list; subtypes : Type list; notSubtypes : Type list; notSupertypes : Type list; mock : ITypeMock option }
 
 type typeSolvingResult =
     | TypeSat of symbolicType list * symbolicType list
@@ -123,6 +123,8 @@ module TypeSolver =
         c.subtypes |> List.exists (fun u -> c.supertypes |> List.exists (u.IsAssignableTo >> not))
         || // No multiple inheritance -- X <: u and X <: t and u </: t and t </: u and t, u are classes
         c.supertypes |> List.exists (fun u -> c.supertypes |> List.exists (fun t -> u.IsClass && t.IsClass && (not <| u.IsAssignableTo t) && (not <| u.IsAssignableFrom t)))
+        || // u </: X and X <: u when u is sealed
+        c.supertypes |> List.exists (fun u -> u.IsSealed && c.notSubtypes |> List.contains u)
 
     let rec private substitute (subst : substitution) (t : Type) =
         if not t.IsGenericType then t
@@ -160,10 +162,18 @@ module TypeSolver =
         constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
 
     let private inputCandidates getMock constraints subst =
-        let validate = satisfiesConstraints constraints subst
-        match constraints.subtypes with
-        | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.Assemblies())
-        | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
+        match constraints.supertypes |> List.tryFind (fun t -> t.IsSealed) with
+        | Some t ->
+            if TypeUtils.isDelegate t then
+                // Forcing mock usage for delegate types
+                getMock constraints.mock constraints.supertypes |> MockType |> Seq.singleton
+            else
+                ConcreteType t |> Seq.singleton
+        | _ ->
+            let validate = satisfiesConstraints constraints subst
+            match constraints.subtypes with
+            | [] -> enumerateNonAbstractTypes constraints.supertypes (getMock constraints.mock) validate (AssemblyManager.Assemblies())
+            | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
     let private typeParameterCandidates getMock parameter subst =
         let validate typ = satisfiesTypeParameterConstraints parameter subst typ
