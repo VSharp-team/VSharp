@@ -121,6 +121,20 @@ namespace IntegrationTests
         {
             return NotNullTest1(obj);
         }
+
+        [TestSvm(guidedMode:false, strat:SearchStrategy.ShortestDistance)]
+        public int ReadAll([NotNull] byte[] buffer)
+        {
+            int next;
+            int count = 0;
+            int count2 = 10;
+            while (count2 >= 0)
+            {
+                --count2;
+            }
+
+            return count;
+        }
     }
 
     [TestSvmFixture]

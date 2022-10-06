@@ -42,6 +42,7 @@ type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
+    let emittedErrors = Dictionary<codeLocation * string, unit>()
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
@@ -220,6 +221,12 @@ type public SILIStatistics() =
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
+    member x.EmitError (s : cilState) (errorMessage : string) =
+        let currentLoc = ip2codeLocation (currentIp s)
+        match currentLoc with
+        | Some loc -> emittedErrors.TryAdd((loc, errorMessage), ())
+        | _ -> true
+        
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
         ()
