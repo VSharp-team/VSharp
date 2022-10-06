@@ -78,7 +78,7 @@ namespace VSharp
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
-                    explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode),
+                    explorationMode.NewTestCoverageMode(coverageZone.ClassZone, searchMode.ShortestDistanceBasedMode),
                     executionMode.SymbolicMode,
                     unitTests.TestDirectory,
                     recThreshold,
