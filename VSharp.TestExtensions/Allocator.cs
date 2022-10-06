@@ -102,11 +102,18 @@ public static class Allocator
 
 public class Allocator<T>
 {
-    private static readonly Type ObjectType = typeof(T);
+    private static Type ObjectType = typeof(T);
     private object _toAllocate;
 
     public Allocator()
     {
+        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
+    }
+
+    public Allocator(string typeName)
+    {
+        Type? notPublicType = Type.GetType(typeName);
+        ObjectType = notPublicType ?? ObjectType;
         _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
     }
 
