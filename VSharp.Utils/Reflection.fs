@@ -4,6 +4,31 @@ open System
 open System.Collections.Generic
 open System.Reflection
 
+[<CustomEquality; CustomComparison>]
+type methodDescriptor = {
+    methodHandle : nativeint
+    declaringTypeVarHandles : nativeint array
+    methodVarHandles : nativeint array
+    typeHandle : nativeint
+}
+with
+    override x.GetHashCode() =
+        HashCode.Combine(x.methodHandle, hash x.declaringTypeVarHandles, hash x.methodVarHandles, x.typeHandle)
+
+    override x.Equals(another) =
+        match another with
+        | :? methodDescriptor as d -> (x :> IComparable).CompareTo d = 0
+        | _ -> false
+
+    interface IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? methodDescriptor as y ->
+                compare
+                    (x.methodHandle, x.declaringTypeVarHandles, x.methodVarHandles, x.typeHandle)
+                    (y.methodHandle, y.declaringTypeVarHandles, y.methodVarHandles, y.typeHandle)
+            | _ -> -1
+
 module public Reflection =
 
     // ----------------------------- Binding Flags ------------------------------
@@ -134,7 +159,10 @@ module public Reflection =
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
-        m.MethodHandle.Value, declaringTypeVars, methodVars, m.ReflectedType.TypeHandle.Value
+        { methodHandle = m.MethodHandle.Value
+          declaringTypeVarHandles = declaringTypeVars
+          methodVarHandles = methodVars
+          typeHandle = m.ReflectedType.TypeHandle.Value }
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
@@ -348,11 +376,8 @@ module public Reflection =
     let retrieveNonStaticFields t = retrieveFields false id t
 
     let fieldsOf isStatic (t : Type) =
-        let extractFieldInfo (field : FieldInfo) =
-            // Events may appear at this point. Filtering them out...
-            if TypeUtils.isSubtypeOrEqual field.FieldType typeof<MulticastDelegate> then None
-            else Some (wrapField field, field)
-        retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
+        let extractFieldInfo (field : FieldInfo) = wrapField field, field
+        retrieveFields isStatic (FSharp.Collections.Array.map extractFieldInfo) t
 
     let fieldIntersects (field : fieldId) =
         let fieldInfo = getFieldInfo field

@@ -1112,7 +1112,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     (callForConcreteType baseType)
                     (fun s k -> x.CallAbstract ancestorMethod s k)
                     k
-            if baseType.IsAbstract
+            // Forcing CallAbstract for delegates to generate mocks
+            if baseType.IsAbstract || ancestorMethod.IsDelegate
                 then x.CallAbstract ancestorMethod cilState k
                 else tryToCallForBaseType cilState k
         GuardedApplyCIL cilState this callVirtual k
@@ -1301,13 +1302,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this, methodToCall =
             match thisOption with
             | Some (NonNullRef as this) when ancestorMethod.IsDelegate ->
-                let deleg = Memory.ReadDelegate cilState.state this
-                let target, mi = retrieveMethodInfo deleg
-                let mi = Application.getMethod mi
-                // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
-                match target with
-                | NullRef _ -> thisOption, mi
-                | _ -> Some target, mi
+                match Memory.ReadDelegate cilState.state this with
+                | Some deleg ->
+                    let target, mi = retrieveMethodInfo deleg
+                    let mi = Application.getMethod mi
+                    // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
+                    match target with
+                    | NullRef _ -> thisOption, mi
+                    | _ -> Some target, mi
+                | _ -> thisOption, ancestorMethod
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
@@ -1329,7 +1332,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             match methodPtr.term with
             | Concrete(:? MethodInfo as mi, _) -> mi
             | _ -> __unreachable__()
-        let lambda = Lambdas.make (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
+        let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
         Memory.AllocateDelegate cilState.state lambda |> k
 
     member x.CommonNewObj isCallNeeded (ctor : Method) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =

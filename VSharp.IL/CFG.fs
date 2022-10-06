@@ -481,7 +481,7 @@ type NullVisualizer() =
 
 
 module Application =
-    let private methods = Dictionary<nativeint * nativeint array * nativeint array * nativeint, Method>()
+    let private methods = Dictionary<methodDescriptor, Method>()
     let private _loadedMethods = HashSet<_>()
     let loadedMethods = _loadedMethods :> seq<_>
     let graph = ApplicationGraph()
