@@ -91,7 +91,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError (method : Method) cmdArgs cilState message =
         try
-            if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            if cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
