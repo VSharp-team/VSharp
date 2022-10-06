@@ -168,7 +168,11 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                     arr.SetValue(value, indices))
             arr :> obj
         | _ when createCompactRepr ->
-            {array = arr; defaultValue = repr.defaultValue; indices = repr.indices; values = repr.values}
+            let values = Array.map decodeValue repr.values
+            let defaultValue = decodeValue repr.defaultValue
+            Array.fill arr defaultValue
+            Array.iter2 (fun (i : int[]) v -> arr.SetValue(decodeValue v, i)) repr.indices repr.values
+            {array = arr; defaultValue = repr.defaultValue; indices = repr.indices; values = values}
         | _ ->
             let defaultValue = decodeValue repr.defaultValue
             Array.fill arr defaultValue
