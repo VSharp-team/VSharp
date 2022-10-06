@@ -173,6 +173,8 @@ module Mocking =
             methodMock.SetClauses retVals
             methods.Add(methodMock)
 
+        member x.Id = repr.name
+
         [<MaybeNull>]
         member x.BaseClass with get() = baseClass
         member x.Interfaces with get() = interfaces :> seq<_>
