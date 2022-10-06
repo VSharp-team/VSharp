@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -62,9 +63,9 @@ namespace VSharp.TestRunner
                     var debugAssertFailed = message != null && message.Contains("Debug.Assert failed");
                     bool shouldInvoke = suitType switch
                     {
-                        SuitType.TestsOnly => !test.IsError,
-                        SuitType.ErrorsOnly => test.IsError,
-                        SuitType.TestsAndErrors => !debugAssertFailed,
+                        SuitType.TestsOnly => !test.IsError || fileMode,
+                        SuitType.ErrorsOnly => test.IsError || fileMode,
+                        SuitType.TestsAndErrors => !debugAssertFailed || fileMode,
                         _ => false
                     };
                     if (shouldInvoke)
@@ -79,6 +80,7 @@ namespace VSharp.TestRunner
                     }
                     if (checkResult && !test.IsError && !CompareObjects(test.Expected, result))
                     {
+                        Debug.Assert(shouldInvoke);
                         // TODO: use NUnit?
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fileInfo.Name,
@@ -124,7 +126,7 @@ namespace VSharp.TestRunner
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-            return ReproduceTest(file, SuitType.TestsAndErrors, checkResult);
+            return ReproduceTest(file, SuitType.TestsAndErrors, checkResult, true);
         }
 
         public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors)
