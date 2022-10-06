@@ -107,9 +107,11 @@ type public SILI(options : SiliOptions) =
                         if method.DeclaringType.IsValueType || methodHasByRefParameter method
                         then Memory.ForcePopFrames (callStackSize - 2) cilState.state
                         else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                match TestGenerator.state2test isError method cmdArgs cilState message with
-                | Some test -> reporter test
-                | None -> ()
+                if not isError || statistics.EmitError cilState message
+                then
+                    match TestGenerator.state2test isError method cmdArgs cilState message with
+                    | Some test -> reporter test
+                    | None -> ()
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
             reportIncomplete cilState
