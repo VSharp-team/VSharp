@@ -100,7 +100,6 @@ module Loader =
             // Diagnostics
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
 //            "System.Void System.Diagnostics.StackTrace.GetStackFramesInternal(System.Diagnostics.StackFrameHelper, System.Int32, System.Boolean, System.Exception)"
-            "System.Int64 System.Diagnostics.Stopwatch.GetTimestamp()"
 
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
