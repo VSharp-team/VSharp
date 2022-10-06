@@ -235,6 +235,7 @@ internal static class CodeRenderer
     public static readonly SyntaxToken Public = Token(SyntaxKind.PublicKeyword);
     public static readonly SyntaxToken Private = Token(SyntaxKind.PrivateKeyword);
     public static readonly SyntaxToken Static = Token(SyntaxKind.StaticKeyword);
+    public static readonly SyntaxToken Unsafe = Token(SyntaxKind.UnsafeKeyword);
 
     // Prerendered expressions
     public static readonly ExpressionSyntax True = LiteralExpression(SyntaxKind.TrueLiteralExpression);
