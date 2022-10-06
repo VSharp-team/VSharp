@@ -570,6 +570,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
             "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
+            "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -781,6 +782,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (fun cilState k -> List.singleton cilState |> k)
             id
 
+    member private x.DebugAssert (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        let condition = List.head args
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (condition, state))
+            (fun cilState k -> (); k [cilState])
+            (fun cilState k ->
+                reportError cilState "Debug.Assert failed"
+                cilState.suspended <- true
+                k [cilState])
+            (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
@@ -979,7 +992,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let name = cctor.FullName
                     if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
                         || name = "System.Void System.Environment..cctor()"
-                        || name = "System.Void System.Globalization.CultureInfo..cctor()")
+                        || name = "System.Void System.Globalization.CultureInfo..cctor()"
+                        || name = "System.Void System.Diagnostics.DebugProvider..cctor()")
                     then whenInitializedCont cilState
                     else
                         x.InitFunctionFrameCIL cilState cctor None (Some [])
