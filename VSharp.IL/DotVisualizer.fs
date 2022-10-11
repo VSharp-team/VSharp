@@ -80,7 +80,7 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
                     result.Add method
         result
 
-    new (outputDirectory) = DotVisualizer(false, outputDirectory)
+    new (outputDirectory) = DotVisualizer(true, outputDirectory)
     member private x.Compile() =
         lastPictureId <- lastPictureId + 1
         let format = "0000000000"
