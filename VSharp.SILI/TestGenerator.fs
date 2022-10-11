@@ -154,6 +154,15 @@ module TestGenerator =
             test.SetTypeGenericParameters concreteClassParams mockedClassParams
             test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
 
+            let suitableState cilState =
+                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                match () with
+                | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
+                    Memory.CallStackSize cilState.state = 2
+                | _ -> Memory.CallStackSize cilState.state = 1
+            if not <| suitableState cilState
+                then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+
             match model with
             | StateModel modelState ->
                 let parametersInfo = m.Parameters
@@ -164,14 +173,25 @@ module TestGenerator =
                     test.AddArg (Array.head parametersInfo) args
                 | None ->
                     parametersInfo |> Seq.iter (fun pi ->
-                        let value = Memory.ReadArgument modelState pi |> model.Complete
+                        let value =
+                            if pi.ParameterType.IsByRef then
+                                let key = ParameterKey pi
+                                let stackRef = Memory.ReadLocalVariable cilState.state key
+                                Memory.Read modelState stackRef
+                            else
+                                Memory.ReadArgument modelState pi |> model.Complete
                         let concreteValue : obj = term2obj model cilState.state indices mockCache test value
                         test.AddArg pi concreteValue)
 
                 if m.HasThis then
-                    let value = Memory.ReadThis modelState m |> model.Complete
-                    let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                    test.ThisArg <- concreteValue
+                    let thisTerm =
+                        if m.DeclaringType.IsValueType then
+                            let stackRef = Memory.ReadThis cilState.state m
+                            Memory.Read modelState stackRef
+                        else
+                            Memory.ReadThis modelState m |> model.Complete
+                    let concreteThis = term2obj model cilState.state indices mockCache test thisTerm
+                    test.ThisArg <- concreteThis
 
                 if not isError && not hasException then
                     let retVal = model.Eval cilState.Result
@@ -179,10 +199,10 @@ module TestGenerator =
                 Some test
             | _ -> __unreachable__()
 
-    let state2test isError (m : Method) cmdArgs (cilState : cilState) =
+    let state2test isError (m : Method) cmdArgs (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
-        let test = UnitTest (m :> IMethod).MethodBase
+        let test = UnitTest((m :> IMethod).MethodBase)
         let hasException =
             match cilState.state.exceptionsRegister with
             | Unhandled(e, _) when not isError ->
@@ -191,5 +211,6 @@ module TestGenerator =
                 true
             | _ -> false
         test.IsError <- isError
+        test.ErrorMessage <- message
 
         model2test test isError hasException indices mockCache m cilState.state.model cmdArgs cilState

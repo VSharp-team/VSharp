@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Serialization;
+using static VSharp.TestExtensions.ObjectsComparer;
 
 namespace VSharp.TestRunner
 {
@@ -32,71 +33,17 @@ namespace VSharp.TestRunner
             return null;
         }
 
-        private static bool StructurallyEqual(object expected, object got)
-        {
-            Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
-            var flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
-            var fields = expected.GetType().GetFields(flags);
-            foreach (var field in fields)
-            {
-                if (!TypeUtils.isSubtypeOrEqual(field.FieldType, typeof(MulticastDelegate)) &&
-                    !field.Name.Contains("threadid", StringComparison.OrdinalIgnoreCase) &&
-                    !CompareObjects(field.GetValue(expected), field.GetValue(got)))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static bool ContentwiseEqual(System.Array expected, System.Array got)
-        {
-            Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
-            if (expected.Rank != got.Rank)
-                return false;
-            for (int i = 0; i < expected.Rank; ++i)
-                if (expected.GetLength(i) != got.GetLength(i) || expected.GetLowerBound(i) != got.GetLowerBound(i))
-                    return false;
-            var enum1 = expected.GetEnumerator();
-            var enum2 = got.GetEnumerator();
-            while (enum1.MoveNext() && enum2.MoveNext())
-            {
-                if (!CompareObjects(enum1.Current, enum2.Current))
-                    return false;
-            }
-            return true;
-        }
-
-        private static bool CompareObjects(object expected, object got)
-        {
-            if (expected == null)
-                return got == null;
-            if (got == null)
-                return false;
-            var type = expected.GetType();
-            if (type != got.GetType())
-                return false;
-
-            if (type == typeof(Pointer) || type.IsPrimitive || expected is string || type.IsEnum)
-            {
-                // TODO: compare double with epsilon?
-                return got.Equals(expected);
-            }
-
-            if (expected is System.Array array)
-                return ContentwiseEqual(array, got as System.Array);
-            return StructurallyEqual(expected, got);
-        }
-
         private static bool ReproduceTest(FileInfo fileInfo, SuitType suitType, bool checkResult, bool fileMode = false)
         {
             try
             {
-                using var stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read);
-                testInfo ti = UnitTest.DeserializeTestInfo(stream);
+                testInfo ti;
+                using (FileStream stream = new FileStream(fileInfo.FullName, FileMode.Open, FileAccess.Read))
+                {
+                    ti = UnitTest.DeserializeTestInfo(stream);
+                }
                 _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-                UnitTest test = UnitTest.DeserializeFromTestInfo(ti);
+                UnitTest test = UnitTest.DeserializeFromTestInfo(ti, false);
                 // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                 var method = test.Method;
@@ -112,11 +59,13 @@ namespace VSharp.TestRunner
                 try
                 {
                     object result = null;
+                    string message = test.ErrorMessage;
+                    var debugAssertFailed = message != null && message.Contains("Debug.Assert failed");
                     bool shouldInvoke = suitType switch
                     {
-                        SuitType.TestsOnly => !test.IsError,
-                        SuitType.ErrorsOnly => test.IsError,
-                        SuitType.TestsAndErrors => true,
+                        SuitType.TestsOnly => !test.IsError || fileMode,
+                        SuitType.ErrorsOnly => test.IsError || fileMode,
+                        SuitType.TestsAndErrors => !debugAssertFailed || fileMode,
                         _ => false
                     };
                     if (shouldInvoke)
@@ -129,8 +78,9 @@ namespace VSharp.TestRunner
                         Console.ResetColor();
                         return false;
                     }
-                    if (checkResult && !CompareObjects(test.Expected, result))
+                    if (checkResult && !test.IsError && !CompareObjects(test.Expected, result))
                     {
+                        Debug.Assert(shouldInvoke);
                         // TODO: use NUnit?
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fileInfo.Name,
@@ -143,7 +93,7 @@ namespace VSharp.TestRunner
                 catch (TargetInvocationException e)
                 {
                     var exceptionExpected = e.InnerException != null && e.InnerException.GetType() == ex;
-                    if (exceptionExpected || suitType == SuitType.TestsAndErrors && !fileMode) {
+                    if (exceptionExpected || test.IsError && suitType == SuitType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, e.InnerException.GetType().FullName);
                         Console.ResetColor();
@@ -176,7 +126,7 @@ namespace VSharp.TestRunner
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-            return ReproduceTest(file, SuitType.TestsAndErrors, checkResult);
+            return ReproduceTest(file, SuitType.TestsAndErrors, checkResult, true);
         }
 
         public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors)

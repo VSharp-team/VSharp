@@ -185,19 +185,10 @@ module Array =
         List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
 
     let fillFast<'a> (arr : Array) (value : 'a) =
-        let bytePtr = MemoryMarshal.GetArrayDataReference arr |> ref
-        let ptr = Unsafe.As<byte, 'a>(bytePtr) |> ref
-        let span = MemoryMarshal.CreateSpan<'a>(ptr, arr.Length)
+        let bytePtr = &MemoryMarshal.GetArrayDataReference arr
+        let ptr = &Unsafe.As<byte, 'a>(&bytePtr)
+        let span = MemoryMarshal.CreateSpan<'a>(&ptr, arr.Length)
         span.Fill value
-
-    let copyFast<'a> (src : Array) (dst : Array) =
-        let srcBytePtr = MemoryMarshal.GetArrayDataReference src |> ref
-        let dstBytePtr = MemoryMarshal.GetArrayDataReference dst |> ref
-        let srcPtr = Unsafe.As<byte, 'a>(srcBytePtr) |> ref
-        let dstPtr = Unsafe.As<byte, 'a>(dstBytePtr) |> ref
-        let srcSpan = MemoryMarshal.CreateSpan<'a>(srcPtr, src.Length)
-        let dstSpan = MemoryMarshal.CreateSpan<'a>(dstPtr, dst.Length)
-        srcSpan.CopyTo dstSpan
 
     // Fills zero-initialized array with value
     let fill (arr : Array) (value : obj) =

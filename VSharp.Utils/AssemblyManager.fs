@@ -113,7 +113,7 @@ module AssemblyManager =
         currentResolver.Assembly
 
     let Load (assembly : Assembly) =
-        if currentResolver <> null then
+        if currentResolver <> null && currentResolver.Assembly <> assembly then
             (currentResolver :> IDisposable).Dispose()
         currentResolver <- new AssemblyResolveContext(assembly)
 

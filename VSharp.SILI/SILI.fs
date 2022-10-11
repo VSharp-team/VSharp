@@ -32,7 +32,8 @@ type public SILI(options : SiliOptions) =
 
     let mutable entryIP : ip = Unchecked.defaultof<ip>
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportError : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
+    let reportUnspecifiedError state = reportError state "Unspecified"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
@@ -89,25 +90,42 @@ type public SILI(options : SiliOptions) =
            {loc = {offset = bb.StartOffset; method = method}; lvl = infty; pc = EmptyPathCondition})
         |> List.ofSeq
 
-    let reportState reporter isError method cmdArgs state =
+    let reportState reporter isError (method : Method) cmdArgs cilState message =
         try
-            if state.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest) then
-                statistics.TrackFinished state
-                match TestGenerator.state2test isError method cmdArgs state with
-                | Some test -> reporter test
-                | None -> ()
+            if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            then
+                let hasException =
+                    match cilState.state.exceptionsRegister with
+                    | Unhandled _ -> true
+                    | _ -> false
+                if not isError || hasException
+                then statistics.TrackFinished cilState
+                let callStackSize = Memory.CallStackSize cilState.state
+                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                if isError && not hasException
+                    then
+                        if method.DeclaringType.IsValueType || methodHasByRefParameter method
+                        then Memory.ForcePopFrames (callStackSize - 2) cilState.state
+                        else Memory.ForcePopFrames (callStackSize - 1) cilState.state
+                if not isError || statistics.EmitError cilState message
+                then
+                    match TestGenerator.state2test isError method cmdArgs cilState message with
+                    | Some test -> reporter test
+                    | None -> ()
         with :? InsufficientInformationException as e ->
-            state.iie <- Some e
-            reportIncomplete state
+            cilState.iie <- Some e
+            reportIncomplete cilState
 
     let wrapOnTest (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) =
         Logger.info "Result of method %s is %O" method.FullName state.Result
         Application.terminateState state
-        reportState action.Invoke false method cmdArgs state
+        reportState action.Invoke false method cmdArgs state null
 
-    let wrapOnError (action : Action<UnitTest>) method cmdArgs state =
+    let wrapOnError (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) errorMessage =
+        let message = sprintf "%s error of method %s" errorMessage method.FullName
+        Logger.info "%s" message
         Application.terminateState state
-        reportState action.Invoke true method cmdArgs state
+        reportState action.Invoke true method cmdArgs state message
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
@@ -118,6 +136,17 @@ type public SILI(options : SiliOptions) =
         statistics.InternalFails.Add(e)
         action.Invoke e
 
+    static member private AllocateByRefParameters initialState (method : Method) =
+        let allocateIfByRef (pi : ParameterInfo) =
+            if pi.ParameterType.IsByRef then
+                if Memory.CallStackSize initialState = 0 then
+                    Memory.NewStackFrame initialState None []
+                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name (pi.Position + 1) (pi.ParameterType.GetElementType())
+                Some stackRef
+            else
+                None
+        method.Parameters |> Array.map allocateIfByRef |> Array.toList
+
     static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
         initialState.model <- Memory.EmptyModel method
@@ -126,16 +155,45 @@ type public SILI(options : SiliOptions) =
             let this(*, isMethodOfStruct*) =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
                 else
-                    let this = Memory.MakeSymbolicThis method
+                    let this =
+                        if Types.IsValueType method.DeclaringType then
+                            Memory.NewStackFrame initialState None []
+                            Memory.AllocateTemporaryLocalVariableOfType initialState "this" 0 method.DeclaringType
+                        else
+                            Memory.MakeSymbolicThis method
                     !!(IsNullReference this) |> AddConstraint initialState
                     Some this
-            ILInterpreter.InitFunctionFrame initialState method this None
+            let parameters = SILI.AllocateByRefParameters initialState method
+            ILInterpreter.InitFunctionFrame initialState method this (Some parameters)
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
         cilState
 
+    static member private TrySubstituteTypeParameters (method : MethodBase) =
+        let vsMethod = Application.getMethod method
+        let getConcreteType = function
+        | ConcreteType t -> Some t
+        | _ -> None
+        try
+            match SolveGenericMethodParameters vsMethod with
+            | Some(classParams, methodParams) ->
+                let classParams = classParams |> Array.choose getConcreteType
+                let methodParams = methodParams |> Array.choose getConcreteType
+                if classParams.Length = method.DeclaringType.GetGenericArguments().Length &&
+                    (method.IsConstructor || methodParams.Length = method.GetGenericArguments().Length) then
+                    let declaringType = Reflection.concretizeTypeParameters method.DeclaringType classParams
+                    let method = Reflection.concretizeMethodParameters declaringType method methodParams
+                    Some method
+                else
+                    None
+            | _ -> None
+        with :? InsufficientInformationException -> None
+
     member private x.FormInitialStates (method : Method) : cilState list =
         let cilState = SILI.FormInitialStateWithoutStatics method
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
+        assert (List.length cilStates = 1)
+        let [cilState] = cilStates
         match options.executionMode with
         | ConcolicMode -> List.singleton cilState
         | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
@@ -149,7 +207,7 @@ type public SILI(options : SiliOptions) =
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter reportError
+        runtimeExceptions |> List.iter reportUnspecifiedError
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
@@ -212,6 +270,7 @@ type public SILI(options : SiliOptions) =
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
         | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.setAttributesZone (fun _ -> options.checkAttributes)
         Application.resetMethodStatistics()
         statistics.ExplorationStarted()
         isStopped <- false
@@ -246,39 +305,68 @@ type public SILI(options : SiliOptions) =
                 Logger.warning "Unknown status for pob at %O" pob.loc
             | _ -> ())
 
+    member private x.InterpretEntryPointInternal (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
+                                                 (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
+                                                 (onInternalFail : Action<Exception>) : unit =
+        assert method.IsStatic
+        stopwatch.Restart()
+        Reset()
+        SolverPool.reset()
+        let optionArgs = if mainArguments = null then None else Some mainArguments
+        let method = Application.getMethod method
+        reportFinished <- wrapOnTest onFinished method optionArgs
+        reportError <- wrapOnError onException method optionArgs
+        reportIncomplete <- wrapOnIIE onIIE
+        interpreter.ConfigureErrorReporter reportError
+        let state = Memory.EmptyState()
+        state.model <- Memory.EmptyModel method
+        let argsToState args =
+            let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
+            let stringType = typeof<string>
+            let argsNumber = MakeNumber mainArguments.Length
+            Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+        let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
+        ILInterpreter.InitFunctionFrame state method None arguments
+        if Option.isNone optionArgs then
+            // NOTE: if args are symbolic, constraint 'args != null' is added
+            let parameters = method.Parameters
+            assert(Array.length parameters = 1)
+            let argsParameter = Array.head parameters
+            let argsParameterTerm = Memory.ReadArgument state argsParameter
+            AddConstraint state (!!(IsNullReference argsParameterTerm))
+        Memory.InitializeStaticMembers state method.DeclaringType
+        let initialState = makeInitialState method state
+        x.AnswerPobs method [initialState]
+        Restore()
+
+    member private x.InterpretIsolatedInternal (method : MethodBase) (onFinished : Action<UnitTest>)
+                                               (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
+                                               (onInternalFail : Action<Exception>) : unit =
+        stopwatch.Restart()
+        Reset()
+        SolverPool.reset()
+        let method = Application.getMethod method
+        reportFinished <- wrapOnTest onFinished method None
+        reportError <- wrapOnError onException method None
+        reportIncomplete <- wrapOnIIE onIIE
+        interpreter.ConfigureErrorReporter reportError
+        let initialStates = x.FormInitialStates method
+        let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
+        iieStates |> List.iter reportIncomplete
+        if not initialStates.IsEmpty then
+            x.AnswerPobs method initialStates
+        Restore()
+
     member x.InterpretEntryPoint (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
                                  (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                  (onInternalFail : Action<Exception>) : unit =
-        stopwatch.Restart()
         reportInternalFail <- wrapOnInternalFail onInternalFail
         try
             try
-                assert method.IsStatic
-                let optionArgs = if mainArguments = null then None else Some mainArguments
-                let method = Application.getMethod method
-                reportFinished <- wrapOnTest onFinished method optionArgs
-                reportError <- wrapOnError onException method optionArgs
-                reportIncomplete <- wrapOnIIE onIIE
-                interpreter.ConfigureErrorReporter reportError
-                let state = Memory.EmptyState()
-                state.model <- Memory.EmptyModel method
-                let argsToState args =
-                    let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
-                    let stringType = typeof<string>
-                    let argsNumber = MakeNumber mainArguments.Length
-                    Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
-                let arguments = Option.map (argsToState >> List.singleton) optionArgs
-                ILInterpreter.InitFunctionFrame state method None arguments
-                if Option.isNone optionArgs then
-                    // NOTE: if args are symbolic, constraint 'args != null' is added
-                    let parameters = method.Parameters
-                    assert(Array.length parameters = 1)
-                    let argsParameter = Array.head parameters
-                    let argsParameterTerm = Memory.ReadArgument state argsParameter
-                    AddConstraint state (!!(IsNullReference argsParameterTerm))
-                Memory.InitializeStaticMembers state method.DeclaringType
-                let initialState = makeInitialState method state
-                x.AnswerPobs method [initialState]
+                // TODO: resolve type parameters by mainArguments?
+                match SILI.TrySubstituteTypeParameters method with
+                | Some newMethod -> x.InterpretEntryPointInternal newMethod mainArguments onFinished onException onIIE onInternalFail
+                | None -> x.InterpretEntryPointInternal method mainArguments onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e
         finally
@@ -287,23 +375,12 @@ type public SILI(options : SiliOptions) =
     member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
                                (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                                (onInternalFail : Action<Exception>) : unit =
-        stopwatch.Restart()
         reportInternalFail <- wrapOnInternalFail onInternalFail
         try
             try
-                Reset()
-                SolverPool.reset()
-                let method = Application.getMethod method
-                reportFinished <- wrapOnTest onFinished method None
-                reportError <- wrapOnError onException method None
-                reportIncomplete <- wrapOnIIE onIIE
-                interpreter.ConfigureErrorReporter reportError
-                let initialStates = x.FormInitialStates method
-                let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
-                iieStates |> List.iter reportIncomplete
-                if not initialStates.IsEmpty then
-                    x.AnswerPobs method initialStates
-                Restore()
+                match SILI.TrySubstituteTypeParameters method with
+                | Some newMethod -> x.InterpretIsolatedInternal newMethod onFinished onException onIIE onInternalFail
+                | None -> x.InterpretIsolatedInternal method onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e
         finally

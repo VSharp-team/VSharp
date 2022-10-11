@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using NUnit.Framework;
 using VSharp.Test;
 #pragma warning disable CS0162
@@ -43,6 +44,28 @@ namespace IntegrationTests
             {
                 return -42;
             }
+        }
+
+        [TestSvm(100)]
+        public static int ReturnMinWithAssert(int x, int y)
+        {
+            Debug.Assert(x <= y);
+            return x;
+        }
+
+        [TestSvm]
+        public static int TestWithAssert(int x, int y)
+        {
+            if (x < 0)
+            {
+                Debug.Assert(x <= y);
+            }
+            else
+            {
+                x = y;
+                Debug.Assert(x > y);
+            }
+            return x;
         }
 
         // expecting 111

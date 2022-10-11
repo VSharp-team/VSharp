@@ -85,7 +85,8 @@ namespace VSharp
                     timeout,
                     false,
                     true,
-                    128);
+                    128,
+                    true);
             SILI explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
 
@@ -129,6 +130,7 @@ namespace VSharp
         /// <returns>Summary of tests generation process.</returns>
         public static Statistics Cover(MethodBase method, int timeout = -1, string outputDirectory = "")
         {
+            AssemblyManager.Load(method.Module.Assembly);
             List<MethodBase> methods = new List<MethodBase> {method};
             return StartExploration(methods, outputDirectory, null, timeout);
         }
@@ -143,6 +145,7 @@ namespace VSharp
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
         public static Statistics Cover(Type type, int timeout = -1, string outputDirectory = "")
         {
+            AssemblyManager.Load(type.Module.Assembly);
             List<MethodBase> methods = new List<MethodBase>(type.GetConstructors());
 
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
@@ -168,6 +171,7 @@ namespace VSharp
         /// </exception>
         public static Statistics Cover(Assembly assembly, int timeout = -1, string outputDirectory = "")
         {
+            AssemblyManager.Load(assembly);
             List<MethodBase> methods;
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
@@ -205,6 +209,7 @@ namespace VSharp
         /// </exception>
         public static Statistics Cover(Assembly assembly, string[] args, int timeout = -1, string outputDirectory = "")
         {
+            AssemblyManager.Load(assembly);
             List<MethodBase> methods;
             var entryPoint = assembly.EntryPoint;
             if (entryPoint == null)

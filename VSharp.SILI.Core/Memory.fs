@@ -352,8 +352,7 @@ module internal Memory =
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
         else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} addressType) declaringType
 
-
-    let fillWithParametersAndThis state (method : IMethod) =
+    let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
             (ParameterKey param, None, param.ParameterType)) |> List.ofSeq
         let parametersAndThis =
@@ -365,14 +364,42 @@ module internal Memory =
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
-        newStackFrame state (Some method) parametersAndThis
+        newStackFrame state None parametersAndThis
+
+// -------------------------- Allocation helpers --------------------------
+
+    let freshAddress state =
+        state.currentTime <- VectorTime.advance state.currentTime
+        state.currentTime
+
+    let allocateType state (typ : Type) =
+        assert(not typ.IsAbstract)
+        let concreteAddress = freshAddress state
+        assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
+        state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
+        concreteAddress
 
 // =============== Marshalling/unmarshalling without state changing ===============
 
     // ------------------ Object to term ------------------
 
-    let private referenceTypeToTerm state (obj : obj) =
-        let address = state.concreteMemory.PhysToVirt obj |> ConcreteHeapAddress
+    let private allocateObjectIfNeed state (obj : obj) t =
+        assert(memoryMode = ConcreteMemory)
+        let cm = state.concreteMemory
+        let address =
+            match cm.TryPhysToVirt obj with
+            | Some address -> address
+            | None when obj = null -> VectorTime.zero
+            | None ->
+                let typ = mostConcreteType t (obj.GetType())
+                if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
+                let concreteAddress = allocateType state typ
+                cm.Allocate concreteAddress obj
+                concreteAddress
+        ConcreteHeapAddress address
+
+    let private referenceTypeToTerm state (obj : obj) t =
+        let address = allocateObjectIfNeed state obj t
         let objType = typeOfHeapLocation state address
         HeapRef address objType
 
@@ -385,7 +412,7 @@ module internal Memory =
         // TODO: need pointer?
         | _ when isPointer t -> Concrete obj t
         | _ when t.IsValueType -> structToTerm state obj t
-        | _ -> referenceTypeToTerm state obj
+        | _ -> referenceTypeToTerm state obj t
 
     and private structToTerm state (obj : obj) t =
         let makeField (fieldInfo : Reflection.FieldInfo) _ _ =
@@ -624,9 +651,12 @@ module internal Memory =
             (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readBoxedLocation state (address : concreteHeapAddress) =
-        match PersistentDict.tryFind state.boxedLocations address with
-        | Some value -> value
-        | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+        let cm = state.concreteMemory
+        let typ = typeOfConcreteHeapAddress state address
+        match cm.TryVirtToPhys address, PersistentDict.tryFind state.boxedLocations address with
+        | Some value, _ -> objToTerm state typ value
+        | None, Some value -> value
+        | _ -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
 
     let rec readDelegate state reference =
         match reference.term with
@@ -900,9 +930,16 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
-    let writeBoxedLocation state (address : concreteHeapAddress) value =
+    let writeBoxedLocationSymbolic state (address : concreteHeapAddress) value =
         state.boxedLocations <- PersistentDict.add address value state.boxedLocations
-        state.allocatedTypes <- PersistentDict.add address (value |> typeOf |> ConcreteType) state.allocatedTypes
+
+    let writeBoxedLocation state (address : concreteHeapAddress) value =
+        let cm = state.concreteMemory
+        match tryTermToObj state value with
+        | Some value when cm.Contains(address) ->
+            cm.Remove address
+            cm.Allocate address value
+        | _ -> writeBoxedLocationSymbolic state address value
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
@@ -1115,16 +1152,6 @@ module internal Memory =
 
 // ------------------------------- Allocation -------------------------------
 
-    let freshAddress state =
-        state.currentTime <- VectorTime.advance state.currentTime
-        state.currentTime
-
-    let allocateType state typ =
-        let concreteAddress = freshAddress state
-        assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
-        state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
-        concreteAddress
-
     let allocateOnStack state key term =
         state.stack <- CallStack.allocate state.stack key term
 
@@ -1179,26 +1206,13 @@ module internal Memory =
 
     // TODO: unify allocation with unmarshalling
     let private commonAllocateString state length contents =
-        let cm = state.concreteMemory
         match memoryMode, length.term with
         | ConcreteMemory, Concrete(:? int as intLength, _) ->
             // TODO: implement interning (for String.Empty)
-            let defaultCase() =
-                let charArray : char array = Array.create intLength '\000'
-                Seq.iteri (fun i char -> charArray.SetValue(char, i)) contents
-                let string = new string(charArray) :> obj
-                let concreteAddress = allocateType state typeof<string>
-                cm.Allocate concreteAddress string
-                ConcreteHeapAddress concreteAddress
-            // Preliminary implementation of empty string interning
-            if Seq.isEmpty contents && intLength = 0 then
-                match cm.TryPhysToVirt String.Empty with
-                | Some address ->
-                    // Assert checks, that empty string was not unmarshalled
-                    assert(cm.Contains address)
-                    ConcreteHeapAddress address
-                | None -> defaultCase()
-            else defaultCase()
+            let charArray : char array = Array.create intLength '\000'
+            Seq.iteri (fun i char -> charArray.SetValue(char, i)) contents
+            let string = new string(charArray) :> obj
+            allocateObjectIfNeed state string typeof<string>
         | _ ->
             let arrayLength = add length (Concrete 1 lengthType)
             let address = allocateConcreteVector state typeof<char> arrayLength contents
@@ -1226,59 +1240,34 @@ module internal Memory =
             HeapRef address typeof<string>
 
     let allocateDelegate state delegateTerm =
-        let concreteAddress = freshAddress state
-        let address = ConcreteHeapAddress concreteAddress
-        state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
-        state.allocatedTypes <- PersistentDict.add concreteAddress (delegateTerm |> typeOf |> ConcreteType) state.allocatedTypes
-        HeapRef address (typeOf delegateTerm)
-
-    let private concreteAllocateOne state (obj : obj) (typ : Type) =
-        let cm = state.concreteMemory
+        let typ = typeOf delegateTerm
         let concreteAddress = allocateType state typ
-        cm.Allocate concreteAddress obj
-        concreteAddress
+        let address = ConcreteHeapAddress concreteAddress
+        // TODO: create real Delegate objects and use concrete memory
+        state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
+        HeapRef address typ
 
-    let rec private concreteAllocateMembers state (obj : obj) (typ : Type) =
-        match obj with
-        | null -> ()
-        | :? Array when typ.GetElementType().IsPrimitive -> ()
-        | :? Array as a ->
-            let rank = a.Rank
-            let typ = typ.GetElementType()
-            let dims = Array.init rank id
-            let lengths = Array.map a.GetLength dims
-            let lowerBounds = Array.map a.GetLowerBound dims
-            let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
-            for index in indices do
-                let index = List.toArray index
-                concreteAllocateRec state (a.GetValue index) typ
-        | _ when typ.IsClass ->
-            let fields = Reflection.fieldsOf false typ
-            for _, field in fields do
-                concreteAllocateRec state (field.GetValue obj) field.FieldType
-        | _ -> ()
+    let allocateBoxedLocation state value =
+        let typ = typeOf value
+        let concreteAddress = allocateType state typ
+        let address = ConcreteHeapAddress concreteAddress
+        writeBoxedLocationSymbolic state concreteAddress value
+        HeapRef address typeof<obj>
 
-    and private concreteAllocateRec state (obj : obj) (typ : Type) =
-        let cm = state.concreteMemory
-        if obj <> null && not typ.IsValueType && Option.isNone (cm.TryPhysToVirt obj) then
-            concreteAllocateOne state obj typ |> ignore
-            concreteAllocateMembers state obj typ
-
-    let allocateConcreteObject state obj typ =
+    let allocateConcreteObject state obj (typ : Type) =
+        assert(not typ.IsAbstract)
         match memoryMode with
-        | ConcreteMemory when isSubtypeOrEqual typ typeof<Delegate> ->
-            internalfailf "allocateConcreteObject: allocating concrete delegate %O in concrete memory is not implemented" obj
         | ConcreteMemory ->
-            let cm = state.concreteMemory
-            match cm.TryPhysToVirt obj with
-            | Some address -> HeapRef (ConcreteHeapAddress address) typ
-            | None when typ.IsValueType -> internalfailf "allocateConcreteObject: value types should not be allocated, obj = %O" obj
-            | None when obj = null -> nullRef typ
-            | None ->
-                let address = concreteAllocateOne state obj typ
-                concreteAllocateMembers state obj typ
-                HeapRef (ConcreteHeapAddress address) typ
+            let address = allocateObjectIfNeed state obj typ
+            HeapRef address typ
         | SymbolicMemory -> internalfailf "allocateConcreteObject: allocating concrete object %O in symbolic memory is not implemented" obj
+
+    let allocateTemporaryLocalVariableOfType state name index typ =
+        let tmpKey = TemporaryLocalVariableKey(typ, index)
+        let ref = PrimitiveStackLocation tmpKey |> Ref
+        let value = makeSymbolicValue {key = tmpKey; time = Some VectorTime.zero} name typ
+        allocateOnStack state tmpKey value
+        ref
 
     let rec lengthOfString state heapRef =
         match heapRef.term with

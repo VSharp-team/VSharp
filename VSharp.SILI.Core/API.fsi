@@ -31,10 +31,12 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
+    val SolveGenericMethodParameters : IMethod -> (symbolicType[] * symbolicType[]) option
     val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
 
-    val ConfigureErrorReporter : (state -> unit) -> unit
-    val ErrorReporter : unit -> (state -> term -> unit)
+    val ConfigureErrorReporter : (state -> string -> unit) -> unit
+    val ErrorReporter : string -> (state -> term -> unit)
+    val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
     [<AutoOpen>]
     module Terms =
@@ -248,7 +250,8 @@ module API =
 
         val InitializeStaticMembers : state -> Type -> unit
 
-        val AllocateTemporaryLocalVariable : state -> Type -> term -> term
+        val AllocateTemporaryLocalVariable : state -> int -> Type -> term -> term
+        val AllocateTemporaryLocalVariableOfType : state -> string -> int -> Type -> term
         val AllocateDefaultClass : state -> Type -> term
         val AllocateDefaultArray : state -> term list -> Type -> term
         val AllocateVectorArray : state -> term -> Type -> term
@@ -293,8 +296,6 @@ module API =
         val FillRegion : state -> term -> regionSort -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
-
-        val MarshallObject : state -> obj -> Type -> term
 
     module Print =
         val Dump : state -> string

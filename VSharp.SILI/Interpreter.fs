@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Diagnostics
 open System.Reflection
 open System.Reflection.Emit
 open FSharpx.Collections
@@ -89,7 +90,8 @@ module internal TypeUtils =
 
 module internal InstructionsSet =
 
-    let mutable reportError : cilState -> unit = fun _ -> ()
+    let mutable reportError : cilState -> string -> unit = fun _ _ -> ()
+    let reportUnspecifiedError state = reportError state "Unspecified"
 
     let idTransformation term k = k term
 
@@ -385,9 +387,9 @@ module internal InstructionsSet =
         let state = cilState.state
         let res =
             match memberInfo with
-            | :? FieldInfo as fi -> Memory.MarshallObject state fi.FieldHandle typeof<RuntimeFieldHandle>
-            | :? Type as t -> Memory.MarshallObject state t.TypeHandle typeof<RuntimeTypeHandle>
-            | :? MethodInfo as mi -> Memory.MarshallObject state mi.MethodHandle typeof<RuntimeMethodHandle>
+            | :? FieldInfo as fi -> Memory.ObjectToTerm state fi.FieldHandle typeof<RuntimeFieldHandle>
+            | :? Type as t -> Memory.ObjectToTerm state t.TypeHandle typeof<RuntimeTypeHandle>
+            | :? MethodInfo as mi -> Memory.ObjectToTerm state mi.MethodHandle typeof<RuntimeMethodHandle>
             | _ -> internalfailf "Could not resolve token"
         push res cilState
     let ldftn (m : Method) offset (cilState : cilState) =
@@ -537,6 +539,14 @@ module internal InstructionsSet =
         List.iter (fallThroughImpl stackSizeBefore newIp) cilStates
         cilStates
 
+    let readParameter (parameter : ParameterInfo) cilState =
+        if parameter.ParameterType.IsByRef then
+            let key = ParameterKey parameter
+            let stackRef = Memory.ReadLocalVariable cilState.state key
+            Memory.Read cilState.state stackRef
+        else
+            Memory.ReadArgument cilState.state parameter
+
 open InstructionsSet
 
 type UnknownMethodException(message : string, methodInfo : Method, interpreterStackTrace : string) =
@@ -558,6 +568,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
+            "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
+            "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
+            "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -751,6 +764,36 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             x.AccessArray getChar cilState length index id
         | None -> internalfailf "String.GetChars: unexpected this %O" this
 
+    member private x.MonitorReliableEnter (cilState : cilState) this (args : term list) =
+        assert(List.length args = 2 && Option.isNone this)
+        let obj, resultRef = args[0], args[1]
+        let success cilState k =
+            Memory.Write cilState.state resultRef True |> List.map (changeState cilState) |> k
+        BranchOnNullCIL cilState obj
+            (x.Raise x.ArgumentNullException)
+            success
+            id
+
+    member private x.MonitorEnter (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        let obj = List.head args
+        BranchOnNullCIL cilState obj
+            (x.Raise x.ArgumentNullException)
+            (fun cilState k -> List.singleton cilState |> k)
+            id
+
+    member private x.DebugAssert (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        let condition = List.head args
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (condition, state))
+            (fun cilState k -> (); k [cilState])
+            (fun cilState k ->
+                reportError cilState "Debug.Assert failed"
+                cilState.suspended <- true
+                k [cilState])
+            (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
@@ -796,7 +839,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | None, false -> internalfail "Calling non-static concrete implementation for static method"
             | _ -> thisOption, args
         Memory.PopFrame cilState.state
-        ILInterpreter.InitFunctionFrame cilState.state method thisOption (Some args)
+        ILInterpreter.InitFunctionFrame cilState.state method thisOption (args |> List.map Some |> Some)
         x.InitializeStatics cilState method.DeclaringType (fun cilState ->
             setCurrentIp (instruction method 0<offsets>) cilState
             [cilState])
@@ -829,7 +872,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     (stackKey, Some(Concrete param.DefaultValue typ), typ)
                 | true -> internalfail "parameters list is shorter than expected!"
                 | _ -> (stackKey, None, param.ParameterType)
-            | Some param, Some value -> (ParameterKey param, Some value, param.ParameterType)
+            | Some param, Some value -> (ParameterKey param, value, param.ParameterType)
         let parameters = List.map2Different valueOrFreshConst parameters values
         let parametersAndThis =
             match this with
@@ -840,8 +883,58 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         Memory.NewStackFrame state (Some method) (parametersAndThis @ locals)
 
     member x.InitFunctionFrameCIL (cilState : cilState) (method : Method) this paramValues =
-        ILInterpreter.InitFunctionFrame cilState.state method this paramValues
+        ILInterpreter.InitFunctionFrame cilState.state method this (paramValues |> Option.bind (List.map Some >> Some))
         pushToIp (instruction method 0<offsets>) cilState
+
+    static member CheckAttributeAssumptions (cilState : cilState) (method : Method) (assumptions : cilState -> Method -> term) message isError =
+        if method.CheckAttributes then
+            let assumptions = assumptions cilState method
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (assumptions, state))
+                (fun cilState k -> (); k [cilState])
+                (fun cilState k ->
+                    if isError then reportError cilState message
+                    cilState.suspended <- true
+                    k [cilState])
+                (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+        else [cilState]
+
+    static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) isError =
+        let disallowNullAssumptions (cilState : cilState) (method : Method) =
+            method.Parameters
+            |> Seq.map (fun parameter ->
+                if Attribute.IsDefined(parameter, typeof<CodeAnalysis.DisallowNullAttribute>)
+                    then !!(IsNullReference (readParameter parameter cilState))
+                    else True)
+            |> conjunction
+
+        let message = "DisallowNullAttribute violation"
+        ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message isError
+
+    static member CheckDisallowNullAssumptionsAndReport cilState method =
+        ILInterpreter.CheckDisallowNullAssumptions cilState method true
+
+    static member CheckNotNullAssumptions (cilState : cilState) (method : Method) =
+        let notNullAssumptions (cilState : cilState) (method : Method) =
+            let parameterAssumptions =
+                method.Parameters
+                |> Seq.map (fun parameter ->
+                    if Attribute.IsDefined(parameter, typeof<CodeAnalysis.NotNullAttribute>)
+                        then !!(IsNullReference (readParameter parameter cilState))
+                        else True)
+                |> conjunction
+            let returnAssumptions =
+                match method.ReturnParameter with
+                | Some returnParameter when Attribute.IsDefined(returnParameter, typeof<CodeAnalysis.NotNullAttribute>) ->
+                    let res = pop cilState
+                    push res cilState
+                    !!(IsNullReference res)
+                | _ -> True
+
+            parameterAssumptions &&& returnAssumptions
+
+        let message = "NotNullAttribute violation"
+        ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message true
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
@@ -899,11 +992,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let name = cctor.FullName
                     if (name = "System.Void JetBrains.Diagnostics.Log..cctor()"
                         || name = "System.Void System.Environment..cctor()"
-                        || name = "System.Void System.Globalization.CultureInfo..cctor()")
+                        || name = "System.Void System.Globalization.CultureInfo..cctor()"
+                        || name = "System.Void System.Diagnostics.DebugProvider..cctor()")
                     then whenInitializedCont cilState
                     else
                         x.InitFunctionFrameCIL cilState cctor None (Some [])
-                        [cilState]
+                        ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState cctor
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
@@ -917,7 +1011,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
-        if Loader.isInvokeInternalCall fullMethodName then
+        if method.IsConcretelyInvokable && Loader.isInvokeInternalCall fullMethodName then
             // Before term args, type args are located
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
             let objArgs = List.choose (TryTermToObj state) termArgs
@@ -930,10 +1024,19 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 try
                     let result = method.Invoke thisObj (List.toArray objArgs)
                     let resultType = TypeUtils.getTypeOfConcrete result
-                    let typ = TypeUtils.mostConcreteType resultType method.ReturnType
-                    if typ <> typeof<Void> then
-                        let resultTerm = Memory.MarshallObject cilState.state result typ
+                    let returnType = method.ReturnType
+                    match resultType with
+                    | _ when resultType <> null && resultType.IsValueType && returnType.IsInterface ->
+                        // When return type is interface, but real type is struct,
+                        // it should be boxed, so allocating it in heap
+                        let resultTerm = Memory.AllocateConcreteObject cilState.state result resultType
                         push resultTerm cilState
+                    | _ when returnType <> typeof<Void> ->
+                        // Case when method returns something
+                        let typ = TypeUtils.mostConcreteType resultType method.ReturnType
+                        let resultTerm = Memory.ObjectToTerm cilState.state result typ
+                        push resultTerm cilState
+                    | _ -> ()
                     setCurrentIp (Exit method) cilState
                 with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
                 true
@@ -982,7 +1085,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         popFrameOf cilState
         // Creating valid frame with stackKeys corresponding to actual targetMethod
         x.InitFunctionFrameCIL cilState targetMethod (Some this) (Some args)
-        x.InlineMethodBaseCallIfNeeded targetMethod cilState k
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState targetMethod
+        Cps.List.mapk (x.InlineMethodBaseCallIfNeeded targetMethod) cilStates (List.concat >> k)
 
     member x.ResolveVirtualMethod targetType (ancestorMethod : Method) =
         let genericCalledMethod = ancestorMethod.GetGenericMethodDefinition()
@@ -1175,7 +1279,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let getArgsAndCall cilState =
             let this, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
-            x.CommonCall calledMethod cilState id
+            let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState calledMethod
+            Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
         if isConcolicMode then getArgsAndCall cilState
         else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
@@ -1206,10 +1311,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
-        x.CommonCallVirt methodToCall cilState id
+        let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState methodToCall
+        Cps.List.mapk (x.CommonCallVirt methodToCall) cilStates List.concat
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         Memory.AllocateDefaultArray cilState.state lengths arrayType |> k
+
+    member x.Ret (m : Method) (cilState : cilState) =
+        ret m cilState
+        ILInterpreter.CheckNotNullAssumptions cilState m
 
     member x.CommonCreateDelegate (ctor : Method) (cilState : cilState) (args : term list) k =
         let target, methodPtr =
@@ -1270,11 +1380,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
                 x.InitFunctionFrameCIL cilState constructorInfo (Some reference) (Some args)
-                x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall
+                let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState constructorInfo
+                Cps.List.mapk (x.InlineMethodBaseCallIfNeeded constructorInfo) cilStates (List.concat >> afterCall)
 
             if Types.IsValueType typ || TypeUtils.isPointer typ then
                 let freshValue = Memory.DefaultOf typ
-                let ref = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
+                let ref = Memory.AllocateTemporaryLocalVariable cilState.state -1 typ freshValue
                 push ref cilState // NOTE: ref is used to retrieve constructed struct
                 let stackSizeBefore = Memory.CallStackSize cilState.state
                 callConstructor cilState ref (List.map (fun afterCall -> modifyValueResultIfConstructorWasCalled stackSizeBefore afterCall; afterCall))
@@ -2150,7 +2261,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Ldloc_S -> ldloc (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloc_S.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Ldloca -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldloca.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Ldloca_S -> ldloca (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldloca_S.Size) |> int) |> fallThrough m offset cilState
-            | OpCodeValues.Ret -> ret m cilState; [cilState]
+            | OpCodeValues.Ret -> this.Ret m cilState
             | OpCodeValues.Dup -> (fun _ _ -> dup) |> fallThrough m offset cilState
 
             // branching

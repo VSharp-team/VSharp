@@ -146,25 +146,6 @@ module public Reflection =
         let concreteMethods = Array.map makeSuitable methodsFromHelper
         Array.concat [concreteMethods; getAllMethods typeof<Array>; getAllMethods arrayType]
 
-    let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
-        let interfaceType = interfaceMethod.DeclaringType
-        assert interfaceType.IsInterface
-        let createSignature (m : MethodInfo) =
-            m.GetParameters()
-            |> Seq.map (fun p -> getFullTypeName p.ParameterType)
-            |> join ","
-        let onlyLastName (m : MethodInfo) =
-            match m.Name.LastIndexOf('.') with
-            | i when i < 0 -> m.Name
-            | i -> m.Name.Substring(i + 1)
-        let sign = createSignature interfaceMethod
-        let lastName = onlyLastName interfaceMethod
-        let methods =
-            match targetType with
-            | _ when targetType.IsArray -> getArrayMethods targetType
-            | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-        methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
-
     let isOverrideOf (sourceMethod : MethodInfo) (method : MethodInfo) =
         sourceMethod.GetBaseDefinition() = method.GetBaseDefinition()
         ||
@@ -175,6 +156,28 @@ module public Reflection =
             let targetSig = method.GetParameters()
             targetSig.Length = sourceSig.Length &&
             Array.forall2 (fun (p : ParameterInfo) (p' : ParameterInfo) -> p.ParameterType = p'.ParameterType) sourceSig targetSig
+
+    let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
+        let interfaceType = interfaceMethod.DeclaringType
+        assert interfaceType.IsInterface
+        if interfaceType = targetType then interfaceMethod
+        else
+            let createSignature (m : MethodInfo) =
+                m.GetParameters()
+                |> Seq.map (fun p -> getFullTypeName p.ParameterType)
+                |> join ","
+            let onlyLastName (m : MethodInfo) =
+                match m.Name.LastIndexOf('.') with
+                | i when i < 0 -> m.Name
+                | i -> m.Name.Substring(i + 1)
+            let sign = createSignature interfaceMethod
+            let lastName = onlyLastName interfaceMethod
+            let methods =
+                match targetType with
+                | _ when targetType.IsArray -> getArrayMethods targetType
+                | _ when targetType.IsInterface -> getAllMethods targetType
+                | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
+            methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
 
     let resolveOverridingMethod targetType (virtualMethod : MethodInfo) =
         assert virtualMethod.IsVirtual
@@ -198,8 +201,11 @@ module public Reflection =
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
-        if TypeUtils.isNullable t then null
-        else System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
+        match t with
+        | _ when t = typeof<String> -> String.Empty :> obj
+        | _ when TypeUtils.isNullable t -> null
+        | _ when t.IsArray -> Array.CreateInstance(typeof<obj>, 1)
+        | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
         if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
@@ -293,6 +299,28 @@ module public Reflection =
         let argsCount = m.GetParameters().Length
         if m.DeclaringType = null then m.Name
         else sprintf "%s %s.%s(%s)" (if returnsSomething then "nonvoid" else "void") m.DeclaringType.Name m.Name (if hasThis then sprintf "%d+1" argsCount else toString argsCount)
+
+    let concretizeTypeParameters (typ : Type) (values : Type[]) =
+        if typ.IsGenericType then
+            assert(values.Length = typ.GetGenericArguments().Length)
+            typ.MakeGenericType(values)
+        else
+            assert(values.Length = 0)
+            typ
+
+    let concretizeMethodParameters (declaringType : Type) (method : MethodBase) (values : Type[]) =
+        match method with
+        | :? MethodInfo as mi ->
+            let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
+            if method.IsGenericMethod then
+                assert(values.Length = method.GetGenericArguments().Length)
+                method.MakeGenericMethod(values) :> MethodBase
+            else
+                method :> MethodBase
+        | :? ConstructorInfo as ci ->
+            assert(values.Length = 0)
+            declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
+        | _ -> __notImplemented__()
 
     // --------------------------------- Fields ---------------------------------
 

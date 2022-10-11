@@ -43,21 +43,24 @@ module API =
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
+    let SolveGenericMethodParameters (method : IMethod) = TypeSolver.solveMethodParameters method
     let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
 
-    let mutable private reportError = fun _ -> ()
+    let mutable private reportError = fun _ _ -> ()
+    let reportUnspecifiedError state = reportError state "Unspecified"
     let ConfigureErrorReporter errorReporter =
         reportError <- errorReporter
-    let ErrorReporter() =
+    let ErrorReporter(message : string) =
         let result = fun state failCondition ->
             Branching.commonStatedConditionalExecutionk state
                 (fun state k -> k (!!failCondition, state))
                 (fun _ k -> k ())
-                (fun state k -> k (reportError state))
+                (fun state k -> k (reportError state message))
                 (fun _ _ -> [])
                 ignore
-        reportError <- fun _ -> ()
+        reportError <- fun _ _ -> ()
         result
+    let UnspecifiedErrorReporter() = ErrorReporter "Unspecified"
 
     [<AutoOpen>]
     module public Terms =
@@ -266,7 +269,7 @@ module API =
         let EmptyState() = Memory.makeEmpty false
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
-            Memory.fillWithParametersAndThis modelState method
+            Memory.fillModelWithParametersAndThis modelState method
             StateModel modelState
 
         let PopFrame state = Memory.popFrame state
@@ -324,7 +327,7 @@ module API =
             | _ -> ref
 
         let Read state reference =
-            transformBoxedRef reference |> Memory.read state (ErrorReporter())
+            transformBoxedRef reference |> Memory.read state (UnspecifiedErrorReporter())
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state method = Memory.readStackLocation state (ThisKey method)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
@@ -332,7 +335,7 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
-                | Ref _ -> ReferenceField state target field |> Memory.read state (ErrorReporter())
+                | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
                 | Struct _ -> Memory.readStruct target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
@@ -357,7 +360,7 @@ module API =
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
         let Write state reference value =
-            let errorReporter = ErrorReporter()
+            let errorReporter = UnspecifiedErrorReporter()
             Branching.guardedStatedMap (fun state reference -> Memory.write state errorReporter reference value) state reference
         let WriteStructField structure field value = Memory.writeStruct structure field value
         let WriteClassField state reference field value =
@@ -385,20 +388,18 @@ module API =
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
 
-        let BoxValueType state term =
-            let address = Memory.freshAddress state
-            let reference = HeapRef (ConcreteHeapAddress address) typeof<obj>
-            Memory.writeBoxedLocation state address term
-            reference
+        let BoxValueType state term = Memory.allocateBoxedLocation state term
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
 
-        let AllocateTemporaryLocalVariable state typ term =
-            let tmpKey = TemporaryLocalVariableKey typ
+        let AllocateTemporaryLocalVariable state index typ term =
+            let tmpKey = TemporaryLocalVariableKey(typ, index)
             let ref = PrimitiveStackLocation tmpKey |> Ref
             Memory.allocateOnStack state tmpKey term
             ref
+
+        let AllocateTemporaryLocalVariableOfType state name index typ = Memory.allocateTemporaryLocalVariableOfType state name index typ
 
         let AllocateDefaultClass state typ =
             if typ = typeof<string> then
@@ -424,6 +425,7 @@ module API =
 
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length
+
         let CreateStringFromChar state char = Memory.createStringFromChar state char
 
         let AllocateConcreteObject state (obj : obj) typ = Memory.allocateConcreteObject state obj typ
@@ -560,16 +562,6 @@ module API =
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
-
-        let MarshallObject (state : state) (obj : obj) (typ : Type) =
-            if typ.IsValueType then
-                let fields = Reflection.fieldsOf false typ
-                for _, field in fields do
-                    let fieldType = field.FieldType
-                    if not fieldType.IsValueType then
-                        AllocateConcreteObject state (field.GetValue(obj)) fieldType |> ignore
-                ObjectToTerm state obj typ
-            else AllocateConcreteObject state obj typ
 
     module Print =
         let Dump state = Memory.dump state

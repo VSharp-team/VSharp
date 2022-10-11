@@ -79,6 +79,7 @@ namespace VSharp.Test
         private readonly CoverageZone _coverageZone;
         private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
+        private readonly bool _checkAttributes;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -88,7 +89,8 @@ namespace VSharp.Test
             bool guidedMode = true,
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
-            CoverageZone coverageZone = CoverageZone.Class)
+            CoverageZone coverageZone = CoverageZone.Class,
+            bool checkAttributes = true)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -102,6 +104,7 @@ namespace VSharp.Test
             _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
+            _checkAttributes = checkAttributes;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -116,7 +119,8 @@ namespace VSharp.Test
                 _releaseBranches,
                 execMode,
                 _strat,
-                _coverageZone
+                _coverageZone,
+                _checkAttributes
             );
         }
 
@@ -132,6 +136,7 @@ namespace VSharp.Test
 
             private readonly SearchStrategy _baseSearchStrat;
             private readonly CoverageZone _baseCoverageZone;
+            private readonly bool _checkAttributes;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -142,7 +147,8 @@ namespace VSharp.Test
                 bool releaseBranches,
                 executionMode execMode,
                 SearchStrategy strat,
-                CoverageZone coverageZone) : base(innerCommand)
+                CoverageZone coverageZone,
+                bool checkAttributes) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -182,6 +188,8 @@ namespace VSharp.Test
                 {
                     _searchStrat = searchMode.NewGuidedMode(_searchStrat);
                 }
+
+                _checkAttributes = checkAttributes;
             }
 
             private TestResult Explore(TestExecutionContext context)
@@ -220,7 +228,8 @@ namespace VSharp.Test
                         _timeout,
                         false,
                         _releaseBranches,
-                        128
+                        128,
+                        _checkAttributes
                     );
                     SILI explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
@@ -252,7 +261,10 @@ namespace VSharp.Test
                             return;
                         }
 
-                        if (explorer.Statistics.GetApproximateCoverage(Application.getMethod(unitTest.Method)) >= _expectedCoverage)
+                        var method = Application.getMethod(unitTest.Method);
+                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
+
+                        if (approximateCoverage >= _expectedCoverage)
                         {
                             explorer.Stop();
                         }

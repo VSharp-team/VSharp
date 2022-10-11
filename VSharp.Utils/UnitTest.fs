@@ -17,6 +17,7 @@ open VSharp
 type testInfo = {
     assemblyName : string
     moduleFullyQualifiedName : string
+    errorMessage : string
     token : int32
     thisArg : obj
     args : obj array
@@ -35,6 +36,7 @@ with
     static member OfMethod(m : MethodBase) = {
         assemblyName = m.Module.Assembly.FullName
         moduleFullyQualifiedName = m.Module.FullyQualifiedName
+        errorMessage = null
         token = m.MetadataToken
         thisArg = null
         args = null
@@ -50,10 +52,10 @@ with
         typeMocks = Array.empty
     }
 
-type UnitTest private (m : MethodBase, info : testInfo) =
+type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool) =
     let mocker = Mocking.Mocker(info.typeMocks)
     let typeMocks = info.typeMocks |> Array.map Mocking.Type |> ResizeArray
-    let memoryGraph = MemoryGraph(info.memory, mocker)
+    let memoryGraph = MemoryGraph(info.memory, mocker, createCompactRepr)
     let exceptionInfo = info.throwsException
     let throwsException =
         if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
@@ -61,13 +63,14 @@ type UnitTest private (m : MethodBase, info : testInfo) =
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let isError = info.isError
+    let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
 //    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
 //    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
 
     new(m : MethodBase) =
-        UnitTest(m, testInfo.OfMethod m)
+        UnitTest(m, testInfo.OfMethod m, false)
 
     member x.Method with get() = m
     member x.ThisArg
@@ -84,6 +87,12 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let t = typeof<testInfo>
             let p = t.GetProperty("isError")
             p.SetValue(info, e)
+    member x.ErrorMessage
+        with get() = errorMessage
+        and set (m : string) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("errorMessage")
+            p.SetValue(info, m)
     member x.Expected
         with get() = expectedResult
         and set r =
@@ -169,7 +178,7 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
-    static member DeserializeFromTestInfo(ti : testInfo) =
+    static member DeserializeFromTestInfo(ti : testInfo, createCompactRepr : bool) =
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
@@ -182,37 +191,35 @@ type UnitTest private (m : MethodBase, info : testInfo) =
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
             let method = mdle.ResolveMethod(ti.token)
+
             let declaringType = method.DeclaringType
-            let declaringType =
-                if method.DeclaringType.IsGenericType then
-                    assert(tp.Length = declaringType.GetGenericArguments().Length)
-                    declaringType.MakeGenericType(tp)
+
+            let getGenericTypeDefinition typ =
+                let decoded = Serialization.decodeType typ
+                if decoded.IsGenericType then
+                    decoded.GetGenericTypeDefinition()
                 else
-                    assert(tp.Length = 0)
-                    declaringType
-            let method =
-                match method with
-                | :? MethodInfo as mi ->
-                    let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
-                    if method.IsGenericMethod then
-                        assert(mp.Length = method.GetGenericArguments().Length)
-                        method.MakeGenericMethod(mp) :> MethodBase
-                    else
-                        assert(mp.Length = 0)
-                        method :> MethodBase
-                | :? ConstructorInfo as ci ->
-                    assert(mp.Length = 0)
-                    declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
-                | _ -> __notImplemented__()
+                    decoded
+            let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
+            let declaringTypeIndex = Array.IndexOf(typeDefinitions, declaringType)
+
+            let declaringType = Reflection.concretizeTypeParameters declaringType tp
+
+            // Ensure that parameters are substituted in memoryRepr
+            if not method.IsStatic && declaringType.IsGenericType && ti.memory.types.Length > 0 then
+                ti.memory.types.[declaringTypeIndex] <- Serialization.encodeType declaringType
+
+            let method = Reflection.concretizeMethodParameters declaringType method mp
+
             if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
-            UnitTest(method, ti)
+            UnitTest(method, ti, createCompactRepr)
         with child ->
             let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
     static member Deserialize(stream : FileStream) =
         let testInfo = UnitTest.DeserializeTestInfo(stream)
-        UnitTest.DeserializeFromTestInfo(testInfo)
+        UnitTest.DeserializeFromTestInfo(testInfo, false)
 
     static member Deserialize(source : string) =
         use stream = new FileStream(source, FileMode.Open, FileAccess.Read)

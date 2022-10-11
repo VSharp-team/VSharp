@@ -341,6 +341,10 @@ and Method internal (m : MethodBase) as this =
                 assert added
             edges |> Seq.cast<IReversedCallGraphNode>
 
+    static member val internal AttributesZone : Method -> bool = fun _ -> true with get, set
+
+    member x.CheckAttributes with get() = Method.AttributesZone x
+
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedBasicBlocks.Count |> uint else 0u
 
@@ -589,6 +593,9 @@ module Application =
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
+
+    let setAttributesZone (zone : Method -> bool) =
+        Method.AttributesZone <- zone
 
     let setVisualizer (v : IVisualizer) =
         visualizer <- v
