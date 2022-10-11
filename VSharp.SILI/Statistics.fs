@@ -213,11 +213,13 @@ type public SILIStatistics() =
     member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
         
     member x.TrackFinished (s : cilState) =
-        for block in s.history do
-            block.method.SetBlockIsCoveredByTest block.offset |> ignore
-            
-            if block.method.InCoverageZone then        
-                isVisitedBlocksNotCoveredByTestsRelevant <- false
+        for location in s.history do
+            if location.BasicBlock.FinalOffset = location.offset
+            then
+                location.method.SetBlockIsCoveredByTest location.offset |> ignore
+                
+                if location.method.InCoverageZone then        
+                    isVisitedBlocksNotCoveredByTestsRelevant <- false
                 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
