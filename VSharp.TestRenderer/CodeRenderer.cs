@@ -386,10 +386,12 @@ internal static class CodeRenderer
     {
         InitializerExpressionSyntax? initializer = null;
         ArgumentListSyntax? argumentList = null;
+
         if (init.Length != 0)
         {
             initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(init));
         }
+
         if (args.Length != 0 || init.Length == 0)
         {
             argumentList = ArgumentList(SeparatedList(args));
@@ -412,8 +414,10 @@ internal static class CodeRenderer
         return RenderObjectCreation(type, args.Select(Argument).ToArray(), init);
     }
 
-    public static ObjectCreationExpressionSyntax RenderObjectCreation(TypeSyntax type,
-        ExpressionSyntax[] args, (ExpressionSyntax, ExpressionSyntax)[] init)
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(
+        TypeSyntax type,
+        ExpressionSyntax[] args,
+        (ExpressionSyntax, ExpressionSyntax)[] init)
     {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
         var i = 0;
