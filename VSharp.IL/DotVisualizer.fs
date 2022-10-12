@@ -65,7 +65,8 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
                     for kvp in basicBlock.OutgoingEdges do
                         for _to in kvp.Value do            
                             edges.Add (edge basicBlock _to)
-                else
+                elif basicBlock.OutgoingEdges.ContainsKey CfgInfo.TerminalForCFGEdge
+                then
                     for _to in basicBlock.OutgoingEdges.[CfgInfo.TerminalForCFGEdge] do            
                         edges.Add (edge basicBlock _to)
             yield "}"
@@ -80,7 +81,7 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
                     result.Add method
         result
 
-    new (outputDirectory) = DotVisualizer(true, outputDirectory)
+    new (outputDirectory) = DotVisualizer(false, outputDirectory)
     member private x.Compile() =
         lastPictureId <- lastPictureId + 1
         let format = "0000000000"
