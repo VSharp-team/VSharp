@@ -73,19 +73,25 @@ public static class Renderer
 
         if (shouldCompareResult)
         {
-            var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
+            var retType = Reflection.getMethodReturnType(method);
+            var isPrimitive = retType.IsPrimitive || retType == typeof(string);
 
-            // Adding namespace of objects comparer to usings
-            AddObjectsComparer();
-            var expectedExpr =
-                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
-            var condition = RenderCall(CompareObjects, resultId, expectedExpr);
-            mainBlock.AddAssert(condition);
+            if (!isPrimitive)
+                // Adding namespace of objects comparer to usings
+                AddObjectsComparer();
+            var expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
+            var resultId = mainBlock.AddDecl("result", null, callMethod);
+            if (isPrimitive)
+                mainBlock.AddAssertEqual(expectedExpr, resultId);
+            else
+                mainBlock.AddAssert(
+                    RenderCall(CompareObjects, expectedExpr, resultId)
+                );
         }
         else if (ex == null || isError)
         {
             if (shouldUseDecl)
-                mainBlock.AddDecl("unused", ObjectType, callMethod);
+                mainBlock.AddDecl("unused", null, callMethod);
             else
                 mainBlock.AddExpression(callMethod);
         }
@@ -96,7 +102,7 @@ public static class Renderer
             if (shouldUseDecl)
             {
                 var block = mainBlock.NewBlock();
-                block.AddDecl("unused", ObjectType, callMethod);
+                block.AddDecl("unused", null, callMethod);
                 delegateExpr = ParenthesizedLambdaExpression(block.Render());
             }
             else
