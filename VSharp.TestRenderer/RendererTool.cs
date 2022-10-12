@@ -28,10 +28,11 @@ public static class Renderer
 
         // Declaring arguments and 'this' of testing method
         IdentifierNameSyntax thisArgId = null!;
+        string thisArgName = "thisArg";
         if (thisArg != null)
         {
             Debug.Assert(Reflection.hasThis(method));
-            var renderedThis = mainBlock.RenderObject(thisArg);
+            var renderedThis = mainBlock.RenderObject(thisArg, thisArgName);
             if (renderedThis is IdentifierNameSyntax id)
             {
                 thisArgId = id;
@@ -39,12 +40,15 @@ public static class Renderer
             else
             {
                 var thisType = RenderType(method.DeclaringType ?? typeof(object));
-                thisArgId = mainBlock.AddDecl("thisArg", thisType, mainBlock.RenderObject(thisArg));
+                thisArgId = mainBlock.AddDecl(thisArgName, thisType, renderedThis);
             }
         }
-        var renderedArgs = args.Select(mainBlock.RenderObject).ToArray();
-
         var parameters = method.GetParameters();
+        var renderedArgs =
+            args.Select((obj, index) =>
+                mainBlock.RenderObject(obj, parameters[index].Name)
+            ).ToArray();
+
         Debug.Assert(parameters.Length == renderedArgs.Length);
         for (int i = 0; i < parameters.Length; i++)
         {
@@ -54,8 +58,8 @@ public static class Renderer
             if (type.IsByRef && value is not IdentifierNameSyntax)
             {
                 Debug.Assert(type.GetElementType() != null);
-                var typeExpr = RenderType(type.GetElementType());
-                var id = mainBlock.AddDecl("obj", typeExpr, value);
+                var typeExpr = RenderType(type.GetElementType()!);
+                var id = mainBlock.AddDecl(parameterInfo.Name ?? "value", typeExpr, value);
                 renderedArgs[i] = id;
             }
         }
@@ -73,7 +77,8 @@ public static class Renderer
 
             // Adding namespace of objects comparer to usings
             AddObjectsComparer();
-            var expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected);
+            var expectedExpr =
+                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
             var condition = RenderCall(CompareObjects, resultId, expectedExpr);
             mainBlock.AddAssert(condition);
         }

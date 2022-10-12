@@ -26,7 +26,7 @@ internal interface IBlock
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax iterator, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax[] iterators, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddReturn(ExpressionSyntax? whatToReturn);
-    ExpressionSyntax RenderObject(object? obj);
+    ExpressionSyntax RenderObject(object? obj, string? preferredName);
     BlockSyntax Render();
 }
 
@@ -237,7 +237,7 @@ internal class MethodRenderer
             _statements.Add(ReturnStatement(whatToReturn));
         }
 
-        private ExpressionSyntax RenderArray(System.Array obj)
+        private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
         {
             // TODO: use compact array representation, if array is big enough?
             var rank = obj.Rank;
@@ -252,8 +252,9 @@ internal class MethodRenderer
             {
                 for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
                 {
+                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
                     // TODO: if lower bound != 0, use Array.CreateInstance
-                    initializer.Add(RenderObject(obj.GetValue(i)));
+                    initializer.Add(RenderObject(obj.GetValue(i), elementPreferredName));
                 }
             }
 
@@ -265,20 +266,23 @@ internal class MethodRenderer
             System.Array array,
             int[][] indices,
             object[] values,
+            string? preferredName,
             object? defaultValue = null)
         {
+            var arrayPreferredName = preferredName ?? "array";
             var createArray = RenderArrayCreation(type, array.Length);
-            var arrayId = AddDecl("array", type, createArray);
+            var arrayId = AddDecl(arrayPreferredName, type, createArray);
             if (defaultValue != null)
             {
-                var defaultId = RenderObject(defaultValue);
+                var defaultId = RenderObject(defaultValue, preferredName);
                 var call =
                     RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
                 AddExpression(call);
             }
             for (int i = 0; i < indices.Length; i++)
             {
-                var value = RenderObject(values[i]);
+                var elementPreferredName = arrayPreferredName + "_Elem" + i;
+                var value = RenderObject(values[i], elementPreferredName);
                 var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
                 AddAssignment(assignment);
             }
@@ -286,7 +290,7 @@ internal class MethodRenderer
             return arrayId;
         }
 
-        private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj)
+        private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj, string? preferredName)
         {
             var array = obj.array;
             var indices = obj.indices;
@@ -299,11 +303,11 @@ internal class MethodRenderer
             if (defaultValue == null || defaultValue.Equals(defaultOf))
             {
                 if (t.IsSZArray)
-                    return RenderCompactVector(type, array, indices, values);
+                    return RenderCompactVector(type, array, indices, values, preferredName);
                 throw new NotImplementedException();
             }
             if (t.IsSZArray)
-                return RenderCompactVector(type, array, indices, values, defaultValue);
+                return RenderCompactVector(type, array, indices, values, preferredName, defaultValue);
             throw new NotImplementedException();
         }
 
@@ -318,8 +322,8 @@ internal class MethodRenderer
                 var index = name.IndexOf(">k__BackingField", StringComparison.Ordinal);
                 if (index > 0)
                     name = name[1 .. index];
-                var fieldName = RenderObject(name);
-                var fieldValue = RenderObject(fieldInfo.GetValue(obj));
+                var fieldName = RenderObject(name, null);
+                var fieldValue = RenderObject(fieldInfo.GetValue(obj), name);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
@@ -327,7 +331,7 @@ internal class MethodRenderer
             return fieldsWithValues;
         }
 
-        private ExpressionSyntax RenderFields(object obj)
+        private ExpressionSyntax RenderFields(object obj, string? preferredName)
         {
             var physAddress = new physicalAddress(obj);
             if (_renderedObjects.TryGetValue(physAddress, out var renderedResult))
@@ -377,7 +381,7 @@ internal class MethodRenderer
             // If object was not rendered already, declaring new variable for it
             if (rendered == null)
             {
-                objId = AddDecl("obj", typeExpr, resultObject);
+                objId = AddDecl(preferredName ?? "obj", typeExpr, resultObject);
                 _renderedObjects[physAddress] = objId;
             }
             else
@@ -388,7 +392,7 @@ internal class MethodRenderer
             return objId;
         }
 
-        public ExpressionSyntax RenderObject(object? obj) => obj switch
+        public ExpressionSyntax RenderObject(object? obj, string? preferredName) => obj switch
         {
             null => RenderNull(),
             true => True,
@@ -408,12 +412,12 @@ internal class MethodRenderer
             nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
-            System.Array a => RenderArray(a),
-            CompactArrayRepr a => RenderCompactArray(a),
+            System.Array a => RenderArray(a, preferredName),
+            CompactArrayRepr a => RenderCompactArray(a, preferredName),
             Enum e => RenderEnum(e),
             Pointer => throw new NotImplementedException("RenderObject: implement rendering of pointers"),
-            ValueType => RenderFields(obj),
-            _ when obj.GetType().IsClass => RenderFields(obj),
+            ValueType => RenderFields(obj, preferredName),
+            _ when obj.GetType().IsClass => RenderFields(obj, preferredName),
             _ => throw new NotImplementedException($"RenderObject: unexpected object {obj}")
         };
 
