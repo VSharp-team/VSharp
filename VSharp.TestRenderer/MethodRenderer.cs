@@ -91,6 +91,7 @@ internal class MethodRenderer
     {
         // Variables cache
         private readonly IdentifiersCache _cache;
+        // Rendering objects cache
         private readonly Dictionary<physicalAddress, ExpressionSyntax> _renderedObjects;
         private readonly HashSet<physicalAddress> _startToRender;
 
@@ -259,6 +260,32 @@ internal class MethodRenderer
             return RenderArrayCreation(type, initializer);
         }
 
+        private ExpressionSyntax RenderCompactVector(
+            ArrayTypeSyntax type,
+            System.Array array,
+            int[][] indices,
+            object[] values,
+            object? defaultValue = null)
+        {
+            var createArray = RenderArrayCreation(type, array.Length);
+            var arrayId = AddDecl("array", type, createArray);
+            if (defaultValue != null)
+            {
+                var defaultId = RenderObject(defaultValue);
+                var call =
+                    RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
+                AddExpression(call);
+            }
+            for (int i = 0; i < indices.Length; i++)
+            {
+                var value = RenderObject(values[i]);
+                var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
+                AddAssignment(assignment);
+            }
+
+            return arrayId;
+        }
+
         private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj)
         {
             var array = obj.array;
@@ -272,84 +299,16 @@ internal class MethodRenderer
             if (defaultValue == null || defaultValue.Equals(defaultOf))
             {
                 if (t.IsSZArray)
-                {
-                    var createArray = RenderArrayCreation(type, array.Length);
-                    var arrayId = AddDecl("array", type, createArray);
-                    for (int i = 0; i < indices.Length; i++)
-                    {
-                        var value = RenderObject(values[i]);
-                        var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
-                        AddAssignment(assignment);
-                    }
-
-                    return arrayId;
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
+                    return RenderCompactVector(type, array, indices, values);
+                throw new NotImplementedException();
             }
-            else
-            {
-                if (t.IsSZArray)
-                {
-                    var defaultId = RenderObject(defaultValue);
-                    var createArray = RenderArrayCreation(type, array.Length);
-                    var arrayId = AddDecl("array", type, createArray);
-                    var call =
-                        RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
-                    AddExpression(call);
-                    for (int i = 0; i < indices.Length; i++)
-                    {
-                        var value = RenderObject(values[i]);
-                        var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
-                        AddAssignment(assignment);
-                    }
-
-                    return arrayId;
-                }
-                else
-                {
-                    throw new NotImplementedException();
-                }
-            }
+            if (t.IsSZArray)
+                return RenderCompactVector(type, array, indices, values, defaultValue);
+            throw new NotImplementedException();
         }
 
-        private ExpressionSyntax RenderFields(object obj)
+        private (ExpressionSyntax, ExpressionSyntax)[] RenderFieldValues(Type type, object obj)
         {
-            if (_renderedObjects.TryGetValue(new physicalAddress(obj), out var renderedResult))
-            {
-                return renderedResult;
-            }
-
-
-            // Adding namespace of allocator to usings
-            AddTestExtensions();
-
-            var type = obj.GetType();
-            var isPublicType = type.IsPublic;
-            var typeExpr = RenderType(isPublicType ? type : typeof(object));
-
-            if (_startToRender.Contains(new physicalAddress(obj)))
-            {
-                var allocatorArgs = System.Array.Empty<ExpressionSyntax>();
-                if (!isPublicType)
-                {
-                    allocatorArgs = new ExpressionSyntax[1];
-                    allocatorArgs[0] = LiteralExpression(SyntaxKind.StringLiteralExpression,
-                        Literal(type.AssemblyQualifiedName));
-                }
-                var emptyInit = System.Array.Empty<(ExpressionSyntax, ExpressionSyntax)>();
-                var emptyAllocator = RenderObjectCreation(AllocatorType(typeExpr), allocatorArgs, emptyInit);
-
-                var emptyObject = RenderMemberAccess(emptyAllocator, AllocatorObject);
-                var emptyObjId = AddDecl("obj", typeExpr, emptyObject);
-                _renderedObjects[new physicalAddress(obj)] = emptyObjId;
-
-                return emptyObjId;
-            }
-            _startToRender.Add(new physicalAddress(obj));
-
             var fields = Reflection.fieldsOf(false, type);
             var fieldsWithValues = new (ExpressionSyntax, ExpressionSyntax)[fields.Length];
             var i = 0;
@@ -365,35 +324,66 @@ internal class MethodRenderer
                 i++;
             }
 
-            ExpressionSyntax[] args = System.Array.Empty<ExpressionSyntax>();
-            if (_renderedObjects.TryGetValue(new physicalAddress(obj), out var result))
+            return fieldsWithValues;
+        }
+
+        private ExpressionSyntax RenderFields(object obj)
+        {
+            var physAddress = new physicalAddress(obj);
+            if (_renderedObjects.TryGetValue(physAddress, out var renderedResult))
+                return renderedResult;
+
+            // Adding namespace of allocator to usings
+            AddTestExtensions();
+
+            var type = obj.GetType();
+            var isPublicType = type.IsPublic || type.IsNested && type.IsNestedPublic;
+            var typeExpr = RenderType(isPublicType ? type : typeof(object));
+
+            // Rendering field values of object
+            (ExpressionSyntax, ExpressionSyntax)[] fieldsWithValues;
+            if (_startToRender.Contains(physAddress))
             {
-                args = new ExpressionSyntax[1];
-                args[0] = result;
+                fieldsWithValues = System.Array.Empty<(ExpressionSyntax, ExpressionSyntax)>();
             }
             else
             {
-                if (!isPublicType)
-                {
-                    args = new ExpressionSyntax[1];
-                    args[0] = LiteralExpression(SyntaxKind.StringLiteralExpression,
-                        Literal(type.AssemblyQualifiedName));
-                }
+                _startToRender.Add(physAddress);
+                fieldsWithValues = RenderFieldValues(type, obj);
             }
+
+            // Rendering allocator arguments
+            ExpressionSyntax[] args;
+            if (_renderedObjects.TryGetValue(physAddress, out var rendered))
+            {
+                args = new[] {rendered};
+            }
+            else if (isPublicType)
+            {
+                args = System.Array.Empty<ExpressionSyntax>();
+            }
+            else
+            {
+                Debug.Assert(type.FullName != null);
+                var name =
+                    LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(type.FullName));
+                args = new ExpressionSyntax[] {name};
+            }
+
             var allocator =
                 RenderObjectCreation(AllocatorType(typeExpr), args, fieldsWithValues);
-
             var resultObject = RenderMemberAccess(allocator, AllocatorObject);
             ExpressionSyntax objId;
-            if (result == null)
+            // If object was not rendered already, declaring new variable for it
+            if (rendered == null)
             {
                 objId = AddDecl("obj", typeExpr, resultObject);
-                _renderedObjects[new physicalAddress(obj)] = objId;
+                _renderedObjects[physAddress] = objId;
             }
             else
             {
-                AddAssignment(RenderAssignment(result, resultObject));
-                objId = result;
+                AddAssignment(RenderAssignment(rendered, resultObject));
+                objId = rendered;
             }
             return objId;
         }
