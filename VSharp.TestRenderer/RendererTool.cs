@@ -11,6 +11,19 @@ using static CodeRenderer;
 
 public static class Renderer
 {
+    // Struct, which helps to format generated methods
+    public struct MethodFormat
+    {
+        public bool HasArgs = false;
+        public string? CallingTest = null;
+
+        public MethodFormat()
+        {
+        }
+    }
+
+    private static readonly Dictionary<string, MethodFormat> MethodsFormat = new ();
+
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
 
     // TODO: create class 'Expression' with operators?
@@ -25,9 +38,10 @@ public static class Renderer
         object expected)
     {
         var mainBlock = test.Body;
+        MethodFormat f = new MethodFormat();
 
         // Declaring arguments and 'this' of testing method
-        IdentifierNameSyntax thisArgId = null!;
+        IdentifierNameSyntax? thisArgId = null;
         string thisArgName = "thisArg";
         if (thisArg != null)
         {
@@ -55,7 +69,9 @@ public static class Renderer
             var parameterInfo = parameters[i];
             var type = parameterInfo.ParameterType;
             var value = renderedArgs[i];
-            if (type.IsByRef && value is not IdentifierNameSyntax)
+            var valueIsVar = value is IdentifierNameSyntax;
+            f.HasArgs |= valueIsVar;
+            if (type.IsByRef && !valueIsVar)
             {
                 Debug.Assert(type.GetElementType() != null);
                 var typeExpr = RenderType(type.GetElementType()!);
@@ -64,8 +80,11 @@ public static class Renderer
             }
         }
 
+        f.HasArgs = f.HasArgs || thisArgId != null;
+
         // Calling testing method
         var callMethod = RenderCall(thisArgId, method, renderedArgs);
+        f.CallingTest = callMethod.NormalizeWhitespace().ToString();
 
         var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
         var shouldUseDecl = method.IsConstructor || IsGetPropertyMethod(method, out _);
@@ -79,7 +98,10 @@ public static class Renderer
             if (!isPrimitive)
                 // Adding namespace of objects comparer to usings
                 AddObjectsComparer();
-            var expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
+            var expectedExpr =
+                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
+            Debug.Assert(expectedExpr != null);
+            f.HasArgs |= expectedExpr is IdentifierNameSyntax;
             var resultId = mainBlock.AddDecl("result", null, callMethod);
             if (isPrimitive)
                 mainBlock.AddAssertEqual(expectedExpr, resultId);
@@ -116,15 +138,20 @@ public static class Renderer
                 );
             mainBlock.AddExpression(assertThrows);
         }
+
+        MethodsFormat[test.MethodId.ToString()] = f;
     }
 
-    private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
+    private static Assembly? TryLoadAssemblyFrom(object? sender, ResolveEventArgs args)
     {
         var existingInstance = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.FullName == args.Name);
         if (existingInstance != null)
         {
             return existingInstance;
         }
+
+        if (_extraAssemblyLoadDirs == null) return null;
+
         foreach (string path in _extraAssemblyLoadDirs)
         {
             string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
@@ -141,10 +168,26 @@ public static class Renderer
     {
         private const int TabSize = 4;
         private int _currentOffset = 0;
+        private MethodFormat _format = new MethodFormat();
+        private string? _firstExpr = null;
+        private static readonly SyntaxTrivia ArrangeComment = Comment("// arrange");
+        private static readonly SyntaxTrivia ActComment = Comment("// act");
+        private static readonly SyntaxTrivia AssertComment = Comment("// assert");
 
         private static SyntaxTrivia WhitespaceTrivia(int offset)
         {
             return Whitespace(new string(' ', offset));
+        }
+
+        private SyntaxNode AddActComment(SyntaxNode node)
+        {
+            var whitespaces = WhitespaceTrivia(_currentOffset);
+            // If method has lines with generated args, adding empty line before calling test
+            var beforeTrivia =
+                _format.HasArgs
+                    ? new[] { LineFeed, whitespaces, ActComment, LineFeed, whitespaces }
+                    : new[] { whitespaces, ActComment, LineFeed, whitespaces };
+            return node.WithLeadingTrivia(beforeTrivia);
         }
 
         public override SyntaxNode? Visit(SyntaxNode? node)
@@ -159,8 +202,7 @@ public static class Renderer
                     triviaList
                         .Where(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
                         .ToArray();
-                Debug.Assert(whitespaces.Length == 1);
-                _currentOffset = whitespaces[0].ToFullString().Length;
+                _currentOffset = whitespaces[^1].ToFullString().Length;
             }
 
             switch (node)
@@ -201,6 +243,52 @@ public static class Renderer
                         node = objCreation.WithInitializer(init);
                     }
 
+                    return base.Visit(node);
+                }
+                // Adding '// arrange' comment before generated args
+                case StatementSyntax statement when statement.ToString() == _firstExpr:
+                {
+                    var whitespaces = WhitespaceTrivia(_currentOffset);
+                    node = statement.WithLeadingTrivia(whitespaces, ArrangeComment, LineFeed, whitespaces);
+                    return base.Visit(node);
+                }
+                // Adding '// act' comment before calling test
+                case LocalDeclarationStatementSyntax varDecl:
+                {
+                    var vars = varDecl.Declaration.Variables;
+                    if (vars.Count > 0)
+                    {
+                        var init = vars[0].Initializer;
+                        var callingTest = _format.CallingTest;
+                        if (callingTest != null && init != null && callingTest == init.Value.ToString())
+                            node = AddActComment(node);
+
+                        return base.Visit(node);
+                    }
+
+                    break;
+                }
+                // Adding '// act' comment before calling test
+                case ExpressionStatementSyntax expr
+                    when _format.CallingTest != null && _format.CallingTest == expr.Expression.ToString():
+                {
+                    return base.Visit(AddActComment(node));
+                }
+                // Remembering current method
+                case MethodDeclarationSyntax expr:
+                {
+                    _firstExpr = null;
+                    MethodsFormat.TryGetValue(expr.Identifier.ToString(), out _format);
+                    if (_format.HasArgs)
+                        _firstExpr = expr.Body?.Statements[0].ToString();
+
+                    return base.Visit(node);
+                }
+                // Adding blank line and '// assert' comment before assert
+                case ExpressionStatementSyntax expr when expr.ToString().Contains("Assert"):
+                {
+                    var whitespaces = WhitespaceTrivia(_currentOffset);
+                    node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
                     return base.Visit(node);
                 }
             }
