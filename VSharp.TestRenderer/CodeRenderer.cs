@@ -136,6 +136,8 @@ internal static class CodeRenderer
 
     public static TypeSyntax RenderType(Type type)
     {
+        Debug.Assert(type != null);
+
         assemblies.Add(type.Assembly);
 
         if (PrimitiveTypes.TryGetValue(type, out var name))

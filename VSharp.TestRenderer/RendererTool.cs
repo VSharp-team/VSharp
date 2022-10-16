@@ -306,7 +306,7 @@ public static class Renderer
         return formatted;
     }
 
-    public static void RenderTests(IEnumerable<FileInfo> tests)
+    public static void RenderTests(IEnumerable<FileInfo> tests, Type? declaringType = null, string? dir = null)
     {
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
@@ -315,9 +315,13 @@ public static class Renderer
         AddNUnit();
 
         // Creating main class for generating tests
+        var typeName =
+            declaringType == null
+                ? "GeneratedClass"
+                : RenderType(declaringType).ToString().Replace(".", "");
         var generatedClass =
             new ClassRenderer(
-                "GeneratedClass",
+                $"{typeName}Tests",
                 RenderAttributeList("TestFixture"),
                 null
             );
@@ -374,16 +378,20 @@ public static class Renderer
             RenderTest(testRenderer, method, parameters, thisArg, test.IsError, test.Exception, test.Expected);
         }
 
+        var namespaceName =
+            declaringType == null
+                ? "GeneratedNamespace"
+                : $"{declaringType.Namespace}.Tests";
         SyntaxNode compilation =
             RenderProgram(
-                "GeneratedNamespace",
+                namespaceName,
                 generatedClass.Render()
             );
 
         compilation = Format(compilation);
-        // compilation.WriteTo(Console.Out);
-        var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
-        using var streamWriter = new StreamWriter(File.Create(dir));
+        dir ??= Directory.GetCurrentDirectory();
+        var testFilePath = Path.Combine(dir, $"{typeName}Tests.cs");
+        using var streamWriter = new StreamWriter(File.Create(testFilePath));
         compilation.WriteTo(streamWriter);
     }
 }
