@@ -24,14 +24,14 @@ module internal PC =
         match cond with
         | True -> pc
         | False -> falsePC
+        | _ when isFalse pc -> falsePC
+        | _ when PersistentSet.contains !!cond pc -> falsePC
         | {term = Disjunction xs} ->
             let xs' = xs |> List.filter (fun x -> PersistentSet.contains !!x pc |> not)
             if xs'.Length = xs.Length then
                 PersistentSet.add pc cond
             else
                 PersistentSet.add pc (disjunction xs')
-        | _ when isFalse pc -> falsePC
-        | _ when PersistentSet.contains !!cond pc -> falsePC
         | _ ->
             let notCond = !!cond
             let pc' = pc |> PersistentSet.fold (fun pc e ->
