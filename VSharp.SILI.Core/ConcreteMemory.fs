@@ -4,6 +4,7 @@ open System
 open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Runtime.CompilerServices
+open System.Threading
 open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
@@ -12,6 +13,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     let mutable virtToPhys = virtToPhys
 
 // ----------------------------- Helpers -----------------------------
+
+    static let nonCopyableTypes = [
+        typeof<Type>
+        typeof<Thread>
+    ]
+
+    let cannotBeCopied typ = List.contains typ nonCopyableTypes
 
     let getArrayIndicesWithValues (array : Array) =
         let ubs = List.init array.Rank array.GetUpperBound
@@ -26,7 +34,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         let typ = TypeUtils.getTypeOfConcrete obj
         match obj with
         | null -> phys
-        | _ when TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
+        | _ when cannotBeCopied typ || TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
         | :? System.Reflection.Pointer -> phys
         | _ -> deepCopyComplex phys typ
 
