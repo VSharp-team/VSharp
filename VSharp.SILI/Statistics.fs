@@ -24,7 +24,7 @@ type pobStatus =
     | Unknown
     | Witnessed of cilState
     | Unreachable
-    
+
 type statisticsDump =
     {
         time : TimeSpan
@@ -44,11 +44,11 @@ type public SILIStatistics() =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
-    let emittedErrors = Dictionary<codeLocation * string, unit>()
+    let emittedErrors = HashSet<codeLocation * string>()
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
-    
+
     let unansweredPobs = List<pob>()
     let mutable startTime = DateTime.Now
     let internalFails = List<Exception>()
@@ -110,7 +110,7 @@ type public SILIStatistics() =
             let totalHistory = Dict.getValueOrUpdate visitedWithHistory loc (fun () -> HashSet<_>())
             let validDistance = distance <> infinity && distance <> 0u
             let emptyHistory = totalHistory.Count = 0
-            
+
             let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
@@ -121,7 +121,7 @@ type public SILIStatistics() =
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
         else None
-            
+
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
         if not <| List.isEmpty statisticsDump.internalFails then
@@ -182,12 +182,12 @@ type public SILIStatistics() =
                 visitedWithHistory.Add(currentLoc, historyRef.Value)
             for visitedState in s.history do
                 if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
-            
+
             if currentMethod.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
                 if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
                     visitedBlocksNotCoveredByTests.[s] <- Set.empty
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
-                
+
             setBasicBlockIsVisited s currentLoc
         | _ -> ()
 
@@ -199,9 +199,9 @@ type public SILIStatistics() =
             for kvp in visitedBlocksNotCoveredByTests do
                 visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << isBasicBlockCoveredByTest)
             isVisitedBlocksNotCoveredByTestsRelevant <- true
-        
+
         if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
-            
+
     member x.GetApproximateCoverage (methods : Method seq) =
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
         let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
@@ -210,28 +210,25 @@ type public SILIStatistics() =
             uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
         else
             0u
-            
+
     member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
-        
+
     member x.TrackFinished (s : cilState) =
         for block in s.history do
             block.method.SetBlockIsCoveredByTest block.offset |> ignore
-            
-            if block.method.InCoverageZone then        
+
+            if block.method.InCoverageZone then
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
-                
+
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
     member x.EmitError (s : cilState) (errorMessage : string) =
-        let currentLoc = ip2codeLocation (currentIp s)
-        match currentLoc with
-        | Some loc -> emittedErrors.TryAdd((loc, errorMessage), ())
-        | _ -> true
-        
+        emittedErrors.Add(s.currentLoc, errorMessage)
+
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
         ()
-        
+
     member x.TrackFork (parent : cilState) (children : cilState seq) =
         for child in children do
             visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
@@ -262,7 +259,7 @@ type public SILIStatistics() =
     member x.IncompleteStates with get() = iies
 
     member x.InternalFails with get() = internalFails
-    
+
     member x.DumpStatistics() =
         let topN = 5
         let topVisitedByMethods =
