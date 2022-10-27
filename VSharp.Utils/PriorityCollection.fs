@@ -1,6 +1,7 @@
 namespace VSharp.Utils
 
 open System.Collections.Generic
+open System.Linq
 
 open VSharp
 
@@ -9,6 +10,7 @@ type IPriorityCollection<'a> =
     abstract member Remove : 'a -> unit
     abstract member Update : 'a -> uint -> unit
     abstract member Choose : uint -> 'a option
+    abstract member Choose : uint * ('a -> bool) -> 'a option
     abstract member Contains : 'a -> bool
     abstract member TryGetPriority : 'a -> uint option
     abstract member Clear : unit -> unit
@@ -41,6 +43,26 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         if not <| Seq.isEmpty priorityToList then
             priorityToList.Keys |> Seq.last
         else 0u
+    let rec chooseInternal (priorities : uint list) (selector : 'a -> bool) =
+        match priorities with
+        | p::tail ->
+            match priorityToList.[p] |> Seq.tryFind (fun v -> selector v) with
+            | Some _ as value -> value
+            | None -> chooseInternal tail selector
+        | _ -> None
+    let chooseWithSelector priority selector =
+        let diff (one : uint) (another : uint) =
+            if one > another then one - another
+            else another - one
+        let sortedPriorities = priorityToList.Keys |> List.ofSeq
+        if not <| Seq.isEmpty sortedPriorities then
+            let maxP = maxPriority ()
+            if priority > maxP then
+                chooseInternal sortedPriorities selector
+            else
+                let sortedPriorities = sortedPriorities |> List.sortBy (diff priority)
+                chooseInternal sortedPriorities selector
+        else None
     let choose priority =
         let sortedPriorities = priorityToList.Keys |> seq
         if not <| Seq.isEmpty sortedPriorities then
@@ -69,6 +91,7 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
             remove item
             insert item priority
         override x.Choose priority = choose priority
+        override x.Choose(priority, selector) = chooseWithSelector priority selector
         override x.Contains item = contains item
         override x.TryGetPriority item = tryGetPriority item
         override x.Clear() = clear ()

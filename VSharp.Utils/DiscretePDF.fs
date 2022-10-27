@@ -1,6 +1,8 @@
 ﻿namespace VSharp.Utils
 
+open System
 open System.Collections.Generic
+open Checked
 
 open VSharp
 
@@ -19,6 +21,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
     let mutable root = None : node<'a> option
     let mutable maxWeight = 0u
     let mutable count = 0u
+    let random = Random()
 
     let mkNode (key : 'a) weight =
         { Left = None
@@ -191,18 +194,36 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         | Some n -> balance n
         | None -> None
 
-    let rec choose (nOpt : node<'a> option) weight =
-        option {
-            let! n = nOpt
-            match n.Left, n.Right with
-            | Some left, _ when weight < left.SumWeight ->
-                return! choose n.Left weight
-            | Some left,Some _ when weight >= left.SumWeight && weight - left.SumWeight >= n.Weight ->
-                return! choose n.Right (weight - left.SumWeight - n.Weight)
-            | None, Some _ when weight >= n.Weight ->
-                return! choose n.Right (weight - n.Weight)
-            | _ -> return n.Key
-        }
+    let choose selector =
+        let rec chooseInternal (nOpt : node<'a> option) (k : unit -> 'a option) =
+            let selectSegment3 w1 w2 w3 on1 on2 on3 k =
+                let weight = random.Next(0, w1 + w2 + w3)
+                if weight < w1 then on1 k
+                elif weight < w1 + w2 then on2 k
+                else on3 k
+
+            let selectSegment2 w1 w2 on1 on2 k =
+                let weight = random.Next(0, w1 + w2)
+                if weight < w1 then on1 (fun _ -> on2 k) else on2 (fun _ -> on1 k)
+
+            let unwrapSumWeight (n : node<'a> option) =
+                match n with
+                | Some n -> int n.SumWeight
+                | _ -> 0
+
+            match nOpt with
+            | None -> k()
+            | Some n ->
+                let goToLeft k = chooseInternal n.Left k
+                let goToRight k = chooseInternal n.Right k
+                let tryMiddle k = if selector n.Key then Some n.Key else k()
+                let leftWeight = unwrapSumWeight n.Left
+                let rightWeight = unwrapSumWeight n.Right
+                let onLeft k = goToLeft (fun _ -> selectSegment2 (int n.Weight) rightWeight tryMiddle goToRight k)
+                let onMiddle k = tryMiddle (fun _ -> selectSegment2 leftWeight rightWeight goToLeft goToRight k)
+                let onRight k = goToRight (fun _ -> selectSegment2 leftWeight (int n.Weight) goToLeft tryMiddle k)
+                selectSegment3 leftWeight (int n.Weight) rightWeight onLeft onMiddle onRight k
+        chooseInternal root (always None)
 
     let rec enumerate optNode =
         seq {
@@ -213,7 +234,6 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
                 yield! enumerate node.Right
             | None -> ()
         }
-
 
     member x.Empty() = root = None
 
@@ -252,19 +272,7 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         }
         assert (Option.isSome res)
 
-    member x.Choose(weight) =
-        let wOpt = if weight <> 0u && weight >= maxWeight then None else Some weight
-        option {
-            let! r = root
-            let! w = wOpt
-            let scaledW =
-                if maxWeight > 0u then
-                    (double w / double maxWeight) * double r.SumWeight
-                else double w
-             |> round
-             |> uint
-            return! choose root scaledW
-        }
+    member x.Choose(selector) = choose selector
 
     member x.Clear() =
         root <- None
@@ -278,7 +286,9 @@ type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
         override x.Insert item priority = x.Insert(item, priority)
         override x.Remove item = x.Remove(item)
         override x.Update item priority = x.Update(item, priority)
-        override x.Choose priority = x.Choose(priority)
+        // NB: priority is ignored in Discrete PDF, value is chosen randomly
+        override x.Choose _ = x.Choose(always true)
+        override x.Choose(_, selector) = x.Choose(selector)
         override x.Contains item = x.Contains(item)
         override x.TryGetPriority item = x.TryGetWeight(item)
         override x.Clear() = x.Clear()

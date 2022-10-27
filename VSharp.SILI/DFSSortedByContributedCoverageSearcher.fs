@@ -14,31 +14,30 @@ open CilStateOperations
 /// </summary>
 type DFSSortedByContributedCoverageSearcher(maxBound, statistics) =
     inherit SimpleForwardSearcher(maxBound)
-    
-    let isStopped s = isStopped s || violatesLevel s maxBound
-    
+
     let contributedCoverageWeighter = ContributedCoverageWeighter(statistics) :> IWeighter
-    
+
     let compareWeightOpts (one : uint option) (another : uint option) =
         match one, another with
         | Some oneWeight, Some anotherWeight -> oneWeight.CompareTo(anotherWeight)
         | Some _, None -> 1
         | None, Some _ -> -1
         | None, None -> 0
-        
-    let comparer = Comparer.Create(compareWeightOpts)    
+
+    let comparer = Comparer.Create(compareWeightOpts)
     let getWeight = contributedCoverageWeighter.Weight
-    
+
     let add (states : List<cilState>) newState =
         if not <| isStopped newState then
             assert(states.Contains newState |> not)
             states.Add(newState)
-    
+
     override x.Init states initStates =
         initStates.OrderBy(getWeight, comparer) |> Seq.iter (add states)
-    
+
     override x.Insert states (parent, newStates) =
-        if isStopped parent then
+        // TODO: sort effectively
+        if violatesLevel parent maxBound then
             states.Remove(parent) |> ignore
         newStates |> Seq.iter (add states)
         let sorted = states.OrderBy(getWeight, comparer).ToList()

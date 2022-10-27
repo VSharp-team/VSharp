@@ -13,8 +13,17 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
 
     let init states = for searcher, _ in searchersWithStepCount do searcher.Init states
 
-    // TODO: handle None
-    let pick() = getCurrentSearcher().Pick()
+    let pick() =
+        let currentSearcher = getCurrentSearcher()
+        match currentSearcher.Pick() with
+        | Some _ as pickedFromCurrent -> pickedFromCurrent
+        | None -> searchersWithStepCount |> Seq.filter (fun (s, _) -> s <> currentSearcher) |> Seq.tryPick (fun (s, _) -> s.Pick())
+
+    let pickWithSelector selector =
+        let currentSearcher = getCurrentSearcher()
+        match currentSearcher.Pick selector with
+        | Some _ as pickedFromCurrent -> pickedFromCurrent
+        | None -> searchersWithStepCount |> Seq.filter (fun (s, _) -> s <> currentSearcher) |> Seq.tryPick (fun (s, _) -> s.Pick selector)
 
     let update (parent, newStates) =
         for searcher, _ in searchersWithStepCount do
@@ -24,9 +33,13 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
 
     let reset() = for searcher, _ in searchersWithStepCount do searcher.Reset()
 
+    let remove cilState = for searcher, _ in searchersWithStepCount do searcher.Remove cilState
+
     interface IForwardSearcher with
         override x.Init states = init states
         override x.Pick() = pick()
+        override x.Pick selector = pickWithSelector selector
         override x.Update (parent, newStates) = update (parent, newStates)
         override x.States() = states()
         override x.Reset() = reset()
+        override x.Remove cilState = remove cilState

@@ -27,6 +27,10 @@ type cilState =
       /// All basic blocks visited by the state.
       /// </summary>
       mutable history : Set<codeLocation>
+      /// <summary>
+      /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
+      /// </summary>
+      entryMethod : Method option
     }
     with
     member x.Result with get() =
@@ -53,7 +57,7 @@ type cilStateComparer(comparer) =
 
 module internal CilStateOperations =
 
-    let makeCilState curV initialEvaluationStackSize state =
+    let makeCilState entryMethod curV initialEvaluationStackSize state =
         { ipStack = [curV]
           currentLoc = ip2codeLocation curV |> Option.get
           state = state
@@ -67,11 +71,19 @@ module internal CilStateOperations =
           targets = None
           lastPushInfo = None
           history = Set.empty
+          entryMethod = Some entryMethod
         }
 
-    let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
+    let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state
 
     let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
+
+    let isIsolated state = state.entryMethod.IsNone
+
+    let entryMethodOf state =
+        if isIsolated state then
+            invalidOp "Isolated state doesn't have an entry method"
+        state.entryMethod.Value
 
     let isIIEState (s : cilState) = Option.isSome s.iie
 

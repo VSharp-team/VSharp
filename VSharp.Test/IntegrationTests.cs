@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -270,7 +271,7 @@ namespace VSharp.Test
                         }
                     }
 
-                    explorer.InterpretIsolated(methodInfo, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, e => throw e);
+                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, (_, e) => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {

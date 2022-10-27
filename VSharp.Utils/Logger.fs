@@ -19,17 +19,17 @@ module Logger =
         | 4 -> "Trace"
         | _ -> "Unknown"
 
-    let private writeLineString vLevel message =
+    let public printLogString vLevel message =
         let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()
 
     let public printLog vLevel format =
-        Printf.ksprintf (fun message -> if current_log_level >= vLevel then writeLineString vLevel message) format
+        Printf.ksprintf (fun message -> if current_log_level >= vLevel then printLogString vLevel message) format
 
     let public printLogLazy vLevel format (s : Lazy<_>) =
         if current_log_level >= vLevel then
-            Printf.ksprintf (writeLineString vLevel) format (s.Force())
+            Printf.ksprintf (printLogString vLevel) format (s.Force())
 
 //    let public printLogLazy vLevel format ([<ParamArray>] s : Lazy<_> array) =
 //        if current_log_level >= vLevel then

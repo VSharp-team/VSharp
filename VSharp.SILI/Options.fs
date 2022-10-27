@@ -8,7 +8,9 @@ type searchMode =
     | BFSMode
     | ShortestDistanceBasedMode
     | ContributedCoverageMode
+    | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
+    | ConcolicMode of searchMode
     | GuidedMode of searchMode
 
 type coverageZone =
