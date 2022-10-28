@@ -92,7 +92,7 @@ namespace VSharp
 
             void HandleInternalFail(MethodBase method, Exception exception)
             {
-                Console.WriteLine($"EXCEPTION | {method.DeclaringType}.{method.Name} | {exception.GetType().Name} {exception.Message}");
+                Logger.printLogString(Logger.Error, $"Internal exception | {method.DeclaringType}.{method.Name} | {exception.GetType().Name} {exception.Message}");
             }
 
             foreach (var method in methods)
@@ -172,18 +172,52 @@ namespace VSharp
         public static Statistics Cover(Assembly assembly, int timeout = -1, string outputDirectory = "")
         {
             AssemblyManager.Load(assembly);
-            List<MethodBase> methods;
             BindingFlags bindingFlags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public |
                                         BindingFlags.DeclaredOnly;
-            methods = new List<MethodBase>();
 
-            foreach (var t in assembly.GetTypes())
+            var methods = new List<MethodBase>();
+            var types = new List<Type>();
+
+            try
             {
-                if (t.IsPublic)
+                types.AddRange(assembly.GetTypes());
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                foreach (var loaderException in e.LoaderExceptions)
+                {
+                    Logger.printLogString(Logger.Error, $"Cannot load type: {loaderException?.Message}");
+                }
+
+                foreach (var type in e.Types)
+                {
+                    if (type is not null)
+                    {
+                        types.Add(type);
+                    }
+                }
+            }
+
+            foreach (var t in types)
+            {
+                if (t.IsPublic || t.IsNestedPublic)
                 {
                     foreach (var m in t.GetMethods(bindingFlags))
                     {
-                        if (m.GetMethodBody() != null)
+                        global::System.Reflection.MethodBody methodBody = null;
+                        var hasByRefLikes = true;
+
+                        try
+                        {
+                            methodBody = m.GetMethodBody();
+                            hasByRefLikes = Reflection.hasByRefLikes(m);
+                        }
+                        catch (Exception e)
+                        {
+                            Logger.printLogString(Logger.Error, $"Cannot get method info: {e.Message}");
+                        }
+
+                        if (methodBody is not null && !hasByRefLikes)
                             methods.Add(m);
                     }
                 }
