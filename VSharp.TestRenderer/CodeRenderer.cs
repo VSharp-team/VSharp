@@ -8,46 +8,13 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-internal static class CodeRenderer
+internal class CodeRenderer
 {
-    // Needed usings
-    private static readonly HashSet<string> Usings = new ();
+    private readonly IReferenceManager _referenceManager;
 
-    // Needed static usings
-    private static readonly HashSet<string> StaticUsings = new ();
-
-    // Used assemblies
-    private static readonly HashSet<Assembly> Assemblies = new ();
-
-    private static UsingDirectiveSyntax[] ProgramUsings()
+    public CodeRenderer(IReferenceManager referenceManager)
     {
-        var nonStaticElems = Usings.Select(x =>
-            UsingDirective(ParseName(x)));
-        var staticElems = StaticUsings.Select(x =>
-            UsingDirective(Static, null, ParseName(x)));
-        return nonStaticElems.Concat(staticElems).ToArray();
-    }
-
-    public static void AddNUnit()
-    {
-        Usings.Add("NUnit.Framework");
-    }
-
-    public static void AddTestExtensions()
-    {
-        Usings.Add("VSharp.TestExtensions");
-    }
-
-    private static bool _objectsComparerAdded = false;
-
-    public static void AddObjectsComparer()
-    {
-        if (_objectsComparerAdded) return;
-        var name = typeof(ObjectsComparer).FullName;
-        Debug.Assert(name != null);
-        StaticUsings.Add(name);
-        Assemblies.Add(typeof(ObjectsComparer).Assembly);
-        _objectsComparerAdded = true;
+        _referenceManager = referenceManager;
     }
 
     public struct MockInfo
@@ -92,21 +59,6 @@ internal static class CodeRenderer
     public static MockInfo GetMockInfo(string id)
     {
         return MocksInfo[id];
-    }
-
-    public static void PrepareCache()
-    {
-        _objectsComparerAdded = false;
-        Usings.Clear();
-        StaticUsings.Clear();
-        Assemblies.Clear();
-        MocksInfo.Clear();
-    }
-
-    // TODO: Use this as references for test project
-    public static Assembly[] UsedAssemblies()
-    {
-        return Assemblies.ToArray();
     }
 
     public static bool IsGetPropertyMethod(MethodBase method, out string propertyName)
@@ -180,11 +132,11 @@ internal static class CodeRenderer
         return genericName;
     }
 
-    public static TypeSyntax RenderType(Type type)
+    public TypeSyntax RenderType(Type type)
     {
         Debug.Assert(type != null);
 
-        Assemblies.Add(type.Assembly);
+        _referenceManager.AddAssembly(type.Assembly);
 
         if (PrimitiveTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
@@ -194,7 +146,7 @@ internal static class CodeRenderer
 
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
-            Usings.Add(typeNamespace);
+            _referenceManager.AddUsing(typeNamespace);
 
         if (type.IsArray)
         {
@@ -222,8 +174,12 @@ internal static class CodeRenderer
         return ParseTypeName(typeName);
     }
 
-    public static NameSyntax RenderTypeName(Type type)
+    public NameSyntax RenderTypeName(Type type)
     {
+        var typeNamespace = type.Namespace;
+        if (typeNamespace != null)
+            _referenceManager.AddUsing(typeNamespace);
+
         if (type.IsGenericType)
         {
             var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
@@ -233,9 +189,9 @@ internal static class CodeRenderer
         return IdentifierName(type.Name);
     }
 
-    public static ExpressionSyntax RenderMethod(MethodBase method)
+    public ExpressionSyntax RenderMethod(MethodBase method)
     {
-        Assemblies.Add(method.Module.Assembly);
+        _referenceManager.AddAssembly(method.Module.Assembly);
         var type = method.DeclaringType;
         SimpleNameSyntax methodName = IdentifierName(method.Name);
 
@@ -266,37 +222,43 @@ internal static class CodeRenderer
 
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
-            Usings.Add(typeNamespace);
+            _referenceManager.AddUsing(typeNamespace);
 
         // TODO: instead of usings use full name of method?
         return methodName;
     }
 
-    // Prerendered extern function
-    public static readonly ExpressionSyntax CompareObjects = IdentifierName(nameof(ObjectsComparer.CompareObjects));
+    // Prerendered extern functions
+    public ExpressionSyntax CompareObjects()
+    {
+        _referenceManager.AddObjectsComparer();
+        return IdentifierName(nameof(ObjectsComparer.CompareObjects));
+    }
 
-    public static readonly IdentifierNameSyntax AllocatorObject = IdentifierName(nameof(Allocator<int>.Object));
+    public IdentifierNameSyntax AllocatorObject => IdentifierName(nameof(Allocator<int>.Object));
 
     // Prerendered program types
-    public static readonly TypeSyntax ObjectType = RenderType(typeof(object));
-    public static readonly TypeSyntax StringType = RenderType(typeof(string));
-    public static readonly TypeSyntax BoolType = RenderType(typeof(bool));
-    public static readonly TypeSyntax VoidType = RenderType(typeof(void));
-    public static readonly ArrayTypeSyntax VectorOfObjects = (ArrayTypeSyntax) RenderType(typeof(object[]));
-    public static readonly TypeSyntax MethodBaseType = RenderType(typeof(MethodBase));
-    public static readonly TypeSyntax ModuleType = RenderType(typeof(Module));
-    public static readonly TypeSyntax AssemblyType = RenderType(typeof(Assembly));
-    public static readonly TypeSyntax SystemType = RenderType(typeof(Type));
-    public static readonly TypeSyntax SystemArray = RenderType(typeof(System.Array));
+    public TypeSyntax ObjectType => RenderType(typeof(object));
+    public TypeSyntax StringType => RenderType(typeof(string));
+    public TypeSyntax BoolType => RenderType(typeof(bool));
+    public TypeSyntax VoidType => RenderType(typeof(void));
+    public ArrayTypeSyntax VectorOfObjects => (ArrayTypeSyntax) RenderType(typeof(object[]));
+    public TypeSyntax MethodBaseType => RenderType(typeof(MethodBase));
+    public TypeSyntax ModuleType => RenderType(typeof(Module));
+    public TypeSyntax AssemblyType => RenderType(typeof(Assembly));
+    public TypeSyntax SystemType => RenderType(typeof(Type));
+    public TypeSyntax SystemArray => RenderType(typeof(System.Array));
 
-    public static TypeSyntax AllocatorType(TypeSyntax typeArg)
+    public TypeSyntax AllocatorType(TypeSyntax typeArg)
     {
+        _referenceManager.AddTestExtensions();
         var type = typeof(Allocator<int>).GetGenericTypeDefinition();
         return RenderGenericName(type.Name, typeArg);
     }
 
-    public static TypeSyntax AllocatorType()
+    public TypeSyntax AllocatorType()
     {
+        _referenceManager.AddTestExtensions();
         return RenderType(typeof(Allocator));
     }
 
@@ -362,31 +324,31 @@ internal static class CodeRenderer
             );
     }
 
-    public static ExpressionSyntax RenderByte(byte n, bool explicitType = false)
+    public ExpressionSyntax RenderByte(byte n, bool explicitType = false)
     {
         var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
         return explicitType ? CastExpression(RenderType(typeof(byte)), literal) : literal;
     }
 
-    public static ExpressionSyntax RenderSByte(sbyte n, bool explicitType = false)
+    public ExpressionSyntax RenderSByte(sbyte n, bool explicitType = false)
     {
         var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
         return explicitType ? CastExpression(RenderType(typeof(sbyte)), literal) : literal;
     }
 
-    public static ExpressionSyntax RenderChar(char c, bool explicitType = false)
+    public ExpressionSyntax RenderChar(char c, bool explicitType = false)
     {
         var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(c));
         return explicitType ? CastExpression(RenderType(typeof(char)), literal) : literal;
     }
 
-    public static ExpressionSyntax RenderShort(short n, bool explicitType = false)
+    public ExpressionSyntax RenderShort(short n, bool explicitType = false)
     {
         var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
         return explicitType ? CastExpression(RenderType(typeof(short)), literal) : literal;
     }
 
-    public static ExpressionSyntax RenderUShort(ushort n, bool explicitType = false)
+    public ExpressionSyntax RenderUShort(ushort n, bool explicitType = false)
     {
         var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
         return explicitType ? CastExpression(RenderType(typeof(ushort)), literal) : literal;
@@ -416,7 +378,7 @@ internal static class CodeRenderer
         return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, type, IdentifierName("NegativeInfinity"));
     }
 
-    public static ExpressionSyntax RenderEnum(Enum e)
+    public ExpressionSyntax RenderEnum(Enum e)
     {
         var type = e.GetType();
         var typeExpr = RenderType(type);
@@ -648,7 +610,7 @@ internal static class CodeRenderer
         return RenderCall(IdentifierName(functionName), args);
     }
 
-    public static ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
+    public ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
     {
         var functionArgs = args.Select(Argument).ToArray();
         var parameters = method.GetParameters();
@@ -813,14 +775,5 @@ internal static class CodeRenderer
     public static ExpressionSyntax RenderAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
     {
         return RenderCall(IdentifierName("Assert"), "AreEqual", x, y);
-    }
-
-    public static CompilationUnitSyntax RenderProgram(
-        BaseNamespaceDeclarationSyntax renderedNamespace)
-    {
-        return
-            CompilationUnit()
-                .AddUsings(ProgramUsings())
-                .AddMembers(renderedNamespace);
     }
 }

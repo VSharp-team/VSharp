@@ -7,8 +7,6 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-using static CodeRenderer;
-
 internal interface IBlock
 {
     IdentifierNameSyntax NewIdentifier(string idName);
@@ -30,7 +28,7 @@ internal interface IBlock
     BlockSyntax Render();
 }
 
-internal class MethodRenderer
+internal class MethodRenderer : CodeRenderer
 {
     private BaseMethodDeclarationSyntax _declaration;
 
@@ -40,6 +38,7 @@ internal class MethodRenderer
 
     public MethodRenderer(
         IdentifiersCache cache,
+        IReferenceManager referenceManager,
         SimpleNameSyntax methodId,
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
@@ -47,7 +46,7 @@ internal class MethodRenderer
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
         NameSyntax? interfaceName,
-        params (TypeSyntax, string)[] args)
+        params (TypeSyntax, string)[] args) : base(referenceManager)
     {
         // Creating identifiers cache
         var methodIdCache = new IdentifiersCache(cache);
@@ -103,7 +102,7 @@ internal class MethodRenderer
             _declaration
                 .AddModifiers(modifiers)
                 .WithParameterList(parameterList);
-        Body = new BlockBuilder(methodIdCache, methodObjectsCache);
+        Body = new BlockBuilder(methodIdCache, referenceManager, methodObjectsCache);
     }
 
     public void CallBaseConstructor(IEnumerable<ExpressionSyntax> args)
@@ -137,19 +136,25 @@ internal class MethodRenderer
         return _declaration.WithBody(Body.Render());
     }
 
-    private class BlockBuilder : IBlock
+    private class BlockBuilder : CodeRenderer, IBlock
     {
         // Variables cache
         private readonly IdentifiersCache _idCache;
+        // Variables cache
+        private readonly IReferenceManager _referenceManager;
         // Rendering objects cache
         private readonly Dictionary<physicalAddress, ExpressionSyntax> _renderedObjects;
         private readonly HashSet<physicalAddress> _startToRender;
 
         private readonly List<StatementSyntax> _statements = new();
 
-        public BlockBuilder(IdentifiersCache idCache, Dictionary<physicalAddress, ExpressionSyntax> renderedObjects)
+        public BlockBuilder(
+            IdentifiersCache idCache,
+            IReferenceManager referenceManager,
+            Dictionary<physicalAddress, ExpressionSyntax> renderedObjects) : base(referenceManager)
         {
             _idCache = idCache;
+            _referenceManager = referenceManager;
             _renderedObjects = renderedObjects;
             _startToRender = new HashSet<physicalAddress>();
         }
@@ -161,7 +166,7 @@ internal class MethodRenderer
 
         public IBlock NewBlock()
         {
-            return new BlockBuilder(new IdentifiersCache(_idCache), _renderedObjects);
+            return new BlockBuilder(new IdentifiersCache(_idCache), _referenceManager, _renderedObjects);
         }
 
         public IdentifierNameSyntax AddDecl(
@@ -382,7 +387,7 @@ internal class MethodRenderer
             throw new NotImplementedException("rendering of arrays with non-zero lower bounds is not implemented");
         }
 
-        private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj, string? preferredName, bool explicitType = false)
+        private ExpressionSyntax RenderCompactArray(CompactArrayRepr obj, string? preferredName)
         {
             var array = obj.array;
             var indices = obj.indices;
@@ -413,7 +418,7 @@ internal class MethodRenderer
                 var index = name.IndexOf(">k__BackingField", StringComparison.Ordinal);
                 if (index > 0)
                     name = name[1 .. index];
-                var fieldName = RenderObject(name, null);
+                var fieldName = RenderObject(name);
                 var fieldValue = RenderObject(fieldInfo.GetValue(obj), name);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
@@ -425,9 +430,6 @@ internal class MethodRenderer
         private ExpressionSyntax RenderFields(object obj, string? preferredName)
         {
             var physAddress = new physicalAddress(obj);
-
-            // Adding namespace of allocator to usings
-            AddTestExtensions();
 
             var type = obj.GetType();
             var isPublicType = type.IsPublic || type.IsNestedPublic;
@@ -447,8 +449,7 @@ internal class MethodRenderer
 
             // Rendering allocator arguments
             ExpressionSyntax[] args;
-            ExpressionSyntax? rendered;
-            var wasRendered = _renderedObjects.TryGetValue(physAddress, out rendered);
+            var wasRendered = _renderedObjects.TryGetValue(physAddress, out var rendered);
             if (wasRendered)
             {
                 Debug.Assert(rendered != null);
