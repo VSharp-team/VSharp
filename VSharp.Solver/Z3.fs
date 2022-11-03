@@ -796,6 +796,7 @@ module internal Z3 =
                 if VectorTime.lessOrEqual VectorTime.zero addr ||  typ = typeof<string> then ()
                 else
                 match typ with
+                | ArrayType(_, SymbolicDimension _) -> ()
                 | ArrayType(elemType, dim) ->
                     let eval address =
                         address |> Ref |> Memory.Read state |> unboxConcrete
@@ -809,7 +810,7 @@ module internal Z3 =
                             arrayType,
                             Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
                             Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
-                        | SymbolicDimension -> __notImplemented__()
+                        | SymbolicDimension -> __unreachable__()
                     let length = Array.reduce ( * ) lengths
                     if length > 128 then () // TODO: move magic number
                     else

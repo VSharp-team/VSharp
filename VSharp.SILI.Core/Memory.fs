@@ -377,6 +377,16 @@ module internal Memory =
         assert(not typ.IsAbstract)
         let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
+        match state.model with
+        | PrimitiveModel _ ->
+            // try concrete allocation
+            let cm = state.concreteMemory
+            assert(not <| cm.Contains concreteAddress)
+            try
+                cm.Allocate concreteAddress (Reflection.createObject typ)
+            with
+            | _ -> ()
+        | _ -> ()
         state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
         concreteAddress
 
