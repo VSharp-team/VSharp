@@ -122,11 +122,15 @@ module TestGenerator =
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
             | StateModel(modelState, _) ->
-                let eval address =
-                    address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
-                let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
-                let typ = modelState.allocatedTypes.[addr]
-                obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
+                match modelState.concreteMemory.TryVirtToPhys addr with
+                | Some o -> o |> unbox
+                | None -> // mocks and big arrays are allocated symbolically
+                    __unreachable__()
+                    // let eval address =
+                    //     address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
+                    // let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
+                    // let typ = modelState.allocatedTypes.[addr]
+                    // obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let eval address =

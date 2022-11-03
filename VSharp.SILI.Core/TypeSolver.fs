@@ -331,13 +331,21 @@ module TypeSolver =
         | StateModel(modelState, typeModel) ->
             match solverResult with
             | TypeSat(refsTypes, typeParams) ->
+                let cm = modelState.concreteMemory
                 let refineTypes addr t =
                     modelState.allocatedTypes <- PersistentDict.add addr t modelState.allocatedTypes
                     match t with
                     | ConcreteType t ->
-                        if t.IsValueType then
-                            let value = makeDefaultValue t
-                            modelState.boxedLocations <- PersistentDict.add addr value modelState.boxedLocations
+                        match cm.TryVirtToPhys addr with
+                        | Some o ->
+                            let t1 = TypeUtils.getTypeOfConcrete o
+                            if t <> t1 then
+                                cm.Remove addr
+                                cm.Allocate addr (Reflection.createObject t)
+                        | None ->
+                            if t.IsValueType then
+                                let value = makeDefaultValue t
+                                modelState.boxedLocations <- PersistentDict.add addr value modelState.boxedLocations
                     | _ -> ()
                 Seq.iter2 refineTypes addresses refsTypes
                 let classParams, methodParams = Array.splitAt typeGenericArguments.Length typeParams

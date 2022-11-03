@@ -563,12 +563,12 @@ module internal Z3 =
 
     // ------------------------------- Decoding -------------------------------
 
-        member private x.DecodeExpr op t (expr : Expr) =
+        member private x.DecodeExpr (cm : IConcreteMemory) op t (expr : Expr) =
             // TODO: bug -- decoding arguments with type of expression
-            Expression (Operator op) (expr.Args |> Seq.map (x.Decode t) |> List.ofSeq) t
+            Expression (Operator op) (expr.Args |> Seq.map (x.Decode cm t) |> List.ofSeq) t
 
-        member private x.DecodeBoolExpr op (expr : Expr) =
-            x.DecodeExpr op typeof<bool> expr
+        member private x.DecodeBoolExpr (cm : IConcreteMemory) op (expr : Expr) =
+            x.DecodeExpr cm op typeof<bool> expr
 
         member private x.GetTypeOfBV (bv : BitVecExpr) =
             if bv.SortSize = 32u then typeof<int32>
@@ -577,7 +577,7 @@ module internal Z3 =
             elif bv.SortSize = 16u then typeof<int16>
             else __unreachable__()
 
-        member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
+        member private x.DecodeConcreteHeapAddress (cm : IConcreteMemory) typ (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
             let result = ref vectorTime.Empty
             let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
@@ -588,12 +588,20 @@ module internal Z3 =
                 // NOTE: storing most concrete type for string
                 encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
                 encodingCache.heapAddresses.Add((typ, expr), result.Value)
+                // strings are filled symbolically
+                if cm.Contains result.Value then cm.Remove result.Value
                 result.Value
             elif typ = charArray && checkAndGet (typeof<string>, expr) then result.Value
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
                 encodingCache.heapAddresses.Add((typ, expr), addr)
+                try
+                    let o = Reflection.createObject typ
+                    cm.Allocate addr o
+                with
+                | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
+                
                 addr
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
@@ -601,14 +609,14 @@ module internal Z3 =
             if encodingCache.staticKeys.TryGetValue(expr, result) then result.Value
             else __notImplemented__()
 
-        member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
+        member private x.DecodeMemoryKey (cm : IConcreteMemory) (reg : regionSort) (exprs : Expr array) =
             let toType (elementType : Type, rank, isVector) =
                 if isVector then elementType.MakeArrayType()
                 else elementType.MakeArrayType(rank)
             match reg with
             | HeapFieldSort field ->
                 assert(exprs.Length = 1)
-                let address = exprs.[0] |> x.DecodeConcreteHeapAddress field.declaringType |> ConcreteHeapAddress
+                let address = exprs.[0] |> x.DecodeConcreteHeapAddress cm field.declaringType |> ConcreteHeapAddress
                 ClassField(address, field)
             | StaticFieldSort field ->
                 assert(exprs.Length = 1)
@@ -616,22 +624,22 @@ module internal Z3 =
                 StaticField(typ, field)
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress cm (toType typ) |> ConcreteHeapAddress
+                let indices = exprs |> Seq.tail |> Seq.map (x.Decode cm Types.IndexType) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode Types.IndexType exprs.[1]
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress cm (toType typ) |> ConcreteHeapAddress
+                let index = x.Decode cm Types.IndexType exprs.[1]
                 ArrayLength(heapAddress, index, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode Types.IndexType exprs.[1]
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress cm (toType typ) |> ConcreteHeapAddress
+                let index = x.Decode cm Types.IndexType exprs.[1]
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
                 assert(exprs.Length = 1)
-                let index = x.Decode typeof<int8> exprs.[0]
+                let index = x.Decode cm typeof<int8> exprs.[0]
                 StackBufferIndex(key, index)
 
         member private x.DecodeBv t (bv : BitVecNum) =
@@ -642,11 +650,11 @@ module internal Z3 =
             | 8u  -> Concrete (convert bv.Int t) t
             | _ -> __notImplemented__()
 
-        member public x.Decode t (expr : Expr) =
+        member public x.Decode (cm: IConcreteMemory) t (expr : Expr) =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
             | :? BitVecNum as bv when not (Types.IsValueType t) ->
-                let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress cm t bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
@@ -657,18 +665,18 @@ module internal Z3 =
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
                 elif expr.IsTrue then True
                 elif expr.IsFalse then False
-                elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
-                elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
-                elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
-                elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
-                elif expr.IsBVSGT then x.DecodeBoolExpr OperationType.Greater expr
-                elif expr.IsBVUGT then x.DecodeBoolExpr OperationType.Greater_Un expr
-                elif expr.IsBVSGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
-                elif expr.IsBVUGE then x.DecodeBoolExpr OperationType.GreaterOrEqual_Un expr
-                elif expr.IsBVSLT then x.DecodeBoolExpr OperationType.Less expr
-                elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
-                elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
-                elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
+                elif expr.IsNot then x.DecodeBoolExpr cm OperationType.LogicalNot expr
+                elif expr.IsAnd then x.DecodeBoolExpr cm OperationType.LogicalAnd expr
+                elif expr.IsOr then x.DecodeBoolExpr cm OperationType.LogicalOr expr
+                elif expr.IsEq then x.DecodeBoolExpr cm OperationType.Equal expr
+                elif expr.IsBVSGT then x.DecodeBoolExpr cm OperationType.Greater expr
+                elif expr.IsBVUGT then x.DecodeBoolExpr cm OperationType.Greater_Un expr
+                elif expr.IsBVSGE then x.DecodeBoolExpr cm OperationType.GreaterOrEqual expr
+                elif expr.IsBVUGE then x.DecodeBoolExpr cm OperationType.GreaterOrEqual_Un expr
+                elif expr.IsBVSLT then x.DecodeBoolExpr cm OperationType.Less expr
+                elif expr.IsBVULT then x.DecodeBoolExpr cm OperationType.Less_Un expr
+                elif expr.IsBVSLE then x.DecodeBoolExpr cm OperationType.LessOrEqual expr
+                elif expr.IsBVULE then x.DecodeBoolExpr cm OperationType.LessOrEqual_Un expr
                 else __notImplemented__()
 
         member private x.WriteFields structure value = function
@@ -695,11 +703,12 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
+            let cm = state.concreteMemory
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    let decoded = x.Decode t refinedExpr
+                    let decoded = x.Decode cm t refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
@@ -707,19 +716,19 @@ module internal Z3 =
                     | HeapAddressSource(StackReading(key)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
-                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress cm t |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
                     | HeapAddressSource(:? functionResultConstantSource as frs) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
-                        let term = x.Decode t refinedExpr
+                        let term = x.Decode cm t refinedExpr
                         assert(not (constant = term) || kvp.Value.expr = refinedExpr)
                         if constant <> term then subst.Add(ms, term)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    let term = x.Decode t refinedExpr
+                    let term = x.Decode cm t refinedExpr
                     assert(not (constant = term) || kvp.Value.expr = refinedExpr)
                     if constant <> term then subst.Add(source, term)
                 | _ -> ())
@@ -743,9 +752,9 @@ module internal Z3 =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
+                            if Types.IsValueType typeOfLocation then x.Decode cm typeOfLocation arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
+                                let addr = x.DecodeConcreteHeapAddress cm typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
                                 HeapRef addr typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     elif arr.IsDefaultArray then
@@ -753,12 +762,12 @@ module internal Z3 =
                     elif arr.IsStore then
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
-                        let address = x.DecodeMemoryKey region arr.Args.[1..arr.Args.Length - 2]
+                        let address = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
                         let value =
                             if Types.IsValueType typeOfLocation then
-                                x.Decode typeOfLocation (Array.last arr.Args)
+                                x.Decode cm typeOfLocation (Array.last arr.Args)
                             else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
+                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
                                 HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write state (Ref address) value
@@ -771,11 +780,26 @@ module internal Z3 =
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
+            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+            state.model <- PrimitiveModel subst
+            let sm = StateModel state
+
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
+                let unboxConcrete term =
+                    match sm.Complete term with
+                    | {term = Concrete(v, _)} -> v |> unbox
+                    | _ -> __unreachable__()
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
+                let cha = ConcreteHeapAddress addr
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes)
+                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
+                if typ = typeof<string> then
+                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete
+                    let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
+                                                                            |> Ref |> Memory.Read state |> unboxConcrete)
+                    cm.Allocate addr (String(contents) :> obj)
+            )
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
