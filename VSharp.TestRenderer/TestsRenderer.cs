@@ -27,6 +27,9 @@ public static class TestsRenderer
 
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
 
+    // Used only for rendering names, does not support adding usings and references
+    private static readonly CodeRenderer InternalCodeRenderer = new (new EmptyReferenceManager());
+
     // TODO: create class 'Expression' with operators?
 
     private static Assembly? TryLoadAssemblyFrom(object? sender, ResolveEventArgs args)
@@ -89,9 +92,10 @@ public static class TestsRenderer
         private SyntaxNode AddActComment(SyntaxNode node)
         {
             var whitespaces = CurrentOffset();
-            // If method has lines with generated args, adding empty line before calling test
+            // If method has lines with generated args and it's not try block, adding empty line before calling test
+            // In case of try block, empty line was already added before it
             var beforeTrivia =
-                _format.HasArgs
+                _format.HasArgs && node.Parent is not BlockSyntax { Parent: TryStatementSyntax }
                     ? new[] { LineFeed, whitespaces, ActComment, LineFeed, whitespaces }
                     : new[] { whitespaces, ActComment, LineFeed, whitespaces };
             return node.WithLeadingTrivia(beforeTrivia);
@@ -154,7 +158,7 @@ public static class TestsRenderer
                     node = statement.WithLeadingTrivia(whitespaces, ArrangeComment, LineFeed, whitespaces);
                     return base.Visit(node);
                 }
-                // Adding '// act' comment before calling test
+                // Adding '// act' comment before calling test in case of variable declaration
                 case LocalDeclarationStatementSyntax varDecl:
                 {
                     var vars = varDecl.Declaration.Variables;
@@ -170,11 +174,19 @@ public static class TestsRenderer
 
                     break;
                 }
-                // Adding '// act' comment before calling test
+                // Adding '// act' comment before calling test in case of call statement
                 case ExpressionStatementSyntax expr
                     when _format.CallingTest != null && _format.CallingTest == expr.Expression.ToString():
                 {
                     return base.Visit(AddActComment(node));
+                }
+                // Adding blank line before try block with test calling
+                case TryStatementSyntax:
+                {
+                    if (_format.HasArgs)
+                        node = node.WithLeadingTrivia(LineFeed, CurrentOffset());
+
+                    return base.Visit(node);
                 }
                 // Remembering current method
                 case MethodDeclarationSyntax expr:
@@ -193,11 +205,10 @@ public static class TestsRenderer
                     node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
                     return base.Visit(node);
                 }
-                // TODO: #do
-                case BaseNamespaceDeclarationSyntax namespaceDecl:
+                case FileScopedNamespaceDeclarationSyntax namespaceDecl:
                 {
-                    // namespaceDecl.With
-                    node = node.WithTrailingTrivia(LineFeed, LineFeed);
+                    var semicolon = namespaceDecl.SemicolonToken.WithTrailingTrivia(LineFeed, LineFeed);
+                    node = namespaceDecl.WithSemicolonToken(semicolon);
                     return base.Visit(node);
                 }
                 case CatchClauseSyntax catchClause when !catchClause.Block.Statements.Any():
@@ -206,7 +217,7 @@ public static class TestsRenderer
                     var openBrace = block.OpenBraceToken;
                     openBrace = openBrace.WithTrailingTrivia(LineFeed, ShiftedOffset(), IgnoredComment, LineFeed);
                     block = catchClause.Block.WithOpenBraceToken(openBrace);
-                    node = catchClause.WithBlock(block);;
+                    node = catchClause.WithBlock(block);
                     return base.Visit(node);
                 }
             }
@@ -224,11 +235,25 @@ public static class TestsRenderer
         return formatted;
     }
 
+    private class EmptyReferenceManager : IReferenceManager
+    {
+
+        public void AddUsing(string _) { }
+
+        public void AddStaticUsing(string _) { }
+
+        public void AddAssembly(Assembly _) { }
+
+        public void AddTestExtensions() { }
+
+        public void AddObjectsComparer() { }
+    }
+
     private static string NameForType(Type? t)
     {
         if (t == null)
             return "GeneratedClass";
-        var name = RenderType(t).ToString();
+        var name = InternalCodeRenderer.RenderType(t).ToString();
         return
             // Filtering all non letter or digit symbols from rendered name
             new string(
@@ -237,6 +262,21 @@ public static class TestsRenderer
                     select c
                 ).ToArray()
             );
+    }
+
+    private static string NameForMethod(MethodBase method)
+    {
+        if (method.IsConstructor)
+            return $"{InternalCodeRenderer.RenderType(method.DeclaringType)}Constructor";
+
+        if (IsGetPropertyMethod(method, out var testName))
+            return $"Get{testName}";
+
+        if (IsSetPropertyMethod(method, out testName))
+            return $"Set{testName}";
+
+        return method.Name;
+
     }
 
     private static void AddCall(IBlock block, bool shouldUseDecl, ExpressionSyntax callMethod)
@@ -283,7 +323,7 @@ public static class TestsRenderer
             }
             else
             {
-                var thisType = RenderType(method.DeclaringType ?? typeof(object));
+                var thisType = test.RenderType(method.DeclaringType ?? typeof(object));
                 thisArgId = mainBlock.AddDecl(thisArgName, thisType, renderedThis);
             }
         }
@@ -302,7 +342,7 @@ public static class TestsRenderer
             if (type.IsByRef && !valueIsVar)
             {
                 Debug.Assert(type.GetElementType() != null);
-                var typeExpr = RenderType(type.GetElementType()!);
+                var typeExpr = test.RenderType(type.GetElementType()!);
                 var id = mainBlock.AddDecl(parameterInfo.Name ?? "value", typeExpr, value);
                 renderedArgs[i] = id;
             }
@@ -311,7 +351,7 @@ public static class TestsRenderer
         f.HasArgs |= thisArgId != null;
 
         // Calling testing method
-        var callMethod = RenderCall(thisArgId, method, renderedArgs);
+        var callMethod = test.RenderCall(thisArgId, method, renderedArgs);
         f.CallingTest = callMethod.NormalizeWhitespace().ToString();
 
         var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
@@ -323,9 +363,6 @@ public static class TestsRenderer
             var retType = Reflection.getMethodReturnType(method);
             var isPrimitive = retType.IsPrimitive || retType == typeof(string);
 
-            if (!isPrimitive)
-                // Adding namespace of objects comparer to usings
-                AddObjectsComparer();
             var expectedExpr =
                 method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected", true);
             Debug.Assert(expectedExpr != null);
@@ -335,7 +372,7 @@ public static class TestsRenderer
                 mainBlock.AddAssertEqual(expectedExpr, resultId);
             else
                 mainBlock.AddAssert(
-                    RenderCall(CompareObjects, expectedExpr, resultId)
+                    RenderCall(test.CompareObjects(), expectedExpr, resultId)
                 );
         }
         else if (isError && wrapErrors)
@@ -366,7 +403,7 @@ public static class TestsRenderer
             var assertThrows =
                 RenderCall(
                     "Assert", "Throws",
-                    new []{ RenderType(ex) },
+                    new []{ test.RenderType(ex) },
                     delegateExpr
                 );
             mainBlock.AddExpression(assertThrows);
@@ -379,23 +416,23 @@ public static class TestsRenderer
         Mocking.Method method)
     {
         var m = method.BaseMethod;
-        var returnType = (ArrayTypeSyntax) RenderType(m.ReturnType.MakeArrayType());
+        var returnType = (ArrayTypeSyntax) mock.RenderType(m.ReturnType.MakeArrayType());
         var valuesFieldName = $"_clauses{m.Name}";
         var emptyArray =
-            RenderCall(SystemArray, "Empty", new [] { RenderType(m.ReturnType) });
+            RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
         var valuesField =
             mock.AddField(returnType, valuesFieldName, new[] { Private }, emptyArray);
         var currentName = $"_currentClause{m.Name}";
         var zero = RenderLiteral(0);
         var currentValueField =
-            mock.AddField(RenderType(typeof(int)), currentName, new[] { Private }, zero);
+            mock.AddField(mock.RenderType(typeof(int)), currentName, new[] { Private }, zero);
 
         var setupMethod =
             mock.AddMethod(
                 $"Setup{m.Name}Clauses",
                 null,
                 new [] { Public },
-                VoidType,
+                mock.VoidType,
                 (returnType, "clauses")
             );
         var setupBody = setupMethod.Body;
@@ -413,7 +450,7 @@ public static class TestsRenderer
         var throwCase =
             ThrowStatement(
                 RenderObjectCreation(
-                    RenderType(typeof(InvalidOperationException)),
+                    mock.RenderType(typeof(InvalidOperationException)),
                     new ExpressionSyntax[]{RenderLiteral("Invalid mock")},
                     System.Array.Empty<ExpressionSyntax>()
                 )
@@ -428,7 +465,7 @@ public static class TestsRenderer
         return (returnType, setupMethod.MethodId);
     }
 
-    private static MemberDeclarationSyntax? RenderMockedType(NamespaceRenderer mocksNamespace, Mocking.Type typeMock)
+    private static MemberDeclarationSyntax? RenderMockedType(ProgramRenderer mocksProgram, Mocking.Type typeMock)
     {
         if (HasMockInfo(typeMock.Id))
             return null;
@@ -442,7 +479,7 @@ public static class TestsRenderer
         var structPrefix = isStruct ? "Struct" : "";
         var name = structPrefix + string.Join("", superTypes.Select(NameForType));
         var mock =
-            mocksNamespace.AddType(
+            mocksProgram.AddType(
                 $"{name}Mock",
                 isStruct,
                 superTypes,
@@ -488,19 +525,17 @@ public static class TestsRenderer
     {
         AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
-        PrepareCache();
-        // Adding NUnit namespace to usings
-        AddNUnit();
-
         // Creating main class for generating tests
         var typeName = NameForType(declaringType);
         var namespaceName =
             declaringType == null
                 ? "GeneratedNamespace"
                 : $"{declaringType.Namespace}.Tests";
-        var testsNamespace = new NamespaceRenderer(namespaceName);
+        var testsProgram = new ProgramRenderer(namespaceName);
+        // Adding NUnit namespace to usings
+        testsProgram.AddNUnitToUsigns();
         var generatedClass =
-            testsNamespace.AddType(
+            testsProgram.AddType(
                 $"{typeName}Tests",
                 false,
                 null,
@@ -508,14 +543,14 @@ public static class TestsRenderer
                 null
             );
 
-        var mocksNamespace = new NamespaceRenderer(namespaceName);
+        var mocksProgram = new ProgramRenderer(namespaceName);
         var mockedTypes = new List<MemberDeclarationSyntax>();
         foreach (var test in tests)
         {
             // Rendering mocked types
             foreach (var mock in test.TypeMocks)
             {
-                var renderedMock = RenderMockedType(mocksNamespace, mock);
+                var renderedMock = RenderMockedType(mocksProgram, mock);
                 if (renderedMock != null)
                     mockedTypes.Add(renderedMock);
             }
@@ -528,16 +563,7 @@ public static class TestsRenderer
                 thisArg = Reflection.createObject(method.DeclaringType);
             string suitTypeName = test.IsError ? "Error" : "Test";
 
-            string testName;
-            if (method.IsConstructor)
-                testName = $"{RenderType(method.DeclaringType)}Constructor";
-            else if (IsGetPropertyMethod(method, out testName))
-                testName = $"Get{testName}";
-            else if (IsSetPropertyMethod(method, out testName))
-                testName = $"Set{testName}";
-            else
-                testName = method.Name;
-
+            var testName = NameForMethod(method);
             bool isUnsafe =
                 Reflection.getMethodReturnType(method).IsPointer || method.GetParameters()
                     .Select(arg => arg.ParameterType)
@@ -548,21 +574,20 @@ public static class TestsRenderer
                 testName + suitTypeName,
                 RenderAttributeList("Test"),
                 modifiers,
-                VoidType,
+                generatedClass.VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
             );
             RenderTest(testRenderer, method, parameters, thisArg, test.IsError,
                 wrapErrors, test.Exception, test.Expected);
         }
 
-
         var mockedTypesArray = mockedTypes.ToArray();
-        SyntaxNode? mocksProgram = null;
+        SyntaxNode? renderedMocksProgram = null;
         if (mockedTypesArray.Length > 0)
-            mocksProgram = Format(RenderProgram(mocksNamespace.Render()));
+            renderedMocksProgram = Format(mocksProgram.Render());
 
-        SyntaxNode testsProgram = Format(RenderProgram(testsNamespace.Render()));
+        SyntaxNode renderedTestsProgram = Format(testsProgram.Render());
 
-        return (testsProgram, mocksProgram, typeName);
+        return (renderedTestsProgram, renderedMocksProgram, typeName);
     }
 }

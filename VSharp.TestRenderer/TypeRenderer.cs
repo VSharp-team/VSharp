@@ -6,11 +6,10 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-using static CodeRenderer;
-
-internal class TypeRenderer
+internal class TypeRenderer : CodeRenderer
 {
     private readonly IdentifiersCache _cache;
+    private readonly IReferenceManager _referenceManager;
     private readonly TypeDeclarationSyntax _declaration;
     private readonly List<FieldDeclarationSyntax> _fields = new ();
     private readonly List<MethodRenderer> _renderingMethods = new ();
@@ -19,14 +18,17 @@ internal class TypeRenderer
 
     public TypeRenderer(
         IdentifiersCache cache,
+        IReferenceManager referenceManager,
         SimpleNameSyntax typeId,
         bool isStruct,
         IEnumerable<Type>? baseTypes,
         AttributeListSyntax? attributes,
-        SyntaxToken[]? modifiers)
+        SyntaxToken[]? modifiers) : base(referenceManager)
     {
         // Creating identifiers cache
         _cache = new IdentifiersCache(cache);
+        // Remembering referenceManager
+        _referenceManager = referenceManager;
         // Creating type declaration
         TypeId = typeId;
         if (isStruct)
@@ -81,6 +83,7 @@ internal class TypeRenderer
         var method =
             new MethodRenderer(
                 _cache,
+                _referenceManager,
                 methodId,
                 attributes,
                 modifiers,
@@ -145,6 +148,7 @@ internal class TypeRenderer
         var method =
             new MethodRenderer(
                 _cache,
+                _referenceManager,
                 TypeId,
                 attributes,
                 modifiers,
