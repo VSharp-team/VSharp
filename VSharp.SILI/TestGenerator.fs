@@ -123,7 +123,7 @@ module TestGenerator =
             match model with
             | StateModel(modelState, _) ->
                 match modelState.concreteMemory.TryVirtToPhys addr with
-                | Some o -> o |> unbox
+                | Some o -> o
                 | None -> // mocks and big arrays are allocated symbolically
                     __unreachable__()
                     // let eval address =

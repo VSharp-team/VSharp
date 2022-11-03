@@ -596,12 +596,6 @@ module internal Z3 =
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
                 encodingCache.heapAddresses.Add((typ, expr), addr)
-                try
-                    let o = Reflection.createObject typ
-                    cm.Allocate addr o
-                with
-                | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
-                
                 addr
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
@@ -740,7 +734,114 @@ module internal Z3 =
                     (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
 
+            // gather default values and array metadata
             let defaultValues = Dictionary<regionSort, term ref>()
+            encodingCache.regionConstants |> Seq.iter (fun kvp ->
+                let constant = kvp.Value
+                let arr = m.Eval(constant, false)
+                let region, fields = kvp.Key
+                let typeOfLocation =
+                    if fields.IsEmpty then region.TypeOfLocation
+                    else fields.Head.typ
+                let rec parseArray (arr : Expr)  =
+                    if arr.IsConstantArray then
+                        assert(arr.Args.Length = 1)
+                        let constantValue =
+                            if Types.IsValueType typeOfLocation then x.Decode cm typeOfLocation arr.Args.[0]
+                            else
+                                let addr = x.DecodeConcreteHeapAddress cm typeOfLocation arr.Args.[0]
+                                // TODO: maybe we need to add cm allocate here?
+                                HeapRef (addr |> ConcreteHeapAddress) typeOfLocation
+                        x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
+                    else if arr.IsStore then
+                        assert(arr.Args.Length >= 3)
+                        parseArray arr.Args.[0]
+                        let addr = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
+                        match addr with
+                        | ArrayLength _
+                        | ArrayLowerBound _ ->
+                            let value =
+                                if Types.IsValueType typeOfLocation then
+                                    x.Decode cm typeOfLocation (Array.last arr.Args)
+                                else
+                                    let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
+                                    HeapRef address typeOfLocation
+                            let states = Memory.Write state (Ref addr) value
+                            assert(states.Length = 1 && states.[0] = state)
+                        | _ -> ()
+                    else
+                        ()
+                parseArray arr
+            )
+            // fill symbolic memory with defaults
+            defaultValues |> Seq.iter (fun kvp ->
+                let region = kvp.Key
+                let constantValue = kvp.Value.Value
+                Memory.FillRegion state constantValue region)
+
+            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+            state.model <- PrimitiveModel subst
+            let sm = StateModel state
+            // TODO : move to utils ?
+            let unboxConcrete term =
+                    match sm.Complete term with
+                    | {term = Concrete(v, _)} -> v |> unbox
+                    | _ -> __unreachable__()
+
+            // Create default concretes
+            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
+                let typ, _ = kvp.Key
+                let addr = kvp.Value
+                let cha = addr |> ConcreteHeapAddress
+                if VectorTime.lessOrEqual VectorTime.zero addr ||  typ = typeof<string> then ()
+                else
+                match typ with
+                | ArrayType(elemType, dim) ->
+                    let eval address =
+                        address |> Ref |> Memory.Read state |> unboxConcrete
+                    let arrayType, (lengths : int array), (lowerBounds : int array) =
+                        match dim with
+                        | Vector ->
+                            let arrayType = (elemType, 1, true)
+                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
+                        | ConcreteDimension rank ->
+                            let arrayType = (elemType, rank, false)
+                            arrayType,
+                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
+                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
+                        | SymbolicDimension -> __notImplemented__()
+                    let length = Array.reduce ( * ) lengths
+                    if length > 128 then () // TODO: move magic number
+                    else
+                        
+                    let arr =
+                        if (lowerBounds <> null)
+                            then Array.CreateInstance(elemType, lengths, lowerBounds)
+                            else Array.CreateInstance(elemType, lengths)
+                    // TODO: fill with defaults
+                    // let defVal = ref (defaultOf elemType)
+                    // defaultValues.TryGetValue(ArrayIndexSort arrayType, defVal) |> ignore
+                    // let defVal = defVal |> unboxConcrete
+                    // Array.Fill(arr, defVal.Value)
+                    cm.Allocate addr arr
+                | _ ->
+                    if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
+                        let fields = Reflection.fieldsOf false typ |> Seq.map fst
+                        try
+                            let o = Reflection.createObject typ
+                            cm.Allocate addr o
+                            defaultValues |> Seq.iter (fun kv ->
+                                match kv.Key with
+                                | HeapFieldSort fId when (Seq.contains fId fields) ->
+                                    let a = ClassField(cha, fId)
+                                    let states = Memory.Write state (Ref a) kv.Value.Value
+                                    assert(states.Length = 1 && states.[0] = state)
+                                | _ -> ())
+                        with
+                        | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
+            )
+            
+            // Process stores 
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
                 let constant = kvp.Value
@@ -749,15 +850,7 @@ module internal Z3 =
                     if fields.IsEmpty then region.TypeOfLocation
                     else fields.Head.typ
                 let rec parseArray (arr : Expr) =
-                    if arr.IsConstantArray then
-                        assert(arr.Args.Length = 1)
-                        let constantValue =
-                            if Types.IsValueType typeOfLocation then x.Decode cm typeOfLocation arr.Args.[0]
-                            else
-                                let addr = x.DecodeConcreteHeapAddress cm typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
-                                HeapRef addr typeOfLocation
-                        x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
-                    elif arr.IsDefaultArray then
+                    if arr.IsDefaultArray then
                         assert(arr.Args.Length = 1)
                     elif arr.IsStore then
                         assert(arr.Args.Length >= 3)
@@ -772,23 +865,11 @@ module internal Z3 =
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write state (Ref address) value
                         assert(states.Length = 1 && states.[0] = state)
-                    elif arr.IsConst then ()
+                    elif arr.IsConst || arr.IsConstantArray then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
-            defaultValues |> Seq.iter (fun kvp ->
-                let region = kvp.Key
-                let constantValue = kvp.Value.Value
-                Memory.FillRegion state constantValue region)
-
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
-            state.model <- PrimitiveModel subst
-            let sm = StateModel state
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let unboxConcrete term =
-                    match sm.Complete term with
-                    | {term = Concrete(v, _)} -> v |> unbox
-                    | _ -> __unreachable__()
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
                 let cha = ConcreteHeapAddress addr
