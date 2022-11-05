@@ -778,8 +778,6 @@ module internal Z3 =
                 let region = kvp.Key
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
-
-            // state.model <- PrimitiveModel subst
             
             // TODO : move to utils ?
             let unboxConcrete term =
@@ -796,49 +794,58 @@ module internal Z3 =
                 else
                 match typ with
                 | ArrayType(_, SymbolicDimension _) -> ()
-                | ArrayType(elemType, dim) -> ()
-                    // let eval address =
-                    //     address |> Ref |> Memory.Read state |> unboxConcrete
-                    // let arrayType, (lengths : int array), (lowerBounds : int array) =
-                    //     match dim with
-                    //     | Vector ->
-                    //         let arrayType = (elemType, 1, true)
-                    //         arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
-                    //     | ConcreteDimension rank ->
-                    //         let arrayType = (elemType, rank, false)
-                    //         arrayType,
-                    //         Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
-                    //         Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
-                    //     | SymbolicDimension -> __unreachable__()
-                    // let length = Array.reduce ( * ) lengths
-                    // if length > 128 then () // TODO: move magic number
-                    // else
-                    //     
-                    // let arr =
-                    //     if (lowerBounds <> null)
-                    //         then Array.CreateInstance(elemType, lengths, lowerBounds)
-                    //         else Array.CreateInstance(elemType, lengths)
+                | ArrayType(elemType, dim) ->                 
+                    let eval address =
+                        address |> Ref |> Memory.Read state |> unboxConcrete
+                    let arrayType, (lengths : int array), (lowerBounds : int array) =
+                        match dim with
+                        | Vector ->
+                            let arrayType = (elemType, 1, true)
+                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
+                        | ConcreteDimension rank ->
+                            let arrayType = (elemType, rank, false)
+                            arrayType,
+                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
+                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
+                        | SymbolicDimension -> __unreachable__()
+                    let length = Array.reduce ( * ) lengths
+                    if length > 128 then () // TODO: move magic number
+                    else
+                        
+                    let arr =
+                        if (lowerBounds <> null)
+                            then Array.CreateInstance(elemType, lengths, lowerBounds)
+                            else Array.CreateInstance(elemType, lengths)
                     // TODO: fill with defaults
-                    // let defVal = ref (defaultOf elemType)
-                    // defaultValues.TryGetValue(ArrayIndexSort arrayType, defVal) |> ignore
-                    // let defVal = defVal |> unboxConcrete
-                    // Array.Fill(arr, defVal.Value)
-                    // cm.Allocate addr arr
-                | _ ->
-                    if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
-                        let fields = Reflection.fieldsOf false typ |> Seq.map fst
-                        try
-                            let o = Reflection.createObject typ
-                            cm.Allocate addr o
-                            defaultValues |> Seq.iter (fun kv ->
-                                match kv.Key with
-                                | HeapFieldSort fId when (Seq.contains fId fields) ->
-                                    let a = ClassField(cha, fId)
-                                    let states = Memory.Write state (Ref a) kv.Value.Value
-                                    assert(states.Length = 1 && states.[0] = state)
-                                | _ -> ())
-                        with
-                        | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
+                    cm.Allocate addr arr 
+                    let result = ref (ref Nop) // TODO: do we need the else branch here?
+                    if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
+                        // TODO: rewrite
+                        let product xss =
+                            let rec product xss k =
+                                match xss with
+                                | [] -> k [[]]
+                                | xs::xss -> product xss (fun yss -> List.collect (fun ys -> List.map (fun x -> x :: ys) xs) yss |> k)
+                            product xss id                                           
+                        let indexes = Seq.map (fun l -> List.init l id) lengths |> List.ofSeq
+                        let indexes = product indexes
+                        let value =  result.Value.Value |> unboxConcrete                        
+                        List.iter (fun i -> cm.WriteArrayIndex addr i value) indexes
+                | _ -> ()
+                    // if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
+                    //     let fields = Reflection.fieldsOf false typ |> Seq.map fst
+                        // try
+                        //     let o = Reflection.createObject typ
+                        //     cm.Allocate addr o
+                            // defaultValues |> Seq.iter (fun kv ->
+                            //     match kv.Key with
+                            //     | HeapFieldSort fId when (Seq.contains fId fields) ->
+                            //         let a = ClassField(cha, fId)
+                            //         let states = Memory.Write state (Ref a) kv.Value.Value
+                            //         assert(states.Length = 1 && states.[0] = state)
+                            //     | _ -> ())
+                        // with
+                        // | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
             )
             
             // Process stores 
