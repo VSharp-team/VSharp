@@ -1133,13 +1133,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> ()
         }
         let invokeMock cilState k =
-            match List.ofSeq typeMocks, cilState.state.model.Eval this with
+            let model = cilState.state.model
+            match List.ofSeq typeMocks, model.Eval this with
             | [], _ -> List.singleton cilState |> k
             | [mock : ITypeMock], {term = HeapRef({term = ConcreteHeapAddress thisInModel}, _)} ->
                 popFrameOf cilState
                 let modelState =
-                    match cilState.state.model with
-                    | StateModel s -> s
+                    match model with
+                    | StateModel(s, _) -> s
                     | _ -> __unreachable__()
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 candidateTypes |> Seq.iter (function

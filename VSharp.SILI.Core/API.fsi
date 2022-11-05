@@ -31,7 +31,7 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
-    val SolveGenericMethodParameters : IMethod -> (symbolicType[] * symbolicType[]) option
+    val SolveGenericMethodParameters : typeModel -> IMethod -> (symbolicType[] * symbolicType[]) option
     val ResolveCallVirt : state -> term -> IMethod -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
@@ -208,7 +208,7 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyModel : IMethod -> model
+        val EmptyModel : IMethod -> typeModel -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
