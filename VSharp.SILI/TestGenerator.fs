@@ -65,7 +65,7 @@ module TestGenerator =
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with
-                    | StateModel modelState -> modelState.arrays
+                    | StateModel(modelState, _) -> modelState.arrays
                     | _ -> __unreachable__()
                 else
                     state.arrays
@@ -113,7 +113,7 @@ module TestGenerator =
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
-            | StateModel modelState ->
+            | StateModel(modelState, _) ->
                 let eval address =
                     address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
                 let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
@@ -141,11 +141,20 @@ module TestGenerator =
             freshMock)
 
     let model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
-        match SolveGenericMethodParameters m with
-        | None -> None
-        | Some(classParams, methodParams) ->
-            // TODO: refactor after adding type parameters to model
-            if (classParams.Length > 0 || methodParams.Length > 0) then
+        let suitableState cilState =
+            let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+            match () with
+            | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
+                Memory.CallStackSize cilState.state = 2
+            | _ -> Memory.CallStackSize cilState.state = 1
+        if not <| suitableState cilState
+            then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+
+        match model with
+        | StateModel(modelState, typeModel) ->
+            match SolveGenericMethodParameters typeModel m with
+            | None -> None
+            | Some(classParams, methodParams) ->
                 let concreteClassParams = Array.zeroCreate classParams.Length
                 let mockedClassParams = Array.zeroCreate classParams.Length
                 let concreteMethodParams = Array.zeroCreate methodParams.Length
@@ -157,23 +166,7 @@ module TestGenerator =
                 methodParams |> Seq.iteri (processSymbolicType concreteMethodParams mockedMethodParams)
                 test.SetTypeGenericParameters concreteClassParams mockedClassParams
                 test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
-            else
-                let typeParams = m.DeclaringType.GetGenericArguments()
-                let methodParams = m.GetGenericArguments()
-                test.SetTypeGenericParameters typeParams (Array.zeroCreate typeParams.Length)
-                test.SetMethodGenericParameters methodParams (Array.zeroCreate methodParams.Length)
 
-            let suitableState cilState =
-                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
-                match () with
-                | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
-                    Memory.CallStackSize cilState.state = 2
-                | _ -> Memory.CallStackSize cilState.state = 1
-            if not <| suitableState cilState
-                then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
-
-            match model with
-            | StateModel modelState ->
                 let parametersInfo = m.Parameters
                 match cmdArgs with
                 | Some args ->
@@ -221,7 +214,7 @@ module TestGenerator =
                     let retVal = model.Eval cilState.Result
                     test.Expected <- term2obj model cilState.state indices mockCache test retVal
                 Some test
-            | _ -> __unreachable__()
+        | _ -> __unreachable__()
 
     let state2test isError (m : Method) cmdArgs (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()

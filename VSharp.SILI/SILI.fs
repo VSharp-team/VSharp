@@ -148,7 +148,7 @@ type public SILI(options : SiliOptions) =
 
     static member private FormInitialStateWithoutStatics (method : Method) =
         let initialState = Memory.EmptyState()
-        initialState.model <- Memory.EmptyModel method
+        initialState.model <- Memory.EmptyModel method (typeModel.CreateEmpty())
         let cilState = makeInitialState method initialState
         try
             let this(*, isMethodOfStruct*) =
@@ -168,21 +168,20 @@ type public SILI(options : SiliOptions) =
             cilState.iie <- Some e
         cilState
 
-    static member private TrySubstituteTypeParameters (method : MethodBase) =
-        let vsMethod = Application.getMethod method
+    static member private TrySubstituteTypeParameters model (methodBase : MethodBase) =
+        let method = Application.getMethod methodBase
         let getConcreteType = function
         | ConcreteType t -> Some t
         | _ -> None
         try
-            match SolveGenericMethodParameters vsMethod with
+            match SolveGenericMethodParameters model method with
             | Some(classParams, methodParams) ->
-                // TODO: save info in model?
                 let classParams = classParams |> Array.choose getConcreteType
                 let methodParams = methodParams |> Array.choose getConcreteType
-                if classParams.Length = method.DeclaringType.GetGenericArguments().Length &&
-                    (method.IsConstructor || methodParams.Length = method.GetGenericArguments().Length) then
-                    let declaringType = Reflection.concretizeTypeParameters method.DeclaringType classParams
-                    let method = Reflection.concretizeMethodParameters declaringType method methodParams
+                if classParams.Length = methodBase.DeclaringType.GetGenericArguments().Length &&
+                    (methodBase.IsConstructor || methodParams.Length = methodBase.GetGenericArguments().Length) then
+                    let declaringType = Reflection.concretizeTypeParameters methodBase.DeclaringType classParams
+                    let method = Reflection.concretizeMethodParameters declaringType methodBase methodParams
                     Some method
                 else
                     None
@@ -315,13 +314,16 @@ type public SILI(options : SiliOptions) =
         Reset()
         SolverPool.reset()
         let optionArgs = if mainArguments = null then None else Some mainArguments
+        let state = Memory.EmptyState()
+        let typeModel = typeModel.CreateEmpty()
+        // TODO: resolve type parameters by mainArguments?
+        let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters typeModel method)
         let method = Application.getMethod method
+        state.model <- Memory.EmptyModel method typeModel
         reportFinished <- wrapOnTest onFinished method optionArgs
         reportError <- wrapOnError onException method optionArgs
         reportIncomplete <- wrapOnIIE onIIE
         interpreter.ConfigureErrorReporter reportError
-        let state = Memory.EmptyState()
-        state.model <- Memory.EmptyModel method
         let argsToState args =
             let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
             let stringType = typeof<string>
@@ -347,12 +349,20 @@ type public SILI(options : SiliOptions) =
         stopwatch.Restart()
         Reset()
         SolverPool.reset()
+        let typeModel = typeModel.CreateEmpty()
+        let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters typeModel method)
         let method = Application.getMethod method
         reportFinished <- wrapOnTest onFinished method None
         reportError <- wrapOnError onException method None
         reportIncomplete <- wrapOnIIE onIIE
         interpreter.ConfigureErrorReporter reportError
         let initialStates = x.FormInitialStates method
+        for cilState in initialStates do
+            let state = cilState.state
+            match state.model with
+            | StateModel(modelState, _) ->
+                state.model <- StateModel(modelState, typeModel)
+            | _ -> ()
         let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
         iieStates |> List.iter reportIncomplete
         if not initialStates.IsEmpty then
@@ -365,8 +375,6 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         try
             try
-                // TODO: resolve type parameters by mainArguments?
-                let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters method)
                 x.InterpretEntryPointInternal method mainArguments onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e
@@ -379,7 +387,6 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         try
             try
-                let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters method)
                 x.InterpretIsolatedInternal method onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e

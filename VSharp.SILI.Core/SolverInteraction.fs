@@ -26,7 +26,7 @@ module public SolverInteraction =
 
     let mutable private solver : ISolver option = None
     let mutable private onSolverStarted : unit -> unit = id
-    let mutable private onSolverStopped : unit -> unit = id    
+    let mutable private onSolverStopped : unit -> unit = id
 
     let configureSolver s = solver <- Some s
     let setOnSolverStarted action = onSolverStarted <- action
@@ -52,5 +52,8 @@ module public SolverInteraction =
             onSolverStarted()
             let result = s.CheckSat ctx formula
             onSolverStopped()
-            result
+            match result, state.model with
+            | SmtSat { mdl = StateModel(modelState, _) }, StateModel(_, typeModel) ->
+                SmtSat { mdl = StateModel(modelState, typeModel) }
+            | result, _ -> result
         | None -> SmtUnknown ""
