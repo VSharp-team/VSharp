@@ -779,12 +779,11 @@ module internal Z3 =
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
-            state.model <- PrimitiveModel subst
-            let sm = StateModel state
+            // state.model <- PrimitiveModel subst
+            
             // TODO : move to utils ?
             let unboxConcrete term =
-                    match sm.Complete term with
+                    match term with
                     | {term = Concrete(v, _)} -> v |> unbox
                     | _ -> __unreachable__()
 
@@ -797,34 +796,34 @@ module internal Z3 =
                 else
                 match typ with
                 | ArrayType(_, SymbolicDimension _) -> ()
-                | ArrayType(elemType, dim) ->
-                    let eval address =
-                        address |> Ref |> Memory.Read state |> unboxConcrete
-                    let arrayType, (lengths : int array), (lowerBounds : int array) =
-                        match dim with
-                        | Vector ->
-                            let arrayType = (elemType, 1, true)
-                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
-                        | ConcreteDimension rank ->
-                            let arrayType = (elemType, rank, false)
-                            arrayType,
-                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
-                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
-                        | SymbolicDimension -> __unreachable__()
-                    let length = Array.reduce ( * ) lengths
-                    if length > 128 then () // TODO: move magic number
-                    else
-                        
-                    let arr =
-                        if (lowerBounds <> null)
-                            then Array.CreateInstance(elemType, lengths, lowerBounds)
-                            else Array.CreateInstance(elemType, lengths)
+                | ArrayType(elemType, dim) -> ()
+                    // let eval address =
+                    //     address |> Ref |> Memory.Read state |> unboxConcrete
+                    // let arrayType, (lengths : int array), (lowerBounds : int array) =
+                    //     match dim with
+                    //     | Vector ->
+                    //         let arrayType = (elemType, 1, true)
+                    //         arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
+                    //     | ConcreteDimension rank ->
+                    //         let arrayType = (elemType, rank, false)
+                    //         arrayType,
+                    //         Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
+                    //         Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
+                    //     | SymbolicDimension -> __unreachable__()
+                    // let length = Array.reduce ( * ) lengths
+                    // if length > 128 then () // TODO: move magic number
+                    // else
+                    //     
+                    // let arr =
+                    //     if (lowerBounds <> null)
+                    //         then Array.CreateInstance(elemType, lengths, lowerBounds)
+                    //         else Array.CreateInstance(elemType, lengths)
                     // TODO: fill with defaults
                     // let defVal = ref (defaultOf elemType)
                     // defaultValues.TryGetValue(ArrayIndexSort arrayType, defVal) |> ignore
                     // let defVal = defVal |> unboxConcrete
                     // Array.Fill(arr, defVal.Value)
-                    cm.Allocate addr arr
+                    // cm.Allocate addr arr
                 | _ ->
                     if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
                         let fields = Reflection.fieldsOf false typ |> Seq.map fst
@@ -877,15 +876,15 @@ module internal Z3 =
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
                     state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
                 if typ = typeof<string> then
-                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete
+                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete 
                     let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
                                                                             |> Ref |> Memory.Read state |> unboxConcrete)
                     cm.Allocate addr (String(contents) :> obj)
             )
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
-            encodingCache.heapAddresses.Clear()
+            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst
+            encodingCache.heapAddresses.Clear()
             StateModel(state, typeModel.CreateEmpty())
 
 
