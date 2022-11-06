@@ -21,7 +21,7 @@ public interface INetwork
 }
 
 [TestSvmFixture]
-internal class Mocking
+public class Mocking
 {
     private IDependence _dependence = null;
 
