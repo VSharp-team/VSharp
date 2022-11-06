@@ -1,11 +1,82 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
+
+// TODO: unify with TestRunner's assembly load method
+internal class AssemblyResolver
+{
+    private static IEnumerable<string>? _extraAssemblyLoadDirs;
+
+    public static void Configure(IEnumerable<string> extraAssemblyLoadDirs)
+    {
+        _extraAssemblyLoadDirs = extraAssemblyLoadDirs;
+    }
+
+    public static void AddResolve(AssemblyLoadContext? assemblyLoadContext = null)
+    {
+        if (assemblyLoadContext != null)
+            assemblyLoadContext.Resolving += ResolveAssembly;
+        else
+            AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
+    }
+
+    public static void RemoveResolve(AssemblyLoadContext? assemblyLoadContext = null)
+    {
+        if (assemblyLoadContext != null)
+            assemblyLoadContext.Resolving -= ResolveAssembly;
+        else
+            AppDomain.CurrentDomain.AssemblyResolve -= ResolveAssembly;
+    }
+
+    private static Assembly? ResolveAssembly(AssemblyLoadContext assemblyLoadContext, AssemblyName args)
+    {
+        return AssemblyLoadContextOnResolving(assemblyLoadContext.Assemblies, args);
+    }
+
+    private static Assembly? ResolveAssembly(object? _, ResolveEventArgs args)
+    {
+        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var assemblyName = new AssemblyName(args.Name);
+        return AssemblyLoadContextOnResolving(loadedAssemblies, assemblyName);
+    }
+
+    private static Assembly? AssemblyLoadContextOnResolving(IEnumerable<Assembly> loadedAssemblies, AssemblyName args)
+    {
+        var existingInstance =
+            loadedAssemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
+        if (existingInstance != null)
+        {
+            return existingInstance;
+        }
+
+        if (_extraAssemblyLoadDirs == null) return null;
+
+        var argsAssemblyName = args.Name + ".dll";
+        Debug.Assert(argsAssemblyName != null, "args.Name != null");
+        foreach (var path in _extraAssemblyLoadDirs)
+        {
+            var assemblyPath = Path.Combine(path, argsAssemblyName);
+            if (!File.Exists(assemblyPath))
+                return null;
+            // Old version
+            // Assembly assembly = Assembly.LoadFrom(assemblyPath);
+            // return assembly;
+
+            // Max Arshinov's version
+            using var stream = File.OpenRead(assemblyPath);
+            var assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
+            return assembly;
+        }
+
+        return null;
+    }
+}
 
 public static class Renderer
 {
@@ -322,7 +393,7 @@ public static class Renderer
         WriteCompInFile(testFilePath, compilation);
     }
 
-    private static UnitTest DeserializeTest(FileInfo test)
+    private static UnitTest DeserializeTest(FileInfo test, AssemblyLoadContext? assemblyLoadContext)
     {
         testInfo ti;
         using (var stream = new FileStream(test.FullName, FileMode.Open, FileAccess.Read))
@@ -330,20 +401,29 @@ public static class Renderer
             ti = UnitTest.DeserializeTestInfo(stream);
         }
 
-        // _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
+        AssemblyResolver.Configure(ti.extraAssemblyLoadDirs);
+
         return UnitTest.DeserializeFromTestInfo(ti, true);
     }
 
     private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
-        IEnumerable<FileInfo> tests, Type? declaringType, bool wrapErrors = false)
+        IEnumerable<FileInfo> tests,
+        Type? declaringType,
+        bool wrapErrors = false,
+        AssemblyLoadContext? assemblyLoadContext = null)
     {
-        var unitTests = tests.Select(DeserializeTest).ToList();
+        AssemblyResolver.AddResolve(assemblyLoadContext);
+
+        var unitTests =
+            tests.Select(test => DeserializeTest(test, assemblyLoadContext)).ToList();
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
         Assembly testAssembly = unitTests.First().Method.Module.Assembly;
 
         var (testsProgram, mocksProgram,  typeName) =
             TestsRenderer.RenderTests(unitTests, wrapErrors, declaringType);
+
+        AssemblyResolver.RemoveResolve(assemblyLoadContext);
 
         return (testsProgram, mocksProgram, typeName, testAssembly);
     }
@@ -369,9 +449,11 @@ public static class Renderer
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
         Type declaringType,
+        AssemblyLoadContext assemblyLoadContext,
         FileInfo? solutionForTests = null)
     {
-        var (testsProgram, mocksProgram, typeName, _) = RunTestsRenderer(tests, declaringType);
+        var (testsProgram, mocksProgram, typeName, _) =
+            RunTestsRenderer(tests, declaringType, false, assemblyLoadContext);
 
         var outputDir = testingProject.Directory?.Parent;
         Debug.Assert(outputDir != null && outputDir.Exists);

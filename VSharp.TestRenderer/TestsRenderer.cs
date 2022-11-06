@@ -25,34 +25,10 @@ public static class TestsRenderer
     // TODO: move all format features to non-static Formatter class
     private static readonly Dictionary<string, MethodFormat> MethodsFormat = new ();
 
-    private static IEnumerable<string>? _extraAssemblyLoadDirs;
-
     // Used only for rendering names, does not support adding usings and references
     private static readonly CodeRenderer InternalCodeRenderer = new (new EmptyReferenceManager());
 
     // TODO: create class 'Expression' with operators?
-
-    private static Assembly? TryLoadAssemblyFrom(object? sender, ResolveEventArgs args)
-    {
-        var existingInstance = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.FullName == args.Name);
-        if (existingInstance != null)
-        {
-            return existingInstance;
-        }
-
-        if (_extraAssemblyLoadDirs == null) return null;
-
-        foreach (string path in _extraAssemblyLoadDirs)
-        {
-            string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
-            if (!File.Exists(assemblyPath))
-                return null;
-            Assembly assembly = Assembly.LoadFrom(assemblyPath);
-            return assembly;
-        }
-
-        return null;
-    }
 
     internal static SyntaxTrivia LastOffset(SyntaxNode node)
     {
@@ -523,8 +499,6 @@ public static class TestsRenderer
         bool wrapErrors = false,
         Type? declaringType = null)
     {
-        AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-
         // Creating main class for generating tests
         var typeName = NameForType(declaringType);
         var namespaceName =
