@@ -38,6 +38,7 @@ type IMethodMock =
 type ITypeMock =
     abstract Name : string
     abstract SuperTypes : Type seq
+    abstract IsValueType : bool
     abstract MethodMock : IMethod -> IMethodMock
     abstract MethodMocks : IMethodMock seq
     abstract Copy : unit -> ITypeMock

@@ -102,14 +102,15 @@ type ITypeMockSerializer =
     abstract IsMockRepresentation : obj -> bool
     abstract Serialize : obj -> obj
     abstract Deserialize : (obj -> obj) -> obj -> obj
+    abstract UpdateMock : (obj -> obj) -> obj -> obj -> unit
 
 and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRepr : bool) =
 
     let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
 
-    let allocatePlaceholder (obj : obj) =
-        assert(obj <> null)
+    let rec allocateDefault (obj : obj) =
         match obj with
+        | null -> null
         | :? structureRepr as repr ->
             let t = sourceTypes.[repr.typ]
             if t.IsByRefLike then
@@ -122,9 +123,11 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             let elementType = t.GetElementType()
             if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
             else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
+        | _ when mocker.IsMockRepresentation obj ->
+            mocker.Deserialize allocateDefault obj
         | _ -> obj
 
-    let mutable sourceObjects = List<obj>(repr.objects |> Array.map allocatePlaceholder)
+    let mutable sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
     let objReprs = List<obj>(repr.objects)
 
     let rec decodeValue (obj : obj) =
@@ -136,7 +139,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             let t = sourceTypes.[repr.typ]
             if not t.IsValueType then
                 internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
-            let obj = allocatePlaceholder repr
+            let obj = allocateDefault repr
             decodeStructure repr obj
         | :? arrayRepr -> internalfail "Unexpected array representation inside object!"
         | :? enumRepr as repr ->
@@ -187,14 +190,14 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             decodeStructure repr obj
         | :? arrayRepr as repr ->
             decodeArray repr obj
+        | _ when mocker.IsMockRepresentation repr ->
+            mocker.UpdateMock decodeValue repr obj
+            obj
         | _ -> ()
 
     let () =
-        if createCompactRepr then
-            let seq = Seq.map2 decodeObject objReprs sourceObjects
-            sourceObjects <- List<obj>(seq)
-        else
-            Seq.iter2 (fun repr source -> decodeObject repr source |> ignore) objReprs sourceObjects
+        let seq = Seq.map2 decodeObject objReprs sourceObjects
+        sourceObjects <- List<obj>(seq)
 
     member x.DecodeValue (obj : obj) = decodeValue obj
 
@@ -283,6 +286,10 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
     member x.AddClass (typ : Type) (fields : obj array) index =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
         objReprs.[index] <- repr
+        { index = index }
+
+    member x.AddMockedClass (mockRepr : obj) index =
+        objReprs.[index] <- mockRepr
         { index = index }
 
     member x.AddArray (typ : Type) (contents : obj array) (lengths : int array) (lowerBounds : int array) index =

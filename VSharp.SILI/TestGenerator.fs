@@ -56,7 +56,12 @@ module TestGenerator =
                         ClassField(cha, field) |> eval)
                     let repr = test.MemoryGraph.AddClass typ fields index
                     repr :> obj
-            | MockType mock -> encodeMock mock
+            | MockType mock when mock.IsValueType -> encodeMock mock
+            | MockType mock ->
+                let index = test.MemoryGraph.ReserveRepresentation()
+                indices.Add(addr, index)
+                let repr = test.MemoryGraph.AddMockedClass (encodeMock mock) index
+                repr :> obj
 
     let encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then

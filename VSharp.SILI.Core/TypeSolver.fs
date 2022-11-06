@@ -68,6 +68,7 @@ type TypeMock private (supertypes : Type seq, methodMocks : IDictionary<IMethod,
             let supertypeNames = supertypes |> Seq.map (fun t -> t.Name) |> join "_"
             $"Mock_{supertypeNames}_{uid}"
         override x.SuperTypes = supertypes
+        override x.IsValueType = supertypes |> Seq.exists (fun t -> t = typeof<ValueType> || t.IsValueType)
         override x.MethodMock m =
             Dict.getValueOrUpdate methodMocks m (fun () -> MethodMock(m, x)) :> IMethodMock
         override x.MethodMocks with get() = methodMocks.Values |> Seq.cast<_>
