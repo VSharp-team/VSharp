@@ -304,7 +304,7 @@ module TypeSolver =
         let methodGenericParameters = if m.IsConstructor then Array.empty else m.GenericArguments |> Array.filter (fun t -> t.IsGenericParameter)
         let solverResult = solve (getMock (Dictionary())) [] (Array.append typeGenericParameters methodGenericParameters |> List.ofArray)
         match solverResult with
-        | TypeSat(refsTypes, typeParams) ->
+        | TypeSat(_, typeParams) ->
             let classParams, methodParams = List.splitAt typeGenericParameters.Length typeParams
             Some(Array.ofList classParams, Array.ofList methodParams)
         | TypeUnsat -> None
@@ -345,7 +345,7 @@ module TypeSolver =
                 SolverInteraction.SmtUnknown e.Message
         | result -> result
 
-    let getCallVirtCandidates state (thisAddress : heapAddress) =
+    let getCallVirtCandidates state (thisAddress : heapAddress) (ancestorMethod : IMethod) =
         match thisAddress with
         | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} when VectorTime.less VectorTime.zero thisAddress ->
             thisAddress, [state.allocatedTypes.[thisAddress]] :> seq<symbolicType>
@@ -356,6 +356,13 @@ module TypeSolver =
                 | {term = HeapRef({term = ConcreteHeapAddress thisAddress}, _)} ->
                     let addresses, inputConstraints = generateConstraints state.model state
                     let index = List.findIndex ((=)thisAddress) addresses
-                    thisAddress, inputCandidates (getMock state.typeMocks) inputConstraints.[index] PersistentDict.empty
+                    let constraints = inputConstraints[index]
+                    let candidates = inputCandidates (getMock state.typeMocks) constraints PersistentDict.empty
+                    let checkOverrides = function
+                        | ConcreteType t ->
+                            Reflection.canOverrideMethod t (ancestorMethod.MethodBase :?> MethodInfo)
+                        | MockType _ -> true
+                    let overridingMethods = Seq.filter checkOverrides candidates
+                    thisAddress, overridingMethods
                 | _ -> __unreachable__()
             | PrimitiveModel _ -> __unreachable__()

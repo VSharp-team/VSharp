@@ -112,6 +112,8 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         match obj with
         | :? structureRepr as repr ->
             let t = sourceTypes.[repr.typ]
+            if t.IsByRefLike then
+                internalfailf "Generating test: unable to create byref-like object (type = %O)" t
             if t.ContainsGenericParameters then
                 internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
             else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
@@ -172,7 +174,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             let defaultValue = decodeValue repr.defaultValue
             Array.fill arr defaultValue
             Array.iter2 (fun (i : int[]) v -> arr.SetValue(decodeValue v, i)) repr.indices repr.values
-            {array = arr; defaultValue = repr.defaultValue; indices = repr.indices; values = values}
+            {array = arr; defaultValue = defaultValue; indices = repr.indices; values = values}
         | _ ->
             let defaultValue = decodeValue repr.defaultValue
             Array.fill arr defaultValue

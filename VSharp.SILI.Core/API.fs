@@ -44,7 +44,7 @@ module API =
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
     let SolveGenericMethodParameters (method : IMethod) = TypeSolver.solveMethodParameters method
-    let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
+    let ResolveCallVirt state thisAddress ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress ancestorMethod
 
     let mutable private reportError = fun _ _ -> ()
     let reportUnspecifiedError state = reportError state "Unspecified"

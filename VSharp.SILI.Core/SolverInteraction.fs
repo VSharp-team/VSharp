@@ -8,7 +8,7 @@ module public SolverInteraction =
     type unsatCore() = class end
 
     type encodingContext =
-        { addressOrder : Map<concreteHeapAddress, int>}
+        { addressOrder : Map<concreteHeapAddress, int> }
 
     type satInfo = { mdl : model }
     type unsatInfo = { core : term[] }
@@ -44,7 +44,7 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let checkSat state = // TODO: need to solve types here? #do
+    let checkSat state =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with

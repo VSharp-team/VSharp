@@ -158,17 +158,18 @@ module Mocking =
             if t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef then
                 raise (ArgumentException("Mock supertype should be class or interface!"))
             if t.IsInterface then
-                let mutable foundSubtype = false
-                let removedSupertypes = interfaces.RemoveAll(fun u -> t.IsAssignableTo u)
-                assert(not foundSubtype || removedSupertypes = 0)
-                if not foundSubtype then
-                    interfaces.Add t
+                interfaces.RemoveAll(fun u -> t.IsAssignableTo u) |> ignore
+                interfaces.Add t
             elif baseClass = null then baseClass <- t
             elif baseClass.IsAssignableTo t then ()
             elif t.IsAssignableTo baseClass then baseClass <- t
             else raise (ArgumentException($"Attempt to assign another base class {t.FullName} for mock with base class {baseClass.FullName}! Note that multiple inheritance is prohibited."))
 
         member x.AddMethod(m : MethodInfo, retVals : obj[]) =
+            let declaringType = m.DeclaringType
+            // If mocked method is interface method, interface should be added to 'interfaces'
+            if declaringType.IsInterface && (interfaces.Contains(declaringType) |> not) then
+                interfaces.Add(declaringType)
             let methodMock = Method(m, retVals.Length)
             methodMock.SetClauses retVals
             methods.Add(methodMock)

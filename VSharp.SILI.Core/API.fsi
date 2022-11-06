@@ -32,7 +32,7 @@ module API =
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
     val SolveGenericMethodParameters : IMethod -> (symbolicType[] * symbolicType[]) option
-    val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
+    val ResolveCallVirt : state -> term -> IMethod -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
     val ErrorReporter : string -> (state -> term -> unit)
