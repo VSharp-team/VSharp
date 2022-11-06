@@ -220,6 +220,7 @@ module Mocking =
               baseMethods = methods |> Array.map (fun m -> methodRepr.Encode m.BaseMethod)
               methodImplementations = methods |> Array.map (fun m -> m.ReturnValues |> Array.map encode) }
 
+        // Is used to initialize mock clauses if it was not initialized
         member x.EnsureInitialized (decode : obj -> obj) (t : System.Type) =
             if initializedTypes.Add t then
                 Seq.iter2 (fun (m : Method) (clauses : obj array) ->
@@ -227,15 +228,22 @@ module Mocking =
                     m.SetClauses decodedClauses
                     m.InitializeType t) methods repr.methodImplementations
 
+        // Is used to update already initialized mock type
+        // In memory graph, firstly, it is allocated with default values via 'EnsureInitialized'
+        // Secondly, it is mutated with deserialized values via 'Update'
+        member x.Update (decode : obj -> obj) (t : System.Type) =
+            Seq.iter2 (fun (m : Method) (clauses : obj array) ->
+                let decodedClauses = Array.map decode clauses
+                m.SetClauses decodedClauses
+                m.InitializeType t) methods repr.methodImplementations
 
     [<CLIMutable>]
     [<Serializable>]
     type mockObject = {typeMockIndex : int}
 
     type Mocker(mockTypeReprs : typeMockRepr array) =
-        let mockTypes : System.Type option array = Array.zeroCreate mockTypeReprs.Length
+        let mockTypes : (Type * System.Type) option array = Array.zeroCreate mockTypeReprs.Length
         let delegateWrappers : System.Type option array = Array.zeroCreate mockTypeReprs.Length
-
         let moduleBuilder = lazy(
             let dynamicAssemblyName = "VSharpTypeMocks"
             let assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
@@ -256,26 +264,41 @@ module Mocking =
 
             override x.Serialize obj = obj
 
-            override x.Deserialize (decode : obj -> obj) obj =
-                match obj with
+            // In memory graph, 'Deserialize' used to allocate mock object with default values
+            override x.Deserialize (decode : obj -> obj) repr =
+                match repr with
                 | :? mockObject as mock ->
                     let index = mock.typeMockIndex
                     match mockTypes.[index] with
-                    | Some t when TypeUtils.isDelegate t ->
+                    | Some(_, t) when TypeUtils.isDelegate t ->
                         let wrapper = delegateWrappers.[index].Value
                         x.CreateDelegateFromWrapperType(t, wrapper)
-                    | Some t -> Reflection.createObject t
+                    | Some(_, t) -> Reflection.createObject t
                     | None ->
                         let mockTypeRepr = mockTypeReprs.[index]
-                        let builtObj, typ =
+                        let builtObj, mockType, typ =
                             if TypeUtils.isDelegate (mockTypeRepr.baseClass |> Serialization.decodeType) then
-                                let o, baseType, wrapperType = x.BuildDelegate mockTypeRepr decode
+                                let o, baseType, mockType, wrapperType = x.BuildDelegate mockTypeRepr decode
                                 delegateWrappers.[index] <- Some wrapperType
-                                o, baseType
+                                o, mockType, baseType
                             else
                                 x.BuildMockObject mockTypeRepr decode
-                        mockTypes.[index] <- Some typ
+                        mockTypes.[index] <- Some (mockType, typ)
                         builtObj
+                | _ -> __unreachable__()
+
+            // In memory graph, 'UpdateMock' used to fill mock object with deserialized values
+            override x.UpdateMock (decode : obj -> obj) repr mockInstance =
+                match repr with
+                | :? mockObject as mock ->
+                    let index = mock.typeMockIndex
+                    let mockType, t =
+                        match mockTypes.[index] with
+                        | Some types -> types
+                        | None -> __unreachable__()
+                    let mockInstanceType = mockInstance.GetType()
+                    assert(t = mockInstanceType)
+                    mockType.Update decode mockInstanceType
                 | _ -> __unreachable__()
 
         member x.BuildDynamicType (repr : typeMockRepr) =
@@ -286,14 +309,14 @@ module Mocking =
         member x.BuildMockObject (mockTypeRepr : typeMockRepr) decode =
             let mockType, typ = x.BuildDynamicType(mockTypeRepr)
             mockType.EnsureInitialized decode typ
-            Reflection.createObject typ, typ
+            Reflection.createObject typ, mockType, typ
 
         member x.CreateDelegateFromWrapperType (t : System.Type, wrapperType : System.Type) =
             let invokeMethodInfo = wrapperType.GetMethod("Invoke")
             Delegate.CreateDelegate(t, null, invokeMethodInfo) :> obj
 
         member x.BuildDelegate (mockTypeRepr : typeMockRepr) decode =
-            let wrapperType = Type($"DelegateWrapper_{Guid.NewGuid()}")
+            let mockType = Type($"DelegateWrapper_{Guid.NewGuid()}")
             let delegateType = mockTypeRepr.baseClass |> Serialization.decodeType
 
             let invokeMethodInfo = delegateType.GetMethod("Invoke")
@@ -302,11 +325,11 @@ module Mocking =
                 match implIndex with
                 | Some i -> mockTypeRepr.methodImplementations.[i] |> Array.map decode
                 | _ -> [||]
-            wrapperType.AddMethod(invokeMethodInfo, returnValues)
+            mockType.AddMethod(invokeMethodInfo, returnValues)
 
             let moduleBuilder = moduleBuilder.Force()
-            let built = wrapperType.Build(moduleBuilder)
-            let wrapperInvoke = wrapperType.Methods |> Seq.head
+            let built = mockType.Build(moduleBuilder)
+            let wrapperInvoke = mockType.Methods |> Seq.head
             wrapperInvoke.InitializeType(built)
 
-            x.CreateDelegateFromWrapperType(delegateType, built), delegateType, built
+            x.CreateDelegateFromWrapperType(delegateType, built), delegateType, mockType, built
