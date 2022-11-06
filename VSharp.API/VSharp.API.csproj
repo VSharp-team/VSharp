@@ -6,6 +6,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
+      <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
     </ItemGroup>
 
