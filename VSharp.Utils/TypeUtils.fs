@@ -40,6 +40,7 @@ module TypeUtils =
     let lengthType = typeof<int>
     let addressType = typeof<AddressTypeAgent>
 
+    let szArrayHelper = lazy Type.GetType("System.SZArrayHelper")
     // ---------------------------------- Basic type predicates ----------------------------------
 
     let isGround (x : Type) =
@@ -280,6 +281,14 @@ module TypeUtils =
                 let infs = Array.map2 structuralInfimum xargs yargs
                 if Array.forall Option.isSome infs then Some (x.GetGenericTypeDefinition().MakeGenericType(Array.map Option.get infs))
                 else None
+
+    let typeImplementsInterface (t : Type) (targetInterface : Type) =
+        assert(targetInterface.IsInterface)
+        let matches (i : Type) =
+            i = targetInterface ||
+            i.IsGenericType && targetInterface.IsGenericType &&
+                i.GetGenericTypeDefinition() = targetInterface.GetGenericTypeDefinition()
+        t.GetInterfaces() |> Seq.exists matches
 
     // --------------------------------------- Conversions ---------------------------------------
 

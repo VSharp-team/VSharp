@@ -293,8 +293,8 @@ namespace VSharp.Test
                         TestContext.Out.WriteLine("Starting coverage tool...");
                         // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
                         //       to enable coverage check use _expectedCoverage
-                        var testChecker = new TestResultsChecker(unitTests.TestDirectory,
-                            Directory.GetCurrentDirectory(), _expectedCoverage);
+                        var runnerDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                        var testChecker = new TestResultsChecker(unitTests.TestDirectory, runnerDir, _expectedCoverage);
                         if (testChecker.Check(methodInfo, out var actualCoverage))
                         {
                             context.CurrentResult.SetResult(ResultState.Success);

@@ -176,6 +176,7 @@ type public SILI(options : SiliOptions) =
         try
             match SolveGenericMethodParameters vsMethod with
             | Some(classParams, methodParams) ->
+                // TODO: save info in model?
                 let classParams = classParams |> Array.choose getConcreteType
                 let methodParams = methodParams |> Array.choose getConcreteType
                 if classParams.Length = method.DeclaringType.GetGenericArguments().Length &&
@@ -365,9 +366,8 @@ type public SILI(options : SiliOptions) =
         try
             try
                 // TODO: resolve type parameters by mainArguments?
-                match SILI.TrySubstituteTypeParameters method with
-                | Some newMethod -> x.InterpretEntryPointInternal newMethod mainArguments onFinished onException onIIE onInternalFail
-                | None -> x.InterpretEntryPointInternal method mainArguments onFinished onException onIIE onInternalFail
+                let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters method)
+                x.InterpretEntryPointInternal method mainArguments onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e
         finally
@@ -379,9 +379,8 @@ type public SILI(options : SiliOptions) =
         reportInternalFail <- wrapOnInternalFail onInternalFail
         try
             try
-                match SILI.TrySubstituteTypeParameters method with
-                | Some newMethod -> x.InterpretIsolatedInternal newMethod onFinished onException onIIE onInternalFail
-                | None -> x.InterpretIsolatedInternal method onFinished onException onIIE onInternalFail
+                let method = Option.defaultValue method (SILI.TrySubstituteTypeParameters method)
+                x.InterpretIsolatedInternal method onFinished onException onIIE onInternalFail
             with
             | e -> reportInternalFail e
         finally

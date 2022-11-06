@@ -140,22 +140,28 @@ module TestGenerator =
                 freshMock.AddMethod(m.BaseMethod, clauses))
             freshMock)
 
-
     let model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
-        match SolveTypes model cilState.state with
+        match SolveGenericMethodParameters m with
         | None -> None
         | Some(classParams, methodParams) ->
-            let concreteClassParams = Array.zeroCreate classParams.Length
-            let mockedClassParams = Array.zeroCreate classParams.Length
-            let concreteMethodParams = Array.zeroCreate methodParams.Length
-            let mockedMethodParams = Array.zeroCreate methodParams.Length
-            let processSymbolicType (concreteArr : Type array) (mockArr : Mocking.Type option array) i = function
-                | ConcreteType t -> concreteArr.[i] <- t
-                | MockType m -> mockArr.[i] <- Some (encodeTypeMock model cilState.state indices mockCache test m)
-            classParams |> Seq.iteri (processSymbolicType concreteClassParams mockedClassParams)
-            methodParams |> Seq.iteri (processSymbolicType concreteMethodParams mockedMethodParams)
-            test.SetTypeGenericParameters concreteClassParams mockedClassParams
-            test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
+            // TODO: refactor after adding type parameters to model
+            if (classParams.Length > 0 || methodParams.Length > 0) then
+                let concreteClassParams = Array.zeroCreate classParams.Length
+                let mockedClassParams = Array.zeroCreate classParams.Length
+                let concreteMethodParams = Array.zeroCreate methodParams.Length
+                let mockedMethodParams = Array.zeroCreate methodParams.Length
+                let processSymbolicType (concreteArr : Type array) (mockArr : Mocking.Type option array) i = function
+                    | ConcreteType t -> concreteArr.[i] <- t
+                    | MockType m -> mockArr.[i] <- Some (encodeTypeMock model cilState.state indices mockCache test m)
+                classParams |> Seq.iteri (processSymbolicType concreteClassParams mockedClassParams)
+                methodParams |> Seq.iteri (processSymbolicType concreteMethodParams mockedMethodParams)
+                test.SetTypeGenericParameters concreteClassParams mockedClassParams
+                test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
+            else
+                let typeParams = m.DeclaringType.GetGenericArguments()
+                let methodParams = m.GetGenericArguments()
+                test.SetTypeGenericParameters typeParams (Array.zeroCreate typeParams.Length)
+                test.SetMethodGenericParameters methodParams (Array.zeroCreate methodParams.Length)
 
             let suitableState cilState =
                 let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
