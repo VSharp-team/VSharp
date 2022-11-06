@@ -831,21 +831,21 @@ module internal Z3 =
                         let indexes = product indexes
                         let value =  result.Value.Value |> unboxConcrete                        
                         List.iter (fun i -> cm.WriteArrayIndex addr i value) indexes
-                | _ -> ()
-                    // if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
-                    //     let fields = Reflection.fieldsOf false typ |> Seq.map fst
-                        // try
-                        //     let o = Reflection.createObject typ
-                        //     cm.Allocate addr o
-                            // defaultValues |> Seq.iter (fun kv ->
-                            //     match kv.Key with
-                            //     | HeapFieldSort fId when (Seq.contains fId fields) ->
-                            //         let a = ClassField(cha, fId)
-                            //         let states = Memory.Write state (Ref a) kv.Value.Value
-                            //         assert(states.Length = 1 && states.[0] = state)
-                            //     | _ -> ())
-                        // with
-                        // | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
+                | _ ->
+                    if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
+                        let fields = Reflection.fieldsOf false typ |> Seq.map fst
+                        
+                        try
+                            let o = Reflection.createObject typ
+                            cm.Allocate addr o
+                            fields |> Seq.iter (fun fId ->
+                                let region = HeapFieldSort fId
+                                let result = ref (ref Nop)
+                                if defaultValues.TryGetValue(region, result) then
+                                    cm.WriteClassField addr fId result.Value.Value 
+                            )
+                        with
+                        | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
             )
             
             // Process stores 
