@@ -109,14 +109,26 @@ public static class Renderer
         {
             Debug.Assert(testingProject.Extension == ".dll");
             var assembly = Assembly.LoadFrom(testingProject.FullName);
-            var location = assembly.Location;
             var text = File.ReadAllText(testProject.FullName);
-            if (!text.Contains($"<HintPath>{location}</HintPath>"))
+            var location = $"<HintPath>{assembly.Location}</HintPath>";
+            if (!text.Contains(location))
             {
-                var reference = $"<Reference Include=\"{assembly.FullName}\">\n<HintPath>{assembly.Location}</HintPath>\n</Reference>";
+                var reference = $"<Reference Include=\"{assembly.FullName}\">\n{location}\n</Reference>";
                 text = text.Replace("</ItemGroup>", $"{reference}\n</ItemGroup>");
                 File.WriteAllText(testProject.FullName, text);
             }
+        }
+    }
+
+    private static void AllowUnsafeBlocks(FileInfo testProject)
+    {
+        // TODO: add, only if generated tests have unsafe modifier
+        var text = File.ReadAllText(testProject.FullName);
+        var allow = "<AllowUnsafeBlocks>true</AllowUnsafeBlocks>";
+        if (!text.Contains(allow))
+        {
+            text = text.Replace("</PropertyGroup>", $"{allow}\n</PropertyGroup>");
+            File.WriteAllText(testProject.FullName, text);
         }
     }
 
@@ -196,15 +208,15 @@ public static class Renderer
         var testProjectPath = CreateTestProject(outputDir, testingProject);
         var testProject = testProjectPath.EnumerateFiles("*.csproj").First();
 
-        // Adding Moq reference to it
-        AddMoqReference(testProjectPath);
-
         // Adding testing project reference to it
         AddUnderTestProjectReference(testProject, testingProject);
+        // Allowing unsafe code inside project
+        AllowUnsafeBlocks(testProject);
         // Adding it to solution
         AddProjectToSolution(solution?.Directory, testProject);
         // Copying test extensions (mock extensions, allocator, object comparer) to nunit project
         AddHelpers(testProjectPath);
+
         return testProjectPath;
     }
 
