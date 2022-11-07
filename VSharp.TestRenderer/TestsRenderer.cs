@@ -22,6 +22,7 @@ public static class TestsRenderer
         }
     }
 
+    // TODO: move all format features to non-static Formatter class
     private static readonly Dictionary<string, MethodFormat> MethodsFormat = new ();
 
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
@@ -50,6 +51,15 @@ public static class TestsRenderer
         return null;
     }
 
+    internal static SyntaxTrivia LastOffset(SyntaxNode node)
+    {
+        var whitespaces =
+            node.GetLeadingTrivia()
+                .Where(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
+                .ToArray();
+        return whitespaces[^1];
+    }
+
     private class IndentsRewriter : CSharpSyntaxRewriter
     {
         private const int TabSize = 4;
@@ -59,15 +69,26 @@ public static class TestsRenderer
         private static readonly SyntaxTrivia ArrangeComment = Comment("// arrange");
         private static readonly SyntaxTrivia ActComment = Comment("// act");
         private static readonly SyntaxTrivia AssertComment = Comment("// assert");
+        private static readonly SyntaxTrivia IgnoredComment = Comment("// ignored");
 
         private static SyntaxTrivia WhitespaceTrivia(int offset)
         {
             return Whitespace(new string(' ', offset));
         }
 
+        private SyntaxTrivia CurrentOffset()
+        {
+            return WhitespaceTrivia(_currentOffset);
+        }
+
+        private SyntaxTrivia ShiftedOffset()
+        {
+            return WhitespaceTrivia(_currentOffset + TabSize);
+        }
+
         private SyntaxNode AddActComment(SyntaxNode node)
         {
-            var whitespaces = WhitespaceTrivia(_currentOffset);
+            var whitespaces = CurrentOffset();
             // If method has lines with generated args, adding empty line before calling test
             var beforeTrivia =
                 _format.HasArgs
@@ -83,12 +104,7 @@ public static class TestsRenderer
 
             if (node.HasLeadingTrivia)
             {
-                var triviaList = node.GetLeadingTrivia();
-                var whitespaces =
-                    triviaList
-                        .Where(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
-                        .ToArray();
-                _currentOffset = whitespaces[^1].ToFullString().Length;
+                _currentOffset = LastOffset(node).ToFullString().Length;
             }
 
             switch (node)
@@ -115,14 +131,14 @@ public static class TestsRenderer
                             foreach (var assign in expressions)
                             {
                                 var formatted =
-                                    assign.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset + TabSize));
+                                    assign.WithLeadingTrivia(LineFeed, ShiftedOffset());
                                 formattedExpressions.Add(formatted);
                             }
 
                             init = init.WithExpressions(SeparatedList(formattedExpressions));
                             var formattedCloseBrace =
                                 init.CloseBraceToken
-                                    .WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
+                                    .WithLeadingTrivia(LineFeed, CurrentOffset());
                             init = init.WithCloseBraceToken(formattedCloseBrace);
                         }
 
@@ -134,7 +150,7 @@ public static class TestsRenderer
                 // Adding '// arrange' comment before generated args
                 case StatementSyntax statement when statement.ToString() == _firstExpr:
                 {
-                    var whitespaces = WhitespaceTrivia(_currentOffset);
+                    var whitespaces = CurrentOffset();
                     node = statement.WithLeadingTrivia(whitespaces, ArrangeComment, LineFeed, whitespaces);
                     return base.Visit(node);
                 }
@@ -173,8 +189,24 @@ public static class TestsRenderer
                 // Adding blank line and '// assert' comment before assert
                 case ExpressionStatementSyntax expr when expr.ToString().Contains("Assert"):
                 {
-                    var whitespaces = WhitespaceTrivia(_currentOffset);
+                    var whitespaces = CurrentOffset();
                     node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
+                    return base.Visit(node);
+                }
+                // TODO: #do
+                case BaseNamespaceDeclarationSyntax namespaceDecl:
+                {
+                    // namespaceDecl.With
+                    node = node.WithTrailingTrivia(LineFeed, LineFeed);
+                    return base.Visit(node);
+                }
+                case CatchClauseSyntax catchClause when !catchClause.Block.Statements.Any():
+                {
+                    var block = catchClause.Block;
+                    var openBrace = block.OpenBraceToken;
+                    openBrace = openBrace.WithTrailingTrivia(LineFeed, ShiftedOffset(), IgnoredComment, LineFeed);
+                    block = catchClause.Block.WithOpenBraceToken(openBrace);
+                    node = catchClause.WithBlock(block);;
                     return base.Visit(node);
                 }
             }
@@ -183,7 +215,7 @@ public static class TestsRenderer
         }
     }
 
-    private static SyntaxNode Format(SyntaxNode node)
+    public static SyntaxNode Format(SyntaxNode node)
     {
         var normalized = node.NormalizeWhitespace();
         var myRewriter = new IndentsRewriter();
@@ -192,7 +224,7 @@ public static class TestsRenderer
         return formatted;
     }
 
-    private static string RenderTypeName(Type? t)
+    private static string NameForType(Type? t)
     {
         if (t == null)
             return "GeneratedClass";
@@ -213,6 +245,16 @@ public static class TestsRenderer
             block.AddDecl("unused", null, callMethod);
         else
             block.AddExpression(callMethod);
+    }
+
+    private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter)
+    {
+        var paramType = parameter.ParameterType;
+        // For this types there is no data type suffix, so if parameter type is upcast, explicit cast is needed
+        var needExplicitType =
+            obj is byte or sbyte or char or short or ushort
+            && (paramType == typeof(object) || paramType == typeof(ValueType));
+        return block.RenderObject(obj, parameter.Name, needExplicitType);
     }
 
     private static void RenderTest(
@@ -247,7 +289,7 @@ public static class TestsRenderer
         }
         var parameters = method.GetParameters();
         var renderedArgs =
-            args.Select((obj, index) => mainBlock.RenderObject(obj, parameters[index].Name)).ToArray();
+            args.Select((obj, index) => RenderArgument(mainBlock, obj, parameters[index])).ToArray();
 
         Debug.Assert(parameters.Length == renderedArgs.Length);
         for (int i = 0; i < parameters.Length; i++)
@@ -285,7 +327,7 @@ public static class TestsRenderer
                 // Adding namespace of objects comparer to usings
                 AddObjectsComparer();
             var expectedExpr =
-                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected");
+                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected", true);
             Debug.Assert(expectedExpr != null);
             f.HasArgs |= expectedExpr is IdentifierNameSyntax;
             var resultId = mainBlock.AddDecl("result", null, callMethod);
@@ -296,16 +338,16 @@ public static class TestsRenderer
                     RenderCall(CompareObjects, expectedExpr, resultId)
                 );
         }
-        else if (ex == null || isError && !wrapErrors)
-        {
-            AddCall(mainBlock, shouldUseDecl, callMethod);
-        }
         else if (isError && wrapErrors)
         {
             var tryBlock = mainBlock.NewBlock();
             AddCall(tryBlock, shouldUseDecl, callMethod);
             var emptyBlock = mainBlock.NewBlock().Render();
             mainBlock.AddTryCatch(tryBlock.Render(), emptyBlock);
+        }
+        else if (ex == null || isError && !wrapErrors)
+        {
+            AddCall(mainBlock, shouldUseDecl, callMethod);
         }
         else
         {
@@ -338,23 +380,23 @@ public static class TestsRenderer
     {
         var m = method.BaseMethod;
         var returnType = (ArrayTypeSyntax) RenderType(m.ReturnType.MakeArrayType());
-        var valuesFieldName = $"{m.Name}Values";
+        var valuesFieldName = $"_clauses{m.Name}";
         var emptyArray =
             RenderCall(SystemArray, "Empty", new [] { RenderType(m.ReturnType) });
         var valuesField =
             mock.AddField(returnType, valuesFieldName, new[] { Private }, emptyArray);
-        var currentName = $"{m.Name}CurrentValue";
+        var currentName = $"_currentClause{m.Name}";
         var zero = RenderLiteral(0);
         var currentValueField =
             mock.AddField(RenderType(typeof(int)), currentName, new[] { Private }, zero);
 
         var setupMethod =
             mock.AddMethod(
-                $"Setup{m.Name}Values",
+                $"Setup{m.Name}Clauses",
                 null,
                 new [] { Public },
                 VoidType,
-                (returnType, "values")
+                (returnType, "clauses")
             );
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
@@ -362,7 +404,7 @@ public static class TestsRenderer
 
         var mockedMethod = mock.AddMethod(m);
         var body = mockedMethod.Body;
-        var length = RenderLiteral(method.ReturnValues.Length);
+        var length = RenderMemberAccess(valuesField, "Length");
         var cond =
             RenderOr(
                 BinaryExpression(SyntaxKind.LessThanExpression, currentValueField, zero),
@@ -397,7 +439,8 @@ public static class TestsRenderer
         if (baseType != null && baseType != typeof(object) && baseType != typeof(ValueType))
             superTypes.Add(baseType);
         superTypes.AddRange(typeMock.Interfaces);
-        var name = string.Join("", superTypes.Select(RenderTypeName));
+        var structPrefix = isStruct ? "Struct" : "";
+        var name = structPrefix + string.Join("", superTypes.Select(NameForType));
         var mock =
             mocksNamespace.AddType(
                 $"{name}Mock",
@@ -409,6 +452,21 @@ public static class TestsRenderer
         if (isStruct)
         {
             mock.AddConstructor(null, new[] { Public });
+        }
+        else if (baseType != null && baseType.GetConstructor(Type.EmptyTypes) == null)
+        {
+            const BindingFlags instanceFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.Public;
+            var constructors =
+                baseType.GetConstructors(instanceFlags)
+                    .OrderBy(ctor => ctor.GetParameters().Length)
+                    .Take(1)
+                    .ToList();
+            if (constructors.Count == 0)
+                throw new InvalidOperationException($"Can not find public constructors to create object of {baseType}");
+            var ctor = constructors[0];
+            var ctorRenderer = mock.AddMethod(ctor);
+            var args = ctorRenderer.GetArgs();
+            ctorRenderer.CallBaseConstructor(args);
         }
         var methodsInfo = new List<(ArrayTypeSyntax, SimpleNameSyntax)>();
         foreach (var method in typeMock.Methods)
@@ -435,7 +493,7 @@ public static class TestsRenderer
         AddNUnit();
 
         // Creating main class for generating tests
-        var typeName = RenderTypeName(declaringType);
+        var typeName = NameForType(declaringType);
         var namespaceName =
             declaringType == null
                 ? "GeneratedNamespace"

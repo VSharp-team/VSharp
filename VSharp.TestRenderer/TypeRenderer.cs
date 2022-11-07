@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -68,6 +69,7 @@ internal class TypeRenderer
         SyntaxToken[] modifiers,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? genericNames,
+        NameSyntax? interfaceName,
         params (TypeSyntax, string)[] args)
     {
         SimpleNameSyntax methodId =
@@ -85,6 +87,7 @@ internal class TypeRenderer
                 false,
                 resultType,
                 genericNames,
+                interfaceName,
                 args
             );
         _renderingMethods.Add(method);
@@ -98,15 +101,27 @@ internal class TypeRenderer
         TypeSyntax resultType,
         params (TypeSyntax, string)[] args)
     {
-        return AddMethod(methodName, false, attributes, modifiers, resultType, null, args);
+        return AddMethod(methodName, false, attributes, modifiers, resultType, null, null, args);
     }
 
     public MethodRenderer AddMethod(MethodBase method)
     {
         // TODO: render all info (is virtual, and others)
-        var modifiers = new List<SyntaxToken> { Public };
-        if (method.IsStatic) modifiers.Add(Static);
-        if (method.IsVirtual && !method.IsAbstract) modifiers.Add(Override);
+        var declaringType = method.DeclaringType;
+        Debug.Assert(declaringType != null);
+
+        var modifiers = new List<SyntaxToken>();
+        NameSyntax? interfaceName = null;
+        if (declaringType.IsInterface)
+        {
+            interfaceName = RenderTypeName(declaringType);
+        }
+        else
+        {
+            modifiers.Add(Public);
+            if (method.IsStatic) modifiers.Add(Static);
+            if (method.IsVirtual && !method.IsAbstract) modifiers.Add(Override);
+        }
         var resultType = RenderType(Reflection.getMethodReturnType(method));
         IdentifierNameSyntax[]? generics = null;
         if (method.IsGenericMethod)
@@ -119,7 +134,7 @@ internal class TypeRenderer
         if (method.IsConstructor)
             return AddConstructor(null, modifiersArray, args);
 
-        return AddMethod(method.Name, true, null, modifiersArray, resultType, generics, args);
+        return AddMethod(method.Name, true, null, modifiersArray, resultType, generics, interfaceName, args);
     }
 
     public MethodRenderer AddConstructor(
@@ -135,6 +150,7 @@ internal class TypeRenderer
                 modifiers,
                 true,
                 VoidType,
+                null,
                 null,
                 args
             );

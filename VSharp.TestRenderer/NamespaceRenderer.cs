@@ -7,7 +7,7 @@ namespace VSharp.TestRenderer;
 internal class NamespaceRenderer
 {
     private readonly IdentifiersCache _cache;
-    private readonly NamespaceDeclarationSyntax _declaration;
+    private readonly BaseNamespaceDeclarationSyntax _declaration;
     private readonly List<TypeRenderer> _renderingTypes = new ();
 
     public NamespaceRenderer(string name)
@@ -15,7 +15,7 @@ internal class NamespaceRenderer
         // Creating identifiers cache
         _cache = new IdentifiersCache();
         var namespaceId = _cache.GenerateIdentifier(name);
-        _declaration = NamespaceDeclaration(namespaceId);
+        _declaration = FileScopedNamespaceDeclaration(namespaceId);
     }
 
     public TypeRenderer AddType(
@@ -39,7 +39,7 @@ internal class NamespaceRenderer
         return type;
     }
 
-    public NamespaceDeclarationSyntax Render()
+    public BaseNamespaceDeclarationSyntax Render()
     {
         var members = new List<MemberDeclarationSyntax>();
         members.AddRange(_renderingTypes.Select(type => type.Render()));
