@@ -569,10 +569,15 @@ public static class TestsRenderer
                     .Select(arg => arg.ParameterType)
                     .Any(type => type.IsPointer);
             var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
+            var attributes =
+                RenderAttributeList(
+                    RenderAttribute("Test"),
+                    RenderAttribute("Category", "Generated")
+                );
 
             var testRenderer = generatedClass.AddMethod(
                 testName + suitTypeName,
-                RenderAttributeList("Test"),
+                attributes,
                 modifiers,
                 generatedClass.VoidType,
                 System.Array.Empty<(TypeSyntax, string)>()
