@@ -10,7 +10,8 @@ internal class TypeRenderer : CodeRenderer
 {
     private readonly IdentifiersCache _cache;
     private readonly IReferenceManager _referenceManager;
-    private readonly TypeDeclarationSyntax _declaration;
+    private TypeDeclarationSyntax _declaration;
+    private bool _finished;
     private readonly List<FieldDeclarationSyntax> _fields = new ();
     private readonly List<MethodRenderer> _renderingMethods = new ();
 
@@ -29,6 +30,8 @@ internal class TypeRenderer : CodeRenderer
         _cache = new IdentifiersCache(cache);
         // Remembering referenceManager
         _referenceManager = referenceManager;
+        // Marking, that type was not already rendered
+        _finished = false;
         // Creating type declaration
         TypeId = typeId;
         if (isStruct)
@@ -162,11 +165,27 @@ internal class TypeRenderer : CodeRenderer
         return method;
     }
 
+    public TypeDeclarationSyntax? RenderedType => _finished ? _declaration : null;
+
     public TypeDeclarationSyntax Render()
     {
+        if (_finished)
+            throw new InvalidOperationException(
+                "TypeRenderer: could not render type twice");
+
         var members = new List<MemberDeclarationSyntax>();
         members.AddRange(_fields);
-        members.AddRange(_renderingMethods.Select(method => method.Render()));
-        return _declaration.WithMembers(List(members));
+
+        foreach (var renderingMethod in _renderingMethods)
+        {
+            var result = renderingMethod.RenderedMethod;
+            if (result != null)
+                members.Add(result);
+        }
+
+        _declaration = _declaration.WithMembers(List(members));
+        _finished = true;
+
+        return _declaration;
     }
 }

@@ -28,13 +28,23 @@ internal interface IBlock
     BlockSyntax Render();
 }
 
+// After creating method, 'Render()' should be called
+// Otherwise it will not be added to declaring type
 internal class MethodRenderer : CodeRenderer
 {
     private BaseMethodDeclarationSyntax _declaration;
+    private bool _finished;
+    private readonly IBlock _body;
 
     public IdentifierNameSyntax[] ParametersIds { get; }
     public SimpleNameSyntax MethodId { get; }
-    public IBlock Body { get; }
+
+    // TODO: allow method mutation after render?
+    public IBlock Body =>
+        !_finished
+            ? _body
+            : throw new InvalidOperationException(
+                "MethodRenderer: could not change method body after it was rendered");
 
     public MethodRenderer(
         IdentifiersCache cache,
@@ -52,6 +62,8 @@ internal class MethodRenderer : CodeRenderer
         var methodIdCache = new IdentifiersCache(cache);
         // Creating rendered objects cache
         var methodObjectsCache = new Dictionary<physicalAddress, ExpressionSyntax>();
+        // Marking, that method was not already rendered
+        _finished = false;
         // Creating method declaration
         MethodId = methodId;
         if (isConstructor)
@@ -102,7 +114,7 @@ internal class MethodRenderer : CodeRenderer
             _declaration
                 .AddModifiers(modifiers)
                 .WithParameterList(parameterList);
-        Body = new BlockBuilder(methodIdCache, referenceManager, methodObjectsCache);
+        _body = new BlockBuilder(methodIdCache, referenceManager, methodObjectsCache);
     }
 
     public void CallBaseConstructor(IEnumerable<ExpressionSyntax> args)
@@ -131,9 +143,23 @@ internal class MethodRenderer : CodeRenderer
         return ParametersIds;
     }
 
+    // This method is called only after rendering
+    internal BaseMethodDeclarationSyntax? RenderedMethod =>
+        _finished ? _declaration : null;
+
+    // This method should be invoked just once
     public BaseMethodDeclarationSyntax Render()
     {
-        return _declaration.WithBody(Body.Render());
+        // If method was already rendered, throwing exception
+        if (_finished)
+            throw new InvalidOperationException(
+                "MethodRenderer: could not render method twice");
+
+        // Otherwise remembering result and returning it
+        _declaration = _declaration.WithBody(Body.Render());
+        _finished = true;
+
+        return _declaration;
     }
 
     private class BlockBuilder : CodeRenderer, IBlock
