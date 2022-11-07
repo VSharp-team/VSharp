@@ -1,4 +1,3 @@
-using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
@@ -19,6 +18,7 @@ internal interface IBlock
     void AddAssertEqual(ExpressionSyntax x, ExpressionSyntax y);
     void AddAssert(ExpressionSyntax condition);
     void AddTryCatch(BlockSyntax tryBlock, TypeSyntax catchType, IdentifierNameSyntax exVar, BlockSyntax catchBlock);
+    void AddTryCatch(BlockSyntax tryBlock, BlockSyntax catchBlock);
     void AddIf(ExpressionSyntax condition, StatementSyntax thenBranch, StatementSyntax? elseBranch = null);
     void AddFor(TypeSyntax? type, IdentifierNameSyntax iterator, ExpressionSyntax condition, ExpressionSyntax increment, BlockSyntax forBody);
     void AddFor(TypeSyntax? type, IdentifierNameSyntax iterator, ExpressionSyntax length, BlockSyntax forBody);
@@ -32,7 +32,7 @@ internal interface IBlock
 
 internal class MethodRenderer
 {
-    private readonly MethodDeclarationSyntax _declaration;
+    private readonly BaseMethodDeclarationSyntax _declaration;
 
     public IdentifierNameSyntax[] ParametersIds { get; }
     public SimpleNameSyntax MethodId { get; }
@@ -43,14 +43,37 @@ internal class MethodRenderer
         SimpleNameSyntax methodId,
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
+        bool isConstructor,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
         params (TypeSyntax, string)[] args)
     {
+        // Creating identifiers cache
         var methodCache = new IdentifiersCache(cache);
         // Creating method declaration
         MethodId = methodId;
-        _declaration = MethodDeclaration(resultType, methodId.Identifier);
+        if (isConstructor)
+        {
+            _declaration = ConstructorDeclaration(methodId.Identifier);
+        }
+        else
+        {
+            var methodDecl = MethodDeclaration(resultType, methodId.Identifier);
+            if (generics != null)
+            {
+                var typeVars =
+                    TypeParameterList(
+                        SeparatedList(
+                            generics.Select(generic =>
+                                TypeParameter(generic.Identifier)
+                            )
+                        )
+                    );
+                methodDecl = methodDecl.WithTypeParameterList(typeVars);
+            }
+            _declaration = methodDecl;
+        }
+
         if (attributes != null)
             _declaration = _declaration.AddAttributeLists(attributes);
         var parameters = new ParameterSyntax[args.Length];
@@ -67,19 +90,6 @@ internal class MethodRenderer
                 SeparatedList<ParameterSyntax>()
                     .AddRange(parameters)
             );
-        if (generics != null)
-        {
-            var typeVars =
-                TypeParameterList(
-                    SeparatedList(
-                        generics.Select(generic =>
-                            TypeParameter(generic.Identifier)
-                        )
-                    )
-                );
-            _declaration = _declaration.WithTypeParameterList(typeVars);
-        }
-
         _declaration =
             _declaration
                 .AddModifiers(modifiers)
@@ -155,13 +165,23 @@ internal class MethodRenderer
             _statements.Add(ExpressionStatement(RenderAssert(condition)));
         }
 
-        public void AddTryCatch(BlockSyntax tryBlock, TypeSyntax catchType, IdentifierNameSyntax exVar, BlockSyntax catchBlock)
+        private void AddTryCatch(BlockSyntax tryBlock, CatchDeclarationSyntax? declaration, BlockSyntax catchBlock)
         {
-            var declaration = CatchDeclaration(catchType, exVar.Identifier);
             var catchClause = CatchClause(declaration, null, catchBlock);
             var clauses = SingletonList(catchClause);
             var tryCatchBlock = TryStatement(tryBlock, clauses, null);
             _statements.Add(tryCatchBlock);
+        }
+
+        public void AddTryCatch(BlockSyntax tryBlock, BlockSyntax catchBlock)
+        {
+            AddTryCatch(tryBlock, null, catchBlock);
+        }
+
+        public void AddTryCatch(BlockSyntax tryBlock, TypeSyntax catchType, IdentifierNameSyntax exVar, BlockSyntax catchBlock)
+        {
+            var declaration = CatchDeclaration(catchType, exVar.Identifier);
+            AddTryCatch(tryBlock, declaration, catchBlock);
         }
 
         public void AddIf(ExpressionSyntax condition, StatementSyntax thenBranch, StatementSyntax? elseBranch = null)
@@ -237,11 +257,10 @@ internal class MethodRenderer
             _statements.Add(ReturnStatement(whatToReturn));
         }
 
-        private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
+        private ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array obj, string? preferredName)
         {
             // TODO: use compact array representation, if array is big enough?
             var rank = obj.Rank;
-            var type = (ArrayTypeSyntax) RenderType(obj.GetType());
             Debug.Assert(type != null);
             var initializer = new List<ExpressionSyntax>();
             if (rank > 1)
@@ -259,6 +278,12 @@ internal class MethodRenderer
             }
 
             return RenderArrayCreation(type, initializer);
+        }
+
+        private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
+        {
+            var type = (ArrayTypeSyntax) RenderType(obj.GetType());
+            return RenderArray(type, obj, preferredName);
         }
 
         private ExpressionSyntax RenderCompactVector(
@@ -392,6 +417,31 @@ internal class MethodRenderer
             return objId;
         }
 
+        private ExpressionSyntax RenderMock(object obj, string? preferredName)
+        {
+            var typeOfMock = obj.GetType();
+            var storageField =
+                typeOfMock.GetFields(BindingFlags.Static | BindingFlags.NonPublic)
+                    .First(f => f.Name.Contains("Storage"));
+            var storage = storageField.GetValue(null) as global::System.Array;
+            Debug.Assert(storage != null);
+            var mockInfo = GetMockInfo(obj.GetType().Name);
+            var mockType = mockInfo.MockName;
+            var empty = System.Array.Empty<ExpressionSyntax>();
+            var allocator = RenderObjectCreation(AllocatorType(mockType), empty, empty);
+            var resultObject = RenderMemberAccess(allocator, AllocatorObject);
+            var mockId = AddDecl(preferredName ?? "mock", mockType, resultObject);
+            foreach (var (valuesType, setupMethod) in mockInfo.MethodsInfo)
+            {
+                var values = RenderArray(valuesType, storage, "values");
+                var renderedValues =
+                    storage.Length <= 5 ? values : AddDecl("values", null, values);
+                AddExpression(RenderCall(mockId, setupMethod, renderedValues));
+            }
+
+            return mockId;
+        }
+
         public ExpressionSyntax RenderObject(object? obj, string? preferredName) => obj switch
         {
             null => RenderNull(),
@@ -406,7 +456,14 @@ internal class MethodRenderer
             uint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             long n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             ulong n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-            float n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            float.NaN => RenderNaN(RenderType(typeof(float))),
+            double.NaN => RenderNaN(RenderType(typeof(double))),
+            float.Epsilon => RenderEpsilon(RenderType(typeof(float))),
+            double.Epsilon => RenderEpsilon(RenderType(typeof(double))),
+            float.PositiveInfinity => RenderPosInfinity(RenderType(typeof(float))),
+            double.PositiveInfinity => RenderPosInfinity(RenderType(typeof(double))),
+            float.NegativeInfinity => RenderNegInfinity(RenderType(typeof(float))),
+            double.NegativeInfinity => RenderNegInfinity(RenderType(typeof(double))),
             double n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             decimal n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
@@ -417,6 +474,7 @@ internal class MethodRenderer
             Enum e => RenderEnum(e),
             Pointer => throw new NotImplementedException("RenderObject: implement rendering of pointers"),
             ValueType => RenderFields(obj, preferredName),
+            _ when HasMockInfo(obj.GetType().Name) => RenderMock(obj, preferredName),
             _ when obj.GetType().IsClass => RenderFields(obj, preferredName),
             _ => throw new NotImplementedException($"RenderObject: unexpected object {obj}")
         };
@@ -439,7 +497,7 @@ internal class MethodRenderer
         return (ParametersIds[0], ParametersIds[1]);
     }
 
-    public MethodDeclarationSyntax Render()
+    public BaseMethodDeclarationSyntax Render()
     {
         return _declaration.WithBody(Body.Render());
     }
