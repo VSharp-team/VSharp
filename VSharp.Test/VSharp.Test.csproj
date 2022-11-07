@@ -42,6 +42,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
+      <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
@@ -53,6 +54,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <Folder Include="GeneratedTests" Condition="Exists('GeneratedTests')" />
       <Folder Include="Tests\LoanExam\Models" />
     </ItemGroup>
 
