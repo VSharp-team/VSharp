@@ -202,8 +202,10 @@ public static class TestsRenderer
         }
     }
 
-    public static SyntaxNode Format(SyntaxNode node)
+    public static SyntaxNode? Format(SyntaxNode? node)
     {
+        if (node == null) return null;
+
         var normalized = node.NormalizeWhitespace();
         var myRewriter = new IndentsRewriter();
         var formatted = myRewriter.Visit(normalized);
@@ -384,6 +386,7 @@ public static class TestsRenderer
                 );
             mainBlock.AddExpression(assertThrows);
         }
+        test.Render();
         MethodsFormat[test.MethodId.ToString()] = f;
     }
 
@@ -414,6 +417,7 @@ public static class TestsRenderer
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
         setupBody.AddExpression(RenderAssignment(valuesField, valuesArg));
+        setupMethod.Render();
 
         var mockedMethod = mock.AddMethod(m);
         var body = mockedMethod.Body;
@@ -437,6 +441,7 @@ public static class TestsRenderer
         var validCase =
             RenderArrayAccess(valuesField, new ExpressionSyntax[] { fieldWithIncrement });
         body.AddReturn(validCase);
+        mockedMethod.Render();
 
         return (returnType, setupMethod.MethodId);
     }
@@ -464,7 +469,8 @@ public static class TestsRenderer
             );
         if (isStruct)
         {
-            mock.AddConstructor(null, new[] { Public });
+            var ctor = mock.AddConstructor(null, new[] { Public });
+            ctor.Render();
         }
         else if (baseType != null && baseType.GetConstructor(Type.EmptyTypes) == null)
         {
@@ -480,6 +486,7 @@ public static class TestsRenderer
             var ctorRenderer = mock.AddMethod(ctor);
             var args = ctorRenderer.GetArgs();
             ctorRenderer.CallBaseConstructor(args);
+            ctorRenderer.Render();
         }
         var methodsInfo = new List<(ArrayTypeSyntax, SimpleNameSyntax)>();
         foreach (var method in typeMock.Methods)
@@ -518,54 +525,56 @@ public static class TestsRenderer
             );
 
         var mocksProgram = new ProgramRenderer(namespaceName);
-        var mockedTypes = new List<MemberDeclarationSyntax>();
         foreach (var test in tests)
         {
-            // Rendering mocked types
-            foreach (var mock in test.TypeMocks)
+            try
             {
-                var renderedMock = RenderMockedType(mocksProgram, mock);
-                if (renderedMock != null)
-                    mockedTypes.Add(renderedMock);
-            }
-            // Rendering test
-            var method = test.Method;
-            var parameters = test.Args ?? method.GetParameters()
-                .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
-            var thisArg = test.ThisArg;
-            if (thisArg == null && !method.IsStatic)
-                thisArg = Reflection.createObject(method.DeclaringType);
-            string suitTypeName = test.IsError ? "Error" : "Test";
+                // Rendering mocked types
+                foreach (var mock in test.TypeMocks)
+                    RenderMockedType(mocksProgram, mock);
 
-            var testName = NameForMethod(method);
-            bool isUnsafe =
-                Reflection.getMethodReturnType(method).IsPointer || method.GetParameters()
-                    .Select(arg => arg.ParameterType)
-                    .Any(type => type.IsPointer);
-            var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
-            var attributes =
-                RenderAttributeList(
-                    RenderAttribute("Test"),
-                    RenderAttribute("Category", "Generated")
+                // Rendering test
+                var method = test.Method;
+                var parameters = test.Args ?? method.GetParameters()
+                    .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
+                var thisArg = test.ThisArg;
+                if (thisArg == null && !method.IsStatic)
+                    thisArg = Reflection.createObject(method.DeclaringType);
+                string suitTypeName = test.IsError ? "Error" : "Test";
+
+                var testName = NameForMethod(method);
+                bool isUnsafe =
+                    Reflection.getMethodReturnType(method).IsPointer || method.GetParameters()
+                        .Select(arg => arg.ParameterType)
+                        .Any(type => type.IsPointer);
+                var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
+                var attributes =
+                    RenderAttributeList(
+                        RenderAttribute("Test"),
+                        RenderAttribute("Category", "Generated")
+                    );
+
+                var testRenderer = generatedClass.AddMethod(
+                    testName + suitTypeName,
+                    attributes,
+                    modifiers,
+                    generatedClass.VoidType,
+                    System.Array.Empty<(TypeSyntax, string)>()
                 );
-
-            var testRenderer = generatedClass.AddMethod(
-                testName + suitTypeName,
-                attributes,
-                modifiers,
-                generatedClass.VoidType,
-                System.Array.Empty<(TypeSyntax, string)>()
-            );
-            RenderTest(testRenderer, method, parameters, thisArg, test.IsError,
-                wrapErrors, test.Exception, test.Expected);
+                RenderTest(testRenderer, method, parameters, thisArg, test.IsError,
+                    wrapErrors, test.Exception, test.Expected);
+            }
+            catch (Exception e)
+            {
+                Logger.writeLineString(Logger.Error, $"Tests renderer: rendering test failed: {e}");
+            }
         }
+        generatedClass.Render();
 
-        var mockedTypesArray = mockedTypes.ToArray();
-        SyntaxNode? renderedMocksProgram = null;
-        if (mockedTypesArray.Length > 0)
-            renderedMocksProgram = Format(mocksProgram.Render());
-
-        SyntaxNode renderedTestsProgram = Format(testsProgram.Render());
+        var renderedMocksProgram = Format(mocksProgram.Render());
+        var renderedTestsProgram = Format(testsProgram.Render());
+        if (renderedTestsProgram == null)
+            throw new Exception("Tests renderer: no tests were generated!");
 
         return (renderedTestsProgram, renderedMocksProgram, typeName);
     }

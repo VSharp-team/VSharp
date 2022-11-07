@@ -72,10 +72,20 @@ internal class ProgramRenderer
         return type;
     }
 
-    public CompilationUnitSyntax Render()
+    public CompilationUnitSyntax? Render()
     {
         var members = new List<MemberDeclarationSyntax>();
-        members.AddRange(_renderingTypes.Select(type => type.Render()));
+
+        foreach (var renderingType in _renderingTypes)
+        {
+            var result = renderingType.RenderedType;
+            if (result != null)
+                members.Add(result);
+        }
+
+        if (members.Count == 0)
+            return null;
+
         var renderedNamespace = _namespace.WithMembers(List(members));
         return
             CompilationUnit()
@@ -83,6 +93,7 @@ internal class ProgramRenderer
                 .AddMembers(renderedNamespace);
     }
 
+    // TODO: if type or method was not rendered, exclude it's usings
     private class ReferenceManager : IReferenceManager
     {
         // Needed usings

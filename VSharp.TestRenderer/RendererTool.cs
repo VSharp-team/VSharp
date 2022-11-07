@@ -406,6 +406,26 @@ public static class Renderer
         return UnitTest.DeserializeFromTestInfo(ti, true);
     }
 
+    private static List<UnitTest> DeserializeTests(
+        IEnumerable<FileInfo> tests,
+        AssemblyLoadContext? assemblyLoadContext)
+    {
+        var deserializedTests = new List<UnitTest>();
+        foreach (var test in tests)
+        {
+            try
+            {
+                deserializedTests.Add(DeserializeTest(test, assemblyLoadContext));
+            }
+            catch (Exception e)
+            {
+                Logger.writeLineString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
+            }
+        }
+
+        return deserializedTests;
+    }
+
     private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests,
         Type? declaringType,
@@ -414,8 +434,7 @@ public static class Renderer
     {
         AssemblyResolver.AddResolve(assemblyLoadContext);
 
-        var unitTests =
-            tests.Select(test => DeserializeTest(test, assemblyLoadContext)).ToList();
+        var unitTests = DeserializeTests(tests, assemblyLoadContext);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
         Assembly testAssembly = unitTests.First().Method.Module.Assembly;

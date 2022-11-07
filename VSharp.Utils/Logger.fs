@@ -19,7 +19,7 @@ module Logger =
         | 4 -> "Trace"
         | _ -> "Unknown"
 
-    let private writeLineString vLevel message =
+    let public writeLineString vLevel message =
         let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()
