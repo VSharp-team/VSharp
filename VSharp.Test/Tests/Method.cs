@@ -136,6 +136,16 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
+        public static IMovable MakeVirtualMove1(Pawn p, Coord c)
+        {
+            if (p is not Pawn)
+            {
+                p.MakeMove(c);
+            }
+            return p;
+        }
+
+        [TestSvm(100)]
         public static IMovable MakeInterfaceMove(IMovable p, Coord c)
         {
             return p?.MakeMove(c);
