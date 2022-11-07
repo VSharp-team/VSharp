@@ -163,11 +163,13 @@ public static class Renderer
         {
             case MethodDeclarationSyntax method:
             {
-                return $"{method.ReturnType}{method.TypeParameterList}{method.Identifier}{method.ParameterList}";
+                return
+                    $"{method.ExplicitInterfaceSpecifier}{method.ReturnType}" +
+                    $"{method.TypeParameterList}{method.Identifier}{method.ParameterList}";
             }
             case ConstructorDeclarationSyntax ctor:
             {
-                return ctor.Identifier.ToString() + ctor.ParameterList.ToString();
+                return $"{ctor.Identifier}{ctor.ParameterList}";
             }
             case FieldDeclarationSyntax field:
             {
@@ -189,8 +191,7 @@ public static class Renderer
         TypeDeclarationSyntax newType)
     {
         var oldMembers = oldType.Members;
-        var count = oldMembers.Count;
-        if (count == 0)
+        if (oldMembers.Count == 0)
             return null;
 
         var dictWithMembers = new Dictionary<string, MemberDeclarationSyntax>();
@@ -205,10 +206,18 @@ public static class Renderer
             dictWithMembers[key] = newMember;
         }
 
-        var members = dictWithMembers.Values.ToList();
-        if (members.Count > count)
-            members[count - 1] = members[count - 1].WithTrailingTrivia(LineFeed, LineFeed);
+        var values = dictWithMembers.Values;
+        var offset = TestsRenderer.LastOffset(values.First());
 
+        var members =
+            values
+                .Select(m =>
+                    m is FieldDeclarationSyntax
+                        ? m.WithLeadingTrivia(offset).WithTrailingTrivia(LineFeed)
+                        : m.WithLeadingTrivia(offset).WithTrailingTrivia(LineFeed, LineFeed)
+                ).ToList();
+        var count = members.Count;
+        members[count - 1] = members[count - 1].WithTrailingTrivia(LineFeed);
         return oldType.WithMembers(List(members));
     }
 
@@ -247,7 +256,30 @@ public static class Renderer
             }
         }
 
-        return dictWithMembers.Values;
+        var types =
+            dictWithMembers.Values
+                .Select(t => t.WithLeadingTrivia(LineFeed).WithTrailingTrivia(LineFeed));
+        return types;
+    }
+
+    private static IEnumerable<UsingDirectiveSyntax> MergeUsings(
+        IEnumerable<UsingDirectiveSyntax> oldUsigns,
+        IEnumerable<UsingDirectiveSyntax> newUsings)
+    {
+        var mergedUsigns = oldUsigns.ToList();
+        var count = mergedUsigns.Count;
+        var oldUsingsStr = mergedUsigns.Select(u => u.Name.ToString()).ToHashSet();
+
+        foreach (var newUsing in newUsings)
+        {
+            if (!oldUsingsStr.Contains(newUsing.Name.ToString()))
+                mergedUsigns.Add(newUsing);
+        }
+
+        if (mergedUsigns.Count > count)
+            mergedUsigns[^1] = mergedUsigns[^1].WithTrailingTrivia(LineFeed);
+
+        return mergedUsigns;
     }
 
     private static void AddRenderedInFile(string testFilePath, SyntaxNode compilation)
@@ -259,16 +291,8 @@ public static class Renderer
             var oldComp = CSharpSyntaxTree.ParseText(programText).GetCompilationUnitRoot();
             var newComp = compilation as CompilationUnitSyntax;
             Debug.Assert(newComp != null);
-            var oldUsings = oldComp.Usings.ToList();
-            var count = oldUsings.Count;
-            var oldUsingsStr = oldUsings.Select(u => u.Name.ToString()).ToHashSet();
-            foreach (var newUsing in newComp.Usings)
-            {
-                if (!oldUsingsStr.Contains(newUsing.Name.ToString()))
-                    oldUsings.Add(newUsing);
-            }
-            if (oldUsings.Count > count)
-                oldUsings[^1] = oldUsings[^1].WithTrailingTrivia(LineFeed);
+
+            var mergedUsings = MergeUsings(oldComp.Usings, newComp.Usings);
 
             var oldMembers = oldComp.Members;
             var newMembers = newComp.Members;
@@ -278,11 +302,12 @@ public static class Renderer
                 return;
             }
             Debug.Assert(oldMembers.Count == 1 && newMembers.Count == 1);
-            var oldNamespace = oldMembers[0] as NamespaceDeclarationSyntax;
-            var newNamespace = newMembers[0] as NamespaceDeclarationSyntax;
+            var oldNamespace = oldMembers[0] as BaseNamespaceDeclarationSyntax;
+            var newNamespace = newMembers[0] as BaseNamespaceDeclarationSyntax;
             Debug.Assert(oldNamespace != null && newNamespace != null &&
                 newNamespace.Name.ToString() == oldNamespace.Name.ToString());
-            var types = MergeTypes(oldNamespace.Members, newNamespace.Members);
+            var types =
+                MergeTypes(oldNamespace.Members, newNamespace.Members);
             if (types == null)
             {
                 WriteCompInFile(testFilePath, compilation);
@@ -290,7 +315,7 @@ public static class Renderer
             }
 
             oldNamespace = oldNamespace.WithMembers(List(types));
-            oldComp = oldComp.WithUsings(List(oldUsings));
+            oldComp = oldComp.WithUsings(List(mergedUsings));
             // TODO: use Format from TestsRenderer? (safer for indents, but slower)
             compilation = oldComp.WithMembers(SingletonList<MemberDeclarationSyntax>(oldNamespace));
         }
@@ -309,7 +334,6 @@ public static class Renderer
         return UnitTest.DeserializeFromTestInfo(ti, true);
     }
 
-
     private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests, Type? declaringType, bool wrapErrors = false)
     {
@@ -324,8 +348,24 @@ public static class Renderer
         return (testsProgram, mocksProgram, typeName, testAssembly);
     }
 
+    // Writing generated tests and mocks to files
+    private static void WriteResults(
+        DirectoryInfo outputDir,
+        string typeName,
+        SyntaxNode testsProgram,
+        SyntaxNode? mocksProgram)
+    {
+        var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
+        AddRenderedInFile(testFilePath, testsProgram);
+        if (mocksProgram != null)
+        {
+            var mocksFilePath = Path.Combine(outputDir.FullName, "Mocks.cs");
+            AddRenderedInFile(mocksFilePath, mocksProgram);
+        }
+    }
+
     // API method for Rider extension
-    public static void Render(
+    public static DirectoryInfo Render(
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
         Type declaringType,
@@ -335,15 +375,10 @@ public static class Renderer
 
         var outputDir = testingProject.Directory?.Parent;
         Debug.Assert(outputDir != null && outputDir.Exists);
-        GenerateTestProject(outputDir, testingProject, solutionForTests);
+        var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
+        WriteResults(outputDir, typeName, testsProgram, mocksProgram);
 
-        var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
-        AddRenderedInFile(testFilePath, testsProgram);
-        if (mocksProgram != null)
-        {
-            var mocksFilePath = Path.Combine(outputDir.FullName, $"{typeName}Mocks.cs");
-            AddRenderedInFile(mocksFilePath, mocksProgram);
-        }
+        return testProjectPath;
     }
 
     // API method for VSharp
@@ -370,12 +405,6 @@ public static class Renderer
             outputDir = GenerateTestProject(outputDir, new FileInfo(assembly.Location), null);
         }
 
-        var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
-        AddRenderedInFile(testFilePath, testsProgram);
-        if (mocksProgram != null)
-        {
-            var mocksFilePath = Path.Combine(outputDir.FullName, "Mocks.cs");
-            AddRenderedInFile(mocksFilePath, mocksProgram);
-        }
+        WriteResults(outputDir, typeName, testsProgram, mocksProgram);
     }
 }

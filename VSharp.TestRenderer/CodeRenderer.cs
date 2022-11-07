@@ -222,6 +222,17 @@ internal static class CodeRenderer
         return ParseTypeName(typeName);
     }
 
+    public static NameSyntax RenderTypeName(Type type)
+    {
+        if (type.IsGenericType)
+        {
+            var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
+            return RenderGenericName(type.Name, typeArgs);
+        }
+
+        return IdentifierName(type.Name);
+    }
+
     public static ExpressionSyntax RenderMethod(MethodBase method)
     {
         Assemblies.Add(method.Module.Assembly);
@@ -276,7 +287,7 @@ internal static class CodeRenderer
     public static readonly TypeSyntax ModuleType = RenderType(typeof(Module));
     public static readonly TypeSyntax AssemblyType = RenderType(typeof(Assembly));
     public static readonly TypeSyntax SystemType = RenderType(typeof(Type));
-    public static readonly TypeSyntax SystemArray = RenderType(typeof(Array));
+    public static readonly TypeSyntax SystemArray = RenderType(typeof(System.Array));
 
     public static TypeSyntax AllocatorType(TypeSyntax typeArg)
     {
@@ -286,7 +297,7 @@ internal static class CodeRenderer
 
     public static TypeSyntax AllocatorType()
     {
-        return RenderType(typeof(Allocator<>));
+        return RenderType(typeof(Allocator));
     }
 
     // Prerendered tokens
@@ -349,6 +360,36 @@ internal static class CodeRenderer
                 SyntaxKind.SuppressNullableWarningExpression,
                 LiteralExpression(SyntaxKind.NullLiteralExpression)
             );
+    }
+
+    public static ExpressionSyntax RenderByte(byte n, bool explicitType = false)
+    {
+        var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
+        return explicitType ? CastExpression(RenderType(typeof(byte)), literal) : literal;
+    }
+
+    public static ExpressionSyntax RenderSByte(sbyte n, bool explicitType = false)
+    {
+        var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
+        return explicitType ? CastExpression(RenderType(typeof(sbyte)), literal) : literal;
+    }
+
+    public static ExpressionSyntax RenderChar(char c, bool explicitType = false)
+    {
+        var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(c));
+        return explicitType ? CastExpression(RenderType(typeof(char)), literal) : literal;
+    }
+
+    public static ExpressionSyntax RenderShort(short n, bool explicitType = false)
+    {
+        var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
+        return explicitType ? CastExpression(RenderType(typeof(short)), literal) : literal;
+    }
+
+    public static ExpressionSyntax RenderUShort(ushort n, bool explicitType = false)
+    {
+        var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n));
+        return explicitType ? CastExpression(RenderType(typeof(ushort)), literal) : literal;
     }
 
     // Type is Double or Single
@@ -421,7 +462,10 @@ internal static class CodeRenderer
             );
     }
 
-    public static ArrayCreationExpressionSyntax RenderArrayCreation(ArrayTypeSyntax type, IEnumerable<ExpressionSyntax>? init)
+    public static ExpressionSyntax RenderArrayCreation(
+        ArrayTypeSyntax type,
+        IEnumerable<ExpressionSyntax>? init,
+        bool allowImplicit)
     {
         InitializerExpressionSyntax? initializer = null;
         if (init != null)
@@ -430,12 +474,15 @@ internal static class CodeRenderer
                     SyntaxKind.ArrayInitializerExpression,
                     SeparatedList(init)
                 );
-        return
-            ArrayCreationExpression(
-                Token(SyntaxKind.NewKeyword),
-                type,
-                initializer
-            );
+
+        ExpressionSyntax array;
+        if (allowImplicit && initializer != null)
+            // TODO: update for multidimensional arrays (use .WithCommas)
+            array = ImplicitArrayCreationExpression(initializer);
+        else
+            array = ArrayCreationExpression(Token(SyntaxKind.NewKeyword), type, initializer);
+
+        return array;
     }
 
     public static ElementAccessExpressionSyntax RenderArrayAccess(
@@ -769,7 +816,7 @@ internal static class CodeRenderer
     }
 
     public static CompilationUnitSyntax RenderProgram(
-        NamespaceDeclarationSyntax renderedNamespace)
+        BaseNamespaceDeclarationSyntax renderedNamespace)
     {
         return
             CompilationUnit()

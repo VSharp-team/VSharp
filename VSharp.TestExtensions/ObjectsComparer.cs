@@ -52,6 +52,9 @@ public static class ObjectsComparer
         if (type != got.GetType())
             return false;
 
+        if (Object.ReferenceEquals(expected, got))
+            return true;
+
         if (type == typeof(Pointer) || type.IsPrimitive || expected is string || type.IsEnum)
         {
             // TODO: compare double with epsilon?
