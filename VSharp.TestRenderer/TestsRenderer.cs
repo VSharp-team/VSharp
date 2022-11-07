@@ -267,7 +267,7 @@ public static class TestsRenderer
     private static string NameForMethod(MethodBase method)
     {
         if (method.IsConstructor)
-            return $"{InternalCodeRenderer.RenderType(method.DeclaringType)}Constructor";
+            return $"{NameForType(method.DeclaringType)}Constructor";
 
         if (IsGetPropertyMethod(method, out var testName))
             return $"Get{testName}";
