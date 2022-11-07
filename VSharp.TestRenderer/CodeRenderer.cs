@@ -11,31 +11,31 @@ namespace VSharp.TestRenderer;
 internal static class CodeRenderer
 {
     // Needed usings
-    private static readonly HashSet<string> usings = new ();
+    private static readonly HashSet<string> Usings = new ();
 
     // Needed static usings
-    private static readonly HashSet<string> staticUsings = new ();
+    private static readonly HashSet<string> StaticUsings = new ();
 
     // Used assemblies
-    private static readonly HashSet<Assembly> assemblies = new ();
+    private static readonly HashSet<Assembly> Assemblies = new ();
 
     private static UsingDirectiveSyntax[] ProgramUsings()
     {
-        var nonStaticElems = usings.Select(x =>
+        var nonStaticElems = Usings.Select(x =>
             UsingDirective(ParseName(x)));
-        var staticElems = staticUsings.Select(x =>
+        var staticElems = StaticUsings.Select(x =>
             UsingDirective(Static, null, ParseName(x)));
         return nonStaticElems.Concat(staticElems).ToArray();
     }
 
     public static void AddNUnit()
     {
-        usings.Add("NUnit.Framework");
+        Usings.Add("NUnit.Framework");
     }
 
     public static void AddTestExtensions()
     {
-        usings.Add("VSharp.TestExtensions");
+        Usings.Add("VSharp.TestExtensions");
     }
 
     private static bool _objectsComparerAdded = false;
@@ -45,22 +45,68 @@ internal static class CodeRenderer
         if (_objectsComparerAdded) return;
         var name = typeof(ObjectsComparer).FullName;
         Debug.Assert(name != null);
-        staticUsings.Add(name);
-        assemblies.Add(typeof(ObjectsComparer).Assembly);
+        StaticUsings.Add(name);
+        Assemblies.Add(typeof(ObjectsComparer).Assembly);
         _objectsComparerAdded = true;
+    }
+
+    public struct MockInfo
+    {
+        public List<(ArrayTypeSyntax, SimpleNameSyntax)> MethodsInfo;
+        public SimpleNameSyntax MockName;
+
+        public bool Equals(MockInfo mockInfo)
+        {
+            // TODO: need to compare all parts?
+            return MockName.Identifier.ToString() == mockInfo.MockName.Identifier.ToString();
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is MockInfo other)
+            {
+                return Equals(other);
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return MockName.Identifier.ToString().GetHashCode();
+        }
+    }
+
+    private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
+
+    public static void AddMockInfo(string id, MockInfo info)
+    {
+        Debug.Assert(!MocksInfo.TryGetValue(id, out var old) || Equals(old, info));
+        MocksInfo[id] = info;
+    }
+
+    public static bool HasMockInfo(string id)
+    {
+        return MocksInfo.ContainsKey(id);
+    }
+
+    public static MockInfo GetMockInfo(string id)
+    {
+        return MocksInfo[id];
     }
 
     public static void PrepareCache()
     {
         _objectsComparerAdded = false;
-        usings.Clear();
-        staticUsings.Clear();
-        assemblies.Clear();
+        Usings.Clear();
+        StaticUsings.Clear();
+        Assemblies.Clear();
+        MocksInfo.Clear();
     }
 
+    // TODO: Use this as references for test project
     public static Assembly[] UsedAssemblies()
     {
-        return assemblies.ToArray();
+        return Assemblies.ToArray();
     }
 
     public static bool IsGetPropertyMethod(MethodBase method, out string propertyName)
@@ -120,7 +166,7 @@ internal static class CodeRenderer
             );
     }
 
-    private static GenericNameSyntax RenderGenericName(string name, params TypeSyntax[] genericArgs)
+    public static GenericNameSyntax RenderGenericName(string name, params TypeSyntax[] genericArgs)
     {
         var typeArgsStart = name.IndexOf('`');
         if (typeArgsStart >= 0)
@@ -138,14 +184,17 @@ internal static class CodeRenderer
     {
         Debug.Assert(type != null);
 
-        assemblies.Add(type.Assembly);
+        Assemblies.Add(type.Assembly);
 
         if (PrimitiveTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
 
+        if (type.IsGenericParameter)
+            return ParseTypeName(type.ToString());
+
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
-            usings.Add(typeNamespace);
+            Usings.Add(typeNamespace);
 
         if (type.IsArray)
         {
@@ -153,6 +202,9 @@ internal static class CodeRenderer
             Debug.Assert(elemType != null);
             return RenderArrayType(RenderType(elemType), type.GetArrayRank());
         }
+
+        if (HasMockInfo(type.Name))
+            return GetMockInfo(type.Name).MockName;
 
         // TODO: use QualifiedName with list of types?
         string typeName = type.Name;
@@ -163,7 +215,6 @@ internal static class CodeRenderer
 
         if (type.IsGenericType)
         {
-            Debug.Assert(type.IsConstructedGenericType);
             var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
             return RenderGenericName(typeName, typeArgs);
         }
@@ -173,7 +224,7 @@ internal static class CodeRenderer
 
     public static ExpressionSyntax RenderMethod(MethodBase method)
     {
-        assemblies.Add(method.Module.Assembly);
+        Assemblies.Add(method.Module.Assembly);
         var type = method.DeclaringType;
         SimpleNameSyntax methodName = IdentifierName(method.Name);
 
@@ -204,7 +255,7 @@ internal static class CodeRenderer
 
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
-            usings.Add(typeNamespace);
+            Usings.Add(typeNamespace);
 
         // TODO: instead of usings use full name of method?
         return methodName;
@@ -240,9 +291,11 @@ internal static class CodeRenderer
 
     // Prerendered tokens
     public static readonly SyntaxToken Public = Token(SyntaxKind.PublicKeyword);
+    public static readonly SyntaxToken Internal = Token(SyntaxKind.InternalKeyword);
     public static readonly SyntaxToken Private = Token(SyntaxKind.PrivateKeyword);
     public static readonly SyntaxToken Static = Token(SyntaxKind.StaticKeyword);
     public static readonly SyntaxToken Unsafe = Token(SyntaxKind.UnsafeKeyword);
+    public static readonly SyntaxToken Override = Token(SyntaxKind.OverrideKeyword);
 
     // Prerendered expressions
     public static readonly ExpressionSyntax True = LiteralExpression(SyntaxKind.TrueLiteralExpression);
@@ -296,6 +349,30 @@ internal static class CodeRenderer
                 SyntaxKind.SuppressNullableWarningExpression,
                 LiteralExpression(SyntaxKind.NullLiteralExpression)
             );
+    }
+
+    // Type is Double or Single
+    public static ExpressionSyntax RenderNaN(TypeSyntax type)
+    {
+        return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, type, IdentifierName("NaN"));
+    }
+
+    // Type is Double or Single
+    public static ExpressionSyntax RenderEpsilon(TypeSyntax type)
+    {
+        return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, type, IdentifierName("Epsilon"));
+    }
+
+    // Type is Double or Single
+    public static ExpressionSyntax RenderPosInfinity(TypeSyntax type)
+    {
+        return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, type, IdentifierName("PositiveInfinity"));
+    }
+
+    // Type is Double or Single
+    public static ExpressionSyntax RenderNegInfinity(TypeSyntax type)
+    {
+        return MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, type, IdentifierName("NegativeInfinity"));
     }
 
     public static ExpressionSyntax RenderEnum(Enum e)
@@ -361,40 +438,44 @@ internal static class CodeRenderer
             );
     }
 
+    public static ElementAccessExpressionSyntax RenderArrayAccess(
+        ExpressionSyntax array,
+        ExpressionSyntax[] index)
+    {
+        Debug.Assert(index.Length > 0);
+        var indexArgument = BracketedArgumentList(SeparatedList(index.Select(Argument)));
+        return ElementAccessExpression(array).WithArgumentList(indexArgument);
+    }
+
     public static AssignmentExpressionSyntax RenderArrayAssignment(
         ExpressionSyntax array,
         ExpressionSyntax value,
         params int[] index)
     {
         Debug.Assert(index.Length > 0);
-        var indexArgument =
-            BracketedArgumentList(
-                SeparatedList(
-                    index.Select(elem => Argument(RenderLiteral(elem)))
-                )
-            );
+        var indices = index.Select(i => (ExpressionSyntax)RenderLiteral(i)).ToArray();
         return
             AssignmentExpression(
                 SyntaxKind.SimpleAssignmentExpression,
-                ElementAccessExpression(array).WithArgumentList(indexArgument),
+                RenderArrayAccess(array, indices),
                 value
             );
     }
 
     public static ObjectCreationExpressionSyntax RenderObjectCreation(
         TypeSyntax type,
-        ArgumentSyntax[] args,
-        ExpressionSyntax[] init)
+        ArgumentSyntax[]? args,
+        ExpressionSyntax[]? init)
     {
         InitializerExpressionSyntax? initializer = null;
         ArgumentListSyntax? argumentList = null;
 
-        if (init.Length != 0)
+        if (init != null && init.Length != 0)
         {
             initializer = InitializerExpression(SyntaxKind.ObjectInitializerExpression, SeparatedList(init));
         }
 
-        if (args.Length != 0 || init.Length == 0)
+        if (init == null || init.Length == 0 || args != null && args.Length != 0)
         {
             argumentList = ArgumentList(SeparatedList(args));
         }
@@ -410,15 +491,15 @@ internal static class CodeRenderer
 
     public static ObjectCreationExpressionSyntax RenderObjectCreation(
         TypeSyntax type,
-        ExpressionSyntax[] args,
-        ExpressionSyntax[] init)
+        ExpressionSyntax[]? args,
+        ExpressionSyntax[]? init)
     {
-        return RenderObjectCreation(type, args.Select(Argument).ToArray(), init);
+        return RenderObjectCreation(type, args?.Select(Argument).ToArray(), init);
     }
 
     public static ObjectCreationExpressionSyntax RenderObjectCreation(
         TypeSyntax type,
-        ExpressionSyntax[] args,
+        ExpressionSyntax[]? args,
         (ExpressionSyntax, ExpressionSyntax)[] init)
     {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
@@ -533,6 +614,8 @@ internal static class CodeRenderer
             {
                 if (parameterInfo.IsOut)
                     functionArgs[i] = arg.WithRefOrOutKeyword(Token(SyntaxKind.OutKeyword));
+                else if (parameterInfo.IsIn)
+                    functionArgs[i] = arg.WithRefOrOutKeyword(Token(SyntaxKind.InKeyword));
                 else
                     functionArgs[i] = arg.WithRefOrOutKeyword(Token(SyntaxKind.RefKeyword));
             }
@@ -601,11 +684,22 @@ internal static class CodeRenderer
         return RenderCall(function, args);
     }
 
-    public static InvocationExpressionSyntax RenderCall(string memberOf, string memberName, TypeSyntax[] genericArgs, params ExpressionSyntax[] args)
+    public static InvocationExpressionSyntax RenderCall(ExpressionSyntax memberOf, SimpleNameSyntax member, params ExpressionSyntax[] args)
+    {
+        var function = RenderMemberAccess(memberOf, member);
+        return RenderCall(function, args);
+    }
+
+    public static InvocationExpressionSyntax RenderCall(ExpressionSyntax memberOf, string memberName, TypeSyntax[] genericArgs, params ExpressionSyntax[] args)
     {
         var member = RenderGenericName(memberName, genericArgs);
-        var function = RenderMemberAccess(IdentifierName(memberOf), member);
+        var function = RenderMemberAccess(memberOf, member);
         return RenderCall(function, args);
+    }
+
+    public static InvocationExpressionSyntax RenderCall(string memberOf, string memberName, TypeSyntax[] genericArgs, params ExpressionSyntax[] args)
+    {
+        return RenderCall(IdentifierName(memberOf), memberName, genericArgs, args);
     }
 
     public static LiteralExpressionSyntax RenderLiteral(string? literal)
@@ -675,12 +769,8 @@ internal static class CodeRenderer
     }
 
     public static CompilationUnitSyntax RenderProgram(
-        string namespaceName,
-        params MemberDeclarationSyntax[] renderedClasses)
+        NamespaceDeclarationSyntax renderedNamespace)
     {
-        var renderedNamespace =
-            NamespaceDeclaration(IdentifierName(namespaceName))
-                .AddMembers(renderedClasses);
         return
             CompilationUnit()
                 .AddUsings(ProgramUsings())
