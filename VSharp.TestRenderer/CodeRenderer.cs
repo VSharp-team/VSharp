@@ -721,6 +721,24 @@ internal class CodeRenderer
         return LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(literal));
     }
 
+    public static AttributeSyntax RenderAttribute(string name, params string[] args)
+    {
+        var attribute = Attribute(IdentifierName(name));
+        if (args.Length > 0)
+        {
+            var renderedArgs =
+                args.Select(arg => AttributeArgument(RenderLiteral(arg)));
+            attribute = attribute.WithArgumentList(AttributeArgumentList(SeparatedList(renderedArgs)));
+        }
+
+        return attribute;
+    }
+
+    public static AttributeListSyntax RenderAttributeList(params AttributeSyntax[] attributes)
+    {
+        return AttributeList(SeparatedList(attributes));
+    }
+
     public static AttributeListSyntax RenderAttributeList(params string[] attributeNames)
     {
         var attributes = attributeNames.Select(s => Attribute(IdentifierName(s)));
