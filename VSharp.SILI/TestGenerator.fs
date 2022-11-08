@@ -124,7 +124,14 @@ module TestGenerator =
             | StateModel(modelState, _) ->
                 match modelState.concreteMemory.TryVirtToPhys addr with
                 | Some o ->
-                    test.MemoryGraph.Encode o
+                    // let index = ref 0
+                    // if indices.TryGetValue(addr, index) then
+                    //     let referenceRepr : referenceRepr = {index = index.Value}
+                    //     referenceRepr :> obj
+                    // else
+                        // let index = test.MemoryGraph.ReserveRepresentation()
+                        // indices.Add(addr, index)
+                        test.MemoryGraph.Encode o
                 | None -> // mocks and big arrays are allocated symbolically
                     // __unreachable__()
                     let eval address =
@@ -228,7 +235,8 @@ module TestGenerator =
 
                 if not isError && not hasException then
                     let retVal = model.Eval cilState.Result
-                    test.Expected <- term2obj model cilState.state indices mockCache test retVal
+                    let tmp = term2obj model cilState.state indices mockCache test retVal
+                    test.Expected <- tmp
                 Some test
         | _ -> __unreachable__()
 

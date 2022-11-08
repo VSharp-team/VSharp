@@ -780,20 +780,16 @@ module internal Z3 =
                 Memory.FillRegion state constantValue region)
             
             // TODO : move to utils ?
-            let unboxConcrete term =
+            let rec unboxConcrete term =
                     match term with
                     | {term = Concrete(v, _)} -> v |> unbox
+                    |  {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
+                        cm.VirtToPhys addr |> unbox
                     | _ -> __unreachable__()
 
-            // Create default concretes
-            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let typ, _ = kvp.Key
-                let addr = kvp.Value
-                let cha = addr |> ConcreteHeapAddress
-                if VectorTime.lessOrEqual VectorTime.zero addr ||  typ = typeof<string> then ()
-                else
+            let rec createObjOfType cha typ =
                 match typ with
-                | ArrayType(_, SymbolicDimension _) -> ()
+                | ArrayType(_, SymbolicDimension _) -> None
                 | ArrayType(elemType, dim) ->                 
                     let eval address =
                         address |> Ref |> Memory.Read state |> unboxConcrete
@@ -809,45 +805,50 @@ module internal Z3 =
                             Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
                         | SymbolicDimension -> __unreachable__()
                     let length = Array.reduce ( * ) lengths
-                    if length > 128 then () // TODO: move magic number
+                    if length > 128 then None // TODO: move magic number
                     else
-                        
-                    let arr =
-                        if (lowerBounds <> null)
-                            then Array.CreateInstance(elemType, lengths, lowerBounds)
-                            else Array.CreateInstance(elemType, lengths)
-                    // TODO: fill with defaults
-                    cm.Allocate addr arr 
-                    let result = ref (ref Nop) // TODO: do we need the else branch here?
-                    if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
-                        // TODO: rewrite
-                        let product xss =
-                            let rec product xss k =
-                                match xss with
-                                | [] -> k [[]]
-                                | xs::xss -> product xss (fun yss -> List.collect (fun ys -> List.map (fun x -> x :: ys) xs) yss |> k)
-                            product xss id                                           
-                        let indexes = Seq.map (fun l -> List.init l id) lengths |> List.ofSeq
-                        let indexes = product indexes
-                        let value =  result.Value.Value |> unboxConcrete                        
-                        List.iter (fun i -> cm.WriteArrayIndex addr i value) indexes
+                        let arr =
+                            if (lowerBounds <> null)
+                                then Array.CreateInstance(elemType, lengths, lowerBounds)
+                                else Array.CreateInstance(elemType, lengths)
+                        let result = ref (ref Nop) // TODO: do we need the else branch here?
+                        if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
+                            let value =  result.Value.Value |> unboxConcrete 
+                            Array.fill arr value
+                        Some (arr :> obj)
+                | _ when typ = typeof<string> ->
+                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete 
+                    let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
+                                                                            |> Ref |> Memory.Read state |> unboxConcrete)
+                    Some (String(contents) :> obj)
                 | _ ->
-                    if VectorTime.less addr VectorTime.zero && not <| cm.Contains addr && typ <> typeof<string> then
-                        let fields = Reflection.fieldsOf false typ |> Seq.map fst
-                        
-                        try
-                            let o = Reflection.createObject typ
-                            cm.Allocate addr o
-                            fields |> Seq.iter (fun fId ->
-                                let region = HeapFieldSort fId
-                                let result = ref (ref Nop)
-                                if defaultValues.TryGetValue(region, result) then
-                                    cm.WriteClassField addr fId result.Value.Value 
-                            )
-                        with
-                        | _ -> () // if type cannot be allocated concretely, it will be stored symbolically
+                    let o = Reflection.createObject typ
+                    Reflection.fieldsOf false typ |>
+                        Seq.iter (fun (fid, finfo) ->
+                            let value = createObjOfType StructField(cha, fId) finfo.FieldType
+                            finfo.SetValue(o, value)
+                        )
+                    Some o
+                            // fields |> Seq.iter (fun fId ->
+                            //     let region = HeapFieldSort fId
+                            //     let result = ref (ref Nop)
+                            //     if defaultValues.TryGetValue(region, result) then
+                            //         cm.WriteClassField addr fId result.Value.Value 
+                            // )
+
+            // Create default concretes
+            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
+                let typ, _ = kvp.Key
+                let addr = kvp.Value
+                let cha = addr |> ConcreteHeapAddress
+                if VectorTime.lessOrEqual VectorTime.zero addr ||  typ = typeof<string> then ()
+                else
+                match createObjOfType cha typ with
+                | Some o ->
+                    cm.Allocate addr o
+                | None -> () // if type cannot be allocated concretely, it will be stored symbolically
             )
-            
+
             // Process stores 
             encodingCache.regionConstants |> Seq.iter (fun kvp ->
                 let region, fields = kvp.Key
