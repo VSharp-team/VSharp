@@ -529,12 +529,15 @@ public static class TestsRenderer
         {
             try
             {
+                var method = test.Method;
+                if (method.IsConstructor)
+                    throw new NotImplementedException("rendering constructors not supported yet");
+
                 // Rendering mocked types
                 foreach (var mock in test.TypeMocks)
                     RenderMockedType(mocksProgram, mock);
 
                 // Rendering test
-                var method = test.Method;
                 var parameters = test.Args ?? method.GetParameters()
                     .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
                 var thisArg = test.ThisArg;
