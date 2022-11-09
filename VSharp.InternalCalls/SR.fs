@@ -72,6 +72,10 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_ArithmeticException" state
 
+    let internal get_InvalidOperation_EmptyStack (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "InvalidOperation_EmptyStack" state
+
     let internal getMessageFromNativeResources (state : state) (args : term list) : term =
         assert(List.length args = 1)
         Memory.AllocateString "getMessageFromNativeResources" state
