@@ -10,7 +10,14 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-
+    [<Struct>]
+    type OptionalBuilder =
+        member __.Bind(opt, binder) = Option.bind binder opt
+        member __.Return(value) = Some value
+        member __.ReturnFrom(value) = value
+        member __.Zero() = None
+        member __.Using(resource : #System.IDisposable, binder) = let result = binder resource in resource.Dispose(); result
+    let opt = OptionalBuilder()
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -780,19 +787,22 @@ module internal Z3 =
                 Memory.FillRegion state constantValue region)
             
             // TODO : move to utils ?
-            let rec unboxConcrete term =
+            let unboxConcrete term =
                     match term with
-                    | {term = Concrete(v, _)} -> v |> unbox
-                    |  {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
-                        cm.VirtToPhys addr |> unbox
-                    | _ -> __unreachable__()
+                    | {term = Concrete(v, _)} -> v |> unbox |> Some
+                    // TODO: byRef (?) careful about creation order
+                    // |  {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
+                    //     cm.VirtToPhys addr |> unbox
+                    | _ -> None
 
-            let rec createObjOfType cha typ =
+            let rec createObjOfType depth cha typ =
                 match typ with
+                | _ when depth <= 0 -> None |> Option.get // TODO: separate exception
+                | _ when typ = typeof<string> -> None |> Option.get // TODO: separate exception
                 | ArrayType(_, SymbolicDimension _) -> None
                 | ArrayType(elemType, dim) ->                 
                     let eval address =
-                        address |> Ref |> Memory.Read state |> unboxConcrete
+                        address |> Ref |> Memory.Read state |> unboxConcrete |> Option.get
                     let arrayType, (lengths : int array), (lowerBounds : int array) =
                         match dim with
                         | Vector ->
@@ -813,28 +823,28 @@ module internal Z3 =
                                 else Array.CreateInstance(elemType, lengths)
                         let result = ref (ref Nop) // TODO: do we need the else branch here?
                         if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
-                            let value =  result.Value.Value |> unboxConcrete 
+                            let value =  result.Value.Value |> unboxConcrete |> Option.get
                             Array.fill arr value
                         Some (arr :> obj)
-                | _ when typ = typeof<string> ->
-                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete 
-                    let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
-                                                                            |> Ref |> Memory.Read state |> unboxConcrete)
-                    Some (String(contents) :> obj)
+                | _ when typ.IsValueType ->
+                    None
+                // | _ when Types.IsNullable typ -> // TODO ?
+                //     None
                 | _ ->
                     let o = Reflection.createObject typ
                     Reflection.fieldsOf false typ |>
                         Seq.iter (fun (fid, finfo) ->
-                            let value = createObjOfType StructField(cha, fId) finfo.FieldType
-                            finfo.SetValue(o, value)
+                            match createObjOfType (depth - 1) cha finfo.FieldType with
+                            | Some o1 -> finfo.SetValue(o, o1)
+                            | None ->   
+                                let region = HeapFieldSort fid
+                                let result = ref (ref Nop)
+                                if defaultValues.TryGetValue(region, result) then
+                                    let value = result.Value.Value |> unboxConcrete |> Option.get
+                                    finfo.SetValue(o, value)
                         )
                     Some o
-                            // fields |> Seq.iter (fun fId ->
-                            //     let region = HeapFieldSort fId
-                            //     let result = ref (ref Nop)
-                            //     if defaultValues.TryGetValue(region, result) then
-                            //         cm.WriteClassField addr fId result.Value.Value 
-                            // )
+            
 
             // Create default concretes
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
@@ -843,10 +853,15 @@ module internal Z3 =
                 let cha = addr |> ConcreteHeapAddress
                 if VectorTime.lessOrEqual VectorTime.zero addr ||  typ = typeof<string> then ()
                 else
-                match createObjOfType cha typ with
-                | Some o ->
-                    cm.Allocate addr o
-                | None -> () // if type cannot be allocated concretely, it will be stored symbolically
+                    try
+                        match createObjOfType 4 cha typ with
+                        | Some o ->
+                            cm.Allocate addr o
+                        | None -> () // if type cannot be allocated concretely, it will be stored symbolically
+                    with
+                    | :? MemberAccessException -> () // Could not create an instance
+                    | :? ArgumentException -> ()     // Could not unbox concrete
+                    | _ -> internalfail "Unexpected exception in object creation" 
             )
 
             // Process stores 
@@ -884,10 +899,13 @@ module internal Z3 =
                 if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
                     state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
                 if typ = typeof<string> then
-                    let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete 
-                    let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
-                                                                            |> Ref |> Memory.Read state |> unboxConcrete)
-                    cm.Allocate addr (String(contents) :> obj)
+                    try
+                        let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete |> Option.get 
+                        let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
+                                                                                |> Ref |> Memory.Read state |> unboxConcrete |> Option.get)
+                        cm.Allocate addr (String(contents) :> obj)
+                    with
+                    | _ -> ()
             )
 
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
