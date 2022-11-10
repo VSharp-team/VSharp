@@ -21,5 +21,11 @@ module internal Interlocked =
     [<Implements("System.Int32 System.Threading.Interlocked.Exchange(System.Int32&, System.Int32)")>]
     val internal intExchange : state -> term list -> (term * state) list
 
+    [<Implements("System.Int32 System.Threading.Interlocked.ExchangeAdd(System.Int32&, System.Int32)")>]
+    val internal intExchangeAdd : state -> term list -> (term * state) list
+
+    [<Implements("System.Int64 System.Threading.Interlocked.ExchangeAdd(System.Int64&, System.Int64)")>]
+    val internal longExchangeAdd : state -> term list -> (term * state) list
+
     [<Implements("System.Void System.Threading.Interlocked.MemoryBarrier()")>]
     val internal memoryBarrier : state -> term list -> term

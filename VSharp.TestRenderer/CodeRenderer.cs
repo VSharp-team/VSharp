@@ -233,7 +233,7 @@ internal static class CodeRenderer
 
     public static TypeSyntax AllocatorType()
     {
-        return RenderType(typeof(Allocator));
+        return RenderType(typeof(Allocator<>));
     }
 
     // Prerendered tokens

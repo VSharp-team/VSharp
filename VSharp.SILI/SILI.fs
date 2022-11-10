@@ -33,7 +33,6 @@ type public SILI(options : SiliOptions) =
     let mutable entryIP : ip = Unchecked.defaultof<ip>
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
-    let reportUnspecifiedError state = reportError state "Unspecified"
     let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
@@ -92,7 +91,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError (method : Method) cmdArgs cilState message =
         try
-            if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            if cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
@@ -122,10 +121,10 @@ type public SILI(options : SiliOptions) =
         reportState action.Invoke false method cmdArgs state null
 
     let wrapOnError (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) errorMessage =
-        let message = sprintf "%s error of method %s" errorMessage method.FullName
-        Logger.info "%s" message
+        if not <| String.IsNullOrWhiteSpace errorMessage then
+            Logger.info "Error in %s: %s" method.FullName errorMessage
         Application.terminateState state
-        reportState action.Invoke true method cmdArgs state message
+        reportState action.Invoke true method cmdArgs state errorMessage
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
@@ -207,7 +206,7 @@ type public SILI(options : SiliOptions) =
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter reportUnspecifiedError
+        runtimeExceptions |> List.iter (fun state -> reportError state null)
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
         toReportIIE |> List.iter reportIncomplete
