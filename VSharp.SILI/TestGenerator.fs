@@ -68,7 +68,7 @@ module TestGenerator =
 
     let encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
-            test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
+            test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray (test.MemoryGraph.Encode >> fst)) lengths lowerBounds index
         else
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
@@ -101,7 +101,7 @@ module TestGenerator =
             // TODO: if addr is managed by concrete memory, then just serialize it normally (by test.MemoryGraph.AddArray)
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
-    let rec private term2obj (model : model) state indices mockCache (test : UnitTest) = function
+    let rec private term2obj (model : model) state (indices : Dictionary<concreteHeapAddress, int>) mockCache (test : UnitTest) = function
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
         | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
@@ -124,14 +124,17 @@ module TestGenerator =
             | StateModel(modelState, _) ->
                 match modelState.concreteMemory.TryVirtToPhys addr with
                 | Some o ->
-                    // let index = ref 0
-                    // if indices.TryGetValue(addr, index) then
-                    //     let referenceRepr : referenceRepr = {index = index.Value}
-                    //     referenceRepr :> obj
-                    // else
-                        // let index = test.MemoryGraph.ReserveRepresentation()
-                        // indices.Add(addr, index)
-                        test.MemoryGraph.Encode o
+                    let index = ref 0
+                    if indices.TryGetValue(addr, index) then
+                        let referenceRepr : referenceRepr = {index = index.Value}
+                        referenceRepr :> obj
+                    else
+                        let orepr, index = test.MemoryGraph.Encode o
+                        match index with
+                        | Some i ->
+                            indices.Add(addr, i)
+                            orepr
+                        | None -> orepr
                 | None -> // mocks and big arrays are allocated symbolically
                     // __unreachable__()
                     let eval address =
