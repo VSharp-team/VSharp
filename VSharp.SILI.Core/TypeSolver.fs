@@ -167,7 +167,8 @@ module TypeSolver =
         | Some t ->
             if TypeUtils.isDelegate t then
                 // Forcing mock usage for delegate types
-                getMock constraints.mock constraints.supertypes |> MockType |> Seq.singleton
+                let mock = getMock constraints.mock constraints.supertypes
+                MockType mock |> Seq.singleton
             else
                 ConcreteType t |> Seq.singleton
         | _ ->

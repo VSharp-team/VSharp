@@ -47,12 +47,15 @@ module Mocking =
 
     exception UnexpectedMockCallException of string
 
+    let storageFieldName (method : MethodInfo) = $"{method.Name}{method.MethodHandle.Value}_<Storage>"
+    let counterFieldName (method : MethodInfo) = $"{method.Name}{method.MethodHandle.Value}_<Counter>"
+
     // TODO: properties!
     type Method(baseMethod : MethodInfo, clausesCount : int) =
         let returnValues : obj[] = Array.zeroCreate clausesCount
         let name = baseMethod.Name
-        let storageFieldName = $"{baseMethod.Name}{baseMethod.MethodHandle.Value}_<Storage>"
-        let counterFieldName = $"{baseMethod.Name}{baseMethod.MethodHandle.Value}_<Counter>"
+        let storageFieldName = storageFieldName baseMethod
+        let counterFieldName = counterFieldName baseMethod
         let mutable returnType = baseMethod.ReturnType
 
         member x.BaseMethod = baseMethod
@@ -71,15 +74,17 @@ module Mocking =
                 field.SetValue(null, storage)
 
         member x.Build (typeBuilder : TypeBuilder) =
-            let methodAttributes = MethodAttributes.Public
-                                   ||| MethodAttributes.HideBySig
-                                   ||| MethodAttributes.NewSlot
-                                   ||| MethodAttributes.Virtual
-                                   ||| MethodAttributes.Final
+            let typeIsDelegate = TypeUtils.isDelegate baseMethod.DeclaringType
+            let methodAttributes = MethodAttributes.Public ||| MethodAttributes.HideBySig
+            let virtualFlags = MethodAttributes.Virtual ||| MethodAttributes.NewSlot ||| MethodAttributes.Final
+            let methodAttributes =
+                // For delegate mock, there is no need to make method virtual,
+                // cause we can not derive from delegate
+                if typeIsDelegate then methodAttributes
+                else methodAttributes ||| virtualFlags
 
-            let methodBuilder = typeBuilder.DefineMethod(baseMethod.Name,
-                                                        methodAttributes,
-                                                        CallingConventions.HasThis)
+            let methodBuilder =
+                typeBuilder.DefineMethod(baseMethod.Name, methodAttributes, CallingConventions.HasThis)
             if baseMethod.IsGenericMethod then
                 let baseGenericArgs = baseMethod.GetGenericArguments()
                 let genericsBuilder = methodBuilder.DefineGenericParameters(baseGenericArgs |> Array.map (fun p -> p.Name))
@@ -106,7 +111,7 @@ module Mocking =
                 methodBuilder.SetParameters(baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
             returnType <- methodBuilder.ReturnType
 
-            if not <| TypeUtils.isDelegate baseMethod.DeclaringType then
+            if not typeIsDelegate then
                 typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)
 
             let ilGenerator = methodBuilder.GetILGenerator()
@@ -184,9 +189,9 @@ module Mocking =
         member x.Build(moduleBuilder : ModuleBuilder) =
             let typeBuilder = moduleBuilder.DefineType(repr.name, TypeAttributes.Public)
 
-            if baseClass <> null then
+            if baseClass <> null && not (TypeUtils.isDelegate baseClass) then
                 typeBuilder.SetParent baseClass
-                let baseHasNoDefaultCtor = baseClass.GetConstructor [||] = null
+                let baseHasNoDefaultCtor = baseClass.GetConstructor Type.EmptyTypes = null
                 if baseHasNoDefaultCtor then
                     // Defining non-default ctor to eliminate the default one
                     let nonDefaultCtor = typeBuilder.DefineConstructor(MethodAttributes.Private, CallingConventions.Standard, [|typeof<int32>|])
@@ -204,8 +209,16 @@ module Mocking =
                 match baseClass with
                 | null -> interfaceMethods
                 | _ ->
-                    let superClassMethods = baseClass.GetMethods(BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.FlattenHierarchy ||| BindingFlags.Instance) |> Array.filter (fun m -> m.IsAbstract)
-                    Array.append superClassMethods interfaceMethods
+                    let bindingFlags =
+                        BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.FlattenHierarchy ||| BindingFlags.Instance
+                    let superClassMethods = baseClass.GetMethods(bindingFlags)
+                    let isDelegate = TypeUtils.isDelegate baseClass
+                    let needToMock (m : MethodInfo) =
+                        // If base class abstract methods, need to mock them
+                        // If base class is delegate, need to mock 'Invoke' method to create delegate
+                        m.IsAbstract || isDelegate && m.Name = "Invoke"
+                    let neededMethods = superClassMethods |> Array.filter needToMock
+                    Array.append neededMethods interfaceMethods
 
             let abstractMethods =
                 methodsToImplement |> Array.map (fun m ->
@@ -243,7 +256,6 @@ module Mocking =
 
     type Mocker(mockTypeReprs : typeMockRepr array) =
         let mockTypes : (Type * System.Type) option array = Array.zeroCreate mockTypeReprs.Length
-        let delegateWrappers : System.Type option array = Array.zeroCreate mockTypeReprs.Length
         let moduleBuilder = lazy(
             let dynamicAssemblyName = "VSharpTypeMocks"
             let assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
@@ -270,19 +282,17 @@ module Mocking =
                 | :? mockObject as mock ->
                     let index = mock.typeMockIndex
                     match mockTypes.[index] with
-                    | Some(_, t) when TypeUtils.isDelegate t ->
-                        let wrapper = delegateWrappers.[index].Value
-                        x.CreateDelegateFromWrapperType(t, wrapper)
+                    | Some(mockType, t) when TypeUtils.isDelegate mockType.BaseClass ->
+                        x.CreateDelegateFromWrapperType(mockType.BaseClass, t)
                     | Some(_, t) -> Reflection.createObject t
                     | None ->
                         let mockTypeRepr = mockTypeReprs.[index]
-                        let builtObj, mockType, typ =
-                            if TypeUtils.isDelegate (mockTypeRepr.baseClass |> Serialization.decodeType) then
-                                let o, baseType, mockType, wrapperType = x.BuildDelegate mockTypeRepr decode
-                                delegateWrappers.[index] <- Some wrapperType
-                                o, mockType, baseType
-                            else
-                                x.BuildMockObject mockTypeRepr decode
+                        let mockType, typ = x.BuildDynamicType(mockTypeRepr)
+                        mockType.EnsureInitialized decode typ
+                        let baseClass = mockType.BaseClass
+                        let builtObj =
+                            if TypeUtils.isDelegate baseClass then x.CreateDelegateFromWrapperType(baseClass, typ)
+                            else Reflection.createObject typ
                         mockTypes.[index] <- Some (mockType, typ)
                         builtObj
                 | _ -> __unreachable__()
@@ -296,7 +306,10 @@ module Mocking =
                         match mockTypes.[index] with
                         | Some types -> types
                         | None -> __unreachable__()
-                    let mockInstanceType = mockInstance.GetType()
+                    let mockInstanceType =
+                        match mockInstance with
+                        | :? Delegate as d -> d.Method.DeclaringType
+                        | _ -> mockInstance.GetType()
                     assert(t = mockInstanceType)
                     mockType.Update decode mockInstanceType
                 | _ -> __unreachable__()
@@ -306,30 +319,6 @@ module Mocking =
             let moduleBuilder = moduleBuilder.Force()
             mockType, mockType.Build(moduleBuilder)
 
-        member x.BuildMockObject (mockTypeRepr : typeMockRepr) decode =
-            let mockType, typ = x.BuildDynamicType(mockTypeRepr)
-            mockType.EnsureInitialized decode typ
-            Reflection.createObject typ, mockType, typ
-
-        member x.CreateDelegateFromWrapperType (t : System.Type, wrapperType : System.Type) =
-            let invokeMethodInfo = wrapperType.GetMethod("Invoke")
+        member x.CreateDelegateFromWrapperType (t : System.Type, builtMock : System.Type) =
+            let invokeMethodInfo = builtMock.GetMethod("Invoke")
             Delegate.CreateDelegate(t, null, invokeMethodInfo) :> obj
-
-        member x.BuildDelegate (mockTypeRepr : typeMockRepr) decode =
-            let mockType = Type($"DelegateWrapper_{Guid.NewGuid()}")
-            let delegateType = mockTypeRepr.baseClass |> Serialization.decodeType
-
-            let invokeMethodInfo = delegateType.GetMethod("Invoke")
-            let implIndex = mockTypeRepr.baseMethods |> Array.tryFindIndex (fun m -> m.token = invokeMethodInfo.MetadataToken)
-            let returnValues =
-                match implIndex with
-                | Some i -> mockTypeRepr.methodImplementations.[i] |> Array.map decode
-                | _ -> [||]
-            mockType.AddMethod(invokeMethodInfo, returnValues)
-
-            let moduleBuilder = moduleBuilder.Force()
-            let built = mockType.Build(moduleBuilder)
-            let wrapperInvoke = mockType.Methods |> Seq.head
-            wrapperInvoke.InitializeType(built)
-
-            x.CreateDelegateFromWrapperType(delegateType, built), delegateType, mockType, built

@@ -11,6 +11,12 @@ module TestGenerator =
     let mutable private maxBufferSize = 128
     let setMaxBufferSize size = maxBufferSize <- size
 
+    let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) (encodeMock : ITypeMock -> obj) (test : UnitTest) addr mock =
+        let index = test.MemoryGraph.ReserveRepresentation()
+        indices.Add(addr, index)
+        let repr = test.MemoryGraph.AddMockedClass (encodeMock mock) index
+        repr :> obj
+
     let private obj2test eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) (encodeMock : ITypeMock -> obj) (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
@@ -18,9 +24,10 @@ module TestGenerator =
             referenceRepr :> obj
         else
             match typ with
-            | ConcreteType typ when TypeUtils.isDelegate typ->
+            | ConcreteType typ when TypeUtils.isDelegate typ ->
                 // Obj is a delegate which mock hasn't been created yet
-                TypeMock(Seq.singleton typ) |> encodeMock
+                let mock = TypeMock(Seq.singleton typ)
+                addMockToMemoryGraph indices encodeMock test addr mock
             | ConcreteType typ ->
                 let cha = ConcreteHeapAddress addr
                 match typ with
@@ -57,11 +64,7 @@ module TestGenerator =
                     let repr = test.MemoryGraph.AddClass typ fields index
                     repr :> obj
             | MockType mock when mock.IsValueType -> encodeMock mock
-            | MockType mock ->
-                let index = test.MemoryGraph.ReserveRepresentation()
-                indices.Add(addr, index)
-                let repr = test.MemoryGraph.AddMockedClass (encodeMock mock) index
-                repr :> obj
+            | MockType mock -> addMockToMemoryGraph indices encodeMock test addr mock
 
     let encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
@@ -137,13 +140,16 @@ module TestGenerator =
         | term -> internalfailf "creating object from term: unexpected term %O" term
 
     and encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (test : UnitTest) mock =
-        Dict.getValueOrUpdate mockCache mock (fun () ->
+        let createMock() =
             let freshMock = test.DefineTypeMock(mock.Name)
-            mock.SuperTypes |> Seq.iter freshMock.AddSuperType
-            mock.MethodMocks |> Seq.iter (fun m ->
-                let clauses = m.GetImplementationClauses() |> Array.map (model.Eval >> term2obj model state indices mockCache test)
-                freshMock.AddMethod(m.BaseMethod, clauses))
-            freshMock)
+            for t in mock.SuperTypes do
+                freshMock.AddSuperType t
+            for m in mock.MethodMocks do
+                let eval = model.Eval >> term2obj model state indices mockCache test
+                let clauses = m.GetImplementationClauses() |> Array.map eval
+                freshMock.AddMethod(m.BaseMethod, clauses)
+            freshMock
+        Dict.getValueOrUpdate mockCache mock createMock
 
     let model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
         let suitableState cilState =

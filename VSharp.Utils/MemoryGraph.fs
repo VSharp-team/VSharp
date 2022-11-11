@@ -110,7 +110,8 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
 
     let rec allocateDefault (obj : obj) =
         match obj with
-        | null -> null
+        | null
+        | :? referenceRepr -> null
         | :? structureRepr as repr ->
             let t = sourceTypes.[repr.typ]
             if t.IsByRefLike then
