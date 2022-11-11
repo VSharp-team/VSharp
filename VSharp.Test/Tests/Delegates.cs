@@ -176,32 +176,32 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class ClassWithEvent
     {
-        private event Action<int> kek;
+        private event Action<int> EventDelegate;
 
         [TestSvm(100)]
         public void AddListener(Action<int> listener)
         {
-            if (listener != null && kek != null)
+            if (listener != null && EventDelegate != null)
             {
-                kek += listener;
+                EventDelegate += listener;
             }
         }
 
         [TestSvm(100)]
         public void RemoveListener(Action<int> listener)
         {
-            if (listener != null && kek != null)
+            if (listener != null && EventDelegate != null)
             {
-                kek -= listener;
+                EventDelegate -= listener;
             }
         }
 
         [TestSvm(100)]
         public bool FireEvent(int n)
         {
-            if (n > 0 && kek != null)
+            if (n > 0 && EventDelegate != null)
             {
-                kek.Invoke(n);
+                EventDelegate.Invoke(n);
                 return true;
             }
 
