@@ -267,11 +267,7 @@ public static class TestsRenderer
 
     private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter)
     {
-        var paramType = parameter.ParameterType;
-        // For this types there is no data type suffix, so if parameter type is upcast, explicit cast is needed
-        var needExplicitType =
-            obj is byte or sbyte or char or short or ushort
-            && (paramType == typeof(object) || paramType == typeof(ValueType));
+        var needExplicitType = NeedExplicitType(obj, parameter.ParameterType);
         return block.RenderObject(obj, parameter.Name, needExplicitType);
     }
 
@@ -294,7 +290,8 @@ public static class TestsRenderer
         if (thisArg != null)
         {
             Debug.Assert(Reflection.hasThis(method));
-            var renderedThis = mainBlock.RenderObject(thisArg, thisArgName);
+            var needExplicitType = thisArg is Delegate;
+            var renderedThis = mainBlock.RenderObject(thisArg, thisArgName, needExplicitType);
             if (renderedThis is IdentifierNameSyntax id)
             {
                 thisArgId = id;
@@ -315,9 +312,7 @@ public static class TestsRenderer
             var parameterInfo = parameters[i];
             var type = parameterInfo.ParameterType;
             var value = renderedArgs[i];
-            var valueIsVar = value is IdentifierNameSyntax;
-            f.HasArgs |= valueIsVar;
-            if (type.IsByRef && !valueIsVar)
+            if (type.IsByRef && value is not IdentifierNameSyntax)
             {
                 Debug.Assert(type.GetElementType() != null);
                 var typeExpr = test.RenderType(type.GetElementType()!);
@@ -325,8 +320,8 @@ public static class TestsRenderer
                 renderedArgs[i] = id;
             }
         }
-
-        f.HasArgs |= thisArgId != null;
+        // If where were statements before calling test, need 'arrange' comment
+        f.HasArgs = mainBlock.StatementsCount() > 0;
 
         // Calling testing method
         var callMethod = test.RenderCall(thisArgId, method, renderedArgs);
@@ -344,7 +339,8 @@ public static class TestsRenderer
             var expectedExpr =
                 method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected", true);
             Debug.Assert(expectedExpr != null);
-            f.HasArgs |= expectedExpr is IdentifierNameSyntax;
+            // If rendering expected result added statements to method block, need 'arrange' comment
+            f.HasArgs |= mainBlock.StatementsCount() > 0;
             var resultId = mainBlock.AddDecl("result", null, callMethod);
             if (isPrimitive)
                 mainBlock.AddAssertEqual(expectedExpr, resultId);
@@ -390,36 +386,38 @@ public static class TestsRenderer
         MethodsFormat[test.MethodId.ToString()] = f;
     }
 
-    private static (ArrayTypeSyntax, SimpleNameSyntax) RenderMockedMethod(
+    private static (ArrayTypeSyntax, SimpleNameSyntax, SimpleNameSyntax) RenderNonVoidMockedMethod(
         TypeRenderer mock,
-        Mocking.Method method)
+        MethodInfo m)
     {
-        var m = method.BaseMethod;
-        var returnType = (ArrayTypeSyntax) mock.RenderType(m.ReturnType.MakeArrayType());
-        var valuesFieldName = $"_clauses{m.Name}";
+        // Rendering mocked method clauses
+        var returnTypeArray = (ArrayTypeSyntax) mock.RenderType(m.ReturnType.MakeArrayType());
+        var methodName = mock.RenderMethodName(m).ToString();
+        var valuesFieldName = $"_clauses{methodName}";
         var emptyArray =
             RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
         var valuesField =
-            mock.AddField(returnType, valuesFieldName, new[] { Private }, emptyArray);
-        var currentName = $"_currentClause{m.Name}";
+            mock.AddField(returnTypeArray, valuesFieldName, new[] { Private }, emptyArray);
+        var currentName = $"_currentClause{methodName}";
         var zero = RenderLiteral(0);
         var currentValueField =
             mock.AddField(mock.RenderType(typeof(int)), currentName, new[] { Private }, zero);
 
         var setupMethod =
             mock.AddMethod(
-                $"Setup{m.Name}Clauses",
+                $"Setup{methodName}Clauses",
                 null,
                 new [] { Public },
                 mock.VoidType,
-                (returnType, "clauses")
+                (returnTypeArray, "clauses")
             );
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
         setupBody.AddExpression(RenderAssignment(valuesField, valuesArg));
         setupMethod.Render();
 
-        var mockedMethod = mock.AddMethod(m);
+        // Rendering mocked method
+        var mockedMethod = mock.AddMockMethod(m);
         var body = mockedMethod.Body;
         var length = RenderMemberAccess(valuesField, "Length");
         var cond =
@@ -442,8 +440,70 @@ public static class TestsRenderer
             RenderArrayAccess(valuesField, new ExpressionSyntax[] { fieldWithIncrement });
         body.AddReturn(validCase);
         mockedMethod.Render();
+        return (returnTypeArray, setupMethod.MethodId, mockedMethod.MethodId);
+    }
 
-        return (returnType, setupMethod.MethodId);
+    private static SimpleNameSyntax RenderVoidMockedMethod(
+        TypeRenderer mock,
+        MethodInfo m)
+    {
+        // Rendering mocked method
+        var mockedMethod = mock.AddMockMethod(m);
+        mockedMethod.Render();
+        return mockedMethod.MethodId;
+    }
+
+    private static void RenderMockConstructor(TypeRenderer mock, Type baseType)
+    {
+        const BindingFlags instanceFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.Public;
+        var constructor =
+            baseType.GetConstructors(instanceFlags)
+                .MinBy(ctor => ctor.GetParameters().Length);
+        if (constructor == null)
+            throw new InvalidOperationException($"Can not find public constructors to create object of {baseType}");
+        var ctorRenderer = mock.AddMockMethod(constructor);
+        var args = ctorRenderer.GetArgs();
+        ctorRenderer.CallBaseConstructor(args);
+        ctorRenderer.Render();
+    }
+
+    private static void RenderMockMethods(
+        TypeRenderer mock,
+        Mocking.Type typeMock,
+        bool isDelegate)
+    {
+        var methodsInfo = new List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)>();
+
+        SimpleNameSyntax? methodId = null;
+
+        foreach (var method in typeMock.Methods)
+        {
+            var m = method.BaseMethod;
+            if (Reflection.hasNonVoidResult(m))
+            {
+                var (returnArrayType, setupClausesId, mockMethodId) =
+                    RenderNonVoidMockedMethod(mock, m);
+                methodsInfo.Add((m, returnArrayType, setupClausesId));
+                methodId = mockMethodId;
+            }
+            else
+            {
+                methodId = RenderVoidMockedMethod(mock, m);
+            }
+        }
+
+        MockInfo info;
+        if (isDelegate)
+        {
+            var baseClass = typeMock.BaseClass;
+            Debug.Assert(typeMock.Methods.Count() == 1 && methodId != null && baseClass != null);
+            info = new DelegateMockInfo(mock.TypeId, methodsInfo, methodId, baseClass);
+        }
+        else
+        {
+            info = new MockInfo(mock.TypeId, methodsInfo);
+        }
+        AddMockInfo(typeMock.Id, info);
     }
 
     private static MemberDeclarationSyntax? RenderMockedType(ProgramRenderer mocksProgram, Mocking.Type typeMock)
@@ -453,17 +513,25 @@ public static class TestsRenderer
 
         List<Type> superTypes = new List<Type>();
         var baseType = typeMock.BaseClass;
+        var isDelegate = TypeUtils.isDelegate(baseType);
         var isStruct = baseType == typeof(ValueType) || baseType is { IsValueType: true };
-        if (baseType != null && baseType != typeof(object) && baseType != typeof(ValueType))
+        // It's useless to derive from object
+        // If base type is ValueType, this means, that mock is struct
+        // Class can not be derived from delegate
+        if (baseType != null && baseType != typeof(object) && baseType != typeof(ValueType) && !isDelegate)
             superTypes.Add(baseType);
+        else baseType = null;
         superTypes.AddRange(typeMock.Interfaces);
         var structPrefix = isStruct ? "Struct" : "";
-        var name = structPrefix + string.Join("", superTypes.Select(NameForType));
+        var name =
+            isDelegate
+                ? NameForType(typeMock.BaseClass)
+                : structPrefix + string.Join("", superTypes.Select(NameForType));
         var mock =
             mocksProgram.AddType(
                 $"{name}Mock",
                 isStruct,
-                superTypes,
+                superTypes.Count > 0 ? superTypes : null,
                 null,
                 new []{Internal}
             );
@@ -474,29 +542,10 @@ public static class TestsRenderer
         }
         else if (baseType != null && baseType.GetConstructor(Type.EmptyTypes) == null)
         {
-            const BindingFlags instanceFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.Public;
-            var constructors =
-                baseType.GetConstructors(instanceFlags)
-                    .OrderBy(ctor => ctor.GetParameters().Length)
-                    .Take(1)
-                    .ToList();
-            if (constructors.Count == 0)
-                throw new InvalidOperationException($"Can not find public constructors to create object of {baseType}");
-            var ctor = constructors[0];
-            var ctorRenderer = mock.AddMethod(ctor);
-            var args = ctorRenderer.GetArgs();
-            ctorRenderer.CallBaseConstructor(args);
-            ctorRenderer.Render();
-        }
-        var methodsInfo = new List<(ArrayTypeSyntax, SimpleNameSyntax)>();
-        foreach (var method in typeMock.Methods)
-        {
-            var (valuesType, setupMethod) = RenderMockedMethod(mock, method);
-            methodsInfo.Add((valuesType, setupMethod));
+            RenderMockConstructor(mock, baseType);
         }
 
-        var info = new MockInfo { MockName = mock.TypeId, MethodsInfo = methodsInfo };
-        AddMockInfo(typeMock.Id, info);
+        RenderMockMethods(mock, typeMock, isDelegate);
 
         return mock.Render();
     }
@@ -506,6 +555,9 @@ public static class TestsRenderer
         bool wrapErrors = false,
         Type? declaringType = null)
     {
+        PrepareCache();
+        MethodsFormat.Clear();
+
         // Creating main class for generating tests
         var typeName = NameForType(declaringType);
         var namespaceName =

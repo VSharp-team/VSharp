@@ -22,13 +22,12 @@ internal class ProgramRenderer
     private readonly IdentifiersCache _cache;
     private readonly ReferenceManager _referenceManager;
     private readonly BaseNamespaceDeclarationSyntax _namespace;
-    private readonly List<string> _alreadyOpenedNamespaces = new ();
     private readonly List<TypeRenderer> _renderingTypes = new ();
 
     public ProgramRenderer(string namespaceName)
     {
         // Creating identifiers cache
-        _cache = new IdentifiersCache();
+        _cache = new IdentifiersCache(PrimitiveTypes.Values); // TODO: add other types
 
         // Creating reference manager
         var namespaces = new List<string>();
@@ -57,7 +56,7 @@ internal class ProgramRenderer
         AttributeListSyntax? attributes,
         SyntaxToken[]? modifiers)
     {
-        SimpleNameSyntax typeId = _cache.GenerateIdentifier(name);
+        IdentifierNameSyntax typeId = _cache.GenerateIdentifier(name);
         var type =
             new TypeRenderer(
                 _cache,
@@ -75,7 +74,6 @@ internal class ProgramRenderer
     public CompilationUnitSyntax? Render()
     {
         var members = new List<MemberDeclarationSyntax>();
-
         foreach (var renderingType in _renderingTypes)
         {
             var result = renderingType.RenderedType;
@@ -102,7 +100,7 @@ internal class ProgramRenderer
         // Needed static usings
         private readonly HashSet<string> _staticUsings = new ();
 
-        // Needed static usings
+        // Namespaces, that should not be included to usings
         private readonly HashSet<string> _nonIncludingNamespaces;
 
         // Used assemblies

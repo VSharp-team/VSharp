@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
@@ -14,6 +15,46 @@ internal class TypeRenderer : CodeRenderer
     private bool _finished;
     private readonly List<FieldDeclarationSyntax> _fields = new ();
     private readonly List<MethodRenderer> _renderingMethods = new ();
+
+    private struct PropertyAccessors
+    {
+        public MethodRenderer? Get;
+        public MethodRenderer? Set;
+
+        public PropertyAccessors()
+        {
+            Get = null;
+            Set = null;
+        }
+    }
+
+    private readonly struct PropertyWrapper
+    {
+        private readonly PropertyInfo _property;
+        public readonly PropertyDeclarationSyntax Declaration;
+
+        public PropertyWrapper(PropertyInfo property, PropertyDeclarationSyntax declaration)
+        {
+            _property = property;
+            Declaration = declaration;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is PropertyWrapper other)
+            {
+                return _property == other._property;
+            }
+            return false;
+        }
+
+        public override int GetHashCode()
+        {
+            return _property.GetHashCode();
+        }
+    }
+
+    private readonly Dictionary<PropertyWrapper, PropertyAccessors> _renderingProperties = new ();
 
     public SimpleNameSyntax TypeId { get; }
 
@@ -39,9 +80,10 @@ internal class TypeRenderer : CodeRenderer
         else
             _declaration = ClassDeclaration(TypeId.Identifier);
 
-        if (baseTypes != null)
+        var baseTypesArray = baseTypes as List<Type> ?? baseTypes?.ToList();
+        if (baseTypesArray != null && baseTypesArray.Count > 0)
         {
-            var rendered = baseTypes.Select(t => SimpleBaseType(RenderType(t)));
+            var rendered = baseTypesArray.Select(t => SimpleBaseType(RenderType(t)));
             _declaration = _declaration.WithBaseList(BaseList(SeparatedList<BaseTypeSyntax>(rendered)));
         }
         if (attributes != null)
@@ -68,21 +110,14 @@ internal class TypeRenderer : CodeRenderer
     }
 
     private MethodRenderer AddMethod(
-        string methodName,
-        bool exactName,
+        SimpleNameSyntax methodId,
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? genericNames,
-        NameSyntax? interfaceName,
+        SimpleNameSyntax? interfaceName,
         params (TypeSyntax, string)[] args)
     {
-        SimpleNameSyntax methodId =
-            exactName
-                ? IdentifierName(methodName)
-                : _cache.GenerateIdentifier(methodName);
-        if (genericNames != null)
-            methodId = GenericName(methodId.ToString());
         var method =
             new MethodRenderer(
                 _cache,
@@ -107,17 +142,69 @@ internal class TypeRenderer : CodeRenderer
         TypeSyntax resultType,
         params (TypeSyntax, string)[] args)
     {
-        return AddMethod(methodName, false, attributes, modifiers, resultType, null, null, args);
+        SimpleNameSyntax methodId = _cache.GenerateIdentifier(methodName);
+        return AddMethod(methodId, attributes, modifiers, resultType, null, null, args);
     }
 
-    public MethodRenderer AddMethod(MethodBase method)
+    private enum AccessorType
+    {
+        Get,
+        Set
+    }
+
+    private MethodRenderer AddPropertyMethod(
+        string propertyName,
+        AccessorType accessorType,
+        MethodBase method,
+        SimpleNameSyntax propertyId,
+        SyntaxToken[] modifiers,
+        SimpleNameSyntax? interfaceName)
+    {
+        var declaringType = method.DeclaringType;
+        var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        var property = declaringType?.GetProperty(propertyName, bindingFlags);
+        Debug.Assert(property != null);
+        var propertyType = RenderType(property.PropertyType);
+        var propertyDecl =
+            RenderPropertyDeclaration(propertyType, propertyId.Identifier, modifiers, interfaceName);
+
+        var renderer =
+            new MethodRenderer(
+                _cache,
+                _referenceManager,
+                propertyId,
+                null,
+                System.Array.Empty<SyntaxToken>(),
+                false,
+                accessorType == AccessorType.Get ? propertyType : VoidType,
+                null,
+                null
+            );
+        var propertyWrapper = new PropertyWrapper(property, propertyDecl);
+        if (!_renderingProperties.TryGetValue(propertyWrapper, out var accessors))
+            accessors = new PropertyAccessors();
+        switch (accessorType)
+        {
+            case AccessorType.Get:
+                accessors.Get = renderer;
+                break;
+            case AccessorType.Set:
+                accessors.Set = renderer;
+                break;
+        }
+        _renderingProperties[propertyWrapper] = accessors;
+
+        return renderer;
+    }
+
+    public MethodRenderer AddMockMethod(MethodBase method)
     {
         // TODO: render all info (is virtual, and others)
         var declaringType = method.DeclaringType;
         Debug.Assert(declaringType != null);
 
         var modifiers = new List<SyntaxToken>();
-        NameSyntax? interfaceName = null;
+        SimpleNameSyntax? interfaceName = null;
         if (declaringType.IsInterface)
         {
             interfaceName = RenderTypeName(declaringType);
@@ -126,7 +213,9 @@ internal class TypeRenderer : CodeRenderer
         {
             modifiers.Add(Public);
             if (method.IsStatic) modifiers.Add(Static);
-            if (method.IsVirtual && !method.IsAbstract) modifiers.Add(Override);
+            var methodOverrides =
+                method.IsVirtual && !method.IsAbstract && !TypeUtils.isDelegate(method.DeclaringType);
+            if (methodOverrides) modifiers.Add(Override);
         }
         var resultType = RenderType(Reflection.getMethodReturnType(method));
         IdentifierNameSyntax[]? generics = null;
@@ -137,10 +226,18 @@ internal class TypeRenderer : CodeRenderer
                 .Select(p => (RenderType(p.ParameterType), p.Name ?? "arg"))
                 .ToArray();
         var modifiersArray = modifiers.ToArray();
+
         if (method.IsConstructor)
             return AddConstructor(null, modifiersArray, args);
 
-        return AddMethod(method.Name, true, null, modifiersArray, resultType, generics, interfaceName, args);
+        var methodId = RenderMethodName(method);
+        if (IsGetPropertyMethod(method, out var propertyName))
+            return AddPropertyMethod(propertyName, AccessorType.Get, method, methodId, modifiers.ToArray(), interfaceName);
+
+        if (IsSetPropertyMethod(method, out propertyName))
+            return AddPropertyMethod(propertyName, AccessorType.Set, method, methodId, modifiers.ToArray(), interfaceName);
+
+        return AddMethod(methodId, null, modifiersArray, resultType, generics, interfaceName, args);
     }
 
     public MethodRenderer AddConstructor(
@@ -181,6 +278,34 @@ internal class TypeRenderer : CodeRenderer
             var result = renderingMethod.RenderedMethod;
             if (result != null)
                 members.Add(result);
+        }
+
+        foreach (var (property, accessors) in _renderingProperties)
+        {
+            var renderedAccessors = new List<AccessorDeclarationSyntax>();
+            var get = accessors.Get;
+            if (get != null)
+            {
+                var method = get.RenderedMethod;
+                if (method == null)
+                    continue;
+                var body = method.Body;
+                renderedAccessors.Add(AccessorDeclaration(SyntaxKind.GetAccessorDeclaration, body));
+            }
+            var set = accessors.Set;
+            if (set != null)
+            {
+                var method = set.RenderedMethod;
+                if (method == null)
+                    continue;
+                var body = method.Body;
+                renderedAccessors.Add(AccessorDeclaration(SyntaxKind.SetAccessorDeclaration, body));
+            }
+            Debug.Assert(get != null || set != null);
+            var declaration = property.Declaration.WithAccessorList(
+                AccessorList(List(renderedAccessors))
+            );
+            members.Add(declaration);
         }
 
         _declaration = _declaration.WithMembers(List(members));

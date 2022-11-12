@@ -17,6 +17,15 @@ public class IdentifiersCache
         _idNames = new Dictionary<string, int>();
     }
 
+    public IdentifiersCache(IEnumerable<string> reservedNames)
+    {
+        _idInitializers = new Dictionary<string, IdentifierNameSyntax>();
+        _identifiers = new Dictionary<string, IdentifierNameSyntax>();
+        var namesWithCount =
+            reservedNames.Select(name => new KeyValuePair<string, int>(name, 1));
+        _idNames = new Dictionary<string, int>(namesWithCount);
+    }
+
     public IdentifiersCache(IdentifiersCache cache)
     {
         _idInitializers = new Dictionary<string, IdentifierNameSyntax>(cache._idInitializers);
