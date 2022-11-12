@@ -3,6 +3,7 @@ using System.Reflection;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
+using VSharp.TestExtensions;
 using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
@@ -25,6 +26,7 @@ internal interface IBlock
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax[] iterators, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddReturn(ExpressionSyntax? whatToReturn);
     ExpressionSyntax RenderObject(object? obj, string? preferredName, bool explicitType = false);
+    int StatementsCount();
     BlockSyntax Render();
 }
 
@@ -55,7 +57,7 @@ internal class MethodRenderer : CodeRenderer
         bool isConstructor,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
-        NameSyntax? interfaceName,
+        SimpleNameSyntax? interfaceName,
         params (TypeSyntax, string)[] args) : base(referenceManager)
     {
         // Creating identifiers cache
@@ -332,7 +334,8 @@ internal class MethodRenderer : CodeRenderer
         {
             // TODO: use compact array representation, if array is big enough?
             var rank = obj.Rank;
-            Debug.Assert(type != null);
+            var elemType = obj.GetType().GetElementType();
+            Debug.Assert(elemType != null);
             var initializer = new List<ExpressionSyntax>();
             if (rank > 1)
             {
@@ -343,12 +346,13 @@ internal class MethodRenderer : CodeRenderer
                 for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
                 {
                     var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                    var value = obj.GetValue(i);
+                    var needExplicitType = NeedExplicitType(value, elemType);
                     // TODO: if lower bound != 0, use Array.CreateInstance
-                    initializer.Add(RenderObject(obj.GetValue(i), elementPreferredName));
+                    initializer.Add(RenderObject(value, elementPreferredName, needExplicitType));
                 }
             }
 
-            var elemType = obj.GetType().GetElementType();
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
             return RenderArrayCreation(type, initializer, allowImplicit);
         }
@@ -361,18 +365,23 @@ internal class MethodRenderer : CodeRenderer
 
         private ExpressionSyntax RenderCompactZeroLb(
             ArrayTypeSyntax type,
+            System.Array array,
             int[] lengths,
             int[][] indices,
             object[] values,
             string? preferredName,
             object? defaultValue = null)
         {
+            var elemType = array.GetType().GetElementType();
+            Debug.Assert(elemType != null);
             var arrayPreferredName = preferredName ?? "array";
             var createArray = RenderArrayCreation(type, lengths);
             var arrayId = AddDecl(arrayPreferredName, type, createArray);
             if (defaultValue != null)
             {
-                var defaultId = RenderObject(defaultValue, preferredName);
+                var needExplicitType = NeedExplicitType(defaultValue, typeof(object));
+                var defaultValueName = preferredName + "Default";
+                var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
                 var call =
                     RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
                 AddExpression(call);
@@ -380,8 +389,10 @@ internal class MethodRenderer : CodeRenderer
             for (int i = 0; i < indices.Length; i++)
             {
                 var elementPreferredName = arrayPreferredName + "_Elem" + i;
-                var value = RenderObject(values[i], elementPreferredName);
-                var assignment = RenderArrayAssignment(arrayId, value, indices[i]);
+                var value = values[i];
+                var needExplicitType = NeedExplicitType(value, elemType);
+                var renderedValue = RenderObject(value, elementPreferredName, needExplicitType);
+                var assignment = RenderArrayAssignment(arrayId, renderedValue, indices[i]);
                 AddAssignment(assignment);
             }
 
@@ -407,7 +418,7 @@ internal class MethodRenderer : CodeRenderer
             var isZeroLbs = lbs.All(lb => lb == 0);
             if (isZeroLbs)
             {
-                return RenderCompactZeroLb(type, lengths, indices, values, preferredName, defaultValue);
+                return RenderCompactZeroLb(type, array, lengths, indices, values, preferredName, defaultValue);
             }
 
             throw new NotImplementedException("rendering of arrays with non-zero lower bounds is not implemented");
@@ -419,15 +430,20 @@ internal class MethodRenderer : CodeRenderer
             var indices = obj.indices;
             var values = obj.values;
             var t = array.GetType();
+            var elemType = t.GetElementType();
             var type = (ArrayTypeSyntax) RenderType(t);
-            Debug.Assert(type != null);
-            var defaultOf = Reflection.defaultOf(t.GetElementType());
+            Debug.Assert(type != null && elemType != null);
+            var defaultOf = Reflection.defaultOf(elemType);
             var defaultValue = obj.defaultValue;
-            defaultValue = defaultValue == null || defaultValue.Equals(defaultOf) ? null : defaultValue;
+            var isDefault =
+                defaultValue == null
+                // if default value is mock, 'Equals' method maybe overriden, so calling 'CompareObjects'
+                || elemType.IsValueType && ObjectsComparer.CompareObjects(defaultValue, defaultOf);
+            defaultValue = isDefault ? null : defaultValue;
             if (t.IsSZArray)
             {
                 var lengths = new []{ array.Length };
-                return RenderCompactZeroLb(type, lengths, indices, values, preferredName, defaultValue);
+                return RenderCompactZeroLb(type, array, lengths, indices, values, preferredName, defaultValue);
             }
 
             return RenderCompactNonVector(type, array, indices, values, preferredName, defaultValue);
@@ -445,7 +461,9 @@ internal class MethodRenderer : CodeRenderer
                 if (index > 0)
                     name = name[1 .. index];
                 var fieldName = RenderObject(name);
-                var fieldValue = RenderObject(fieldInfo.GetValue(obj), name);
+                var value = fieldInfo.GetValue(obj);
+                var needExplicitType = NeedExplicitType(value, typeof(object));
+                var fieldValue = RenderObject(value, name, needExplicitType);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
@@ -503,32 +521,67 @@ internal class MethodRenderer : CodeRenderer
             return objId;
         }
 
-        private ExpressionSyntax RenderMock(object obj, string? preferredName)
+        private void RenderClausesSetup(
+            Type typeOfMock,
+            SimpleNameSyntax mockId,
+            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> clauses)
         {
-            var typeOfMock = obj.GetType();
-            var storageField =
-                typeOfMock.GetFields(BindingFlags.Static | BindingFlags.NonPublic)
-                    .First(f => f.Name.Contains("Storage"));
-            var storage = storageField.GetValue(null) as global::System.Array;
-            Debug.Assert(storage != null);
-            var mockInfo = GetMockInfo(obj.GetType().Name);
+            if (clauses.Count == 0) return;
+
+            foreach (var (method, valuesType, setupMethod) in clauses)
+            {
+                var name = Mocking.storageFieldName(method);
+                var storageField = typeOfMock.GetField(name, BindingFlags.Static | BindingFlags.NonPublic);
+                Debug.Assert(storageField != null);
+                var storage = storageField.GetValue(null) as global::System.Array;
+                Debug.Assert(storage != null);
+
+                if (storage.Length > 0)
+                {
+                    var values = RenderArray(valuesType, storage, "values");
+                    var renderedValues =
+                        storage.Length <= 5 ? values : AddDecl("values", null, values);
+                    AddExpression(RenderCall(mockId, setupMethod, renderedValues));
+                }
+            }
+        }
+
+        private ExpressionSyntax RenderMock(Type? typeOfMock, string? preferredName, bool explicitType = false)
+        {
+            Debug.Assert(typeOfMock != null);
+            var mockInfo = GetMockInfo(typeOfMock.Name);
             var mockType = mockInfo.MockName;
             var empty = System.Array.Empty<ExpressionSyntax>();
             var allocator = RenderObjectCreation(AllocatorType(mockType), empty, empty);
             var resultObject = RenderMemberAccess(allocator, AllocatorObject);
             var mockId = AddDecl(preferredName ?? "mock", mockType, resultObject);
-            foreach (var (valuesType, setupMethod) in mockInfo.MethodsInfo)
-            {
-                var values = RenderArray(valuesType, storage, "values");
-                var renderedValues =
-                    storage.Length <= 5 ? values : AddDecl("values", null, values);
-                AddExpression(RenderCall(mockId, setupMethod, renderedValues));
-            }
 
-            return mockId;
+            RenderClausesSetup(typeOfMock, mockId, mockInfo.SetupClauses);
+
+            switch (mockInfo)
+            {
+                case DelegateMockInfo delegateMockInfo when explicitType:
+                {
+                    var invokeMethod = RenderMemberAccess(mockId, delegateMockInfo.DelegateMethod);
+                    var emptyInit = System.Array.Empty<ExpressionSyntax>();
+                    var delegateType = RenderType(delegateMockInfo.DelegateType);
+                    var createdDelegate =
+                        RenderObjectCreation(delegateType, new [] {invokeMethod}, emptyInit);
+                    var delegateName = preferredName == null ? "mock" : preferredName + "Mock";
+                    var delegateId = AddDecl(delegateName, null, createdDelegate);
+                    return delegateId;
+                }
+                case DelegateMockInfo delegateMockInfo:
+                    return RenderMemberAccess(mockId, delegateMockInfo.DelegateMethod);
+                default:
+                    return mockId;
+            }
         }
 
-        private ExpressionSyntax RenderComplexObject(object obj, string? preferredName = null)
+        private ExpressionSyntax RenderComplexObject(
+            object obj,
+            string? preferredName = null,
+            bool explicitType = false)
         {
             var physAddress = new physicalAddress(obj);
             if (_renderedObjects.TryGetValue(physAddress, out var renderedResult))
@@ -541,7 +594,11 @@ internal class MethodRenderer : CodeRenderer
                 Enum e => RenderEnum(e),
                 Pointer => throw new NotImplementedException("RenderObject: implement rendering of pointers"),
                 ValueType => RenderFields(obj, preferredName),
-                _ when HasMockInfo(obj.GetType().Name) => RenderMock(obj, preferredName),
+                Delegate d when HasMockInfo(d.Method.DeclaringType?.Name) =>
+                    RenderMock(d.Method.DeclaringType, preferredName, explicitType),
+                Delegate =>
+                    throw new NotImplementedException("rendering of not mocked delegates is not implemented"),
+                _ when HasMockInfo(obj.GetType().Name) => RenderMock(obj.GetType(), preferredName),
                 _ when obj.GetType().IsClass => RenderFields(obj, preferredName),
                 _ => throw new NotImplementedException($"RenderObject: unexpected object {obj}")
             };
@@ -592,8 +649,13 @@ internal class MethodRenderer : CodeRenderer
             nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
-            _ => RenderComplexObject(obj, preferredName)
+            _ => RenderComplexObject(obj, preferredName, explicitType)
         };
+
+        public int StatementsCount()
+        {
+            return _statements.Count;
+        }
 
         public BlockSyntax Render()
         {

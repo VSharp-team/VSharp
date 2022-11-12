@@ -264,6 +264,14 @@ public static class Renderer
             {
                 return typeDecl.Identifier.ToString();
             }
+            case DelegateDeclarationSyntax delegateDecl:
+            {
+                return delegateDecl.Identifier.ToString();
+            }
+            case PropertyDeclarationSyntax propertyDecl:
+            {
+                return propertyDecl.Identifier.ToString();
+            }
             default:
                 throw new NotImplementedException($"NameOfMember: unexpected case {member}");
         }
@@ -314,28 +322,31 @@ public static class Renderer
         var dictWithMembers = new Dictionary<string, MemberDeclarationSyntax>();
         foreach (var oldMember in oldTypes)
         {
-            var type = oldMember as TypeDeclarationSyntax;
-            Debug.Assert(type != null);
-            var key = NameOfMember(type);
-            dictWithMembers.Add(key, type);
+            var key = NameOfMember(oldMember);
+            dictWithMembers.Add(key, oldMember);
         }
         foreach (var newMember in newTypes)
         {
-            var type = newMember as TypeDeclarationSyntax;
-            Debug.Assert(type != null);
-            var key = NameOfMember(type);
-            if (dictWithMembers.TryGetValue(key, out var oldValue))
+            var key = NameOfMember(newMember);
+            switch (newMember)
             {
-                var oldType = oldValue as TypeDeclarationSyntax;
-                Debug.Assert(oldType != null);
-                var mergedType = MergeType(oldType, type);
-                if (mergedType == null)
-                    return null;
-                dictWithMembers[key] = mergedType;
-            }
-            else
-            {
-                dictWithMembers.Add(key, type);
+                case TypeDeclarationSyntax type
+                    when dictWithMembers.TryGetValue(key, out var oldValue):
+                {
+                    var oldType = oldValue as TypeDeclarationSyntax;
+                    Debug.Assert(oldType != null);
+                    var mergedType = MergeType(oldType, type);
+                    if (mergedType == null)
+                        return null;
+                    dictWithMembers[key] = mergedType;
+                    break;
+                }
+                case TypeDeclarationSyntax type:
+                    dictWithMembers.Add(key, type);
+                    break;
+                default:
+                    dictWithMembers[key] = newMember;
+                    break;
             }
         }
 

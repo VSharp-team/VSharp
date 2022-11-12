@@ -17,10 +17,16 @@ internal class CodeRenderer
         _referenceManager = referenceManager;
     }
 
-    public struct MockInfo
+    internal class MockInfo
     {
-        public List<(ArrayTypeSyntax, SimpleNameSyntax)> MethodsInfo;
-        public SimpleNameSyntax MockName;
+        public readonly SimpleNameSyntax MockName;
+        public readonly List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> SetupClauses;
+
+        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses)
+        {
+            MockName = mockName;
+            SetupClauses = setupClauses;
+        }
 
         public bool Equals(MockInfo mockInfo)
         {
@@ -43,7 +49,28 @@ internal class CodeRenderer
         }
     }
 
+    internal class DelegateMockInfo : MockInfo
+    {
+        public readonly SimpleNameSyntax DelegateMethod;
+        public readonly Type DelegateType;
+
+        public DelegateMockInfo(
+            SimpleNameSyntax mockName,
+            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses,
+            SimpleNameSyntax delegateMethod,
+            Type delegateType) : base(mockName, setupClauses)
+        {
+            DelegateMethod = delegateMethod;
+            DelegateType = delegateType;
+        }
+    }
+
     private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
+
+    public static void PrepareCache()
+    {
+        MocksInfo.Clear();
+    }
 
     public static void AddMockInfo(string id, MockInfo info)
     {
@@ -51,9 +78,9 @@ internal class CodeRenderer
         MocksInfo[id] = info;
     }
 
-    public static bool HasMockInfo(string id)
+    public static bool HasMockInfo(string? id)
     {
-        return MocksInfo.ContainsKey(id);
+        return id != null && MocksInfo.ContainsKey(id);
     }
 
     public static MockInfo GetMockInfo(string id)
@@ -87,7 +114,19 @@ internal class CodeRenderer
         return false;
     }
 
-    private static readonly Dictionary<Type, string> PrimitiveTypes = new()
+    public static bool NeedExplicitType(object? obj, Type? containerType)
+    {
+        var needExplicitNumericType =
+            // For this types there is no data type suffix, so if parameter type is upcast, explicit cast is needed
+            obj is byte or sbyte or short or ushort
+            && (containerType == typeof(object) || containerType == typeof(ValueType));
+        var needExplicitDelegateType =
+            // Member group can not be upcasted to object, so explicit delegate type is needed
+            obj is Delegate && containerType == typeof(object);
+        return needExplicitNumericType || needExplicitDelegateType;
+    }
+
+    internal static readonly Dictionary<Type, string> PrimitiveTypes = new()
         {
             [typeof(void)] = "void",
             [typeof(byte)] = "byte",
@@ -174,7 +213,7 @@ internal class CodeRenderer
         return ParseTypeName(typeName);
     }
 
-    public NameSyntax RenderTypeName(Type type)
+    public SimpleNameSyntax RenderTypeName(Type type)
     {
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
@@ -189,33 +228,34 @@ internal class CodeRenderer
         return IdentifierName(type.Name);
     }
 
+    public SimpleNameSyntax RenderMethodName(MethodBase method)
+    {
+        var type = method.DeclaringType;
+        return method switch
+        {
+            { IsGenericMethod : true } => GenericName(method.Name),
+            { IsConstructor : true } when type != null => RenderTypeName(type),
+            _ when IsGetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
+            _ when IsSetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
+            _ => IdentifierName(method.Name)
+        };
+    }
+
     public ExpressionSyntax RenderMethod(MethodBase method)
     {
         _referenceManager.AddAssembly(method.Module.Assembly);
         var type = method.DeclaringType;
-        SimpleNameSyntax methodName = IdentifierName(method.Name);
+        SimpleNameSyntax methodName = RenderMethodName(method);
 
-        if (method.IsGenericMethod)
+        if (methodName is GenericNameSyntax name && method.IsGenericMethod)
         {
             var typeArgs = method.GetGenericArguments().Select(RenderType).ToArray();
-            methodName =
-                GenericName(method.Name)
-                    .WithTypeArgumentList(
-                        TypeArgumentList(SeparatedList(typeArgs))
-                    );
+            var typeArgsList = TypeArgumentList(SeparatedList(typeArgs));
+            methodName = name.WithTypeArgumentList(typeArgsList);
         }
 
-        if (type == null)
+        if (type == null || method.IsConstructor)
             return methodName;
-
-        if (method.IsConstructor)
-            return IdentifierName(RenderType(type).ToString());
-
-        string propertyName;
-        if (IsGetPropertyMethod(method, out propertyName))
-            methodName = IdentifierName(propertyName);
-        if (IsSetPropertyMethod(method, out propertyName))
-            methodName = IdentifierName(propertyName);
 
         if (method.IsStatic)
             return RenderMemberAccess(RenderType(type), methodName);
@@ -709,6 +749,22 @@ internal class CodeRenderer
     public static InvocationExpressionSyntax RenderCall(string memberOf, string memberName, TypeSyntax[] genericArgs, params ExpressionSyntax[] args)
     {
         return RenderCall(IdentifierName(memberOf), memberName, genericArgs, args);
+    }
+
+    public static PropertyDeclarationSyntax RenderPropertyDeclaration(
+        TypeSyntax propertyType,
+        SyntaxToken propertyId,
+        SyntaxToken[] modifiers,
+        SimpleNameSyntax? interfaceName)
+    {
+        var propertyDecl =
+            PropertyDeclaration(propertyType, propertyId)
+                .AddModifiers(modifiers);
+        if (interfaceName != null)
+            propertyDecl = propertyDecl.WithExplicitInterfaceSpecifier(
+                ExplicitInterfaceSpecifier(interfaceName)
+            );
+        return propertyDecl;
     }
 
     public static LiteralExpressionSyntax RenderLiteral(string? literal)
