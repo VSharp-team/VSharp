@@ -71,7 +71,7 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
-        val TryTermToObj : state -> term -> obj option
+        val TryTermToObj : state -> (concreteHeapAddress -> Type -> unit) -> term -> obj option
 
         val IsStruct : term -> bool
         val IsReference : term -> bool

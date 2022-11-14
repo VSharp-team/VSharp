@@ -114,7 +114,7 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
-        let TryTermToObj state term = Memory.tryTermToObj state term
+        let TryTermToObj state objCreate term = Memory.tryTermToObj state objCreate term
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
@@ -464,8 +464,8 @@ module API =
 
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory
-            let concreteChar = Memory.tryTermToObj state char
-            let concreteLen = Memory.tryTermToObj state length
+            let concreteChar = Memory.tryTermToObj state (fun _ _ -> ()) char
+            let concreteLen = Memory.tryTermToObj state (fun _ _ -> ()) length 
             let symbolicCase address =
                 let arrayType = typeof<char>, 1, true
                 Copying.fillArray state address arrayType (makeNumber 0) length char

@@ -441,10 +441,14 @@ module internal Memory =
 
     // ---------------- Try term to object ----------------
 
-    let tryAddressToObj (state : state) address =
+    let tryAddressToObj (state : state) objCreate address (typ : Type) =
         if address = VectorTime.zero then Some null
-        else state.concreteMemory.TryVirtToPhys address
-
+        else
+            match state.concreteMemory.TryVirtToPhys address with
+            | Some o -> Some o
+            | None ->
+                objCreate address typ
+                state.concreteMemory.TryVirtToPhys address
     let tryPointerToObj state address (offset : int) =
         let cm = state.concreteMemory
         match cm.TryVirtToPhys address with
@@ -454,21 +458,21 @@ module internal Memory =
             Some (pObj :> obj)
         | None -> None
 
-    let rec tryTermToObj (state : state) term =
+    let rec tryTermToObj (state : state) objCreate term =
         match term.term with
         | Concrete(obj, _) -> Some obj
-        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
-        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
-        | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state a
+        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state objCreate fields typ
+        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state objCreate fields typ
+        | HeapRef({term = ConcreteHeapAddress a}, typ) -> tryAddressToObj state objCreate a typ
         | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, ConcreteT (:? int as offset, _)) ->
             tryPointerToObj state a offset
         | _ -> None
 
-    and tryStructTermToObj (state : state) fields typ =
+    and tryStructTermToObj (state : state) objCreate fields typ =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
-            match tryTermToObj state value with
+            match tryTermToObj state objCreate value with
             // field was not found in the structure, skipping it
             | _ when fieldInfo = null -> k ()
             // field can be converted to obj, so continue
@@ -477,11 +481,11 @@ module internal Memory =
             | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
 
-    and tryNullableTermToObj (state : state) fields typ =
+    and tryNullableTermToObj (state : state) objCreate fields typ =
         let valueField, hasValueField = Reflection.fieldsOfNullable typ
         let value = PersistentDict.find fields valueField
         let hasValue = PersistentDict.find fields hasValueField
-        match tryTermToObj state value with
+        match tryTermToObj state objCreate value with
         | Some obj when hasValue = True -> Some obj
         | _ when hasValue = False -> Some null
         | _ -> None
@@ -949,7 +953,7 @@ module internal Memory =
 
     let writeBoxedLocation state (address : concreteHeapAddress) value =
         let cm = state.concreteMemory
-        match tryTermToObj state value with
+        match tryTermToObj state (fun _ _ -> ()) value with
         | Some value when cm.Contains(address) ->
             cm.Remove address
             cm.Allocate address value
@@ -1008,7 +1012,7 @@ module internal Memory =
 
     let writeClassField state address (field : fieldId) value =
         let cm = state.concreteMemory
-        let concreteValue = tryTermToObj state value
+        let concreteValue = tryTermToObj state (fun _ _ -> ()) value
         match address.term, concreteValue with
         | ConcreteHeapAddress concreteAddress, Some obj when cm.Contains concreteAddress ->
             cm.WriteClassField concreteAddress field obj
@@ -1019,7 +1023,7 @@ module internal Memory =
 
     let writeArrayIndex state address indices arrayType value =
         let cm = state.concreteMemory
-        let concreteValue = tryTermToObj state value
+        let concreteValue = tryTermToObj state (fun _ _ -> ()) value
         let concreteIndices = tryIntListFromTermList indices
         match address.term, concreteValue, concreteIndices with
         | ConcreteHeapAddress a, Some obj, Some concreteIndices when cm.Contains a ->
