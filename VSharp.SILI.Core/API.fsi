@@ -209,6 +209,8 @@ module API =
     module public Memory =
         val EmptyState : unit -> state
         val EmptyModel : IMethod -> typeModel -> model
+        
+        val Unmarshall : state -> concreteHeapAddress -> unit
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit

@@ -1140,8 +1140,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     match model with
                     | StateModel(s, _) -> s
                     | _ -> __unreachable__()
+                if modelState.concreteMemory.Contains thisInModel then Memory.Unmarshall modelState thisInModel 
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
-                if modelState.concreteMemory.Contains thisInModel then modelState.concreteMemory.Remove thisInModel
                 candidateTypes |> Seq.iter (function
                     | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
                     | _ -> ())

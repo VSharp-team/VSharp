@@ -273,6 +273,7 @@ module API =
             Memory.fillModelWithParametersAndThis modelState method
             StateModel(modelState, typeModel)
 
+        let Unmarshall state a = Memory.unmarshall state a
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state

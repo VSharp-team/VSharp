@@ -798,49 +798,56 @@ module internal Z3 =
                 String(contents) :> obj
 
             and createObjOfType addr typ =
-                let cha = addr |> ConcreteHeapAddress
-                match typ with
-                | ArrayType(_, SymbolicDimension _) -> ()
-                | ArrayType(elemType, dim) ->                 
-                    let eval address =
-                        address |> Ref |> Memory.Read state |> unboxConcrete |> Option.get
-                    let arrayType, (lengths : int array), (lowerBounds : int array) =
-                        match dim with
-                        | Vector ->
-                            let arrayType = (elemType, 1, true)
-                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
-                        | ConcreteDimension rank ->
-                            let arrayType = (elemType, rank, false)
-                            arrayType,
-                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
-                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
-                        | SymbolicDimension -> __unreachable__()
-                    let length = Array.reduce ( * ) lengths
-                    if length > 128 then () // TODO: move magic number
-                    else
-                        let arr =
-                            if (lowerBounds <> null)
-                                then Array.CreateInstance(elemType, lengths, lowerBounds)
-                                else Array.CreateInstance(elemType, lengths)
-                        let result = ref (ref Nop) // TODO: do we need the else branch here?
-                        if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
-                            let value =  result.Value.Value |> unboxConcrete |> Option.get
-                            Array.fill arr value
-                        cm.Allocate addr arr
-                | _ when typ = typeof<string> ->
-                    cm.Allocate addr (symbolicStringToObj cha)
-                | _ ->
-                    let o = Reflection.createObject typ
-                    Reflection.fieldsOf false typ |>
-                        Seq.iter (fun (fid, finfo) ->
-                            // TODO: do we need a special case for strings here?
-                            let region = HeapFieldSort fid
-                            let result = ref (ref Nop)
-                            if defaultValues.TryGetValue(region, result) then
-                                let value = result.Value.Value |> unboxConcrete |> Option.get
-                                finfo.SetValue(o, value)
+                try
+                    let cha = addr |> ConcreteHeapAddress
+                    match typ with
+                    | ArrayType(_, SymbolicDimension _) -> ()
+                    | ArrayType(elemType, dim) ->                 
+                        let eval address =
+                            address |> Ref |> Memory.Read state |> unboxConcrete |> Option.get
+                        let arrayType, (lengths : int array), (lowerBounds : int array) =
+                            match dim with
+                            | Vector ->
+                                let arrayType = (elemType, 1, true)
+                                arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
+                            | ConcreteDimension rank ->
+                                let arrayType = (elemType, rank, false)
+                                arrayType,
+                                Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
+                                Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
+                            | SymbolicDimension -> __unreachable__()
+                        let length = Array.reduce ( * ) lengths
+                        if length > 128 then () // TODO: move magic number
+                        else
+                            let arr =
+                                if (lowerBounds <> null)
+                                    then Array.CreateInstance(elemType, lengths, lowerBounds)
+                                    else Array.CreateInstance(elemType, lengths)
+                            let result = ref (ref Nop) // TODO: do we need the else branch here?
+                            if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
+                                let value =  result.Value.Value |> unboxConcrete |> Option.get
+                                Array.fill arr value
+                            cm.Allocate addr arr
+                    // | _ when typ.IsPointer ->
+                    //     ()
+                    | _ when typ = typeof<string> ->
+                        cm.Allocate addr (symbolicStringToObj cha)
+                    | _ ->
+                        let o = Reflection.createObject typ
+                        cm.Allocate addr o
+                        Reflection.fieldsOf false typ |>
+                            Seq.iter (fun (fid, finfo) ->
+                                // TODO: do we need a special case for strings here?
+                                let region = HeapFieldSort fid
+                                let result = ref (ref Nop)
+                                if defaultValues.TryGetValue(region, result) then
+                                    let value = result.Value.Value |> unboxConcrete |> Option.get
+                                    cm.WriteClassField addr fid value
                         )
-                    cm.Allocate addr o
+                with
+                | :? MemberAccessException as e -> // Could not create an instance
+                    if cm.Contains addr then cm.Remove addr
+                    raise e
 
             // Create default concretes
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
