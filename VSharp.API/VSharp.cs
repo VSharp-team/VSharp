@@ -12,6 +12,19 @@ using VSharp.Solver;
 namespace VSharp
 {
     /// <summary>
+    /// Strategy which symbolic virtual machine uses for branch selection.
+    /// </summary>
+    public enum SearchStrategy
+    {
+        DFS,
+        BFS,
+        ShortestDistance,
+        RandomShortestDistance,
+        ContributedCoverage,
+        Interleaved
+    }
+
+    /// <summary>
     /// Summary of V# test generation process.
     /// </summary>
     public sealed class Statistics
@@ -74,17 +87,18 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder, coverageZone coverageZone, string[] mainArguments = null, int timeout = -1)
+        private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder,
+            coverageZone coverageZone, SearchStrategy searchStrategy, string[] mainArguments = null, int timeout = -1)
         {
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
-            var baseSearcher = searchMode.ShortestDistanceBasedMode;
+            var baseSearchMode = searchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
                     explorationMode.NewTestCoverageMode(
                         coverageZone,
-                        timeout > 0 ? searchMode.NewFairMode(baseSearcher) : baseSearcher
+                        timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
                     ),
                     executionMode.SymbolicMode,
                     unitTests.TestDirectory,
@@ -136,6 +150,19 @@ namespace VSharp
             return statistics;
         }
 
+        private static searchMode ToSiliMode(this SearchStrategy searchStrategy)
+        {
+            return searchStrategy switch
+            {
+                SearchStrategy.BFS => searchMode.BFSMode,
+                SearchStrategy.DFS => searchMode.DFSMode,
+                SearchStrategy.ShortestDistance => searchMode.NewShortestDistanceBasedMode(false),
+                SearchStrategy.RandomShortestDistance => searchMode.NewShortestDistanceBasedMode(true),
+                SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.NewShortestDistanceBasedMode(false), 1, searchMode.ContributedCoverageMode, 9)
+            };
+        }
+
         private static bool Reproduce(DirectoryInfo testDir)
         {
             return TestRunner.TestRunner.ReproduceTests(testDir);
@@ -147,12 +174,13 @@ namespace VSharp
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>Summary of tests generation process.</returns>
-        public static Statistics Cover(MethodBase method, int timeout = -1, string outputDirectory = "")
+        public static Statistics Cover(MethodBase method, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
             AssemblyManager.Load(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
-            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, null, timeout);
+            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, null, timeout);
         }
 
         /// <summary>
@@ -161,9 +189,10 @@ namespace VSharp
         /// <param name="type">Type to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static Statistics Cover(Type type, int timeout = -1, string outputDirectory = "")
+        public static Statistics Cover(Type type, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
             AssemblyManager.Load(type.Module.Assembly);
 
@@ -173,7 +202,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
-            return StartExploration(methods, outputDirectory, coverageZone.ClassZone, null, timeout);
+            return StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, null, timeout);
         }
 
         /// <summary>
@@ -182,9 +211,10 @@ namespace VSharp
         /// <param name="types">Types to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods or don't belong to the same assembly.</exception>
-        public static Statistics Cover(IEnumerable<Type> types, int timeout = -1, string outputDirectory = "")
+        public static Statistics Cover(IEnumerable<Type> types, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
             var assemblies = types.Select(t => t.Module.Assembly).Distinct();
             if (assemblies.Count() != 1)
@@ -199,7 +229,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method or constructor of classes subset");
             }
 
-            return StartExploration(methods, outputDirectory, coverageZone.ClassZone, null, timeout);
+            return StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, null, timeout);
         }
 
         /// <summary>
@@ -208,10 +238,11 @@ namespace VSharp
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, int timeout = -1, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
             AssemblyManager.Load(assembly);
 
@@ -221,7 +252,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method in assembly");
             }
 
-            return StartExploration(methods, outputDirectory, coverageZone.ModuleZone, null, timeout);
+            return StartExploration(methods, outputDirectory, coverageZone.ModuleZone, searchStrategy, null, timeout);
         }
 
         /// <summary>
@@ -231,10 +262,11 @@ namespace VSharp
         /// <param name="args">Command line arguments of entry point</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(Assembly assembly, string[] args, int timeout = -1, string outputDirectory = "")
+        public static Statistics Cover(Assembly assembly, string[] args, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
             AssemblyManager.Load(assembly);
 
@@ -246,7 +278,7 @@ namespace VSharp
 
             var methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, args, timeout);
+            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, args, timeout);
         }
 
         /// <summary>
@@ -255,10 +287,11 @@ namespace VSharp
         /// <param name="method">Type to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(MethodBase method, int timeout = -1, string outputDirectory = "")
+        public static bool CoverAndRun(MethodBase method, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
-            var stats = Cover(method, timeout, outputDirectory);
+            var stats = Cover(method, timeout, outputDirectory, searchStrategy);
             return Reproduce(stats.OutputDir);
         }
 
@@ -268,11 +301,12 @@ namespace VSharp
         /// <param name="type">Type to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static bool CoverAndRun(Type type, int timeout = -1, string outputDirectory = "")
+        public static bool CoverAndRun(Type type, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
-            var stats = Cover(type, timeout, outputDirectory);
+            var stats = Cover(type, timeout, outputDirectory, searchStrategy);
             return Reproduce(stats.OutputDir);
         }
 
@@ -282,11 +316,12 @@ namespace VSharp
         /// <param name="types">Types to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods or don't belong to the same assembly.</exception>
-        public static bool CoverAndRun(IEnumerable<Type> types, int timeout = -1, string outputDirectory = "")
+        public static bool CoverAndRun(IEnumerable<Type> types, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
-            var stats = Cover(types, timeout, outputDirectory);
+            var stats = Cover(types, timeout, outputDirectory, searchStrategy);
             return Reproduce(stats.OutputDir);
         }
 
@@ -296,12 +331,13 @@ namespace VSharp
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(Assembly assembly, int timeout = -1, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
-            var stats = Cover(assembly, timeout, outputDirectory);
+            var stats = Cover(assembly, timeout, outputDirectory, searchStrategy);
             return Reproduce(stats.OutputDir);
         }
 
@@ -312,11 +348,12 @@ namespace VSharp
         /// <param name="args">Command line arguments of entry point</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, string[] args, int timeout = -1, string outputDirectory = "")
+        public static bool CoverAndRun(Assembly assembly, string[] args, int timeout = -1, string outputDirectory = "", SearchStrategy searchStrategy = SearchStrategy.ShortestDistance)
         {
-            var stats = Cover(assembly, args, timeout, outputDirectory);
+            var stats = Cover(assembly, args, timeout, outputDirectory, searchStrategy);
             return Reproduce(stats.OutputDir);
         }
 

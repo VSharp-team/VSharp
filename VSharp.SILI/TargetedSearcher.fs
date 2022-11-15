@@ -233,5 +233,9 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         override x.Reset() = reset ()
         override x.Remove cilState = remove cilState
 
-type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
-    inherit WeightedSearcher(maxBound, AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)), DiscretePDF(mkCilStateHashComparer))
+type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics, isRandom) =
+    inherit WeightedSearcher(
+        maxBound,
+        AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)),
+        if isRandom then DiscretePDF(mkCilStateHashComparer) :> IPriorityCollection<cilState> else BidictionaryPriorityQueue() :> IPriorityCollection<cilState>
+    )

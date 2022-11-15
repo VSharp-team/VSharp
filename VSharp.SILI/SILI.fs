@@ -59,7 +59,7 @@ type public SILI(options : SiliOptions) =
     let rec mkForwardSearcher = function
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
+        | ShortestDistanceBasedMode isRandom -> ShortestDistanceBasedSearcher(infty, statistics, isRandom)
         | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics)

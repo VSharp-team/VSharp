@@ -6,7 +6,7 @@ open System.IO
 type searchMode =
     | DFSMode
     | BFSMode
-    | ShortestDistanceBasedMode
+    | ShortestDistanceBasedMode of bool
     | ContributedCoverageMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
