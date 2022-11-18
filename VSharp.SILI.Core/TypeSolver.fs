@@ -333,7 +333,6 @@ module TypeSolver =
             | TypeSat(refsTypes, typeParams) ->
                 let cm = modelState.concreteMemory
                 let refineTypes addr t =
-                    modelState.allocatedTypes <- PersistentDict.add addr t modelState.allocatedTypes
                     match t with
                     | ConcreteType t ->
                         match cm.TryVirtToPhys addr with
@@ -346,7 +345,8 @@ module TypeSolver =
                             if t.IsValueType then
                                 let value = makeDefaultValue t
                                 modelState.boxedLocations <- PersistentDict.add addr value modelState.boxedLocations
-                    | _ -> ()
+                    | MockType _ -> if cm.Contains addr then Memory.unmarshall modelState addr
+                    modelState.allocatedTypes <- PersistentDict.add addr t modelState.allocatedTypes
                 Seq.iter2 refineTypes addresses refsTypes
                 let classParams, methodParams = Array.splitAt typeGenericArguments.Length typeParams
                 typeModel.classesParams <- classParams

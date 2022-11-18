@@ -43,7 +43,8 @@ module internal Type =
             List.singleton (typeRef, state)
         | _ -> __notImplemented__()
 //        TypeOfMethod state (Types.FromDotNetType state t)
-        // TODO: restore it after rewriting marshaling/unmarshaling
+        // TODO: restore it after rewriting marshaling/
+        // unmarshaling
 //        __notImplemented__()
 
     let GetAssembly (state : state) (args : term list) : (term * state) list =

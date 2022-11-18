@@ -1014,15 +1014,18 @@ module internal Memory =
         writeArrayIndexSymbolic state address [stringLength] (tChar, 1, true) (Concrete '\000' tChar)
         writeClassFieldSymbolic state address Reflection.stringLengthField stringLength
 
-    let unmarshall (state : state) concreteAddress =
-        let address = ConcreteHeapAddress concreteAddress
-        let cm = state.concreteMemory
-        let obj = cm.VirtToPhys concreteAddress
+    let unmarshallObj state address (obj : obj) =
         assert(box obj <> null)
         match obj with
         | :? Array as array -> unmarshallArray state address array
         | :? String as string -> unmarshallString state address string
         | _ -> unmarshallClass state address obj
+
+    let unmarshall (state : state) concreteAddress =
+        let address = ConcreteHeapAddress concreteAddress
+        let cm = state.concreteMemory
+        let deps = cm.GetDeps concreteAddress |> List.map cm.VirtToPhys
+        deps |> List.iter (unmarshallObj state address)
         cm.Remove concreteAddress
 
 // ------------------------------- Writing -------------------------------

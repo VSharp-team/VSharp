@@ -28,6 +28,8 @@ type IConcreteMemory =
     abstract WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
     abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
     abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
+    abstract GetDeps : concreteHeapAddress -> concreteHeapAddress list
+    abstract AddDep : concreteHeapAddress -> concreteHeapAddress -> unit
     abstract Remove : concreteHeapAddress -> unit
 
 type IMethodMock =

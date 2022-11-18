@@ -101,6 +101,10 @@ module internal Z3 =
                     let arr = if (lowerBounds = null) then Array.CreateInstance(elemType, lengths)
                               else Array.CreateInstance(elemType, lengths, lowerBounds)
                     if defaults.TryGetValue(ArrayIndexSort arrayType, result) then
+                        match result.Value.Value with
+                            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
+                                cm.AddDep a addr
+                            | _ -> ()
                         let value =  result.Value.Value |> unboxConcrete' |> Option.get
                         Array.fill arr value
                     cm.Allocate addr arr
@@ -118,13 +122,17 @@ module internal Z3 =
                     Seq.iter (fun (fid, finfo) ->
                         let region = HeapFieldSort fid
                         if defaults.TryGetValue(region, result) then
+                            match result.Value.Value with
+                            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
+                                cm.AddDep a addr
+                            | _ -> ()
                             let value = result.Value.Value |> unboxConcrete' |> Option.get
                             cm.WriteClassField addr fid value
                 )
         with
         | :? MemberAccessException as e -> // Could not create an instance
             if cm.Contains addr then cm.Remove addr
-            raise e
+            raise e 
 
 // ------------------------------- Encoding: primitives -------------------------------
 
