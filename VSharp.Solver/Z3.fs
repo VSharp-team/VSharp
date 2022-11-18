@@ -76,6 +76,56 @@ module internal Z3 =
         lastSymbolicAddress = 0
     }
 
+    // -----------------------Concrete memory -------------------------
+    let rec unboxConcrete state defaults term =
+        match Terms.TryTermToObj state (createObjOfType state defaults) term with                
+        | Some o -> Some (o |> unbox)
+        | None -> None
+
+    and createObjOfType state (defaults : Dictionary<regionSort, term ref>) addr typ =
+        let cm = state.concreteMemory
+        try
+            let unboxConcrete' t = unboxConcrete state defaults t
+            let cha = addr |> ConcreteHeapAddress
+            let result = ref (ref Nop)
+            match typ with
+            | ArrayType(_, SymbolicDimension _) -> ()
+            | ArrayType(elemType, _) ->                 
+                let eval address =
+                    address |> Ref |> Memory.Read state |> unboxConcrete' |> Option.get
+                let arrayType, (lengths : int array), (lowerBounds : int array) =
+                    Memory.ReadArrayParams typ cha eval
+                let length = Array.reduce ( * ) lengths
+                if length > 128 then () // TODO: move magic number
+                else
+                    let arr = if (lowerBounds = null) then Array.CreateInstance(elemType, lengths)
+                              else Array.CreateInstance(elemType, lengths, lowerBounds)
+                    if defaults.TryGetValue(ArrayIndexSort arrayType, result) then
+                        let value =  result.Value.Value |> unboxConcrete' |> Option.get
+                        Array.fill arr value
+                    cm.Allocate addr arr
+            | _ when typ = typeof<string> ->
+                let arTyp = (typeof<char>, 1, true)
+                let l : int = ClassField(cha, Reflection.stringLengthField) |> Ref
+                                   |> Memory.Read state |> unboxConcrete' |> Option.get
+                let contents = Array.init l (fun i -> ArrayIndex(cha, [MakeNumber i], arTyp) |> Ref
+                                                      |> Memory.Read state |> unboxConcrete' |> Option.get) 
+                cm.Allocate addr (String(contents) :> obj)
+            | _ ->
+                let o = Reflection.createObject typ
+                cm.Allocate addr o
+                Reflection.fieldsOf false typ |>
+                    Seq.iter (fun (fid, finfo) ->
+                        let region = HeapFieldSort fid
+                        if defaults.TryGetValue(region, result) then
+                            let value = result.Value.Value |> unboxConcrete' |> Option.get
+                            cm.WriteClassField addr fid value
+                )
+        with
+        | :? MemberAccessException as e -> // Could not create an instance
+            if cm.Contains addr then cm.Remove addr
+            raise e
+
 // ------------------------------- Encoding: primitives -------------------------------
 
     type private Z3Builder(ctx : Context) =
@@ -786,81 +836,20 @@ module internal Z3 =
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
-            let rec unboxConcrete term =
-                match Terms.TryTermToObj state createObjOfType term with                
-                | Some o -> Some (o |> unbox)
-                | None -> None
-
-            and symbolicStringToObj cha =
-                let length : int = ClassField(cha, Reflection.stringLengthField) |> Ref |> Memory.Read state |> unboxConcrete |> Option.get 
-                let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true))
-                                                                        |> Ref |> Memory.Read state |> unboxConcrete |> Option.get)
-                String(contents) :> obj
-
-            and createObjOfType addr typ =
-                try
-                    let cha = addr |> ConcreteHeapAddress
-                    match typ with
-                    | ArrayType(_, SymbolicDimension _) -> ()
-                    | ArrayType(elemType, dim) ->                 
-                        let eval address =
-                            address |> Ref |> Memory.Read state |> unboxConcrete |> Option.get
-                        let arrayType, (lengths : int array), (lowerBounds : int array) =
-                            match dim with
-                            | Vector ->
-                                let arrayType = (elemType, 1, true)
-                                arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |], null
-                            | ConcreteDimension rank ->
-                                let arrayType = (elemType, rank, false)
-                                arrayType,
-                                Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval),
-                                Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval)
-                            | SymbolicDimension -> __unreachable__()
-                        let length = Array.reduce ( * ) lengths
-                        if length > 128 then () // TODO: move magic number
-                        else
-                            let arr =
-                                if (lowerBounds <> null)
-                                    then Array.CreateInstance(elemType, lengths, lowerBounds)
-                                    else Array.CreateInstance(elemType, lengths)
-                            let result = ref (ref Nop) // TODO: do we need the else branch here?
-                            if defaultValues.TryGetValue(ArrayIndexSort arrayType, result) then
-                                let value =  result.Value.Value |> unboxConcrete |> Option.get
-                                Array.fill arr value
-                            cm.Allocate addr arr
-                    // | _ when typ.IsPointer ->
-                    //     ()
-                    | _ when typ = typeof<string> ->
-                        cm.Allocate addr (symbolicStringToObj cha)
-                    | _ ->
-                        let o = Reflection.createObject typ
-                        cm.Allocate addr o
-                        Reflection.fieldsOf false typ |>
-                            Seq.iter (fun (fid, finfo) ->
-                                // TODO: do we need a special case for strings here?
-                                let region = HeapFieldSort fid
-                                let result = ref (ref Nop)
-                                if defaultValues.TryGetValue(region, result) then
-                                    let value = result.Value.Value |> unboxConcrete |> Option.get
-                                    cm.WriteClassField addr fid value
-                        )
-                with
-                | :? MemberAccessException as e -> // Could not create an instance
-                    if cm.Contains addr then cm.Remove addr
-                    raise e
-
             // Create default concretes
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
-                if VectorTime.lessOrEqual VectorTime.zero addr || cm.Contains addr then ()
-                else
-                    try
-                        createObjOfType addr typ
-                    with // if type cannot be allocated concretely, it will be stored symbolically
-                    | :? MemberAccessException -> () // Could not create an instance
-                    | :? ArgumentException -> ()     // Could not unbox concrete
-                    | _ -> internalfail "Unexpected exception in object creation" 
+                if VectorTime.less addr VectorTime.zero then
+                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
+                    if cm.Contains addr then ()
+                    else
+                        try
+                            createObjOfType state defaultValues addr typ
+                        with // if type cannot be allocated concretely, it will be stored symbolically
+                        | :? MemberAccessException -> () // Could not create an instance
+                        | :? ArgumentException -> ()     // Could not unbox concrete
+                        | _ -> internalfail "Unexpected exception in object creation" 
             )
 
             // Process stores 
@@ -890,14 +879,6 @@ module internal Z3 =
                     elif arr.IsConst || arr.IsConstantArray then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
-
-            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let typ, _ = kvp.Key
-                let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
-               
-            )
 
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst

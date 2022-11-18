@@ -31,20 +31,12 @@ module TestGenerator =
             | ConcreteType typ ->
                 let cha = ConcreteHeapAddress addr
                 match typ with
-                | TypeUtils.ArrayType(elemType, dim) ->
+                | TypeUtils.ArrayType(_, SymbolicDimension _) -> __notImplemented__()
+                | TypeUtils.ArrayType _ ->
                     let index = test.MemoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
                     let arrayType, (lengths : int array), (lowerBounds : int array) =
-                        match dim with
-                        | Vector ->
-                            let arrayType = (elemType, 1, true)
-                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox |], null
-                        | ConcreteDimension rank ->
-                            let arrayType = (elemType, rank, false)
-                            arrayType,
-                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox),
-                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
-                        | SymbolicDimension -> __notImplemented__()
+                        Memory.ReadArrayParams typ cha (eval >> unbox)
                     let length = Array.reduce ( * ) lengths
                     // TODO: normalize model (for example, try to minimize lengths of generated arrays)
                     if maxBufferSize > 0 && length > maxBufferSize then

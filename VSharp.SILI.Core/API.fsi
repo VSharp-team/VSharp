@@ -230,6 +230,7 @@ module API =
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
 
+        val ReadArrayParams : Type -> term -> (address -> int) -> arrayType * int array * int array
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list

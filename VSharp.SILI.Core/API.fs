@@ -358,6 +358,7 @@ module API =
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
+        let ReadArrayParams typ cha eval = Memory.readArrayParams typ cha eval 
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value

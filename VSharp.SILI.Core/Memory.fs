@@ -699,6 +699,23 @@ module internal Memory =
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
+    let readArrayParams typ cha eval =
+        match typ with
+        | ArrayType(elemType, dim) ->   
+            let arrayType, (lengths : int array), (lowerBounds : int array) =
+                match dim with
+                | Vector ->
+                    let arrayType = (elemType, 1, true)
+                    arrayType, [| ArrayLength(cha, makeNumber 0, arrayType) |> eval |], null
+                | ConcreteDimension rank ->
+                    let arrayType = (elemType, rank, false)
+                    arrayType,
+                    Array.init rank (fun i -> ArrayLength(cha, makeNumber i, arrayType) |> eval),
+                    Array.init rank (fun i -> ArrayLowerBound(cha, makeNumber i, arrayType) |> eval)
+                | SymbolicDimension -> __unreachable__()
+            arrayType, lengths, lowerBounds
+        | _ -> internalfail "reading array parameters for invalid type"
+
 // ------------------------------- Unsafe reading -------------------------------
 
     let private checkBlockBounds state reportError blockSize startByte endByte =
