@@ -100,6 +100,7 @@ module internal Z3 =
                 else
                     let arr = if (lowerBounds = null) then Array.CreateInstance(elemType, lengths)
                               else Array.CreateInstance(elemType, lengths, lowerBounds)
+                    cm.Allocate addr arr
                     if defaults.TryGetValue(ArrayIndexSort arrayType, result) then
                         match result.Value.Value with
                             | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
@@ -107,7 +108,6 @@ module internal Z3 =
                             | _ -> ()
                         let value =  result.Value.Value |> unboxConcrete' |> Option.get
                         Array.fill arr value
-                    cm.Allocate addr arr
             | _ when typ = typeof<string> ->
                 let arTyp = (typeof<char>, 1, true)
                 let l : int = ClassField(cha, Reflection.stringLengthField) |> Ref
@@ -821,10 +821,19 @@ module internal Z3 =
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
                         let addr = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
+                        // TODO : remove copypaste
                         match addr with
-                        | ArrayLength _
-                        | ArrayLowerBound _
                         | _ when typeOfLocation = typeof<string> ->
+                            let value =
+                                if Types.IsValueType typeOfLocation then
+                                    x.Decode cm typeOfLocation (Array.last arr.Args)
+                                else
+                                    let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
+                                    HeapRef address typeOfLocation
+                            let states = Memory.Write state (Ref addr) value
+                            assert(states.Length = 1 && states.[0] = state)
+                        | ArrayLength _
+                        | ArrayLowerBound _ ->
                             let value =
                                 if Types.IsValueType typeOfLocation then
                                     x.Decode cm typeOfLocation (Array.last arr.Args)
@@ -886,7 +895,7 @@ module internal Z3 =
                         assert(states.Length = 1 && states.[0] = state)
                     elif arr.IsConst || arr.IsConstantArray then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
-                parseArray arr)
+                if typeOfLocation = typeof<string> then () else parseArray arr)
 
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst
