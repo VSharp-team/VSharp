@@ -790,9 +790,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (fun cilState k -> (); k [cilState])
             (fun cilState k ->
                 reportError cilState "Debug.Assert failed"
-                cilState.suspended <- true
-                k [cilState])
-            (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+                k [])
+            id
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
@@ -894,9 +893,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 (fun cilState k -> (); k [cilState])
                 (fun cilState k ->
                     if isError then reportError cilState message
-                    cilState.suspended <- true
-                    k [cilState])
-                (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+                    k [])
+                id
         else [cilState]
 
     static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) isError =
@@ -2045,7 +2043,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState k =
             let ip = currentIp cilState
             try
-                cilState.iie <- None
                 let allStates = x.MakeStep cilState
                 let newErrors, restStates = List.partition isUnhandledError allStates
                 let errors = errors @ newErrors

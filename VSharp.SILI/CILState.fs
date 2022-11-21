@@ -27,6 +27,14 @@ type cilState =
       /// All basic blocks visited by the state.
       /// </summary>
       mutable history : Set<codeLocation>
+      /// <summary>
+      /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
+      /// </summary>
+      entryMethod : Method option
+      /// <summary>
+      /// Deterministic state id.
+      /// </summary>
+      id : uint
     }
     with
     member x.Result with get() =
@@ -53,7 +61,13 @@ type cilStateComparer(comparer) =
 
 module internal CilStateOperations =
 
-    let makeCilState curV initialEvaluationStackSize state =
+    let mutable currentStateId = 0u
+    let getNextStateId() =
+        let nextId = currentStateId
+        currentStateId <- currentStateId + 1u
+        nextId
+
+    let makeCilState entryMethod curV initialEvaluationStackSize state =
         { ipStack = [curV]
           currentLoc = ip2codeLocation curV |> Option.get
           state = state
@@ -67,11 +81,20 @@ module internal CilStateOperations =
           targets = None
           lastPushInfo = None
           history = Set.empty
+          entryMethod = Some entryMethod
+          id = getNextStateId()
         }
 
-    let makeInitialState m state = makeCilState (instruction m 0<offsets>) 0u state
+    let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state
 
     let mkCilStateHashComparer = cilStateComparer (fun a b -> a.GetHashCode().CompareTo(b.GetHashCode()))
+
+    let isIsolated state = state.entryMethod.IsNone
+
+    let entryMethodOf state =
+        if isIsolated state then
+            invalidOp "Isolated state doesn't have an entry method"
+        state.entryMethod.Value
 
     let isIIEState (s : cilState) = Option.isSome s.iie
 
@@ -185,7 +208,7 @@ module internal CilStateOperations =
         let makeResultState (state : state) =
             let state' = { state with evaluationStack = EvaluationStack.Union leftEvaluationStack state.evaluationStack }
             {cilState2 with state = state'; ipStack = ip; level = level; initialEvaluationStackSize = cilState1.initialEvaluationStackSize
-                            startingIP = cilState1.startingIP; iie = iie}
+                            startingIP = cilState1.startingIP; iie = iie; id = getNextStateId()}
         List.map makeResultState states
 
     let incrementLevel (cilState : cilState) k =
@@ -223,7 +246,7 @@ module internal CilStateOperations =
     // TODO: Not mutable -- copies cilState #do
     let changeState (cilState : cilState) state =
         if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-        else {cilState with state = state}
+        else {cilState with state = state; id = getNextStateId()}
 
     let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
 
@@ -300,7 +323,7 @@ module internal CilStateOperations =
     let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
         let mkCilState state =
             if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-            else {cilState with state = state}
+            else {cilState with state = state; id = getNextStateId()}
         GuardedStatedApplyk
             (fun state term k -> f (mkCilState state) term k)
             cilState.state term id (List.concat >> k)
@@ -309,7 +332,7 @@ module internal CilStateOperations =
         let origCilState = {cilState with state = cilState.state}
         let mkCilState state =
             if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
-            else {origCilState with state = state}
+            else {origCilState with state = state; id = getNextStateId()}
         StatedConditionalExecution cilState.state conditionInvocation
             (fun state k -> thenBranch (mkCilState state) k)
             (fun state k -> elseBranch (mkCilState state) k)

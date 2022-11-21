@@ -1,6 +1,7 @@
 namespace VSharp.Utils
 
 open System.Collections.Generic
+open System.Linq
 
 open VSharp
 
@@ -8,11 +9,11 @@ type IPriorityCollection<'a> =
     abstract member Insert : 'a -> uint -> unit
     abstract member Remove : 'a -> unit
     abstract member Update : 'a -> uint -> unit
-    abstract member Choose : uint -> 'a option
+    abstract member Choose : unit -> 'a option
+    abstract member Choose : ('a -> bool) -> 'a option
     abstract member Contains : 'a -> bool
     abstract member TryGetPriority : 'a -> uint option
     abstract member Clear : unit -> unit
-    abstract member MaxPriority : uint
     abstract member Count : uint
     abstract member ToSeq : 'a seq
 
@@ -33,25 +34,15 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         priorityList.Remove item |> ignore
         if Seq.isEmpty priorityList then
             priorityToList.Remove priority |> ignore
-    let minPriority () =
-        if not <| Seq.isEmpty priorityToList then
-            priorityToList.Keys |> Seq.head
-        else 0u
-    let maxPriority () =
-        if not <| Seq.isEmpty priorityToList then
-            priorityToList.Keys |> Seq.last
-        else 0u
-    let choose priority =
-        let sortedPriorities = priorityToList.Keys |> seq
+    let chooseWithSelector selector =
+        let sortedPriorities = priorityToList.Keys |> List.ofSeq
         if not <| Seq.isEmpty sortedPriorities then
-            let maxP = maxPriority ()
-            let item =
-                if priority > maxP then
-                    priorityToList.[maxP].First.Value
-                else
-                    let infimumPriority = sortedPriorities |> Seq.find (fun key -> priority <= key)
-                    priorityToList.[infimumPriority].First.Value
-            Some item
+            sortedPriorities |> Seq.tryPick (fun p -> priorityToList.[p] |> Seq.tryFind selector)
+        else None
+    let choose () =
+        let sortedPriorities = priorityToList.Keys |> List.ofSeq
+        if not <| Seq.isEmpty sortedPriorities then
+            priorityToList.[sortedPriorities.Head].First.Value |> Some
         else None
     let contains item = valuesToPriority.ContainsKey item
     let tryGetPriority item =
@@ -68,10 +59,10 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         override x.Update item priority =
             remove item
             insert item priority
-        override x.Choose priority = choose priority
+        override x.Choose() = choose ()
+        override x.Choose(selector) = chooseWithSelector selector
         override x.Contains item = contains item
         override x.TryGetPriority item = tryGetPriority item
         override x.Clear() = clear ()
-        override x.MaxPriority = maxPriority ()
         override x.Count = uint valuesToPriority.Count
         override x.ToSeq = valuesToPriority.Keys |> seq
