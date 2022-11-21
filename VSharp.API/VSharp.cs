@@ -4,6 +4,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using Microsoft.FSharp.Core;
+using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 
@@ -80,14 +83,18 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, string[]? mainArguments = null, int timeout = -1)
+        private static Statistics StartExploration(List<MethodBase> methods, string resultsFolder, coverageZone coverageZone, string[]? mainArguments = null, int timeout = -1)
         {
             var recThreshold = 0u;
-            UnitTests unitTests = new UnitTests(resultsFolder);
+            var unitTests = new UnitTests(resultsFolder);
+            var baseSearcher = searchMode.BFSMode;
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
-                    explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchMode.DFSMode),
+                    explorationMode.NewTestCoverageMode(
+                        coverageZone,
+                        timeout > 0 ? searchMode.NewFairMode(baseSearcher) : baseSearcher
+                    ),
                     executionMode.SymbolicMode,
                     unitTests.TestDirectory,
                     recThreshold,
@@ -96,27 +103,40 @@ namespace VSharp
                     true,
                     128,
                     true);
-            SILI explorer = new SILI(options);
+
+            var explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
 
-            void HandleInternalFail(MethodBase method, Exception exception)
+            void HandleInternalFail(Method method, Exception exception)
             {
-                Console.WriteLine($"EXCEPTION | {method.DeclaringType}.{method.Name} | {exception.GetType().Name} {exception.Message}");
+                var messageBuilder = new StringBuilder("EXCEPTION |");
+                if (method is not null)
+                {
+                    messageBuilder.Append($" {method.DeclaringType}.{method.Name} |");
+                }
+
+                messageBuilder.Append($" {exception.GetType().Name} {exception.Message}");
+
+                Console.WriteLine(messageBuilder.ToString());
             }
+
+            var isolated = new List<MethodBase>();
+            var entryPoints = new List<Tuple<MethodBase, string[]>>();
 
             foreach (var method in methods)
             {
                 if (method == method.Module.Assembly.EntryPoint)
                 {
-                    explorer.InterpretEntryPoint(method, mainArguments, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => HandleInternalFail(method, e));
+                    entryPoints.Add(new Tuple<MethodBase, string[]>(method, mainArguments));
                 }
                 else
                 {
-                    explorer.InterpretIsolated(method, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                        e => HandleInternalFail(method, e));
+                    isolated.Add(method);
                 }
             }
+
+            explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+                (m, e) => HandleInternalFail(OptionModule.ToObj(m), e));
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
                 unitTests.UnitTestsCount, unitTests.ErrorsCount,
@@ -141,8 +161,6 @@ namespace VSharp
             return TestRunner.TestRunner.ReproduceTests(testDir);
         }
 
-        private static readonly BindingFlags MethodsFlags =
-            BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly;
         /// <summary>
         /// Generates test coverage for specified method.
         /// </summary>
@@ -155,7 +173,7 @@ namespace VSharp
         {
             AssemblyManager.Load(method.Module.Assembly);
             List<MethodBase> methods = new List<MethodBase> {method};
-            var statistics = StartExploration(methods, outputDirectory, null, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, null, timeout);
             if (renderTests)
                 Render(statistics, method.DeclaringType);
             return statistics;
@@ -165,7 +183,7 @@ namespace VSharp
         /// Generates test coverage for all public methods of specified type.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>Summary of tests generation process.</returns>
@@ -173,16 +191,14 @@ namespace VSharp
         public static Statistics Cover(Type type, int timeout = -1, string outputDirectory = "", bool renderTests = false)
         {
             AssemblyManager.Load(type.Module.Assembly);
-            List<MethodBase> methods = new List<MethodBase>(type.GetConstructors());
 
-            methods.AddRange(type.GetMethods(MethodsFlags));
-
+            var methods = new List<MethodBase>(type.EnumerateExplorableMethods());
             if (methods.Count == 0)
             {
                 throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
-            var statistics = StartExploration(methods, outputDirectory, null, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, null, timeout);
             if (renderTests)
                 Render(statistics, type);
             return statistics;
@@ -204,8 +220,7 @@ namespace VSharp
             foreach (var type in typesArray)
             {
                 AssemblyManager.Load(type.Module.Assembly);
-                methods.AddRange(type.GetConstructors());
-                methods.AddRange(type.GetMethods(MethodsFlags));
+                methods.AddRange(type.EnumerateExplorableMethods());
             }
 
             if (methods.Count == 0)
@@ -214,7 +229,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public methods or constructors of classes " + names);
             }
 
-            var statistics = StartExploration(methods, outputDirectory, null, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, null, timeout);
             if (renderTests)
                 Render(statistics);
             return statistics;
@@ -224,7 +239,7 @@ namespace VSharp
         /// Generates test coverage for all public methods of all public classes in the specified assembly.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>Summary of tests generation process.</returns>
@@ -233,27 +248,14 @@ namespace VSharp
         public static Statistics Cover(Assembly assembly, int timeout = -1, string outputDirectory = "", bool renderTests = false)
         {
             AssemblyManager.Load(assembly);
-            List<MethodBase> methods;
-            methods = new List<MethodBase>();
-
-            foreach (var t in assembly.GetTypes())
-            {
-                if (t.IsPublic || t.IsNestedPublic)
-                {
-                    foreach (var m in t.GetMethods(MethodsFlags))
-                    {
-                        if (m.GetMethodBody() != null && !Reflection.hasByRefLikes(m))
-                            methods.Add(m);
-                    }
-                }
-            }
-
+            var methods =
+                new List<MethodBase>(assembly.EnumerateExplorableTypes().SelectMany(t => t.EnumerateExplorableMethods()));
             if (methods.Count == 0)
             {
                 throw new ArgumentException("I've not found any public method in assembly");
             }
 
-            var statistics = StartExploration(methods, outputDirectory, null, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.ModuleZone, null, timeout);
             if (renderTests)
                 Render(statistics);
             return statistics;
@@ -264,7 +266,7 @@ namespace VSharp
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="args">Command line arguments of entry point</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>Summary of tests generation process.</returns>
@@ -273,24 +275,23 @@ namespace VSharp
         public static Statistics Cover(Assembly assembly, string[]? args, int timeout = -1, string outputDirectory = "", bool renderTests = false)
         {
             AssemblyManager.Load(assembly);
+
             var entryPoint = assembly.EntryPoint;
             if (entryPoint == null)
             {
                 throw new ArgumentException("I've not found entry point in assembly");
             }
+
             var methods = new List<MethodBase> { entryPoint };
 
-            var statistics = StartExploration(methods, outputDirectory, args, timeout);
-            if (renderTests)
-                Render(statistics, entryPoint.DeclaringType);
-            return statistics;
+            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, args, timeout);
         }
 
         /// <summary>
         /// Generates test coverage for the specified method and runs all tests.
         /// </summary>
         /// <param name="method">Type to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>True if all generated tests have passed.</returns>
@@ -304,7 +305,7 @@ namespace VSharp
         /// Generates test coverage for the specified type and runs all tests.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>True if all generated tests have passed.</returns>
@@ -334,7 +335,7 @@ namespace VSharp
         /// Generates test coverage for all public methods of all public classes of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>True if all generated tests have passed.</returns>
@@ -351,7 +352,7 @@ namespace VSharp
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="args">Command line arguments of entry point</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <returns>True if all generated tests have passed.</returns>

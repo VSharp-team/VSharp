@@ -50,7 +50,7 @@ type public SILIStatistics() =
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
 
     let unansweredPobs = List<pob>()
-    let mutable startTime = DateTime.Now
+    let stopwatch = Stopwatch()
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let solverStopwatch = Stopwatch()
@@ -59,10 +59,9 @@ type public SILIStatistics() =
     let mutable nonCoveringStepsInsideZone = 0u
     let mutable coveringStepsOutsideZone = 0u
     let mutable nonCoveringStepsOutsideZone = 0u
-    
+
     let formatTimeSpan (span : TimeSpan) =
         String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
-
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
@@ -235,7 +234,7 @@ type public SILIStatistics() =
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
-    member x.Clear() =
+    member x.Reset() =
         startIp2currentIp.Clear()
         totalVisited.Clear()
         unansweredPobs.Clear()
@@ -243,18 +242,25 @@ type public SILIStatistics() =
         iies.Clear()
         solverStopwatch.Reset()
 
-    member x.ExplorationStarted() =
-        x.Clear()
-        startTime <- DateTime.Now
-        
+        coveringStepsInsideZone <- 0u
+        nonCoveringStepsInsideZone <- 0u
+        coveringStepsOutsideZone <- 0u
+        nonCoveringStepsOutsideZone <- 0u
+
     member x.SolverStarted() = solverStopwatch.Start()
     member x.SolverStopped() = solverStopwatch.Stop()
+
+    member x.ExplorationStarted() =
+        stopwatch.Start()
+
+    member x.ExplorationFinished() =
+        stopwatch.Stop()
 
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
     member x.PickUnvisitedWithHistoryInCFG (loc, history) = pickUnvisitedWithHistoryInCFG loc history
 
-    member x.CurrentExplorationTime with get() = DateTime.Now - startTime
+    member x.CurrentExplorationTime with get() = stopwatch.Elapsed
 
     member x.IncompleteStates with get() = iies
 
@@ -270,7 +276,7 @@ type public SILIStatistics() =
         let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
         let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
         {
-            time = DateTime.Now - startTime
+            time = stopwatch.Elapsed
             solverTime = solverStopwatch.Elapsed
             internalFails = internalFails |> List.ofSeq
             iies = iies |> Seq.map (fun s -> s.iie.Value) |> List.ofSeq

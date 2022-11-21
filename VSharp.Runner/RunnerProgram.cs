@@ -1,9 +1,12 @@
 ﻿#nullable enable
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using VSharp.CSharpUtils;
 
 namespace VSharp.Runner
 {
@@ -31,7 +34,12 @@ namespace VSharp.Runner
                 return null;
             }
 
-            var specificClass = assembly.GetType(classArgumentValue);
+            var specificClass =
+                assembly.GetType(classArgumentValue) ??
+                assembly.GetTypes()
+                    .Where(t => (t.FullName ?? t.Name)
+                    .Contains(classArgumentValue))
+                    .MinBy(t => t.Name.Length);
             if (specificClass == null)
             {
                 Console.Error.WriteLine("I did not found type you specified {0} in assembly {1}", classArgumentValue,
@@ -103,6 +111,24 @@ namespace VSharp.Runner
             return method;
         }
 
+        private static IEnumerable<Type> ResolveNamespace(Assembly assembly, string namespaceArgumentValue)
+        {
+            if (namespaceArgumentValue == null)
+            {
+                Console.Error.WriteLine("Specified namespace can not be null");
+                return null;
+            }
+
+            var types = assembly.EnumerateExplorableTypes().Where(t => t.Namespace == namespaceArgumentValue);
+
+            if (types.Count() == 0)
+            {
+                Console.Error.WriteLine($"I did not found any types in namespace {namespaceArgumentValue}");
+            }
+
+            return types;
+        }
+
         private static void PostProcess(Statistics statistics)
         {
             statistics.GenerateReport(Console.Out);
@@ -163,6 +189,15 @@ namespace VSharp.Runner
             specificMethodCommand.AddGlobalOption(timeoutOption);
             specificMethodCommand.AddGlobalOption(outputOption);
             specificMethodCommand.AddGlobalOption(renderTestsOption);
+            var namespaceCommand =
+                new Command("--namespace", "Try to resolve and generate unit test coverage for all public methods of specified namespace");
+            rootCommand.AddCommand(namespaceCommand);
+            var namespaceArgument = new Argument<string>("namespace-name");
+            namespaceCommand.AddArgument(namespaceArgument);
+            namespaceCommand.AddArgument(assemblyPathArgument);
+            namespaceCommand.AddGlobalOption(timeoutOption);
+            namespaceCommand.AddGlobalOption(outputOption);
+            namespaceCommand.AddGlobalOption(renderTestsOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
@@ -200,6 +235,18 @@ namespace VSharp.Runner
                     if (method != null)
                     {
                         PostProcess(TestGenerator.Cover(method, timeout, output.FullName, renderTests));
+                    }
+                }
+            });
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool>((namespaceName, assemblyPath, timeout, output, renderTests) =>
+            {
+                var assembly = ResolveAssembly(assemblyPath);
+                if (assembly != null)
+                {
+                    var namespaceTypes = ResolveNamespace(assembly, namespaceName);
+                    if (namespaceTypes.Count() != 0)
+                    {
+                        PostProcess(TestGenerator.Cover(namespaceTypes, timeout, output.FullName, renderTests));
                     }
                 }
             });
