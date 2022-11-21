@@ -119,7 +119,7 @@ module internal Z3 =
                 let o = Reflection.createObject typ
                 cm.Allocate addr o
                 Reflection.fieldsOf false typ |>
-                    Seq.iter (fun (fid, finfo) ->
+                    Seq.iter (fun (fid, _) ->
                         let region = HeapFieldSort fid
                         if defaults.TryGetValue(region, result) then
                             match result.Value.Value with
@@ -799,17 +799,38 @@ module internal Z3 =
                     (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
 
-            // gather default values, array metadata and strings
             let defaultValues = Dictionary<regionSort, term ref>()
-            encodingCache.regionConstants |> Seq.iter (fun kvp ->
+            let processRegionConstraints isSymbolyc (kvp : KeyValuePair<(regionSort * fieldId list), ArrayExpr>) =
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
                 let region, fields = kvp.Key
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
                     else fields.Head.typ
+                
+                let getValueAndWrite (arr : Expr) addr =
+                    let value =
+                        if Types.IsValueType typeOfLocation then
+                            x.Decode cm typeOfLocation (Array.last arr.Args)
+                        else
+                            let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
+                            HeapRef address typeOfLocation
+                    let states = Memory.Write state (Ref addr) value
+                    assert(states.Length = 1 && states.[0] = state) 
+                
+                let writeHelper symbolicProcessor mixedProcessor addr =
+                    // Strings and array metadata are written symbolically
+                    match addr with
+                    | _ when typeOfLocation = typeof<string> -> symbolicProcessor addr
+                    | ArrayLength _
+                    | ArrayLowerBound _ -> symbolicProcessor addr
+                    | _ -> mixedProcessor addr // may contain symbolic and concrete writes
+                
+                let writeSymbolic arr = writeHelper (getValueAndWrite arr) (fun _ -> ())
+                let writeMixed arr = writeHelper (fun _ -> ()) (getValueAndWrite arr)
+                
                 let rec parseArray (arr : Expr)  =
-                    if arr.IsConstantArray then
+                    if arr.IsConstantArray && isSymbolyc then // defaults are written symbolically
                         assert(arr.Args.Length = 1)
                         let constantValue =
                             if Types.IsValueType typeOfLocation then x.Decode cm typeOfLocation arr.Args.[0]
@@ -821,33 +842,15 @@ module internal Z3 =
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
                         let addr = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
-                        // TODO : remove copypaste
-                        match addr with
-                        | _ when typeOfLocation = typeof<string> ->
-                            let value =
-                                if Types.IsValueType typeOfLocation then
-                                    x.Decode cm typeOfLocation (Array.last arr.Args)
-                                else
-                                    let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
-                                    HeapRef address typeOfLocation
-                            let states = Memory.Write state (Ref addr) value
-                            assert(states.Length = 1 && states.[0] = state)
-                        | ArrayLength _
-                        | ArrayLowerBound _ ->
-                            let value =
-                                if Types.IsValueType typeOfLocation then
-                                    x.Decode cm typeOfLocation (Array.last arr.Args)
-                                else
-                                    let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
-                                    HeapRef address typeOfLocation
-                            let states = Memory.Write state (Ref addr) value
-                            assert(states.Length = 1 && states.[0] = state)
-                        | _ -> ()
-                    else
-                        ()
+                        if isSymbolyc
+                            then writeSymbolic arr addr
+                            else writeMixed arr addr
+                    elif arr.IsConst || arr.IsConstantArray then ()
+                    else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr
-            )
-            // fill symbolic memory with defaults
+            
+            // Process symbolic writes
+            encodingCache.regionConstants |> Seq.iter (processRegionConstraints true)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
                 let constantValue = kvp.Value.Value
@@ -869,33 +872,8 @@ module internal Z3 =
                         | _ -> internalfail "Unexpected exception in object creation" 
             )
 
-            // Process stores 
-            encodingCache.regionConstants |> Seq.iter (fun kvp ->
-                let region, fields = kvp.Key
-                let constant = kvp.Value
-                let arr = m.Eval(constant, false)
-                let typeOfLocation =
-                    if fields.IsEmpty then region.TypeOfLocation
-                    else fields.Head.typ
-                let rec parseArray (arr : Expr) =
-                    if arr.IsDefaultArray then
-                        assert(arr.Args.Length = 1)
-                    elif arr.IsStore then
-                        assert(arr.Args.Length >= 3)
-                        parseArray arr.Args.[0]
-                        let address = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
-                        let value =
-                            if Types.IsValueType typeOfLocation then
-                                x.Decode cm typeOfLocation (Array.last arr.Args)
-                            else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
-                                HeapRef address typeOfLocation
-                        let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.Write state (Ref address) value
-                        assert(states.Length = 1 && states.[0] = state)
-                    elif arr.IsConst || arr.IsConstantArray then ()
-                    else internalfailf "Unexpected array expression in model: %O" arr
-                if typeOfLocation = typeof<string> then () else parseArray arr)
+            // Process stores
+            encodingCache.regionConstants |> Seq.iter (processRegionConstraints false)
 
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst
