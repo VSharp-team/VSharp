@@ -272,11 +272,16 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                         match Seq.tryFindIndex (fun obj' -> Object.ReferenceEquals(obj, obj')) sourceObjects with
                         | Some idx -> idx
                         | None ->
+                            let i = x.ReserveRepresentation()
+                            let r : referenceRepr = {index = i}
+                            sourceObjects.[i] <- obj
+                            objReprs.[i] <- r
                             let repr =
                                 match t with
                                 | _ when t.IsArray -> x.EncodeArray (obj :?> Array)
                                 | _ -> x.EncodeStructure obj
-                            x.Bind obj repr
+                            objReprs.[i] <- repr
+                            i
                     let reference : referenceRepr = {index = idx}
                     reference :> obj, Some idx
 
