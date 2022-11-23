@@ -1022,10 +1022,9 @@ module internal Memory =
         | _ -> unmarshallClass state address obj
 
     let unmarshall (state : state) concreteAddress =
-        let address = ConcreteHeapAddress concreteAddress
         let cm = state.concreteMemory
-        let deps = cm.GetDeps concreteAddress |> List.map cm.VirtToPhys
-        deps |> List.iter (unmarshallObj state address)
+        let deps = cm.GetDeps concreteAddress |> List.map (fun a -> cm.VirtToPhys a, ConcreteHeapAddress a)
+        deps |> List.iter (fun (d, a) -> unmarshallObj state a d)
         cm.Remove concreteAddress
 
 // ------------------------------- Writing -------------------------------
@@ -1036,6 +1035,9 @@ module internal Memory =
         match address.term, concreteValue with
         | ConcreteHeapAddress concreteAddress, Some obj when cm.Contains concreteAddress ->
             cm.WriteClassField concreteAddress field obj
+            match value with
+            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} -> cm.AddDep a concreteAddress
+            | _ -> ()
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             unmarshall state concreteAddress
             writeClassFieldSymbolic state address field value
@@ -1048,6 +1050,9 @@ module internal Memory =
         match address.term, concreteValue, concreteIndices with
         | ConcreteHeapAddress a, Some obj, Some concreteIndices when cm.Contains a ->
             cm.WriteArrayIndex a concreteIndices obj
+            match value with
+            | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} -> cm.AddDep addr a
+            | _ -> ()
         | ConcreteHeapAddress a, _, None
         | ConcreteHeapAddress a, None, _ when cm.Contains a ->
             unmarshall state a

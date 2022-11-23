@@ -131,7 +131,7 @@ module internal Z3 =
                 )
         with
         | :? MemberAccessException as e -> // Could not create an instance
-            if cm.Contains addr then cm.Remove addr
+            if cm.Contains addr then Memory.Unmarshall state addr
             raise e 
 
 // ------------------------------- Encoding: primitives -------------------------------
@@ -798,9 +798,22 @@ module internal Z3 =
                     let typ = TypeOf term
                     (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
-
+            
             let defaultValues = Dictionary<regionSort, term ref>()
-            let processRegionConstraints isSymbolyc (kvp : KeyValuePair<(regionSort * fieldId list), ArrayExpr>) =
+            
+            let concreteAllocator typ addr =
+                if VectorTime.less addr VectorTime.zero then
+                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
+                    if cm.Contains addr then ()
+                    else
+                        try
+                            createObjOfType state defaultValues addr typ
+                        with // if type cannot be allocated concretely, it will be stored symbolically
+                        | :? MemberAccessException -> () // Could not create an instance
+                        | :? ArgumentException -> ()     // Could not unbox concrete
+                        | _ -> internalfail "Unexpected exception in object creation"
+    
+            let processRegionConstraints isSymbolic (kvp : KeyValuePair<(regionSort * fieldId list), ArrayExpr>) =
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
                 let region, fields = kvp.Key
@@ -813,8 +826,8 @@ module internal Z3 =
                         if Types.IsValueType typeOfLocation then
                             x.Decode cm typeOfLocation (Array.last arr.Args)
                         else
-                            let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation |> ConcreteHeapAddress
-                            HeapRef address typeOfLocation
+                            let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress cm typeOfLocation
+                            HeapRef (address |> ConcreteHeapAddress) typeOfLocation
                     let states = Memory.Write state (Ref addr) value
                     assert(states.Length = 1 && states.[0] = state) 
                 
@@ -830,19 +843,21 @@ module internal Z3 =
                 let writeMixed arr = writeHelper (fun _ -> ()) (getValueAndWrite arr)
                 
                 let rec parseArray (arr : Expr)  =
-                    if arr.IsConstantArray && isSymbolyc then // defaults are written symbolically
+                    if arr.IsConstantArray && isSymbolic then // defaults are written symbolically
                         assert(arr.Args.Length = 1)
                         let constantValue =
                             if Types.IsValueType typeOfLocation then x.Decode cm typeOfLocation arr.Args.[0]
                             else
                                 let addr = x.DecodeConcreteHeapAddress cm typeOfLocation arr.Args.[0]
+                                // concreteAllocator typeOfLocation addr
                                 HeapRef (addr |> ConcreteHeapAddress) typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     else if arr.IsStore then
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
                         let addr = x.DecodeMemoryKey cm region arr.Args.[1..arr.Args.Length - 2]
-                        if isSymbolyc
+                        // concreteAllocator typeOfLocation addr
+                        if isSymbolic
                             then writeSymbolic arr addr
                             else writeMixed arr addr
                     elif arr.IsConst || arr.IsConstantArray then ()
@@ -860,16 +875,7 @@ module internal Z3 =
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
-                    if cm.Contains addr then ()
-                    else
-                        try
-                            createObjOfType state defaultValues addr typ
-                        with // if type cannot be allocated concretely, it will be stored symbolically
-                        | :? MemberAccessException -> () // Could not create an instance
-                        | :? ArgumentException -> ()     // Could not unbox concrete
-                        | _ -> internalfail "Unexpected exception in object creation" 
+                concreteAllocator typ addr
             )
 
             // Process stores

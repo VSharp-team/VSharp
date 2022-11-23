@@ -123,12 +123,10 @@ module TestGenerator =
                     else
                         let orepr, index = test.MemoryGraph.Encode o
                         match index with
-                        | Some i ->
-                            indices.Add(addr, i)
-                            orepr
-                        | None -> orepr
+                        | Some i -> indices.Add(addr, i)
+                        | None -> ()
+                        orepr
                 | None -> // mocks and big arrays are allocated symbolically
-                    // __unreachable__()
                     let eval address =
                         address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
                     let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
