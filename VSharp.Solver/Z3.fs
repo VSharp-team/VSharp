@@ -122,11 +122,13 @@ module internal Z3 =
                             cm.WriteClassField addr fid value
                 )
         with
-        | :? MemberAccessException as e -> // Could not create an instance
-            // when objects are created, the are only filled with defaults
-            // Careful: the use of unmarshalling here is incorrect
-            if cm.Contains addr then cm.Remove addr 
-            raise e 
+        // when objects are created, the are only filled with defaults
+        // Careful: the use of unmarshalling here is incorrect
+        | :? MemberAccessException      // Could not create an instance
+        | :? ArgumentException as e ->  // Could not unbox concrete or type is not supported
+            if cm.Contains addr then cm.Remove addr
+            raise e
+        | _ -> internalfail "Unexpected exception in object creation"
 
     let concreteAllocator state defaultValues typ addr =
         let cm = state.concreteMemory
@@ -138,7 +140,7 @@ module internal Z3 =
                     createObjOfType state defaultValues addr typ
                 with // if type cannot be allocated concretely, it will be stored symbolically
                 | :? MemberAccessException -> () // Could not create an instance
-                | :? ArgumentException -> ()     // Could not unbox concrete
+                | :? ArgumentException -> ()     // Could not unbox concrete ot type is not supported
                 | _ -> internalfail "Unexpected exception in object creation"
 
 // ------------------------------- Encoding: primitives -------------------------------
