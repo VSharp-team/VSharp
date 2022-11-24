@@ -100,8 +100,10 @@ type public ConcreteMemory private (physToVirt, virtToPhys, dependencies) =
         virtToPhys[address] <- physicalAddress
 
     member private x.getDepsList ds =
+        // TODO: rewrite it more effectively
         let ds' = ds |> Set.ofList |> Set.toList
-        let ds'' = List.collect (fun a -> if dependencies.ContainsKey(a) then a::dependencies[a] else [a]) ds |> Set.ofList |> Set.toList
+        let ds'' = ds |> List.collect (fun a -> if dependencies.ContainsKey(a) then a::dependencies[a] else [a])  
+                      |> Set.ofList |> Set.toList
         if ds' = ds'' then ds'
         else x.getDepsList ds''
 
@@ -157,7 +159,6 @@ type public ConcreteMemory private (physToVirt, virtToPhys, dependencies) =
             assert(virtToPhys.ContainsKey address |> not)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
-            // dependencies.Add(address, [])
             if obj = String.Empty then physToVirt[physicalAddress] <- address
             else physToVirt.Add(physicalAddress, address)
 
@@ -223,8 +224,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys, dependencies) =
             let physAddress = {object = string}
             physToVirt[physAddress] <- stringAddress
 
-    // ------------------------------- Add deps -----------------------------
-    
+    // ------------------------------- Dependencies -------------------------    
         override x.AddDep virtAddr1 virtAddr2 =
             let value = if dependencies.ContainsKey virtAddr1 then virtAddr2::dependencies[virtAddr1] else [virtAddr2]
             dependencies[virtAddr1] <- value
@@ -237,6 +237,6 @@ type public ConcreteMemory private (physToVirt, virtToPhys, dependencies) =
         override x.Remove address =
             let toRemove = x.getDepsList [address]
             let removed = toRemove |> List.map (fun a ->
-                dependencies.Remove a
+                dependencies.Remove a |> ignore
                 virtToPhys.Remove a) |> List.forall id
             assert removed

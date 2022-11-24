@@ -467,7 +467,7 @@ module API =
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory
             let concreteChar = Memory.tryTermToObj state (fun _ _ -> ()) char
-            let concreteLen = Memory.tryTermToObj state (fun _ _ -> ()) length 
+            let concreteLen = Memory.tryTermToObj state (fun _ _ -> ()) length
             let symbolicCase address =
                 let arrayType = typeof<char>, 1, true
                 Copying.fillArray state address arrayType (makeNumber 0) length char

@@ -10,14 +10,6 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-    [<Struct>]
-    type OptionalBuilder =
-        member __.Bind(opt, binder) = Option.bind binder opt
-        member __.Return(value) = Some value
-        member __.ReturnFrom(value) = value
-        member __.Zero() = None
-        member __.Using(resource : #System.IDisposable, binder) = let result = binder resource in resource.Dispose(); result
-    let opt = OptionalBuilder()
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -840,6 +832,7 @@ module internal Z3 =
                             // Concrete memory objects cannot address symbolic objects
                             if cm.Contains base_addr then Memory.Unmarshall state base_addr
                         | _ -> ()
+                    | _ -> ()
                     let states = Memory.Write state (Ref addr) value
                     assert(states.Length = 1 && states.[0] = state) 
                 

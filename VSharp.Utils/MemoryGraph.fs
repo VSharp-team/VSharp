@@ -205,7 +205,6 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
     member private x.IsSerializable (t : Type) =
         // TODO: find out which types can be serialized by XMLSerializer
         (t.IsPrimitive && not t.IsEnum) || t = typeof<string>
-            // || (t.IsArray && (x.IsSerializable <| t.GetElementType()))
 
     member private x.EncodeArray (arr : Array) =
         let contents =
@@ -243,11 +242,17 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         let repr : enumRepr = {typ = x.RegisterType t; underlyingValue = Convert.ChangeType(obj, Enum.GetUnderlyingType t)}
         repr :> obj
 
-    member private x.Bind (obj : obj) (repr : obj) =
-        sourceObjects.Add obj
-        objReprs.Add repr
-        assert(sourceObjects.Count = objReprs.Count)
-        sourceObjects.Count - 1
+    member private x.Bind (obj : obj) (repr : obj) (idx : int option) =
+        match idx with
+        | Some i ->
+            sourceObjects.[i] <- obj
+            objReprs.[i] <- repr
+            i
+        | None ->
+            sourceObjects.Add obj
+            objReprs.Add repr
+            assert(sourceObjects.Count = objReprs.Count)
+            sourceObjects.Count - 1
 
     member x.Encode (obj : obj) =
         match obj with
@@ -274,14 +279,12 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                         | None ->
                             let i = x.ReserveRepresentation()
                             let r : referenceRepr = {index = i}
-                            sourceObjects.[i] <- obj
-                            objReprs.[i] <- r
+                            x.Bind obj r (Some i) |> ignore
                             let repr =
                                 match t with
                                 | _ when t.IsArray -> x.EncodeArray (obj :?> Array)
                                 | _ -> x.EncodeStructure obj
-                            objReprs.[i] <- repr
-                            i
+                            x.Bind obj repr (Some i)
                     let reference : referenceRepr = {index = idx}
                     reference :> obj, Some idx
 
@@ -289,7 +292,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
         repr :> obj
 
-    member x.ReserveRepresentation() = x.Bind null null
+    member x.ReserveRepresentation() = x.Bind null null None
 
     member x.AddClass (typ : Type) (fields : obj array) index =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
