@@ -7,6 +7,7 @@ type searchMode =
     | DFSMode
     | BFSMode
     | ShortestDistanceBasedMode
+    | RandomShortestDistanceBasedMode
     | ContributedCoverageMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
@@ -36,4 +37,5 @@ type SiliOptions = {
     releaseBranches : bool
     maxBufferSize : int
     checkAttributes : bool
+    collectContinuousDump : bool
 }

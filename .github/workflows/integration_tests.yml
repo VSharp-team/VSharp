@@ -1,0 +1,34 @@
+name: integration_tests
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  run_integration_tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout VSharp
+      uses: actions/checkout@v3
+      with:
+        submodules: false
+    - uses: actions/cache@v3
+      id: nuget-cache
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    - name: Run tests
+      run: |
+        dotnet tool restore
+        dotnet test -c Release --logger "trx;LogFileName=test-results.trx"
+    - name: Report tests results
+      uses: dorny/test-reporter@v1
+      if: success() || failure()
+      with:
+        name: Integration tests
+        path: VSharp.Test/TestResults/test-results.trx
+        reporter: dotnet-trx

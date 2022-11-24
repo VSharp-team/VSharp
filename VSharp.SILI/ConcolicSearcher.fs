@@ -10,3 +10,4 @@ type internal ConcolicSearcher(baseSearcher : IForwardSearcher) =
         override x.States() = baseSearcher.States()
         override x.Reset() = baseSearcher.Reset()
         override x.Remove cilState = baseSearcher.Remove cilState
+        override x.StatesCount with get() = baseSearcher.StatesCount

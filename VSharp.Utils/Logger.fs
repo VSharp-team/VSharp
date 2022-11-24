@@ -3,6 +3,7 @@ namespace VSharp
 module Logger =
     open System
 
+    let Quiet = 0
     let Error = 1
     let Warning = 2
     let Info = 3

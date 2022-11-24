@@ -22,6 +22,7 @@ type IBidirectionalSearcher =
     abstract member States : unit -> cilState seq
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
+    abstract member StatesCount : int
 
 type IForwardSearcher =
     abstract member Init : cilState seq -> unit
@@ -31,6 +32,7 @@ type IForwardSearcher =
     abstract member States : unit -> cilState seq
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
+    abstract member StatesCount : int
 
 type ITargetedSearcher =
     abstract member SetTargets : ip -> ip seq -> unit
@@ -38,6 +40,7 @@ type ITargetedSearcher =
     abstract member Pick : unit -> cilState option
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
+    abstract member StatesCount : int
 
 type backwardAction = Propagate of cilState * pob | InitTarget of ip * pob seq | NoAction
 
@@ -50,6 +53,7 @@ type IBackwardSearcher =
     abstract member AddBranch : cilState -> pob list
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
+    abstract member StatesCount : int
 
 type IpStackComparer() =
     interface IComparer<cilState> with
@@ -78,6 +82,7 @@ type SimpleForwardSearcher(maxBound) =
         override x.States() = forPropagation
         override x.Reset() = forPropagation.Clear()
         override x.Remove cilState = forPropagation.Remove cilState |> ignore
+        override x.StatesCount with get() = forPropagation.Count
 
     abstract member Choose : seq<cilState> -> (cilState -> bool) -> cilState option
     default x.Choose states selector = Seq.tryFindBack selector states
@@ -157,6 +162,8 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         override x.States() = storage.ToSeq
         override x.Reset() = storage.Clear()
         override x.Remove cilState = if storage.Contains cilState then storage.Remove cilState
+        override x.StatesCount with get() = int x.Count
+
 
     member x.Weighter = weighter
     member x.Count = storage.Count

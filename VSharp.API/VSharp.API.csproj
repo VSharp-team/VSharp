@@ -10,4 +10,8 @@
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="30.0.1" />
+    </ItemGroup>
+
 </Project>

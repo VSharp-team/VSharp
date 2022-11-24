@@ -1,11 +1,13 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Collections.Concurrent
 open System.Diagnostics
 open System.IO
 open System.Text
 open System.Collections.Generic
 
+open System.Timers
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -39,8 +41,22 @@ type statisticsDump =
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
 
+type continuousStatistics =
+    {
+        millis: int64
+        coveringStepsInsideZone : uint
+        nonCoveringStepsInsideZone : uint
+        coveringStepsOutsideZone : uint
+        nonCoveringStepsOutsideZone : uint
+        testsCount : uint
+        branchesReleased : bool
+        internalFailsCount : uint
+        statesCount : int
+        coveringStatesCount : uint
+    }
+
 // TODO: move statistics into (unique) instances of code location!
-type public SILIStatistics() =
+type public SILIStatistics(statsDumpIntervalMs : int) as this =
     let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
@@ -55,10 +71,21 @@ type public SILIStatistics() =
     let iies = List<cilState>()
     let solverStopwatch = Stopwatch()
 
+    let mutable getStatesCount : (unit -> int) = (fun _ -> 0)
+    let mutable getStates : (unit -> cilState seq) = (fun _ -> Seq.empty)
+
+    let dumpTimer = new Timer()
+
     let mutable coveringStepsInsideZone = 0u
     let mutable nonCoveringStepsInsideZone = 0u
     let mutable coveringStepsOutsideZone = 0u
     let mutable nonCoveringStepsOutsideZone = 0u
+
+    let mutable testsCount = 0u
+    let mutable branchesReleased = false
+
+    let collectContinuousStatistics = statsDumpIntervalMs > 0
+    let continuousStatistics = List<continuousStatistics>()
 
     let formatTimeSpan (span : TimeSpan) =
         String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
@@ -144,6 +171,8 @@ type public SILIStatistics() =
             writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
+    let continuousDumpEventHandler = ElapsedEventHandler(fun _ _ -> this.CreateContinuousDump())
+
     member x.TrackStepForward (s : cilState) =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
@@ -212,7 +241,29 @@ type public SILIStatistics() =
 
     member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
 
+    member x.OnBranchesReleased() =
+        branchesReleased <- true
+
+    member x.CreateContinuousDump() =
+        if collectContinuousStatistics then
+            let states = getStates() |> Seq.toList
+            let continuousStatisticsDump = {
+                millis = stopwatch.ElapsedMilliseconds;
+                coveringStepsInsideZone = coveringStepsInsideZone;
+                nonCoveringStepsInsideZone = nonCoveringStepsInsideZone;
+                coveringStepsOutsideZone = coveringStepsOutsideZone;
+                nonCoveringStepsOutsideZone = nonCoveringStepsOutsideZone;
+                testsCount = testsCount;
+                branchesReleased = branchesReleased;
+                internalFailsCount = uint internalFails.Count;
+                statesCount = getStatesCount()
+                coveringStatesCount = states |> Seq.filter (fun s -> (x.GetVisitedBlocksNotCoveredByTests(s) |> Seq.filter (fun b -> b.method.InCoverageZone)) |> Seq.length > 0) |> Seq.length |> uint
+            }
+            continuousStatistics.Add continuousStatisticsDump
+
     member x.TrackFinished (s : cilState) =
+        testsCount <- testsCount + 1u
+        x.CreateContinuousDump()
         for block in s.history do
             block.method.SetBlockIsCoveredByTest block.offset |> ignore
 
@@ -247,14 +298,34 @@ type public SILIStatistics() =
         coveringStepsOutsideZone <- 0u
         nonCoveringStepsOutsideZone <- 0u
 
+        branchesReleased <- false
+        testsCount <- 0u
+
+        dumpTimer.Enabled <- false
+        dumpTimer.Elapsed.RemoveHandler continuousDumpEventHandler
+        continuousStatistics.Clear()
+
     member x.SolverStarted() = solverStopwatch.Start()
     member x.SolverStopped() = solverStopwatch.Stop()
 
     member x.ExplorationStarted() =
         stopwatch.Start()
+        if collectContinuousStatistics then
+            dumpTimer.Interval <- float statsDumpIntervalMs
+            dumpTimer.Elapsed.AddHandler continuousDumpEventHandler
+            dumpTimer.Start()
 
     member x.ExplorationFinished() =
         stopwatch.Stop()
+        if collectContinuousStatistics then
+            dumpTimer.Stop()
+            dumpTimer.Elapsed.RemoveHandler continuousDumpEventHandler
+
+    member x.SetStatesCountGetter(getter : unit -> int) =
+        getStatesCount <- getter
+
+    member x.SetStatesGetter(getter : unit -> cilState seq) =
+        getStates <- getter
 
     member x.PickTotalUnvisitedInMethod loc = pickTotalUnvisitedInCFG loc
 
@@ -265,6 +336,8 @@ type public SILIStatistics() =
     member x.IncompleteStates with get() = iies
 
     member x.InternalFails with get() = internalFails
+
+    member x.ContinuousStatistics with get() = continuousStatistics
 
     member x.DumpStatistics() =
         let topN = 5
@@ -312,3 +385,6 @@ type public SILIStatistics() =
             writer.WriteLine("  offset {0} of {1}: {2} time{3}",
                                 (int loc.offset).ToString("X"), loc.method.FullName, times,
                                 (if times = 1u then "" else "s"))
+
+    interface IDisposable with
+        member x.Dispose() = dumpTimer.Dispose()

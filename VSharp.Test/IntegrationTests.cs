@@ -22,6 +22,7 @@ namespace VSharp.Test
         DFS,
         BFS,
         ShortestDistance,
+        RandomShortestDistance,
         ContributedCoverage,
         Interleaved
     }
@@ -185,6 +186,7 @@ namespace VSharp.Test
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
+                    SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                     SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
@@ -245,9 +247,10 @@ namespace VSharp.Test
                         false,
                         _releaseBranches,
                         128,
-                        _checkAttributes
+                        _checkAttributes,
+                        false
                     );
-                    SILI explorer = new SILI(_options);
+                    using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
 
                     void GenerateTestAndCheckCoverage(UnitTest unitTest)

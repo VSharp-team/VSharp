@@ -129,11 +129,11 @@ namespace VSharp.TestRunner
             return ReproduceTest(file, SuitType.TestsAndErrors, checkResult, true);
         }
 
-        public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors)
+        public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors, bool recursive = false)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
-            var tests = testsDir.EnumerateFiles("*.vst");
+            var tests = testsDir.EnumerateFiles("*.vst", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var testsList = tests.ToList();
 
             if (testsList.Count == 0)

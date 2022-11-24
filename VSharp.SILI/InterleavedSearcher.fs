@@ -44,3 +44,4 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
         override x.States() = states()
         override x.Reset() = reset()
         override x.Remove cilState = remove cilState
+        override x.StatesCount with get() = searchersEnumerator.Current.StatesCount

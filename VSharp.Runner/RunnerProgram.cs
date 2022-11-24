@@ -152,6 +152,14 @@ namespace VSharp.Runner
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
             var renderTestsOption =
                 new Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
+            var searchStrategyOption =
+                new Option<SearchStrategy>(aliases: new[] { "--strat" },
+                    () => TestGenerator.DefaultSearchStrategy,
+                    "Strategy which symbolic virtual machine uses for branch selection.");
+            var verbosityOption =
+                new Option<Verbosity>(aliases: new[] { "--verbosity", "-v" },
+                    () => TestGenerator.DefaultVerbosity,
+                    "Determines which messages are displayed in output.");
 
             var rootCommand = new RootCommand();
 
@@ -164,6 +172,8 @@ namespace VSharp.Runner
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
             entryPointCommand.AddGlobalOption(renderTestsOption);
+            entryPointCommand.AddGlobalOption(searchStrategyOption);
+            entryPointCommand.AddGlobalOption(verbosityOption);
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
@@ -171,6 +181,8 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddGlobalOption(timeoutOption);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
             allPublicMethodsCommand.AddGlobalOption(renderTestsOption);
+            allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
+            allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             var publicMethodsOfClassCommand =
                 new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
@@ -180,6 +192,8 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddGlobalOption(timeoutOption);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
             publicMethodsOfClassCommand.AddGlobalOption(renderTestsOption);
+            publicMethodsOfClassCommand.AddGlobalOption(searchStrategyOption);
+            publicMethodsOfClassCommand.AddGlobalOption(verbosityOption);
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
@@ -189,6 +203,8 @@ namespace VSharp.Runner
             specificMethodCommand.AddGlobalOption(timeoutOption);
             specificMethodCommand.AddGlobalOption(outputOption);
             specificMethodCommand.AddGlobalOption(renderTestsOption);
+            specificMethodCommand.AddGlobalOption(searchStrategyOption);
+            specificMethodCommand.AddGlobalOption(verbosityOption);
             var namespaceCommand =
                 new Command("--namespace", "Try to resolve and generate unit test coverage for all public methods of specified namespace");
             rootCommand.AddCommand(namespaceCommand);
@@ -198,23 +214,25 @@ namespace VSharp.Runner
             namespaceCommand.AddGlobalOption(timeoutOption);
             namespaceCommand.AddGlobalOption(outputOption);
             namespaceCommand.AddGlobalOption(renderTestsOption);
+            namespaceCommand.AddGlobalOption(searchStrategyOption);
+            namespaceCommand.AddGlobalOption(verbosityOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool, bool>((assemblyPath, args, timeout, output, unknownArgs, renderTests) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity>((assemblyPath, args, timeout, output, unknownArgs, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 var inputArgs = unknownArgs ? null : args;
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, inputArgs, timeout, output.FullName, renderTests));
+                    PostProcess(TestGenerator.Cover(assembly, inputArgs, timeout, output.FullName, renderTests, strat, verbosity));
             });
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool>((assemblyPath, timeout, output, renderTests) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName, renderTests));
+                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName, renderTests, strat, verbosity));
             });
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool>((className, assemblyPath, timeout, output, renderTests) =>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((className, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
@@ -222,11 +240,11 @@ namespace VSharp.Runner
                     var type = ResolveType(assembly, className);
                     if (type != null)
                     {
-                        PostProcess(TestGenerator.Cover(type, timeout, output.FullName, renderTests));
+                        PostProcess(TestGenerator.Cover(type, timeout, output.FullName, renderTests, strat, verbosity));
                     }
                 }
             });
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool>((methodName, assemblyPath, timeout, output, renderTests) =>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((methodName, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
@@ -234,11 +252,11 @@ namespace VSharp.Runner
                     var method = ResolveMethod(assembly, methodName);
                     if (method != null)
                     {
-                        PostProcess(TestGenerator.Cover(method, timeout, output.FullName, renderTests));
+                        PostProcess(TestGenerator.Cover(method, timeout, output.FullName, renderTests, strat, verbosity));
                     }
                 }
             });
-            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool>((namespaceName, assemblyPath, timeout, output, renderTests) =>
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((namespaceName, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
@@ -246,7 +264,7 @@ namespace VSharp.Runner
                     var namespaceTypes = ResolveNamespace(assembly, namespaceName);
                     if (namespaceTypes.Count() != 0)
                     {
-                        PostProcess(TestGenerator.Cover(namespaceTypes, timeout, output.FullName, renderTests));
+                        PostProcess(TestGenerator.Cover(namespaceTypes, timeout, output.FullName, renderTests, strat, verbosity));
                     }
                 }
             });
