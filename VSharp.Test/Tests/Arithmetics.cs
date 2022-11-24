@@ -1,5 +1,4 @@
 using System;
-using Microsoft.AspNetCore.Mvc;
 using NUnit.Framework;
 using VSharp.Test;
 

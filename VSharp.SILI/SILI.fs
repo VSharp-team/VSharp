@@ -20,7 +20,9 @@ type public SILI(options : SiliOptions) =
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics = SILIStatistics()
+    let statistics =
+        let dumpInterval = if options.collectContinuousDump then 250 else -1
+        new SILIStatistics(dumpInterval)
 
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
@@ -61,16 +63,17 @@ type public SILI(options : SiliOptions) =
     let rec mkForwardSearcher = function
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
-        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
+        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
         | FairMode baseMode ->
-            FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics)
+            FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
-            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
+            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2]) :> IForwardSearcher
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
-        | searchMode.ConcolicMode baseMode -> ConcolicSearcher(mkForwardSearcher baseMode)
+        | searchMode.ConcolicMode baseMode -> ConcolicSearcher(mkForwardSearcher baseMode) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
@@ -83,6 +86,7 @@ type public SILI(options : SiliOptions) =
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
+            statistics.OnBranchesReleased()
             ReleaseBranches()
             let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
             let dfsSearcher = if isConcolicMode then ConcolicSearcher(dfsSearcher) :> IForwardSearcher else dfsSearcher
@@ -99,8 +103,6 @@ type public SILI(options : SiliOptions) =
                     match cilState.state.exceptionsRegister with
                     | Unhandled _ -> true
                     | _ -> false
-                if not isError || hasException
-                then statistics.TrackFinished cilState
                 let callStackSize = Memory.CallStackSize cilState.state
                 let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
                 let entryMethod = entryMethodOf cilState
@@ -112,7 +114,9 @@ type public SILI(options : SiliOptions) =
                 if not isError || statistics.EmitError cilState message
                 then
                     match TestGenerator.state2test isError entryMethod cmdArgs cilState message with
-                    | Some test -> reporter test
+                    | Some test ->
+                        statistics.TrackFinished cilState
+                        reporter test
                     | None -> ()
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
@@ -402,6 +406,8 @@ type public SILI(options : SiliOptions) =
                 let entryPointsInitialStates = entryPoints |> List.collect x.FormEntryPointInitialStates
                 let iieStates, initialStates = isolatedInitialStates @ entryPointsInitialStates |> List.partition (fun state -> state.iie.IsSome)
                 iieStates |> List.iter reportStateIncomplete
+                statistics.SetStatesGetter(fun () -> searcher.States())
+                statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
                 if not initialStates.IsEmpty then
                     x.AnswerPobs initialStates
             with
@@ -414,3 +420,6 @@ type public SILI(options : SiliOptions) =
     member x.Stop() = isStopped <- true
 
     member x.Statistics with get() = statistics
+
+    interface IDisposable with
+        member x.Dispose() = (statistics :> IDisposable).Dispose()

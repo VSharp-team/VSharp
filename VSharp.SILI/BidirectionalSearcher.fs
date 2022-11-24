@@ -83,6 +83,9 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             backward.Remove cilState
             targeted.Remove cilState
 
+        override x.StatesCount with get() =
+            forward.StatesCount + backward.StatesCount + targeted.StatesCount
+
 type OnlyForwardSearcher(searcher : IForwardSearcher) =
     interface IBidirectionalSearcher with
         override x.Init cilStates _ = searcher.Init cilStates
@@ -97,6 +100,7 @@ type OnlyForwardSearcher(searcher : IForwardSearcher) =
         override x.States() = searcher.States()
         override x.Reset() = searcher.Reset()
         override x.Remove cilState = searcher.Remove cilState
+        override x.StatesCount with get() = searcher.StatesCount
 
 // TODO: check pob duplicates
 type BackwardSearcher() =
@@ -197,6 +201,8 @@ type BackwardSearcher() =
 
         override x.Reset() = clear()
 
+        override x.StatesCount with get() = qBack.Count
+
 module DummyTargetedSearcher =
     open CilStateOperations
 
@@ -249,3 +255,5 @@ module DummyTargetedSearcher =
                 forPropagation.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
                 finished.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
                 reached.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
+
+            override x.StatesCount with get() = forPropagation.Values.Count

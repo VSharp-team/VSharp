@@ -1,0 +1,45 @@
+name: run_benchmarks
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  build:
+    uses: ./.github/workflows/build_vsharp.yml
+  benchmark:
+    needs: build
+    strategy:
+      matrix:
+        suite: ["jb_lifetimes"]
+        dll: ["JetBrains.Lifetimes"]
+        method: [""]
+        namespace: ["JetBrains.Collections"]
+        class: [""]
+        include:
+          - suite: loan_exam
+            dll: LoanExam
+            method: Build
+            class: ""
+            namespace: ""
+          - suite: max_arshinov_web
+            dll: "HightechAngular.Web"
+            method: ""
+            class: ""
+            namespace: ""
+          - suite: jb_lifetimes
+            dll: JetBrains.Lifetimes
+            method: ""
+            class: ""
+            namespace: JetBrains.Util
+    uses: ./.github/workflows/cover.yml
+    with:
+      suite: ${{ matrix.suite }}
+      dll: ${{ matrix.dll }}
+      class: ${{ matrix.class }}
+      namespace: ${{ matrix.namespace }}
+      method:  ${{ matrix.method }}
+    secrets:
+      BENCH_RESULTS_TOKEN: ${{ secrets.BENCH_RESULTS_TOKEN }}

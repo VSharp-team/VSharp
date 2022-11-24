@@ -141,3 +141,4 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         override x.States() = states()
         override x.Reset() = reset()
         override x.Remove cilState = remove cilState
+        override x.StatesCount with get() = baseSearcher.StatesCount
