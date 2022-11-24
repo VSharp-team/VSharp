@@ -478,12 +478,7 @@ internal class CodeRenderer
                 );
 
         ExpressionSyntax array;
-        if (allowImplicit && initializer != null)
-            // TODO: update for multidimensional arrays (use .WithCommas)
-            array = ImplicitArrayCreationExpression(initializer);
-        else
-            array = ArrayCreationExpression(Token(SyntaxKind.NewKeyword), type, initializer);
-
+        array = ArrayCreationExpression(Token(SyntaxKind.NewKeyword), type, initializer);
         return array;
     }
 
