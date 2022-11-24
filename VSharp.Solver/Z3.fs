@@ -103,9 +103,9 @@ module internal Z3 =
                     cm.Allocate addr arr
                     if defaults.TryGetValue(ArrayIndexSort arrayType, result) then
                         match result.Value.Value with
-                            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
-                                cm.AddDep a addr
-                            | _ -> ()
+                        | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
+                            cm.AddDep a addr
+                        | _ -> ()
                         let value =  result.Value.Value |> unboxConcrete' |> Option.get
                         Array.fill arr value
             | _ when typ = typeof<string> ->
@@ -122,16 +122,18 @@ module internal Z3 =
                     Seq.iter (fun (fid, _) ->
                         let region = HeapFieldSort fid
                         if defaults.TryGetValue(region, result) then
+                            let value = result.Value.Value |> unboxConcrete' |> Option.get
                             match result.Value.Value with
                             | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
                                 cm.AddDep a addr
                             | _ -> ()
-                            let value = result.Value.Value |> unboxConcrete' |> Option.get
                             cm.WriteClassField addr fid value
                 )
         with
         | :? MemberAccessException as e -> // Could not create an instance
-            if cm.Contains addr then Memory.Unmarshall state addr
+            // when objects are created, the are only filled with defaults
+            // Careful: the use of unmarshalling here is incorrect
+            if cm.Contains addr then cm.Remove addr 
             raise e 
 
     let concreteAllocator state defaultValues typ addr =
@@ -778,7 +780,7 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
-            defaultValues.Clear()
+            let cm = state.concreteMemory
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
@@ -830,6 +832,14 @@ module internal Z3 =
                         else
                             let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress state typeOfLocation cmAllocate
                             HeapRef (address |> ConcreteHeapAddress) typeOfLocation
+                    match addr with
+                    | ClassField({term = HeapRef({term = ConcreteHeapAddress(base_addr)}, _)}, _)
+                    | ArrayIndex({term = HeapRef({term = ConcreteHeapAddress(base_addr)}, _)}, _, _) ->
+                        match value with
+                        | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} when not <| cm.Contains a -> 
+                            // Concrete memory objects cannot address symbolic objects
+                            if cm.Contains base_addr then Memory.Unmarshall state base_addr
+                        | _ -> ()
                     let states = Memory.Write state (Ref addr) value
                     assert(states.Length = 1 && states.[0] = state) 
                 
@@ -884,6 +894,7 @@ module internal Z3 =
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst
             encodingCache.heapAddresses.Clear()
+            defaultValues.Clear()
             StateModel(state, typeModel.CreateEmpty())
 
 
