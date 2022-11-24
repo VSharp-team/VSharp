@@ -24,7 +24,8 @@ namespace VSharp.Test
         ShortestDistance,
         RandomShortestDistance,
         ContributedCoverage,
-        Interleaved
+        Interleaved,
+        InterproceduralShortestDistance
     }
 
     public enum CoverageZone
@@ -189,6 +190,7 @@ namespace VSharp.Test
                     SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                     SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                    SearchStrategy.InterproceduralShortestDistance => searchMode.InterproceduralShortestDistanceMode,
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
 

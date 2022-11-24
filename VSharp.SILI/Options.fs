@@ -11,6 +11,7 @@ type searchMode =
     | ContributedCoverageMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
+    | InterproceduralShortestDistanceMode
     | ConcolicMode of searchMode
     | GuidedMode of searchMode
 

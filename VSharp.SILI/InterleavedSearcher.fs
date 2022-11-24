@@ -32,6 +32,8 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
 
     let states() = searchersWithStepCount |> Seq.collect (fun (s, _) -> s.States()) |> Seq.distinct
 
+    let refresh() = for searcher, _ in searchersWithStepCount do searcher.Refresh()
+
     let reset() = for searcher, _ in searchersWithStepCount do searcher.Reset()
 
     let remove cilState = for searcher, _ in searchersWithStepCount do searcher.Remove cilState
@@ -42,6 +44,7 @@ type InterleavedSearcher(searchersWithStepCount: (IForwardSearcher * int) list) 
         override x.Pick selector = pick (Some selector)
         override x.Update (parent, newStates) = update (parent, newStates)
         override x.States() = states()
+        override x.Refresh() = refresh()
         override x.Reset() = reset()
         override x.Remove cilState = remove cilState
         override x.StatesCount with get() = searchersEnumerator.Current.StatesCount

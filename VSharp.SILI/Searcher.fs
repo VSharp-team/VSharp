@@ -20,6 +20,7 @@ type IBidirectionalSearcher =
     abstract member Answer : pob -> pobStatus -> unit
     abstract member Statuses : unit -> seq<pob * pobStatus>
     abstract member States : unit -> cilState seq
+    abstract member Refresh : unit -> unit
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
     abstract member StatesCount : int
@@ -30,6 +31,7 @@ type IForwardSearcher =
     abstract member Pick : unit -> cilState option
     abstract member Pick : (cilState -> bool) -> cilState option
     abstract member States : unit -> cilState seq
+    abstract member Refresh : unit -> unit
     abstract member Reset : unit -> unit
     abstract member Remove : cilState -> unit
     abstract member StatesCount : int
@@ -80,6 +82,7 @@ type SimpleForwardSearcher(maxBound) =
         override x.Update (parent, newStates) =
             x.Insert forPropagation (parent, newStates)
         override x.States() = forPropagation
+        override x.Refresh() = ()
         override x.Reset() = forPropagation.Clear()
         override x.Remove cilState = forPropagation.Remove cilState |> ignore
         override x.StatesCount with get() = forPropagation.Count
@@ -116,9 +119,8 @@ type DFSSearcher(maxBound) =
 
 type IWeighter =
     abstract member Weight : cilState -> uint option
-    abstract member Next : unit -> uint
 
-type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState>) =
+type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState, uint>) =
     let optionWeight s =
         try
             option {
@@ -160,6 +162,7 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         override x.Pick selector = x.Pick selector
         override x.Update (parent, newStates) = x.Update (parent, newStates)
         override x.States() = storage.ToSeq
+        override x.Refresh() = ()
         override x.Reset() = storage.Clear()
         override x.Remove cilState = if storage.Contains cilState then storage.Remove cilState
         override x.StatesCount with get() = int x.Count

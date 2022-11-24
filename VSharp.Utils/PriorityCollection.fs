@@ -1,25 +1,28 @@
 namespace VSharp.Utils
 
+open System
 open System.Collections.Generic
 open System.Linq
 
 open VSharp
 
-type IPriorityCollection<'a> =
-    abstract member Insert : 'a -> uint -> unit
+type IPriorityCollection<'a, 'b> =
+    abstract member Insert : 'a -> 'b -> unit
     abstract member Remove : 'a -> unit
-    abstract member Update : 'a -> uint -> unit
+    abstract member Update : 'a -> 'b -> unit
     abstract member Choose : unit -> 'a option
     abstract member Choose : ('a -> bool) -> 'a option
     abstract member Contains : 'a -> bool
-    abstract member TryGetPriority : 'a -> uint option
+    abstract member TryGetPriority : 'a -> 'b option
     abstract member Clear : unit -> unit
     abstract member Count : uint
     abstract member ToSeq : 'a seq
+    abstract member ToSeqWithPriority : ('a * 'b) seq
 
-type BidictionaryPriorityQueue<'a when 'a : equality>() =
-    let valuesToPriority = Dictionary<'a, uint>()
-    let priorityToList = SortedDictionary<uint, LinkedList<'a>>()
+// Less == better
+type BidictionaryPriorityQueue<'a, 'b when 'a : equality and 'b : comparison>() =
+    let valuesToPriority = Dictionary<'a, 'b>()
+    let priorityToList = SortedDictionary<'b, LinkedList<'a>>()
     let isEmpty () = valuesToPriority.Count = 0
     let insert item priority =
         assert(not <| valuesToPriority.ContainsKey item)
@@ -53,7 +56,7 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         valuesToPriority.Clear()
         priorityToList.Clear()
 
-    interface IPriorityCollection<'a> with
+    interface IPriorityCollection<'a, 'b> with
         override x.Insert item priority = insert item priority
         override x.Remove item = remove item
         override x.Update item priority =
@@ -66,3 +69,4 @@ type BidictionaryPriorityQueue<'a when 'a : equality>() =
         override x.Clear() = clear ()
         override x.Count = uint valuesToPriority.Count
         override x.ToSeq = valuesToPriority.Keys |> seq
+        override x.ToSeqWithPriority = valuesToPriority |> Seq.map (|KeyValue|)

@@ -70,6 +70,7 @@ type public SILI(options : SiliOptions) =
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
             InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2]) :> IForwardSearcher
+        | InterproceduralShortestDistance -> InterproceduralSearcher(infty, statistics) :> IForwardSearcher
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
@@ -116,6 +117,7 @@ type public SILI(options : SiliOptions) =
                     match TestGenerator.state2test isError entryMethod cmdArgs cilState message with
                     | Some test ->
                         statistics.TrackFinished cilState
+                        searcher.Refresh()
                         reporter test
                     | None -> ()
         with :? InsufficientInformationException as e ->
@@ -286,6 +288,7 @@ type public SILI(options : SiliOptions) =
         Application.moveState loc s (Seq.cast<_> newStates)
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
+        clearLastCallStackEvents s
 
     member private x.Backward p' s' =
         assert(currentLoc s' = p'.loc)

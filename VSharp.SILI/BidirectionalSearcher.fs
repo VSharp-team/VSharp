@@ -78,6 +78,8 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             backward.Reset()
             targeted.Reset()
 
+        override x.Refresh() = forward.Refresh()
+
         override x.Remove cilState =
             forward.Remove cilState
             backward.Remove cilState
@@ -98,6 +100,7 @@ type OnlyForwardSearcher(searcher : IForwardSearcher) =
             | Some s -> GoFront s
             | None -> Stop
         override x.States() = searcher.States()
+        override x.Refresh() = searcher.Refresh()
         override x.Reset() = searcher.Reset()
         override x.Remove cilState = searcher.Remove cilState
         override x.StatesCount with get() = searcher.StatesCount
