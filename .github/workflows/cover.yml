@@ -1,4 +1,4 @@
-name: cover
+name: 'Run VSharp'
 
 on:
   workflow_call:
@@ -19,7 +19,7 @@ on:
         required: false
         type: string
       timeouts:
-        default: "20 120 300"
+        default: "20 120"
         required: false
         type: string
       searchers:
