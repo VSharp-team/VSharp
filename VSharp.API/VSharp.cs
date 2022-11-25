@@ -129,7 +129,7 @@ namespace VSharp
         /// <summary>
         /// Gets all generated '.vst' files
         /// </summary>
-        internal IEnumerable<FileInfo> Results()
+        public IEnumerable<FileInfo> Results()
         {
             return OutputDir.GetFiles("*.vst");
         }
