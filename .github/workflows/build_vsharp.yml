@@ -1,4 +1,4 @@
-name: build_vsharp
+name: 'Build VSharp'
 
 on:
   workflow_call

@@ -1,4 +1,4 @@
-name: integration_tests
+name: 'Integration tests'
 
 on:
   pull_request:
@@ -24,11 +24,10 @@ jobs:
     - name: Run tests
       run: |
         dotnet tool restore
-        dotnet test -c Release --logger "trx;LogFileName=test-results.trx"
-    - name: Report tests results
-      uses: dorny/test-reporter@v1
+        dotnet test -c Release --logger "trx;LogFileName=tests-results.trx"
+    - name: Upload tests results to GitHub artifacts
+      uses: actions/upload-artifact@v3
       if: success() || failure()
       with:
-        name: Integration tests
-        path: VSharp.Test/TestResults/test-results.trx
-        reporter: dotnet-trx
+        name: tests-results
+        path: VSharp.Test/TestResults/tests-results.trx

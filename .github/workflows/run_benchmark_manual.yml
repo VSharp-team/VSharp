@@ -1,4 +1,4 @@
-name: run_benchmark_manual
+name: 'Benchmarks (manual)'
 
 on:
   workflow_dispatch:
@@ -43,10 +43,10 @@ on:
 
 jobs:
   build:
-    uses: VSharp-team/VSharp/.github/workflows/build_vsharp.yml@benchmarks
+    uses: ./.github/workflows/build_vsharp.yml
   benchmark:
     needs: build
-    uses: VSharp-team/VSharp/.github/workflows/cover.yml@benchmarks
+    uses: ./.github/workflows/cover.yml
     with:
       suite: ${{ inputs.suite }}
       dll: ${{ inputs.dll }}
