@@ -471,23 +471,28 @@ public static class Renderer
     }
 
     // Writing generated tests and mocks to files
-    private static void WriteResults(
+    private static List<string> WriteResults(
         DirectoryInfo outputDir,
         string typeName,
         SyntaxNode testsProgram,
         SyntaxNode? mocksProgram)
     {
+        var files = new List<string>();
         var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
         AddRenderedInFile(testFilePath, testsProgram);
+        files.Add(testFilePath);
         if (mocksProgram != null)
         {
             var mocksFilePath = Path.Combine(outputDir.FullName, "Mocks.cs");
             AddRenderedInFile(mocksFilePath, mocksProgram);
+            files.Add(mocksFilePath);
         }
+
+        return files;
     }
 
     // API method for Rider extension
-    public static DirectoryInfo Render(
+    public static (DirectoryInfo, List<string>) Render(
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
         Type declaringType,
@@ -500,9 +505,9 @@ public static class Renderer
         var outputDir = testingProject.Directory?.Parent;
         Debug.Assert(outputDir != null && outputDir.Exists);
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
-        WriteResults(outputDir, typeName, testsProgram, mocksProgram);
+        var renderedFiles = WriteResults(outputDir, typeName, testsProgram, mocksProgram);
 
-        return testProjectPath;
+        return (testProjectPath, renderedFiles);
     }
 
     // API method for VSharp
