@@ -16,4 +16,11 @@ jobs:
         name: Integration tests
         artifact: tests-results
         reporter: dotnet-trx
-        path: '*.trx' 
+        path: '*.trx'
+    - name: Report generated tests results
+      uses: dorny/test-reporter@v1
+      with:
+        name: Generated tests
+        artifact: generated-tests-results
+        reporter: dotnet-trx
+        path: '*.trx'

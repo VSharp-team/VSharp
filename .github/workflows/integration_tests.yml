@@ -25,9 +25,16 @@ jobs:
       run: |
         dotnet tool restore
         dotnet test -c Release --logger "trx;LogFileName=tests-results.trx"
+        dotnet test -c Release --filter TestCategory=Generated --logger "trx;LogFileName=generated-tests-results.trx"
     - name: Upload tests results to GitHub artifacts
       uses: actions/upload-artifact@v3
       if: success() || failure()
       with:
         name: tests-results
         path: VSharp.Test/TestResults/tests-results.trx
+    - name: Upload generated tests results to GitHub artifacts
+      uses: actions/upload-artifact@v3
+      if: success() || failure()
+      with:
+        name: generated-tests-results
+        path: VSharp.Test/TestResults/generated-tests-results.trx
