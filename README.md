@@ -1,4 +1,4 @@
-# V# Symbolic Execution Engine 
+# V Symbolic Execution Engine 
 
 V# is the symbolic execution engine for .NET binaries, performing completely automated and unassisted test generation for .NET assemblies. It is cross-platform and supports .NET Core.
 
@@ -114,7 +114,7 @@ namespace DemoProject2
 Compile this project. Run 
 ```bat
 dotnet VSharp.Runner/bin/Release/netcoreapp6.0/publish/VSharp.Runner.dll --public-methods-of-class DemoProject2.DemoClass2 <path to DemoProject2.dll>
-``` 
+```
 
 The engine will generate `*.vst` unit tests into the fresh directory `VSharp.tests.0`.
 
