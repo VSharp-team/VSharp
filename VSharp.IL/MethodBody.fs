@@ -218,6 +218,12 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsExternalMethod with get() = Reflection.isExternalMethod m
 
+    member x.CanBeOverriden targetType =
+        match m with
+        | :? ConstructorInfo -> false
+        | :? MethodInfo as mi -> Reflection.canOverrideMethod targetType mi
+        | _ -> __unreachable__()
+
     member x.Generalize() =
         let generalized, genericArgs, genericDefs = Reflection.generalizeMethodBase m
         MethodWithBody.InstantiateNew generalized, genericArgs, genericDefs

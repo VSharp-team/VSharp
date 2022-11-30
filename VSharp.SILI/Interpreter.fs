@@ -790,9 +790,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (fun cilState k -> (); k [cilState])
             (fun cilState k ->
                 reportError cilState "Debug.Assert failed"
-                cilState.suspended <- true
-                k [cilState])
-            (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+                k [])
+            id
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
@@ -894,9 +893,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 (fun cilState k -> (); k [cilState])
                 (fun cilState k ->
                     if isError then reportError cilState message
-                    cilState.suspended <- true
-                    k [cilState])
-                (fun cilStates -> cilStates |> List.filter (fun cilState -> not cilState.suspended))
+                    k [])
+                id
         else [cilState]
 
     static member CheckDisallowNullAssumptions (cilState : cilState) (method : Method) isError =
@@ -1101,33 +1099,28 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfHeapRef cilState.state this
-            let callForConcreteType typ _ k =
+            let callForConcreteType typ cilState k =
                 let targetMethod = x.ResolveVirtualMethod typ ancestorMethod
                 if targetMethod.IsAbstract
-                    then x.CallAbstract targetMethod cilState k
+                    then x.CallAbstract typ targetMethod cilState k
                     else x.InvokeVirtualMethod cilState ancestorMethod targetMethod k
-            let tryToCallForBaseType (cilState : cilState) (k : cilState list -> 'a) =
-                StatedConditionalExecutionCIL cilState
-                    (fun state k -> k (API.Types.TypeIsRef state baseType this, state))
-                    (callForConcreteType baseType)
-                    (fun s k -> x.CallAbstract ancestorMethod s k)
-                    k
-            if baseType.IsAbstract
-                then x.CallAbstract ancestorMethod cilState k
-                else tryToCallForBaseType cilState k
+            // Forcing CallAbstract for delegates to generate mocks
+            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType || ancestorMethod.IsDelegate then
+                x.CallAbstract baseType ancestorMethod cilState k
+            else callForConcreteType baseType cilState k
         GuardedApplyCIL cilState this callVirtual k
 
-    member x.CallAbstract (ancestorMethod : Method) cilState k =
+    member x.CallAbstract targetType (ancestorMethod : Method) cilState k =
         let this = Memory.ReadThis cilState.state ancestorMethod
-        let thisInModel, candidateTypes = ResolveCallVirt cilState.state this
+        let _, candidateTypes = ResolveCallVirt cilState.state this ancestorMethod
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
         let candidateMethods = seq {
             for t in candidateTypes do
                 match t with
                 | ConcreteType t ->
                     let overriden = x.ResolveVirtualMethod t ancestorMethod
-                    // TODO: more complex criteria here...
-                    if overriden.InCoverageZone then
+                    // TODO: more complex criteria here... Maybe t.IsAssignableTo targetType?
+                    if overriden.InCoverageZone || t = targetType then
                         yield (t, overriden)
                 | _ -> ()}
         let candidateMethods = candidateMethods |> Seq.toList |> List.distinctBy snd
@@ -1138,31 +1131,36 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> ()
         }
         let invokeMock cilState k =
-            match List.ofSeq typeMocks with
-            | [] -> ()
-            | [mock : ITypeMock] ->
+            let model = cilState.state.model
+            match List.ofSeq typeMocks, model.Eval this with
+            | [], _ -> List.singleton cilState |> k
+            | [mock : ITypeMock], {term = HeapRef({term = ConcreteHeapAddress thisInModel}, _)} ->
                 popFrameOf cilState
                 let modelState =
-                    match cilState.state.model with
-                    | StateModel s -> s
+                    match model with
+                    | StateModel(s, _) -> s
                     | _ -> __unreachable__()
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 candidateTypes |> Seq.iter (function
                     | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
                     | _ -> ())
 //                let methodMock = mock.MethodMocks |> Seq.find (fun m -> m.BaseMethod.Name = ancestorMethod.Name && m.BaseMethod.GetParameters() |> Array.forall (fun p -> p.ParameterType = signature.[p.Position]))
-                let methodMock = mock.MethodMock ancestorMethod
+                let overriden =
+                    if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
+                    else x.ResolveVirtualMethod targetType ancestorMethod
+                let methodMock = mock.MethodMock overriden
                 match methodMock.Call thisInModel [] with // TODO: pass args!
                 | Some result ->
                     assert(ancestorMethod.ReturnType <> typeof<Void>)
                     push result cilState
                 | None ->
                     assert(ancestorMethod.ReturnType = typeof<Void>)
+                match tryCurrentLoc cilState with
+                | Some loc ->
+                    // Moving ip to next instruction after mocking method result
+                    fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
+                | _ -> __unreachable__()
             | _ -> internalfail "Got more than one mock for callvirt!"
-            match tryCurrentLoc cilState with
-             | Some loc ->
-                 fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
-             | _ -> __unreachable__()
         let rec dispatch candidates cilState k =
             match candidates with
             | [] -> invokeMock cilState k
@@ -1301,13 +1299,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let this, methodToCall =
             match thisOption with
             | Some (NonNullRef as this) when ancestorMethod.IsDelegate ->
-                let deleg = Memory.ReadDelegate cilState.state this
-                let target, mi = retrieveMethodInfo deleg
-                let mi = Application.getMethod mi
-                // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
-                match target with
-                | NullRef _ -> thisOption, mi
-                | _ -> Some target, mi
+                match Memory.ReadDelegate cilState.state this with
+                | Some deleg ->
+                    let target, mi = retrieveMethodInfo deleg
+                    let mi = Application.getMethod mi
+                    // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
+                    match target with
+                    | NullRef _ -> thisOption, mi
+                    | _ -> Some target, mi
+                | _ -> thisOption, ancestorMethod
             | _ -> thisOption, ancestorMethod
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         x.InitFunctionFrameCIL cilState methodToCall this (Some args)
@@ -1329,7 +1329,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             match methodPtr.term with
             | Concrete(:? MethodInfo as mi, _) -> mi
             | _ -> __unreachable__()
-        let lambda = Lambdas.make (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
+        let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
         Memory.AllocateDelegate cilState.state lambda |> k
 
     member x.CommonNewObj isCallNeeded (ctor : Method) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =
@@ -2043,7 +2043,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let rec executeAllInstructions (finishedStates, incompleteStates, errors) cilState k =
             let ip = currentIp cilState
             try
-                cilState.iie <- None
                 let allStates = x.MakeStep cilState
                 let newErrors, restStates = List.partition isUnhandledError allStates
                 let errors = errors @ newErrors

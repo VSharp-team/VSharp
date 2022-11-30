@@ -1,0 +1,59 @@
+name: 'Benchmark'
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        required: true
+        description: Test suite (project in VSharp-bench repo)
+        type: choice
+        options: 
+          - jb_lifetimes
+          - loan_exam
+          - max_arshinov_web
+      dll:
+        required: true
+        description: Dll to test (should correspond to the selected suite)
+        type: choice
+        options: 
+          - JetBrains.Lifetimes
+          - JetBrains.RdFramework
+          - LoanExam
+          - HightechAngular.Web
+      namespace:
+        required: false
+        description: Namespace to cover (leave namespace, method and class empty to cover all types in the assembly)
+        type: string
+      method:
+        required: false
+        description: Method to cover (leave namespace, method and class empty to cover all types in the assembly)
+        type: string
+      class:
+        required: false
+        description: Type to cover (leave namespace, method and class empty to cover all types in the assembly)
+        type: string
+      timeouts:
+        required: true
+        description: Timeouts (s) to run VSharp with (separate multiple timeouts with whitespaces, i. e. 10 20)
+        type: string
+      searchers:
+        required: true
+        description: Searchers to run VSharp with (separate multiple values with whitespaces, i. e. ShortestDistance DFS)
+        type: string
+
+jobs:
+  build:
+    uses: ./.github/workflows/build_vsharp.yml
+  benchmark:
+    needs: build
+    uses: ./.github/workflows/cover.yml
+    with:
+      suite: ${{ inputs.suite }}
+      dll: ${{ inputs.dll }}
+      class: ${{ inputs.class }}
+      namespace: ${{ inputs.namespace }}
+      method: ${{ inputs.method }}
+      timeouts: ${{ inputs.timeouts }}
+      searchers: ${{ inputs.searchers }}
+    secrets:
+      BENCH_RESULTS_TOKEN: ${{ secrets.BENCH_RESULTS_TOKEN }}

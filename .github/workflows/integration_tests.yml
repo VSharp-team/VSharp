@@ -1,0 +1,40 @@
+name: 'Integration tests'
+
+on:
+  pull_request:
+    branches:
+      - master
+  workflow_dispatch:
+
+jobs:
+  run_integration_tests:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout VSharp
+      uses: actions/checkout@v3
+      with:
+        submodules: false
+    - uses: actions/cache@v3
+      id: nuget-cache
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj', '**/*.fsproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    - name: Run tests
+      run: |
+        dotnet tool restore
+        dotnet test -c Release --logger "trx;LogFileName=tests-results.trx"
+        dotnet test -c Release --filter TestCategory=Generated --logger "trx;LogFileName=generated-tests-results.trx"
+    - name: Upload tests results to GitHub artifacts
+      uses: actions/upload-artifact@v3
+      if: success() || failure()
+      with:
+        name: tests-results
+        path: VSharp.Test/TestResults/tests-results.trx
+    - name: Upload generated tests results to GitHub artifacts
+      uses: actions/upload-artifact@v3
+      if: success() || failure()
+      with:
+        name: generated-tests-results
+        path: VSharp.Test/TestResults/generated-tests-results.trx

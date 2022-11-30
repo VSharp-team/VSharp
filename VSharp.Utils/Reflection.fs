@@ -4,6 +4,31 @@ open System
 open System.Collections.Generic
 open System.Reflection
 
+[<CustomEquality; CustomComparison>]
+type methodDescriptor = {
+    methodHandle : nativeint
+    declaringTypeVarHandles : nativeint array
+    methodVarHandles : nativeint array
+    typeHandle : nativeint
+}
+with
+    override x.GetHashCode() =
+        HashCode.Combine(x.methodHandle, hash x.declaringTypeVarHandles, hash x.methodVarHandles, x.typeHandle)
+
+    override x.Equals(another) =
+        match another with
+        | :? methodDescriptor as d -> (x :> IComparable).CompareTo d = 0
+        | _ -> false
+
+    interface IComparable with
+        override x.CompareTo y =
+            match y with
+            | :? methodDescriptor as y ->
+                compare
+                    (x.methodHandle, x.declaringTypeVarHandles, x.methodVarHandles, x.typeHandle)
+                    (y.methodHandle, y.declaringTypeVarHandles, y.methodVarHandles, y.typeHandle)
+            | _ -> -1
+
 module public Reflection =
 
     // ----------------------------- Binding Flags ------------------------------
@@ -134,7 +159,10 @@ module public Reflection =
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
-        m.MethodHandle.Value, declaringTypeVars, methodVars, m.ReflectedType.TypeHandle.Value
+        { methodHandle = m.MethodHandle.Value
+          declaringTypeVarHandles = declaringTypeVars
+          methodVarHandles = methodVars
+          typeHandle = m.ReflectedType.TypeHandle.Value }
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
@@ -146,9 +174,7 @@ module public Reflection =
         let concreteMethods = Array.map makeSuitable methodsFromHelper
         Array.concat [concreteMethods; getAllMethods typeof<Array>; getAllMethods arrayType]
 
-    let isOverrideOf (sourceMethod : MethodInfo) (method : MethodInfo) =
-        sourceMethod.GetBaseDefinition() = method.GetBaseDefinition()
-        ||
+    let private isOverrideWithCovarianceReturnType (sourceMethod : MethodInfo) (method : MethodInfo) =
         // Return type covariance case
         Attribute.IsDefined(method, typeof<System.Runtime.CompilerServices.PreserveBaseOverridesAttribute>) &&
         method.Name = sourceMethod.Name &&
@@ -157,28 +183,94 @@ module public Reflection =
             targetSig.Length = sourceSig.Length &&
             Array.forall2 (fun (p : ParameterInfo) (p' : ParameterInfo) -> p.ParameterType = p'.ParameterType) sourceSig targetSig
 
+    let isOverrideOf (sourceMethod : MethodInfo) (method : MethodInfo) =
+        sourceMethod.GetBaseDefinition() = method.GetBaseDefinition()
+        || isOverrideWithCovarianceReturnType sourceMethod method
+
+    let private createSignature (m : MethodInfo) =
+        let onlyLastName =
+            match m.Name.LastIndexOf('.') with
+            | i when i < 0 -> m.Name
+            | i -> m.Name.Substring(i + 1)
+        if m.IsHideBySig then
+            let args =
+                m.GetParameters()
+                |> Seq.map (fun p -> getFullTypeName p.ParameterType)
+                |> join ","
+            let genericArgs =
+                // If type is 'System.SZArrayHelper' then generic arguments should not be added, because
+                // 'SZArrayHelper' implements methods for all vector arrays in .NET and they don't have generics
+                if m.IsGenericMethod && m.DeclaringType <> TypeUtils.szArrayHelper.Value then
+                    m.GetGenericArguments()
+                    |> Seq.map getFullTypeName
+                    |> join ","
+                else String.Empty
+            let returnType = getMethodReturnType m |> toString
+            returnType + onlyLastName + genericArgs + args
+        else onlyLastName
+
     let resolveInterfaceOverride (targetType : Type) (interfaceMethod : MethodInfo) =
         let interfaceType = interfaceMethod.DeclaringType
         assert interfaceType.IsInterface
         if interfaceType = targetType then interfaceMethod
         else
-            let createSignature (m : MethodInfo) =
-                m.GetParameters()
-                |> Seq.map (fun p -> getFullTypeName p.ParameterType)
-                |> join ","
-            let onlyLastName (m : MethodInfo) =
-                match m.Name.LastIndexOf('.') with
-                | i when i < 0 -> m.Name
-                | i -> m.Name.Substring(i + 1)
             let sign = createSignature interfaceMethod
-            let lastName = onlyLastName interfaceMethod
             let methods =
                 match targetType with
                 | _ when targetType.IsArray -> getArrayMethods targetType
                 | _ when targetType.IsInterface -> getAllMethods targetType
                 | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-            methods |> Seq.find (fun mi -> createSignature mi = sign && onlyLastName mi = lastName)
+            methods |> Seq.find (fun mi -> createSignature mi = sign)
 
+    let private virtualBindingFlags =
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance |||
+            BindingFlags.InvokeMethod ||| BindingFlags.DeclaredOnly
+
+    let isNewSlot (m : MethodInfo) =
+        m.Attributes.HasFlag(MethodAttributes.NewSlot)
+
+    let blocksOverride virtualMethod (m : MethodInfo) =
+        m.IsFinal || not m.IsVirtual
+        || isNewSlot m && not (isOverrideWithCovarianceReturnType virtualMethod m)
+
+    // Finds last type that can override 'virtualMethod' starting from 'targetType'
+    // If it's free to override in derived classes of 'targetType', result will be 'targetType'
+    // If some type 't' in the hierarchy defines same method or adds new slot for it, result will be base type of 't'
+    // If in some type 't' in the hierarchy this method marked 'final', result will be 't'
+    let lastCanOverrideType (targetType: Type) (virtualMethod : MethodInfo) =
+        match virtualMethod.DeclaringType with
+        | t when not virtualMethod.IsVirtual -> t
+        | i when i.IsInterface && TypeUtils.typeImplementsInterface targetType i -> targetType
+        | i when i.IsInterface -> i
+        | t when targetType.IsAssignableTo(t) |> not -> t
+        | declaringType ->
+            let createHierarchy (t : Type) =
+                // TODO: care about generics (GetGenericTypeDefinition) ?
+                if t <> declaringType then Some (t, t.BaseType)
+                else None
+            let hierarchy = List.unfold createHierarchy targetType
+            let sign = createSignature virtualMethod
+            let mutable newSlot = false
+            let cancelsOverride (t : Type) =
+                let matchedMethods =
+                    t.GetMethods(virtualBindingFlags)
+                    |> Array.filter (fun m -> createSignature m = sign)
+                let canNotOverride (m : MethodInfo) =
+                    let blocks = blocksOverride virtualMethod m
+                    if blocks && (isNewSlot m || not m.IsVirtual) then
+                        newSlot <- true
+                    blocks
+                Array.forall canNotOverride matchedMethods
+            match List.tryFindBack cancelsOverride hierarchy with
+            | Some t when newSlot -> t.BaseType
+            | Some t -> t
+            | None -> targetType
+
+    let canOverrideMethod targetType (virtualMethod : MethodInfo) =
+        lastCanOverrideType targetType virtualMethod = targetType
+
+    // TODO: unify with 'lastOverrideType'
     let resolveOverridingMethod targetType (virtualMethod : MethodInfo) =
         assert virtualMethod.IsVirtual
         match virtualMethod.DeclaringType with
@@ -188,15 +280,17 @@ module public Reflection =
                 assert(targetType <> null)
                 if targetType = virtualMethod.DeclaringType then virtualMethod
                 else
-                    let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-                    let bindingFlags = BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance ||| BindingFlags.InvokeMethod ||| BindingFlags.DeclaredOnly
-                    let declaredMethods = targetType.GetMethods(bindingFlags)
+                    let declaredMethods = targetType.GetMethods(virtualBindingFlags)
                     let resolvedMethod = declaredMethods |> Seq.tryFind (isOverrideOf virtualMethod)
                     match resolvedMethod with
                     | Some resolvedMethod -> resolvedMethod
                     | None -> resolve targetType.BaseType
             resolve targetType
 
+    let hasByRefLikes (method : MethodInfo) =
+        method.DeclaringType <> null && method.DeclaringType.IsByRefLike ||
+            method.GetParameters() |> Seq.exists (fun pi -> pi.ParameterType.IsByRefLike) ||
+            method.ReturnType.IsByRefLike;
 
     // ----------------------------------- Creating objects ----------------------------------
 
@@ -334,21 +428,16 @@ module public Reflection =
         if result <> null then result
         else field.declaringType.GetRuntimeField(field.name)
 
-    let rec private retrieveFields isStatic f (t : Type) =
+    let rec private retrieveFields isStatic (t : Type) =
         let flags = if isStatic then staticBindingFlags else instanceBindingFlags
-        let fields = t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
-        let ourFields = f fields
-        if isStatic || t.BaseType = null then ourFields
-        else Array.append (retrieveFields false f t.BaseType) ourFields
+        t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
 
-    let retrieveNonStaticFields t = retrieveFields false id t
+    let retrieveNonStaticFields t = retrieveFields false t
 
     let fieldsOf isStatic (t : Type) =
-        let extractFieldInfo (field : FieldInfo) =
-            // Events may appear at this point. Filtering them out...
-            if TypeUtils.isSubtypeOrEqual field.FieldType typeof<MulticastDelegate> then None
-            else Some (wrapField field, field)
-        retrieveFields isStatic (FSharp.Collections.Array.choose extractFieldInfo) t
+        let fields = retrieveFields isStatic t
+        let extractFieldInfo (field : FieldInfo) = wrapField field, field
+        FSharp.Collections.Array.map extractFieldInfo fields
 
     let fieldIntersects (field : fieldId) =
         let fieldInfo = getFieldInfo field
@@ -377,6 +466,9 @@ module public Reflection =
         | [|(f1, _); (f2, _)|] when f1.name.Contains("length", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) -> f1, f2
         | [|(f1, _); (f2, _)|] when f1.name.Contains("firstChar", StringComparison.OrdinalIgnoreCase) && f2.name.Contains("length", StringComparison.OrdinalIgnoreCase) -> f2, f1
         | _ -> internalfailf "System.String has unexpected fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let exceptionMessageField =
+        {declaringType = typeof<Exception>; name = "_message"; typ = typeof<string>}
 
     let emptyStringField =
         let fs = fieldsOf true typeof<string>

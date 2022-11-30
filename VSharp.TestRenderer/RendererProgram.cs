@@ -1,13 +1,12 @@
-﻿using System.Diagnostics;
+﻿using System.CommandLine;
+using System.CommandLine.Invocation;
 
 namespace VSharp.TestRenderer;
 
 internal static class RendererProgram
 {
-  public static int Main(string[] args)
+    public static int RenderTests(string path, DirectoryInfo outputDir, bool wrapErrors)
     {
-        Debug.Assert(args.Length == 1);
-        string path = args[0];
         if (Directory.Exists(path))
         {
             var testsDir = new DirectoryInfo(path);
@@ -15,7 +14,7 @@ internal static class RendererProgram
             var testsList = tests.ToList();
             if (testsList.Count > 0)
             {
-                Renderer.RenderTests(testsList);
+                Renderer.Render(testsList, wrapErrors, outputDir:outputDir);
                 return 0;
             }
             Console.Error.WriteLine("No *.vst tests found in {0}", testsDir.FullName);
@@ -25,10 +24,37 @@ internal static class RendererProgram
         if (File.Exists(path))
         {
             var file = new FileInfo(path);
-            Renderer.RenderTests(new[] {file});
+            Renderer.Render(new[] {file}, wrapErrors, outputDir:outputDir);
             return 0;
         }
 
         return 1;
+    }
+
+    public static int Main(string[] args)
+    {
+        var testPathArgument =
+            new Argument<string>("test-path", description: "Path to the tests (.vst)");
+        var wrapErrorsOption =
+            new Option("--wrap-errors", description: "Enables exception handling in error suits");
+        var outputOption =
+            new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
+                () => new DirectoryInfo(Directory.GetCurrentDirectory()),
+                "Path where NUnit tests will be generated");
+
+        var rootCommand = new RootCommand();
+
+        rootCommand.AddArgument(testPathArgument);
+        rootCommand.AddGlobalOption(outputOption);
+        rootCommand.AddGlobalOption(wrapErrorsOption);
+
+        rootCommand.Description = "V# test rendering tool. Accepts unit test in *.vst format, generates NUnit tests.";
+
+        rootCommand.Handler = CommandHandler.Create<string, DirectoryInfo, bool>((testPath, output, wrapErrors) =>
+        {
+            RenderTests(testPath, output, wrapErrors);
+        });
+
+        return rootCommand.InvokeAsync(args).Result;
     }
 }

@@ -226,3 +226,6 @@ VSharp.ClrInteraction/packs/*
 VSharp.ClrInteraction/shared/*
 VSharp.ClrInteraction/host/*
 **/cmake-build-debug/**
+
+# Rendered tests
+VSharp.Test/GeneratedTests/**

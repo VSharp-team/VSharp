@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Threading;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -12,6 +13,7 @@ using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
+using VSharp.TestRenderer;
 
 namespace VSharp.Test
 {
@@ -20,6 +22,7 @@ namespace VSharp.Test
         DFS,
         BFS,
         ShortestDistance,
+        RandomShortestDistance,
         ContributedCoverage,
         Interleaved
     }
@@ -29,6 +32,12 @@ namespace VSharp.Test
         Method,
         Class,
         Module
+    }
+
+    public enum TestsCheckerMode
+    {
+        Run,
+        RenderAndRun
     }
 
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
@@ -77,6 +86,7 @@ namespace VSharp.Test
         private readonly bool _concolicMode;
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
+        private readonly TestsCheckerMode _testsCheckerMode;
         private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
@@ -90,6 +100,7 @@ namespace VSharp.Test
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
+            TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
             bool checkAttributes = true)
         {
             if (expectedCoverage < 0)
@@ -104,6 +115,7 @@ namespace VSharp.Test
             _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
+            _testsCheckerMode = testsCheckerMode;
             _checkAttributes = checkAttributes;
         }
 
@@ -120,6 +132,7 @@ namespace VSharp.Test
                 execMode,
                 _strat,
                 _coverageZone,
+                _testsCheckerMode,
                 _checkAttributes
             );
         }
@@ -136,6 +149,7 @@ namespace VSharp.Test
 
             private readonly SearchStrategy _baseSearchStrat;
             private readonly CoverageZone _baseCoverageZone;
+            private readonly bool _renderTests;
             private readonly bool _checkAttributes;
 
             public TestSvmCommand(
@@ -148,6 +162,7 @@ namespace VSharp.Test
                 executionMode execMode,
                 SearchStrategy strat,
                 CoverageZone coverageZone,
+                TestsCheckerMode testsCheckerMode,
                 bool checkAttributes) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
@@ -171,6 +186,7 @@ namespace VSharp.Test
                     SearchStrategy.DFS => searchMode.DFSMode,
                     SearchStrategy.BFS => searchMode.BFSMode,
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
+                    SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                     SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
@@ -183,6 +199,8 @@ namespace VSharp.Test
                     CoverageZone.Module => Interpreter.IL.coverageZone.ModuleZone,
                     _ => throw new ArgumentOutOfRangeException(nameof(coverageZone), coverageZone, null)
                 };
+
+                _renderTests = testsCheckerMode == TestsCheckerMode.RenderAndRun;
 
                 if (guidedMode)
                 {
@@ -229,9 +247,10 @@ namespace VSharp.Test
                         false,
                         _releaseBranches,
                         128,
-                        _checkAttributes
+                        _checkAttributes,
+                        false
                     );
-                    SILI explorer = new SILI(_options);
+                    using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
 
                     void GenerateTestAndCheckCoverage(UnitTest unitTest)
@@ -270,7 +289,7 @@ namespace VSharp.Test
                         }
                     }
 
-                    explorer.InterpretIsolated(methodInfo, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, e => throw e);
+                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, (_, e) => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
@@ -290,21 +309,37 @@ namespace VSharp.Test
 
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
-                        TestContext.Out.WriteLine("Starting coverage tool...");
+                        var testsDir = unitTests.TestDirectory;
+                        if (_renderTests)
+                        {
+                            var tests = testsDir.EnumerateFiles("*.vst");
+                            TestContext.Out.WriteLine("Starting tests renderer...");
+                            try
+                            {
+                                Renderer.Render(tests, true, methodInfo.DeclaringType);
+                            }
+                            catch (Exception e)
+                            {
+                                context.CurrentResult.SetResult(ResultState.Failure,
+                                    $"Test renderer failed: {e}");
+                                reporter?.Report(stats with { Exception = e });
+                                return context.CurrentResult;
+                            }
+                        }
+
                         // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
                         //       to enable coverage check use _expectedCoverage
-                        var testChecker = new TestResultsChecker(unitTests.TestDirectory,
-                            Directory.GetCurrentDirectory(), _expectedCoverage);
+                        TestContext.Out.WriteLine(
+                            _expectedCoverage != null
+                            ? "Starting coverage tool..."
+                            : "Starting tests checker...");
+                        var runnerDir = new DirectoryInfo(Directory.GetCurrentDirectory());
+                        var testChecker = new TestResultsChecker(testsDir, runnerDir, _expectedCoverage);
                         if (testChecker.Check(methodInfo, out var actualCoverage))
-                        {
                             context.CurrentResult.SetResult(ResultState.Success);
-                            reporter?.Report(stats with { Coverage = actualCoverage });
-                        }
                         else
-                        {
                             context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
-                            reporter?.Report(stats with { Coverage = actualCoverage });
-                        }
+                        reporter?.Report(stats with { Coverage = actualCoverage });
                     }
                     else
                     {

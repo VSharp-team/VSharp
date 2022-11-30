@@ -26,22 +26,15 @@
 
     <ItemGroup>
         <PackageReference Include="Appveyor.TestLogger" Version="2.0.0" />
-        <PackageReference Include="CsvHelper" Version="28.0.1" />
+        <PackageReference Include="CsvHelper" Version="30.0.1" />
         <PackageReference Include="nunit" Version="3.12.0" />
         <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />
     </ItemGroup>
 
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="6.0.1" />
-        <PackageReference Include="FluentValidation.AspNetCore" Version="11.0.2" />
-        <PackageReference Include="Microsoft.AspNetCore.SpaProxy" Version="6.0.1" />
-        <PackageReference Include="MinimalApi.Endpoint" Version="1.1.1" />
-    </ItemGroup>
-
     <ItemGroup>
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
+      <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
       <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
@@ -53,7 +46,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Tests\LoanExam\Models" />
+      <Folder Include="GeneratedTests" Condition="Exists('GeneratedTests')" />
     </ItemGroup>
 
 </Project>

@@ -1,4 +1,7 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -102,32 +105,32 @@ public static class Allocator
 
 public class Allocator<T>
 {
-    private static Type ObjectType = typeof(T);
-    private object _toAllocate;
+    private readonly Type _objectType = typeof(T);
+    private readonly object _toAllocate;
 
     public Allocator()
     {
-        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
+        _toAllocate = FormatterServices.GetUninitializedObject(_objectType);
     }
 
     public Allocator(string typeName)
     {
         Type? notPublicType = Type.GetType(typeName);
-        ObjectType = notPublicType ?? ObjectType;
-        _toAllocate = FormatterServices.GetUninitializedObject(ObjectType);
+        _objectType = notPublicType ?? _objectType;
+        _toAllocate = FormatterServices.GetUninitializedObject(_objectType);
     }
 
     public Allocator(object? defaultValue, params int[] lengths)
     {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths);
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths);
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
 
     public Allocator(object? defaultValue, int[] lengths, int[] lowerBounds)
     {
-        Debug.Assert(ObjectType.IsArray);
-        _toAllocate = Array.CreateInstance(ObjectType.GetElementType()!, lengths, lowerBounds);
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths, lowerBounds);
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
 
@@ -138,7 +141,7 @@ public class Allocator<T>
 
     public Allocator(object allocated, object defaultValue)
     {
-        Debug.Assert(ObjectType.IsArray);
+        Debug.Assert(_objectType.IsArray);
         _toAllocate = allocated;
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
@@ -147,10 +150,9 @@ public class Allocator<T>
     {
         set
         {
-            var allBindingFlags = BindingFlags.IgnoreCase | BindingFlags.Instance | BindingFlags.NonPublic |
-                                  BindingFlags.Public;
-            var field = ObjectType.GetField(fieldName, allBindingFlags);
-            var property = ObjectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            var allBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            var field = _objectType.GetField(fieldName, allBindingFlags);
+            var property = _objectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
             Debug.Assert(field != null || property != null);
             field ??= property;
             if (field != null)
@@ -162,12 +164,11 @@ public class Allocator<T>
     {
         set
         {
-            Debug.Assert(ObjectType.IsArray);
+            Debug.Assert(_objectType.IsArray);
             var array = _toAllocate as Array;
             array?.SetValue(value, index);
         }
     }
 
     public T Object => (T)_toAllocate;
-
 }

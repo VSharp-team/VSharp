@@ -48,7 +48,7 @@ namespace VSharp.TestRunner
 
                 var method = test.Method;
 
-                Console.Out.WriteLine("Starting test reproducing for method {0}", method);
+                Console.Out.WriteLine("Starting reproducing {0} for method {1}", fileInfo.Name, method);
                 if (!checkResult)
                     Console.Out.WriteLine("Result check is disabled");
                 if (suitType == SuitType.TestsOnly)
@@ -129,11 +129,11 @@ namespace VSharp.TestRunner
             return ReproduceTest(file, SuitType.TestsAndErrors, checkResult, true);
         }
 
-        public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors)
+        public static bool ReproduceTests(DirectoryInfo testsDir, SuitType suitType = SuitType.TestsAndErrors, bool recursive = false)
         {
             AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
 
-            var tests = testsDir.EnumerateFiles("*.vst");
+            var tests = testsDir.EnumerateFiles("*.vst", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var testsList = tests.ToList();
 
             if (testsList.Count == 0)

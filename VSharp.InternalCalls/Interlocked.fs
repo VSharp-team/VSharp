@@ -46,5 +46,15 @@ module internal Interlocked =
         let location, value = args.[0], args.[1]
         exchange state location value
 
+    let intExchangeAdd (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 2)
+        let location, value = args.[0], args.[1]
+        exchange state location (Arithmetics.Add (Memory.Read state location) value)
+
+    let longExchangeAdd (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 2)
+        let location, value = args.[0], args.[1]
+        exchange state location (Arithmetics.Add (Memory.Read state location) value)
+
     let memoryBarrier (state : state) (args : term list) : term =
         Nop

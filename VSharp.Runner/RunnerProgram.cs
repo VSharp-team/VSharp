@@ -1,15 +1,19 @@
-﻿using System;
+﻿#nullable enable
+using System;
+using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
+using System.Linq;
 using System.Reflection;
+using VSharp.CSharpUtils;
 
 namespace VSharp.Runner
 {
     public static class RunnerProgram
     {
 
-        private static Assembly ResolveAssembly(FileInfo assemblyPath)
+        private static Assembly? ResolveAssembly(FileInfo assemblyPath)
         {
             try
             {
@@ -22,7 +26,7 @@ namespace VSharp.Runner
             }
         }
 
-        private static Type ResolveType(Assembly assembly, string classArgumentValue)
+        private static Type? ResolveType(Assembly assembly, string? classArgumentValue)
         {
             if (classArgumentValue == null)
             {
@@ -30,7 +34,12 @@ namespace VSharp.Runner
                 return null;
             }
 
-            var specificClass = assembly.GetType(classArgumentValue);
+            var specificClass =
+                assembly.GetType(classArgumentValue) ??
+                assembly.GetTypes()
+                    .Where(t => (t.FullName ?? t.Name)
+                    .Contains(classArgumentValue))
+                    .MinBy(t => t.Name.Length);
             if (specificClass == null)
             {
                 Console.Error.WriteLine("I did not found type you specified {0} in assembly {1}", classArgumentValue,
@@ -41,7 +50,7 @@ namespace VSharp.Runner
             return specificClass;
         }
 
-        private static MethodBase ResolveMethod(Assembly assembly, string methodArgumentValue)
+        private static MethodBase? ResolveMethod(Assembly assembly, string? methodArgumentValue)
         {
             if (methodArgumentValue == null)
             {
@@ -49,9 +58,8 @@ namespace VSharp.Runner
                 return null;
             }
 
-            MethodBase method = null;
-            int metadataToken;
-            if (Int32.TryParse(methodArgumentValue, out metadataToken))
+            MethodBase? method = null;
+            if (Int32.TryParse(methodArgumentValue, out var metadataToken))
             {
                 foreach (var module in assembly.GetModules())
                 {
@@ -62,7 +70,7 @@ namespace VSharp.Runner
                         method = nullOrMethod;
                         break;
                     }
-                    catch (Exception)
+                    catch
                     {
                         // ignored
                     }
@@ -103,6 +111,24 @@ namespace VSharp.Runner
             return method;
         }
 
+        private static IEnumerable<Type> ResolveNamespace(Assembly assembly, string namespaceArgumentValue)
+        {
+            if (namespaceArgumentValue == null)
+            {
+                Console.Error.WriteLine("Specified namespace can not be null");
+                return null;
+            }
+
+            var types = assembly.EnumerateExplorableTypes().Where(t => t.Namespace == namespaceArgumentValue);
+
+            if (types.Count() == 0)
+            {
+                Console.Error.WriteLine($"I did not found any types in namespace {namespaceArgumentValue}");
+            }
+
+            return types;
+        }
+
         private static void PostProcess(Statistics statistics)
         {
             statistics.GenerateReport(Console.Out);
@@ -124,6 +150,16 @@ namespace VSharp.Runner
                 new Argument<string[]>("args", description: "Command line arguments");
             var unknownArgsOption =
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
+            var renderTestsOption =
+                new Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
+            var searchStrategyOption =
+                new Option<SearchStrategy>(aliases: new[] { "--strat" },
+                    () => TestGenerator.DefaultSearchStrategy,
+                    "Strategy which symbolic virtual machine uses for branch selection.");
+            var verbosityOption =
+                new Option<Verbosity>(aliases: new[] { "--verbosity", "-v" },
+                    () => TestGenerator.DefaultVerbosity,
+                    "Determines which messages are displayed in output.");
 
             var rootCommand = new RootCommand();
 
@@ -135,12 +171,18 @@ namespace VSharp.Runner
             entryPointCommand.AddGlobalOption(timeoutOption);
             entryPointCommand.AddGlobalOption(outputOption);
             entryPointCommand.AddOption(unknownArgsOption);
+            entryPointCommand.AddGlobalOption(renderTestsOption);
+            entryPointCommand.AddGlobalOption(searchStrategyOption);
+            entryPointCommand.AddGlobalOption(verbosityOption);
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
             allPublicMethodsCommand.AddArgument(assemblyPathArgument);
             allPublicMethodsCommand.AddGlobalOption(timeoutOption);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
+            allPublicMethodsCommand.AddGlobalOption(renderTestsOption);
+            allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
+            allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             var publicMethodsOfClassCommand =
                 new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
@@ -149,6 +191,9 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddArgument(assemblyPathArgument);
             publicMethodsOfClassCommand.AddGlobalOption(timeoutOption);
             publicMethodsOfClassCommand.AddGlobalOption(outputOption);
+            publicMethodsOfClassCommand.AddGlobalOption(renderTestsOption);
+            publicMethodsOfClassCommand.AddGlobalOption(searchStrategyOption);
+            publicMethodsOfClassCommand.AddGlobalOption(verbosityOption);
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
@@ -157,24 +202,37 @@ namespace VSharp.Runner
             specificMethodCommand.AddArgument(assemblyPathArgument);
             specificMethodCommand.AddGlobalOption(timeoutOption);
             specificMethodCommand.AddGlobalOption(outputOption);
+            specificMethodCommand.AddGlobalOption(renderTestsOption);
+            specificMethodCommand.AddGlobalOption(searchStrategyOption);
+            specificMethodCommand.AddGlobalOption(verbosityOption);
+            var namespaceCommand =
+                new Command("--namespace", "Try to resolve and generate unit test coverage for all public methods of specified namespace");
+            rootCommand.AddCommand(namespaceCommand);
+            var namespaceArgument = new Argument<string>("namespace-name");
+            namespaceCommand.AddArgument(namespaceArgument);
+            namespaceCommand.AddArgument(assemblyPathArgument);
+            namespaceCommand.AddGlobalOption(timeoutOption);
+            namespaceCommand.AddGlobalOption(outputOption);
+            namespaceCommand.AddGlobalOption(renderTestsOption);
+            namespaceCommand.AddGlobalOption(searchStrategyOption);
+            namespaceCommand.AddGlobalOption(verbosityOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool>((assemblyPath, args, timeout, output, unknownArgs) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity>((assemblyPath, args, timeout, output, unknownArgs, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
-                if (unknownArgs)
-                    args = null;
+                var inputArgs = unknownArgs ? null : args;
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, args, timeout, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, inputArgs, timeout, output.FullName, renderTests, strat, verbosity));
             });
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo>((assemblyPath, timeout, output) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName));
+                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName, renderTests, strat, verbosity));
             });
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo>((className, assemblyPath, timeout, output) =>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((className, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
@@ -182,11 +240,11 @@ namespace VSharp.Runner
                     var type = ResolveType(assembly, className);
                     if (type != null)
                     {
-                        PostProcess(TestGenerator.Cover(type, timeout, output.FullName));
+                        PostProcess(TestGenerator.Cover(type, timeout, output.FullName, renderTests, strat, verbosity));
                     }
                 }
             });
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo>((methodName, assemblyPath, timeout, output) =>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((methodName, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
@@ -194,7 +252,19 @@ namespace VSharp.Runner
                     var method = ResolveMethod(assembly, methodName);
                     if (method != null)
                     {
-                        PostProcess(TestGenerator.Cover(method, timeout, output.FullName));
+                        PostProcess(TestGenerator.Cover(method, timeout, output.FullName, renderTests, strat, verbosity));
+                    }
+                }
+            });
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((namespaceName, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
+            {
+                var assembly = ResolveAssembly(assemblyPath);
+                if (assembly != null)
+                {
+                    var namespaceTypes = ResolveNamespace(assembly, namespaceName);
+                    if (namespaceTypes.Count() != 0)
+                    {
+                        PostProcess(TestGenerator.Cover(namespaceTypes, timeout, output.FullName, renderTests, strat, verbosity));
                     }
                 }
             });

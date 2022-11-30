@@ -17,6 +17,15 @@ public class IdentifiersCache
         _idNames = new Dictionary<string, int>();
     }
 
+    public IdentifiersCache(IEnumerable<string> reservedNames)
+    {
+        _idInitializers = new Dictionary<string, IdentifierNameSyntax>();
+        _identifiers = new Dictionary<string, IdentifierNameSyntax>();
+        var namesWithCount =
+            reservedNames.Select(name => new KeyValuePair<string, int>(name, 1));
+        _idNames = new Dictionary<string, int>(namesWithCount);
+    }
+
     public IdentifiersCache(IdentifiersCache cache)
     {
         _idInitializers = new Dictionary<string, IdentifierNameSyntax>(cache._idInitializers);
@@ -26,13 +35,19 @@ public class IdentifiersCache
 
     public IdentifierNameSyntax GenerateIdentifier(string identifierName)
     {
-        _idNames.TryGetValue(identifierName, out var i);
-        _idNames[identifierName] = i + 1;
-        if (i > 0)
-            identifierName += i + 1;
-        var identifier = IdentifierName(identifierName);
-        if (!_identifiers.TryAdd(identifierName, identifier))
-            throw new ArgumentException("ID generator failed!");
+        int i = 0;
+        _idNames.TryGetValue(identifierName, out i);
+
+        var uniqueName = identifierName;
+        IdentifierNameSyntax identifier;
+        do
+        {
+            if (i > 0) uniqueName = identifierName + i;
+            identifier = IdentifierName(uniqueName);
+            i++;
+        } while (!_identifiers.TryAdd(uniqueName, identifier));
+
+        _idNames[identifierName] = i;
 
         return identifier;
     }

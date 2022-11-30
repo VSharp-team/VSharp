@@ -6,18 +6,14 @@
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
-    <PropertyGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
-        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    </PropertyGroup>
-
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <Tailcalls>false</Tailcalls>
+        <Tailcalls>false</Tailcalls>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
-      <Tailcalls>true</Tailcalls>
-      <DebugSymbols>true</DebugSymbols>
-      <DefineConstants>TRACE;DEBUG</DefineConstants>
+        <Tailcalls>true</Tailcalls>
+        <DebugSymbols>true</DebugSymbols>
+        <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
@@ -25,38 +21,25 @@
         <Compile Include="SolverPool.fs" />
     </ItemGroup>
 
-    <ItemGroup>
-      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
-      <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
-    </ItemGroup>
-
     <PropertyGroup>
-        <Z3BuildDir>..\z3\build</Z3BuildDir>
-        <Z3>..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</Z3>
+        <IsM1>false</IsM1>
     </PropertyGroup>
 
-    <!-- TODO: instead of IsOSPlatform('OSX'), check Arch is ARM -->
-    <Target Name="BuildZ3" AfterTargets="BeforeBuild" Condition=" !Exists('$(Z3)') And $([MSBuild]::IsOSPlatform('OSX')) ">
-        <Exec Command='
-            cd ../z3
-            mkdir build
-            cd build
-            cmake -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DZ3_BUILD_DOTNET_BINDINGS=true -DZ3_INSTALL_DOTNET_BINDINGS=true ../
-            cmake --build . -j 6'/>
-    </Target>
+    <PropertyGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' ">
+        <IsM1>true</IsM1>
+    </PropertyGroup>
 
-    <ItemGroup Condition=" ! $([MSBuild]::IsOSPlatform('OSX')) ">
+    <ItemGroup>
+        <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+        <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup Condition=" !$(IsM1) ">
         <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
     </ItemGroup>
 
-    <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
-        <Reference Include="Microsoft.Z3, Version=4.8.11.0, Culture=neutral, PublicKeyToken=null">
-            <HintPath>..\z3\build\Microsoft.Z3\netcoreapp6.0\Microsoft.Z3.dll</HintPath>
-        </Reference>
-        <Content Include="$(Z3BuildDir)\libz3.dylib">
-            <Link>libz3.dylib</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
+    <ItemGroup Condition=" $(IsM1) ">
+        <PackageReference Include="vsteam.Z3.M1" Version="4.8.11-alpha.2" />
     </ItemGroup>
 
 </Project>

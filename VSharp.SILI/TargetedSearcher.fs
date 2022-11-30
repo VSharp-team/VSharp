@@ -7,16 +7,14 @@ open VSharp.Interpreter.IL
 open VSharp.Utils
 open CilStateOperations
 
-type TargetedSearcher(maxBound, target) =
+type TargetedSearcher(maxBound, target, isPaused) =
     inherit WeightedSearcher(maxBound, ShortestDistanceWeighter(target), BidictionaryPriorityQueue())
-
-    let isStopped s = isStopped s || violatesLevel s maxBound
 
     override x.Insert states =
         base.Insert states
         for state in states do
             match x.TryGetWeight state with
-            | None when not state.suspended ->
+            | None when not <| isPaused state ->
                 removeTarget state target
             | _ -> ()
 
@@ -30,7 +28,7 @@ type TargetedSearcher(maxBound, target) =
                     cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
-            isStopped state  ||  onVertex state
+            violatesLevel state maxBound || onVertex state
 
         if needsUpdating parent then
             base.Update (parent, newStates)
@@ -39,7 +37,7 @@ type TargetedSearcher(maxBound, target) =
 
         for state in Seq.append [parent] newStates do
             match x.TryGetWeight state with
-            | None when not state.suspended ->
+            | None when not <| isPaused state ->
                 removeTarget state target
 
             | _ -> ()
@@ -80,6 +78,9 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
     let reachedOrUnreachableTargets = HashSet<codeLocation> ()
+    let pausedStates = HashSet<cilState>()
+
+    let isPaused cilState = pausedStates.Contains cilState
 
     let calculateTarget (state : cilState): codeLocation option =
         targetCalculator.CalculateTarget state
@@ -94,7 +95,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             onVertex && level > threshold
         | _ -> false
 
-    let mkTargetedSearcher target = TargetedSearcher(maxBound, target)
+    let mkTargetedSearcher target = TargetedSearcher(maxBound, target, isPaused)
     let getTargetedSearcher target =
         Dict.getValueOrUpdate targetedSearchers target (fun () -> mkTargetedSearcher target)
 
@@ -172,59 +173,70 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         baseSearcher.Update (parent, newStates)
         updateTargetedSearchers parent newStates
 
-    let suspend (state : cilState) : unit =
-        state.suspended <- true
-        update state Seq.empty
+    let pause (state : cilState) : unit =
+        pausedStates.Add state |> ignore
 
-    let setTargetOrSuspend state =
+    let setTargetOrPause state =
         match calculateTarget state with
         | Some target ->
             addTarget state target
             insertInTargetedSearcher state target
         | None ->
             state.targets <- None
-            suspend state
+            pause state
 
-    let rec pick' k =
-        let pickFromBaseSearcher k =
-            match baseSearcher.Pick() with
+    let rec pick' (selector : (cilState -> bool) option) =
+        let pick() = if selector.IsSome then baseSearcher.Pick selector.Value else baseSearcher.Pick()
+        let pickFromBaseSearcher () =
+            match pick() with
             | Some state ->
                 match state.targets with
                 | None when violatesRecursionLevel state ->
-                    setTargetOrSuspend state
-                    pick' k
-                | _ -> k <| Some state
-            | None -> k None
-        let pickFromTargetedSearcher k =
+                    setTargetOrPause state
+                    pick' selector
+                | _ -> Some state
+            | None -> None
+        let pickFromTargetedSearcher () =
             let targetSearcher = targetedSearchers |> Seq.item index
-            let optState = targetSearcher.Value.Pick()
 
-            if Option.isNone optState then
-                reachedOrUnreachableTargets.Add targetSearcher.Key |> ignore
-            if reachedOrUnreachableTargets.Contains targetSearcher.Key then
+            if targetSearcher.Value.Count = 0u then
                 deleteTargetedSearcher targetSearcher.Key
-            if Option.isSome optState then k <| optState else pick' k
+                pick' selector
+            else
+                let optState = pick()
+                if Option.isSome optState then optState else pick' selector
         let size = targetedSearchers.Count
 
         index <- (index + 1) % (size + 1)
         if index <> size
-            then pickFromTargetedSearcher k
-            else pickFromBaseSearcher k
+            then pickFromTargetedSearcher ()
+            else pickFromBaseSearcher ()
 
-    let pick () = pick' id
+    let pick selector = pick' selector
 
     let reset () =
         baseSearcher.Reset()
         for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Reset()
 
+    let remove cilState =
+        baseSearcher.Remove cilState
+        for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Remove cilState
+
     interface IForwardSearcher with
         override x.Init states =
             baseSearcher.Init states
             insertInTargetedSearchers states
-        override x.Pick() = pick ()
+        override x.Pick() = pick None
+        override x.Pick selector = pick (Some selector)
         override x.Update (parent, newStates) = update parent newStates
         override x.States() = baseSearcher.States()
         override x.Reset() = reset ()
+        override x.Remove cilState = remove cilState
+        override x.StatesCount with get() = baseSearcher.StatesCount + (targetedSearchers.Values |> Seq.sumBy (fun s -> int s.Count))
+
 
 type ShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
     inherit WeightedSearcher(maxBound, IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())
+
+type RandomShortestDistanceBasedSearcher(maxBound, statistics : SILIStatistics) =
+    inherit WeightedSearcher(maxBound, AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)), DiscretePDF(mkCilStateHashComparer))

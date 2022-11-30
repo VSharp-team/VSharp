@@ -31,8 +31,8 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
-    val SolveGenericMethodParameters : IMethod -> (symbolicType[] * symbolicType[]) option
-    val ResolveCallVirt : state -> term -> concreteHeapAddress * symbolicType seq
+    val SolveGenericMethodParameters : typeModel -> IMethod -> (symbolicType[] * symbolicType[]) option
+    val ResolveCallVirt : state -> term -> IMethod -> concreteHeapAddress * symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
     val ErrorReporter : string -> (state -> term -> unit)
@@ -208,7 +208,7 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyModel : IMethod -> model
+        val EmptyModel : IMethod -> typeModel -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
@@ -226,7 +226,7 @@ module API =
         val ReadArrayIndex : state -> term -> term list -> Type option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> Type -> fieldId -> term
-        val ReadDelegate : state -> term -> term
+        val ReadDelegate : state -> term -> term option
 
         val InitializeArray : state -> term -> term -> unit
 

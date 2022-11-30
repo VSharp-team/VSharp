@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Reflection;
 
 namespace VSharp.TestExtensions;
@@ -23,7 +24,7 @@ public static class ObjectsComparer
         return true;
     }
 
-    private static bool ContentwiseEqual(Array? expected, Array? got)
+    private static bool ContentwiseEqual(global::System.Array? expected, global::System.Array? got)
     {
         Debug.Assert(expected != null && got != null && expected.GetType() == got.GetType());
         if (expected.Rank != got.Rank)
@@ -51,14 +52,17 @@ public static class ObjectsComparer
         if (type != got.GetType())
             return false;
 
+        if (Object.ReferenceEquals(expected, got))
+            return true;
+
         if (type == typeof(Pointer) || type.IsPrimitive || expected is string || type.IsEnum)
         {
             // TODO: compare double with epsilon?
             return got.Equals(expected);
         }
 
-        if (expected is Array array)
-            return ContentwiseEqual(array, got as Array);
+        if (expected is global::System.Array array)
+            return ContentwiseEqual(array, got as global::System.Array);
         return StructurallyEqual(expected, got);
     }
 }

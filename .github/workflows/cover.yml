@@ -1,0 +1,104 @@
+name: 'Run VSharp'
+
+on:
+  workflow_call:
+    inputs:
+      suite:
+        required: true
+        type: string
+      dll:
+        required: true
+        type: string
+      namespace:
+        required: false
+        type: string
+      method:
+        required: false
+        type: string
+      class:
+        required: false
+        type: string
+      timeouts:
+        default: "20 120"
+        required: false
+        type: string
+      searchers:
+        default: "BFS DFS ShortestDistance Interleaved"
+        required: false
+        type: string
+    secrets:
+      BENCH_RESULTS_TOKEN:
+        required: true
+
+jobs:
+  benchmark:
+    runs-on: windows-latest
+    steps:
+    - name: Checkout VSharp
+      uses: actions/checkout@v3
+      with:
+        submodules: false
+    - name: Checkout benchmark repo
+      uses: actions/checkout@v3
+      with:
+        repository: VSharp-team/VSharp-bench
+        path: ./benchmarks
+    - name: Download VSharp.Runner binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: runner
+        path: ./runner
+    - name: Download VSharp.TestRunner binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: test_runner
+        path: ./test_runner
+    - name: Try to restore DotCover tool from cache
+      uses: actions/cache@v3
+      id: dotcover-cache
+      with:
+        path: ~/.dotnet/tools
+        key: dotcover
+        restore-keys: |
+          dotcover
+    - name: Install DotCover tool if needed
+      if: steps.dotcover-cache.outputs.cache-hit != 'true'
+      run: dotnet tool install jetbrains.dotcover.globaltool --global
+    - name: Save DotCover tool path to PATH if needed
+      if: steps.dotcover-cache.outputs.cache-hit == 'true'
+      run: $Env:Path += ";$home\.dotnet\tools" 
+      shell: pwsh
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+        cache: 'pip'
+    - name: Run VSharp and DotCover
+      env:
+        SUITE: ${{ inputs.suite }}
+        DLL: ${{ inputs.dll }}
+        TIMEOUTS: ${{ inputs.timeouts }}
+        SEARCHERS: ${{ inputs.searchers }}
+        NAMESPACE: ${{ inputs.namespace }} 
+        METHOD: ${{ inputs.method }}
+        CLASS: ${{ inputs.class }}
+      id: cover
+      run: ${{ github.workspace }}\.github\workflows\cover.ps1
+      shell: pwsh
+    - name: Draw charts
+      run: |
+        pip install -r ${{ github.workspace }}\.github\workflows\requirements.txt
+        python ${{ github.workspace }}\.github\workflows\draw_charts.py ${{ steps.cover.outputs.artifact_dir }}
+      shell: pwsh
+    - name: Push results to repo
+      env:
+        BENCH_RESULTS_TOKEN: ${{ secrets.BENCH_RESULTS_TOKEN }}
+        ARTIFACT_NAME: ${{ steps.cover.outputs.artifact_name }}
+        ARTIFACT_DIR: ${{ steps.cover.outputs.artifact_dir }}
+      run: ${{ github.workspace }}\.github\workflows\push.ps1
+      shell: pwsh
+    - name: Upload results to GitHub artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: ${{ steps.cover.outputs.artifact_name }}
+        path: ${{ steps.cover.outputs.artifact_dir }}

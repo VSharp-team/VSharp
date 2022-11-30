@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -7,284 +8,532 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-using static CodeRenderer;
-
-public static class Renderer
+// TODO: unify with TestRunner's assembly load method
+internal class AssemblyResolver
 {
     private static IEnumerable<string>? _extraAssemblyLoadDirs;
 
-    // TODO: create class 'Expression' with operators?
-
-    private static void RenderTest(
-        MethodRenderer test,
-        MethodBase method,
-        IEnumerable<object> args,
-        object? thisArg,
-        bool isError,
-        Type? ex,
-        object expected)
+    public static void Configure(IEnumerable<string> extraAssemblyLoadDirs)
     {
-        var mainBlock = test.Body;
-
-        // Declaring arguments and 'this' of testing method
-        IdentifierNameSyntax thisArgId = null!;
-        if (thisArg != null)
-        {
-            Debug.Assert(Reflection.hasThis(method));
-            var renderedThis = mainBlock.RenderObject(thisArg);
-            if (renderedThis is IdentifierNameSyntax id)
-            {
-                thisArgId = id;
-            }
-            else
-            {
-                var thisType = RenderType(method.DeclaringType ?? typeof(object));
-                thisArgId = mainBlock.AddDecl("thisArg", thisType, mainBlock.RenderObject(thisArg));
-            }
-        }
-        var renderedArgs = args.Select(mainBlock.RenderObject).ToArray();
-
-        var parameters = method.GetParameters();
-        Debug.Assert(parameters.Length == renderedArgs.Length);
-        for (int i = 0; i < parameters.Length; i++)
-        {
-            var parameterInfo = parameters[i];
-            var type = parameterInfo.ParameterType;
-            var value = renderedArgs[i];
-            if (type.IsByRef && value is not IdentifierNameSyntax)
-            {
-                Debug.Assert(type.GetElementType() != null);
-                var typeExpr = RenderType(type.GetElementType());
-                var id = mainBlock.AddDecl("obj", typeExpr, value);
-                renderedArgs[i] = id;
-            }
-        }
-
-        // Calling testing method
-        var callMethod = RenderCall(thisArgId, method, renderedArgs);
-
-        var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
-        var shouldUseDecl = method.IsConstructor || IsGetPropertyMethod(method, out _);
-        var shouldCompareResult = hasResult && ex == null && !isError;
-
-        if (shouldCompareResult)
-        {
-            var resultId = mainBlock.AddDecl("result", ObjectType, callMethod);
-
-            // Adding namespace of objects comparer to usings
-            AddObjectsComparer();
-            var expectedExpr = method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected);
-            var condition = RenderCall(CompareObjects, resultId, expectedExpr);
-            mainBlock.AddAssert(condition);
-        }
-        else if (ex == null || isError)
-        {
-            if (shouldUseDecl)
-                mainBlock.AddDecl("unused", ObjectType, callMethod);
-            else
-                mainBlock.AddExpression(callMethod);
-        }
-        else
-        {
-            // Handling exceptions
-            LambdaExpressionSyntax delegateExpr;
-            if (shouldUseDecl)
-            {
-                var block = mainBlock.NewBlock();
-                block.AddDecl("unused", ObjectType, callMethod);
-                delegateExpr = ParenthesizedLambdaExpression(block.Render());
-            }
-            else
-                delegateExpr = ParenthesizedLambdaExpression(callMethod);
-
-            var assertThrows =
-                RenderCall(
-                    "Assert", "Throws",
-                    new []{ RenderType(ex) },
-                    delegateExpr
-                );
-            mainBlock.AddExpression(assertThrows);
-        }
+        _extraAssemblyLoadDirs = extraAssemblyLoadDirs;
     }
 
-    private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
+    public static void AddResolve(AssemblyLoadContext? assemblyLoadContext = null)
     {
-        var existingInstance = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.FullName == args.Name);
+        if (assemblyLoadContext != null)
+            assemblyLoadContext.Resolving += ResolveAssembly;
+        else
+            AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
+    }
+
+    public static void RemoveResolve(AssemblyLoadContext? assemblyLoadContext = null)
+    {
+        if (assemblyLoadContext != null)
+            assemblyLoadContext.Resolving -= ResolveAssembly;
+        else
+            AppDomain.CurrentDomain.AssemblyResolve -= ResolveAssembly;
+    }
+
+    private static Assembly? ResolveAssembly(AssemblyLoadContext assemblyLoadContext, AssemblyName args)
+    {
+        return AssemblyLoadContextOnResolving(assemblyLoadContext.Assemblies, args);
+    }
+
+    private static Assembly? ResolveAssembly(object? _, ResolveEventArgs args)
+    {
+        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
+        var assemblyName = new AssemblyName(args.Name);
+        return AssemblyLoadContextOnResolving(loadedAssemblies, assemblyName);
+    }
+
+    private static Assembly? AssemblyLoadContextOnResolving(IEnumerable<Assembly> loadedAssemblies, AssemblyName args)
+    {
+        var existingInstance =
+            loadedAssemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
         if (existingInstance != null)
         {
             return existingInstance;
         }
-        foreach (string path in _extraAssemblyLoadDirs)
+
+        if (_extraAssemblyLoadDirs == null) return null;
+
+        var argsAssemblyName = args.Name + ".dll";
+        Debug.Assert(argsAssemblyName != null, "args.Name != null");
+        foreach (var path in _extraAssemblyLoadDirs)
         {
-            string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
+            var assemblyPath = Path.Combine(path, argsAssemblyName);
             if (!File.Exists(assemblyPath))
                 return null;
-            Assembly assembly = Assembly.LoadFrom(assemblyPath);
+            // Old version
+            // Assembly assembly = Assembly.LoadFrom(assemblyPath);
+            // return assembly;
+
+            // Max Arshinov's version
+            using var stream = File.OpenRead(assemblyPath);
+            var assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
             return assembly;
         }
 
         return null;
     }
+}
 
-    private class IndentsRewriter : CSharpSyntaxRewriter
+public static class Renderer
+{
+    private static void RunDotnet(ProcessStartInfo startInfo)
     {
-        private const int TabSize = 4;
-        private int _currentOffset = 0;
+        startInfo.FileName = "dotnet";
+        RunProcess(startInfo);
+    }
 
-        private static SyntaxTrivia WhitespaceTrivia(int offset)
+    private static void RunProcess(ProcessStartInfo startInfo)
+    {
+        startInfo.FileName = "dotnet";
+        startInfo.RedirectStandardError = true;
+
+        var pi = Process.Start(startInfo);
+        pi?.WaitForExit();
+    }
+
+    private static void AddUnderTestProjectReference(FileInfo testProject, FileInfo testingProject)
+    {
+        if (testingProject.Extension == ".csproj")
         {
-            return Whitespace(new string(' ', offset));
+            RunDotnet(new ProcessStartInfo
+            {
+                WorkingDirectory = testProject.DirectoryName,
+                Arguments = $"add reference {testingProject.FullName}",
+            });
         }
-
-        public override SyntaxNode? Visit(SyntaxNode? node)
+        else
         {
-            if (node == null)
-                return null;
-
-            if (node.HasLeadingTrivia)
+            Debug.Assert(testingProject.Extension == ".dll");
+            var assembly = Assembly.LoadFrom(testingProject.FullName);
+            var text = File.ReadAllText(testProject.FullName);
+            var location = $"<HintPath>{assembly.Location}</HintPath>";
+            if (!text.Contains(location))
             {
-                var triviaList = node.GetLeadingTrivia();
-                var whitespaces =
-                    triviaList
-                        .Where(trivia => trivia.IsKind(SyntaxKind.WhitespaceTrivia))
-                        .ToArray();
-                Debug.Assert(whitespaces.Length == 1);
-                _currentOffset = whitespaces[0].ToFullString().Length;
+                var reference = $"<Reference Include=\"{assembly.FullName}\">\n{location}\n</Reference>";
+                text = text.Replace("</ItemGroup>", $"{reference}\n</ItemGroup>");
+                File.WriteAllText(testProject.FullName, text);
             }
-
-            switch (node)
-            {
-                // Deleting whitespace between 'null' and '!'
-                case PostfixUnaryExpressionSyntax unary
-                    when unary.IsKind(SyntaxKind.SuppressNullableWarningExpression):
-                {
-                    var operand = unary.Operand.WithTrailingTrivia();
-                    var unaryOperator = unary.OperatorToken.WithLeadingTrivia();
-                    node = unary.WithOperatorToken(unaryOperator).WithOperand(operand);
-                    return base.Visit(node);
-                }
-                // Formatting initializer with line breaks
-                case ObjectCreationExpressionSyntax objCreation:
-                {
-                    var init = objCreation.Initializer;
-                    if (init != null)
-                    {
-                        var expressions = init.Expressions;
-                        if (expressions.Count > 0)
-                        {
-                            var formattedExpressions = new List<ExpressionSyntax>();
-                            foreach (var assign in expressions)
-                            {
-                                var formatted =
-                                    assign.WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset + TabSize));
-                                formattedExpressions.Add(formatted);
-                            }
-
-                            init = init.WithExpressions(SeparatedList(formattedExpressions));
-                            var formattedCloseBrace =
-                                init.CloseBraceToken
-                                    .WithLeadingTrivia(LineFeed, WhitespaceTrivia(_currentOffset));
-                            init = init.WithCloseBraceToken(formattedCloseBrace);
-                        }
-
-                        node = objCreation.WithInitializer(init);
-                    }
-
-                    return base.Visit(node);
-                }
-            }
-
-            return base.Visit(node);
         }
     }
 
-    public static SyntaxNode Format(SyntaxNode node)
+    private static void AllowUnsafeBlocks(FileInfo testProject)
     {
-        var normalized = node.NormalizeWhitespace();
-        var myRewriter = new IndentsRewriter();
-        var formatted = myRewriter.Visit(normalized);
-        Debug.Assert(formatted != null);
-        return formatted;
+        // TODO: add, only if generated tests have unsafe modifier
+        var text = File.ReadAllText(testProject.FullName);
+        var allow = "<AllowUnsafeBlocks>true</AllowUnsafeBlocks>";
+        if (!text.Contains(allow))
+        {
+            text = text.Replace("</PropertyGroup>", $"{allow}\n</PropertyGroup>");
+            File.WriteAllText(testProject.FullName, text);
+        }
     }
 
-    public static void RenderTests(IEnumerable<FileInfo> tests)
+    private static void AddProjectToSolution(DirectoryInfo? solutionPath, FileInfo testProject)
     {
-        AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-
-        PrepareCache();
-        // Adding NUnit namespace to usings
-        AddNUnit();
-
-        // Creating main class for generating tests
-        var generatedClass =
-            new ClassRenderer(
-                "GeneratedClass",
-                RenderAttributeList("TestFixture"),
-                null
-            );
-
-        foreach (var fi in tests)
+        if (solutionPath != null && solutionPath.Exists)
         {
-            testInfo ti;
-            using (var stream = new FileStream(fi.FullName, FileMode.Open, FileAccess.Read))
+            RunDotnet(new ProcessStartInfo
             {
-                ti = UnitTest.DeserializeTestInfo(stream);
-            }
+                WorkingDirectory = solutionPath.FullName,
+                Arguments = $"sln add {testProject.FullName}"
+            });
+        }
+    }
 
-            _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
-            UnitTest test = UnitTest.DeserializeFromTestInfo(ti, true);
+    private static void AddHelpers(DirectoryInfo testProject)
+    {
+        var extensionsFolder = testProject.CreateSubdirectory("Extensions");
 
-            var method = test.Method;
-            var parameters = test.Args ?? method.GetParameters()
-                .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
-            var thisArg = test.ThisArg;
-            if (thisArg == null && !method.IsStatic)
-                thisArg = Reflection.createObject(method.DeclaringType);
-            string suitTypeName;
-            if (fi.Name.Contains("error"))
-                suitTypeName = "Error";
-            else
-            {
-                Debug.Assert(fi.Name.Contains("test"));
-                suitTypeName = "Test";
-            }
+        File.WriteAllText(
+            Path.Combine(extensionsFolder.FullName, "Allocator.cs"),
+            ReadFromResource("VSharp.TestExtensions.Allocator.cs"));
 
-            string testName;
-            if (method.IsConstructor)
-                testName = $"{RenderType(method.DeclaringType)}Constructor";
-            else if (IsGetPropertyMethod(method, out testName))
-                testName = $"Get{testName}";
-            else if (IsSetPropertyMethod(method, out testName))
-                testName = $"Set{testName}";
-            else
-                testName = method.Name;
+        File.WriteAllText(
+            Path.Combine(extensionsFolder.FullName, "ObjectsComparer.cs"),
+            ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs"));
+    }
 
-            bool isUnsafe =
-                Reflection.getMethodReturnType(method).IsPointer || method.GetParameters()
-                    .Select(arg => arg.ParameterType)
-                    .Any(type => type.IsPointer);
-            var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
+    private static string ReadFromResource(string resourceName)
+    {
+        using var stream = typeof(TestExtensions.Allocator<>).Assembly.GetManifestResourceStream(resourceName);
+        using var reader = new StreamReader(stream!);
+        return reader.ReadToEnd();
+    }
 
-            var testRenderer = generatedClass.AddMethod(
-                testName + suitTypeName,
-                RenderAttributeList("Test"),
-                modifiers,
-                VoidType,
-                System.Array.Empty<(TypeSyntax, string)>()
-            );
-            RenderTest(testRenderer, method, parameters, thisArg, test.IsError, test.Exception, test.Expected);
+    private static void AddMoqReference(DirectoryInfo testProjectPath)
+    {
+        RunDotnet(new ProcessStartInfo
+        {
+            WorkingDirectory = testProjectPath.FullName,
+            Arguments = "add package Moq -v 4.8.0",
+        });
+    }
+
+    private static DirectoryInfo CreateTestProject(DirectoryInfo outputDir, FileInfo testingProject)
+    {
+        DirectoryInfo testProjectPath;
+        // Choosing directory, where tests will be generated
+        if (testingProject.Extension == ".csproj")
+        {
+            // Rider extension case
+            testProjectPath = outputDir.CreateSubdirectory($"{testingProject.Name}.Tests");
+            var parentDir = testingProject.Directory?.Parent;
+            Debug.Assert(parentDir != null);
+            outputDir = parentDir;
+        }
+        else
+        {
+            // VSharp case
+            Debug.Assert(testingProject.Extension == ".dll");
+            testProjectPath = outputDir.CreateSubdirectory("VSharp.RenderedTests");
         }
 
-        SyntaxNode compilation =
-            RenderProgram(
-                "GeneratedNamespace",
-                generatedClass.Render()
-            );
+        // Creating nunit project
+        RunDotnet(new ProcessStartInfo
+        {
+            WorkingDirectory = outputDir.FullName,
+            // TODO: get framework version from the project
+            Arguments = $"new nunit --force --name {testProjectPath.Name} --framework net6.0",
+        });
+        return testProjectPath;
+    }
 
-        compilation = Format(compilation);
-        // compilation.WriteTo(Console.Out);
-        var dir = $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}generated.cs";
-        using var streamWriter = new StreamWriter(File.Create(dir));
+    private static DirectoryInfo GenerateTestProject(DirectoryInfo outputDir, FileInfo testingProject, FileInfo? solution)
+    {
+        // Creating nunit project
+        var testProjectPath = CreateTestProject(outputDir, testingProject);
+        var testProject = testProjectPath.EnumerateFiles("*.csproj").First();
+
+        // Adding testing project reference to it
+        AddUnderTestProjectReference(testProject, testingProject);
+        // Allowing unsafe code inside project
+        AllowUnsafeBlocks(testProject);
+        // Adding it to solution
+        AddProjectToSolution(solution?.Directory, testProject);
+        // Copying test extensions (mock extensions, allocator, object comparer) to nunit project
+        AddHelpers(testProjectPath);
+
+        return testProjectPath;
+    }
+
+    private static DirectoryInfo FindVSharpDir()
+    {
+        var dir = new FileInfo(typeof(Renderer).Assembly.Location).Directory;
+        Debug.Assert(dir != null);
+        while (dir.FullName.Contains("VSharp.") && !dir.Name.Contains("VSharp."))
+        {
+            dir = dir.Parent;
+            Debug.Assert(dir != null);
+        }
+
+        Debug.Assert(dir.Parent != null);
+        return dir.Parent;
+    }
+
+    private static void WriteCompInFile(string testFilePath, SyntaxNode compilation)
+    {
+        using var streamWriter = new StreamWriter(File.Create(testFilePath));
         compilation.WriteTo(streamWriter);
+    }
+
+    private static string NameOfMember(MemberDeclarationSyntax member)
+    {
+        switch (member)
+        {
+            case MethodDeclarationSyntax method:
+            {
+                return
+                    $"{method.ExplicitInterfaceSpecifier}{method.ReturnType}" +
+                    $"{method.TypeParameterList}{method.Identifier}{method.ParameterList}";
+            }
+            case ConstructorDeclarationSyntax ctor:
+            {
+                return $"{ctor.Identifier}{ctor.ParameterList}";
+            }
+            case FieldDeclarationSyntax field:
+            {
+                var variables = field.Declaration.Variables;
+                Debug.Assert(variables.Count == 1);
+                return variables[0].Identifier.ToString();
+            }
+            case TypeDeclarationSyntax typeDecl:
+            {
+                return typeDecl.Identifier.ToString();
+            }
+            case DelegateDeclarationSyntax delegateDecl:
+            {
+                return delegateDecl.Identifier.ToString();
+            }
+            case PropertyDeclarationSyntax propertyDecl:
+            {
+                return propertyDecl.Identifier.ToString();
+            }
+            default:
+                throw new NotImplementedException($"NameOfMember: unexpected case {member}");
+        }
+    }
+
+    private static TypeDeclarationSyntax? MergeType(
+        TypeDeclarationSyntax oldType,
+        TypeDeclarationSyntax newType)
+    {
+        var oldMembers = oldType.Members;
+        if (oldMembers.Count == 0)
+            return null;
+
+        var dictWithMembers = new Dictionary<string, MemberDeclarationSyntax>();
+        foreach (var oldMember in oldMembers)
+        {
+            var key = NameOfMember(oldMember);
+            dictWithMembers.Add(key, oldMember);
+        }
+        foreach (var newMember in newType.Members)
+        {
+            var key = NameOfMember(newMember);
+            dictWithMembers[key] = newMember;
+        }
+
+        var values = dictWithMembers.Values;
+        var offset = TestsRenderer.LastOffset(values.First());
+
+        var members =
+            values
+                .Select(m =>
+                    m is FieldDeclarationSyntax
+                        ? m.WithLeadingTrivia(offset).WithTrailingTrivia(LineFeed)
+                        : m.WithLeadingTrivia(offset).WithTrailingTrivia(LineFeed, LineFeed)
+                ).ToList();
+        var count = members.Count;
+        members[count - 1] = members[count - 1].WithTrailingTrivia(LineFeed);
+        return oldType.WithMembers(List(members));
+    }
+
+    private static IEnumerable<MemberDeclarationSyntax>? MergeTypes(
+        SyntaxList<MemberDeclarationSyntax> oldTypes,
+        SyntaxList<MemberDeclarationSyntax> newTypes)
+    {
+        if (oldTypes.Count == 0)
+            return null;
+
+        var dictWithMembers = new Dictionary<string, MemberDeclarationSyntax>();
+        foreach (var oldMember in oldTypes)
+        {
+            var key = NameOfMember(oldMember);
+            dictWithMembers.Add(key, oldMember);
+        }
+        foreach (var newMember in newTypes)
+        {
+            var key = NameOfMember(newMember);
+            switch (newMember)
+            {
+                case TypeDeclarationSyntax type
+                    when dictWithMembers.TryGetValue(key, out var oldValue):
+                {
+                    var oldType = oldValue as TypeDeclarationSyntax;
+                    Debug.Assert(oldType != null);
+                    var mergedType = MergeType(oldType, type);
+                    if (mergedType == null)
+                        return null;
+                    dictWithMembers[key] = mergedType;
+                    break;
+                }
+                case TypeDeclarationSyntax type:
+                    dictWithMembers.Add(key, type);
+                    break;
+                default:
+                    dictWithMembers[key] = newMember;
+                    break;
+            }
+        }
+
+        var types =
+            dictWithMembers.Values
+                .Select(t => t.WithLeadingTrivia(LineFeed).WithTrailingTrivia(LineFeed));
+        return types;
+    }
+
+    private static IEnumerable<UsingDirectiveSyntax> MergeUsings(
+        IEnumerable<UsingDirectiveSyntax> oldUsigns,
+        IEnumerable<UsingDirectiveSyntax> newUsings)
+    {
+        var mergedUsigns = oldUsigns.ToList();
+        var count = mergedUsigns.Count;
+        var oldUsingsStr = mergedUsigns.Select(u => u.Name.ToString()).ToHashSet();
+
+        foreach (var newUsing in newUsings)
+        {
+            if (!oldUsingsStr.Contains(newUsing.Name.ToString()))
+                mergedUsigns.Add(newUsing);
+        }
+
+        if (mergedUsigns.Count > count)
+            mergedUsigns[^1] = mergedUsigns[^1].WithTrailingTrivia(LineFeed);
+
+        return mergedUsigns;
+    }
+
+    private static void AddRenderedInFile(string testFilePath, SyntaxNode compilation)
+    {
+        if (File.Exists(testFilePath))
+        {
+            // Rendered class already exists case, so rendering only new methods into it
+            var programText = File.ReadAllText(testFilePath);
+            var oldComp = CSharpSyntaxTree.ParseText(programText).GetCompilationUnitRoot();
+            var newComp = compilation as CompilationUnitSyntax;
+            Debug.Assert(newComp != null);
+
+            var mergedUsings = MergeUsings(oldComp.Usings, newComp.Usings);
+
+            var oldMembers = oldComp.Members;
+            var newMembers = newComp.Members;
+            if (!oldMembers.Any())
+            {
+                WriteCompInFile(testFilePath, compilation);
+                return;
+            }
+            Debug.Assert(oldMembers.Count == 1 && newMembers.Count == 1);
+            var oldNamespace = oldMembers[0] as BaseNamespaceDeclarationSyntax;
+            var newNamespace = newMembers[0] as BaseNamespaceDeclarationSyntax;
+            Debug.Assert(oldNamespace != null && newNamespace != null &&
+                newNamespace.Name.ToString() == oldNamespace.Name.ToString());
+            var types =
+                MergeTypes(oldNamespace.Members, newNamespace.Members);
+            if (types == null)
+            {
+                WriteCompInFile(testFilePath, compilation);
+                return;
+            }
+
+            oldNamespace = oldNamespace.WithMembers(List(types));
+            oldComp = oldComp.WithUsings(List(mergedUsings));
+            // TODO: use Format from TestsRenderer? (safer for indents, but slower)
+            compilation = oldComp.WithMembers(SingletonList<MemberDeclarationSyntax>(oldNamespace));
+        }
+        WriteCompInFile(testFilePath, compilation);
+    }
+
+    private static UnitTest DeserializeTest(FileInfo test, AssemblyLoadContext? assemblyLoadContext)
+    {
+        testInfo ti;
+        using (var stream = new FileStream(test.FullName, FileMode.Open, FileAccess.Read))
+        {
+            ti = UnitTest.DeserializeTestInfo(stream);
+        }
+
+        AssemblyResolver.Configure(ti.extraAssemblyLoadDirs);
+
+        return UnitTest.DeserializeFromTestInfo(ti, true);
+    }
+
+    private static List<UnitTest> DeserializeTests(
+        IEnumerable<FileInfo> tests,
+        AssemblyLoadContext? assemblyLoadContext)
+    {
+        var deserializedTests = new List<UnitTest>();
+        foreach (var test in tests)
+        {
+            try
+            {
+                deserializedTests.Add(DeserializeTest(test, assemblyLoadContext));
+            }
+            catch (Exception e)
+            {
+                Logger.writeLineString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
+            }
+        }
+
+        return deserializedTests;
+    }
+
+    private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
+        IEnumerable<FileInfo> tests,
+        Type? declaringType,
+        bool wrapErrors = false,
+        AssemblyLoadContext? assemblyLoadContext = null)
+    {
+        AssemblyResolver.AddResolve(assemblyLoadContext);
+
+        var unitTests = DeserializeTests(tests, assemblyLoadContext);
+        if (unitTests.Count == 0)
+            throw new Exception("No *.vst files were generated, nothing to render");
+        Assembly testAssembly = unitTests.First().Method.Module.Assembly;
+
+        var (testsProgram, mocksProgram,  typeName) =
+            TestsRenderer.RenderTests(unitTests, wrapErrors, declaringType);
+
+        AssemblyResolver.RemoveResolve(assemblyLoadContext);
+
+        return (testsProgram, mocksProgram, typeName, testAssembly);
+    }
+
+    // Writing generated tests and mocks to files
+    private static List<string> WriteResults(
+        DirectoryInfo outputDir,
+        string typeName,
+        SyntaxNode testsProgram,
+        SyntaxNode? mocksProgram)
+    {
+        var files = new List<string>();
+        var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
+        AddRenderedInFile(testFilePath, testsProgram);
+        files.Add(testFilePath);
+        if (mocksProgram != null)
+        {
+            var mocksFilePath = Path.Combine(outputDir.FullName, "Mocks.cs");
+            AddRenderedInFile(mocksFilePath, mocksProgram);
+            files.Add(mocksFilePath);
+        }
+
+        return files;
+    }
+
+    // API method for Rider extension
+    public static (DirectoryInfo, List<string>) Render(
+        IEnumerable<FileInfo> tests,
+        FileInfo testingProject,
+        Type declaringType,
+        AssemblyLoadContext assemblyLoadContext,
+        FileInfo? solutionForTests = null)
+    {
+        var (testsProgram, mocksProgram, typeName, _) =
+            RunTestsRenderer(tests, declaringType, false, assemblyLoadContext);
+
+        var outputDir = testingProject.Directory?.Parent;
+        Debug.Assert(outputDir != null && outputDir.Exists);
+        var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
+        var renderedFiles = WriteResults(outputDir, typeName, testsProgram, mocksProgram);
+
+        return (testProjectPath, renderedFiles);
+    }
+
+    // API method for VSharp
+    public static void Render(
+        IEnumerable<FileInfo> tests,
+        bool wrapErrors = false,
+        Type? declaringType = null,
+        DirectoryInfo? outputDir = null)
+    {
+        var (testsProgram, mocksProgram, typeName, assembly) =
+            RunTestsRenderer(tests, declaringType, wrapErrors);
+
+        if (outputDir == null)
+        {
+            // Internal integration tests case
+            var vSharpDir = FindVSharpDir();
+            var testDir = vSharpDir.EnumerateDirectories("VSharp.Test").First();
+            outputDir = testDir.CreateSubdirectory("GeneratedTests");
+        }
+        else
+        {
+            // API or console runner case
+            if (!outputDir.Exists) outputDir.Create();
+            outputDir = GenerateTestProject(outputDir, new FileInfo(assembly.Location), null);
+        }
+
+        WriteResults(outputDir, typeName, testsProgram, mocksProgram);
     }
 }

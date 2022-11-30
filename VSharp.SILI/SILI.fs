@@ -1,7 +1,6 @@
 namespace VSharp.Interpreter.IL
 
 open System
-open System.Diagnostics
 open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections
@@ -15,13 +14,16 @@ open VSharp.Solver
 
 type public SILI(options : SiliOptions) =
 
-    let stopwatch = Stopwatch()
-    let timeout = if options.timeout <= 0 then Int64.MaxValue else int64 options.timeout * 1000L
-    let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Int64.MaxValue else timeout * 80L / 100L
+    let timeout = if options.timeout <= 0 then Double.PositiveInfinity else float options.timeout * 1000.0
+    let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Double.PositiveInfinity else timeout * 80.0 / 100.0
+
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics = SILIStatistics()
+    let statistics =
+        let dumpInterval = if options.collectContinuousDump then 250 else -1
+        new SILIStatistics(dumpInterval)
+
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
     let isConcolicMode =
@@ -30,12 +32,12 @@ type public SILI(options : SiliOptions) =
         | SymbolicMode -> false
     let interpreter = ILInterpreter(isConcolicMode)
 
-    let mutable entryIP : ip = Unchecked.defaultof<ip>
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
-    let reportUnspecifiedError state = reportError state "Unspecified"
-    let mutable reportIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportInternalFail : Exception -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportStateIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportIncomplete : InsufficientInformationException -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportInternalFail : Method option -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
 
     let () =
@@ -44,11 +46,11 @@ type public SILI(options : SiliOptions) =
         SetMaxBuferSize options.maxBufferSize
         TestGenerator.setMaxBufferSize options.maxBufferSize
 
-    let inCoverageZone coverageZone (startingMethod : Method) =
+    let inCoverageZone coverageZone (entryMethods : Method list) =
         match coverageZone with
-        | MethodZone -> (=) startingMethod
-        | ClassZone -> fun method -> method.DeclaringType.TypeHandle = startingMethod.DeclaringType.TypeHandle
-        | ModuleZone -> fun method -> method.Module.ModuleHandle = startingMethod.Module.ModuleHandle
+        | MethodZone -> fun method -> entryMethods |> List.contains method
+        | ClassZone -> fun method -> entryMethods |> List.exists (fun m -> method.DeclaringType.TypeHandle = m.DeclaringType.TypeHandle)
+        | ModuleZone -> fun method -> entryMethods |> List.exists (fun m -> method.Module.ModuleHandle = m.Module.ModuleHandle)
 
     let isSat pc =
         // TODO: consider trivial cases
@@ -61,80 +63,104 @@ type public SILI(options : SiliOptions) =
     let rec mkForwardSearcher = function
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics)
-        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics)
+        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+        | FairMode baseMode ->
+            FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
-            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2])
+            InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2]) :> IForwardSearcher
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
+        | searchMode.ConcolicMode baseMode -> ConcolicSearcher(mkForwardSearcher baseMode) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(_, searchMode) ->
-            BidirectionalSearcher(mkForwardSearcher searchMode, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
+            let baseSearcher = mkForwardSearcher searchMode
+            let baseSearcher = if isConcolicMode then ConcolicSearcher(baseSearcher) :> IForwardSearcher else baseSearcher
+            BidirectionalSearcher(baseSearcher, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
     let releaseBranches() =
         if not branchesReleased then
             branchesReleased <- true
+            statistics.OnBranchesReleased()
             ReleaseBranches()
             let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+            let dfsSearcher = if isConcolicMode then ConcolicSearcher(dfsSearcher) :> IForwardSearcher else dfsSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
 
-    let coveragePobsForMethod (method : Method) =
-        let cfg = method.CFG
-        cfg.SortedBasicBlocks |> Seq.map (fun bb ->
-           {loc = {offset = bb.StartOffset; method = method}; lvl = infty; pc = EmptyPathCondition})
-        |> List.ofSeq
-
-    let reportState reporter isError (method : Method) cmdArgs cilState message =
+    let reportState reporter isError cmdArgs cilState message =
         try
-            if isError || cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            searcher.Remove cilState
+            if cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
                     | Unhandled _ -> true
                     | _ -> false
-                if not isError || hasException
-                then statistics.TrackFinished cilState
                 let callStackSize = Memory.CallStackSize cilState.state
                 let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                let entryMethod = entryMethodOf cilState
                 if isError && not hasException
                     then
-                        if method.DeclaringType.IsValueType || methodHasByRefParameter method
+                        if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod
                         then Memory.ForcePopFrames (callStackSize - 2) cilState.state
                         else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 if not isError || statistics.EmitError cilState message
                 then
-                    match TestGenerator.state2test isError method cmdArgs cilState message with
-                    | Some test -> reporter test
+                    match TestGenerator.state2test isError entryMethod cmdArgs cilState message with
+                    | Some test ->
+                        statistics.TrackFinished cilState
+                        reporter test
                     | None -> ()
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
-            reportIncomplete cilState
+            reportStateIncomplete cilState
 
-    let wrapOnTest (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) =
-        Logger.info "Result of method %s is %O" method.FullName state.Result
+    let wrapOnTest (action : Action<UnitTest>) cmdArgs (state : cilState) =
+        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName state.Result
         Application.terminateState state
-        reportState action.Invoke false method cmdArgs state null
+        reportState action.Invoke false cmdArgs state null
 
-    let wrapOnError (action : Action<UnitTest>) (method : Method) cmdArgs (state : cilState) errorMessage =
-        let message = sprintf "%s error of method %s" errorMessage method.FullName
-        Logger.info "%s" message
+    let wrapOnError (action : Action<UnitTest>) cmdArgs (state : cilState) errorMessage =
+        if not <| String.IsNullOrWhiteSpace errorMessage then
+            Logger.info "Error in %s: %s" (entryMethodOf state).FullName errorMessage
         Application.terminateState state
-        reportState action.Invoke true method cmdArgs state message
+        reportState action.Invoke true cmdArgs state errorMessage
 
-    let wrapOnIIE (action : Action<InsufficientInformationException>) (state : cilState) =
+    let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
         Application.terminateState state
+        searcher.Remove state
         action.Invoke state.iie.Value
 
-    let wrapOnInternalFail (action : Action<Exception>) (e : Exception) =
-        statistics.InternalFails.Add(e)
-        action.Invoke e
+    let wrapOnIIE (action : Action<InsufficientInformationException>) (iie: InsufficientInformationException) =
+        action.Invoke iie
+
+    let wrapOnStateInternalFail (action : Action<Method option, Exception>) (state : cilState) (e : Exception) =
+        match e with
+        | :? InsufficientInformationException as e ->
+            if state.iie.IsNone then
+                state.iie <- Some e
+            reportStateIncomplete state
+        | _ ->
+            statistics.InternalFails.Add(e)
+            Application.terminateState state
+            searcher.Remove state
+            action.Invoke(entryMethodOf state |> Some, e)
+
+    let wrapOnInternalFail (action : Action<Method option, Exception>) (method : Method option) (e : Exception) =
+        match e with
+        | :? InsufficientInformationException as e ->
+            reportIncomplete e
+        | _ ->
+            statistics.InternalFails.Add(e)
+            action.Invoke(method, e)
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
@@ -147,11 +173,34 @@ type public SILI(options : SiliOptions) =
                 None
         method.Parameters |> Array.map allocateIfByRef |> Array.toList
 
-    static member private FormInitialStateWithoutStatics (method : Method) =
-        let initialState = Memory.EmptyState()
-        initialState.model <- Memory.EmptyModel method
-        let cilState = makeInitialState method initialState
+    member private x.TrySubstituteTypeParameters model (methodBase : MethodBase) =
+        let method = Application.getMethod methodBase
+        let getConcreteType = function
+        | ConcreteType t -> Some t
+        | _ -> None
         try
+            match SolveGenericMethodParameters model method with
+            | Some(classParams, methodParams) ->
+                let classParams = classParams |> Array.choose getConcreteType
+                let methodParams = methodParams |> Array.choose getConcreteType
+                if classParams.Length = methodBase.DeclaringType.GetGenericArguments().Length &&
+                    (methodBase.IsConstructor || methodParams.Length = methodBase.GetGenericArguments().Length) then
+                    let declaringType = Reflection.concretizeTypeParameters methodBase.DeclaringType classParams
+                    let method = Reflection.concretizeMethodParameters declaringType methodBase methodParams
+                    Some method
+                else
+                    None
+            | _ -> None
+        with
+        | e ->
+            reportInternalFail (Some method) e
+            None
+
+    member private x.FormIsolatedInitialStates (method : Method, typModel : typeModel) =
+        try
+            let initialState = Memory.EmptyState()
+            initialState.model <- Memory.EmptyModel method typModel
+            let cilState = makeInitialState method initialState
             let this(*, isMethodOfStruct*) =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
                 else
@@ -165,52 +214,58 @@ type public SILI(options : SiliOptions) =
                     Some this
             let parameters = SILI.AllocateByRefParameters initialState method
             ILInterpreter.InitFunctionFrame initialState method this (Some parameters)
-        with :? InsufficientInformationException as e ->
-            cilState.iie <- Some e
-        cilState
+            let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
+            assert (List.length cilStates = 1)
+            let [cilState] = cilStates
+            match options.executionMode with
+            | ConcolicMode -> List.singleton cilState
+            | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
+        with
+        | e ->
+            reportInternalFail (Some method) e
+            []
 
-    static member private TrySubstituteTypeParameters (method : MethodBase) =
-        let vsMethod = Application.getMethod method
-        let getConcreteType = function
-        | ConcreteType t -> Some t
-        | _ -> None
+    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], typModel : typeModel) : cilState list =
         try
-            match SolveGenericMethodParameters vsMethod with
-            | Some(classParams, methodParams) ->
-                let classParams = classParams |> Array.choose getConcreteType
-                let methodParams = methodParams |> Array.choose getConcreteType
-                if classParams.Length = method.DeclaringType.GetGenericArguments().Length &&
-                    (method.IsConstructor || methodParams.Length = method.GetGenericArguments().Length) then
-                    let declaringType = Reflection.concretizeTypeParameters method.DeclaringType classParams
-                    let method = Reflection.concretizeMethodParameters declaringType method methodParams
-                    Some method
-                else
-                    None
-            | _ -> None
-        with :? InsufficientInformationException -> None
-
-    member private x.FormInitialStates (method : Method) : cilState list =
-        let cilState = SILI.FormInitialStateWithoutStatics method
-        let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
-        assert (List.length cilStates = 1)
-        let [cilState] = cilStates
-        match options.executionMode with
-        | ConcolicMode -> List.singleton cilState
-        | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
+            assert method.IsStatic
+            let optionArgs = if mainArguments = null then None else Some mainArguments
+            let state = Memory.EmptyState()
+            state.model <- Memory.EmptyModel method typModel
+            let argsToState args =
+                let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
+                let stringType = typeof<string>
+                let argsNumber = MakeNumber mainArguments.Length
+                Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+            let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
+            ILInterpreter.InitFunctionFrame state method None arguments
+            if Option.isNone optionArgs then
+                // NOTE: if args are symbolic, constraint 'args != null' is added
+                let parameters = method.Parameters
+                assert(Array.length parameters = 1)
+                let argsParameter = Array.head parameters
+                let argsParameterTerm = Memory.ReadArgument state argsParameter
+                AddConstraint state (!!(IsNullReference argsParameterTerm))
+            Memory.InitializeStaticMembers state method.DeclaringType
+            let initialState = makeInitialState method state
+            [initialState]
+        with
+        | e ->
+            reportInternalFail (Some method) e
+            []
 
     member private x.Forward (s : cilState) =
         let loc = s.currentLoc
         // TODO: update pobs when visiting new methods; use coverageZone
         statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
-        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || s.startingIP <> entryIP)
+        let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || isIsolated s)
         toReportFinished |> List.iter reportFinished
-        let errors, toReportExceptions = errors |> List.partition (fun s -> s.startingIP <> entryIP || not <| stoppedByException s)
+        let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter reportUnspecifiedError
+        runtimeExceptions |> List.iter (fun state -> reportError state null)
         userExceptions |> List.iter reportFinished
-        let iieStates, toReportIIE = iieStates |> List.partition (fun s -> s.startingIP <> entryIP)
-        toReportIIE |> List.iter reportIncomplete
+        let iieStates, toReportIIE = iieStates |> List.partition isIsolated
+        toReportIIE |> List.iter reportStateIncomplete
         let newStates =
             match goodStates with
             | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
@@ -232,14 +287,14 @@ type public SILI(options : SiliOptions) =
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
 
-    member private x.Backward p' s' EP =
+    member private x.Backward p' s' =
         assert(currentLoc s' = p'.loc)
         let sLvl = levelToUnsignedInt s'.level
         if p'.lvl >= sLvl then
             let lvl = p'.lvl - sLvl
             let pc = Memory.WLP s'.state p'.pc
             match isSat pc with
-            | true when s'.startingIP = EP -> searcher.Answer p' (Witnessed s')
+            | true when not <| isIsolated s' -> searcher.Answer p' (Witnessed s')
             | true ->
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
@@ -249,7 +304,7 @@ type public SILI(options : SiliOptions) =
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
 
-    member private x.BidirectionalSymbolicExecution (EP : ip) =
+    member private x.BidirectionalSymbolicExecution() =
         let mutable action = Stop
         let pick() =
             match searcher.Pick() with
@@ -257,35 +312,35 @@ type public SILI(options : SiliOptions) =
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while not isStopped && pick() && stopwatch.ElapsedMilliseconds < timeout do
-            if stopwatch.ElapsedMilliseconds >= branchReleaseTimeout then
+        while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
+            if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
                 releaseBranches()
             match action with
-            | GoFront s -> x.Forward(s)
-            | GoBack(s, p) -> x.Backward p s EP
+            | GoFront s ->
+                try
+                    x.Forward(s)
+                with
+                | e -> reportStateInternalFail s e
+            | GoBack(s, p) ->
+                try
+                    x.Backward p s
+                with
+                | e -> reportStateInternalFail s e
             | Stop -> __unreachable__()
 
-    member private x.AnswerPobs entryPoint initialStates =
-        match options.explorationMode with
-        | TestCoverageMode(coverageZone, _) ->
-            Application.setCoverageZone (inCoverageZone coverageZone entryPoint)
-        | StackTraceReproductionMode _ -> __notImplemented__()
-        Application.setAttributesZone (fun _ -> options.checkAttributes)
-        Application.resetMethodStatistics()
+    member private x.AnswerPobs initialStates =
         statistics.ExplorationStarted()
-        isStopped <- false
-        branchesReleased <- false
-        AcquireBranches()
-        searcher.Reset()
-        let mainPobs = coveragePobsForMethod entryPoint |> Seq.filter (fun pob -> pob.loc.offset <> 0<offsets>)
+
+        // For backward compatibility. TODO: remove main pobs at all
+        let mainPobs = []
         Application.spawnStates (Seq.cast<_> initialStates)
         mainPobs |> Seq.map (fun pob -> pob.loc) |> Seq.toArray |> Application.addGoals
-        searcher.Init entryPoint initialStates mainPobs
-        entryIP <- Instruction(0<offsets>, entryPoint)
+        searcher.Init initialStates mainPobs
+        initialStates |> Seq.filter isIIEState |> Seq.iter reportStateIncomplete
         match options.executionMode with
         | ConcolicMode ->
             initialStates |> List.iter (fun initialState ->
-                let machine = ClientMachine(entryPoint, (fun _ -> ()), initialState)
+                let machine = ClientMachine(entryMethodOf initialState, (fun _ -> ()), initialState)
                 if not <| machine.Spawn() then
                     internalfail "Unable to spawn concolic machine!"
                 concolicMachines.Add(initialState, machine))
@@ -293,99 +348,78 @@ type public SILI(options : SiliOptions) =
                 if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
                 else __notImplemented'__ "Forking in concolic mode"
             while machine.State.suspended && machine.ExecCommand() do // TODO: make better interaction between concolic and SILI #do
-                x.BidirectionalSymbolicExecution entryIP
+                x.BidirectionalSymbolicExecution()
             // TODO: need to report? #do
 //            Logger.error "result state = %O" machine.State
 //            reportFinished.Invoke machine.State
         | SymbolicMode ->
-            x.BidirectionalSymbolicExecution entryIP
+            x.BidirectionalSymbolicExecution()
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
             | pobStatus.Unknown ->
                 Logger.warning "Unknown status for pob at %O" pob.loc
             | _ -> ())
 
-    member private x.InterpretEntryPointInternal (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
-                                                 (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                                                 (onInternalFail : Action<Exception>) : unit =
-        assert method.IsStatic
-        stopwatch.Restart()
-        Reset()
+    member x.Reset entryMethods =
+        API.Reset()
         SolverPool.reset()
-        let optionArgs = if mainArguments = null then None else Some mainArguments
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method optionArgs
-        reportError <- wrapOnError onException method optionArgs
-        reportIncomplete <- wrapOnIIE onIIE
-        interpreter.ConfigureErrorReporter reportError
-        let state = Memory.EmptyState()
-        state.model <- Memory.EmptyModel method
-        let argsToState args =
-            let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
-            let stringType = typeof<string>
-            let argsNumber = MakeNumber mainArguments.Length
-            Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
-        let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
-        ILInterpreter.InitFunctionFrame state method None arguments
-        if Option.isNone optionArgs then
-            // NOTE: if args are symbolic, constraint 'args != null' is added
-            let parameters = method.Parameters
-            assert(Array.length parameters = 1)
-            let argsParameter = Array.head parameters
-            let argsParameterTerm = Memory.ReadArgument state argsParameter
-            AddConstraint state (!!(IsNullReference argsParameterTerm))
-        Memory.InitializeStaticMembers state method.DeclaringType
-        let initialState = makeInitialState method state
-        x.AnswerPobs method [initialState]
-        Restore()
+        statistics.Reset()
+        searcher.Reset()
+        isStopped <- false
+        branchesReleased <- false
+        SolverInteraction.setOnSolverStarted statistics.SolverStarted
+        SolverInteraction.setOnSolverStopped statistics.SolverStopped
+        AcquireBranches()
+        match options.explorationMode with
+        | TestCoverageMode(coverageZone, _) ->
+            Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
+        | StackTraceReproductionMode _ -> __notImplemented__()
+        Application.resetMethodStatistics()
 
-    member private x.InterpretIsolatedInternal (method : MethodBase) (onFinished : Action<UnitTest>)
-                                               (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                                               (onInternalFail : Action<Exception>) : unit =
-        stopwatch.Restart()
-        Reset()
-        SolverPool.reset()
-        let method = Application.getMethod method
-        reportFinished <- wrapOnTest onFinished method None
-        reportError <- wrapOnError onException method None
-        reportIncomplete <- wrapOnIIE onIIE
-        interpreter.ConfigureErrorReporter reportError
-        let initialStates = x.FormInitialStates method
-        let iieStates, initialStates = initialStates |> List.partition (fun state -> state.iie.IsSome)
-        iieStates |> List.iter reportIncomplete
-        if not initialStates.IsEmpty then
-            x.AnswerPobs method initialStates
-        Restore()
-
-    member x.InterpretEntryPoint (method : MethodBase) (mainArguments : string[]) (onFinished : Action<UnitTest>)
-                                 (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                                 (onInternalFail : Action<Exception>) : unit =
-        reportInternalFail <- wrapOnInternalFail onInternalFail
+    member x.Interpret (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) (onFinished : Action<UnitTest>)
+                       (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
+                       (onInternalFail : Action<Method option, Exception>) : unit =
         try
+            reportInternalFail <- wrapOnInternalFail onInternalFail
+            reportStateInternalFail <- wrapOnStateInternalFail onInternalFail
+            reportIncomplete <- wrapOnIIE onIIE
+            reportStateIncomplete <- wrapOnStateIIE onIIE
+            reportFinished <- wrapOnTest onFinished None
+            reportError <- wrapOnError onException None
             try
-                // TODO: resolve type parameters by mainArguments?
-                match SILI.TrySubstituteTypeParameters method with
-                | Some newMethod -> x.InterpretEntryPointInternal newMethod mainArguments onFinished onException onIIE onInternalFail
-                | None -> x.InterpretEntryPointInternal method mainArguments onFinished onException onIIE onInternalFail
+                let trySubstituteTypeParameters method =
+                    let typeModel = typeModel.CreateEmpty()
+                    (Option.defaultValue method (x.TrySubstituteTypeParameters typeModel method), typeModel)
+                interpreter.ConfigureErrorReporter reportError
+                let isolated =
+                    isolated
+                    |> Seq.map trySubstituteTypeParameters
+                    |> Seq.map (fun (m, tm) -> Application.getMethod m, tm) |> Seq.toList
+                let entryPoints =
+                    entryPoints
+                    |> Seq.map (fun (m, a) ->
+                        let m, tm = trySubstituteTypeParameters m
+                        (Application.getMethod m, a, tm))
+                    |> Seq.toList
+                x.Reset ((isolated |> List.map fst) @ (entryPoints |> List.map (fun (m, _, _) -> m)))
+                let isolatedInitialStates = isolated |> List.collect x.FormIsolatedInitialStates
+                let entryPointsInitialStates = entryPoints |> List.collect x.FormEntryPointInitialStates
+                let iieStates, initialStates = isolatedInitialStates @ entryPointsInitialStates |> List.partition (fun state -> state.iie.IsSome)
+                iieStates |> List.iter reportStateIncomplete
+                statistics.SetStatesGetter(fun () -> searcher.States())
+                statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
+                if not initialStates.IsEmpty then
+                    x.AnswerPobs initialStates
             with
-            | e -> reportInternalFail e
+            | e -> reportInternalFail None e
         finally
-            searcher.Reset()
-
-    member x.InterpretIsolated (method : MethodBase) (onFinished : Action<UnitTest>)
-                               (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                               (onInternalFail : Action<Exception>) : unit =
-        reportInternalFail <- wrapOnInternalFail onInternalFail
-        try
-            try
-                match SILI.TrySubstituteTypeParameters method with
-                | Some newMethod -> x.InterpretIsolatedInternal newMethod onFinished onException onIIE onInternalFail
-                | None -> x.InterpretIsolatedInternal method onFinished onException onIIE onInternalFail
-            with
-            | e -> reportInternalFail e
-        finally
+            statistics.ExplorationFinished()
+            API.Restore()
             searcher.Reset()
 
     member x.Stop() = isStopped <- true
 
     member x.Statistics with get() = statistics
+
+    interface IDisposable with
+        member x.Dispose() = (statistics :> IDisposable).Dispose()

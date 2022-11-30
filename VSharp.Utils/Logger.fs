@@ -3,6 +3,7 @@ namespace VSharp
 module Logger =
     open System
 
+    let Quiet = 0
     let Error = 1
     let Warning = 2
     let Info = 3
@@ -19,7 +20,7 @@ module Logger =
         | 4 -> "Trace"
         | _ -> "Unknown"
 
-    let private writeLineString vLevel message =
+    let public writeLineString vLevel message =
         let res = sprintf "[%s] [%A] %s" (LevelToString vLevel) DateTime.Now message
         current_text_writer.WriteLine(res)
         current_text_writer.Flush()

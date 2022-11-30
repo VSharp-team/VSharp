@@ -20,18 +20,18 @@ module internal PC =
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
 
-    let public add pc cond : pathCondition =
+    let rec public add pc cond : pathCondition =
         match cond with
         | True -> pc
         | False -> falsePC
-        | {term = Disjunction xs} ->
-            let xs' = xs |> List.filter (fun x -> PersistentSet.contains !!x pc |> not)
-            if xs'.Length = xs.Length then
-                PersistentSet.add pc cond
-            else
-                PersistentSet.add pc (disjunction xs')
         | _ when isFalse pc -> falsePC
         | _ when PersistentSet.contains !!cond pc -> falsePC
+        | {term = Disjunction xs} ->
+            let xs' = xs |> List.filter (fun x -> PersistentSet.contains !!x pc |> not)
+            match xs' with
+            | _ when List.isEmpty xs' -> falsePC
+            | _ when List.length xs' = List.length xs -> PersistentSet.add pc cond
+            | _ -> add pc (disjunction xs')
         | _ ->
             let notCond = !!cond
             let pc' = pc |> PersistentSet.fold (fun pc e ->

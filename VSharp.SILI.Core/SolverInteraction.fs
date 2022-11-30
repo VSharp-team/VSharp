@@ -8,7 +8,7 @@ module public SolverInteraction =
     type unsatCore() = class end
 
     type encodingContext =
-        { addressOrder : Map<concreteHeapAddress, int>}
+        { addressOrder : Map<concreteHeapAddress, int> }
 
     type satInfo = { mdl : model }
     type unsatInfo = { core : term[] }
@@ -25,8 +25,12 @@ module public SolverInteraction =
         abstract SetMaxBufferSize : int -> unit
 
     let mutable private solver : ISolver option = None
+    let mutable private onSolverStarted : unit -> unit = id
+    let mutable private onSolverStopped : unit -> unit = id
 
     let configureSolver s = solver <- Some s
+    let setOnSolverStarted action = onSolverStarted <- action
+    let setOnSolverStopped action = onSolverStopped <- action
 
     let setMaxBufferSize size =
         match solver with
@@ -40,9 +44,16 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let checkSat state = // TODO: need to solve types here? #do
+    let checkSat state =
         let ctx = getEncodingContext state
         let formula = PC.toSeq state.pc |> conjunction
         match solver with
-        | Some s -> s.CheckSat ctx formula
+        | Some s ->
+            onSolverStarted()
+            let result = s.CheckSat ctx formula
+            onSolverStopped()
+            match result, state.model with
+            | SmtSat { mdl = StateModel(modelState, _) }, StateModel(_, typeModel) ->
+                SmtSat { mdl = StateModel(modelState, typeModel) }
+            | result, _ -> result
         | None -> SmtUnknown ""

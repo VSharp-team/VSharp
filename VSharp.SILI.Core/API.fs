@@ -43,8 +43,9 @@ module API =
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
     let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
-    let SolveGenericMethodParameters (method : IMethod) = TypeSolver.solveMethodParameters method
-    let ResolveCallVirt state thisAddress = TypeSolver.getCallVirtCandidates state thisAddress
+    let SolveGenericMethodParameters (typeModel : typeModel) (method : IMethod) =
+        TypeSolver.solveMethodParameters typeModel method
+    let ResolveCallVirt state thisAddress ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress ancestorMethod
 
     let mutable private reportError = fun _ _ -> ()
     let reportUnspecifiedError state = reportError state "Unspecified"
@@ -267,10 +268,10 @@ module API =
 
     module public Memory =
         let EmptyState() = Memory.makeEmpty false
-        let EmptyModel method =
+        let EmptyModel method typeModel =
             let modelState = Memory.makeEmpty true
             Memory.fillModelWithParametersAndThis modelState method
-            StateModel modelState
+            StateModel(modelState, typeModel)
 
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state

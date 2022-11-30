@@ -6,7 +6,12 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
+      <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="CsvHelper" Version="30.0.1" />
     </ItemGroup>
 
 </Project>

@@ -38,6 +38,7 @@ type IMethodMock =
 type ITypeMock =
     abstract Name : string
     abstract SuperTypes : Type seq
+    abstract IsValueType : bool
     abstract MethodMock : IMethod -> IMethodMock
     abstract MethodMocks : IMethodMock seq
     abstract Copy : unit -> ITypeMock
@@ -88,11 +89,11 @@ type arrayCopyInfo =
 
 type model =
     | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
-    | StateModel of state
+    | StateModel of state * typeModel
 with
     member x.Complete value =
         match x with
-        | StateModel state when state.complete ->
+        | StateModel(state, _) when state.complete ->
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
@@ -110,18 +111,30 @@ with
         Substitution.substitute (function
             | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), typ) } as term ->
                 match x with
-                | StateModel state -> source.Compose state
+                | StateModel(state, _) -> source.Compose state
                 | PrimitiveModel subst -> model.EvalDict subst source term typ true
             | { term = Constant(_, source, typ) } as term ->
                 let subst, complete =
                     match x with
                     | PrimitiveModel dict -> dict, true
-                    | StateModel state ->
+                    | StateModel(state, _) ->
                         match state.model with
                         | PrimitiveModel dict -> dict, state.complete
                         | _ -> __unreachable__()
                 model.EvalDict subst source term typ complete
             | term -> term) id id term
+
+and typeModel =
+    {
+        mutable classesParams : symbolicType[]
+        mutable methodsParams : symbolicType[]
+    }
+with
+    static member CreateEmpty() =
+        {
+            classesParams = Array.empty
+            methodsParams = Array.empty
+        }
 
 and
     [<ReferenceEquality>]

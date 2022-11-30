@@ -780,7 +780,7 @@ module internal Z3 =
 
             encodingCache.heapAddresses.Clear()
             state.model <- PrimitiveModel subst
-            StateModel state
+            StateModel(state, typeModel.CreateEmpty())
 
 
     let private ctx = new Context()
@@ -808,32 +808,35 @@ module internal Z3 =
                 printLog Trace "SOLVER: trying to solve constraints..."
                 printLogLazy Trace "%s" (lazy(q.ToString()))
                 try
-                    let query = builder.EncodeTerm encCtx q
-                    let assumptions = query.assumptions
-                    let assumptions =
-                        seq {
-                            yield! (Seq.cast<_> assumptions)
-                            yield query.expr
-                        } |> Array.ofSeq
-//                    let pathAtoms = addSoftConstraints q.lvl
-                    let result = optCtx.Check assumptions
-                    match result with
-                    | Status.SATISFIABLE ->
-                        trace "SATISFIABLE"
-                        let z3Model = optCtx.Model
-                        let model = builder.MkModel z3Model
-                        SmtSat { mdl = model }
-                    | Status.UNSATISFIABLE ->
-                        trace "UNSATISFIABLE"
-                        SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
-                    | Status.UNKNOWN ->
-                        trace "UNKNOWN"
-                        SmtUnknown optCtx.ReasonUnknown
-                    | _ -> __unreachable__()
-                with
-                | :? EncodingException as e ->
-                    printLog Info "SOLVER: exception was thrown: %s" e.Message
-                    SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                    try
+                        let query = builder.EncodeTerm encCtx q
+                        let assumptions = query.assumptions
+                        let assumptions =
+                            seq {
+                                yield! (Seq.cast<_> assumptions)
+                                yield query.expr
+                            } |> Array.ofSeq
+    //                    let pathAtoms = addSoftConstraints q.lvl
+                        let result = optCtx.Check assumptions
+                        match result with
+                        | Status.SATISFIABLE ->
+                            trace "SATISFIABLE"
+                            let z3Model = optCtx.Model
+                            let model = builder.MkModel z3Model
+                            SmtSat { mdl = model }
+                        | Status.UNSATISFIABLE ->
+                            trace "UNSATISFIABLE"
+                            SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
+                        | Status.UNKNOWN ->
+                            trace "UNKNOWN"
+                            SmtUnknown optCtx.ReasonUnknown
+                        | _ -> __unreachable__()
+                    with
+                    | :? EncodingException as e ->
+                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
+                finally
+                    builder.Reset()
 
             member x.Assert encCtx (fml : term) =
                 printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))

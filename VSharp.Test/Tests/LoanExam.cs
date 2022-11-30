@@ -1,9 +1,32 @@
-using System;
-using InstantCredit.Shared.Models.Enums;
-using LoanExam.Models;
+﻿using System;
 using VSharp.Test;
 
-namespace LoanExam;
+namespace IntegrationTests;
+
+public enum CreditPurpose
+{
+    ConsumerCredit,
+    Realty,
+    ReCrediting
+}
+
+public enum Deposit
+{
+    Realty,
+    OldCar,
+    NewCar,
+    Guarantee,
+    None
+}
+
+public enum Employment
+{
+    Contract,
+    OwnIndividualEntrepreneurship,
+    Freelancer,
+    Pensioner,
+    Unemployed
+}
 
 public class CreditResult
 {
@@ -12,8 +35,70 @@ public class CreditResult
     public double Percent { get; set; }
 }
 
+
+public class CreditInfo
+{
+    public CreditPurpose Purpose { get; set; }
+
+    public decimal Sum { get; set; }
+
+    public Deposit Deposit { get; set; }
+}
+
+public class Personality
+{
+    public string FirstName { get; set; }
+
+    public string SecondName { get; set; }
+
+    public string Patronymic { get; set; }
+
+    public int Age { get; set; }
+
+    public Employment Employment { get; set; }
+}
+
+public class Passport
+{
+    public string Series { get; set; }
+
+    public string Number { get; set; }
+
+    public DateTime IssueDate { get; set; }
+
+    public string IssuedBy { get; set; }
+
+    public string Registration { get; set; }
+
+    public static bool operator ==(Passport x, Passport y)
+    {
+        return x.Number == y.Number && x.Series == y.Series;
+    }
+
+    public static bool operator !=(Passport x, Passport y)
+    {
+        return !(x == y);
+    }
+}
+
+public static class IntExtensions
+{
+    public static bool Between(this int src, int left, int right)
+    {
+        return src >= left && src <= right;
+    }
+}
+
+public record Request(
+    Personality Personality,
+    CreditInfo CreditInfo,
+    Passport Passport,
+    bool CertificateOfNoCriminalRecord,
+    bool OtherCredits
+);
+
 [TestSvmFixture]
-public class CreditCalculationService
+public class LoanExam
 {
     private int CalculateByAge(int age, CreditInfo creditInfo)
     {
@@ -109,7 +194,7 @@ public class CreditCalculationService
         }
     }
 
-    [TestSvm(95, 0, 20, false, strat: SearchStrategy.Interleaved, releaseBranches: false)]
+    [TestSvm(95, 0, -1, false, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;

@@ -8,7 +8,6 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 
 //    let starts = Queue<MethodBase>()
 //    let addedStarts = HashSet<MethodBase>()
-    let mutable mainMethod : Method = Unchecked.defaultof<Method>
 //    let mutable inverseReachability : Dictionary<MethodBase, HashSet<MethodBase>> = null
 
 //    let rememberStart (m : MethodBase) =
@@ -33,9 +32,8 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //            Seq.iter (fun p -> rememberStart p.loc.method) mainPobs
 //        override x.PriorityQueue _ = StackFrontQueue() :> IPriorityQueue<cilState>
 
-        override x.Init m cilStates mainPobs =
-            mainMethod <- m
-            backward.Init m mainPobs
+        override x.Init cilStates mainPobs =
+            backward.Init mainPobs
 //            let start : cilState = CilStateOperations.makeInitialState m (ExplorerBase.FormInitialStateWithoutStatics m)
             forward.Init cilStates
 
@@ -44,13 +42,11 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
         override x.UpdatePobs parent child =
             backward.Update parent child
         override x.UpdateStates parent children =
-            let loc = ipOperations.ip2codeLocation parent.startingIP
-            match loc with
-            | Some loc when loc.method = mainMethod && loc.offset = 0<offsets> ->
+            if not <| CilStateOperations.isIsolated parent then
                 forward.Update (parent, children)
                 backward.AddBranch parent |> ignore
                 Seq.iter (backward.AddBranch >> ignore) children
-            | _ ->
+            else
                 let reached = targeted.Update parent children
                 Seq.iter (backward.AddBranch >> ignore) reached
         override x.States() = forward.States()
@@ -82,9 +78,17 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
             backward.Reset()
             targeted.Reset()
 
+        override x.Remove cilState =
+            forward.Remove cilState
+            backward.Remove cilState
+            targeted.Remove cilState
+
+        override x.StatesCount with get() =
+            forward.StatesCount + backward.StatesCount + targeted.StatesCount
+
 type OnlyForwardSearcher(searcher : IForwardSearcher) =
     interface IBidirectionalSearcher with
-        override x.Init _ cilStates _ = searcher.Init cilStates
+        override x.Init cilStates _ = searcher.Init cilStates
         override x.Statuses() = []
         override x.Answer _ _ = ()
         override x.UpdatePobs _ _ = ()
@@ -95,6 +99,8 @@ type OnlyForwardSearcher(searcher : IForwardSearcher) =
             | None -> Stop
         override x.States() = searcher.States()
         override x.Reset() = searcher.Reset()
+        override x.Remove cilState = searcher.Remove cilState
+        override x.StatesCount with get() = searcher.StatesCount
 
 // TODO: check pob duplicates
 type BackwardSearcher() =
@@ -105,7 +111,6 @@ type BackwardSearcher() =
     let ancestorOf = Dictionary<pob, List<pob>>()
     let answeredPobs = Dictionary<pob, pobStatus>()
     let loc2pob = Dictionary<codeLocation, List<pob>>()
-    let mutable mainMethod : Method = Unchecked.defaultof<Method>
 
     let doAddPob (pob : pob) =
         currentPobs.Add(pob)
@@ -156,7 +161,6 @@ type BackwardSearcher() =
                     answerYes s' ancestor) ancestorOf.[p']
 
     let clear() =
-        mainMethod <- Unchecked.defaultof<Method>
         mainPobs.Clear()
         currentPobs.Clear()
         qBack.Clear()
@@ -165,9 +169,8 @@ type BackwardSearcher() =
         answeredPobs.Clear()
 
     interface IBackwardSearcher with
-        override x.Init m pobs =
+        override x.Init pobs =
             clear()
-            mainMethod <- m
             Seq.iter mainPobs.Add pobs
             Seq.iter (fun p -> answeredPobs.Add(p, pobStatus.Unknown)) pobs
             Seq.iter doAddPob pobs
@@ -190,13 +193,15 @@ type BackwardSearcher() =
         override x.AddBranch cilState =
             updateQBack cilState
 
-        override x.RemoveBranch cilState =
+        override x.Remove cilState =
             let count = qBack.RemoveAll(fun (cilState', _ as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
             if count > 0 then
                 // TODO: need this?
                 internalfail "olololo!"
 
         override x.Reset() = clear()
+
+        override x.StatesCount with get() = qBack.Count
 
 module DummyTargetedSearcher =
     open CilStateOperations
@@ -245,3 +250,10 @@ module DummyTargetedSearcher =
                 finished.Clear()
                 reached.Clear()
                 targets.Clear()
+
+            override x.Remove cilState =
+                forPropagation.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
+                finished.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
+                reached.Values |> Seq.iter (fun s -> s.Remove cilState |> ignore)
+
+            override x.StatesCount with get() = forPropagation.Values.Count
