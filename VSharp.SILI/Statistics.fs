@@ -177,46 +177,49 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
         match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc when isHeadOfBasicBlock currentLoc ->
-            let mutable startRefDict = ref null
-            if not <| startIp2currentIp.TryGetValue(startLoc, startRefDict) then
-                startRefDict <- ref (Dictionary<codeLocation, uint>())
-                startIp2currentIp.Add(startLoc, startRefDict.Value)
-            let startDict = startRefDict.Value
+        | Some startLoc, Some currentLoc ->
+            if isHeadOfBasicBlock currentLoc
+            then 
+                let mutable startRefDict = ref null
+                if not <| startIp2currentIp.TryGetValue(startLoc, startRefDict) then
+                    startRefDict <- ref (Dictionary<codeLocation, uint>())
+                    startIp2currentIp.Add(startLoc, startRefDict.Value)
+                let startDict = startRefDict.Value
 
-            let mutable currentRef = ref 0u
-            if not <| startDict.TryGetValue(currentLoc, currentRef) then
-                currentRef <- ref 0u
-                startDict.Add(currentLoc, 0u)
-            startDict.[currentLoc] <- currentRef.Value + 1u
+                let mutable currentRef = ref 0u
+                if not <| startDict.TryGetValue(currentLoc, currentRef) then
+                    currentRef <- ref 0u
+                    startDict.Add(currentLoc, 0u)
+                startDict.[currentLoc] <- currentRef.Value + 1u
 
-            let mutable totalRef = ref 0u
-            if not <| totalVisited.TryGetValue(currentLoc, totalRef) then
-                totalRef <- ref 0u
-                totalVisited.Add(currentLoc, 0u)
+                let mutable totalRef = ref 0u
+                if not <| totalVisited.TryGetValue(currentLoc, totalRef) then
+                    totalRef <- ref 0u
+                    totalVisited.Add(currentLoc, 0u)
 
-            let currentMethod = currentLoc.method
-            if totalRef.Value = 0u then
-                if currentMethod.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
-                else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
-            elif currentMethod.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
-            else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
+                let currentMethod = currentLoc.method
+                if totalRef.Value = 0u then
+                    if currentMethod.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
+                    else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
+                elif currentMethod.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
+                else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
 
-            totalVisited.[currentLoc] <- totalRef.Value + 1u
+                totalVisited.[currentLoc] <- totalRef.Value + 1u
 
-            let mutable historyRef = ref null
-            if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
-                historyRef <- ref <| HashSet<_>()
-                visitedWithHistory.Add(currentLoc, historyRef.Value)
-            for visitedState in s.history do
-                if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
+                let mutable historyRef = ref null
+                if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
+                    historyRef <- ref <| HashSet<_>()
+                    visitedWithHistory.Add(currentLoc, historyRef.Value)
+                for visitedState in s.history do
+                    if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
 
-            if currentMethod.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
-                if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
-                    visitedBlocksNotCoveredByTests.[s] <- Set.empty
-                isVisitedBlocksNotCoveredByTestsRelevant <- false
-
-            setBasicBlockIsVisited s currentLoc
+                if currentMethod.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
+                    if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
+                        visitedBlocksNotCoveredByTests.[s] <- Set.empty
+                    isVisitedBlocksNotCoveredByTestsRelevant <- false
+               
+            if currentLoc.offset = currentLoc.BasicBlock.FinalOffset
+            then  setBasicBlockIsVisited s currentLoc
         | _ -> ()
 
     member x.IsCovered (loc : codeLocation) =
@@ -264,11 +267,14 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.TrackFinished (s : cilState) =
         testsCount <- testsCount + 1u
         x.CreateContinuousDump()
+                            
         for block in s.history do
-            block.method.SetBlockIsCoveredByTest block.offset |> ignore
+            if block.BasicBlock.FinalOffset = block.offset
+            then
+                block.method.SetBlockIsCoveredByTest block.offset |> ignore
 
-            if block.method.InCoverageZone then
-                isVisitedBlocksNotCoveredByTestsRelevant <- false
+                if block.method.InCoverageZone then
+                    isVisitedBlocksNotCoveredByTestsRelevant <- false
 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
