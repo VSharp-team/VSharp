@@ -180,7 +180,9 @@ public static class Renderer
         if (testingProject.Extension == ".csproj")
         {
             // Rider extension case
-            testProjectPath = outputDir.CreateSubdirectory($"{testingProject.Name}.Tests");
+            var projectName = testingProject.Directory?.Name;
+            Debug.Assert(projectName != null);
+            testProjectPath = outputDir.CreateSubdirectory($"{projectName}.Tests");
             var parentDir = testingProject.Directory?.Parent;
             Debug.Assert(parentDir != null);
             outputDir = parentDir;
@@ -505,7 +507,7 @@ public static class Renderer
         var outputDir = testingProject.Directory?.Parent;
         Debug.Assert(outputDir != null && outputDir.Exists);
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
-        var renderedFiles = WriteResults(outputDir, typeName, testsProgram, mocksProgram);
+        var renderedFiles = WriteResults(testProjectPath, typeName, testsProgram, mocksProgram);
 
         return (testProjectPath, renderedFiles);
     }

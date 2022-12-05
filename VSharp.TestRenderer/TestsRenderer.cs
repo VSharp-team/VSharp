@@ -563,7 +563,9 @@ public static class TestsRenderer
         var namespaceName =
             declaringType == null
                 ? "GeneratedNamespace"
-                : $"{declaringType.Namespace}.Tests";
+                : String.IsNullOrEmpty(declaringType.Namespace)
+                    ? "Tests"
+                    : $"{declaringType.Namespace}.Tests";
         var testsProgram = new ProgramRenderer(namespaceName);
         // Adding NUnit namespace to usings
         testsProgram.AddNUnitToUsigns();
