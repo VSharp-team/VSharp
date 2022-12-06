@@ -186,9 +186,9 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             pause state
 
     let rec pick' (selector : (cilState -> bool) option) =
-        let pick() = if selector.IsSome then baseSearcher.Pick selector.Value else baseSearcher.Pick()
+        let pick (searcher : IForwardSearcher) = if selector.IsSome then searcher.Pick selector.Value else searcher.Pick()
         let pickFromBaseSearcher () =
-            match pick() with
+            match pick baseSearcher with
             | Some state ->
                 match state.targets with
                 | None when violatesRecursionLevel state ->
@@ -203,7 +203,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
                 deleteTargetedSearcher targetSearcher.Key
                 pick' selector
             else
-                let optState = pick()
+                let optState = pick targetSearcher.Value
                 if Option.isSome optState then optState else pick' selector
         let size = targetedSearchers.Count
 
