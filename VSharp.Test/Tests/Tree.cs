@@ -29,10 +29,18 @@ namespace IntegrationTests
             return t.Depth == 3 && t.Size == 7;
         }
 
-        public static bool CheckGeneratedDepthSymbolic(int d)
+        [TestSvm(100)]
+        public static bool CheckGeneratedDepthSymbolic(int d, int s)
         {
+            if (d < 0 | d > 10)
+                throw new ArgumentException("wrong tree depth");
+
             Tree t = Tree.Generate(d);
-            return t.Depth == d;
+
+            if (t.Depth != d || t.Size != s)
+                return false;
+
+            return true;
         }
     }
 }

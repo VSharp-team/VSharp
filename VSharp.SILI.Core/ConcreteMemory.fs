@@ -155,6 +155,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let fieldInfo = Reflection.getFieldInfo field
             fieldInfo.GetValue(object)
 
+        // TODO: catch possible exceptions and raise exception register
         override x.ReadArrayIndex address (indices : int list) =
             match x.ReadObject address with
             | :? Array as array -> array.GetValue(Array.ofList indices)

@@ -44,7 +44,7 @@ public static class TestsRenderer
         private const int TabSize = 4;
         private int _currentOffset = 0;
         private MethodFormat _format = new();
-        private string? _firstExpr = null;
+        private string? _firstArrangeExpr = null;
         private static readonly SyntaxTrivia ArrangeComment = Comment("// arrange");
         private static readonly SyntaxTrivia ActComment = Comment("// act");
         private static readonly SyntaxTrivia AssertComment = Comment("// assert");
@@ -128,7 +128,7 @@ public static class TestsRenderer
                     return base.Visit(node);
                 }
                 // Adding '// arrange' comment before generated args
-                case StatementSyntax statement when statement.ToString() == _firstExpr:
+                case StatementSyntax statement when statement.ToString() == _firstArrangeExpr:
                 {
                     var whitespaces = CurrentOffset();
                     node = statement.WithLeadingTrivia(whitespaces, ArrangeComment, LineFeed, whitespaces);
@@ -167,10 +167,10 @@ public static class TestsRenderer
                 // Remembering current method
                 case MethodDeclarationSyntax expr:
                 {
-                    _firstExpr = null;
+                    _firstArrangeExpr = null;
                     MethodsFormat.TryGetValue(expr.Identifier.ToString(), out _format);
                     if (_format.HasArgs)
-                        _firstExpr = expr.Body?.Statements[0].ToString();
+                        _firstArrangeExpr = expr.Body?.Statements[0].ToString();
 
                     return base.Visit(node);
                 }
@@ -178,7 +178,11 @@ public static class TestsRenderer
                 case ExpressionStatementSyntax expr when expr.ToString().Contains("Assert"):
                 {
                     var whitespaces = CurrentOffset();
-                    node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
+                    if (node.Parent?.Parent is MethodDeclarationSyntax { Body.Statements.Count: 1 })
+                        node = node.WithLeadingTrivia(whitespaces, AssertComment, LineFeed, whitespaces);
+                    else
+                        node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
+
                     return base.Visit(node);
                 }
                 case FileScopedNamespaceDeclarationSyntax namespaceDecl:
@@ -552,21 +556,25 @@ public static class TestsRenderer
 
     public static (SyntaxNode, SyntaxNode?, string) RenderTests(
         List<UnitTest> tests,
+        string testProjectName,
         bool wrapErrors = false,
         Type? declaringType = null)
     {
         PrepareCache();
         MethodsFormat.Clear();
 
-        // Creating main class for generating tests
         var typeName = NameForType(declaringType);
-        var namespaceName =
-            declaringType == null
-                ? "GeneratedNamespace"
-                : String.IsNullOrEmpty(declaringType.Namespace)
-                    ? "Tests"
-                    : $"{declaringType.Namespace}.Tests";
+        string namespaceName;
+        if (declaringType == null)
+            namespaceName = "GeneratedNamespace";
+        else if (string.IsNullOrEmpty(declaringType.Namespace))
+            namespaceName = testProjectName;
+        else
+            namespaceName = $"{declaringType.Namespace}.Tests";
+
+        // Creating main class for generating tests
         var testsProgram = new ProgramRenderer(namespaceName);
+
         // Adding NUnit namespace to usings
         testsProgram.AddNUnitToUsigns();
         var generatedClass =

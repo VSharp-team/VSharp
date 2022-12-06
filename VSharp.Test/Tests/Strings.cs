@@ -81,7 +81,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [Ignore("constraints solving takes too much time")]
+        [Ignore("need more extern methods")]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";
