@@ -415,7 +415,7 @@ namespace IntegrationTests
             return -1;
         }
 
-        [TestSvm(100,timeout:5)]
+        [TestSvm(100)]
         public static int BinarySearch(int[] a, int x, int lo, int hi)
         {
             if (a == null) throw new ArgumentException("a == null");
