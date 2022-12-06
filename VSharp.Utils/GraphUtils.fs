@@ -5,6 +5,12 @@ open System.Collections.Generic
 module GraphUtils =
     type graph<'a> = Dictionary<'a, HashSet<'a>>
     type distanceCache<'a> = Dictionary<'a, Dictionary<'a, uint>>
+                
+    type ICallGraphNode =
+        abstract OutgoingEdges : seq<ICallGraphNode> with get
+        
+    type IReversedCallGraphNode =
+        abstract OutgoingEdges : seq<IReversedCallGraphNode> with get
 
     let infinity = System.UInt32.MaxValue
 
@@ -42,8 +48,8 @@ module GraphUtils =
                     queue.Enqueue children
         dist
 
-    let incrementalSourcedDijkstraAlgo source (graph : graph<'a>) (allPairDist : Dictionary<'a, Dictionary<'a, uint>>) =
-        let dist = Dictionary<'a, uint>()
+    let inline incrementalSourcedDijkstraAlgo (source:'t when ^t:(member OutgoingEdges: seq<'t>)) (allPairDist : Dictionary<'t, Dictionary<'t, uint>>)  =
+        let dist = Dictionary<'t, uint>()
         dist.Add (source, 0u)
         let queue = Queue<_>()
         queue.Enqueue source
@@ -54,7 +60,7 @@ module GraphUtils =
                     if not <| dist.ContainsKey parentDist.Key then
                         dist.Add (parentDist.Key, dist.[parent] + parentDist.Value)
             else
-                for children in graph.[parent] do
+                for children in (^t :(member OutgoingEdges : seq<'t>) parent) do
                     if dist.ContainsKey children && dist.[parent] + 1u < dist.[children] then
                         dist.Remove children |> ignore
                     if not <| dist.ContainsKey children then
