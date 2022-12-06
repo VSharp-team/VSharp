@@ -194,7 +194,7 @@ public class LoanExam
         }
     }
 
-    [TestSvm(95,timeout:50)]
+    [TestSvm(95,timeout:55)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;
