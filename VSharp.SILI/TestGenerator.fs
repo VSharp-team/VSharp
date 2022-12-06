@@ -9,7 +9,7 @@ open VSharp.Core
 module TestGenerator =
 
     let mutable private maxBufferSize = 128
-    let setMaxBufferSize size = maxBufferSize <- size
+    let internal setMaxBufferSize size = maxBufferSize <- size
 
     let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) (encodeMock : ITypeMock -> obj) (test : UnitTest) addr mock =
         let index = test.MemoryGraph.ReserveRepresentation()
@@ -66,7 +66,7 @@ module TestGenerator =
             | MockType mock when mock.IsValueType -> encodeMock mock
             | MockType mock -> addMockToMemoryGraph indices encodeMock test addr mock
 
-    let encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
+    let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
             test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
         else
@@ -139,7 +139,7 @@ module TestGenerator =
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term
 
-    and encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (test : UnitTest) mock =
+    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (test : UnitTest) mock =
         let createMock() =
             let freshMock = test.DefineTypeMock(mock.Name)
             for t in mock.SuperTypes do
@@ -151,7 +151,7 @@ module TestGenerator =
             freshMock
         Dict.getValueOrUpdate mockCache mock createMock
 
-    let model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
+    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
         let suitableState cilState =
             let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             match () with
@@ -227,7 +227,7 @@ module TestGenerator =
                 Some test
         | _ -> __unreachable__()
 
-    let state2test isError (m : Method) cmdArgs (cilState : cilState) message =
+    let internal state2test isError (m : Method) cmdArgs (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)

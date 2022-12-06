@@ -454,6 +454,7 @@ public static class Renderer
     private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests,
         Type? declaringType,
+        string testProjectName,
         bool wrapErrors = false,
         AssemblyLoadContext? assemblyLoadContext = null)
     {
@@ -465,7 +466,7 @@ public static class Renderer
         Assembly testAssembly = unitTests.First().Method.Module.Assembly;
 
         var (testsProgram, mocksProgram,  typeName) =
-            TestsRenderer.RenderTests(unitTests, wrapErrors, declaringType);
+            TestsRenderer.RenderTests(unitTests, testProjectName, wrapErrors, declaringType);
 
         AssemblyResolver.RemoveResolve(assemblyLoadContext);
 
@@ -501,12 +502,13 @@ public static class Renderer
         AssemblyLoadContext assemblyLoadContext,
         FileInfo? solutionForTests = null)
     {
-        var (testsProgram, mocksProgram, typeName, _) =
-            RunTestsRenderer(tests, declaringType, false, assemblyLoadContext);
-
         var outputDir = testingProject.Directory?.Parent;
         Debug.Assert(outputDir != null && outputDir.Exists);
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
+
+        var (testsProgram, mocksProgram, typeName, _) =
+            RunTestsRenderer(tests, declaringType, testProjectPath.Name, false, assemblyLoadContext);
+
         var renderedFiles = WriteResults(testProjectPath, typeName, testsProgram, mocksProgram);
 
         return (testProjectPath, renderedFiles);
@@ -520,7 +522,7 @@ public static class Renderer
         DirectoryInfo? outputDir = null)
     {
         var (testsProgram, mocksProgram, typeName, assembly) =
-            RunTestsRenderer(tests, declaringType, wrapErrors);
+            RunTestsRenderer(tests, declaringType, "IntegrationTests.Tests", wrapErrors);
 
         if (outputDir == null)
         {

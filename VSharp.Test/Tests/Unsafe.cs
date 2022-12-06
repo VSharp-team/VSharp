@@ -186,7 +186,6 @@ namespace IntegrationTests
                 return true;
             else
                 return false;
-
         }
 
         [TestSvm(83)]
@@ -695,6 +694,66 @@ namespace IntegrationTests
             int* r = pz + d1 + d2;
 
             return *r; // x
+        }
+
+        public static void SafeCopy(int[] source, int sourceOffset, int[] target,
+            int targetOffset, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                target[targetOffset + i] = source[sourceOffset + i];
+            }
+        }
+
+        public static void UnsafeCopy(int[] source, int sourceOffset, int[] target,
+            int targetOffset, int count)
+        {
+            fixed (int* pSource = source, pTarget = target)
+            {
+                byte* pSourceByte = (byte*)pSource;
+                byte* pTargetByte = (byte*)pTarget;
+                var sourceOffsetByte = sourceOffset * sizeof(int);
+                var targetOffsetByte = targetOffset * sizeof(int);
+                // Copy the specified number of bytes from source to target.
+                for (int i = 0; i < count * sizeof(int); i++)
+                {
+                    pTargetByte[targetOffsetByte + i] = pSourceByte[sourceOffsetByte + i];
+                }
+            }
+        }
+
+        [TestSvm(100)]
+        public static bool CheckUnsafeArrayCopy(int offset1, int offset2, int value)
+        {
+            var length = 5;
+            if (offset1 < 0 || offset1 >= length || offset2 < 0 || offset2 >= length)
+                throw new ArgumentException("wrong offsets");
+
+            // Create three arrays of the same length
+            int[] array1 = new int[length];
+            int[] array2 = new int[length];
+            int[] array3 = new int[length];
+
+            // Filling first array
+            for (int i = 0; i < length; ++i)
+            {
+                array1[i] = i + value;
+            }
+
+            // Copy first array to second via unsafe code
+            UnsafeCopy(array1, 0, array2, 0, length - offset1);
+
+            // Copy first array to third via simple 'for'
+            SafeCopy(array1, 0, array3, 0, length - offset2);
+
+            // Checking equality of second and third arrays
+            for (int i = 0; i < length; i++)
+            {
+                if (array2[i] != array3[i])
+                    return false;
+            }
+
+            return true;
         }
     }
 }

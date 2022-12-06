@@ -97,13 +97,6 @@ namespace IntegrationTests
             return result;
         }
 
-        class Customer
-        {
-            public int ID { get; set; }
-            public char Name { get; set; }
-            public char City { get; set; }
-        }
-
         [TestSvm(100)]
         public static int SymbolicLinqTest2(int x, int y, int z)
         {
@@ -137,46 +130,45 @@ namespace IntegrationTests
             return left;
         }
 
-        class Distributor
+        class Customer
         {
-            public int ID { get; set; }
-            public char Name { get; set; }
-            public char City { get; set; }
+            public int Id { get; set; }
+            public long Money { get; set; }
+            public int OrderId { get; set; }
         }
 
-        // TODO: add this test after concolic will be implemented
-        [Ignore("need deep copy for concrete memory or concolic")]
-        public static string HardSymbolicLinqTest(int x, int y, int z, int f, int g)
+        class Order
         {
+            public int Id { get; set; }
+            public int Cost { get; set; }
+        }
+
+        [TestSvm(100)]
+        public static long HardSymbolicLinqTest(int m1, int m2, int id1, int id2, int c1, int c2)
+        {
+            if (m1 <= 0 | m2 <= 0 | c1 <= 0 | c2 <= 0)
+                throw new ArgumentException("wrong arguments");
+
             var customers = new List<Customer>
             {
-                new Customer {ID = x, Name = 'J', City = 'R'},
-                new Customer {ID = y, Name = 'R', City = 'M'},
-                // new Customer {ID = z, Name = "Dima", City = "SPB"},
-                // new Customer {ID = f, Name = "Yuri", City = "Novosibirsk"}
+                new Customer {Id = 1, Money = m1, OrderId = 1},
+                new Customer {Id = 2, Money = m2, OrderId = 2},
             };
-            var distributors = new List<Distributor>
+            var orders = new List<Order>
             {
-                new Distributor {ID = x, Name = 'I', City = 'R'},
-                new Distributor {ID = y, Name = 'P', City = 'M'},
-                // new Distributor {ID = z, Name = "Olga", City = "SPB"},
-                // new Distributor {ID = f, Name = "Lena", City = "Novosibirsk"},
+                new Order {Id = id1, Cost = c1},
+                new Order {Id = id2, Cost = c2},
             };
             var innerJoinQuery =
-                from cust in customers
-                group cust by cust.City into custGroup
-                join dist in distributors on custGroup.FirstOrDefault().ID equals dist.ID
-                where custGroup.FirstOrDefault().ID > 0 && (dist.Name == 'I' || dist.Name == 'L')
-                // orderby custGroup.Key
-                select dist;
-            var result = "";
-            foreach (var dist in innerJoinQuery)
-            {
-                result += dist.Name + " ";
-            }
+                from c in customers
+                join o in orders on c.OrderId equals o.Id
+                select c.Money / o.Cost;
 
-            var res2 = innerJoinQuery.Aggregate("", (current, dist) => current + (dist.Name + " "));
-            return res2;
+            var validOrdersCount = innerJoinQuery.Count(x => x > 0);
+            if (validOrdersCount > 0)
+                return innerJoinQuery.Sum();
+
+            return 0;
         }
 
         static IEnumerable<string> Suits()
