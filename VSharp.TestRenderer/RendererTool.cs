@@ -107,6 +107,7 @@ public static class Renderer
         }
         else
         {
+            // TODO: try to add reference via 'dotnet add reference' (like with '.csproj' reference)
             Debug.Assert(testingProject.Extension == ".dll");
             var assembly = Assembly.LoadFrom(testingProject.FullName);
             var text = File.ReadAllText(testProject.FullName);
@@ -191,7 +192,9 @@ public static class Renderer
         {
             // VSharp case
             Debug.Assert(testingProject.Extension == ".dll");
-            testProjectPath = outputDir.CreateSubdirectory("VSharp.RenderedTests");
+            // TODO: unify getting name with 'RunTestsRenderer'
+            var testProjectName = Path.GetFileNameWithoutExtension(testingProject.Name) + ".Tests";
+            testProjectPath = outputDir.CreateSubdirectory(testProjectName);
         }
 
         // Creating nunit project
@@ -418,7 +421,7 @@ public static class Renderer
         WriteCompInFile(testFilePath, compilation);
     }
 
-    private static UnitTest DeserializeTest(FileInfo test, AssemblyLoadContext? assemblyLoadContext)
+    private static UnitTest DeserializeTest(FileInfo test)
     {
         testInfo ti;
         using (var stream = new FileStream(test.FullName, FileMode.Open, FileAccess.Read))
@@ -431,16 +434,14 @@ public static class Renderer
         return UnitTest.DeserializeFromTestInfo(ti, true);
     }
 
-    private static List<UnitTest> DeserializeTests(
-        IEnumerable<FileInfo> tests,
-        AssemblyLoadContext? assemblyLoadContext)
+    private static List<UnitTest> DeserializeTests(IEnumerable<FileInfo> tests)
     {
         var deserializedTests = new List<UnitTest>();
         foreach (var test in tests)
         {
             try
             {
-                deserializedTests.Add(DeserializeTest(test, assemblyLoadContext));
+                deserializedTests.Add(DeserializeTest(test));
             }
             catch (Exception e)
             {
@@ -451,39 +452,45 @@ public static class Renderer
         return deserializedTests;
     }
 
-    private static (SyntaxNode, SyntaxNode?, string, Assembly) RunTestsRenderer(
+    private static (List<(SyntaxNode, string)>, SyntaxNode?, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests,
         Type? declaringType,
-        string testProjectName,
+        string? testProjectName,
         bool wrapErrors = false,
         AssemblyLoadContext? assemblyLoadContext = null)
     {
         AssemblyResolver.AddResolve(assemblyLoadContext);
 
-        var unitTests = DeserializeTests(tests, assemblyLoadContext);
+        var unitTests = DeserializeTests(tests);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
         Assembly testAssembly = unitTests.First().Method.Module.Assembly;
 
-        var (testsProgram, mocksProgram,  typeName) =
+        testProjectName ??= testAssembly.GetName().Name + ".Tests";
+        Debug.Assert(testProjectName != null);
+
+        var (testsPrograms, mocksProgram) =
             TestsRenderer.RenderTests(unitTests, testProjectName, wrapErrors, declaringType);
 
         AssemblyResolver.RemoveResolve(assemblyLoadContext);
 
-        return (testsProgram, mocksProgram, typeName, testAssembly);
+        return (testsPrograms, mocksProgram, testAssembly);
     }
 
     // Writing generated tests and mocks to files
     private static List<string> WriteResults(
         DirectoryInfo outputDir,
-        string typeName,
-        SyntaxNode testsProgram,
+        List<(SyntaxNode, string)> testsPrograms,
         SyntaxNode? mocksProgram)
     {
         var files = new List<string>();
-        var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
-        AddRenderedInFile(testFilePath, testsProgram);
-        files.Add(testFilePath);
+        foreach (var (testsProgram, typeName) in testsPrograms)
+        {
+            var testFilePath = Path.Combine(outputDir.FullName, $"{typeName}Tests.cs");
+            AddRenderedInFile(testFilePath, testsProgram);
+            files.Add(testFilePath);
+        }
+
         if (mocksProgram != null)
         {
             var mocksFilePath = Path.Combine(outputDir.FullName, "Mocks.cs");
@@ -506,10 +513,10 @@ public static class Renderer
         Debug.Assert(outputDir != null && outputDir.Exists);
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests);
 
-        var (testsProgram, mocksProgram, typeName, _) =
+        var (testsPrograms, mocksProgram, _) =
             RunTestsRenderer(tests, declaringType, testProjectPath.Name, false, assemblyLoadContext);
 
-        var renderedFiles = WriteResults(testProjectPath, typeName, testsProgram, mocksProgram);
+        var renderedFiles = WriteResults(testProjectPath, testsPrograms, mocksProgram);
 
         return (testProjectPath, renderedFiles);
     }
@@ -521,8 +528,9 @@ public static class Renderer
         Type? declaringType = null,
         DirectoryInfo? outputDir = null)
     {
-        var (testsProgram, mocksProgram, typeName, assembly) =
-            RunTestsRenderer(tests, declaringType, "IntegrationTests.Tests", wrapErrors);
+        var testProjectName = outputDir == null ? "VSharp.Test.GeneratedTests" : null;
+        var (testsPrograms, mocksProgram, assembly) =
+            RunTestsRenderer(tests, declaringType, testProjectName, wrapErrors);
 
         if (outputDir == null)
         {
@@ -538,6 +546,6 @@ public static class Renderer
             outputDir = GenerateTestProject(outputDir, new FileInfo(assembly.Location), null);
         }
 
-        WriteResults(outputDir, typeName, testsProgram, mocksProgram);
+        WriteResults(outputDir, testsPrograms, mocksProgram);
     }
 }
