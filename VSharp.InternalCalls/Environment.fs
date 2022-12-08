@@ -12,3 +12,7 @@ module Environment =
 
     let GetCurrentManagedThreadId  (_ : state) (_ : term list) =
         MakeNumber 0
+
+    let internal WriteLine (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        Nop

@@ -13,3 +13,6 @@ module Environment =
 
     [<Implements("System.Int32 System.Environment.get_CurrentManagedThreadId()")>]
     val internal GetCurrentManagedThreadId : state -> term list -> term
+
+    [<Implements("System.Void System.Console.WriteLine(System.String)")>]
+    val internal WriteLine : state -> term list -> term
