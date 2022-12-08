@@ -38,6 +38,9 @@ type public SILI(options : SiliOptions) =
     let mutable reportIncomplete : InsufficientInformationException -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Method option -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
+
+    let mutable isCompleteCoverageAchieved : unit -> bool = always false
+
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
 
     let () =
@@ -117,6 +120,8 @@ type public SILI(options : SiliOptions) =
                     | Some test ->
                         statistics.TrackFinished cilState
                         reporter test
+                        if isCompleteCoverageAchieved() then
+                            isStopped <- true
                     | None -> ()
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
@@ -370,9 +375,12 @@ type public SILI(options : SiliOptions) =
         SolverInteraction.setOnSolverStarted statistics.SolverStarted
         SolverInteraction.setOnSolverStopped statistics.SolverStopped
         AcquireBranches()
+        isCompleteCoverageAchieved <- always false
         match options.explorationMode with
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
+            if options.stopOnCompleteCoverageAchieved then
+                isCompleteCoverageAchieved <- (fun _ -> statistics.GetApproximateCoverage entryMethods = 100u)
         | StackTraceReproductionMode _ -> __notImplemented__()
         Application.resetMethodStatistics()
 

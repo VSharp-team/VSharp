@@ -152,19 +152,21 @@ namespace VSharp
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
-                    explorationMode.NewTestCoverageMode(
+                    explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
                         timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
                     ),
-                    executionMode.SymbolicMode,
-                    unitTests.TestDirectory,
-                    recThreshold,
-                    timeout,
-                    false,
-                    true,
-                    128,
-                    true,
-                    collectStatistics);
+                    executionMode: executionMode.SymbolicMode,
+                    outputDirectory: unitTests.TestDirectory,
+                    recThreshold: recThreshold,
+                    timeout: timeout,
+                    visualize: false,
+                    releaseBranches: true,
+                    maxBufferSize: 128,
+                    checkAttributes: true,
+                    collectContinuousDump: collectStatistics,
+                    stopOnCompleteCoverageAchieved: true
+                );
 
             using var explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());

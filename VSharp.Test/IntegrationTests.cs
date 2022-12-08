@@ -239,16 +239,17 @@ namespace VSharp.Test
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
-                        explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                        _executionMode,
-                        unitTests.TestDirectory,
-                        _recThresholdForTest,
-                        _timeout,
-                        false,
-                        _releaseBranches,
-                        128,
-                        _checkAttributes,
-                        false
+                        explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
+                        executionMode: _executionMode,
+                        outputDirectory: unitTests.TestDirectory,
+                        recThreshold: _recThresholdForTest,
+                        timeout: _timeout,
+                        visualize: false,
+                        releaseBranches: _releaseBranches,
+                        maxBufferSize: 128,
+                        checkAttributes: _checkAttributes,
+                        collectContinuousDump: false,
+                        stopOnCompleteCoverageAchieved: false
                     );
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
