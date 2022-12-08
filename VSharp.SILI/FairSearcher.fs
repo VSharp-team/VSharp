@@ -131,6 +131,8 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
 
     let remove cilState = baseSearcher.Remove cilState
 
+    let refresh() = baseSearcher.Refresh()
+
     member x.BaseSearcher with get() = baseSearcher
 
     interface IForwardSearcher with
@@ -141,4 +143,5 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         override x.States() = states()
         override x.Reset() = reset()
         override x.Remove cilState = remove cilState
+        override x.Refresh() = refresh()
         override x.StatesCount with get() = baseSearcher.StatesCount

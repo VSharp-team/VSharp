@@ -230,6 +230,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         override x.Pick selector = pick (Some selector)
         override x.Update (parent, newStates) = update parent newStates
         override x.States() = baseSearcher.States()
+        override x.Refresh() = ()
         override x.Reset() = reset ()
         override x.Remove cilState = remove cilState
         override x.StatesCount with get() = baseSearcher.StatesCount + (targetedSearchers.Values |> Seq.sumBy (fun s -> int s.Count))

@@ -47,6 +47,7 @@
         <Compile Include="ContributedCoverageSearcher.fs" />
         <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
         <Compile Include="InterleavedSearcher.fs" />
+        <Compile Include="InterproceduralSearcher.fs" />
         <Compile Include="TargetedSearcher.fs" />
         <Compile Include="FairSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />

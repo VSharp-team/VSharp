@@ -93,7 +93,6 @@ type ShortestDistanceWeighter(target : codeLocation) =
                     return weight * logarithmicScale state.stepsNumber
                 | None -> return 1u
             }
-        override x.Next() = 0u
 
 type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatistics) =
 
@@ -107,6 +106,7 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatist
                 |> Seq.fold (fun min kvp ->
                     let loc = { offset = kvp.Key; method = method }
                     let distance = kvp.Value
+                    // TODO: check all instructions of basic block for coverage
                     if distance < min && distance <> 0u && not <| statistics.IsCovered loc then distance
                     else min) infinity
             Some minDistance
@@ -118,5 +118,3 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatist
                 | Some loc when loc.method.InCoverageZone -> minDistance loc.method loc.offset
                 | Some _ -> None
                 | None -> Some 1u)
-
-        override x.Next() = 0u

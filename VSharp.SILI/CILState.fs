@@ -1,11 +1,16 @@
 namespace VSharp.Interpreter.IL
 
+open FSharpx.Collections
 open VSharp
 open System.Text
 open System.Collections.Generic
 open VSharp.Core
 open VSharp.Interpreter.IL
 open ipOperations
+
+type CallStackEvent =
+    | Push of callFrom: codeLocation * callTo: codeLocation
+    | Pop
 
 [<ReferenceEquality>]
 type cilState =
@@ -23,6 +28,7 @@ type cilState =
       mutable suspended : bool
       mutable targets : Set<codeLocation> option
       mutable lastPushInfo : term option
+      mutable lastCallStackEvents : CallStackEvent FSharpx.Collections.Queue
       /// <summary>
       /// All basic blocks visited by the state.
       /// </summary>
@@ -80,6 +86,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
+          lastCallStackEvents = Queue.empty
           history = Set.empty
           entryMethod = Some entryMethod
           id = getNextStateId()
@@ -176,6 +183,7 @@ module internal CilStateOperations =
         | Some loc' when loc'.method.HasBody ->
             cilState.currentLoc <- loc'
             Application.addCallEdge loc loc'
+            cilState.lastCallStackEvents <- Queue.conj (Push(loc, loc')) cilState.lastCallStackEvents
         | _ -> ()
         cilState.ipStack <- ip :: cilState.ipStack
 
@@ -223,6 +231,9 @@ module internal CilStateOperations =
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
 
+    let clearLastCallStackEvents (cilState : cilState) =
+        cilState.lastCallStackEvents <- Queue.empty
+
     let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
         cilState.history <- Set.add loc cilState.history
 
@@ -233,6 +244,7 @@ module internal CilStateOperations =
         Memory.PopFrame cilState.state
         let ip = List.tail cilState.ipStack
         cilState.ipStack <- ip
+        cilState.lastCallStackEvents <- Queue.conj Pop cilState.lastCallStackEvents
         match ip with
         | ip::_ -> moveCodeLoc cilState ip
         | [] -> ()

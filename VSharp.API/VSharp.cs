@@ -30,6 +30,10 @@ namespace VSharp
         /// </summary>
         ShortestDistance,
         /// <summary>
+        /// Picks the state closest to not covered locations (considering function calls).
+        /// </summary>
+        InterproceduralShortestDistance,
+        /// <summary>
         /// With a high probability picks the state closest to not covered locations.
         /// </summary>
         RandomShortestDistance,
@@ -240,7 +244,8 @@ namespace VSharp
                 SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                 SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                 SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
-                SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9)
+                SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                SearchStrategy.InterproceduralShortestDistance => searchMode.InterproceduralShortestDistanceMode
             };
         }
 
