@@ -11,11 +11,6 @@ env:
   IMAGE_NAME: vsharp_cli
   DOCKERFILE_PATH: docker/Dockerfile_runner_cli
 
-# Cancel previous runs
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
-
 jobs:
   run_tests:
     uses: ./.github/workflows/integration_tests.yml
