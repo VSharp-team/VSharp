@@ -38,5 +38,5 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     collectContinuousDump : bool
-    stopOnCompleteCoverageAchieved : bool
+    stopOnCoverageAchieved : int
 }

@@ -249,48 +249,12 @@ namespace VSharp.Test
                         maxBufferSize: 128,
                         checkAttributes: _checkAttributes,
                         collectContinuousDump: false,
-                        stopOnCompleteCoverageAchieved: false
+                        stopOnCoverageAchieved: _expectedCoverage ?? -1
                     );
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
 
-                    void GenerateTestAndCheckCoverage(UnitTest unitTest)
-                    {
-                        unitTests.GenerateTest(unitTest);
-
-                        if (_expectedCoverage == null)
-                        {
-                            return;
-                        }
-
-                        var method = Application.getMethod(unitTest.Method);
-                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
-
-                        if (approximateCoverage >= _expectedCoverage)
-                        {
-                            explorer.Stop();
-                        }
-                    }
-
-                    void GenerateErrorAndCheckCoverage(UnitTest unitTest)
-                    {
-                        unitTests.GenerateError(unitTest);
-
-                        if (_expectedCoverage == null)
-                        {
-                            return;
-                        }
-
-                        var method = Application.getMethod(unitTest.Method);
-                        var approximateCoverage = explorer.Statistics.GetApproximateCoverage(method);
-
-                        if (approximateCoverage >= _expectedCoverage)
-                        {
-                            explorer.Stop();
-                        }
-                    }
-
-                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, GenerateTestAndCheckCoverage, GenerateErrorAndCheckCoverage, _ => { }, (_, e) => throw e);
+                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, (_, e) => throw e);
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {

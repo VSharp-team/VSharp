@@ -39,7 +39,7 @@ type public SILI(options : SiliOptions) =
     let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportInternalFail : Method option -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
 
-    let mutable isCompleteCoverageAchieved : unit -> bool = always false
+    let mutable isCoverageAchieved : unit -> bool = always false
 
     let mutable concolicMachines : Dictionary<cilState, ClientMachine> = Dictionary<cilState, ClientMachine>()
 
@@ -100,7 +100,7 @@ type public SILI(options : SiliOptions) =
     let reportState reporter isError cmdArgs cilState message =
         try
             searcher.Remove cilState
-            if cilState.history |> Seq.exists (not << CodeLocation.isBasicBlockCoveredByTest)
+            if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest coverageType.ByEntryPointTest)
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
@@ -120,7 +120,7 @@ type public SILI(options : SiliOptions) =
                     | Some test ->
                         statistics.TrackFinished cilState
                         reporter test
-                        if isCompleteCoverageAchieved() then
+                        if isCoverageAchieved() then
                             isStopped <- true
                     | None -> ()
         with :? InsufficientInformationException as e ->
@@ -375,12 +375,15 @@ type public SILI(options : SiliOptions) =
         SolverInteraction.setOnSolverStarted statistics.SolverStarted
         SolverInteraction.setOnSolverStopped statistics.SolverStopped
         AcquireBranches()
-        isCompleteCoverageAchieved <- always false
+        isCoverageAchieved <- always false
         match options.explorationMode with
         | TestCoverageMode(coverageZone, _) ->
             Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
-            if options.stopOnCompleteCoverageAchieved then
-                isCompleteCoverageAchieved <- (fun _ -> statistics.GetApproximateCoverage entryMethods = 100u)
+            if options.stopOnCoverageAchieved > 0 then
+                let checkCoverage() =
+                    let cov = statistics.GetApproximateCoverage(entryMethods, coverageType.ByEntryPointTest)
+                    cov >= uint options.stopOnCoverageAchieved
+                isCoverageAchieved <- checkCoverage
         | StackTraceReproductionMode _ -> __notImplemented__()
         Application.resetMethodStatistics()
 
