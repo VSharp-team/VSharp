@@ -120,7 +120,7 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
                 leave fromLoc
                 move fromLoc toLoc
             newStates |> Seq.iter (fun state ->
-                move fromLoc (state.CodeLocation.method.CFG.ResolveBasicBlock state.CodeLocation.offset)
+                move fromLoc state.CodeLocation.BasicBlock
                 states.Add state)
             if transited || not <| Seq.isEmpty newStates then
                 (x :> IVisualizer).VisualizeGraph()
