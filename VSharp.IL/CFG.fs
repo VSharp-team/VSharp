@@ -8,6 +8,10 @@ open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
+module CallGraph =
+    let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
+    let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
+    
 type [<Measure>] terminalSymbol
 
 type ICfgNode =
@@ -350,8 +354,30 @@ and Method internal (m : MethodBase) as this =
 
     member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
     member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
-
     member x.ResetStatistics() = blocksCoveredByTests.Clear()
+    member this.CallGraphDistanceFromMe
+        with get () =
+            let assembly = this.Module.Assembly
+            let callGraphDist = Dict.getValueOrUpdate CallGraph.callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
+            Dict.getValueOrUpdate callGraphDist this (fun () ->        
+            let dist = incrementalSourcedDijkstraAlgo (this :> ICallGraphNode) callGraphDist
+            let distFromNode = Dictionary<ICallGraphNode, uint>()
+            for i in dist do
+                if i.Value <> infinity then
+                    distFromNode.Add(i.Key, i.Value)
+            distFromNode)
+            
+    member this.CallGraphDistanceToMe
+        with get () =
+            let assembly = this.Module.Assembly
+            let callGraphDist = Dict.getValueOrUpdate CallGraph.callGraphDistanceTo assembly (fun () -> Dictionary<_, _>())
+            Dict.getValueOrUpdate callGraphDist this (fun () ->        
+            let dist = incrementalSourcedDijkstraAlgo (this :> IReversedCallGraphNode) callGraphDist
+            let distToNode = Dictionary<IReversedCallGraphNode, uint>()
+            for i in dist do
+                if i.Value <> infinity then
+                    distToNode.Add(i.Key, i.Value)
+            distToNode)            
 
 and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset; method : Method}
     with

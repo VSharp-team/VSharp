@@ -13,7 +13,7 @@ type ShortestDistanceWeighter(target : codeLocation) =
         elif weight = 1u then 1u
         else double weight |> Math.Log2 |> Math.Ceiling |> uint
 
-    let callGraphDistanceToTarget = CallGraph.findCallGraphDistanceTo target.method
+    let callGraphDistanceToTarget = target.method.CallGraphDistanceToMe
 
     // Returns the number proportional to distance from the offset in frameOffset of frameMethod to target. Uses both
     // call graph for interprocedural and CFG for intraprocedural distance approximation.
