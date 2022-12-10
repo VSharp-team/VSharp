@@ -100,7 +100,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100,strat:SearchStrategy.ShortestDistance)]
         public static int test6(long time, bool f)
         {
             var a = new BlockMiner();

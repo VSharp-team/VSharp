@@ -9,6 +9,7 @@ open VSharp
 open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
+open VSharp.IL
 open VSharp.Interpreter.IL
 open VSharp.Solver
 
@@ -162,6 +163,15 @@ type public SILI(options : SiliOptions) =
             statistics.InternalFails.Add(e)
             action.Invoke(method, e)
 
+    let mutable firsFreeEpisodeNumber = 0
+    let folderToStoreSerializationResult = "SerializedEpisodes"
+    let fileForExpectedResults = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
+    let serializeEpisode (s:cilState) =
+        if firsFreeEpisodeNumber > 1300
+        then printfn "!!!"
+        System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firsFreeEpisodeNumber} %d{s.id}"])
+        Serializer.DumpFullGraph s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber))
+        firsFreeEpisodeNumber <- firsFreeEpisodeNumber + 1
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
             if pi.ParameterType.IsByRef then
@@ -304,6 +314,7 @@ type public SILI(options : SiliOptions) =
             | false ->
                 Logger.trace "UNSAT for pob = %O and s'.PC = %s" p' (API.Print.PrintPC s'.state.pc)
 
+    
     member private x.BidirectionalSymbolicExecution() =
         let mutable action = Stop
         let pick() =
@@ -318,6 +329,7 @@ type public SILI(options : SiliOptions) =
             match action with
             | GoFront s ->
                 try
+                    serializeEpisode s
                     x.Forward(s)
                 with
                 | e -> reportStateInternalFail s e

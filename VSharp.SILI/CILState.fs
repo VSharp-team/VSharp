@@ -53,6 +53,7 @@ type cilState =
     interface IGraphTrackableState with
         override this.CodeLocation = this.currentLoc
         override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
+        override this.Id = this.id
 
 type cilStateComparer(comparer) =
     interface IComparer<cilState> with

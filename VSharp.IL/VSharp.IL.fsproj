@@ -11,6 +11,7 @@
       <Compile Include="MethodBody.fs" />
       <Compile Include="CFG.fs" />
       <Compile Include="DotVisualizer.fs" />
+      <Compile Include="Serializer.fs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -27,6 +27,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let mutable startOffset = startOffset
     let mutable isGoal = false
     let mutable isCovered = false
+    let mutable isVisited = false
     let associatedStates = HashSet<IGraphTrackableState>()
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
@@ -41,7 +42,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     member this.AssociatedStates = associatedStates
     member this.IsCovered
         with get () = isCovered
-        and set v = isCovered <- v
+        and set v = isCovered <- v  
+    member this.IsVisited
+        with get () = isVisited
+        and set v = isVisited <- v    
     member this.IsGoal
         with get () = isGoal
         and set v = isGoal <- v
@@ -321,14 +325,14 @@ and Method internal (m : MethodBase) as this =
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private cfgReporter : Method -> unit
     static member internal ReportCFGLoaded with get() = Method.cfgReporter and set v = Method.cfgReporter <- v
-    static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
+    static member val internal CoverageZone : Method -> bool = fun _ -> false with get, set
 
     member x.InCoverageZone with get() = Method.CoverageZone x
     
     interface ICallGraphNode with
         member this.OutgoingEdges with get () =
-            let edges = HashSet<_>() 
-            for bb in this.CFG.Sinks do 
+            let edges = HashSet<_>()
+            for bb in this.CFG.SortedBasicBlocks do 
                 for kvp in bb.OutgoingEdges do
                     if kvp.Key <> CfgInfo.TerminalForCFGEdge
                     then
@@ -398,6 +402,7 @@ and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset;
 and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
+    abstract member Id: uint
 
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
@@ -474,12 +479,24 @@ type ApplicationGraph() =
             assert added
         else ()
 
-    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
+    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =        
         Logger.trace "Move state."
+        initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
+        stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+        stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
+            stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
+            || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
+         
         //__notImplemented__()
 
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
         Logger.trace "Add states."
+        for newState in states do
+            newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            newState.CodeLocation.BasicBlock.IsVisited <-
+            newState.CodeLocation.BasicBlock.IsVisited
+            || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
+   
         //__notImplemented__()
 
     let getShortestDistancesToGoals (states:array<codeLocation>) =
