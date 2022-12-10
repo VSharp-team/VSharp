@@ -55,7 +55,7 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
         let edges = ResizeArray<_>()
         seq{
             let name = m.FullName
-            let id = m.Id
+            let id = abs m.Id
             yield $"subgraph cluster_{id} {{"
             yield $"label=%A{name}"
             for basicBlock in basicBlocks do
