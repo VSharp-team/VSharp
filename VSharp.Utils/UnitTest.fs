@@ -196,7 +196,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
 
             let getGenericTypeDefinition typ =
                 let decoded = Serialization.decodeType typ
-                if decoded.IsGenericType then
+                if decoded <> null && decoded.IsGenericType then
                     decoded.GetGenericTypeDefinition()
                 else
                     decoded

@@ -836,6 +836,7 @@ module internal Z3 =
                         printLog Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
+                    // TODO: need to reset encoding cache on every 'CheckSat'?
                     builder.Reset()
 
             member x.Assert encCtx (fml : term) =
