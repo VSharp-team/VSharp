@@ -58,7 +58,7 @@ namespace VSharp.TestRunner
                 var ex = test.Exception;
                 try
                 {
-                    object result = null;
+                    object result;
                     string message = test.ErrorMessage;
                     var debugAssertFailed = message != null && message.Contains("Debug.Assert failed");
                     bool shouldInvoke = suitType switch
@@ -69,7 +69,16 @@ namespace VSharp.TestRunner
                         _ => false
                     };
                     if (shouldInvoke)
+                    {
                         result = method.Invoke(test.ThisArg, parameters);
+                    }
+                    else
+                    {
+                        Console.ForegroundColor = ConsoleColor.White;
+                        Console.WriteLine("Test {0} ignored.", fileInfo.Name);
+                        Console.ResetColor();
+                        return true;
+                    }
                     if (ex != null)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
@@ -80,7 +89,6 @@ namespace VSharp.TestRunner
                     }
                     if (checkResult && !test.IsError && !CompareObjects(test.Expected, result))
                     {
-                        Debug.Assert(shouldInvoke);
                         // TODO: use NUnit?
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} failed! Expected {1}, but got {2}", fileInfo.Name,
