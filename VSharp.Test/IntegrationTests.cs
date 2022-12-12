@@ -281,7 +281,7 @@ namespace VSharp.Test
                             TestContext.Out.WriteLine("Starting tests renderer...");
                             try
                             {
-                                Renderer.Render(tests, true, methodInfo.DeclaringType);
+                                Renderer.Render(tests, true, false, methodInfo.DeclaringType);
                             }
                             catch (Exception e)
                             {

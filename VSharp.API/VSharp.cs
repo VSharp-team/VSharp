@@ -141,7 +141,7 @@ namespace VSharp
         public const Verbosity DefaultVerbosity = Verbosity.Quiet;
 
         private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder,
-            coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[] mainArguments = null, int timeout = -1)
+            coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1)
         {
             Logger.current_log_level = verbosity.ToLoggerLevel();
 
@@ -171,7 +171,7 @@ namespace VSharp
             using var explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
 
-            void HandleInternalFail(Method method, Exception exception)
+            void HandleInternalFail(Method? method, Exception exception)
             {
                 if (verbosity == Verbosity.Quiet)
                 {
@@ -190,13 +190,13 @@ namespace VSharp
             }
 
             var isolated = new List<MethodBase>();
-            var entryPoints = new List<Tuple<MethodBase, string[]>>();
+            var entryPoints = new List<Tuple<MethodBase, string[]?>>();
 
             foreach (var method in methods)
             {
                 if (method == method.Module.Assembly.EntryPoint)
                 {
-                    entryPoints.Add(new Tuple<MethodBase, string[]>(method, mainArguments));
+                    entryPoints.Add(new Tuple<MethodBase, string[]?>(method, mainArguments));
                 }
                 else
                 {
@@ -220,11 +220,12 @@ namespace VSharp
             return statistics;
         }
 
-        private static void Render(Statistics statistics, Type? declaringType = null)
+        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false)
         {
             TestRenderer.Renderer.Render(
                 statistics.Results(),
                 false,
+                singleFile,
                 declaringType,
                 // Getting parent directory of tests: "VSharp.tests.*/.."
                 statistics.OutputDir.Parent
@@ -365,6 +366,7 @@ namespace VSharp
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
+        /// <param name="renderSingleFile">Forces tests generator to render all NUnit tests to one file</param>
         /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
         /// <param name="verbosity">Determines which messages are displayed in output.</param>
         /// <returns>Summary of tests generation process.</returns>
@@ -375,6 +377,7 @@ namespace VSharp
             int timeout = -1,
             string outputDirectory = "",
             bool renderTests = false,
+            bool renderSingleFile = false,
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
@@ -388,7 +391,7 @@ namespace VSharp
 
             var statistics = StartExploration(methods, outputDirectory, coverageZone.ModuleZone, searchStrategy, verbosity, null, timeout);
             if (renderTests)
-                Render(statistics);
+                Render(statistics, singleFile:renderSingleFile);
             return statistics;
         }
 
@@ -407,7 +410,7 @@ namespace VSharp
         /// </exception>
         public static Statistics Cover(
             Assembly assembly,
-            string[] args,
+            string[]? args,
             int timeout = -1,
             string outputDirectory = "",
             bool renderTests = false,
@@ -515,7 +518,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            var stats = Cover(assembly, timeout, outputDirectory, renderTests, searchStrategy, verbosity);
+            var stats = Cover(assembly, timeout, outputDirectory, renderTests, false, searchStrategy, verbosity);
             return Reproduce(stats.OutputDir);
         }
 
@@ -533,7 +536,7 @@ namespace VSharp
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
         public static bool CoverAndRun(
             Assembly assembly,
-            string[] args,
+            string[]? args,
             int timeout = -1,
             string outputDirectory = "",
             bool renderTests = false,
