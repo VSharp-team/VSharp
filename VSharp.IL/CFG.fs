@@ -28,6 +28,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let mutable isGoal = false
     let mutable isCovered = false
     let mutable isVisited = false
+    let mutable isTouched = false
     let associatedStates = HashSet<IGraphTrackableState>()
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
@@ -45,7 +46,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
         and set v = isCovered <- v  
     member this.IsVisited
         with get () = isVisited
-        and set v = isVisited <- v    
+        and set v = isVisited <- v
+    member this.IsTouched
+        with get () = isTouched
+        and set v = isTouched <- v
     member this.IsGoal
         with get () = isGoal
         and set v = isGoal <- v
@@ -483,6 +487,7 @@ type ApplicationGraph() =
         Logger.trace "Move state."
         initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
         stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+        stateWithNewPosition.CodeLocation.BasicBlock.IsTouched <- true
         stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
@@ -493,6 +498,7 @@ type ApplicationGraph() =
         Logger.trace "Add states."
         for newState in states do
             newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            newState.CodeLocation.BasicBlock.IsTouched <- true
             newState.CodeLocation.BasicBlock.IsVisited <-
             newState.CodeLocation.BasicBlock.IsVisited
             || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset

@@ -167,10 +167,8 @@ type public SILI(options : SiliOptions) =
     let folderToStoreSerializationResult = "SerializedEpisodes"
     let fileForExpectedResults = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
     let serializeEpisode (s:cilState) =
-        if firsFreeEpisodeNumber > 1300
-        then printfn "!!!"
         System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firsFreeEpisodeNumber} %d{s.id}"])
-        Serializer.DumpFullGraph s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber))
+        //let coveredVertices,visitedVertices = Serializer.DumpFullGraph s.currentLoc true (System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber))
         firsFreeEpisodeNumber <- firsFreeEpisodeNumber + 1
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
@@ -329,8 +327,16 @@ type public SILI(options : SiliOptions) =
             match action with
             | GoFront s ->
                 try
-                    serializeEpisode s
+                    
+                    let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber)))
                     x.Forward(s)
+                    let statistics2 = Serializer.DumpFullGraph s.currentLoc None
+                    let score = (statistics2.CoveredVerticesInZone - statistics1.CoveredVerticesInZone) * 30u
+                                + (statistics2.VisitedVerticesInZone - statistics1.VisitedVerticesInZone) * 10u
+                                + (statistics2.TouchedVerticesInZone - statistics1.TouchedVerticesInZone) * 5u
+                    
+                    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firsFreeEpisodeNumber} %d{s.id} %d{score} %d{statistics1.TotalVisibleVerticesInZone * 30u}"])
+                    firsFreeEpisodeNumber <- firsFreeEpisodeNumber + 1
                 with
                 | e -> reportStateInternalFail s e
             | GoBack(s, p) ->
