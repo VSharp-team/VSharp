@@ -36,7 +36,7 @@ internal static class RendererProgram
         var testPathArgument =
             new Argument<string>("test-path", description: "Path to the tests (.vst)");
         var wrapErrorsOption =
-            new Option("--wrap-errors", description: "Enables exception handling in error suits");
+            new Option("--wrap-errors", description: "Enables exception handling in error suites");
         var outputOption =
             new Option<DirectoryInfo>(aliases: new[] { "--output", "-o" },
                 () => new DirectoryInfo(Directory.GetCurrentDirectory()),

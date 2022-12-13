@@ -592,7 +592,7 @@ public static class TestsRenderer
                 var thisArg = test.ThisArg;
                 if (thisArg == null && !method.IsStatic)
                     thisArg = Reflection.createObject(method.DeclaringType);
-                string suitTypeName = test.IsError ? "Error" : "Test";
+                string suiteTypeName = test.IsError ? "Error" : "Test";
 
                 var testName = NameForMethod(method);
                 bool isUnsafe =
@@ -607,7 +607,7 @@ public static class TestsRenderer
                     );
 
                 var testRenderer = generatedClass.AddMethod(
-                    testName + suitTypeName,
+                    testName + suiteTypeName,
                     attributes,
                     modifiers,
                     generatedClass.VoidType,
