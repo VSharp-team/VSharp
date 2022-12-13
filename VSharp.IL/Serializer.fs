@@ -3,6 +3,7 @@ module VSharp.IL.Serializer
 open System.Collections.Generic
 open VSharp
 open VSharp.GraphUtils
+open VSharp.Interpreter.IL
 
 [<Struct>]
 type Statistics =
@@ -24,7 +25,14 @@ type Statistics =
          TotalVisibleVerticesInZone = totalVisibleVerticesInZone
          }
     
-    
+
+let mutable firstFreeEpisodeNumber = 0
+let folderToStoreSerializationResult = "SerializedEpisodes"
+let fileForExpectedResults =
+    let path = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
+    System.IO.File.AppendAllLines(path, ["GraphID ExpectedStateNumber ExpectedRewardForStep TotalReachableRewardFromCurrentState"])
+    path
+   
 let DumpFullGraph (location:codeLocation) fileForResult =
     let mutable coveredVerticesInZone = 0u
     let mutable coveredVerticesOutOfZone = 0u
@@ -92,3 +100,12 @@ let DumpFullGraph (location:codeLocation) fileForResult =
                     System.IO.File.AppendAllLines(fileForResult, [sprintf $"%d{kvp.Key} %d{basicBlocksIds[targetBasicBlock]} %d{outgoingEdges.Key}"])
     
     Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
+    
+let saveExpectedResult (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
+    let score =
+        (statistics2.CoveredVerticesInZone - statistics1.CoveredVerticesInZone) * 30u
+        + (statistics2.VisitedVerticesInZone - statistics1.VisitedVerticesInZone) * 10u
+        + (statistics2.TouchedVerticesInZone - statistics1.TouchedVerticesInZone) * 5u
+    
+    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{score} %d{(statistics1.TotalVisibleVerticesInZone - statistics1.CoveredVerticesInZone) * 30u}"])
+    firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1

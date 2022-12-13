@@ -163,13 +163,7 @@ type public SILI(options : SiliOptions) =
             statistics.InternalFails.Add(e)
             action.Invoke(method, e)
 
-    let mutable firsFreeEpisodeNumber = 0
-    let folderToStoreSerializationResult = "SerializedEpisodes"
-    let fileForExpectedResults = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
-    let serializeEpisode (s:cilState) =
-        System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firsFreeEpisodeNumber} %d{s.id}"])
-        //let coveredVertices,visitedVertices = Serializer.DumpFullGraph s.currentLoc true (System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber))
-        firsFreeEpisodeNumber <- firsFreeEpisodeNumber + 1
+    
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
             if pi.ParameterType.IsByRef then
@@ -328,15 +322,10 @@ type public SILI(options : SiliOptions) =
             | GoFront s ->
                 try
                     
-                    let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(folderToStoreSerializationResult, string firsFreeEpisodeNumber)))
+                    let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
                     x.Forward(s)
                     let statistics2 = Serializer.DumpFullGraph s.currentLoc None
-                    let score = (statistics2.CoveredVerticesInZone - statistics1.CoveredVerticesInZone) * 30u
-                                + (statistics2.VisitedVerticesInZone - statistics1.VisitedVerticesInZone) * 10u
-                                + (statistics2.TouchedVerticesInZone - statistics1.TouchedVerticesInZone) * 5u
-                    
-                    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firsFreeEpisodeNumber} %d{s.id} %d{score} %d{statistics1.TotalVisibleVerticesInZone * 30u}"])
-                    firsFreeEpisodeNumber <- firsFreeEpisodeNumber + 1
+                    Serializer.saveExpectedResult s.id statistics1 statistics2
                 with
                 | e -> reportStateInternalFail s e
             | GoBack(s, p) ->
