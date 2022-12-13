@@ -7,6 +7,10 @@ open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
+type coverageType =
+    | ByTest
+    | ByEntryPointTest
+
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
@@ -256,7 +260,7 @@ and Method internal (m : MethodBase) as this =
             cfg |> CfgInfo |> Some
         else None)
 
-    let blocksCoveredByTests = HashSet<offset>()
+    let blocksCoverage = Dictionary<offset, coverageType>()
 
     member x.CFG with get() =
         match cfg.Force() with
@@ -296,10 +300,18 @@ and Method internal (m : MethodBase) as this =
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
 
-    member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
-    member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
+    member x.BlocksCoveredByTests with get() = blocksCoverage.Keys |> Set.ofSeq
 
-    member x.ResetStatistics() = blocksCoveredByTests.Clear()
+    member x.BlocksCoveredFromEntryPoint with get() =
+        blocksCoverage |> Seq.choose (fun kv -> if kv.Value = ByEntryPointTest then Some kv.Key else None) |> Set.ofSeq
+
+    member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
+        match blocksCoverage.GetValueOrDefault(offset, ByTest) with
+        | ByTest ->
+            blocksCoverage.[offset] <- if testEntryMethod = x then ByEntryPointTest else ByTest
+        | ByEntryPointTest -> ()
+
+    member x.ResetStatistics() = blocksCoverage.Clear()
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -318,9 +330,6 @@ type public codeLocation = {offset : offset; method : Method}
             | _ -> -1
 
 module public CodeLocation =
-    let isBasicBlockCoveredByTest (blockStart : codeLocation) =
-        blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
-
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
         method.HasBody && method.CFG.HasSiblings blockStart.offset

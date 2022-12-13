@@ -211,7 +211,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
             for visitedState in s.history do
                 if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
 
-            if currentMethod.InCoverageZone && not <| isBasicBlockCoveredByTest currentLoc then
+            if currentMethod.InCoverageZone && not <| x.IsBasicBlockCoveredByTest coverageType.ByTest currentLoc then
                 if visitedBlocksNotCoveredByTests.ContainsKey s |> not then
                     visitedBlocksNotCoveredByTests.[s] <- Set.empty
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
@@ -225,21 +225,31 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.GetVisitedBlocksNotCoveredByTests (s : cilState) =
         if not isVisitedBlocksNotCoveredByTestsRelevant then
             for kvp in visitedBlocksNotCoveredByTests do
-                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << isBasicBlockCoveredByTest)
+                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << x.IsBasicBlockCoveredByTest coverageType.ByTest)
             isVisitedBlocksNotCoveredByTestsRelevant <- true
 
         if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
 
-    member x.GetApproximateCoverage (methods : Method seq) =
+    member x.IsBasicBlockCoveredByTest (coverageType : coverageType) (blockStart : codeLocation) =
+        match coverageType with
+        | ByTest -> blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
+        | ByEntryPointTest -> blockStart.method.BlocksCoveredFromEntryPoint.Contains blockStart.offset
+
+    member x.GetApproximateCoverage (methods : Method seq, coverageType : coverageType) =
+        let getCoveredBlocksCount (m : Method) =
+            match coverageType with
+            | ByTest -> m.BlocksCoveredByTests.Count
+            | ByEntryPointTest -> m.BlocksCoveredFromEntryPoint.Count
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
         let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
-        let coveredBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BlocksCoveredByTests.Count)
+        let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount
         if totalBlocksCount <> 0u then
             uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
         else
             0u
 
-    member x.GetApproximateCoverage (method : Method) = x.GetApproximateCoverage(Seq.singleton method)
+    member x.GetApproximateCoverage (method : Method, coverageType : coverageType) =
+        x.GetApproximateCoverage(Seq.singleton method, coverageType)
 
     member x.OnBranchesReleased() =
         branchesReleased <- true
@@ -265,7 +275,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         testsCount <- testsCount + 1u
         x.CreateContinuousDump()
         for block in s.history do
-            block.method.SetBlockIsCoveredByTest block.offset |> ignore
+            block.method.SetBlockIsCoveredByTest(block.offset, entryMethodOf s)
 
             if block.method.InCoverageZone then
                 isVisitedBlocksNotCoveredByTestsRelevant <- false

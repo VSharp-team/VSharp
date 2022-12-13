@@ -165,7 +165,7 @@ namespace VSharp
                     maxBufferSize: 128,
                     checkAttributes: true,
                     collectContinuousDump: collectStatistics,
-                    stopOnCompleteCoverageAchieved: true
+                    stopOnCoverageAchieved: 100
                 );
 
             using var explorer = new SILI(options);
