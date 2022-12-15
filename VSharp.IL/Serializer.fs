@@ -47,7 +47,7 @@ let DumpFullGraph (location:codeLocation) fileForResult =
         | None -> false, ""
     if dump then 
         System.IO.File.AppendAllLines(fileForResult, ["#Vertices"
-                                                      "#VertexId InCoverageZone BasicBlockSize CoveredByTest VisitedByState TouchedByState (State_i_ID State_i_Position)*"])
+                                                      "#VertexId InCoverageZone BasicBlockSize CoveredByTest VisitedByState TouchedByState (StateID StatePosition statePredictedUsefulness statePathConditionSize stateVisitedAgainVertices stateVisitedNotCoveredVerticesInZone stateVisitedNotCoveredVerticesOutOfZone)*"])
     let mutable firstFreeBasicBlockID = 0
     let basicBlocks = Dictionary<_,_>()
     let basicBlocksIds = Dictionary<_,_>()
@@ -89,7 +89,7 @@ let DumpFullGraph (location:codeLocation) fileForResult =
         then totalVisibleVerticesInZone <- totalVisibleVerticesInZone + 1u
         
         if dump then
-            let states = String.concat " " (kvp.Value.AssociatedStates |> Seq.map (fun s -> sprintf $"%d{s.Id} %d{s.CodeLocation.offset - kvp.Value.StartOffset + 1<offsets>}"))
+            let states = String.concat " " (kvp.Value.AssociatedStates |> Seq.map (fun s -> sprintf $"%d{s.Id} %d{s.CodeLocation.offset - kvp.Value.StartOffset + 1<offsets>} %f{s.PredictedUsefulness} %d{s.PathConditionSize} %d{s.VisitedAgainVertices} %d{s.VisitedNotCoveredVerticesInZone} %d{s.VisitedNotCoveredVerticesOutOfZone}"))
             System.IO.File.AppendAllLines(fileForResult, [sprintf $"%d{kvp.Key} %d{if kvp.Value.IsGoal then 1 else 0} %d{kvp.Value.FinalOffset - kvp.Value.StartOffset + 1<offsets>} %d{isCovered} %d{isVisited} %d{isTouched} %s{states}"])
     
     if dump then 

@@ -35,6 +35,10 @@ type cilState =
       /// Deterministic state id.
       /// </summary>
       id : uint
+      mutable predictedUsefulness: float
+      mutable visitedAgainVertices: uint
+      mutable visitedNotCoveredVerticesInZone: uint
+      mutable visitedNotCoveredVerticesOutOfZone: uint
     }
     with
     member x.Result with get() =
@@ -54,6 +58,14 @@ type cilState =
         override this.CodeLocation = this.currentLoc
         override this.CallStack = Memory.StackTrace this.state.stack |> List.map (fun m -> m :?> Method)
         override this.Id = this.id
+        override this.PathConditionSize with get () = 1u
+        override this.PredictedUsefulness with get () = this.predictedUsefulness
+        //override this.VisitedAgainEdges = 1u
+        override this.VisitedAgainVertices with get () = this.visitedAgainVertices
+        override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
+        override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
+        //override this.VisitedNotCoveredEdgesInZone = 1u
+        //override this.VisitedNotCoveredEdgesOutOfZone = 1u
 
 type cilStateComparer(comparer) =
     interface IComparer<cilState> with
@@ -84,6 +96,10 @@ module internal CilStateOperations =
           history = Set.empty
           entryMethod = Some entryMethod
           id = getNextStateId()
+          predictedUsefulness = 0.0
+          visitedAgainVertices = 0u
+          visitedNotCoveredVerticesInZone = 0u
+          visitedNotCoveredVerticesOutOfZone = 0u
         }
 
     let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state
@@ -225,6 +241,12 @@ module internal CilStateOperations =
         | _ -> ()
 
     let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+        if cilState.history.Contains loc
+        then cilState.visitedAgainVertices <- cilState.visitedAgainVertices + 1u
+        elif loc.BasicBlock.IsGoal
+        then if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
+        else if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
+             
         cilState.history <- Set.add loc cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------

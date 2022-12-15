@@ -18,6 +18,19 @@ type ICfgNode =
         abstract OutgoingEdges : seq<ICfgNode> with get
         abstract Offset : offset 
 
+[<RequireQualifiedAccess>]
+type EdgeType =
+    | CFG
+    | ShortcutForCall
+    | Call of int<terminalSymbol>
+    | Return of int<terminalSymbol>
+    
+[<Struct>]
+type EdgeLabel =
+    val EdgeType: EdgeType
+    val IsCovered: bool
+    val IsVisited: bool 
+    
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
@@ -407,6 +420,16 @@ and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
     abstract member Id: uint
+    abstract member PathConditionSize: uint
+    abstract member PredictedUsefulness: float with get
+    abstract member VisitedNotCoveredVerticesInZone: uint with get
+    abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
+    //abstract member VisitedNotCoveredEdgesInZone: uint with get,set
+    //abstract member VisitedNotCoveredEdgesOutOfZone: uint with get,set
+    //abstract member VisitedAgainEdges: uint with get
+    abstract member VisitedAgainVertices: uint with get
+    
+    
 
 module public CodeLocation =
     let isBasicBlockCoveredByTest (blockStart : codeLocation) =
