@@ -68,4 +68,8 @@
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Update="FSharp.Core" Version="7.0.0" />
+    </ItemGroup>
+
 </Project>

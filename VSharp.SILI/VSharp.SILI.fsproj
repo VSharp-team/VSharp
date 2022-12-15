@@ -111,5 +111,9 @@
         </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Update="FSharp.Core" Version="7.0.0" />
+    </ItemGroup>
+
 
 </Project>
