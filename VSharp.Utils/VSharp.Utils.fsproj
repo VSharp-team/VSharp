@@ -49,6 +49,7 @@
     <ItemGroup>
       <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
+      <PackageReference Update="FSharp.Core" Version="7.0.0" />
     </ItemGroup>
 
     <ItemGroup>

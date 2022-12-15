@@ -36,6 +36,7 @@
 
     <ItemGroup Condition=" !$(IsM1) ">
         <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
+        <PackageReference Update="FSharp.Core" Version="7.0.0" />
     </ItemGroup>
 
     <ItemGroup Condition=" $(IsM1) ">
