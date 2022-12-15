@@ -213,19 +213,26 @@ internal class CodeRenderer
         return ParseTypeName(typeName);
     }
 
+    // TODO: unify with RenderType
     public SimpleNameSyntax RenderTypeName(Type type)
     {
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
             _referenceManager.AddUsing(typeNamespace);
 
+        string typeName = type.Name;
+        if (type.IsNested && type.DeclaringType != null)
+        {
+            typeName = $"{RenderType(type.DeclaringType)}.{typeName}";
+        }
+
         if (type.IsGenericType)
         {
             var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
-            return RenderGenericName(type.Name, typeArgs);
+            return RenderGenericName(typeName, typeArgs);
         }
 
-        return IdentifierName(type.Name);
+        return IdentifierName(typeName);
     }
 
     public SimpleNameSyntax RenderMethodName(MethodBase method)
