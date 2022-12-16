@@ -13,7 +13,7 @@ namespace VSharp.Runner
     public static class RunnerProgram
     {
 
-        private static Assembly? ResolveAssembly(FileInfo assemblyPath)
+        public static Assembly? ResolveAssembly(FileInfo assemblyPath)
         {
             try
             {
@@ -26,7 +26,7 @@ namespace VSharp.Runner
             }
         }
 
-        private static Type? ResolveType(Assembly assembly, string? classArgumentValue)
+        public static Type? ResolveType(Assembly assembly, string? classArgumentValue)
         {
             if (classArgumentValue == null)
             {
@@ -50,7 +50,7 @@ namespace VSharp.Runner
             return specificClass;
         }
 
-        private static MethodBase? ResolveMethod(Assembly assembly, string? methodArgumentValue)
+        public static MethodBase? ResolveMethod(Assembly assembly, string? methodArgumentValue)
         {
             if (methodArgumentValue == null)
             {

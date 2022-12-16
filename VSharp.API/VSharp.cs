@@ -201,7 +201,7 @@ namespace VSharp
                     isolated.Add(method);
                 }
             }
-
+            explorer.Stop();
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                 (m, e) => HandleInternalFail(OptionModule.ToObj(m), e));
 

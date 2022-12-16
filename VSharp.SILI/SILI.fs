@@ -321,7 +321,6 @@ type public SILI(options : SiliOptions) =
             match action with
             | GoFront s ->
                 try
-                    
                     let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
                     x.Forward(s)
                     let statistics2 = Serializer.DumpFullGraph s.currentLoc None
