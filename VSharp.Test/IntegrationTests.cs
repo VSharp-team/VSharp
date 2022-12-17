@@ -248,7 +248,8 @@ namespace VSharp.Test
                         _releaseBranches,
                         128,
                         _checkAttributes,
-                        false
+                        false,
+                        null
                     );
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);

@@ -62,6 +62,7 @@ type public SILI(options : SiliOptions) =
         | _ -> false
 
     let rec mkForwardSearcher = function
+        | AIMode -> AISearcher(options.oracle) :> IForwardSearcher
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher

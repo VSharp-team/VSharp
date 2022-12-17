@@ -3,7 +3,7 @@ module VSharp.IL.Serializer
 open System.Collections.Generic
 open VSharp
 open VSharp.GraphUtils
-open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL    
 
 [<Struct>]
 type Statistics =
@@ -24,7 +24,41 @@ type Statistics =
          TouchedVerticesOutOfZone = touchedVerticesOutOfZone
          TotalVisibleVerticesInZone = totalVisibleVerticesInZone
          }
+
+[<Struct>]
+type State =
+    val Id: uint
+    val Position: uint
+    val PredictedUsefulness: float
+    val PathConditionSize: uint
+    val VisitedAgainVertices: uint
+    val VisitedNotCoveredVerticesInZone: uint
+    val VisitedNotCoveredVerticesOutOfZone: uint
+
+[<Struct>]    
+type GameMapVertex =
+    val Uid: uint
+    val Id: uint
+    val InCoverageZone: bool
+    val BasicBlockSize: uint
+    val CoveredByTest: bool
+    val VisitedByState: bool
+    val TouchedByState: bool
+    val States: State[]
+
+[<Struct>]
+type GameEdgeLabel =
+    val Token: int
+
+[<Struct>]
+type GameMapEdge =
+    val VertexFrom: GameMapVertex
+    val VertexTo: GameMapVertex
+    val Label: GameEdgeLabel
     
+[<Struct>]
+type GameState =
+    val Map: GameMapEdge[]
 
 let mutable firstFreeEpisodeNumber = 0
 let folderToStoreSerializationResult = "SerializedEpisodes"

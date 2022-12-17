@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open System.IO
+open VSharp.IL.Serializer
 
 type searchMode =
     | DFSMode
@@ -13,6 +14,7 @@ type searchMode =
     | InterleavedMode of searchMode * int * searchMode * int
     | ConcolicMode of searchMode
     | GuidedMode of searchMode
+    | AIMode
 
 type coverageZone =
     | MethodZone
@@ -38,4 +40,5 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     collectContinuousDump : bool
+    oracle: GameState -> (uint*float)
 }
