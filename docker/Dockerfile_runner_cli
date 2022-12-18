@@ -24,8 +24,7 @@ RUN apt-get update \
         git \
         wget \
 		unzip \
-        nano \
-    && rm -rf /var/lib/apt/lists/*
+		nano
 
 # Install .NET SDK
 RUN curl -fSL --output dotnet.tar.gz https://dotnetcli.azureedge.net/dotnet/Sdk/$DOTNET_SDK_VERSION/dotnet-sdk-$DOTNET_SDK_VERSION-linux-x64.tar.gz \
@@ -34,14 +33,22 @@ RUN curl -fSL --output dotnet.tar.gz https://dotnetcli.azureedge.net/dotnet/Sdk/
     && mkdir -p /usr/share/dotnet \
     && tar -oxzf dotnet.tar.gz -C /usr/share/dotnet ./packs ./sdk ./sdk-manifests ./templates ./LICENSE.txt ./ThirdPartyNotices.txt \
     && rm dotnet.tar.gz \
-    # Trigger first run experience by running arbitrary cmd
+    # Trigger first run experience
     && dotnet help
+	
+# Install Mono
+RUN apt-get -y install gnupg ca-certificates \
+	&& apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 3FA7E0328081BFF6A14DA29AA6A19B38D3D831EF \
+	&& echo "deb https://download.mono-project.com/repo/ubuntu stable-focal main" | tee /etc/apt/sources.list.d/mono-official-stable.list \
+	&& apt-get update \
+	&& apt-get install -y mono-devel \
+	&& rm -rf /var/lib/apt/lists/*
 
 # Install VSharp runner
 
 COPY ${VSHARP_RUNNER_ARCHIVE} .
 
-RUN VSHARP_RUNNER_ARCHIVE_NAME="$(find /usr/src -type f -name '*.zip')" \
+RUN VSHARP_RUNNER_ARCHIVE_NAME="$(find /usr/src -type f -name '*runner*.zip')" \
 	&& VSHARP_RUNNER_DIR=vsharp_runner \
 	&& mkdir ${VSHARP_RUNNER_DIR} \
 	&& unzip ${VSHARP_RUNNER_ARCHIVE_NAME} -d ${VSHARP_RUNNER_DIR} \
