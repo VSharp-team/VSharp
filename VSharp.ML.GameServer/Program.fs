@@ -1,4 +1,5 @@
 ﻿open System.IO
+open System.Text.Json
 open Microsoft.FSharp.Core
 open Suave
 open Suave.Operators
@@ -30,7 +31,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                     | (Text, data, true) ->
                         let msg = deserializeInputMessage data
                         match msg with
-                        | Step (stateToMove, predictedUsefulness) -> (stateToMove, predictedUsefulness)
+                        | Step stepParams -> (stepParams.StateId, stepParams.PredictedStateUsefulness)
                         | _ -> failwithf $"Unexpected message: %A{msg}"
                     | _ -> failwithf $"Unexpected message: %A{msg}"
                 return res
@@ -39,14 +40,14 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | Choice1Of2 (i, f) -> (i,f)
         | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
-    let provideReward =
+    (*let provideReward =
         fun (stepReward: int, maxPossibleReward: int) ->
             socket {
                 let res = webSocket.send
                 ()
             }
             |> Async.StartAsTask |> fun x -> x.
-        
+      *)  
     let sendResponse (responseString:string) =
         let byteResponse =
             responseString
@@ -60,8 +61,10 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | (Text, data, true) ->
                 let message = deserializeInputMessage data
                 match message with
-                | Start (gameMapName, coverageToStartGame) ->
-                    let settings = mapsSettings.[gameMapName]
+                | GetAllMaps ->
+                    do! sendResponse (JsonSerializer.Serialize (Array.ofSeq mapsSettings.Values))
+                | Start gameStartParams ->
+                    let settings = mapsSettings.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
                     match settings.CoverageZone with
                     | MethodZone ->
