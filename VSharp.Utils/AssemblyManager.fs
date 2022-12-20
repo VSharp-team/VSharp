@@ -38,7 +38,7 @@ type internal AssemblyResolveContext(assembly : Assembly) as this =
         assemblyContext.add_Resolving resolvingHandler
 
     new(assemblyPath : string) =
-        new AssemblyResolveContext(Assembly.LoadFile(assemblyPath))
+        new AssemblyResolveContext(Assembly.LoadFrom(assemblyPath))
 
     member private x.OnResolving (_ : AssemblyLoadContext) (assemblyName : AssemblyName) : Assembly =
         let compLib = x.TryGetFromCompilationLibs(assemblyName)

@@ -582,7 +582,8 @@ public static class TestsRenderer
             try
             {
                 var method = test.Method;
-                Debug.Assert(method.DeclaringType == declaringType);
+                
+                Debug.Assert(method.DeclaringType?.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition());
 
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");

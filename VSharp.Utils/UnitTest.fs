@@ -162,8 +162,8 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
     member x.Serialize(destination : string) =
         memoryGraph.Serialize info.memory
         let t = typeof<testInfo>
-        let extraAssempliesProperty = t.GetProperty("extraAssemblyLoadDirs")
-        extraAssempliesProperty.SetValue(info, Array.ofList extraAssemblyLoadDirs)
+        let extraAssembliesProperty = t.GetProperty("extraAssemblyLoadDirs")
+        extraAssembliesProperty.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let typeMocksProperty = t.GetProperty("typeMocks")
         typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize memoryGraph.Encode))
         let serializer = XmlSerializer t
