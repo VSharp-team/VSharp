@@ -42,6 +42,8 @@ type GameMap =
 type GameStartParams =
     val MapId: uint
     val StepsToPlay: uint
+    
+    [<JsonConstructor>]
     new (mapId, stepsToPlay) = {MapId = mapId; StepsToPlay = stepsToPlay}
 
 [<Struct>]
