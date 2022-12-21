@@ -2,6 +2,7 @@ module VSharp.ML.GameServer.Messages
 
 open System.Collections.Generic
 open System.Dynamic
+open System.Text.Json.Serialization
 open VSharp
 open VSharp.Interpreter.IL
 
@@ -9,14 +10,24 @@ open VSharp.Interpreter.IL
 type RawInputMessage =
     val MessageType: string
     val MessageBody: string
-    new (_type, _body) = {MessageBody = _body; MessageType = _type}
+    [<JsonConstructor>]
+    new (messageType, messageBody) = {MessageBody = messageBody; MessageType = messageType}
+    
+type CoverageZone =
+    | Method = 0
+    | Class = 1
+    
+let toSiliZone zone =
+    match zone with
+    | CoverageZone.Method -> coverageZone.MethodZone
+    | CoverageZone.Class -> coverageZone.ClassZone
     
 [<Struct>]
 type GameMap =
     val Id: uint
     val CoverageToStart: uint
     val AssemblyFullName: string
-    val CoverageZone: coverageZone
+    val CoverageZone: CoverageZone
     val NameOfObjectToCover: string
     new (id, coverageToStart, assembly, coverageZone, objectToCover) =
         {
@@ -46,8 +57,8 @@ type InputMessage =
 
 let mapsSettings =
     let d = Dictionary<_,_>()
-    d.Add(0u, GameMap(0u,0u,"path_to_dll.0",coverageZone.MethodZone,"method_to_test_0"))
-    d.Add(1u, GameMap(1u,0u,"path_to_dll.1",coverageZone.MethodZone,"method_to_test_1"))
+    d.Add(0u, GameMap(0u,0u,"path_to_dll.0",CoverageZone.Method,"method_to_test_0"))
+    d.Add(1u, GameMap(1u,0u,"path_to_dll.1",CoverageZone.Method,"method_to_test_1"))
     d
     
 let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =
@@ -62,8 +73,8 @@ let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =
     
 let deserializeInputMessage (messageData:byte[]) =
     let rawInputMessage =
-        UTF8.toString messageData
-        |> System.Text.Json.JsonSerializer.Deserialize<RawInputMessage>
+        let str = UTF8.toString messageData
+        str |> System.Text.Json.JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
     | MsgTypeStart -> Start (System.Text.Json.JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
     | MsgTypeStep -> Step (System.Text.Json.JsonSerializer.Deserialize<GameStep> rawInputMessage.MessageBody)

@@ -41,4 +41,5 @@ type SiliOptions = {
     checkAttributes : bool
     collectContinuousDump : bool
     oracle: GameState -> (uint*float)
+    stepsOfDefaultSearcher: int
 }

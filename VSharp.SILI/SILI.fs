@@ -62,7 +62,7 @@ type public SILI(options : SiliOptions) =
         | _ -> false
 
     let rec mkForwardSearcher = function
-        | AIMode -> AISearcher(options.oracle) :> IForwardSearcher
+        | AIMode -> AISearcher(options.stepsOfDefaultSearcher, options.oracle) :> IForwardSearcher
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
@@ -322,10 +322,20 @@ type public SILI(options : SiliOptions) =
             match action with
             | GoFront s ->
                 try
-                    let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
-                    x.Forward(s)
-                    let statistics2 = Serializer.DumpFullGraph s.currentLoc None
-                    Serializer.saveExpectedResult s.id statistics1 statistics2
+                    let statisticsBeforeStep =
+                        match searcher with
+                        | :? AISearcher as s -> Some s.LastCollectedStatistics
+                        | _ -> None
+                    //let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
+                    x.Forward(s)                    
+                    match searcher with
+                    | :? AISearcher as searcher ->
+                        let gameState, statisticsAfterStep = Serializer.collectGameState s.currentLoc
+                        searcher.LastGameState <- gameState
+                        () // Some s.LastCollectedStatistics
+                    | _ -> ()
+                    //let statistics2 = Serializer.DumpFullGraph s.currentLoc None
+                    //Serializer.saveExpectedResult s.id statistics1 statistics2
                 with
                 | e -> reportStateInternalFail s e
             | GoBack(s, p) ->

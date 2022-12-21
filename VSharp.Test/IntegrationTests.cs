@@ -249,7 +249,8 @@ namespace VSharp.Test
                         128,
                         _checkAttributes,
                         false,
-                        null
+                        null,
+                        0
                     );
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);

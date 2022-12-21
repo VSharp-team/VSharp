@@ -21,7 +21,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         let res = 
             socket {
                 let byteResponse =
-                    System.Text.Json.JsonSerializer.Serialize gameState
+                    JsonSerializer.Serialize gameState
                     |> System.Text.Encoding.UTF8.GetBytes
                     |> ByteSegment
                 do! webSocket.send Text byteResponse true
@@ -40,14 +40,14 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | Choice1Of2 (i, f) -> (i,f)
         | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
-    (*let provideReward =
+    let feedbackProvider =
         fun (stepReward: int, maxPossibleReward: int) ->
-            socket {
+            async {
                 let res = webSocket.send
                 ()
             }
-            |> Async.StartAsTask |> fun x -> x.
-      *)  
+            |> Async.Start
+      
     let sendResponse (responseString:string) =
         let byteResponse =
             responseString
@@ -62,22 +62,21 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                 let message = deserializeInputMessage data
                 match message with
                 | GetAllMaps ->
-                    do! sendResponse (JsonSerializer.Serialize (Array.ofSeq mapsSettings.Values))
+                    do! sendResponse (JsonSerializer.Serialize mapsSettings.Values)
                 | Start gameStartParams ->
                     let settings = mapsSettings.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
                     match settings.CoverageZone with
-                    | MethodZone ->
+                    | CoverageZone.Method ->
                         let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        VSharp.TestGenerator.Cover(method, oracle = oracle) |> ignore
-                    | ClassZone ->
+                        //VSharp.TestGenerator.Cover(method, oracle = oracle, stepsOfDefaultSearcher = settings.CoverageToStart) |> ignore
+                        ()
+                    | CoverageZone.Class ->
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
                         VSharp.TestGenerator.Cover(_type, oracle = oracle) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
-                | x -> failwithf $"Unexpected message: %A{x}"    
-                
-                                
-                do! sendResponse ""
+                    do! sendResponse "GameOver" ///!!!
+                | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->
                 let emptyResponse = [||] |> ByteSegment
@@ -93,21 +92,5 @@ let app: WebPart =
     
 [<EntryPoint>]
 let main _ =
-    (*let ws1 = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp)
-    let adr = IPAddress.IPv6Any
-    let endpoint = IPEndPoint(adr,8080)
-    ws1.Bind(endpoint)
-    ws1.Listen(100)
-    let handler = ws1.Accept() 
-    while true do
-        handler.Receive()  
-    *)
     startWebServer {defaultConfig with logger = Targets.create Verbose [||]} app
-    (*    let r =
-            "response string"
-            |> System.Text.Encoding.UTF8.GetBytes
-            |> ByteSegment
-        let x = (ws1.Send(r))
-        ()
-    *)
     0
