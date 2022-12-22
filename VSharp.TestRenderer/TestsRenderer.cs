@@ -44,7 +44,7 @@ public static class TestsRenderer
         private const int TabSize = 4;
         private int _currentOffset = 0;
         private MethodFormat _format = new();
-        private string? _firstExpr = null;
+        private string? _firstArrangeExpr = null;
         private static readonly SyntaxTrivia ArrangeComment = Comment("// arrange");
         private static readonly SyntaxTrivia ActComment = Comment("// act");
         private static readonly SyntaxTrivia AssertComment = Comment("// assert");
@@ -128,7 +128,7 @@ public static class TestsRenderer
                     return base.Visit(node);
                 }
                 // Adding '// arrange' comment before generated args
-                case StatementSyntax statement when statement.ToString() == _firstExpr:
+                case StatementSyntax statement when statement.ToString() == _firstArrangeExpr:
                 {
                     var whitespaces = CurrentOffset();
                     node = statement.WithLeadingTrivia(whitespaces, ArrangeComment, LineFeed, whitespaces);
@@ -167,10 +167,10 @@ public static class TestsRenderer
                 // Remembering current method
                 case MethodDeclarationSyntax expr:
                 {
-                    _firstExpr = null;
+                    _firstArrangeExpr = null;
                     MethodsFormat.TryGetValue(expr.Identifier.ToString(), out _format);
                     if (_format.HasArgs)
-                        _firstExpr = expr.Body?.Statements[0].ToString();
+                        _firstArrangeExpr = expr.Body?.Statements[0].ToString();
 
                     return base.Visit(node);
                 }
@@ -178,7 +178,11 @@ public static class TestsRenderer
                 case ExpressionStatementSyntax expr when expr.ToString().Contains("Assert"):
                 {
                     var whitespaces = CurrentOffset();
-                    node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
+                    if (node.Parent?.Parent is MethodDeclarationSyntax { Body.Statements.Count: 1 })
+                        node = node.WithLeadingTrivia(whitespaces, AssertComment, LineFeed, whitespaces);
+                    else
+                        node = node.WithLeadingTrivia(LineFeed, whitespaces, AssertComment, LineFeed, whitespaces);
+
                     return base.Visit(node);
                 }
                 case FileScopedNamespaceDeclarationSyntax namespaceDecl:
@@ -211,6 +215,11 @@ public static class TestsRenderer
         var formatted = myRewriter.Visit(normalized);
         Debug.Assert(formatted != null);
         return formatted;
+    }
+
+    public static CompilationUnitSyntax? Format(CompilationUnitSyntax? node)
+    {
+        return Format(node as SyntaxNode) as CompilationUnitSyntax;
     }
 
     private class EmptyReferenceManager : IReferenceManager
@@ -550,40 +559,31 @@ public static class TestsRenderer
         return mock.Render();
     }
 
-    public static (SyntaxNode, SyntaxNode?, string) RenderTests(
-        List<UnitTest> tests,
-        bool wrapErrors = false,
-        Type? declaringType = null)
+    private static string RenderTestsForType(
+        IEnumerable<UnitTest> tests,
+        ProgramRenderer testsProgram,
+        ProgramRenderer mocksProgram,
+        Type declaringType,
+        bool wrapErrors)
     {
-        PrepareCache();
-        MethodsFormat.Clear();
-
-        // Creating main class for generating tests
-        var typeName = NameForType(declaringType);
-        var namespaceName =
-            declaringType == null
-                ? "GeneratedNamespace"
-                : String.IsNullOrEmpty(declaringType.Namespace)
-                    ? "Tests"
-                    : $"{declaringType.Namespace}.Tests";
-        var testsProgram = new ProgramRenderer(namespaceName);
-        // Adding NUnit namespace to usings
-        testsProgram.AddNUnitToUsigns();
+        // Creating class for generating tests
+        var typeName = $"{NameForType(declaringType)}Tests";
         var generatedClass =
             testsProgram.AddType(
-                $"{typeName}Tests",
+                typeName,
                 false,
                 null,
                 RenderAttributeList("TestFixture"),
                 null
             );
 
-        var mocksProgram = new ProgramRenderer(namespaceName);
         foreach (var test in tests)
         {
             try
             {
                 var method = test.Method;
+                Debug.Assert(method.DeclaringType == declaringType);
+
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");
 
@@ -597,7 +597,7 @@ public static class TestsRenderer
                 var thisArg = test.ThisArg;
                 if (thisArg == null && !method.IsStatic)
                     thisArg = Reflection.createObject(method.DeclaringType);
-                string suitTypeName = test.IsError ? "Error" : "Test";
+                string suiteTypeName = test.IsError ? "Error" : "Test";
 
                 var testName = NameForMethod(method);
                 bool isUnsafe =
@@ -612,7 +612,7 @@ public static class TestsRenderer
                     );
 
                 var testRenderer = generatedClass.AddMethod(
-                    testName + suitTypeName,
+                    testName + suiteTypeName,
                     attributes,
                     modifiers,
                     generatedClass.VoidType,
@@ -627,12 +627,94 @@ public static class TestsRenderer
             }
         }
         generatedClass.Render();
+        return typeName;
+    }
 
-        var renderedMocksProgram = Format(mocksProgram.Render());
+    private static (CompilationUnitSyntax, string)? RenderOneProgramPerType(
+        IEnumerable<UnitTest> tests,
+        string namespaceName,
+        ProgramRenderer mocksProgram,
+        Type declaringType,
+        bool wrapErrors)
+    {
+        // Creating main program for generating tests
+        var testsProgram = new ProgramRenderer(namespaceName);
+
+        // Adding NUnit namespace to usings
+        testsProgram.AddNUnitToUsigns();
+
+        var typeName = RenderTestsForType(tests, testsProgram, mocksProgram, declaringType, wrapErrors);
         var renderedTestsProgram = Format(testsProgram.Render());
-        if (renderedTestsProgram == null)
+
+        return renderedTestsProgram == null ? null : (renderedTestsProgram, typeName);
+    }
+
+    public static List<(CompilationUnitSyntax, string)> RenderTests(
+        List<UnitTest> tests,
+        string testProjectName,
+        bool wrapErrors = false,
+        bool singleFile = false,
+        Type? declaringType = null)
+    {
+        PrepareCache();
+        MethodsFormat.Clear();
+
+        var namespaceName =
+            declaringType == null || string.IsNullOrEmpty(declaringType.Namespace)
+                ? testProjectName
+                : $"{declaringType.Namespace}.Tests";
+
+        // Creating program: in case of single file solution, it's only program, otherwise, it's program for mocks
+        var program = new ProgramRenderer(namespaceName);
+
+        if (singleFile)
+            program.AddNUnitToUsigns();
+
+        var testsPrograms = new List<(CompilationUnitSyntax, string)>();
+
+        if (declaringType != null)
+        {
+            if (singleFile)
+            {
+                RenderTestsForType(tests, program, program, declaringType, wrapErrors);
+            }
+            else
+            {
+                var renderedTestsProgram =
+                    RenderOneProgramPerType(tests, namespaceName, program, declaringType, wrapErrors);
+                if (renderedTestsProgram.HasValue)
+                    testsPrograms.Add(renderedTestsProgram.Value);
+            }
+        }
+        else
+        {
+            foreach (var unitTests in tests.GroupBy(test => test.Method.DeclaringType))
+            {
+                declaringType = unitTests.Key;
+                Debug.Assert(declaringType != null);
+
+                if (singleFile)
+                {
+                    RenderTestsForType(unitTests, program, program, declaringType, wrapErrors);
+                }
+                else
+                {
+                    var renderedTestsProgram =
+                        RenderOneProgramPerType(unitTests, namespaceName, program, declaringType, wrapErrors);
+                    if (renderedTestsProgram.HasValue)
+                        testsPrograms.Add(renderedTestsProgram.Value);
+                }
+            }
+        }
+
+        var renderedProgram = Format(program.Render());
+        var programName = singleFile ? testProjectName : "Mocks";
+        if (renderedProgram != null)
+            testsPrograms.Add((renderedProgram, programName));
+
+        if (testsPrograms.Count == 0)
             throw new Exception("Tests renderer: no tests were generated!");
 
-        return (renderedTestsProgram, renderedMocksProgram, typeName);
+        return testsPrograms;
     }
 }

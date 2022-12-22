@@ -90,7 +90,6 @@ namespace IntegrationTests
             return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
         }
 
-
         [TestSvm(100)]
         public static int test2(long time)
         {

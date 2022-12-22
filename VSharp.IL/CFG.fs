@@ -8,6 +8,10 @@ open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
+type coverageType =
+    | ByTest
+    | ByEntryPointTest
+
 module CallGraph =
     let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
     let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
@@ -332,7 +336,7 @@ and Method internal (m : MethodBase) as this =
             cfg
         else None)
 
-    let blocksCoveredByTests = HashSet<offset>()
+    let blocksCoverage = Dictionary<offset, coverageType>()
 
     member x.CFG with get() =
         match cfg.Force() with
@@ -373,9 +377,10 @@ and Method internal (m : MethodBase) as this =
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedBasicBlocks.Count |> uint else 0u
 
-    member x.BlocksCoveredByTests with get() = blocksCoveredByTests :> IReadOnlySet<offset>
-    member x.SetBlockIsCoveredByTest(offset : offset) = blocksCoveredByTests.Add(offset)
-    member x.ResetStatistics() = blocksCoveredByTests.Clear()
+    member x.BlocksCoveredByTests with get() = blocksCoverage.Keys |> Set.ofSeq
+
+    member x.BlocksCoveredFromEntryPoint with get() =
+        blocksCoverage |> Seq.choose (fun kv -> if kv.Value = ByEntryPointTest then Some kv.Key else None) |> Set.ofSeq
     member this.CallGraphDistanceFromMe
         with get () =
             let assembly = this.Module.Assembly
@@ -399,6 +404,15 @@ and Method internal (m : MethodBase) as this =
                 if i.Value <> infinity then
                     distToNode.Add(i.Key, i.Value)
             distToNode)            
+
+    member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
+        match blocksCoverage.GetValueOrDefault(offset, ByTest) with
+        | ByTest ->
+            blocksCoverage.[offset] <- if testEntryMethod = x then ByEntryPointTest else ByTest
+        | ByEntryPointTest -> ()
+
+    member x.ResetStatistics() = blocksCoverage.Clear()
+
 
 and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset; method : Method}
     with
@@ -432,9 +446,6 @@ and IGraphTrackableState =
     
 
 module public CodeLocation =
-    let isBasicBlockCoveredByTest (blockStart : codeLocation) =
-        blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
-
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
         method.HasBody && method.CFG.HasSiblings blockStart.offset

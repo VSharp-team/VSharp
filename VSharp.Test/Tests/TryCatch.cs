@@ -195,6 +195,19 @@ namespace IntegrationTests
             }
         }
 
+        [TestSvm(100)]
+        public int FactResult(int n)
+        {
+            try
+            {
+                return Fact(n);
+            }
+            catch (NotPositive)
+            {
+                return 0;
+            }
+        }
+
         [Ignore("Exceptions handling")]
         public int CheckFactSafe(int n)
         {

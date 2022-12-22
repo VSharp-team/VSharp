@@ -693,7 +693,7 @@ namespace IntegrationTests
                 node = node.Next;
             }
 
-            if (sum == 15)
+            if (sum > 15)
                 return 1;
             return 2;
         }

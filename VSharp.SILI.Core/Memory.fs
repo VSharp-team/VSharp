@@ -591,10 +591,10 @@ module internal Memory =
         let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
         readArrayRegion state arrayType extractor (extractor state) address indices
 
-    let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
+    let private readSymbolicIndexFromConcreteArray state address arrayData indices (elemType, _, _ as arrayType) =
         let writeOneIndex mr (index, value) =
             let key = {address = address; indices = List.map makeNumber index}
-            objToTerm state (value.GetType()) value |> MemoryRegion.write mr key
+            objToTerm state elemType value |> MemoryRegion.write mr key
         let region = arrayData |> Seq.fold writeOneIndex (MemoryRegion.empty (fst3 arrayType))
         readArrayRegion state arrayType (always region) region address indices
 

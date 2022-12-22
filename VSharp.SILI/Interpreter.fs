@@ -796,9 +796,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
-//        let comparerType = typeof<System.Collections.Generic.Comparer<obj>>.GetGenericTypeDefinition()
-//        let defaultComparer = Reflection.getAllMethods comparerType |> Array.map (fun mi -> mi :> MethodBase)
-        let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|];
+        let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
         Array.concat [intPtr; volatile; defaultComparer]
 
     member private x.IsNotImplementedIntrinsic (method : Method) fullMethodName =
@@ -2171,6 +2169,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 // NOTE: starting to explore catch clause
                 let ip = Instruction(codeLocation.offset, codeLocation.method)
                 setCurrentIp ip cilState
+                clearEvaluationStackLastFrame cilState
                 push (cilState.state.exceptionsRegister.GetError()) cilState
                 k [cilState]
             | SecondBypass(Some ip, locations, codeLocation) ->
@@ -2190,6 +2189,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let ip = SecondBypass(finallyHandlerIp, otherLocations, codeLocation)
                 clearEvaluationStackLastFrame cilState
                 popFrameOf cilState
+                clearEvaluationStackLastFrame cilState
                 setCurrentIp ip cilState
                 k [cilState]
             | _ -> __notImplemented__()

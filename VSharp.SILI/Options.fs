@@ -40,6 +40,7 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     collectContinuousDump : bool
+    stopOnCoverageAchieved : int
     oracle: GameState -> (uint*float)
     stepsOfDefaultSearcher: int
 }

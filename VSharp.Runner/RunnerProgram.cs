@@ -152,6 +152,8 @@ namespace VSharp.Runner
                 new Option("--unknown-args", description: "Force engine to generate various input console arguments");
             var renderTestsOption =
                 new Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
+            var singleFileOption =
+                new Option("--single-file") { IsHidden = true };
             var searchStrategyOption =
                 new Option<SearchStrategy>(aliases: new[] { "--strat" },
                     () => TestGenerator.DefaultSearchStrategy,
@@ -181,6 +183,7 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddGlobalOption(timeoutOption);
             allPublicMethodsCommand.AddGlobalOption(outputOption);
             allPublicMethodsCommand.AddGlobalOption(renderTestsOption);
+            allPublicMethodsCommand.AddOption(singleFileOption);
             allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
             allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             var publicMethodsOfClassCommand =
@@ -226,11 +229,11 @@ namespace VSharp.Runner
                 if (assembly != null)
                     PostProcess(TestGenerator.Cover(assembly, inputArgs, timeout, output.FullName, renderTests, strat, verbosity));
             });
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((assemblyPath, timeout, output, renderTests, strat, verbosity) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity>((assemblyPath, timeout, output, renderTests, singleFile, strat, verbosity) =>
             {
                 var assembly = ResolveAssembly(assemblyPath);
                 if (assembly != null)
-                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName, renderTests, strat, verbosity));
+                    PostProcess(TestGenerator.Cover(assembly, timeout, output.FullName, renderTests, singleFile, strat, verbosity));
             });
             publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((className, assemblyPath, timeout, output, renderTests, strat, verbosity) =>
             {

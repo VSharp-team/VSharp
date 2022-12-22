@@ -194,10 +194,12 @@ type BackwardSearcher() =
             updateQBack cilState
 
         override x.Remove cilState =
-            let count = qBack.RemoveAll(fun (cilState', _ as pair) -> if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true else false)
+            let removePredicate (cilState', _ as pair) =
+                if cilState = cilState' then alreadyAddedInQBack.Remove(pair) |> ignore; true
+                else false
+            let count = qBack.RemoveAll(removePredicate)
             if count > 0 then
-                // TODO: need this?
-                internalfail "olololo!"
+                internalfail "BackwardSearcher.Remove: count > 0"
 
         override x.Reset() = clear()
 
