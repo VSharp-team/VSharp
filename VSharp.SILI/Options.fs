@@ -2,6 +2,7 @@
 
 open System.Diagnostics
 open System.IO
+open VSharp.IL
 open VSharp.IL.Serializer
 
 type searchMode =
@@ -29,6 +30,12 @@ type executionMode =
     | ConcolicMode
     | SymbolicMode
 
+[<Struct>]
+type Oracle =
+    val Predict: GameState -> uint*float
+    val Feedback: Reward -> unit
+    new (predict, feedback) = {Predict=predict; Feedback = feedback}
+
 type SiliOptions = {
     explorationMode : explorationMode
     executionMode : executionMode
@@ -41,6 +48,6 @@ type SiliOptions = {
     checkAttributes : bool
     collectContinuousDump : bool
     stopOnCoverageAchieved : int
-    oracle: GameState -> (uint*float)
-    stepsOfDefaultSearcher: int
+    oracle: Option<Oracle>
+    coverageToSwitchToAI: uint
 }

@@ -8,6 +8,7 @@ open Suave.Logging
 open Suave.Sockets
 open Suave.Sockets.Control
 open Suave.WebSocket
+open VSharp
 open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
@@ -17,43 +18,50 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
   
   socket {
     let mutable loop = true
-    let oracle = fun (gameState:GameState) ->
-        let res = 
-            socket {
-                let byteResponse =
-                    JsonSerializer.Serialize gameState
-                    |> System.Text.Encoding.UTF8.GetBytes
-                    |> ByteSegment
-                do! webSocket.send Text byteResponse true
-                let! msg = webSocket.read()
-                let res = 
-                    match msg with
-                    | (Text, data, true) ->
-                        let msg = deserializeInputMessage data
-                        match msg with
-                        | Step stepParams -> (stepParams.StateId, stepParams.PredictedStateUsefulness)
-                        | _ -> failwithf $"Unexpected message: %A{msg}"
-                    | _ -> failwithf $"Unexpected message: %A{msg}"
-                return res
-            }
-        match Async.RunSynchronously res with
-        | Choice1Of2 (i, f) -> (i,f)
-        | Choice2Of2 error -> failwithf $"Error: %A{error}"
-        
-    let feedbackProvider =
-        fun (stepReward: int, maxPossibleReward: int) ->
-            async {
-                let res = webSocket.send
-                ()
-            }
-            |> Async.Start
-      
+    
     let sendResponse (responseString:string) =
         let byteResponse =
             responseString
             |> System.Text.Encoding.UTF8.GetBytes
             |> ByteSegment
         webSocket.send Text byteResponse true
+        
+    let oracle =
+        let feedback =
+            fun (feedback: Reward) ->
+                let res =
+                    socket {
+                        do! sendResponse (JsonSerializer.Serialize feedback) 
+                    }
+                match Async.RunSynchronously res with
+                | Choice1Of2 () -> ()
+                | Choice2Of2 error -> failwithf $"Error: %A{error}"
+                
+        let predict =
+            fun (gameState:GameState) ->
+                let res = 
+                    socket {
+                        let byteResponse =
+                            JsonSerializer.Serialize gameState
+                            |> System.Text.Encoding.UTF8.GetBytes
+                            |> ByteSegment
+                        do! webSocket.send Text byteResponse true
+                        let! msg = webSocket.read()
+                        let res = 
+                            match msg with
+                            | (Text, data, true) ->
+                                let msg = deserializeInputMessage data
+                                match msg with
+                                | Step stepParams -> (stepParams.StateId, stepParams.PredictedStateUsefulness)
+                                | _ -> failwithf $"Unexpected message: %A{msg}"
+                            | _ -> failwithf $"Unexpected message: %A{msg}"
+                        return res
+                    }
+                match Async.RunSynchronously res with
+                | Choice1Of2 (i, f) -> (i,f)
+                | Choice2Of2 error -> failwithf $"Error: %A{error}"
+        
+        Oracle(predict,feedback)
         
     while loop do
         let! msg = webSocket.read()
@@ -69,11 +77,10 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                     match settings.CoverageZone with
                     | CoverageZone.Method ->
                         let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        //VSharp.TestGenerator.Cover(method, oracle = oracle, stepsOfDefaultSearcher = settings.CoverageToStart) |> ignore
-                        ()
+                        VSharp.TestGenerator.Cover(method, oracle = oracle, searchStrategy=SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart) |> ignore                        
                     | CoverageZone.Class ->
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                        VSharp.TestGenerator.Cover(_type, oracle = oracle) |> ignore
+                        VSharp.TestGenerator.Cover(_type, oracle = oracle, searchStrategy=SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     do! sendResponse "GameOver" ///!!!
                 | x -> failwithf $"Unexpected message: %A{x}"

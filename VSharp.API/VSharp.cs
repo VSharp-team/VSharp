@@ -144,7 +144,7 @@ namespace VSharp
         public const Verbosity DefaultVerbosity = Verbosity.Quiet;
 
         private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder,
-            coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1, FSharpFunc<Serializer.GameState,Tuple<uint,double>> oracle = null, int stepsOfDefaultSearcher = 0)
+            coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1, Oracle? oracle = null, uint coverageToSwitchToAI = 0)
             
         {
             Logger.current_log_level = verbosity.ToLoggerLevel();
@@ -171,7 +171,7 @@ namespace VSharp
                     collectStatistics,
                     100,
                     oracle,
-                    stepsOfDefaultSearcher);
+                    coverageToSwitchToAI);
 
             using var explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
@@ -284,12 +284,12 @@ namespace VSharp
             bool renderTests = false,
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity,
-            FSharpFunc<Serializer.GameState,Tuple<uint,double>> oracle = null,
-            int stepsOfDefaultSearcher = 0)
+            Oracle? oracle = null,
+            uint coverageToSwitchToAI = 0)
         {
             AssemblyManager.Load(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, null, timeout, oracle, stepsOfDefaultSearcher);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, null, timeout, oracle, coverageToSwitchToAI);
             if (renderTests)
                 Render(statistics, method.DeclaringType);
             return statistics;
@@ -313,8 +313,8 @@ namespace VSharp
             bool renderTests = false,
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity,
-            FSharpFunc<Serializer.GameState,Tuple<uint,double>> oracle = null,
-            int stepsOfDefaultSearcher = 0
+            Oracle? oracle = null,
+            uint coverageToSwitchToAI = 0
             )
         {
             AssemblyManager.Load(type.Module.Assembly);
@@ -325,7 +325,7 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout, oracle, stepsOfDefaultSearcher);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout, oracle, coverageToSwitchToAI);
             if (renderTests)
                 Render(statistics, type);
             return statistics;

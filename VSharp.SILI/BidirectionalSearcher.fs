@@ -25,7 +25,8 @@ type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearc
 //        else HashSet<_>()
 
 
-
+    member this.ForwardSearcher = forward
+    
     interface IBidirectionalSearcher with
 //            let _, inverseReachability' = CFG.buildMethodsReachabilityForAssembly m
 //            inverseReachability <- inverseReachability'

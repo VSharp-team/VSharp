@@ -59,8 +59,8 @@ type InputMessage =
 
 let mapsSettings =
     let d = Dictionary<_,_>()
-    d.Add(0u, GameMap(0u,0u,"path_to_dll.0",CoverageZone.Method,"method_to_test_0"))
-    d.Add(1u, GameMap(1u,0u,"path_to_dll.1",CoverageZone.Method,"method_to_test_1"))
+    d.Add(0u, GameMap(0u,0u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
+    d.Add(1u, GameMap(1u,10u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
     d
     
 let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =

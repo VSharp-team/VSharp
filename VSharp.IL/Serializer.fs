@@ -97,6 +97,12 @@ type GameMapEdge =
 type GameState =
     val Map: GameMapEdge[]
     new (map) = {Map = map}
+    
+[<Struct>]    
+type Reward =
+    val StepReward: int
+    val MaxPossibleReward: uint
+    new (stepReward, maxPossibleReward) = {StepReward = stepReward; MaxPossibleReward = maxPossibleReward}
 
 let mutable firstFreeEpisodeNumber = 0
 let folderToStoreSerializationResult = "SerializedEpisodes"
@@ -269,3 +275,14 @@ let saveExpectedResult (movedStateId:uint) (statistics1:Statistics) (statistics2
     
     System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{score} %d{(statistics1.TotalVisibleVerticesInZone - statistics1.CoveredVerticesInZone) * 30u}"])
     firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1
+    
+
+let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
+    let stepReward =
+        (statisticsAfterStep.CoveredVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 30u
+        + (statisticsAfterStep.VisitedVerticesInZone - statisticsBeforeStep.VisitedVerticesInZone) * 10u
+        + (statisticsAfterStep.TouchedVerticesInZone - statisticsBeforeStep.TouchedVerticesInZone) * 5u
+        
+    let maxPossibleReward = (statisticsBeforeStep.TotalVisibleVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 30u
+    
+    stepReward, maxPossibleReward

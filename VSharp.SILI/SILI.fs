@@ -65,7 +65,7 @@ type public SILI(options : SiliOptions) =
         | _ -> false
 
     let rec mkForwardSearcher = function
-        | AIMode -> AISearcher(options.stepsOfDefaultSearcher, options.oracle) :> IForwardSearcher
+        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value) :> IForwardSearcher
         | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
         | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
@@ -328,16 +328,26 @@ type public SILI(options : SiliOptions) =
             | GoFront s ->
                 try
                     let statisticsBeforeStep =
-                        match searcher with
-                        | :? AISearcher as s -> Some s.LastCollectedStatistics
+                        match searcher with                        
+                        | :? BidirectionalSearcher as s ->
+                            match s.ForwardSearcher with
+                            | :? AISearcher as s -> Some s.LastCollectedStatistics
+                            | _ -> None                        
                         | _ -> None
                     //let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
-                    x.Forward(s)                    
-                    match searcher with
-                    | :? AISearcher as searcher ->
-                        let gameState, statisticsAfterStep = Serializer.collectGameState s.currentLoc
-                        searcher.LastGameState <- gameState
-                        () // Some s.LastCollectedStatistics
+                    x.Forward(s)                                        
+                    match searcher with                        
+                    | :? BidirectionalSearcher as searcher ->
+                        match searcher.ForwardSearcher with
+                        | :? AISearcher as searcher ->
+                            let gameState, statisticsAfterStep = Serializer.collectGameState s.currentLoc
+                            searcher.LastGameState <- gameState
+                            searcher.LastCollectedStatistics <- statisticsAfterStep
+                            let stepReward, maxPossibleReward = Serializer.computeReward statisticsBeforeStep.Value statisticsAfterStep
+                            if searcher.InAIMode
+                            then searcher.Oracle.Feedback (Serializer.Reward (int stepReward, maxPossibleReward))
+                            // Some s.LastCollectedStatistics
+                        | _ -> ()
                     | _ -> ()
                     //let statistics2 = Serializer.DumpFullGraph s.currentLoc None
                     //Serializer.saveExpectedResult s.id statistics1 statistics2

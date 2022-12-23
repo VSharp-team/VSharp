@@ -17,6 +17,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.API\VSharp.API.csproj" />
+      <ProjectReference Include="..\VSharp.ML.GameMaps\VSharp.ML.GameMaps.csproj" />
       <ProjectReference Include="..\VSharp.Runner\VSharp.Runner.csproj" />
     </ItemGroup>
 
