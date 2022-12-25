@@ -50,4 +50,5 @@ type SiliOptions = {
     stopOnCoverageAchieved : int
     oracle: Option<Oracle>
     coverageToSwitchToAI: uint
+    stepsToPlay: uint
 }

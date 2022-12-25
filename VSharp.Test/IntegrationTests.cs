@@ -251,6 +251,7 @@ namespace VSharp.Test
                         false,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         null,
+                        0,
                         0
                             );
                     using var explorer = new SILI(_options);

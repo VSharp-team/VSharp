@@ -58,7 +58,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                         return res
                     }
                 match Async.RunSynchronously res with
-                | Choice1Of2 (i, f) -> (i,f)
+                | Choice1Of2 (i, f) -> (i, f)
                 | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
         Oracle(predict,feedback)
@@ -77,10 +77,10 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                     match settings.CoverageZone with
                     | CoverageZone.Method ->
                         let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        VSharp.TestGenerator.Cover(method, oracle = oracle, searchStrategy=SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart) |> ignore                        
+                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore                        
                     | CoverageZone.Class ->
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                        VSharp.TestGenerator.Cover(_type, oracle = oracle, searchStrategy=SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart) |> ignore
+                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     do! sendResponse "GameOver" ///!!!
                 | x -> failwithf $"Unexpected message: %A{x}"
