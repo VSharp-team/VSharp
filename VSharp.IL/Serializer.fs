@@ -104,6 +104,33 @@ type Reward =
     val MaxPossibleReward: uint
     new (stepReward, maxPossibleReward) = {StepReward = stepReward; MaxPossibleReward = maxPossibleReward}
 
+type CoverageZone =
+    | Method = 0
+    | Class = 1
+    
+[<Struct>]
+type GameMap =
+    val Id: uint
+    val CoverageToStart: uint
+    val AssemblyFullName: string
+    val CoverageZone: CoverageZone
+    val NameOfObjectToCover: string
+    new (id, coverageToStart, assembly, coverageZone, objectToCover) =
+        {
+            Id = id
+            CoverageToStart = coverageToStart
+            AssemblyFullName = assembly
+            CoverageZone = coverageZone
+            NameOfObjectToCover = objectToCover
+        }
+
+type OutgoingMessage =
+    | GameOver
+    | Maps of seq<GameMap>
+    | Feedback of Reward
+    | ReadyForNextStep of GameState
+    | Error of string
+
 let mutable firstFreeEpisodeNumber = 0
 let folderToStoreSerializationResult = "SerializedEpisodes"
 let fileForExpectedResults =

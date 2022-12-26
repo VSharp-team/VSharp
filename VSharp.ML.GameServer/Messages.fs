@@ -1,9 +1,9 @@
 module VSharp.ML.GameServer.Messages
 
 open System.Collections.Generic
-open System.Dynamic
+open System.Text.Json
 open System.Text.Json.Serialization
-open VSharp
+open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 
 [<Struct>]
@@ -12,31 +12,12 @@ type RawInputMessage =
     val MessageBody: string
     [<JsonConstructor>]
     new (messageType, messageBody) = {MessageBody = messageBody; MessageType = messageType}
-    
-type CoverageZone =
-    | Method = 0
-    | Class = 1
-    
-let toSiliZone zone =
-    match zone with
-    | CoverageZone.Method -> coverageZone.MethodZone
-    | CoverageZone.Class -> coverageZone.ClassZone
-    
+
 [<Struct>]
-type GameMap =
-    val Id: uint
-    val CoverageToStart: uint
-    val AssemblyFullName: string
-    val CoverageZone: CoverageZone
-    val NameOfObjectToCover: string
-    new (id, coverageToStart, assembly, coverageZone, objectToCover) =
-        {
-            Id = id
-            CoverageToStart = coverageToStart
-            AssemblyFullName = assembly
-            CoverageZone = coverageZone
-            NameOfObjectToCover = objectToCover
-        }
+type RawOutgoingMessage =
+    val MessageType: string
+    val MessageBody: string
+    new (messageType, messageBody) = {MessageBody = messageBody; MessageType = messageType}
         
 [<Struct>]
 type GameStartParams =
@@ -62,6 +43,11 @@ let mapsSettings =
     d.Add(0u, GameMap(0u,0u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
     d.Add(1u, GameMap(1u,10u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
     d
+
+let toSiliZone zone =
+    match zone with
+    | CoverageZone.Method -> coverageZone.MethodZone
+    | CoverageZone.Class -> coverageZone.ClassZone
     
 let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =
     let normalized = str.ToLowerInvariant().Trim()
@@ -76,11 +62,20 @@ let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =
 let deserializeInputMessage (messageData:byte[]) =
     let rawInputMessage =
         let str = UTF8.toString messageData
-        str |> System.Text.Json.JsonSerializer.Deserialize<RawInputMessage>
+        str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
-    | MsgTypeStart -> Start (System.Text.Json.JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
-    | MsgTypeStep -> Step (System.Text.Json.JsonSerializer.Deserialize<GameStep> rawInputMessage.MessageBody)
+    | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
+    | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep> rawInputMessage.MessageBody)
     | MsgGetAllMaps -> GetAllMaps
 
+let serializeOutgoingMessage (message:OutgoingMessage) =
+    match message with
+    | GameOver -> RawOutgoingMessage("GameOver", "")
+    | Maps maps -> RawOutgoingMessage("Maps", JsonSerializer.Serialize maps)
+    | Feedback reward -> RawOutgoingMessage("Feedback", JsonSerializer.Serialize reward)
+    | ReadyForNextStep state -> RawOutgoingMessage("ReadyForNextStep", JsonSerializer.Serialize state)
+    | Error errorMessage -> RawOutgoingMessage("Error", errorMessage)
+    |> JsonSerializer.Serialize
+        
 
    

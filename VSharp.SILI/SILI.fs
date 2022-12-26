@@ -10,6 +10,7 @@ open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
 open VSharp.IL
+open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.Solver
 
@@ -347,9 +348,9 @@ type public SILI(options : SiliOptions) =
                                 let gameState, statisticsAfterStep = Serializer.collectGameState s.currentLoc
                                 searcher.LastGameState <- gameState
                                 searcher.LastCollectedStatistics <- statisticsAfterStep
-                                let stepReward, maxPossibleReward = Serializer.computeReward statisticsBeforeStep.Value statisticsAfterStep
+                                let stepReward, maxPossibleReward = computeReward statisticsBeforeStep.Value statisticsAfterStep
                                 if searcher.InAIMode
-                                then searcher.Oracle.Feedback (Serializer.Reward (int stepReward, maxPossibleReward))
+                                then searcher.Oracle.Feedback (Reward (int stepReward, maxPossibleReward))
                                 // Some s.LastCollectedStatistics
                             | _ -> ()
                         | _ -> ()

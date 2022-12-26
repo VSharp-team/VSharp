@@ -19,9 +19,9 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
   socket {
     let mutable loop = true
     
-    let sendResponse (responseString:string) =
+    let sendResponse (message:OutgoingMessage) =
         let byteResponse =
-            responseString
+            serializeOutgoingMessage message
             |> System.Text.Encoding.UTF8.GetBytes
             |> ByteSegment
         webSocket.send Text byteResponse true
@@ -31,7 +31,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
             fun (feedback: Reward) ->
                 let res =
                     socket {
-                        do! sendResponse (JsonSerializer.Serialize feedback) 
+                        do! sendResponse (Feedback feedback) 
                     }
                 match Async.RunSynchronously res with
                 | Choice1Of2 () -> ()
@@ -70,7 +70,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                 let message = deserializeInputMessage data
                 match message with
                 | GetAllMaps ->
-                    do! sendResponse (JsonSerializer.Serialize mapsSettings.Values)
+                    do! sendResponse (Maps mapsSettings.Values)
                 | Start gameStartParams ->
                     let settings = mapsSettings.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
@@ -82,7 +82,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
                         TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
-                    do! sendResponse "GameOver" ///!!!
+                    do! sendResponse GameOver
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->
