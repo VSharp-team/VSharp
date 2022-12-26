@@ -14,26 +14,28 @@ def main():
     ws = websocket.WebSocket()
     ws.connect(url)
 
-    requestAllMapsMessage = Message(GetAllMapsMessageBody()).dumps()
+    requestAllMapsMessage = ClientMessage(GetAllMapsMessageBody())
     print(requestAllMapsMessage)
-    ws.send(requestAllMapsMessage)
+    ws.send(requestAllMapsMessage.to_json())
     recieved = ws.recv()
-    mapSettings = [GameMap.from_dict(item) for item in json.loads(recieved)]
-    print("Received 1", mapSettings, end="\n")
+    mapSettings = ServerMessage.from_json(recieved)
+    print("Received 1: ", mapSettings, end="\n")
 
-    startMessage = Message(StartMessageBody(MapId=0, StepsToPlay=10)).dumps()
+    startMessage = ClientMessage(StartMessageBody(MapId=0, StepsToPlay=10))
     print(startMessage)
-    ws.send(startMessage)
-    data = GameState.from_json(ws.recv())
-    print("Received 2", data, end="\n")
-
-    doStepMessage = Message(
-        StepMessageBody(StateId=0, PredictedStateUsefulness=1.0)
-    ).dumps()
-    ws.send(doStepMessage)
+    ws.send(startMessage.to_json())
     recieved = ws.recv()
-    data = Reward.from_json(recieved)
-    print("Received 3", data, end="\n")
+    data = GameState.from_json(recieved)
+    print("Received 2: ", data, end="\n")
+
+    doStepMessage = ClientMessage(
+        StepMessageBody(StateId=0, PredictedStateUsefulness=1.0)
+    )
+    print(doStepMessage)
+    ws.send(doStepMessage.to_json())
+    recieved = ws.recv()
+    data = ServerMessage.from_json(recieved)
+    print("Received 3: ", data, end="\n")
     ws.close()
 
 

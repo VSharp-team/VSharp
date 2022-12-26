@@ -1,6 +1,7 @@
-from dataclasses import dataclass
-from dataclasses_json import dataclass_json
+from dataclasses import dataclass, field
+from dataclasses_json import dataclass_json, config
 from typing import List
+import json
 
 
 @dataclass_json
@@ -63,3 +64,12 @@ class GameMap:
     AssemblyFullName: str
     CoverageZone: bool
     NameOfObjectToCover: str
+
+
+@dataclass_json
+@dataclass
+class ServerMessage:
+    MessageType: str
+    MessageBody: List[GameMap] | Reward = field(
+        metadata=config(decoder=lambda x: json.loads(x))
+    )
