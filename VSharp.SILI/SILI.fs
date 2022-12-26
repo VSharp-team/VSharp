@@ -323,10 +323,11 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
-            if options.stepsToPlay = stepsPlayed
+            if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
             then x.Stop()
             else
-                stepsPlayed <- stepsPlayed + 1u
+                if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher
+                then stepsPlayed <- stepsPlayed + 1u
                 if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
                     releaseBranches()
                 match action with
