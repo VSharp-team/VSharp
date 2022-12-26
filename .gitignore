@@ -229,3 +229,10 @@ VSharp.ClrInteraction/host/*
 
 # Rendered tests
 VSharp.Test/GeneratedTests/**
+
+# VisualStudioCode settings
+.vscode
+
+# python cache and venv
+.env
+__pycache__/
