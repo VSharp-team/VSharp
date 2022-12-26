@@ -1,6 +1,6 @@
 language: csharp
 mono: none
-dotnet: 3.0.100
+dotnet: 6.0
 solution: VSharp.sln
 install:
   - dotnet restore
