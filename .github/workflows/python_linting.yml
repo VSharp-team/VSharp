@@ -9,4 +9,4 @@ jobs:
       - uses: actions/checkout@v2
       - uses: psf/black@stable
         with:
-          src: "./VSharp.AIAgent/"
+          src: "./VSharp.ML.AIAgent/"
