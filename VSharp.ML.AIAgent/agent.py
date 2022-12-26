@@ -1,15 +1,18 @@
 import websocket
 from messages import *
 from game import *
-
-
-def beautify_json(j):
-    return json.dumps(json.loads(j), indent=4)
+import argparse
 
 
 def main():
+    default_server_url = "ws://0.0.0.0:8080/gameServer"
+    argParser = argparse.ArgumentParser()
+    argParser.add_argument("-u", "--url", help="game server url")
+    args = argParser.parse_args()
+    url = args.url if args.url != None else default_server_url
+
     ws = websocket.WebSocket()
-    ws.connect("ws://0.0.0.0:8080/gameServer")
+    ws.connect(url)
 
     requestAllMapsMessage = Message(GetAllMapsMessageBody()).dumps()
     print(requestAllMapsMessage)

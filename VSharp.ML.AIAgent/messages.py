@@ -53,12 +53,3 @@ class Message:
 
     def dumps(self) -> str:
         return json.dumps(asdict(self, dict_factory=factory))
-
-
-def main():
-    msg = Message(StartMessageBody(MapId=0, StepsToPlay=10))
-    print(msg.dumps())
-
-
-if __name__ == "__main__":
-    main()
