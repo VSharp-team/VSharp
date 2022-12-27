@@ -581,7 +581,11 @@ public static class TestsRenderer
             try
             {
                 var method = test.Method;
-                Debug.Assert(method.DeclaringType?.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition());
+                var methodType = method.DeclaringType;
+                Debug.Assert(methodType != null &&
+                    (methodType.IsGenericType && declaringType.IsGenericType &&
+                     methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
+                     methodType == declaringType));
 
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");
@@ -595,7 +599,7 @@ public static class TestsRenderer
                     .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
                 var thisArg = test.ThisArg;
                 if (thisArg == null && !method.IsStatic)
-                    thisArg = Reflection.createObject(method.DeclaringType);
+                    thisArg = Reflection.createObject(methodType);
                 string suiteTypeName = test.IsError ? "Error" : "Test";
 
                 var testName = NameForMethod(method);
