@@ -40,8 +40,51 @@ type InputMessage =
 
 let mapsSettings =
     let d = Dictionary<_,_>()
-    d.Add(0u, GameMap(0u,0u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
-    d.Add(1u, GameMap(1u,10u,"VSharp.ML.GameMaps.dll",CoverageZone.Method,"BinarySearch"))
+    let add =
+        let mutable firstFreeMapId = 0u
+        fun coverageToStart pathToDll coverageZone objectToCover ->
+            d.Add(firstFreeMapId, GameMap(firstFreeMapId, coverageToStart, pathToDll, coverageZone, objectToCover))
+            firstFreeMapId <- firstFreeMapId + 1u
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
+    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
+    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
+    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
+    
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+       
     d
 
 let toSiliZone zone =
