@@ -2,6 +2,7 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
+open System.Diagnostics
 open System.Diagnostics.CodeAnalysis
 open System.Xml.Serialization
 open VSharp
@@ -11,7 +12,8 @@ open VSharp
 type typeRepr = {
     assemblyName : string
     moduleFullyQualifiedName : string
-    fullName : string
+    name : string
+    genericArgs : typeRepr array
 }
 
 [<CLIMutable>]
@@ -84,17 +86,37 @@ type public CompactArrayRepr = {
 
 module Serialization =
 
-    let encodeType ([<MaybeNull>] t : Type) : typeRepr =
-        if t = null then {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
-        else
-            {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; fullName = t.FullName}
+    let rec encodeType ([<MaybeNull>] t : Type) : typeRepr =
+        if t = null then {assemblyName = null; moduleFullyQualifiedName = null; name = null; genericArgs = null}
+        else                
+            let name, arguments =
+                if t.IsGenericType then
+                    if not t.IsConstructedGenericType then
+                        internalfail "Encoding not constructed generic types not supported"
+                
+                    let arguments = t.GetGenericArguments() |> Seq.map encodeType |> Seq.toArray
+                    t.GetGenericTypeDefinition().FullName, arguments
+                else
+                    t.FullName, null
+                    
+            {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; name = name; genericArgs = arguments}
 
     [<MaybeNull>]
-    let decodeType (t : typeRepr) =
+    let rec decodeType (t : typeRepr) =
         if t.assemblyName = null then null
         else
             let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
-            let t1 = mdle.GetType(t.fullName)
+            let typ = mdle.GetType t.name
+            Debug.Assert(typ <> null)
+            
+            if typ.IsGenericType then
+                Debug.Assert(t.genericArgs <> null && typ.GetGenericArguments().Length = t.genericArgs.Length)
+                
+                let args = t.genericArgs |> Seq.map decodeType |> Seq.toArray                
+                typ.MakeGenericType args
+            else
+                typ
+            
             AssemblyManager.NormalizeType t1
 
 
