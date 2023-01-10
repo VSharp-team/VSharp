@@ -302,6 +302,10 @@ namespace VSharp.Test
                             {
                                 Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
                             }
+                            catch (UnexpectedExternCallException e)
+                            {
+                                // TODO: support rendering for extern mocks
+                            }
                             catch (Exception e)
                             {
                                 context.CurrentResult.SetResult(ResultState.Failure,

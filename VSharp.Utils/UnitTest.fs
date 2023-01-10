@@ -32,6 +32,7 @@ type testInfo = {
     memory : memoryRepr
     typeMocks : typeMockRepr array
     extraAssemblyLoadDirs : string array
+    externMocks : extMockRepr array
 }
 with
     static member OfMethod(m : MethodBase) = {
@@ -51,6 +52,7 @@ with
         memory = {objects = Array.empty; types = Array.empty}
         typeMocks = Array.empty
         extraAssemblyLoadDirs = Array.empty
+        externMocks = Array.empty
     }
 
 type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorage, createCompactRepr : bool) =
@@ -66,6 +68,8 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
     let compactRepresentations = memoryGraph.CompactRepresentations()
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
+    let mutable patchId = 0 
+    let mutable externMocks = info.externMocks |> ResizeArray
 
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m, MockStorage(), false)
@@ -78,6 +82,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
             let p = t.GetProperty("thisArg")
             p.SetValue(info, memoryGraph.Encode this)
 
+    member x.HasExternMocks with get() = externMocks.Count > 0
     member x.Args with get() = args
     member x.IsError
         with get() = isError
@@ -114,6 +119,21 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         match m with
         | Some m -> Nullable(mockStorage.RegisterMockedType m)
         | None -> Nullable()
+
+    member x.GetPatchId =
+        let name = $"patch_{patchId}"
+        patchId <- patchId + 1
+        name
+
+    member x.AllocateExternMock methodRepr results =
+        let extMock = {name = x.GetPatchId; baseMethod = methodRepr; methodImplementation = results}
+        externMocks.Add extMock
+
+    member x.ApplyExternMocks(testName: string) =
+        Seq.iter (ExtMocking.BuildAndPatch testName memoryGraph.DecodeValue) externMocks
+
+    member x.ReverseExternMocks() =
+        if not <| Seq.isEmpty externMocks then ExtMocking.Unpatch()
 
     // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
     // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa
@@ -159,6 +179,9 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
             mockStorage.TypeMocks.ToArray()
             |> Array.map (fun m -> typeMockRepr.Encode m memoryGraph.Encode)
         typeMocksProperty.SetValue(info, typeMocks)
+        let extMocksProperty = t.GetProperty("externMocks")
+        extMocksProperty.SetValue(info, externMocks.ToArray())
+
         let serializer = XmlSerializer t
         use stream = File.Create(destination)
         serializer.Serialize(stream, info)

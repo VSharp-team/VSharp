@@ -35,7 +35,7 @@ type IConcreteMemory =
 
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
-    abstract Call : term -> term list -> term option
+    abstract Call : term -> term list -> term
     abstract GetImplementationClauses : unit -> term array
     abstract Copy : unit -> IMethodMock
 
@@ -348,6 +348,7 @@ and
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
         methodMocks : IDictionary<IMethod, IMethodMock>
+        externMocks : IDictionary<string, IMethodMock>
     }
 
 and

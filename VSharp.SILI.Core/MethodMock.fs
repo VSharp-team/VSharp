@@ -43,13 +43,13 @@ and MethodMock(method : IMethod) =
 
         override x.Call this args =
             let returnType = method.ReturnType
-            if returnType = typeof<Void> then None
-            else
-                let src : functionResultConstantSource = {mock = x; callIndex = callIndex; this = this; args = args}
-                let result = Memory.makeSymbolicValue src (toString src) returnType
-                callIndex <- callIndex + 1
-                callResults.Add result
-                Some result
+            if returnType = typeof<Void> then
+                internalfailf "Mocked procedures cannot be called"
+            let src : functionResultConstantSource = {mock = x; callIndex = callIndex; this = this; args = args}
+            let result = Memory.makeSymbolicValue src (toString src) returnType
+            callIndex <- callIndex + 1
+            callResults.Add result
+            result
 
         override x.GetImplementationClauses() = callResults.ToArray()
 

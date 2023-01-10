@@ -7,6 +7,7 @@ open System.Reflection.Emit
 open FSharpx.Collections
 open CilStateOperations
 open VSharp
+open VSharp.CSharpUtils
 open VSharp.Core
 open VSharp.Interpreter.IL
 open ipOperations
@@ -582,6 +583,17 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
+    
+    let shimImplementations : string list =
+        [
+            "System.DateTime System.DateTime.get_Now()"
+            "System.String System.IO.File.ReadAllText(System.String)"
+            "System.String[] System.IO.File.ReadAllLines(System.String)"
+            "System.String[] System.IO.File.ReadLines(System.String)"
+            "System.Byte[] System.IO.File.ReadAllBytes(System.String)"
+            "System.String System.Console.ReadLine()"
+            // Socket.Read  TODO: writing to the out parameters
+        ]
 
     member x.ConfigureErrorReporter reporter =
         reportError <- reporter
@@ -1114,6 +1126,14 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsArrayGetOrSet method then
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
+        elif ExternMocker.ExtMocksSupported &&
+             (method.IsExternalMethod || List.contains fullMethodName shimImplementations) then
+            let externMocks = cilState.state.externMocks
+            let mockMethod = Dict.getValueOrUpdate externMocks method.FullName (fun () -> MethodMock(method))
+            if method.ReturnType <> typeof<Void> then // extern procedures are ignored
+                let symVal = mockMethod.Call Nop []
+                push symVal cilState
+            moveIpToExit cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
             let message = sprintf "New extern method: %s" fullMethodName
@@ -1192,12 +1212,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
                 let methodMock = MockMethod cilState.state overriden
-                match methodMock.Call this [] with // TODO: pass args!
-                | Some result ->
-                    assert(ancestorMethod.ReturnType <> typeof<Void>)
+                if ancestorMethod.ReturnType <> typeof<Void> then
+                    let result = methodMock.Call this []
                     push result cilState
-                | None ->
-                    assert(ancestorMethod.ReturnType = typeof<Void>)
                 match tryCurrentLoc cilState with
                 | Some loc ->
                     // Moving ip to next instruction after mocking method result
