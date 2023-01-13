@@ -73,7 +73,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            Logger.ConfigureWriter(TestContext.Progress);
+            Logger.configureWriter(TestContext.Progress);
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
 

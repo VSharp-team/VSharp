@@ -143,7 +143,7 @@ namespace VSharp
         private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder,
             coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1)
         {
-            Logger.current_log_level = verbosity.ToLoggerLevel();
+            Logger.currentLogLevel = verbosity.ToLoggerLevel();
 
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);

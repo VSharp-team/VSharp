@@ -361,11 +361,11 @@ type ApplicationGraph() as this =
         //__notImplemented__()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
-        Logger.trace "Move state."
+        ()
         //__notImplemented__()
 
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
-        Logger.trace "Add states."
+        ()
         //__notImplemented__()
 
     let getShortestDistancesToGoals (states:array<codeLocation>) =

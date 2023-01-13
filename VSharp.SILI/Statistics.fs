@@ -70,6 +70,8 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let solverStopwatch = Stopwatch()
+    
+    let mutable stepsCount = 0u
 
     let mutable getStatesCount : (unit -> int) = (fun _ -> 0)
     let mutable getStates : (unit -> cilState seq) = (fun _ -> Seq.empty)
@@ -174,6 +176,8 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     let continuousDumpEventHandler = ElapsedEventHandler(fun _ _ -> this.CreateContinuousDump())
 
     member x.TrackStepForward (s : cilState) =
+        stepsCount <- stepsCount + 1u
+        Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
         let startLoc = ip2codeLocation s.startingIP
         let currentLoc = ip2codeLocation (currentIp s)
         match startLoc, currentLoc with
@@ -284,6 +288,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
     member x.TrackFinished (s : cilState) =
         testsCount <- testsCount + 1u
+        Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
         x.CreateContinuousDump()
         for block in s.history do
             block.method.SetBlockIsCoveredByTest(block.offset, entryMethodOf s)
@@ -363,6 +368,8 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.InternalFails with get() = internalFails
 
     member x.ContinuousStatistics with get() = continuousStatistics
+
+    member x.StepsCount with get() = stepsCount
 
     member x.DumpStatistics() =
         let topN = 5

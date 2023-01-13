@@ -318,7 +318,7 @@ public static class Renderer
             }
             default:
             {
-                Logger.writeLineString(Logger.Error, $"NameOfMember: unexpected case {member}");
+                Logger.printLogString(Logger.Error, $"NameOfMember: unexpected case {member}");
                 return member.ToString();
             }
         }
@@ -553,7 +553,7 @@ public static class Renderer
             }
             catch (Exception e)
             {
-                Logger.writeLineString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
+                Logger.printLogString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
             }
         }
 
