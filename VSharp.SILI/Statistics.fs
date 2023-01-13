@@ -70,7 +70,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     let internalFails = List<Exception>()
     let iies = List<cilState>()
     let solverStopwatch = Stopwatch()
-    
+
     let mutable stepsCount = 0u
 
     let mutable getStatesCount : (unit -> int) = (fun _ -> 0)
@@ -239,15 +239,19 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         else Set.empty
 
     member x.IsBasicBlockCoveredByTest (coverageType : coverageType) (blockStart : codeLocation) =
-        match coverageType with
-        | ByTest -> blockStart.method.BlocksCoveredByTests.Contains blockStart.offset
-        | ByEntryPointTest -> blockStart.method.BlocksCoveredFromEntryPoint.Contains blockStart.offset
+        if not <| blockStart.method.BlocksCoverage.ContainsKey blockStart.offset then
+            false
+        else
+            match coverageType with
+            | ByTest -> true
+            | ByEntryPointTest -> blockStart.method.BlocksCoverage.[blockStart.offset] = ByEntryPointTest
 
     member x.GetApproximateCoverage (methods : Method seq, coverageType : coverageType) =
         let getCoveredBlocksCount (m : Method) =
             match coverageType with
-            | ByTest -> m.BlocksCoveredByTests.Count
-            | ByEntryPointTest -> m.BlocksCoveredFromEntryPoint.Count
+            | ByTest -> m.BlocksCoverage.Count
+            | ByEntryPointTest ->
+                m.BlocksCoverage.Values |> Seq.filter (fun t -> t = ByEntryPointTest) |> Seq.length
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
         let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
         let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount

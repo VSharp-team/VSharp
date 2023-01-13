@@ -300,10 +300,7 @@ and Method internal (m : MethodBase) as this =
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
 
-    member x.BlocksCoveredByTests with get() = blocksCoverage.Keys |> Set.ofSeq
-
-    member x.BlocksCoveredFromEntryPoint with get() =
-        blocksCoverage |> Seq.choose (fun kv -> if kv.Value = ByEntryPointTest then Some kv.Key else None) |> Set.ofSeq
+    member x.BlocksCoverage with get() = blocksCoverage :> IReadOnlyDictionary<_, _>
 
     member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
         match blocksCoverage.GetValueOrDefault(offset, ByTest) with
