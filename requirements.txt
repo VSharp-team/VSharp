@@ -1,0 +1,2 @@
+dataclasses-json
+websocket-client
