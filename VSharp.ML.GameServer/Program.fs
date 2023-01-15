@@ -28,10 +28,15 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         
     let oracle =
         let feedback =
-            fun (feedback: Reward) ->
+            fun (feedback: Feedback) ->
                 let res =
                     socket {
-                        do! sendResponse (Feedback feedback) 
+                        let message =
+                            match feedback with
+                            | Feedback.ServerError s -> OutgoingMessage.ServerError s
+                            | Feedback.MoveReward reward -> OutgoingMessage.MoveReward reward
+                            | Feedback.IncorrectPredictedStateId i -> OutgoingMessage.IncorrectPredictedStateId i
+                        do! sendResponse message
                     }
                 match Async.RunSynchronously res with
                 | Choice1Of2 () -> ()

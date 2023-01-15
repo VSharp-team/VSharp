@@ -351,7 +351,7 @@ type public SILI(options : SiliOptions) =
                                 searcher.LastCollectedStatistics <- statisticsAfterStep
                                 let stepReward, maxPossibleReward = computeReward statisticsBeforeStep.Value statisticsAfterStep
                                 if searcher.InAIMode
-                                then searcher.Oracle.Feedback (Reward (int stepReward, maxPossibleReward))
+                                then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward (int stepReward, maxPossibleReward)))
                                 // Some s.LastCollectedStatistics
                             | _ -> ()
                         | _ -> ()

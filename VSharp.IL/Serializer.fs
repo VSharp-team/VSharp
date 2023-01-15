@@ -104,6 +104,11 @@ type Reward =
     val MaxPossibleReward: uint
     new (stepReward, maxPossibleReward) = {StepReward = stepReward; MaxPossibleReward = maxPossibleReward}
 
+type Feedback =
+    | MoveReward of Reward
+    | IncorrectPredictedStateId of uint
+    | ServerError of string
+
 type CoverageZone =
     | Method = 0
     | Class = 1
@@ -127,9 +132,10 @@ type GameMap =
 type OutgoingMessage =
     | GameOver
     | Maps of seq<GameMap>
-    | Feedback of Reward
+    | MoveReward of Reward
+    | IncorrectPredictedStateId of uint
     | ReadyForNextStep of GameState
-    | Error of string
+    | ServerError of string
 
 let mutable firstFreeEpisodeNumber = 0
 let folderToStoreSerializationResult = "SerializedEpisodes"

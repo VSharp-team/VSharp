@@ -115,9 +115,10 @@ let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
     | GameOver -> RawOutgoingMessage("GameOver", "")
     | Maps maps -> RawOutgoingMessage("Maps", JsonSerializer.Serialize maps)
-    | Feedback reward -> RawOutgoingMessage("Feedback", JsonSerializer.Serialize reward)
+    | MoveReward reward -> RawOutgoingMessage("MoveReward", JsonSerializer.Serialize reward)
+    | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", JsonSerializer.Serialize stateId)
     | ReadyForNextStep state -> RawOutgoingMessage("ReadyForNextStep", JsonSerializer.Serialize state)
-    | Error errorMessage -> RawOutgoingMessage("Error", errorMessage)
+    | ServerError errorMessage -> RawOutgoingMessage("ServerError", errorMessage)
     |> JsonSerializer.Serialize
         
 

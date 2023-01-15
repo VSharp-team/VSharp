@@ -9,6 +9,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
     let mutable lastCollectedStatistics = Statistics()
     let mutable gameState = None
     let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
+    let mutable incorrectPredictedStateId = false
     let defaultSearcher = BFSSearcher(System.UInt32.MaxValue)
     let q = ResizeArray<_>()
     let availableStates = HashSet<_>()
@@ -43,12 +44,19 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
             | Some state ->
                 state.predictedUsefulness <- predictedUsefulness
                 Some state
-            | None -> None //!!!! Fail!!! 
+            | None ->
+                incorrectPredictedStateId <- true
+                oracle.Feedback (Feedback.IncorrectPredictedStateId stateId)
+                None
     member this.LastCollectedStatistics
         with get () = lastCollectedStatistics
         and set v = lastCollectedStatistics <- v
     member this.LastGameState with set v = gameState <- Some v    
-    member this.Oracle = oracle    
+    member this.ProvideOracleFeedback feedback =
+        if not incorrectPredictedStateId
+        then
+            oracle.Feedback feedback
+            incorrectPredictedStateId <- false
     member this.InAIMode with get () = not useDefaultSearcher
     
     interface IForwardSearcher with

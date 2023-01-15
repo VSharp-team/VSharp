@@ -33,7 +33,7 @@ type executionMode =
 [<Struct>]
 type Oracle =
     val Predict: GameState -> uint*float
-    val Feedback: Reward -> unit
+    val Feedback: Feedback -> unit
     new (predict, feedback) = {Predict=predict; Feedback = feedback}
 
 type SiliOptions = {
