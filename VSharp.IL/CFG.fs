@@ -442,6 +442,8 @@ and IGraphTrackableState =
     //abstract member VisitedNotCoveredEdgesOutOfZone: uint with get,set
     //abstract member VisitedAgainEdges: uint with get
     abstract member VisitedAgainVertices: uint with get
+    abstract member History: HashSet<BasicBlock>
+    abstract member Children: list<uint>
     
     
 
@@ -521,6 +523,7 @@ type ApplicationGraph() =
         Logger.trace "Move state."
         initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
         stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+        stateWithNewPosition.History.Add stateWithNewPosition.CodeLocation.BasicBlock
         stateWithNewPosition.CodeLocation.BasicBlock.IsTouched <- true
         stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
@@ -532,6 +535,7 @@ type ApplicationGraph() =
         Logger.trace "Add states."
         for newState in states do
             newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            newState.History.Add newState.CodeLocation.BasicBlock
             newState.CodeLocation.BasicBlock.IsTouched <- true
             newState.CodeLocation.BasicBlock.IsVisited <-
             newState.CodeLocation.BasicBlock.IsVisited

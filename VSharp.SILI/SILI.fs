@@ -292,6 +292,7 @@ type public SILI(options : SiliOptions) =
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
         Application.moveState loc s (Seq.cast<_> newStates)
+        s.children <- s.children @ newStates
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
 

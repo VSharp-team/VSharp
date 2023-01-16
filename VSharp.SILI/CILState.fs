@@ -39,6 +39,8 @@ type cilState =
       mutable visitedAgainVertices: uint
       mutable visitedNotCoveredVerticesInZone: uint
       mutable visitedNotCoveredVerticesOutOfZone: uint
+      mutable _history: HashSet<BasicBlock>
+      mutable children: list<cilState>
     }
     with
     member x.Result with get() =
@@ -64,6 +66,8 @@ type cilState =
         override this.VisitedAgainVertices with get () = this.visitedAgainVertices
         override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
         override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
+        override this.History with get () = this._history
+        override this.Children with get () = this.children |> List.map (fun s -> s.id)
         //override this.VisitedNotCoveredEdgesInZone = 1u
         //override this.VisitedNotCoveredEdgesOutOfZone = 1u
 
@@ -100,6 +104,8 @@ module internal CilStateOperations =
           visitedAgainVertices = 0u
           visitedNotCoveredVerticesInZone = 0u
           visitedNotCoveredVerticesOutOfZone = 0u
+          _history = HashSet()
+          children = []
         }
 
     let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state

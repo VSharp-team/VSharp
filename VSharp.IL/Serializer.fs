@@ -35,13 +35,17 @@ type State =
     val VisitedAgainVertices: uint
     val VisitedNotCoveredVerticesInZone: uint
     val VisitedNotCoveredVerticesOutOfZone: uint
+    val History: array<uint>
+    val Children: array<uint> 
     new(id,
         position,
         predictedUsefulness,
         pathConditionSize,
         visitedAgainVertices,
         visitedNotCoveredVerticesInZone,
-        visitedNotCoveredVerticesOutOfZone) =
+        visitedNotCoveredVerticesOutOfZone,
+        history,
+        children) =
         {
             Id = id
             Position = position
@@ -50,8 +54,10 @@ type State =
             VisitedAgainVertices = visitedAgainVertices
             VisitedNotCoveredVerticesInZone = visitedNotCoveredVerticesInZone
             VisitedNotCoveredVerticesOutOfZone = visitedNotCoveredVerticesOutOfZone
+            History = history
+            Children = children
         }
-
+    
 [<Struct>]    
 type GameMapVertex =
     val Uid: uint
@@ -177,6 +183,11 @@ let collectGameState (location:codeLocation) =
             |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
     collectFullGraph location.method
     
+    let getBasicBlockId =
+        let basicBlockToIdMap = Dictionary<_,_>()
+        for kvp in basicBlocks do basicBlockToIdMap.Add(kvp.Value, uint kvp.Key)
+        fun basicBlock -> basicBlockToIdMap[basicBlock]
+    
     for kvp in basicBlocks do        
         let isCovered = if kvp.Value.IsCovered then 1u else 0u
         if kvp.Value.IsGoal
@@ -205,7 +216,10 @@ let collectGameState (location:codeLocation) =
                       s.PathConditionSize,
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
-                      s.VisitedNotCoveredVerticesOutOfZone))
+                      s.VisitedNotCoveredVerticesOutOfZone,
+                      s.History |> Seq.map getBasicBlockId |> Array.ofSeq,
+                      s.Children |> Array.ofList
+                      ))
                 
         GameMapVertex(
             0u,
