@@ -77,7 +77,7 @@ module internal ArrayInitialization =
     let initializeArray state arrayRef handleTerm =
         let cm = state.concreteMemory
         assert(Terms.isStruct handleTerm)
-        match arrayRef.term, Memory.tryTermToObj state handleTerm with
+        match arrayRef.term, Memory.tryTermToObj state (fun _ _ -> ()) handleTerm with
         | HeapRef({term = ConcreteHeapAddress address}, _), Some(:? RuntimeFieldHandle as rfh)
             when cm.Contains address ->
                 cm.InitializeArray address rfh

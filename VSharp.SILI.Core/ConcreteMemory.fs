@@ -7,10 +7,11 @@ open System.Runtime.CompilerServices
 open System.Threading
 open VSharp
 
-type public ConcreteMemory private (physToVirt, virtToPhys) =
+type public ConcreteMemory private (physToVirt, virtToPhys, dependencies) =
 
     let mutable physToVirt = physToVirt
     let mutable virtToPhys = virtToPhys
+    let mutable dependencies = dependencies
 
 // ----------------------------- Helpers -----------------------------
 
@@ -84,7 +85,8 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     new () =
         let physToVirt = Dictionary<physicalAddress, concreteHeapAddress>()
         let virtToPhys = Dictionary<concreteHeapAddress, physicalAddress>()
-        ConcreteMemory(physToVirt, virtToPhys)
+        let deps =  Dictionary<concreteHeapAddress, concreteHeapAddress list>()
+        ConcreteMemory(physToVirt, virtToPhys, deps)
 
 // ----------------------------- Primitives -----------------------------
 
@@ -97,6 +99,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         let physicalAddress = {object = obj}
         virtToPhys[address] <- physicalAddress
 
+    member private x.getDepsList ds =
+        // TODO: rewrite it more effectively
+        let ds' = ds |> Set.ofList |> Set.toList
+        let ds'' = ds |> List.collect (fun a -> if dependencies.ContainsKey(a) then a::dependencies[a] else [a])  
+                      |> Set.ofList |> Set.toList
+        if ds' = ds'' then ds'
+        else x.getDepsList ds''
+
 // ------------------------------- Copying -------------------------------
 
     interface IConcreteMemory with
@@ -104,14 +114,18 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.Copy() =
             let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
             let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
+            let deps' =  Dictionary<concreteHeapAddress, concreteHeapAddress list>()
             copiedObjects.Clear()
             for kvp in physToVirt do
                 let phys, virt = kvp.Key, kvp.Value
                 let phys' = deepCopyObject phys
                 if virtToPhys.ContainsKey virt then
                     virtToPhys'.Add(virt, phys')
+                    if dependencies.ContainsKey virt then
+                        let d' = dependencies[virt] // TODO: deepcopy
+                        deps'.Add(virt, d')
                 physToVirt'.Add(phys', virt)
-            ConcreteMemory(physToVirt', virtToPhys')
+            ConcreteMemory(physToVirt', virtToPhys', deps')
 
 // ----------------------------- Primitives -----------------------------
 
@@ -211,8 +225,19 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let physAddress = {object = string}
             physToVirt[physAddress] <- stringAddress
 
+    // ------------------------------- Dependencies -------------------------    
+        override x.AddDep virtAddr1 virtAddr2 =
+            let value = if dependencies.ContainsKey virtAddr1 then virtAddr2::dependencies[virtAddr1] else [virtAddr2]
+            dependencies[virtAddr1] <- value
+            
+        override x.GetDeps addr =
+            x.getDepsList [addr]
+
     // ------------------------------- Remove -------------------------------
 
         override x.Remove address =
-            let removed = virtToPhys.Remove address
+            let toRemove = x.getDepsList [address]
+            let removed = toRemove |> List.map (fun a ->
+                dependencies.Remove a |> ignore
+                virtToPhys.Remove a) |> List.forall id
             assert removed

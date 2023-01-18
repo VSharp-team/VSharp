@@ -78,7 +78,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
         and set this =
             let t = typeof<testInfo>
             let p = t.GetProperty("thisArg")
-            p.SetValue(info, memoryGraph.Encode this)
+            p.SetValue(info, memoryGraph.Encode this |> fst)
 
     member x.Args with get() = args
     member x.IsError
@@ -128,7 +128,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
         let mp = t.GetProperty("mockClassTypeParameters")
         mp.SetValue(info, mockedParameters |> Array.map (fun m ->
             match m with
-            | Some m -> m.Serialize memoryGraph.Encode
+            | Some m -> m.Serialize (memoryGraph.Encode >> fst)
             | None -> typeMockRepr.NullRepr))
 
     // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
@@ -140,7 +140,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
         let mp = t.GetProperty("mockMethodTypeParameters")
         mp.SetValue(info, mockedParameters |> Array.map (fun m ->
             match m with
-            | Some m -> m.Serialize memoryGraph.Encode
+            | Some m -> m.Serialize (memoryGraph.Encode >> fst)
             | None -> typeMockRepr.NullRepr))
 
     member x.MemoryGraph with get() = memoryGraph
@@ -152,7 +152,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
             let t = typeof<testInfo>
             let p = t.GetProperty("args")
             p.SetValue(info, Array.zeroCreate <| m.GetParameters().Length)
-        let value = memoryGraph.Encode value
+        let value = memoryGraph.Encode value |> fst
         info.args.[arg.Position] <- value
 
     member x.AddExtraAssemblySearchPath path =
@@ -165,7 +165,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
         let extraAssempliesProperty = t.GetProperty("extraAssemblyLoadDirs")
         extraAssempliesProperty.SetValue(info, Array.ofList extraAssemblyLoadDirs)
         let typeMocksProperty = t.GetProperty("typeMocks")
-        typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize memoryGraph.Encode))
+        typeMocksProperty.SetValue(info, typeMocks.ToArray() |> Array.map (fun m -> m.Serialize (memoryGraph.Encode >> fst)))
         let serializer = XmlSerializer t
         use stream = File.Create(destination)
         serializer.Serialize(stream, info)

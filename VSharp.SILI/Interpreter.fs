@@ -1010,9 +1010,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         if method.IsConcretelyInvokable && Loader.isInvokeInternalCall fullMethodName then
             // Before term args, type args are located
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
-            let objArgs = List.choose (TryTermToObj state) termArgs
+            let objArgs = List.choose (TryTermToObj state (fun _ _ -> ())) termArgs
             let hasThis = Option.isSome thisOption
-            let thisObj = Option.bind (TryTermToObj state) thisOption
+            let thisObj = Option.bind (TryTermToObj state (fun _ _ -> ())) thisOption
             match thisObj with
             | _ when List.length objArgs <> List.length termArgs -> false
             | None when hasThis -> false
@@ -1138,6 +1138,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     match model with
                     | StateModel(s, _) -> s
                     | _ -> __unreachable__()
+                if modelState.concreteMemory.Contains thisInModel then Memory.Unmarshall modelState thisInModel 
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 candidateTypes |> Seq.iter (function
                     | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)

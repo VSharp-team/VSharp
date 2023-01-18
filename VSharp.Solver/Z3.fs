@@ -10,7 +10,6 @@ open VSharp.Core.SolverInteraction
 open Logger
 
 module internal Z3 =
-
 // ------------------------------- Exceptions -------------------------------
 
     type EncodingException(msg : string) =
@@ -69,13 +68,88 @@ module internal Z3 =
         lastSymbolicAddress = 0
     }
 
+    // -----------------------Concrete memory -------------------------
+    let rec unboxConcrete state defaults term =
+        match Terms.TryTermToObj state (createObjOfType state defaults) term with                
+        | Some o -> Some (o |> unbox)
+        | None -> None
+
+    and createObjOfType state (defaults : Dictionary<regionSort, term ref>) addr typ =
+        let cm = state.concreteMemory
+        try
+            let unboxConcrete' t = unboxConcrete state defaults t
+            let cha = addr |> ConcreteHeapAddress
+            let result = ref (ref Nop)
+            match typ with
+            | ArrayType(_, SymbolicDimension _) -> ()
+            | ArrayType(elemType, _) ->                 
+                let eval address =
+                    address |> Ref |> Memory.Read state |> unboxConcrete' |> Option.get
+                let arrayType, (lengths : int array), (lowerBounds : int array) =
+                    Memory.ReadArrayParams typ cha eval
+                let length = Array.reduce ( * ) lengths
+                if length > 128 then () // TODO: move magic number
+                else
+                    let arr = if (lowerBounds = null) then Array.CreateInstance(elemType, lengths)
+                              else Array.CreateInstance(elemType, lengths, lowerBounds)
+                    cm.Allocate addr arr
+                    if defaults.TryGetValue(ArrayIndexSort arrayType, result) then
+                        match result.Value.Value with
+                        | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
+                            cm.AddDep a addr
+                        | _ -> ()
+                        let value =  result.Value.Value |> unboxConcrete' |> Option.get
+                        Array.fill arr value
+            | _ when typ = typeof<string> ->
+                let arTyp = (typeof<char>, 1, true)
+                let l : int = ClassField(cha, Reflection.stringLengthField) |> Ref
+                                   |> Memory.Read state |> unboxConcrete' |> Option.get
+                let contents = Array.init l (fun i -> ArrayIndex(cha, [MakeNumber i], arTyp) |> Ref
+                                                      |> Memory.Read state |> unboxConcrete' |> Option.get) 
+                cm.Allocate addr (String(contents) :> obj)
+            | _ ->
+                let o = Reflection.createObject typ
+                cm.Allocate addr o
+                Reflection.fieldsOf false typ |>
+                    Seq.iter (fun (fid, _) ->
+                        let region = HeapFieldSort fid
+                        if defaults.TryGetValue(region, result) then
+                            let value = result.Value.Value |> unboxConcrete' |> Option.get
+                            match result.Value.Value with
+                            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} ->
+                                cm.AddDep a addr
+                            | _ -> ()
+                            cm.WriteClassField addr fid value
+                )
+        with
+        // when objects are created, the are only filled with defaults
+        // Careful: the use of unmarshalling here is incorrect
+        | :? MemberAccessException      // Could not create an instance
+        | :? ArgumentException as e ->  // Could not unbox concrete or type is not supported
+            if cm.Contains addr then cm.Remove addr
+            raise e
+        | _ -> internalfail "Unexpected exception in object creation"
+
+    let concreteAllocator state defaultValues typ addr =
+        let cm = state.concreteMemory
+        if VectorTime.less addr VectorTime.zero then
+            state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes
+            if cm.Contains addr then ()
+            else
+                try
+                    createObjOfType state defaultValues addr typ
+                with // if type cannot be allocated concretely, it will be stored symbolically
+                | :? MemberAccessException -> () // Could not create an instance
+                | :? ArgumentException -> ()     // Could not unbox concrete ot type is not supported
+                | _ -> internalfail "Unexpected exception in object creation"
+
 // ------------------------------- Encoding: primitives -------------------------------
 
     type private Z3Builder(ctx : Context) =
         let mutable encodingCache = freshCache()
         let emptyState = Memory.EmptyState()
         let mutable maxBufferSize = 128
-
+        let defaultValues = Dictionary<regionSort, term ref>()
         let getMemoryConstant mkConst (typ : regionSort * fieldId list) =
             let result : ArrayExpr ref = ref null
             if encodingCache.regionConstants.TryGetValue(typ, result) then result.Value
@@ -563,12 +637,12 @@ module internal Z3 =
 
     // ------------------------------- Decoding -------------------------------
 
-        member private x.DecodeExpr op t (expr : Expr) =
+        member private x.DecodeExpr state op t cmAllocate (expr : Expr) =
             // TODO: bug -- decoding arguments with type of expression
-            Expression (Operator op) (expr.Args |> Seq.map (x.Decode t) |> List.ofSeq) t
+            Expression (Operator op) (expr.Args |> Seq.map (x.Decode state t cmAllocate) |> List.ofSeq) t
 
-        member private x.DecodeBoolExpr op (expr : Expr) =
-            x.DecodeExpr op typeof<bool> expr
+        member private x.DecodeBoolExpr state op cmAllocate (expr : Expr) =
+            x.DecodeExpr state op typeof<bool> cmAllocate expr
 
         member private x.GetTypeOfBV (bv : BitVecExpr) =
             if bv.SortSize = 32u then typeof<int32>
@@ -577,8 +651,9 @@ module internal Z3 =
             elif bv.SortSize = 16u then typeof<int16>
             else __unreachable__()
 
-        member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
+        member private x.DecodeConcreteHeapAddress state typ cmAllocate (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
+            let cm = state.concreteMemory
             let result = ref vectorTime.Empty
             let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
             let charArray = typeof<char[]>
@@ -588,12 +663,16 @@ module internal Z3 =
                 // NOTE: storing most concrete type for string
                 encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
                 encodingCache.heapAddresses.Add((typ, expr), result.Value)
+                // strings are filled symbolically
+                if cm.Contains result.Value then Memory.Unmarshall state result.Value
                 result.Value
             elif typ = charArray && checkAndGet (typeof<string>, expr) then result.Value
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let addr = [encodingCache.lastSymbolicAddress]
                 encodingCache.heapAddresses.Add((typ, expr), addr)
+                if cmAllocate then
+                    concreteAllocator state defaultValues typ addr
                 addr
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
@@ -601,14 +680,14 @@ module internal Z3 =
             if encodingCache.staticKeys.TryGetValue(expr, result) then result.Value
             else __notImplemented__()
 
-        member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
+        member private x.DecodeMemoryKey state (reg : regionSort) cmAllocate (exprs : Expr array) =
             let toType (elementType : Type, rank, isVector) =
                 if isVector then elementType.MakeArrayType()
                 else elementType.MakeArrayType(rank)
             match reg with
             | HeapFieldSort field ->
                 assert(exprs.Length = 1)
-                let address = exprs.[0] |> x.DecodeConcreteHeapAddress field.declaringType |> ConcreteHeapAddress
+                let address = exprs.[0] |> x.DecodeConcreteHeapAddress state field.declaringType cmAllocate |> ConcreteHeapAddress
                 ClassField(address, field)
             | StaticFieldSort field ->
                 assert(exprs.Length = 1)
@@ -616,22 +695,22 @@ module internal Z3 =
                 StaticField(typ, field)
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress state (toType typ) cmAllocate |> ConcreteHeapAddress
+                let indices = exprs |> Seq.tail |> Seq.map (x.Decode state Types.IndexType cmAllocate) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode Types.IndexType exprs.[1]
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress state (toType typ) cmAllocate |> ConcreteHeapAddress
+                let index = x.Decode state Types.IndexType cmAllocate exprs.[1]
                 ArrayLength(heapAddress, index, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
-                let index = x.Decode Types.IndexType exprs.[1]
+                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress state (toType typ) cmAllocate |> ConcreteHeapAddress
+                let index = x.Decode state Types.IndexType cmAllocate exprs.[1]
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
                 assert(exprs.Length = 1)
-                let index = x.Decode typeof<int8> exprs.[0]
+                let index = x.Decode state typeof<int8> cmAllocate exprs.[0]
                 StackBufferIndex(key, index)
 
         member private x.DecodeBv t (bv : BitVecNum) =
@@ -642,11 +721,11 @@ module internal Z3 =
             | 8u  -> Concrete (convert bv.Int t) t
             | _ -> __notImplemented__()
 
-        member public x.Decode t (expr : Expr) =
+        member public x.Decode state t cmAllocate (expr : Expr) =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
             | :? BitVecNum as bv when not (Types.IsValueType t) ->
-                let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress state t cmAllocate bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
@@ -657,18 +736,18 @@ module internal Z3 =
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
                 elif expr.IsTrue then True
                 elif expr.IsFalse then False
-                elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
-                elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
-                elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
-                elif expr.IsEq then x.DecodeBoolExpr OperationType.Equal expr
-                elif expr.IsBVSGT then x.DecodeBoolExpr OperationType.Greater expr
-                elif expr.IsBVUGT then x.DecodeBoolExpr OperationType.Greater_Un expr
-                elif expr.IsBVSGE then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
-                elif expr.IsBVUGE then x.DecodeBoolExpr OperationType.GreaterOrEqual_Un expr
-                elif expr.IsBVSLT then x.DecodeBoolExpr OperationType.Less expr
-                elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
-                elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
-                elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
+                elif expr.IsNot then x.DecodeBoolExpr state OperationType.LogicalNot cmAllocate expr
+                elif expr.IsAnd then x.DecodeBoolExpr state OperationType.LogicalAnd cmAllocate expr
+                elif expr.IsOr then x.DecodeBoolExpr state OperationType.LogicalOr cmAllocate expr
+                elif expr.IsEq then x.DecodeBoolExpr state OperationType.Equal cmAllocate expr
+                elif expr.IsBVSGT then x.DecodeBoolExpr state OperationType.Greater cmAllocate expr
+                elif expr.IsBVUGT then x.DecodeBoolExpr state OperationType.Greater_Un cmAllocate expr 
+                elif expr.IsBVSGE then x.DecodeBoolExpr state OperationType.GreaterOrEqual cmAllocate expr
+                elif expr.IsBVUGE then x.DecodeBoolExpr state OperationType.GreaterOrEqual_Un cmAllocate expr
+                elif expr.IsBVSLT then x.DecodeBoolExpr state OperationType.Less cmAllocate expr
+                elif expr.IsBVULT then x.DecodeBoolExpr state OperationType.Less_Un cmAllocate expr
+                elif expr.IsBVSLE then x.DecodeBoolExpr state OperationType.LessOrEqual cmAllocate expr
+                elif expr.IsBVULE then x.DecodeBoolExpr state OperationType.LessOrEqual_Un cmAllocate expr
                 else __notImplemented__()
 
         member private x.WriteFields structure value = function
@@ -695,11 +774,12 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
+            let cm = state.concreteMemory
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    let decoded = x.Decode t refinedExpr
+                    let decoded = x.Decode state t false refinedExpr
                     if decoded <> constant then
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
@@ -707,19 +787,19 @@ module internal Z3 =
                     | HeapAddressSource(StackReading(key)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
-                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress state t false |> ConcreteHeapAddress
                         stackEntries.Add(key, HeapRef addr t |> ref)
                     | HeapAddressSource(:? functionResultConstantSource as frs) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
-                        let term = x.Decode t refinedExpr
+                        let term = x.Decode state t false refinedExpr
                         assert(not (constant = term) || kvp.Value.expr = refinedExpr)
                         if constant <> term then subst.Add(ms, term)
                     | _ -> ()
                 | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                 | {term = Constant(_, source, t)} as constant ->
                     let refinedExpr = m.Eval(kvp.Value.expr, false)
-                    let term = x.Decode t refinedExpr
+                    let term = x.Decode state t false refinedExpr
                     assert(not (constant = term) || kvp.Value.expr = refinedExpr)
                     if constant <> term then subst.Add(source, term)
                 | _ -> ())
@@ -731,55 +811,85 @@ module internal Z3 =
                     (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
 
-            let defaultValues = Dictionary<regionSort, term ref>()
-            encodingCache.regionConstants |> Seq.iter (fun kvp ->
-                let region, fields = kvp.Key
+            let processRegionConstraints isSymbolic (kvp : KeyValuePair<(regionSort * fieldId list), ArrayExpr>) =
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
+                let region, fields = kvp.Key
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
                     else fields.Head.typ
-                let rec parseArray (arr : Expr) =
-                    if arr.IsConstantArray then
+                
+                let getValueAndWrite (arr : Expr) cmAllocate addr =
+                    let value =
+                        if Types.IsValueType typeOfLocation then
+                            x.Decode state typeOfLocation cmAllocate (Array.last arr.Args)
+                        else
+                            let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress state typeOfLocation cmAllocate
+                            HeapRef (address |> ConcreteHeapAddress) typeOfLocation
+                    match addr with
+                    | ClassField({term = HeapRef({term = ConcreteHeapAddress(base_addr)}, _)}, _)
+                    | ArrayIndex({term = HeapRef({term = ConcreteHeapAddress(base_addr)}, _)}, _, _) ->
+                        match value with
+                        | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} when not <| cm.Contains a -> 
+                            // Concrete memory objects cannot address symbolic objects
+                            if cm.Contains base_addr then Memory.Unmarshall state base_addr
+                        | _ -> ()
+                    | _ -> ()
+                    let states = Memory.Write state (Ref addr) value
+                    assert(states.Length = 1 && states.[0] = state) 
+                
+                let writeHelper symbolicProcessor mixedProcessor addr =
+                    // Strings and array metadata are written symbolically
+                    match addr with
+                    | _ when typeOfLocation = typeof<string> -> symbolicProcessor addr
+                    | ArrayLength _
+                    | ArrayLowerBound _ -> symbolicProcessor addr
+                    | _ -> mixedProcessor addr // may contain symbolic and concrete writes
+                
+                let writeSymbolic arr = writeHelper (getValueAndWrite arr false) (fun _ -> ())
+                let writeMixed arr = writeHelper (fun _ -> ()) (getValueAndWrite arr true)
+                
+                let rec parseArray (arr : Expr)  =
+                    if arr.IsConstantArray && isSymbolic then // defaults are written symbolically
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
+                            if Types.IsValueType typeOfLocation then x.Decode state typeOfLocation false arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
-                                HeapRef addr typeOfLocation
+                                let addr = x.DecodeConcreteHeapAddress state typeOfLocation false arr.Args.[0]
+                                HeapRef (addr |> ConcreteHeapAddress) typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
-                    elif arr.IsDefaultArray then
-                        assert(arr.Args.Length = 1)
-                    elif arr.IsStore then
+                    else if arr.IsStore then
                         assert(arr.Args.Length >= 3)
                         parseArray arr.Args.[0]
-                        let address = x.DecodeMemoryKey region arr.Args.[1..arr.Args.Length - 2]
-                        let value =
-                            if Types.IsValueType typeOfLocation then
-                                x.Decode typeOfLocation (Array.last arr.Args)
-                            else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
-                                HeapRef address typeOfLocation
-                        let address = fields |> List.fold (fun address field -> StructField(address, field)) address
-                        let states = Memory.Write state (Ref address) value
-                        assert(states.Length = 1 && states.[0] = state)
-                    elif arr.IsConst then ()
+                        let addr = x.DecodeMemoryKey state region (not isSymbolic) arr.Args.[1..arr.Args.Length - 2]
+                        if isSymbolic
+                            then writeSymbolic arr addr
+                            else writeMixed arr addr
+                    elif arr.IsConst || arr.IsConstantArray then ()
                     else internalfailf "Unexpected array expression in model: %O" arr
-                parseArray arr)
+                parseArray arr
+            
+            // Process symbolic writes
+            encodingCache.regionConstants |> Seq.iter (processRegionConstraints true)
             defaultValues |> Seq.iter (fun kvp ->
                 let region = kvp.Key
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
+            // Create default concretes
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
                 let typ, _ = kvp.Key
                 let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes)
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+                concreteAllocator state defaultValues typ addr
+            )
 
-            encodingCache.heapAddresses.Clear()
+            // Process stores
+            encodingCache.regionConstants |> Seq.iter (processRegionConstraints false)
+
+            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
             state.model <- PrimitiveModel subst
+            encodingCache.heapAddresses.Clear()
+            defaultValues.Clear()
             StateModel(state, typeModel.CreateEmpty())
 
 

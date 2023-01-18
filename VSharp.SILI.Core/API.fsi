@@ -71,7 +71,7 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
-        val TryTermToObj : state -> term -> obj option
+        val TryTermToObj : state -> (concreteHeapAddress -> Type -> unit) -> term -> obj option
 
         val IsStruct : term -> bool
         val IsReference : term -> bool
@@ -209,6 +209,8 @@ module API =
     module public Memory =
         val EmptyState : unit -> state
         val EmptyModel : IMethod -> typeModel -> model
+        
+        val Unmarshall : state -> concreteHeapAddress -> unit
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit
@@ -228,6 +230,7 @@ module API =
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
 
+        val ReadArrayParams : Type -> term -> (address -> int) -> arrayType * int array * int array
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list

@@ -114,7 +114,7 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
-        let TryTermToObj state term = Memory.tryTermToObj state term
+        let TryTermToObj state objCreate term = Memory.tryTermToObj state objCreate term
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
@@ -273,6 +273,7 @@ module API =
             Memory.fillModelWithParametersAndThis modelState method
             StateModel(modelState, typeModel)
 
+        let Unmarshall state a = Memory.unmarshall state a
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
         let PopTypeVariables state = Memory.popTypeVariablesSubstitution state
@@ -357,6 +358,7 @@ module API =
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
+        let ReadArrayParams typ cha eval = Memory.readArrayParams typ cha eval 
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteLocalVariable state location value = Memory.writeStackLocation state location value
@@ -464,8 +466,8 @@ module API =
 
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory
-            let concreteChar = Memory.tryTermToObj state char
-            let concreteLen = Memory.tryTermToObj state length
+            let concreteChar = Memory.tryTermToObj state (fun _ _ -> ()) char
+            let concreteLen = Memory.tryTermToObj state (fun _ _ -> ()) length
             let symbolicCase address =
                 let arrayType = typeof<char>, 1, true
                 Copying.fillArray state address arrayType (makeNumber 0) length char

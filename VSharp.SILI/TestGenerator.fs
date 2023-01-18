@@ -31,20 +31,12 @@ module TestGenerator =
             | ConcreteType typ ->
                 let cha = ConcreteHeapAddress addr
                 match typ with
-                | TypeUtils.ArrayType(elemType, dim) ->
+                | TypeUtils.ArrayType(_, SymbolicDimension _) -> __notImplemented__()
+                | TypeUtils.ArrayType _ ->
                     let index = test.MemoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
                     let arrayType, (lengths : int array), (lowerBounds : int array) =
-                        match dim with
-                        | Vector ->
-                            let arrayType = (elemType, 1, true)
-                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox |], null
-                        | ConcreteDimension rank ->
-                            let arrayType = (elemType, rank, false)
-                            arrayType,
-                            Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox),
-                            Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
-                        | SymbolicDimension -> __notImplemented__()
+                        Memory.ReadArrayParams typ cha (eval >> unbox)
                     let length = Array.reduce ( * ) lengths
                     // TODO: normalize model (for example, try to minimize lengths of generated arrays)
                     if maxBufferSize > 0 && length > maxBufferSize then
@@ -68,7 +60,7 @@ module TestGenerator =
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
-            test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
+            test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray (test.MemoryGraph.Encode >> fst)) lengths lowerBounds index
         else
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
@@ -101,7 +93,7 @@ module TestGenerator =
             // TODO: if addr is managed by concrete memory, then just serialize it normally (by test.MemoryGraph.AddArray)
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
-    let rec private term2obj (model : model) state indices mockCache (test : UnitTest) = function
+    let rec private term2obj (model : model) state (indices : Dictionary<concreteHeapAddress, int>) mockCache (test : UnitTest) = function
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
         | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
@@ -122,11 +114,24 @@ module TestGenerator =
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
             | StateModel(modelState, _) ->
-                let eval address =
-                    address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
-                let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
-                let typ = modelState.allocatedTypes.[addr]
-                obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
+                match modelState.concreteMemory.TryVirtToPhys addr with
+                | Some o ->
+                    let index = ref 0
+                    if indices.TryGetValue(addr, index) then
+                        let referenceRepr : referenceRepr = {index = index.Value}
+                        referenceRepr :> obj
+                    else
+                        let orepr, index = test.MemoryGraph.Encode o
+                        match index with
+                        | Some i -> indices.Add(addr, i)
+                        | None -> ()
+                        orepr
+                | None -> // mocks and big arrays are allocated symbolically
+                    let eval address =
+                        address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache test
+                    let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
+                    let typ = modelState.allocatedTypes.[addr]
+                    obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let eval address =
@@ -223,7 +228,8 @@ module TestGenerator =
 
                 if not isError && not hasException then
                     let retVal = model.Eval cilState.Result
-                    test.Expected <- term2obj model cilState.state indices mockCache test retVal
+                    let tmp = term2obj model cilState.state indices mockCache test retVal
+                    test.Expected <- tmp
                 Some test
         | _ -> __unreachable__()
 

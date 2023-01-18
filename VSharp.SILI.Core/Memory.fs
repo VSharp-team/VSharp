@@ -360,6 +360,7 @@ module internal Memory =
                 let t = method.DeclaringType
                 let addr = [-1]
                 let thisRef = HeapRef (ConcreteHeapAddress addr) t
+                state.concreteMemory.Allocate addr (Reflection.createObject t) // TODO: do we need here protection from abstract types?
                 state.allocatedTypes <- PersistentDict.add addr (ConcreteType t) state.allocatedTypes
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
@@ -376,6 +377,16 @@ module internal Memory =
         assert(not typ.IsAbstract)
         let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
+        match state.model with
+        | PrimitiveModel _ ->
+            // try concrete allocation
+            let cm = state.concreteMemory
+            assert(not <| cm.Contains concreteAddress)
+            try
+                cm.Allocate concreteAddress (Reflection.createObject typ)
+            with
+            | _ -> ()
+        | _ -> ()
         state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
         concreteAddress
 
@@ -430,10 +441,14 @@ module internal Memory =
 
     // ---------------- Try term to object ----------------
 
-    let tryAddressToObj (state : state) address =
+    let tryAddressToObj (state : state) objCreate address (typ : Type) =
         if address = VectorTime.zero then Some null
-        else state.concreteMemory.TryVirtToPhys address
-
+        else
+            match state.concreteMemory.TryVirtToPhys address with
+            | Some o -> Some o
+            | None ->
+                objCreate address typ
+                state.concreteMemory.TryVirtToPhys address
     let tryPointerToObj state address (offset : int) =
         let cm = state.concreteMemory
         match cm.TryVirtToPhys address with
@@ -443,21 +458,21 @@ module internal Memory =
             Some (pObj :> obj)
         | None -> None
 
-    let rec tryTermToObj (state : state) term =
+    let rec tryTermToObj (state : state) objCreate term =
         match term.term with
         | Concrete(obj, _) -> Some obj
-        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
-        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
-        | HeapRef({term = ConcreteHeapAddress a}, _) -> tryAddressToObj state a
+        | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state objCreate fields typ
+        | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state objCreate fields typ
+        | HeapRef({term = ConcreteHeapAddress a}, typ) -> tryAddressToObj state objCreate a typ
         | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, ConcreteT (:? int as offset, _)) ->
             tryPointerToObj state a offset
         | _ -> None
 
-    and tryStructTermToObj (state : state) fields typ =
+    and tryStructTermToObj (state : state) objCreate fields typ =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
-            match tryTermToObj state value with
+            match tryTermToObj state objCreate value with
             // field was not found in the structure, skipping it
             | _ when fieldInfo = null -> k ()
             // field can be converted to obj, so continue
@@ -466,11 +481,11 @@ module internal Memory =
             | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
 
-    and tryNullableTermToObj (state : state) fields typ =
+    and tryNullableTermToObj (state : state) objCreate fields typ =
         let valueField, hasValueField = Reflection.fieldsOfNullable typ
         let value = PersistentDict.find fields valueField
         let hasValue = PersistentDict.find fields hasValueField
-        match tryTermToObj state value with
+        match tryTermToObj state objCreate value with
         | Some obj when hasValue = True -> Some obj
         | _ when hasValue = False -> Some null
         | _ -> None
@@ -683,6 +698,23 @@ module internal Memory =
         | BoxedLocation(address, _) -> readBoxedLocation state address
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
+
+    let readArrayParams typ cha eval =
+        match typ with
+        | ArrayType(elemType, dim) ->   
+            let arrayType, (lengths : int array), (lowerBounds : int array) =
+                match dim with
+                | Vector ->
+                    let arrayType = (elemType, 1, true)
+                    arrayType, [| ArrayLength(cha, makeNumber 0, arrayType) |> eval |], null
+                | ConcreteDimension rank ->
+                    let arrayType = (elemType, rank, false)
+                    arrayType,
+                    Array.init rank (fun i -> ArrayLength(cha, makeNumber i, arrayType) |> eval),
+                    Array.init rank (fun i -> ArrayLowerBound(cha, makeNumber i, arrayType) |> eval)
+                | SymbolicDimension -> __unreachable__()
+            arrayType, lengths, lowerBounds
+        | _ -> internalfail "reading array parameters for invalid type"
 
 // ------------------------------- Unsafe reading -------------------------------
 
@@ -938,7 +970,7 @@ module internal Memory =
 
     let writeBoxedLocation state (address : concreteHeapAddress) value =
         let cm = state.concreteMemory
-        match tryTermToObj state value with
+        match tryTermToObj state (fun _ _ -> ()) value with
         | Some value when cm.Contains(address) ->
             cm.Remove address
             cm.Allocate address value
@@ -982,25 +1014,30 @@ module internal Memory =
         writeArrayIndexSymbolic state address [stringLength] (tChar, 1, true) (Concrete '\000' tChar)
         writeClassFieldSymbolic state address Reflection.stringLengthField stringLength
 
-    let unmarshall (state : state) concreteAddress =
-        let address = ConcreteHeapAddress concreteAddress
-        let cm = state.concreteMemory
-        let obj = cm.VirtToPhys concreteAddress
+    let unmarshallObj state address (obj : obj) =
         assert(box obj <> null)
         match obj with
         | :? Array as array -> unmarshallArray state address array
         | :? String as string -> unmarshallString state address string
         | _ -> unmarshallClass state address obj
+
+    let unmarshall (state : state) concreteAddress =
+        let cm = state.concreteMemory
+        let deps = cm.GetDeps concreteAddress |> List.map (fun a -> cm.VirtToPhys a, ConcreteHeapAddress a)
+        deps |> List.iter (fun (d, a) -> unmarshallObj state a d)
         cm.Remove concreteAddress
 
 // ------------------------------- Writing -------------------------------
 
     let writeClassField state address (field : fieldId) value =
         let cm = state.concreteMemory
-        let concreteValue = tryTermToObj state value
+        let concreteValue = tryTermToObj state (fun _ _ -> ()) value
         match address.term, concreteValue with
         | ConcreteHeapAddress concreteAddress, Some obj when cm.Contains concreteAddress ->
             cm.WriteClassField concreteAddress field obj
+            match value with
+            | {term = HeapRef({term = ConcreteHeapAddress(a)}, _)} -> cm.AddDep a concreteAddress
+            | _ -> ()
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             unmarshall state concreteAddress
             writeClassFieldSymbolic state address field value
@@ -1008,11 +1045,14 @@ module internal Memory =
 
     let writeArrayIndex state address indices arrayType value =
         let cm = state.concreteMemory
-        let concreteValue = tryTermToObj state value
+        let concreteValue = tryTermToObj state (fun _ _ -> ()) value
         let concreteIndices = tryIntListFromTermList indices
         match address.term, concreteValue, concreteIndices with
         | ConcreteHeapAddress a, Some obj, Some concreteIndices when cm.Contains a ->
             cm.WriteArrayIndex a concreteIndices obj
+            match value with
+            | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} -> cm.AddDep addr a
+            | _ -> ()
         | ConcreteHeapAddress a, _, None
         | ConcreteHeapAddress a, None, _ when cm.Contains a ->
             unmarshall state a

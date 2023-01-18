@@ -354,7 +354,9 @@ internal class MethodRenderer : CodeRenderer
             }
 
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
-            return RenderArrayCreation(type, initializer, allowImplicit);
+            var arr = RenderArrayCreation(type, initializer, allowImplicit);
+            var arrayId = AddDecl(preferredName, type, arr);
+            return arrayId;
         }
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
