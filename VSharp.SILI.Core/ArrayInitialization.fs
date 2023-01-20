@@ -56,14 +56,7 @@ module internal ArrayInitialization =
     let private fillInArray termCreator (state : state) address typeOfArray (size : int) (rawData : byte[]) =
         let extractIntFromTerm (term : term) =
             match term.term with
-            | Concrete (:? int as v, _) -> v
-            | Concrete (:? int16 as v, _) -> int v
-            | Concrete (:? uint16 as v, _) -> int v
-            | Concrete (:? byte as v, _) -> int v
-            | Concrete (:? sbyte as v, _) -> int v
-            | Concrete (:? char as v, _) -> int v
-            | Concrete (:? int64 as v, _) when v <= int64 Int32.MaxValue -> int v
-            | Concrete (:? int64, _) -> internalfail "int64 array size is not handled"
+            | Concrete (v, _) -> NumericUtils.ObjToInt v
             | _ -> __notImplemented__()
         assert (rawData.Length % size = 0)
         let dims = rankOf typeOfArray
