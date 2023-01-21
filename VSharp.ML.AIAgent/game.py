@@ -1,7 +1,5 @@
-from dataclasses import dataclass, field
-from dataclasses_json import dataclass_json, config
-from typing import List
-import json
+from dataclasses import dataclass
+from dataclasses_json import dataclass_json
 
 
 @dataclass_json
@@ -14,6 +12,11 @@ class State:
     VisitedAgainVertices: int
     VisitedNotCoveredVerticesInZone: int
     VisitedNotCoveredVerticesOutOfZone: int
+    History: list[int]
+    Children: list[int]
+
+    def __hash__(self) -> int:
+        return self.Id.__hash__()
 
 
 @dataclass_json
@@ -26,7 +29,7 @@ class GameMapVertex:
     CoveredByTest: bool
     VisitedByState: bool
     TouchedByState: bool
-    States: List[State]
+    States: list[State]
 
 
 @dataclass_json
@@ -46,14 +49,7 @@ class GameMapEdge:
 @dataclass_json
 @dataclass
 class GameState:
-    Map: List[GameMapEdge]
-
-
-@dataclass_json
-@dataclass
-class Reward:
-    StepReward: int
-    MaxPossibleReward: int
+    Map: list[GameMapEdge]
 
 
 @dataclass_json
@@ -64,12 +60,3 @@ class GameMap:
     AssemblyFullName: str
     CoverageZone: bool
     NameOfObjectToCover: str
-
-
-@dataclass_json
-@dataclass
-class ServerMessage:
-    MessageType: str
-    MessageBody: List[GameMap] | Reward = field(
-        metadata=config(decoder=lambda x: json.loads(x))
-    )
