@@ -30,12 +30,13 @@ type internal AssemblyResolveContext(assembly : Assembly) as this =
                 AppBaseCompilationAssemblyResolver assemblyDir :> ICompilationAssemblyResolver;
                 ReferenceAssemblyPathResolver() :> ICompilationAssemblyResolver;
                 PackageCompilationAssemblyResolver() :> ICompilationAssemblyResolver |] :> ICompilationAssemblyResolver
-    let assemblyContext = AssemblyLoadContext.GetLoadContext assembly
+    let assemblyContext = CSharpUtils.VSharpAssemblyLoadContext("asm_manager_alc")
     let resolvingHandler = Func<_,_,_> this.OnResolving
     let resolvedAssemblies = ResizeArray<Assembly>(seq {assembly})
 
     let () =
-        assemblyContext.add_Resolving resolvingHandler
+        // assemblyContext.add_Resolving resolvingHandler
+        assemblyContext.LoadFromAssemblyName(assembly.GetName()) |> ignore
 
     new(assemblyPath : string) =
         new AssemblyResolveContext(Assembly.LoadFile(assemblyPath))
