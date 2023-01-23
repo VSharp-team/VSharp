@@ -123,12 +123,16 @@ module private Points =
             if PersistentSet.contains x p1 then disjoint <- false else includes <- false
         includes, disjoint
 
-    let flip (x, y) = (not x, not y)
-
     let toResult (includes, disjoint) =
         if includes then Includes
         elif disjoint then Disjoint
         else Intersects
+
+    let flip result =
+        match result with
+        | Includes -> Disjoint
+        | Intersects -> Intersects
+        | Disjoint -> Includes
 
 type points<'a when 'a : equality> =
     {points : 'a pset; thrown : bool}
@@ -143,7 +147,7 @@ type points<'a when 'a : equality> =
         override this.CompareTo other =
             match this.thrown, other.thrown with
             | false, false -> Points.compare this.points other.points |> Points.toResult
-            | true, false -> Points.compare this.points other.points |> Points.flip |> Points.toResult
+            | true, false -> Points.compare this.points other.points |> Points.toResult |> Points.flip
             | false, true -> if Points.compare other.points this.points |> fst then Disjoint else Intersects
             | true, true -> if Points.compare other.points this.points |> fst then Includes else Intersects
         override this.Subtract other =

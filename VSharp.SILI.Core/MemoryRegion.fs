@@ -54,7 +54,6 @@ module private MemoryKeyUtils =
 
     let regionsOfIntegerRanges lowerBounds upperBounds = List.map2 regionOfIntegerRange lowerBounds upperBounds |> listProductRegion<points<int>>.OfSeq
 
-
 [<StructuralEquality;CustomComparison>]
 type heapAddressKey =
     {address : heapAddress}
