@@ -122,6 +122,12 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
                 state.targets <-Some (Set.add target Set.empty)
                 insertInTargetedSearcher state target
 
+    let deleteTargetedSearcher target =
+        let targetedSearcher = getTargetedSearcher target
+        for state in targetedSearcher.ToSeq () do
+            removeTarget state target
+        targetedSearchers.Remove target |> ignore
+
     let updateTargetedSearchers parent (newStates : cilState seq) =
         let addedCilStates = Dictionary<codeLocation, cilState list>()
         let updateParentTargets = getTargets parent
@@ -151,13 +157,8 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         if not <| List.isEmpty reachedStates then
             reachedOrUnreachableTargets.Add kvpair.Key |> ignore
             for state in reachedStates do
+                deleteTargetedSearcher kvpair.Key
                 addReturnTarget state)
-
-    let deleteTargetedSearcher target =
-        let targetedSearcher = getTargetedSearcher target
-        for state in targetedSearcher.ToSeq () do
-            removeTarget state target
-        targetedSearchers.Remove target |> ignore
 
     let insertInTargetedSearchers states =
         states
