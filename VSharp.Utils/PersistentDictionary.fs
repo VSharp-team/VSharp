@@ -117,6 +117,7 @@ module PersistentSet =
     let public empty<'a when 'a : equality> : pset<'a> = PersistentDict.empty<'a, int>
     let public isEmpty (d : pset<'a>) = PersistentDict.isEmpty d
 
+    let public ofSeq (seq : seq<'a>) = PersistentDict.ofSeq (Seq.map (withSnd 0) seq)
     let public toSeq (d : pset<'a>) = PersistentDict.keys d
 
     let public contains (key : 'a) (d : pset<'a>) = PersistentDict.contains key d

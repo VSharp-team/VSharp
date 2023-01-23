@@ -62,11 +62,12 @@ module internal Memory =
 
     let delinearizeArrayIndex ind lens lbs =
         let detachOne (acc, lens) lb =
-            let lensProd = List.fold mul (makeNumber 1) (List.tail lens)
+            let lensTail = List.tail lens
+            let lensProd = List.fold mul (makeNumber 1) lensTail
             let curOffset = div acc lensProd
             let curIndex = add curOffset lb
             let rest = rem acc lensProd
-            curIndex, (rest, List.tail lens)
+            curIndex, (rest, lensTail)
         List.mapFold detachOne (ind, lens) lbs |> fst
 
     let linearizeArrayIndex (lens : term list) (lbs : term list) (indices : term list) =
@@ -239,6 +240,19 @@ module internal Memory =
             override x.Time = x.time
             override x.TypeOfLocation = x.picker.sort.TypeOfLocation
 
+    [<StructuralEquality;NoComparison>]
+    type private arrayReading =
+        {
+            picker : regionPicker<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+            key : heapArrayKey
+            memoryObject : memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+            time : vectorTime
+        }
+        interface IMemoryAccessConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.Time = x.time
+            override x.TypeOfLocation = x.picker.sort.TypeOfLocation
+
     let (|HeapReading|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapReading<heapAddressKey, vectorTime intervals> as hr -> Some(hr.key, hr.memoryObject)
@@ -246,8 +260,9 @@ module internal Memory =
 
     let (|ArrayIndexReading|_|) (src : ISymbolicConstantSource) =
         match src with
-        | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as ar ->
-            Some(isConcreteHeapAddress ar.key.address, ar.key, ar.memoryObject)
+        | :? heapReading<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> ->
+            internalfail "unexpected array index reading via 'heapReading' source"
+        | :? arrayReading as ar -> Some(isConcreteHeapAddress ar.key.Address, ar.key, ar.memoryObject)
         | _ -> None
 
     // VectorIndexKey is used for length and lower bounds
@@ -273,12 +288,42 @@ module internal Memory =
 
     let getHeapReadingRegionSort (src : ISymbolicConstantSource) =
         match src with
-        | :? heapReading<heapAddressKey, vectorTime intervals>                                                 as hr -> hr.picker.sort
-        | :? heapReading<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> as hr -> hr.picker.sort
-        | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>                  as hr -> hr.picker.sort
-        | :? heapReading<stackBufferIndexKey, int points>                                                      as hr -> hr.picker.sort
-        | :? heapReading<symbolicTypeKey, freeRegion<typeWrapper>>                                            as hr -> hr.picker.sort
+        | :? heapReading<heapAddressKey, vectorTime intervals>                                as hr -> hr.picker.sort
+        | :? heapReading<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> as hr -> hr.picker.sort
+        | :? heapReading<stackBufferIndexKey, int points>                                     as hr -> hr.picker.sort
+        | :? heapReading<symbolicTypeKey, freeRegion<typeWrapper>>                            as hr -> hr.picker.sort
+        | :? heapReading<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> ->
+            internalfail "unexpected array index reading via 'heapReading' source"
+        | :? arrayReading as ar -> ar.picker.sort
         | _ -> __unreachable__()
+
+    [<StructuralEquality;NoComparison>]
+    type boundReading =
+        {
+            arrayAddress : heapAddress
+            picker : regionPicker<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+            memoryObject : memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+            time : vectorTime
+        }
+        interface IMemoryAccessConstantSource with
+            override x.SubTerms = Seq.empty
+            override x.Time = x.time
+            override x.TypeOfLocation = x.picker.sort.TypeOfLocation
+
+    let (|BoundReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? boundReading as { memoryObject = mo; arrayAddress = srcAddress; picker = picker; time = time } ->
+            Some(mo, srcAddress, picker, time)
+        | _ -> None
+
+    let specializeWithKey constant (key : heapArrayKey) =
+        match constant.term with
+        | Constant(_, BoundReading(mo, srcAddress, picker, time), typ) ->
+            let key = key.ChangeAddress(srcAddress)
+            let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
+            let name = picker.mkname key
+            Constant name source typ
+        | _ -> constant
 
     [<StructuralEquality;NoComparison>]
     type private structField =
@@ -342,9 +387,26 @@ module internal Memory =
         let name = toString key
         makeSymbolicValue source name typ
 
-    let private makeSymbolicHeapRead picker key time typ memoryObject =
-        let source = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+    let rec private makeSymbolicHeapRead _ picker key time typ memoryObject _ =
+        let source : heapReading<'key, 'reg> = {picker = picker; key = key; memoryObject = memoryObject; time = time}
         let name = picker.mkname key
+        makeSymbolicValue source name typ
+
+    let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
+        match singleValue with
+        | Some {key = key'; value = {term = Constant(_, BoundReading(mo, srcAddress, picker, _), _)}} when key'.Includes key ->
+            let key = key.ChangeAddress(srcAddress)
+            let inst = makeArraySymbolicHeapRead state picker key state.startingTime
+            MemoryRegion.read mo key (picker.isDefaultKey state) inst
+        | Some { key = key'; value = value } when key'.Includes key -> value
+        | _ ->
+            let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
+            let name = picker.mkname key
+            makeSymbolicValue source name typ
+
+    let private makeSymbolicHeapRangeRead picker time typ memoryObject fromAddress =
+        let source = {arrayAddress = fromAddress; picker = picker; memoryObject = memoryObject; time = time}
+        let name = memoryObject.ToString()
         makeSymbolicValue source name typ
 
     let makeSymbolicThis (m : IMethod) =
@@ -551,7 +613,7 @@ module internal Memory =
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
         let key = {address = address; index = dimension}
         MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+            (makeSymbolicHeapRead state {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLowerBound state address dimension arrayType =
         let cm = state.concreteMemory
@@ -566,7 +628,7 @@ module internal Memory =
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = address; index = dimension}
         MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+            (makeSymbolicHeapRead state {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readLength state address dimension arrayType =
         let cm = state.concreteMemory
@@ -575,28 +637,56 @@ module internal Memory =
             cm.ReadArrayLength address dim |> objToTerm state typeof<int>
         | _ -> readLengthSymbolic state address dimension arrayType
 
-    let private readArrayRegion state arrayType extractor region address indices =
-        let key = {address = address; indices = indices}
-        let isDefault state (key : heapArrayIndexKey) = isHeapAddressDefault state key.address
-        let instantiate typ memory =
-            let mkname = fun (key : heapArrayIndexKey) -> sprintf "%O[%s]" key.address (List.map toString key.indices |> join ", ")
-            let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault}
+    let private readArrayRegion state arrayType extractor region key =
+        let isDefault state (key : heapArrayKey) = isHeapAddressDefault state key.Address
+        let instantiate typ memory singleValue =
+            let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = toString; isDefaultKey = isDefault}
             let time =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
-            makeSymbolicHeapRead picker key time typ memory
+            match key with
+            | OneArrayIndexKey _ ->
+                makeArraySymbolicHeapRead state picker key time typ memory singleValue
+            | RangeArrayIndexKey(address, _, _) ->
+                makeSymbolicHeapRangeRead picker time typ memory address
         MemoryRegion.read region key (isDefault state) instantiate
 
-    let private readArrayIndexSymbolic state address indices arrayType =
+    let private readArrayKeySymbolic state key arrayType =
         let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
-        readArrayRegion state arrayType extractor (extractor state) address indices
+        readArrayRegion state arrayType extractor (extractor state) key
 
-    let private readSymbolicIndexFromConcreteArray state address arrayData indices (elemType, _, _ as arrayType) =
-        let writeOneIndex mr (index, value) =
-            let key = {address = address; indices = List.map makeNumber index}
-            objToTerm state elemType value |> MemoryRegion.write mr key
-        let region = arrayData |> Seq.fold writeOneIndex (MemoryRegion.empty (fst3 arrayType))
-        readArrayRegion state arrayType (always region) region address indices
+    let private readArrayIndexSymbolic state address indices arrayType =
+        let key = OneArrayIndexKey(address, indices)
+        readArrayKeySymbolic state key arrayType
+
+    let private readArrayRangeSymbolic state address fromIndices toIndices arrayType =
+        let key = RangeArrayIndexKey(address, fromIndices, toIndices)
+        readArrayKeySymbolic state key arrayType
+
+    let private regionFromData state address data regionType =
+        let prepareData (index, value) =
+            let key = OneArrayIndexKey(address, List.map makeNumber index)
+            let value = objToTerm state regionType value
+            key, value
+        Seq.map prepareData data |> MemoryRegion.memset (MemoryRegion.empty regionType)
+
+    let private readRangeFromConcreteArray state address arrayData fromIndices toIndices arrayType =
+        let region = regionFromData state address arrayData (fst3 arrayType)
+        let key = RangeArrayIndexKey(address, fromIndices, toIndices)
+        readArrayRegion state arrayType (always region) region key
+
+    let readArrayRange state address fromIndices toIndices arrayType =
+        let cm = state.concreteMemory
+        match address.term with
+        | ConcreteHeapAddress concreteAddress when cm.Contains concreteAddress ->
+            let data = cm.GetAllArrayData concreteAddress
+            readRangeFromConcreteArray state address data fromIndices toIndices arrayType
+        | _ -> readArrayRangeSymbolic state address fromIndices toIndices arrayType
+
+    let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
+        let region = regionFromData state address arrayData (fst3 arrayType)
+        let key = OneArrayIndexKey(address, indices)
+        readArrayRegion state arrayType (always region) region key
 
     let readArrayIndex state address indices arrayType =
         let cm = state.concreteMemory
@@ -624,7 +714,7 @@ module internal Memory =
                 let time =
                     if isValueType typ then state.startingTime
                     else MemoryRegion.maxTime region.updates state.startingTime
-                makeSymbolicHeapRead picker key time typ memory
+                makeSymbolicHeapRead state picker key time typ memory
             MemoryRegion.read region key (isDefault state) instantiate
 
     let readClassField (state : state) address (field : fieldId) =
@@ -640,7 +730,7 @@ module internal Memory =
         let isDefault _ _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
         MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+            (makeSymbolicHeapRead state {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readStackBuffer state (stackKey : stackKey) index =
         let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) typeof<int8>
@@ -648,7 +738,7 @@ module internal Memory =
         let isDefault _ _ = true
         let key : stackBufferIndexKey = {index = index}
         MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+            (makeSymbolicHeapRead state {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
 
     let readBoxedLocation state (address : concreteHeapAddress) =
         let cm = state.concreteMemory
@@ -881,19 +971,26 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.classFields <- PersistentDict.add field mr' state.classFields
 
-    let private writeArrayIndexSymbolic state address indices arrayType value =
+    let private writeArrayKeySymbolic state key arrayType value =
         let elementType = fst3 arrayType
         ensureConcreteType elementType
         let mr = accessRegion state.arrays arrayType elementType
-        let key = {address = address; indices = indices}
         let mr' = MemoryRegion.write mr key value
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
+
+    let private writeArrayIndexSymbolic state address indices arrayType value =
+        let key = OneArrayIndexKey(address, indices)
+        writeArrayKeySymbolic state key arrayType value
+
+    let private writeArrayRangeSymbolic state address fromIndices toIndices arrayType value =
+        let key = RangeArrayIndexKey(address, fromIndices, toIndices)
+        writeArrayKeySymbolic state key arrayType value
 
     let initializeArray state address indicesAndValues arrayType =
         let elementType = fst3 arrayType
         ensureConcreteType elementType
         let mr = accessRegion state.arrays arrayType elementType
-        let keysAndValues = Seq.map (fun (i, v) -> {address = address; indices = i}, v) indicesAndValues
+        let keysAndValues = Seq.map (fun (i, v) -> OneArrayIndexKey(address, i), v) indicesAndValues
         let mr' = MemoryRegion.memset mr keysAndValues
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
@@ -1018,6 +1115,22 @@ module internal Memory =
             unmarshall state a
             writeArrayIndexSymbolic state address indices arrayType value
         | _ -> writeArrayIndexSymbolic state address indices arrayType value
+
+    let writeArrayRange state address fromIndices toIndices arrayType value =
+        let cm = state.concreteMemory
+        let concreteValue = tryTermToObj state value
+        let concreteFromIndices = tryIntListFromTermList fromIndices
+        let concreteToIndices = tryIntListFromTermList toIndices
+        match address.term, concreteValue, concreteFromIndices, concreteToIndices with
+        | ConcreteHeapAddress a, Some v, Some l, Some r when cm.Contains a && List.length l = 1 ->
+            assert(List.length r = 1)
+            let l = List.head l
+            let r = List.head r
+            cm.FillArray a l (r - l) v
+        | ConcreteHeapAddress a, _, _, _ when cm.Contains a ->
+            unmarshall state a
+            writeArrayRangeSymbolic state address fromIndices toIndices arrayType value
+        | _ -> writeArrayRangeSymbolic state address fromIndices toIndices arrayType value
 
 // ------------------------------- Unsafe writing -------------------------------
 
@@ -1202,7 +1315,7 @@ module internal Memory =
             let address = allocateVector state elementType length
             let arrayType : arrayType = (elementType, 1, true)
             let mr = accessRegion state.arrays arrayType elementType
-            let keysAndValues = Seq.mapi (fun i v -> {address = address; indices = [makeNumber i]}, Concrete v elementType) contents
+            let keysAndValues = Seq.mapi (fun i v -> OneArrayIndexKey(address, [makeNumber i]), Concrete v elementType) contents
             let mr' = MemoryRegion.memset mr keysAndValues
             state.arrays <- PersistentDict.add arrayType mr' state.arrays
             address
@@ -1322,7 +1435,41 @@ module internal Memory =
                 let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                 let before = x.picker.extract state
                 let afters = MemoryRegion.compose before effect
-                let read region = MemoryRegion.read region key (x.picker.isDefaultKey state) (makeSymbolicHeapRead x.picker key state.startingTime)
+                let read region =
+                    let inst = makeSymbolicHeapRead state x.picker key state.startingTime
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
+                afters |> List.map (mapsnd read) |> Merging.merge
+
+    type arrayReading with
+        interface IMemoryAccessConstantSource with
+            override x.Compose state =
+                // TODO: do nothing if state is empty!
+                let substTerm = fillHoles state
+                let substType = substituteTypeVariables state
+                let substTime = composeTime state
+                let key = x.key :> IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+                let key = key.Map substTerm substType substTime key.Region |> snd
+                let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
+                let before = x.picker.extract state
+                let afters = MemoryRegion.compose before effect
+                let read region =
+                    let inst = makeArraySymbolicHeapRead state x.picker key state.startingTime
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
+                afters |> List.map (mapsnd read) |> Merging.merge
+
+    type boundReading with
+        interface IMemoryAccessConstantSource with
+            override x.Compose state =
+                // TODO: do nothing if state is empty!
+                let substTerm = fillHoles state
+                let substType = substituteTypeVariables state
+                let substTime = composeTime state
+                let address = substTerm x.arrayAddress
+                let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
+                let before = x.picker.extract state
+                let afters = MemoryRegion.compose before effect
+                let read (region : memoryRegion<heapArrayKey, productRegion<intervals<vectorTime>, listProductRegion<points<int>>>>) =
+                    makeSymbolicHeapRangeRead x.picker state.startingTime region.typ region address
                 afters |> List.map (mapsnd read) |> Merging.merge
 
     type stackReading with

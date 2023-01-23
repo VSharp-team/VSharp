@@ -191,6 +191,16 @@ namespace IntegrationTests
             a[2] = 42;
             return a;
         }
+        [TestSvm(100)]
+        public static int CopyAndBranch(int[] a, int i)
+        {
+            int[] arr = new int[5] {1, 2, 3, 4, 5};
+            Array.Copy(arr, 2, a, 2, 2);
+            a[2] = 42;
+            if (a[i] == 2)
+                return 1;
+            return 2;
+        }
 
         [TestSvm(100)]
         public static int[] WriteAndThenCopy(int[] a)
@@ -201,7 +211,7 @@ namespace IntegrationTests
             return a;
         }
 
-        [Ignore("Forward exploration does not handle recursion now")]
+        [TestSvm(86)]
         public static int TestSolvingCopy(int[] a, int[] b, int i)
         {
             if (a.Length > b.Length && 0 <= i && i < b.Length)
@@ -211,6 +221,172 @@ namespace IntegrationTests
 
                 if (b[i] == b[i + 1])
                     return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy1(int[] a, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = 42;
+                Array.Copy(a, 0, b, 0, b.Length);
+                b[0] = 31;
+                var x = b.Length == 3;
+                var y = a[0] == 42;
+                var z = b[0] == 31;
+                var k = a[1] == b[1];
+                var j = a[2] == b[2];
+
+                if (x && y && z && k && j)
+                    return 42;
+
+                a[0] = 12;
+                a[3] = 31;
+                Array.Copy(a, 0, b, 0, b.Length);
+
+                if (b.Length == 4 && a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3])
+                    return 12;
+
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy2(int[] a, int[] b, int[] c)
+        {
+            if (a != null && b != null && c != null && a.Length > b.Length && b.Length > c.Length)
+            {
+                a[0] = 42;
+                Array.Copy(a, 0, b, 0, b.Length);
+                b[0] = 31;
+                var x = b.Length == 3;
+                var y = a[0] == 42;
+                var z = b[0] == 31;
+                var k = a[1] == b[1];
+                var j = a[2] == b[2];
+
+                if (x && y && z && k && j)
+                    return 42;
+
+                b[0] = 12;
+                b[3] = 31;
+                Array.Copy(b, 0, c, 0, c.Length);
+
+                if (c.Length == 4 && c[0] == b[0] && c[1] == b[1] && c[2] == b[2] && c[3] == b[3])
+                    return 12;
+
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(88)]
+        public static int TestSolvingCopy3(int[] a, int[] b, int[] c)
+        {
+            if (a != null && b != null && c != null && a.Length > b.Length && b.Length > c.Length && c.Length > 3)
+            {
+                a[0] = 42;
+                Array.Copy(a, 0, b, 0, 3);
+                Array.Copy(b, 0, c, 0, 4);
+
+                // Should be always true
+                if (c[0] == b[0] && c[1] == b[1] && c[2] == b[2] && c[3] == b[3])
+                    return 12;
+
+                // Unreachable
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy4(int[] a, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length && b.Length > 3)
+            {
+                a[0] = 42;
+                Array.Copy(a, 0, b, 0, 3);
+
+                if (b[1] > 0)
+                    return b[0];
+
+                return b[1];
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy5(int[] a, int[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                a[i] = 1; a[0] = 2;
+                Array.Copy(a, b, b.Length);
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestSolvingCopy6(int[] a, int[] b, int i)
+        {
+            if (a.Length > b.Length && 0 <= i && i < b.Length)
+            {
+                a[i] = 1; a[0] = 2;
+                Array.Copy(a, b, b.Length);
+                b[i] = 4;
+                b[0] = 3;
+
+                if (b[i] == b[i + 1])
+                    return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(88)]
+        public static int TestOverlappingCopy(int[] a)
+        {
+            if (a != null && a.Length > 5)
+            {
+                a[0] = 42;
+                a[2] = 41;
+                Array.Copy(a, 0, a, 2, 3);
+
+                // Should be always false
+                if (a[2] != 42)
+                    // Unreachable
+                    return 42;
+
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(100)]
+        public static int TestOverlappingCopy1(int[] a, int i)
+        {
+            if (a != null && a.Length > 5)
+            {
+                a[0] = 42;
+                Array.Copy(a, 0, a, 2, 3);
+
+                if (a[i] != 42)
+                    return 42;
+
+                a[i] = 41;
+                Array.Copy(a, 0, a, i, 3);
+
+                if (a[i] != 42)
+                    return 42;
+
                 return 10;
             }
             return 3;

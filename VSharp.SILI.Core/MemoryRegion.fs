@@ -9,7 +9,6 @@ open VSharp.Core
 
 
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
-//    abstract IsAllocated : bool
     abstract Region : 'reg
     abstract Map : (term -> term) -> (Type -> Type) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
     abstract IsUnion : bool
@@ -37,21 +36,29 @@ module private MemoryKeyUtils =
         | {term = ConcreteHeapAddress addr} -> intervals<vectorTime>.Singleton addr
         | addr -> intervals<vectorTime>.Closed VectorTime.minfty (timeOf addr)
 
-    let regionOfIntegerTerm = function
-        | {term = Concrete(:? int as value, typ)} when typ = lengthType -> points<int>.Singleton value
-        | {term = Concrete(:? uint as value, typ)} when typ = typeof<UInt32> -> points<int>.Singleton (int value)
-        | _ -> points<int>.Universe
+    let private extractInt = function
+        | {term = Concrete(:? int as value, typ)} when typ = lengthType -> Some value
+        | {term = Concrete(:? uint as value, typ)} when typ = typeof<UInt32> -> Some (int value)
+        | _ -> None
+
+    let regionOfIntegerTerm = extractInt >> function
+        | Some value -> points<int>.Singleton value
+        | None -> points<int>.Universe
 
     let regionsOfIntegerTerms = List.map regionOfIntegerTerm >> listProductRegion<points<int>>.OfSeq
+
+    let regionOfIntegerRange lowerBound upperBound =
+        match extractInt lowerBound, extractInt upperBound with
+        | Some lb, Some ub -> points<int>.Range lb ub
+        | _ -> points<int>.Universe
+
+    let regionsOfIntegerRanges lowerBounds upperBounds = List.map2 regionOfIntegerRange lowerBounds upperBounds |> listProductRegion<points<int>>.OfSeq
+
 
 [<StructuralEquality;CustomComparison>]
 type heapAddressKey =
     {address : heapAddress}
     interface IMemoryKey<heapAddressKey, vectorTime intervals> with
-//        override x.IsAllocated =
-//            match x.address.term with
-//            | ConcreteHeapAddress _ -> true
-//            | _ -> false
         override x.Region = MemoryKeyUtils.regionOfHeapAddress x.address
         override x.Map mapTerm _ mapTime reg =
             let symbolicReg = intervals<vectorTime>.Closed VectorTime.minfty VectorTime.zero
@@ -75,43 +82,125 @@ type heapAddressKey =
     override x.ToString() = x.address.ToString()
 
 [<StructuralEquality;CustomComparison>]
-type heapArrayIndexKey =
-    {address : heapAddress; indices : term list}
-    interface IMemoryKey<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>> with
-//        override x.IsAllocated =
-//            match x.address.term with
-//            | ConcreteHeapAddress _ -> true
-//            | _ -> false
+type heapArrayKey =
+    | OneArrayIndexKey of heapAddress * term list
+    | RangeArrayIndexKey of heapAddress * term list * term list
+
+    member x.Address =
+        match x with
+        | OneArrayIndexKey(a, _) -> a
+        | RangeArrayIndexKey(a, _, _) -> a
+
+    member x.ChangeAddress address =
+        match x with
+        | OneArrayIndexKey(_, indices) -> OneArrayIndexKey(address, indices)
+        | RangeArrayIndexKey(_, fromIndices, toIndices) -> RangeArrayIndexKey(address, fromIndices, toIndices)
+
+    member x.Rank =
+        match x with
+        | OneArrayIndexKey(_, indices) -> List.length indices
+        | RangeArrayIndexKey(_, fromIndices, toIndices) ->
+            let toIndicesLength = List.length toIndices
+            assert(List.length fromIndices = toIndicesLength)
+            toIndicesLength
+
+    member x.IsOneIndexKey =
+        match x with
+        | OneArrayIndexKey _ -> true
+        | _ -> false
+
+    member x.Includes key =
+        match x, key with
+        | _ when key = x -> true
+        | RangeArrayIndexKey(a1, lbs1, ubs1), RangeArrayIndexKey(a2, lbs2, ubs2) when a1 = a2 ->
+            let lbsConcrete1 = tryIntListFromTermList lbs1
+            let lbsConcrete2 = tryIntListFromTermList lbs2
+            let ubsConcrete1 = tryIntListFromTermList ubs1
+            let ubsConcrete2 = tryIntListFromTermList ubs2
+            match lbsConcrete1, lbsConcrete2, ubsConcrete1, ubsConcrete2 with
+            | Some lbs1, Some lbs2, Some ubs1, Some ubs2 ->
+                List.zip lbs1 ubs1
+                |> List.map3 (fun lb2 ub2 (lb1, ub1) -> lb1 <= lb2 && ub2 <= ub1) lbs2 ubs2
+                |> List.forall id
+            | _ -> x = key
+        | RangeArrayIndexKey(a1, lbs, ubs), OneArrayIndexKey(a2, i) when a1 = a2 ->
+            let lbsConcrete = tryIntListFromTermList lbs
+            let ubsConcrete = tryIntListFromTermList ubs
+            let iConcrete = tryIntListFromTermList i
+            match lbsConcrete, ubsConcrete, iConcrete with
+            | Some lbs, Some ubs, Some i ->
+                List.map3 (fun lb ub i -> lb <= i && i <= ub) lbs ubs i |> List.forall id
+            | _ ->
+                List.map3 (fun lb ub i -> lb = i || i = ub) lbs ubs i |> List.forall id
+        | OneArrayIndexKey(a1, i), RangeArrayIndexKey(a2, lbs, ubs) when a1 = a2 ->
+            List.map3 (fun i lb ub -> i = lb && i = ub) i lbs ubs |> List.forall id
+        | OneArrayIndexKey _, OneArrayIndexKey _ -> x = key
+        | _ -> false
+
+    interface IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> with
         override x.Region =
-            productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionsOfIntegerTerms x.indices)
+            let address, indicesRegion =
+                match x with
+                | OneArrayIndexKey(address, indices) -> address, MemoryKeyUtils.regionsOfIntegerTerms indices
+                | RangeArrayIndexKey(address, lowerBounds, upperBounds) -> address, MemoryKeyUtils.regionsOfIntegerRanges lowerBounds upperBounds
+            productRegion<vectorTime intervals, int points listProductRegion>.ProductOf (MemoryKeyUtils.regionOfHeapAddress address) indicesRegion
         override x.Map mapTerm _ mapTime reg =
-            reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; indices = List.map mapTerm x.indices}
-        override x.IsUnion = isUnion x.address
-        override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; indices = x.indices}))  // TODO: if x.indices is the union of concrete values, then unguard indices as well
+            match x with
+            | OneArrayIndexKey(address, indices) ->
+                reg.Map (fun x -> x.Map mapTime) id, OneArrayIndexKey(mapTerm address, List.map mapTerm indices)
+            | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
+                let reg' = reg.Map (fun x -> x.Map mapTime) id
+                let address' = mapTerm address
+                let lowerBounds' = List.map mapTerm lowerBounds
+                let upperBounds' = List.map mapTerm upperBounds
+                let y = if lowerBounds' = upperBounds' then OneArrayIndexKey(address', lowerBounds')
+                        else RangeArrayIndexKey(address', lowerBounds', upperBounds')
+                reg', y
+        override x.IsUnion = isUnion x.Address
+        override x.Unguard =
+            match x with
+            | OneArrayIndexKey(address, indices) ->
+                Merging.unguard address |> List.map (fun (g, addr) -> (g, OneArrayIndexKey(addr, indices)))  // TODO: if indices are unions of concrete values, then unguard them as well
+            | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
+                Merging.unguard address |> List.map (fun (g, addr) -> (g, RangeArrayIndexKey(addr, lowerBounds, upperBounds)))  // TODO: if lbs and ubs are unions of concrete values, then unguard them as well
     interface IComparable with
         override x.CompareTo y =
             match y with
-            | :? heapArrayIndexKey as y ->
-                let cmp = compareTerms x.address y.address
-                if cmp = 0 then List.compareWith compareTerms x.indices y.indices
-                else cmp
+            | :? heapArrayKey as y ->
+                match x, y with
+                | OneArrayIndexKey _, RangeArrayIndexKey _ -> -1
+                | RangeArrayIndexKey _, OneArrayIndexKey _ -> 1
+                | OneArrayIndexKey(address, indices), OneArrayIndexKey(address', indices') ->
+                    let cmp = compareTerms address address'
+                    if cmp = 0 then List.compareWith compareTerms indices indices'
+                    else cmp
+                | RangeArrayIndexKey(address, lowerBounds, upperBounds), RangeArrayIndexKey(address', lowerBounds', upperBounds') ->
+                    let cmp = compareTerms address address'
+                    if cmp = 0 then
+                        let cmp = List.compareWith compareTerms lowerBounds lowerBounds'
+                        if cmp = 0 then List.compareWith compareTerms upperBounds upperBounds'
+                        else cmp
+                    else cmp
             | _ -> -1
-    override x.ToString() = sprintf "%O[%O]" x.address (x.indices |> List.map toString |> join ", ")
+    override x.ToString() =
+        match x with
+        | OneArrayIndexKey(address, indices) ->
+            sprintf "%O[%O]" address (indices |> List.map toString |> join ", ")
+        | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
+            sprintf "%O[%O]" address (List.map2 (sprintf "%O..%O") lowerBounds upperBounds |> join ", ")
 
 [<StructuralEquality;CustomComparison>]
 type heapVectorIndexKey =
     {address : heapAddress; index : term}
     interface IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> with
-//        override x.IsAllocated =
-//            match x.address.term with
-//            | ConcreteHeapAddress _ -> true
-//            | _ -> false
         override x.Region =
             productRegion<vectorTime intervals, int points>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionOfIntegerTerm x.index)
         override x.Map mapTerm _ mapTime reg =
             reg.Map (fun x -> x.Map mapTime) id, {address = mapTerm x.address; index = mapTerm x.index}
         override x.IsUnion = isUnion x.address
-        override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; index = x.index}))  // TODO: if x.index is the union of concrete values, then unguard index as well
+        override x.Unguard =
+            // TODO: if x.index is the union of concrete values, then unguard index as well
+            Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; index = x.index}))
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -165,7 +254,8 @@ with
 type symbolicTypeKey =
     {typ : Type}
     interface IMemoryKey<symbolicTypeKey, freeRegion<typeWrapper>> with
-//        override x.IsAllocated = false // TODO: when statics are allocated? always or never? depends on our exploration strategy
+    // TODO: when statics are allocated? always or never? depends on our exploration strategy
+//        override x.IsAllocated = false
         override x.Region = freeRegion<typeWrapper>.Singleton {t = x.typ}
         override x.Map _ mapper _ reg =
             reg.Map (fun t -> {t = mapper t.t}), {typ = mapper x.typ}
@@ -201,13 +291,13 @@ module private UpdateTree =
         let reg = key.Region
         let d = RegionTree.localize reg tree
         if PersistentDict.isEmpty d then
-            if isDefault key then makeDefault() else makeSymbolic (Node d)
+            if isDefault key then makeDefault() else makeSymbolic (Node d) None
         elif PersistentDict.size d = 1 then
             match PersistentDict.tryFind d reg with
-            | Some({key=key'; value=v}, _) when key = key' -> v
-            | Some _ -> makeSymbolic (Node d)
-            | _ -> makeSymbolic (Node d)
-        else makeSymbolic (Node d)
+            | Some({key=key'; value=v}, _) when key' = key -> v
+            | Some(value, _) -> makeSymbolic (Node d) (Some value)
+            | _ -> makeSymbolic (Node d) None
+        else makeSymbolic (Node d) None
 
     let memset (keyAndValues : seq<'key * 'value>) (tree : updateTree<'key, 'value, 'reg>) =
         let keyAndRegions = keyAndValues |> Seq.map (fun (key, value) -> key.Region, {key=key; value=value})
@@ -279,6 +369,9 @@ module MemoryRegion =
     let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
         {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
 
+    let mapKeys<'reg, 'key when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> (mapKey : 'reg -> 'key -> 'reg * 'key) mr =
+        {mr with updates = UpdateTree.map mapKey id mr.updates }
+
     let deterministicCompose earlier later =
         assert later.defaultValue.IsNone
         if earlier.typ = later.typ then
@@ -297,7 +390,7 @@ module MemoryRegion =
     let toString indent mr = UpdateTree.print indent toString mr.updates
 
     let flatten mr =
-        RegionTree.foldr (fun _ k acc -> (k.key, k.value)::acc) [] mr.updates
+        RegionTree.foldr (fun reg k acc -> (k.key, reg, k.value)::acc) [] mr.updates
 
     let localizeArray address dimension mr =
         let anyIndexRegion = List.replicate dimension points<int>.Universe |> listProductRegion<points<int>>.OfSeq
@@ -337,7 +430,7 @@ module SymbolicSet =
         (if sb.Length > 2 then sb.Remove(sb.Length - 2, 2) else sb).Append(" }").ToString()
 
 type heapRegion = memoryRegion<heapAddressKey, vectorTime intervals>
-type arrayRegion = memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>
+type arrayRegion = memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
 type vectorRegion = memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
 type stackBufferRegion = memoryRegion<stackBufferIndexKey, int points>
 type staticsRegion = memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>

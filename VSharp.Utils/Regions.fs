@@ -133,6 +133,9 @@ module private Points =
 type points<'a when 'a : equality> =
     {points : 'a pset; thrown : bool}
     static member Singleton x = {points = PersistentSet.add PersistentSet.empty<'a> x; thrown = false}
+    static member Range lowerBound upperBound =
+        // TODO: return universe for too large bounds?
+        {points = PersistentSet.ofSeq (seq {lowerBound .. upperBound}); thrown = false}
     static member Universe = {points = PersistentSet.empty<'a>; thrown = true}
     member this.Map (mapper : 'a -> 'a) = {this with points = this.points |> PersistentSet.map mapper }
     interface IRegion<'a points> with

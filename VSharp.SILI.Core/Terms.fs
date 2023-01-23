@@ -611,6 +611,7 @@ module internal Terms =
         let addElement term concreteList k =
             match term.term with
             | Concrete(:? int as i, _) -> i :: concreteList |> k
+            | Concrete(:? uint as i, _) -> int i :: concreteList |> k
             | _ -> None
         Cps.List.foldrk addElement List.empty termList Some
 
