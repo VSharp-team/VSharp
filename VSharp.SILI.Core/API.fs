@@ -464,6 +464,17 @@ module API =
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
+        let FillArray state array value =
+            match array.term with
+            | HeapRef(address, sightType) ->
+                let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
+                // Asserting that array is vector (T[])
+                assert(thd3 arrayType)
+                let zero = makeNumber 0
+                let length = Memory.readLength state address zero arrayType
+                Copying.fillArray state address arrayType zero length value
+            | _ -> internalfailf "Filling array: expected heapRef, but got %O" array
+
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory
             let concreteChar = Memory.tryTermToObj state char

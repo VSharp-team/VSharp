@@ -271,6 +271,7 @@ module API =
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
 
         val ClearArray : state -> term -> term -> term -> unit
+        val FillArray : state -> term -> term -> unit
 
         val StringFromReplicatedChar : state -> term -> term -> term -> unit
 
