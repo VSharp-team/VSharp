@@ -232,3 +232,6 @@ VSharp.Test/GeneratedTests/**
 
 # VisualStudioCode settings
 .vscode
+
+# MacOS specifics
+.DS_Store
