@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -222,7 +222,7 @@ namespace VSharp
                 unitTests.UnitTestsCount, unitTests.ErrorsCount,
                 explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct());
             unitTests.WriteReport(explorer.Statistics.PrintStatistics);
-
+            explorer.Reset(null);
             return statistics;
         }
 

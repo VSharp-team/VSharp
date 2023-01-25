@@ -220,6 +220,7 @@ let collectGameState (location:codeLocation) =
                       s.History |> Seq.map getBasicBlockId |> Array.ofSeq,
                       s.Children |> Array.ofList
                       ))
+            |> Array.ofSeq
                 
         GameMapVertex(
             0u,
@@ -229,7 +230,7 @@ let collectGameState (location:codeLocation) =
             kvp.Value.IsCovered,
             kvp.Value.IsVisited,
             kvp.Value.IsTouched,
-            Array.ofSeq states)
+            states)
         |> (fun x -> vertices.Add(x.Id,x))
     
     let edges = ResizeArray<_>()

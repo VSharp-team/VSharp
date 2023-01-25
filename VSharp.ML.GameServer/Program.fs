@@ -9,6 +9,7 @@ open Suave.Sockets
 open Suave.Sockets.Control
 open Suave.WebSocket
 open VSharp
+open VSharp.Core
 open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
@@ -87,6 +88,8 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
                         TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
+                    Application.reset()
+                    API.Reset()
                     do! sendResponse GameOver
                 | x -> failwithf $"Unexpected message: %A{x}"
                 

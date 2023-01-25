@@ -546,7 +546,15 @@ type ApplicationGraph() =
     let getShortestDistancesToGoals (states:array<codeLocation>) =
         __notImplemented__()
 
-    let messagesProcessor = MailboxProcessor.Start(fun inbox ->
+    let tryGetCfgInfo (method : Method) =
+        if method.HasBody then
+            // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
+            // TODO: fix it
+            let cfg = method.CFG
+            Some cfg
+        else None
+        
+    (*let messagesProcessor = MailboxProcessor.Start(fun inbox ->
         let tryGetCfgInfo (method : Method) =
             if method.HasBody then
                 // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
@@ -607,45 +615,60 @@ type ApplicationGraph() =
             Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
             raise e
             )
-
+*)
     member this.RegisterMethod (method: Method) =
-        messagesProcessor.Post (AddCFG (None, method))
+        assert method.HasBody
+        //let cfg = tryGetCfgInfo method |> Option.get
+        //cfg
+        //messagesProcessor.Post (AddCFG (None, method))
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
          addCallEdge sourceLocation targetLocation
 
     member this.SpawnState (state:IGraphTrackableState) =
-        messagesProcessor.Post <| SpawnStates [|state|]
+        [|state|] |> addStates None
+        //messagesProcessor.Post <| SpawnStates [|state|]
 
     member this.SpawnStates (states:seq<IGraphTrackableState>) =
-        messagesProcessor.Post <| SpawnStates states
+        Array.ofSeq states |> addStates None
+        //messagesProcessor.Post <| SpawnStates states
 
-    member this.AddForkedStates (parentState:IGraphTrackableState) (states:seq<IGraphTrackableState>) =
-        messagesProcessor.Post <| AddForkedStates (parentState,states)
+    member this.AddForkedStates (parentState:IGraphTrackableState) (forkedStates:seq<IGraphTrackableState>) =
+        addStates (Some parentState) (Array.ofSeq forkedStates)
+        //messagesProcessor.Post <| AddForkedStates (parentState,states)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
-        messagesProcessor.Post <| MoveState (fromLocation, toLocation)
+        tryGetCfgInfo toLocation.CodeLocation.method |> ignore
+        moveState fromLocation toLocation
+        //messagesProcessor.Post <| MoveState (fromLocation, toLocation)
 
     member x.AddGoal (location:codeLocation) =
-        messagesProcessor.Post <| AddGoals [|location|]
+        ()
+        //messagesProcessor.Post <| AddGoals [|location|]
 
     member x.AddGoals (locations:array<codeLocation>) =
-        messagesProcessor.Post <| AddGoals locations
+        ()
+        //messagesProcessor.Post <| AddGoals locations
 
     member x.RemoveGoal (location:codeLocation) =
-        messagesProcessor.Post <| RemoveGoal location
+        ()
+        //messagesProcessor.Post <| RemoveGoal location
 
     member this.GetShortestDistancesToAllGoalsFromStates (states: array<codeLocation>) =
-        messagesProcessor.PostAndReply (fun ch -> GetShortestDistancesToGoals(ch, states))
+        ()
+        //messagesProcessor.PostAndReply (fun ch -> GetShortestDistancesToGoals(ch, states))
 
     member this.GetDistanceToNearestGoal (states: seq<IGraphTrackableState>) =
-        messagesProcessor.PostAndReply (fun ch -> GetDistanceToNearestGoal(ch, states))
+        ()
+        //messagesProcessor.PostAndReply (fun ch -> GetDistanceToNearestGoal(ch, states))
 
     member this.GetGoalsReachableFromStates (states: array<codeLocation>) =
-        messagesProcessor.PostAndReply (fun ch -> GetReachableGoals(ch, states))
+        ()
+        //messagesProcessor.PostAndReply (fun ch -> GetReachableGoals(ch, states))
 
     member this.ResetQueryEngine() =
-        messagesProcessor.Post ResetQueryEngine
+        ()
+        //messagesProcessor.Post ResetQueryEngine
 
 
 
@@ -665,14 +688,17 @@ type NullVisualizer() =
         override x.VisualizeStep _ _ _ = ()
 
 
-
 module Application =
     let private methods = Dictionary<methodDescriptor, Method>()
     let private _loadedMethods = HashSet<_>()
     let loadedMethods = _loadedMethods :> seq<_>
-    let graph = ApplicationGraph()
+    let mutable graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
 
+    let reset () =
+        graph <- ApplicationGraph()
+        methods.Clear()
+        _loadedMethods.Clear()
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
         lock methods (fun () ->

@@ -402,6 +402,7 @@ type public SILI(options : SiliOptions) =
     member x.Reset entryMethods =
         API.Reset()
         SolverPool.reset()
+        CilStateOperations.currentStateId <- 0u
         statistics.Reset()
         searcher.Reset()
         isStopped <- false
