@@ -57,9 +57,9 @@ class Agent:
             ws.send(start_message.to_json())
 
             while True:
-                recieved = decode(ws.recv())
+                received = decode(ws.recv())
 
-                match recieved:
+                match received:
                     case GameState() as game_state:
                         print(f"next_states={[x.Id for x in get_states(game_state)]}")
                         next_state_id = choose_state_id(game_state).Id
