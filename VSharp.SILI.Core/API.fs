@@ -316,7 +316,7 @@ module API =
                 assert(isSuitableField address typ)
                 ClassField(address, fieldId) |> Ref
             | Ref address ->
-                assert(Memory.baseTypeOfAddress state address |> TypeUtils.isStruct)
+                assert fieldId.declaringType.IsValueType
                 StructField(address, fieldId) |> Ref
             | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldOffset fieldId |> makeNumber
