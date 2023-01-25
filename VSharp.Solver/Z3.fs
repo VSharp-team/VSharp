@@ -821,11 +821,12 @@ module internal Z3 =
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
                     match ms with
-                    | HeapAddressSource(StackReading(key)) ->
+                    | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
-                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
-                        stackEntries.Add(key, HeapRef addr t |> ref)
+                        let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let value = HeapRef address t
+                        x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
                     | HeapAddressSource(:? functionResultConstantSource as frs) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
