@@ -222,6 +222,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
                 let newString = String(dstArray)
                 x.WriteObject dstAddress newString
+            | :? String as srcString, (:? Array as dstArray) ->
+                let srcArray = srcString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+            | :? Array as srcArray, (:? String as dstString) ->
+                let dstArray = dstString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+                let newString = String(dstArray)
+                x.WriteObject dstAddress newString
             | obj -> internalfailf "copying array in concrete memory: expected to read array, but got %O" obj
 
         override x.CopyCharArrayToString arrayAddress stringAddress =

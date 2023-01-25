@@ -200,15 +200,15 @@ module internal Memory =
         address.GetHashCode() |> makeNumber
 
     let getHashCode object =
-        assert(isReference object)
         // TODO: implement GetHashCode() for value type (it's boxed)
         match object.term with
+        | ConcreteHeapAddress address
         | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
         | HeapRef(address, _) ->
-            let name = sprintf "HashCode(%O)" address
+            let name = $"HashCode({address})"
             let source = {object = address}
             Constant name source typeof<Int32>
-        | _ -> internalfailf "expected HeapRef, but got %O" object
+        | _ -> internalfail $"Getting hash code: unexpected object {object}"
 
 // ------------------------------- Instantiation -------------------------------
 
