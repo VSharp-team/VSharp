@@ -88,37 +88,38 @@ module Serialization =
 
     let rec encodeType ([<MaybeNull>] t : Type) : typeRepr =
         if t = null then {assemblyName = null; moduleFullyQualifiedName = null; name = null; genericArgs = null}
-        else                
+        else
             let name, arguments =
                 if t.IsGenericType then
                     if not t.IsConstructedGenericType then
                         internalfail "Encoding not constructed generic types not supported"
-                
+
                     let arguments = t.GetGenericArguments() |> Seq.map encodeType |> Seq.toArray
                     t.GetGenericTypeDefinition().FullName, arguments
                 else
                     t.FullName, null
-                    
+
             {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; name = name; genericArgs = arguments}
 
     [<MaybeNull>]
-    let rec decodeType (t : typeRepr) =
-        if t.assemblyName = null then null
-        else
+    let decodeType (t : typeRepr) =
+        let rec decodeTypeRec (t : typeRepr) =
             let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
             let typ = mdle.GetType t.name
             Debug.Assert(typ <> null)
-            
+
             if typ.IsGenericType then
                 Debug.Assert(t.genericArgs <> null && typ.GetGenericArguments().Length = t.genericArgs.Length)
-                
-                let args = t.genericArgs |> Seq.map decodeType |> Seq.toArray                
+
+                let args = t.genericArgs |> Seq.map decodeTypeRec |> Seq.toArray
                 typ.MakeGenericType args
             else
                 typ
-            
-            AssemblyManager.NormalizeType t1
-
+        if t.assemblyName = null then
+            null
+        else
+            let decodedType = decodeTypeRec t
+            AssemblyManager.NormalizeType decodedType
 
 type ITypeMockSerializer =
     abstract IsMockObject : obj -> bool

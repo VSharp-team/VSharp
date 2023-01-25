@@ -63,7 +63,7 @@ module public Reflection =
                 try
                     AssemblyManager.LoadFromAssemblyName assemblyName
                 with _ ->
-                AssemblyManager.LoadFromAssemblyPath moduleName
+                    AssemblyManager.LoadFromAssemblyPath moduleName
         assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
 
     let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
