@@ -257,6 +257,12 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.CreateContinuousDump() =
         if collectContinuousStatistics then
             let states = getStates() |> Seq.toList
+            let coveringStatesCount =
+                let isCovering s =
+                    let notCoveredBlocks = x.GetVisitedBlocksNotCoveredByTests(s)
+                    let blocksInZone = Seq.filter (fun b -> b.method.InCoverageZone) notCoveredBlocks
+                    Seq.length blocksInZone > 0
+                states |> Seq.filter isCovering |> Seq.length |> uint
             let continuousStatisticsDump = {
                 millis = stopwatch.ElapsedMilliseconds;
                 coveringStepsInsideZone = coveringStepsInsideZone;
@@ -267,7 +273,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
                 branchesReleased = branchesReleased;
                 internalFailsCount = uint internalFails.Count;
                 statesCount = getStatesCount()
-                coveringStatesCount = states |> Seq.filter (fun s -> (x.GetVisitedBlocksNotCoveredByTests(s) |> Seq.filter (fun b -> b.method.InCoverageZone)) |> Seq.length > 0) |> Seq.length |> uint
+                coveringStatesCount = coveringStatesCount
             }
             continuousStatistics.Add continuousStatisticsDump
 
