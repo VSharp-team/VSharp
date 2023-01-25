@@ -63,7 +63,7 @@ module internal ArrayInitialization =
         let arrayType = symbolicTypeToArrayType typeOfArray
         let lbs = List.init dims (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType |> extractIntFromTerm)
         let lens = List.init dims (fun dim -> Memory.readLength state address (makeNumber dim) arrayType |> extractIntFromTerm)
-        let allIndices = Array.allIndicesOfArray lbs lens
+        let allIndices = Array.allIndicesViaLens lbs lens
         let indicesAndValues = allIndices |> Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) // TODO: sort if need
         Memory.initializeArray state address indicesAndValues arrayType
 

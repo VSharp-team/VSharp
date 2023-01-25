@@ -1058,7 +1058,7 @@ module internal Memory =
             let value = array.GetValue(Array.ofList indices) |> objToTerm state elemType
             let termIndices = List.map makeNumber indices
             writeArrayIndexSymbolic state address termIndices arrayType value
-        let allIndices = Array.allIndicesOfArray lbs lens
+        let allIndices = Array.allIndicesViaLens lbs lens
         Seq.iter (writeIndex state) allIndices
         let termLBs = List.map (objToTerm state typeof<int>) lbs
         let termLens = List.map (objToTerm state typeof<int>) lens
