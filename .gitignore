@@ -229,3 +229,9 @@ VSharp.ClrInteraction/host/*
 
 # Rendered tests
 VSharp.Test/GeneratedTests/**
+
+#Pytjon environments
+**/.env/**
+
+#Python caches
+**/__pycache__/**
