@@ -242,7 +242,7 @@ and CfgInfo internal (method : MethodWithBody) =
                     currentBasicBlock.FinalOffset <- offset
                     dfs' currentBasicBlock offset
                 | ExceptionMechanism ->
-                    //sinks.Add currentBasicBlock
+                    sinks.Add currentBasicBlock
                     currentBasicBlock.FinalOffset <- currentVertex
                     //addEdge currentBasicBlock.StartVertex currentVertex
                 | Return ->
@@ -358,8 +358,9 @@ and Method internal (m : MethodBase) as this =
                     if kvp.Key <> CfgInfo.TerminalForCFGEdge
                     then
                         for target in kvp.Value do
-                            let added = edges.Add target.Method
-                            assert added
+                            (* let added = *)
+                            edges.Add target.Method |> ignore 
+                            //assert added
             edges |> Seq.cast<ICallGraphNode>
             
     interface IReversedCallGraphNode with

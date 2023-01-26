@@ -9,7 +9,6 @@ open VSharp
 open VSharp.Concolic
 open VSharp.Core
 open CilStateOperations
-open VSharp.IL
 open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.Solver
@@ -170,6 +169,8 @@ type public SILI(options : SiliOptions) =
             statistics.InternalFails.Add(e)
             action.Invoke(method, e)
     
+    let mutable stepsCount = 0
+    
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
             if pi.ParameterType.IsByRef then
@@ -324,6 +325,7 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
+            stepsCount <- stepsCount + 1
             if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
             then x.Stop()
             else
@@ -341,23 +343,22 @@ type public SILI(options : SiliOptions) =
                                 | :? AISearcher as s -> Some s.LastCollectedStatistics
                                 | _ -> None                        
                             | _ -> None
-                        //let statistics1 = Serializer.DumpFullGraph s.currentLoc (Some(System.IO.Path.Combine(Serializer.folderToStoreSerializationResult, string Serializer.firstFreeEpisodeNumber)))
+                        let statistics1 = dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult, string firstFreeEpisodeNumber))
                         x.Forward(s)                                        
                         match searcher with                        
                         | :? BidirectionalSearcher as searcher ->
                             match searcher.ForwardSearcher with
                             | :? AISearcher as searcher ->
-                                let gameState, statisticsAfterStep = Serializer.collectGameState s.currentLoc
+                                let gameState, statisticsAfterStep = collectGameState s.currentLoc
                                 searcher.LastGameState <- gameState
                                 searcher.LastCollectedStatistics <- statisticsAfterStep
                                 let stepReward, maxPossibleReward = computeReward statisticsBeforeStep.Value statisticsAfterStep
                                 if searcher.InAIMode
-                                then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward (int stepReward, maxPossibleReward)))
-                                // Some s.LastCollectedStatistics
+                                then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward (int stepReward, maxPossibleReward)))                                
                             | _ -> ()
                         | _ -> ()
-                        //let statistics2 = Serializer.DumpFullGraph s.currentLoc None
-                        //Serializer.saveExpectedResult s.id statistics1 statistics2
+                        let _,statistics2 = collectGameState s.currentLoc
+                        saveExpectedResult s.id statistics1 statistics2
                     with
                     | e -> reportStateInternalFail s e
                 | GoBack(s, p) ->
@@ -366,6 +367,7 @@ type public SILI(options : SiliOptions) =
                     with
                     | e -> reportStateInternalFail s e
                 | Stop -> __unreachable__()
+        System.IO.File.AppendAllLines ("Steps.out", [sprintf $"Steps: {stepsCount}"])
 
     member private x.AnswerPobs initialStates =
         statistics.ExplorationStarted()
@@ -402,7 +404,8 @@ type public SILI(options : SiliOptions) =
     member x.Reset entryMethods =
         API.Reset()
         SolverPool.reset()
-        CilStateOperations.currentStateId <- 0u
+        stepsCount <- 0
+        currentStateId <- 0u
         statistics.Reset()
         searcher.Reset()
         isStopped <- false
