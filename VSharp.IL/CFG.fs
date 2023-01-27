@@ -530,10 +530,7 @@ type ApplicationGraph() =
             max
                 stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
                 (uint ((stateWithNewPosition.CodeLocation.BasicBlock.Instructions
-                      |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1)) 
-            
-        if stateWithNewPosition.CodeLocation.BasicBlock.IsTouched && stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Count = 0
-        then printfn "!!!"        
+                      |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1))       
         stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
@@ -553,8 +550,6 @@ type ApplicationGraph() =
                     newState.CodeLocation.BasicBlock.VisitedInstructions
                     (uint ((newState.CodeLocation.BasicBlock.Instructions
                           |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
-            if newState.CodeLocation.BasicBlock.IsTouched && newState.CodeLocation.BasicBlock.AssociatedStates.Count = 0
-            then printfn "!!!"
             newState.CodeLocation.BasicBlock.IsVisited <-
                 newState.CodeLocation.BasicBlock.IsVisited
                 || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
