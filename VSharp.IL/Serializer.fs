@@ -202,7 +202,15 @@ let collectGameState (location:codeLocation) =
     let getBasicBlockId =
         let basicBlockToIdMap = Dictionary<_,_>()
         for kvp in basicBlocks do basicBlockToIdMap.Add(kvp.Value, uint kvp.Key)
-        fun basicBlock -> basicBlockToIdMap[basicBlock]
+        fun basicBlock ->
+            let exists,id = basicBlockToIdMap.TryGetValue basicBlock
+            if exists
+            then id
+            else
+                let id = uint firstFreeBasicBlockID
+                firstFreeBasicBlockID <- firstFreeBasicBlockID + 1
+                basicBlockToIdMap.Add(basicBlock, id)
+                id
     
     for kvp in basicBlocks do
         let currentBasicBlock = kvp.Value
