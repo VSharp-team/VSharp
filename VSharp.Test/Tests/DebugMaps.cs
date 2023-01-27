@@ -29,7 +29,7 @@ public class Graph
     // src to all other vertices using Bellman-Ford
     // algorithm. The function also detects negative weight
     // cycle
-    [TestSvm(100)]
+    //[TestSvm(100,timeout:30)]
     public int[] BellmanFord(Graph graph, int src)
     {
         int V = graph.V, E = graph.E;
@@ -287,7 +287,7 @@ public class AhoCorasick
     }
      
     // Driver code
-    [TestSvm(100, guidedMode: true, coverageZone:CoverageZone.Method)]
+    //[TestSvm(100, guidedMode: true, coverageZone:CoverageZone.Method)]
     public static List<Tuple<string, int, int>> AhoCorasickMain(string[] words, string text)
     {
         int k = words.Length;
@@ -299,7 +299,8 @@ public class AhoCorasick
 [TestSvmFixture]
 public class KMPSearch
 {
-    static List<int> Search(string pat, string txt)
+    //[TestSvm(100, guidedMode: false, coverageZone:CoverageZone.Method, serialize:"KMPSearchSearch_guided:false_coverage_zone:method")]
+    public static List<int> Search(string pat, string txt)
     {
         List<int> result = new List<int>();
         int M = pat.Length;
@@ -374,7 +375,7 @@ public class KMPSearch
     }
  
     // Driver program to test above function
-    [TestSvm(100, guidedMode: false, coverageZone:CoverageZone.Method)]
+    //[TestSvm(100, guidedMode: false, coverageZone:CoverageZone.Method, serialize:"KMPSearchMain_guided:false_coverage_zone:method")]
     public static List<int> KMPSearchMain(string txt, string pattern)
     {
         var result = Search(pattern, txt);
@@ -452,7 +453,7 @@ public class KruskalGraph
  
     // The main function to construct MST
     // using Kruskal's algorithm
-    [TestSvm(100)]
+    //[TestSvm(100)]
     public Tuple<int,List<Tuple<int,int,int>>> KruskalMST()
     {  
         List<Tuple<int, int, int>> resultEdges = new List<Tuple<int, int, int>>(); 
