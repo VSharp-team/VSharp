@@ -51,4 +51,6 @@ type SiliOptions = {
     oracle: Option<Oracle>
     coverageToSwitchToAI: uint
     stepsToPlay: uint
+    serialize: bool
+    pathToSerialize: string
 }

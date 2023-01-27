@@ -316,6 +316,11 @@ type public SILI(options : SiliOptions) =
 
     
     member private x.BidirectionalSymbolicExecution() =
+        let folderToStoreSerializationResult = getFolderToStoreSerializationResult options.pathToSerialize
+        let fileForExpectedResults = getFileForExpectedResults folderToStoreSerializationResult
+        if options.serialize
+        then            
+            System.IO.File.AppendAllLines(fileForExpectedResults, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
         let mutable stepsPlayed = 0u
         let mutable action = Stop
         let pick() =
@@ -342,8 +347,11 @@ type public SILI(options : SiliOptions) =
                                 match s.ForwardSearcher with
                                 | :? AISearcher as s -> Some s.LastCollectedStatistics
                                 | _ -> None                        
-                            | _ -> None
-                        let statistics1 = dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult, string firstFreeEpisodeNumber))
+                            | _ -> None                        
+                        let statistics1 =
+                            if options.serialize
+                            then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
+                            else None
                         x.Forward(s)                                        
                         match searcher with                        
                         | :? BidirectionalSearcher as searcher ->
@@ -357,8 +365,10 @@ type public SILI(options : SiliOptions) =
                                 then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
                             | _ -> ()
                         | _ -> ()
-                        let _,statistics2 = collectGameState s.currentLoc
-                        saveExpectedResult s.id statistics1 statistics2
+                        if options.serialize
+                        then 
+                            let _,statistics2 = collectGameState s.currentLoc
+                            saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
                     with
                     | e -> reportStateInternalFail s e
                 | GoBack(s, p) ->

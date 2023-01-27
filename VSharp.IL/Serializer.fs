@@ -159,10 +159,15 @@ type OutgoingMessage =
     | ServerError of string
 
 let mutable firstFreeEpisodeNumber = 0
-let folderToStoreSerializationResult = "SerializedEpisodes"
-let fileForExpectedResults =
-    let path = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
-    System.IO.File.AppendAllLines(path, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
+let getFolderToStoreSerializationResult suffix =    
+    let folderName = "SerializedEpisodes_for_" + suffix
+    if System.IO.Directory.Exists folderName
+    then System.IO.Directory.Delete(folderName,true)
+    let _ = System.IO.Directory.CreateDirectory folderName
+    folderName
+    
+let getFileForExpectedResults folderToStoreSerializationResult =
+    let path = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")    
     path
  
 let collectGameState (location:codeLocation) =
@@ -300,8 +305,8 @@ let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statist
     
     Reward (rewardForCoverage, rewardForVisitedInstructions, maxPossibleReward)
 
-let saveExpectedResult (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
-    let reward = computeReward statistics1 statistics1
+let saveExpectedResult fileForExpectedResults (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
+    let reward = computeReward statistics1 statistics2
     
     System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{reward.ForMove.ForCoverage} %d{reward.ForMove.ForVisitedInstructions} %d{reward.MaxPossibleReward}"])
     firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1

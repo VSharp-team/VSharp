@@ -90,6 +90,8 @@ namespace VSharp.Test
         private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
+        private readonly string _pathToSerialize;
+        private readonly bool _serialize;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -101,7 +103,8 @@ namespace VSharp.Test
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
-            bool checkAttributes = true)
+            bool checkAttributes = true,
+            string serialize = null)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -117,6 +120,15 @@ namespace VSharp.Test
             _coverageZone = coverageZone;
             _testsCheckerMode = testsCheckerMode;
             _checkAttributes = checkAttributes;
+            if (serialize == null)
+            {
+                _serialize = false;
+            }
+            else
+            {
+                _pathToSerialize = serialize;
+                _serialize = true;
+            }
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -133,7 +145,9 @@ namespace VSharp.Test
                 _strat,
                 _coverageZone,
                 _testsCheckerMode,
-                _checkAttributes
+                _checkAttributes,
+                _serialize,
+                _pathToSerialize
             );
         }
 
@@ -151,6 +165,8 @@ namespace VSharp.Test
             private readonly CoverageZone _baseCoverageZone;
             private readonly bool _renderTests;
             private readonly bool _checkAttributes;
+            private readonly string _pathToSerialize;
+            private readonly bool _serialize;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -163,7 +179,9 @@ namespace VSharp.Test
                 SearchStrategy strat,
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
-                bool checkAttributes) : base(innerCommand)
+                bool checkAttributes,
+                bool serialize,
+                string pathToSerialize) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -208,6 +226,8 @@ namespace VSharp.Test
                 }
 
                 _checkAttributes = checkAttributes;
+                _serialize = serialize;
+                _pathToSerialize = pathToSerialize;
             }
 
             private TestResult Explore(TestExecutionContext context)
@@ -252,7 +272,9 @@ namespace VSharp.Test
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         null,
                         0,
-                        0
+                        0,
+                        _serialize,
+                        _pathToSerialize
                             );
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);

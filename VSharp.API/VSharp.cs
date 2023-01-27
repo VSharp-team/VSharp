@@ -172,7 +172,9 @@ namespace VSharp
                     100,
                     oracle,
                     coverageToSwitchToAI,
-                    stepsToPlay);
+                    stepsToPlay,
+                    false,
+                    "");
 
             using var explorer = new SILI(options);
             Core.API.ConfigureSolver(SolverPool.mkSolver());
