@@ -352,9 +352,9 @@ type public SILI(options : SiliOptions) =
                                 let gameState, statisticsAfterStep = collectGameState s.currentLoc
                                 searcher.LastGameState <- gameState
                                 searcher.LastCollectedStatistics <- statisticsAfterStep
-                                let stepReward, maxPossibleReward = computeReward statisticsBeforeStep.Value statisticsAfterStep
+                                let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
                                 if searcher.InAIMode
-                                then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward (int stepReward, maxPossibleReward)))                                
+                                then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
                             | _ -> ()
                         | _ -> ()
                         let _,statistics2 = collectGameState s.currentLoc

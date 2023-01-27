@@ -1,6 +1,7 @@
 module VSharp.IL.Serializer
 
 open System.Collections.Generic
+open System.Runtime.Serialization
 open System.Text.Json
 open Microsoft.FSharp.Collections
 open VSharp
@@ -13,15 +14,18 @@ type Statistics =
     val CoveredVerticesOutOfZone: uint
     val VisitedVerticesInZone: uint
     val VisitedVerticesOutOfZone: uint
+    val VisitedInstructionsInZone: uint
     val TouchedVerticesInZone: uint
     val TouchedVerticesOutOfZone: uint
-    val TotalVisibleVerticesInZone: uint
-    new (coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone) =
+    val TotalVisibleVerticesInZone: uint        
+    new (coveredVerticesInZone, coveredVerticesOutOfZone, visitedVerticesInZone, visitedVerticesOutOfZone
+         , visitedInstructionsInZone, touchedVerticesInZone, touchedVerticesOutOfZone, totalVisibleVerticesInZone) =
         {
          CoveredVerticesInZone = coveredVerticesInZone
          CoveredVerticesOutOfZone = coveredVerticesOutOfZone
          VisitedVerticesInZone = visitedVerticesInZone
          VisitedVerticesOutOfZone = visitedVerticesOutOfZone
+         VisitedInstructionsInZone = visitedInstructionsInZone
          TouchedVerticesInZone = touchedVerticesInZone
          TouchedVerticesOutOfZone = touchedVerticesOutOfZone
          TotalVisibleVerticesInZone = totalVisibleVerticesInZone
@@ -105,11 +109,21 @@ type GameState =
     val Map: GameMapEdge[]
     new (map) = {Map = map}
     
+type [<Measure>] coverageReward
+type [<Measure>] visitedInstructionsReward
+type [<Measure>] maxPossibleReward
+    
+[<Struct>]
+type MoveReward =
+    val ForCoverage: uint<coverageReward>
+    val ForVisitedInstructions: uint<visitedInstructionsReward>
+    new (forCoverage, forVisitedInstructions) = {ForCoverage = forCoverage; ForVisitedInstructions = forVisitedInstructions}
 [<Struct>]    
 type Reward =
-    val StepReward: int
-    val MaxPossibleReward: uint
-    new (stepReward, maxPossibleReward) = {StepReward = stepReward; MaxPossibleReward = maxPossibleReward}
+    val ForMove: MoveReward
+    val MaxPossibleReward: uint<maxPossibleReward>
+    new (forMove, maxPossibleReward) = {ForMove = forMove; MaxPossibleReward = maxPossibleReward}
+    new (forCoverage, forVisitedInstructions, maxPossibleReward) = {ForMove = MoveReward(forCoverage,forVisitedInstructions); MaxPossibleReward = maxPossibleReward}
 
 type Feedback =
     | MoveReward of Reward
@@ -148,7 +162,7 @@ let mutable firstFreeEpisodeNumber = 0
 let folderToStoreSerializationResult = "SerializedEpisodes"
 let fileForExpectedResults =
     let path = System.IO.Path.Combine(folderToStoreSerializationResult,"expectedResults.txt")
-    System.IO.File.AppendAllLines(path, ["GraphID ExpectedStateNumber ExpectedRewardForStep TotalReachableRewardFromCurrentState"])
+    System.IO.File.AppendAllLines(path, ["GraphID ExpectedStateNumber ExpectedRewardForCoveredInStep ExpectedRewardForVisitedInstructionsInStep TotalReachableRewardFromCurrentState"])
     path
  
 let collectGameState (location:codeLocation) =
@@ -156,9 +170,10 @@ let collectGameState (location:codeLocation) =
     let mutable coveredVerticesOutOfZone = 0u
     let mutable visitedVerticesInZone = 0u
     let mutable visitedVerticesOutOfZone = 0u
+    let mutable visitedInstructionsInZone = 0u
     let mutable touchedVerticesInZone = 0u
     let mutable touchedVerticesOutOfZone = 0u
-    let mutable totalVisibleVerticesInZone = 0u
+    let mutable totalVisibleVerticesInZone = 0u    
     let mutable firstFreeBasicBlockID = 0
     
     let vertices = Dictionary<_,_>()
@@ -189,30 +204,45 @@ let collectGameState (location:codeLocation) =
         for kvp in basicBlocks do basicBlockToIdMap.Add(kvp.Value, uint kvp.Key)
         fun basicBlock -> basicBlockToIdMap[basicBlock]
     
-    for kvp in basicBlocks do        
-        let isCovered = if kvp.Value.IsCovered then 1u else 0u
-        if kvp.Value.IsGoal
+    for kvp in basicBlocks do
+        let currentBasicBlock = kvp.Value
+        let isCovered = if currentBasicBlock.IsCovered then 1u else 0u
+        if currentBasicBlock.IsGoal
         then coveredVerticesInZone <- coveredVerticesInZone + isCovered
         else coveredVerticesOutOfZone <- coveredVerticesOutOfZone + isCovered
         
-        let isVisited = if kvp.Value.IsVisited then 1u else 0u
-        if kvp.Value.IsGoal
+        let isVisited = if currentBasicBlock.IsVisited then 1u else 0u
+        if currentBasicBlock.IsGoal
         then visitedVerticesInZone <- visitedVerticesInZone + isVisited
         else visitedVerticesOutOfZone <- visitedVerticesOutOfZone + isVisited
         
-        let isTouched = if kvp.Value.IsTouched then 1u else 0u
-        if kvp.Value.IsGoal
+        let isTouched = if currentBasicBlock.IsTouched then 1u else 0u
+        if currentBasicBlock.IsGoal
         then touchedVerticesInZone <- touchedVerticesInZone + isTouched
         else touchedVerticesOutOfZone <- touchedVerticesOutOfZone + isTouched        
         
-        if kvp.Value.IsGoal
+        if currentBasicBlock.IsGoal
         then totalVisibleVerticesInZone <- totalVisibleVerticesInZone + 1u
     
+        if currentBasicBlock.IsVisited
+        then
+            visitedInstructionsInZone <- visitedInstructionsInZone + uint currentBasicBlock.Instructions.Length
+        elif currentBasicBlock.IsTouched
+        then
+            (*let maxStatePosition =
+                (currentBasicBlock.AssociatedStates
+                |> Seq.maxBy (fun s -> s.CodeLocation.offset)).CodeLocation.offset
+            let lastVisitedInstructionNumber =
+                currentBasicBlock.Instructions
+                |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = maxStatePosition)*)
+            visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
+            
+        
         let states =
-            kvp.Value.AssociatedStates
-            |> Seq.map (fun s ->
+            currentBasicBlock.AssociatedStates
+            |> Seq.map (fun s ->                
                 State(s.Id,
-                      uint <| s.CodeLocation.offset - kvp.Value.StartOffset + 1<offsets>,
+                      uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
                       s.PredictedUsefulness,
                       s.PathConditionSize,
                       s.VisitedAgainVertices,
@@ -226,11 +256,11 @@ let collectGameState (location:codeLocation) =
         GameMapVertex(
             0u,
             uint kvp.Key,
-            kvp.Value.IsGoal,
-            uint <| kvp.Value.FinalOffset - kvp.Value.StartOffset + 1<offsets>,
-            kvp.Value.IsCovered,
-            kvp.Value.IsVisited,
-            kvp.Value.IsTouched,
+            currentBasicBlock.IsGoal,
+            uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<offsets>,
+            currentBasicBlock.IsCovered,
+            currentBasicBlock.IsVisited,
+            currentBasicBlock.IsTouched,
             states)
         |> (fun x -> vertices.Add(x.Id,x))
     
@@ -245,7 +275,7 @@ let collectGameState (location:codeLocation) =
                 |> edges.Add
                 
     GameState (edges.ToArray())
-    , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
+    , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
 
 let dumpGameState (location:codeLocation) fileForResult =
     let gameState, statistics = collectGameState location
@@ -253,21 +283,17 @@ let dumpGameState (location:codeLocation) fileForResult =
     System.IO.File.WriteAllText(fileForResult,gameStateJson)
     statistics
     
-let saveExpectedResult (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
-    let score =
-        (statistics2.CoveredVerticesInZone - statistics1.CoveredVerticesInZone) * 30u
-        + (statistics2.VisitedVerticesInZone - statistics1.VisitedVerticesInZone) * 10u
-        + (statistics2.TouchedVerticesInZone - statistics1.TouchedVerticesInZone) * 5u
-    
-    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{score} %d{(statistics1.TotalVisibleVerticesInZone - statistics1.CoveredVerticesInZone) * 30u}"])
-    firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1
-    
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
-    let stepReward =
-        (statisticsAfterStep.CoveredVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 30u
-        + (statisticsAfterStep.VisitedVerticesInZone - statisticsBeforeStep.VisitedVerticesInZone) * 10u
-        + (statisticsAfterStep.TouchedVerticesInZone - statisticsBeforeStep.TouchedVerticesInZone) * 5u
-        
-    let maxPossibleReward = (statisticsBeforeStep.TotalVisibleVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 30u
+    let rewardForCoverage =
+        (statisticsAfterStep.CoveredVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 1u<coverageReward>
+    let rewardForVisitedInstructions = 
+        (statisticsAfterStep.VisitedInstructionsInZone - statisticsBeforeStep.VisitedInstructionsInZone) * 1u<visitedInstructionsReward>                
+    let maxPossibleReward = (statisticsBeforeStep.TotalVisibleVerticesInZone - statisticsBeforeStep.CoveredVerticesInZone) * 1u<maxPossibleReward>
     
-    stepReward, maxPossibleReward
+    Reward (rewardForCoverage, rewardForVisitedInstructions, maxPossibleReward)
+
+let saveExpectedResult (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
+    let reward = computeReward statistics1 statistics1
+    
+    System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{reward.ForMove.ForCoverage} %d{reward.ForMove.ForVisitedInstructions} %d{reward.MaxPossibleReward}"])
+    firstFreeEpisodeNumber <- firstFreeEpisodeNumber + 1

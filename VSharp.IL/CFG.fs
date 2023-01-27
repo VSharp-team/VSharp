@@ -44,8 +44,8 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let mutable startOffset = startOffset
     let mutable isGoal = false
     let mutable isCovered = false
-    let mutable isVisited = false
-    let mutable isTouched = false
+    let mutable isVisited = false    
+    let mutable visitedInstructions = 0u
     let associatedStates = HashSet<IGraphTrackableState>()
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
@@ -58,6 +58,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     member this.IncomingCFGEdges = incomingCFGEdges
     member this.IncomingCallEdges = incomingCallEdges
     member this.AssociatedStates = associatedStates
+    member this.VisitedInstructions
+        with get () = visitedInstructions
+        and set v = visitedInstructions <- v
+    
     member this.IsCovered
         with get () = isCovered
         and set v = isCovered <- v  
@@ -65,8 +69,8 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
         with get () = isVisited
         and set v = isVisited <- v
     member this.IsTouched
-        with get () = isTouched
-        and set v = isTouched <- v
+        with get () = visitedInstructions > 0u
+        
     member this.IsGoal
         with get () = isGoal
         and set v = isGoal <- v
@@ -85,17 +89,13 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
                 | None -> failwith "Final vertex of this basic block is not specified yet."
         and set (v: offset) = finalOffset <- Some v
         
+    member this.Instructions =
+        method.ParsedInstructions
+        |> Array.filter (fun instr -> Offset.from (int instr.offset) >= this.StartOffset && Offset.from (int instr.offset) <= this.FinalOffset)
+        
     member this.ToString () =
-        let parsedInstructions = method.ParsedInstructions
-        let mutable instr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.StartOffset)
-        let endInstr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.FinalOffset)
-        let mutable _continue = true
-        seq {             
-            while _continue do
-                _continue <- not <| LanguagePrimitives.PhysicalEquality instr endInstr
-                yield ILRewriter.PrintILInstr None None (method :> Core.IMethod).MethodBase instr
-                instr <- instr.next
-        }
+        this.Instructions
+        |> Array.map (fun instr -> ILRewriter.PrintILInstr None None (method :> Core.IMethod).MethodBase instr)
     
     interface ICfgNode with
         member this.OutgoingEdges
@@ -522,13 +522,23 @@ type ApplicationGraph() =
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =        
         Logger.trace "Move state."
-        initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
+        initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition        
         stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
         stateWithNewPosition.History.Add stateWithNewPosition.CodeLocation.BasicBlock
-        stateWithNewPosition.CodeLocation.BasicBlock.IsTouched <- true
+        //stateWithNewPosition.CodeLocation.BasicBlock.IsTouched <- true
+        stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions <-
+            max
+                stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
+                (uint ((stateWithNewPosition.CodeLocation.BasicBlock.Instructions
+                      |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1)) 
+            
+        if stateWithNewPosition.CodeLocation.BasicBlock.IsTouched && stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Count = 0
+        then printfn "!!!"        
         stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
+        if initialPosition.BasicBlock.IsTouched && initialPosition.BasicBlock.AssociatedStates.Count = 0 && not initialPosition.BasicBlock.IsVisited 
+        then printfn "!!!"
          
         //__notImplemented__()
 
@@ -537,10 +547,17 @@ type ApplicationGraph() =
         for newState in states do
             newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
             newState.History.Add newState.CodeLocation.BasicBlock
-            newState.CodeLocation.BasicBlock.IsTouched <- true
+            //newState.CodeLocation.BasicBlock.IsTouched <- true
+            newState.CodeLocation.BasicBlock.VisitedInstructions <-
+                max
+                    newState.CodeLocation.BasicBlock.VisitedInstructions
+                    (uint ((newState.CodeLocation.BasicBlock.Instructions
+                          |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
+            if newState.CodeLocation.BasicBlock.IsTouched && newState.CodeLocation.BasicBlock.AssociatedStates.Count = 0
+            then printfn "!!!"
             newState.CodeLocation.BasicBlock.IsVisited <-
-            newState.CodeLocation.BasicBlock.IsVisited
-            || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
+                newState.CodeLocation.BasicBlock.IsVisited
+                || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
    
         //__notImplemented__()
 
