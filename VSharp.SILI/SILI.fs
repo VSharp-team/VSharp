@@ -11,6 +11,7 @@ open VSharp.Core
 open CilStateOperations
 open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
+open VSharp.ML.GameServer.Messages
 open VSharp.Solver
 
 type public SILI(options : SiliOptions) =

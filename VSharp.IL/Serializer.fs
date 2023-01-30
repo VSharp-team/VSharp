@@ -1,12 +1,12 @@
 module VSharp.IL.Serializer
 
 open System.Collections.Generic
-open System.Runtime.Serialization
 open System.Text.Json
 open Microsoft.FSharp.Collections
 open VSharp
 open VSharp.GraphUtils
-open VSharp.Interpreter.IL    
+open VSharp.ML.GameServer.Messages
+
 
 [<Struct>]
 type Statistics =
@@ -30,133 +30,6 @@ type Statistics =
          TouchedVerticesOutOfZone = touchedVerticesOutOfZone
          TotalVisibleVerticesInZone = totalVisibleVerticesInZone
          }
-
-[<Struct>]
-type State =
-    val Id: uint
-    val Position: uint
-    val PredictedUsefulness: float
-    val PathConditionSize: uint
-    val VisitedAgainVertices: uint
-    val VisitedNotCoveredVerticesInZone: uint
-    val VisitedNotCoveredVerticesOutOfZone: uint
-    val History: array<uint>
-    val Children: array<uint> 
-    new(id,
-        position,
-        predictedUsefulness,
-        pathConditionSize,
-        visitedAgainVertices,
-        visitedNotCoveredVerticesInZone,
-        visitedNotCoveredVerticesOutOfZone,
-        history,
-        children) =
-        {
-            Id = id
-            Position = position
-            PredictedUsefulness = predictedUsefulness
-            PathConditionSize = pathConditionSize
-            VisitedAgainVertices = visitedAgainVertices
-            VisitedNotCoveredVerticesInZone = visitedNotCoveredVerticesInZone
-            VisitedNotCoveredVerticesOutOfZone = visitedNotCoveredVerticesOutOfZone
-            History = history
-            Children = children
-        }
-    
-[<Struct>]    
-type GameMapVertex =
-    val Uid: uint
-    val Id: uint
-    val InCoverageZone: bool
-    val BasicBlockSize: uint
-    val CoveredByTest: bool
-    val VisitedByState: bool
-    val TouchedByState: bool
-    val States: State[]
-    new (uid,
-         id,
-         inCoverageZone,
-         basicBlockSize,
-         coveredByTest,
-         visitedByState,
-         touchedByState,
-         states) =
-        {
-            Uid = uid
-            Id = id
-            InCoverageZone = inCoverageZone
-            BasicBlockSize = basicBlockSize
-            CoveredByTest = coveredByTest
-            VisitedByState = visitedByState
-            TouchedByState = touchedByState
-            States = states
-        }
-
-[<Struct>]
-type GameEdgeLabel =
-    val Token: int
-    new (token) = {Token = token}
-
-[<Struct>]
-type GameMapEdge =
-    val VertexFrom: GameMapVertex
-    val VertexTo: GameMapVertex
-    val Label: GameEdgeLabel
-    new (vFrom, vTo, label) = {VertexFrom = vFrom; VertexTo = vTo; Label = label}
-    
-[<Struct>]
-type GameState =
-    val Map: GameMapEdge[]
-    new (map) = {Map = map}
-    
-type [<Measure>] coverageReward
-type [<Measure>] visitedInstructionsReward
-type [<Measure>] maxPossibleReward
-    
-[<Struct>]
-type MoveReward =
-    val ForCoverage: uint<coverageReward>
-    val ForVisitedInstructions: uint<visitedInstructionsReward>
-    new (forCoverage, forVisitedInstructions) = {ForCoverage = forCoverage; ForVisitedInstructions = forVisitedInstructions}
-[<Struct>]    
-type Reward =
-    val ForMove: MoveReward
-    val MaxPossibleReward: uint<maxPossibleReward>
-    new (forMove, maxPossibleReward) = {ForMove = forMove; MaxPossibleReward = maxPossibleReward}
-    new (forCoverage, forVisitedInstructions, maxPossibleReward) = {ForMove = MoveReward(forCoverage,forVisitedInstructions); MaxPossibleReward = maxPossibleReward}
-
-type Feedback =
-    | MoveReward of Reward
-    | IncorrectPredictedStateId of uint
-    | ServerError of string
-
-type CoverageZone =
-    | Method = 0
-    | Class = 1
-    
-[<Struct>]
-type GameMap =
-    val Id: uint
-    val CoverageToStart: uint
-    val AssemblyFullName: string
-    val CoverageZone: CoverageZone
-    val NameOfObjectToCover: string
-    new (id, coverageToStart, assembly, coverageZone, objectToCover) =
-        {
-            Id = id
-            CoverageToStart = coverageToStart
-            AssemblyFullName = assembly
-            CoverageZone = coverageZone
-            NameOfObjectToCover = objectToCover
-        }
-
-type OutgoingMessage =
-    | GameOver
-    | Maps of seq<GameMap>
-    | MoveReward of Reward
-    | IncorrectPredictedStateId of uint
-    | ReadyForNextStep of GameState
-    | ServerError of string
 
 let mutable firstFreeEpisodeNumber = 0
 let getFolderToStoreSerializationResult suffix =    
@@ -242,12 +115,6 @@ let collectGameState (location:codeLocation) =
             visitedInstructionsInZone <- visitedInstructionsInZone + uint currentBasicBlock.Instructions.Length
         elif currentBasicBlock.IsTouched
         then
-            (*let maxStatePosition =
-                (currentBasicBlock.AssociatedStates
-                |> Seq.maxBy (fun s -> s.CodeLocation.offset)).CodeLocation.offset
-            let lastVisitedInstructionNumber =
-                currentBasicBlock.Instructions
-                |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = maxStatePosition)*)
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
             
         

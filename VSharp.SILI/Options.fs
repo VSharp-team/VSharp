@@ -4,6 +4,7 @@ open System.Diagnostics
 open System.IO
 open VSharp.IL
 open VSharp.IL.Serializer
+open VSharp.ML.GameServer.Messages
 
 type searchMode =
     | DFSMode

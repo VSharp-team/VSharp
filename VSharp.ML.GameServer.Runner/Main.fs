@@ -14,7 +14,16 @@ open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
 open VSharp.Runner
-   
+  
+  
+type M = interface end
+
+[<Struct>]
+type t =
+    interface M
+    val I: int
+    new (i) = {I = i}
+    
 let ws (webSocket : WebSocket) (context: HttpContext) =
   
   socket {
@@ -47,11 +56,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
             fun (gameState:GameState) ->
                 let res = 
                     socket {
-                        let byteResponse =
-                            JsonSerializer.Serialize gameState
-                            |> System.Text.Encoding.UTF8.GetBytes
-                            |> ByteSegment
-                        do! webSocket.send Text byteResponse true
+                        do! sendResponse (ReadyForNextStep gameState)
                         let! msg = webSocket.read()
                         let res = 
                             match msg with

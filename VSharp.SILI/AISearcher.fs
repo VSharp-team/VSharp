@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System.Collections.Generic
 open VSharp.IL.Serializer
 open VSharp.Interpreter.IL.TypeUtils
+open VSharp.ML.GameServer.Messages
 open VSharp.Prelude
 
 type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
