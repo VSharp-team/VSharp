@@ -20,7 +20,7 @@ type GameOverMessageBody () =
 [<Struct>]
 type RawOutgoingMessage =
     val MessageType: string
-    val MessageBody: IRawOutgoingMessageBody
+    val MessageBody: obj //IRawOutgoingMessageBody
     new (messageType, messageBody) = {MessageBody = messageBody; MessageType = messageType}
        
 [<Struct>]
@@ -173,7 +173,7 @@ type GameMap =
 [<Struct>]
  type MapsMessageBody =
      interface IRawOutgoingMessageBody
-     val Maps: seq<GameMap>
+     val Maps: array<GameMap>
      new (maps) = {Maps = maps}
      
      
@@ -261,7 +261,7 @@ let deserializeInputMessage (messageData:byte[]) =
 
 let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
-    | GameOver -> RawOutgoingMessage("GameOver", GameOverMessageBody())
+    | GameOver -> RawOutgoingMessage("GameOver", box (GameOverMessageBody()))
     | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody maps)
     | MoveReward reward -> RawOutgoingMessage("MoveReward", reward)
     | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", IncorrectPredictedStateIdMessageBody stateId)
