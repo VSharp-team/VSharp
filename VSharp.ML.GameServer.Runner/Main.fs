@@ -1,5 +1,6 @@
-﻿open System.IO
+open System.IO
 open System.Text.Json
+open Argu
 open Microsoft.FSharp.Core
 open Suave
 open Suave.Operators
@@ -10,20 +11,18 @@ open Suave.Sockets.Control
 open Suave.WebSocket
 open VSharp
 open VSharp.Core
-open VSharp.IL.Serializer
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
 open VSharp.Runner
   
   
-type M = interface end
-
-[<Struct>]
-type t =
-    interface M
-    val I: int
-    new (i) = {I = i}
-    
+type CliArguments =
+    | [<Unique>] Port of int
+    interface IArgParserTemplate with
+        member s.Usage =
+            match s with
+            | Port _ -> "Port to communicate with game client."
+            
 let ws (webSocket : WebSocket) (context: HttpContext) =
   
   socket {
@@ -111,6 +110,15 @@ let app: WebPart =
     ]
     
 [<EntryPoint>]
-let main _ =
-    startWebServer {defaultConfig with logger = Targets.create Verbose [||]} app
+let main args =
+    let parser = ArgumentParser.Create<CliArguments>(programName = "VSharp.ML.GameServer.Runner.exe")
+    let args = parser.Parse args
+    let port =
+        match args.TryGetResult <@Port@> with
+        | Some port -> port
+        | None -> 8080
+    
+    startWebServer {defaultConfig with
+                        logger = Targets.create Verbose [||]
+                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} app
     0
