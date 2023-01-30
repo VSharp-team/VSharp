@@ -207,6 +207,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
 
             // Ensure that parameters are substituted in memoryRepr
             if not method.IsStatic && declaringType.IsGenericType && ti.memory.types.Length > 0 then
+                // TODO: index out of bounds exceptions #lifetimes
                 ti.memory.types.[declaringTypeIndex] <- Serialization.encodeType declaringType
 
             let method = Reflection.concretizeMethodParameters declaringType method mp
