@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 import json
 from enum import Enum
 
-from .game import GameMap, Reward
+from .game import GameMap, GameState, Reward
 
 
 class ClientMessageType(str, Enum):
@@ -64,12 +64,13 @@ class ClientMessage:
 
 @dataclass_json
 @dataclass
-class GameOverMessageBody:
-    pass
+class MapsMessageBody:
+    Maps: list[GameMap]
 
 
 class ServerMessageType(str, Enum):
     MAPS = "Maps"
+    READY_FOR_NEXT_STEP = "ReadyForNextStep"
     MOVE_REVARD = "MoveReward"
     GAMEOVER = "GameOver"
     INCORRECT_PREDICTED_STATEID = "IncorrectPredictedStateId"
@@ -79,22 +80,18 @@ class ServerMessageType(str, Enum):
 @dataclass
 class ServerMessage:
     def decode(x):
-        if x == "":
+        if x == "" or x == {}:
             return x
-        d = json.loads(x)
 
-        try:
-            return Reward.from_dict(d)
-        except (ValueError, AttributeError):
-            pass
-
-        if isinstance(d, list):
+        for MessageBodyType in [MapsMessageBody, Reward, GameState]:
             try:
-                return [GameMap.from_dict(i) for i in d]
-            except ValueError:
+                return MessageBodyType.from_dict(x)
+            except (KeyError, ValueError, AttributeError):
                 pass
 
         raise RuntimeError(f"Can't decode msg: {x}")
 
     MessageType: ServerMessageType
-    MessageBody: list[GameMap] | Reward | None = field(metadata=config(decoder=decode))
+    MessageBody: MapsMessageBody | Reward | GameState = field(
+        metadata=config(decoder=decode)
+    )

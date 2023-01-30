@@ -12,23 +12,13 @@ from common.messages import ServerMessageType
 from common.messages import GetAllMapsMessageBody
 
 
-def decode(msg) -> ServerMessage | GameState:
-    for ServerMessageClass in [ServerMessage, GameState]:
-        try:
-            return ServerMessageClass.from_json(msg)
-        except KeyError:
-            pass
-
-    raise RuntimeError("Couldn't decode")
-
-
 def get_server_maps(url) -> ServerMessage:
     with closing(websocket.create_connection(url)) as ws:
         request_all_maps_message = ClientMessage(GetAllMapsMessageBody())
         print("-->", request_all_maps_message)
         ws.send(request_all_maps_message.to_json())
 
-        return ServerMessage.from_json(ws.recv()).MessageBody
+        return ServerMessage.from_json(ws.recv()).MessageBody.Maps
 
 
 class NAgent:
@@ -66,7 +56,7 @@ class NAgent:
     def recv_state_from_server(self) -> GameState:
         self._check_expected_state(NAgent.State.RECEIVING_GAMESTATE)
 
-        received = decode(self.ws.recv())
+        received = ServerMessage.from_json(self.ws.recv())
         self.state = NAgent.State.SENDING_NEXT_STATE
         return received
 
@@ -86,7 +76,7 @@ class NAgent:
     def recv_reward(self) -> Reward:
         self._check_expected_state(NAgent.State.RECEIVING_REWARD)
 
-        received = decode(self.ws.recv())
+        received = ServerMessage.from_json(self.ws.recv())
         print("<--", received, end="\n\n")
 
         match received.MessageType:

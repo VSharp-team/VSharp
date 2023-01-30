@@ -20,7 +20,6 @@ def generate_games(models: list[TorchModelWrapper], maps: list[GameMap]):
 def r_learn_iteration(models, maps, steps) -> IterationResults:
 
     games = generate_games(models, maps)
-
     iteration_data: IterationResults = defaultdict(list)
 
     for model, map in games:
