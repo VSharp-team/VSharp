@@ -262,7 +262,7 @@ let deserializeInputMessage (messageData:byte[]) =
 let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
     | GameOver -> RawOutgoingMessage("GameOver", box (GameOverMessageBody()))
-    | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody maps)
+    | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody (Array.ofSeq maps))
     | MoveReward reward -> RawOutgoingMessage("MoveReward", reward)
     | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", IncorrectPredictedStateIdMessageBody stateId)
     | ReadyForNextStep state -> RawOutgoingMessage("ReadyForNextStep", state)
