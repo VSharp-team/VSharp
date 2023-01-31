@@ -116,6 +116,5 @@ class NAgent:
                     f"Unexpected message type received: {received.MessageType}"
                 )
 
-    def close_connection(self):
-        # TODO: create context manager
+    def close(self):
         self._ws.close()

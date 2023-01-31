@@ -1,10 +1,9 @@
+from contextlib import closing
 import unittest
 
 
 from common.game import GameState
 from .n_agent import NAgent, get_server_maps
-
-DEFAULT_URL = "ws://0.0.0.0:8080/gameServer"
 
 
 def get_states(game_state: GameState) -> set[int]:
@@ -24,25 +23,31 @@ def choose_state_id(game_state: GameState) -> int:
 
 class TestServerConnection(unittest.TestCase):
     def setUp(self):
-        maps = get_server_maps(DEFAULT_URL)
+        self.server_url = "ws://0.0.0.0:8080/gameServer"
+        maps = get_server_maps(self.server_url)
+        self.test_map_id = maps[0].Id
         self.n_steps = 5
-        self.agent = NAgent(DEFAULT_URL, map_id_to_play=maps[0].Id, steps=self.n_steps)
 
-    def do_one_step(self):
-        next_state = choose_state_id(self.agent.recv_state_from_server().MessageBody)
-        self.agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
-        _ = self.agent.recv_reward()
+    def do_one_step(self, with_agent):
+        next_state = choose_state_id(with_agent.recv_state_from_server().MessageBody)
+        with_agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
+        _ = with_agent.recv_reward()
 
     def test_n_steps_doesnt_throw(self):
-        for _ in range(self.n_steps):
-            self.do_one_step()
+        with closing(
+            NAgent(self.server_url, map_id_to_play=self.test_map_id, steps=self.n_steps)
+        ) as agent:
+            for _ in range(self.n_steps):
+                self.do_one_step(with_agent=agent)
+
 
     def test_n_plus_one_step_throws_gameover(self):
-        for _ in range(self.n_steps):
-            self.do_one_step()
+        with closing(
+            NAgent(self.server_url, map_id_to_play=self.test_map_id, steps=self.n_steps)
+        ) as agent:
+            for _ in range(self.n_steps):
+                self.do_one_step(with_agent=agent)
 
-        self.assertRaises(NAgent.GameOverError, self.do_one_step)
-        self.agent.close_connection()
-    
-    def tearDown(self):
-        self.agent.close_connection()
+            self.assertRaises(
+                NAgent.GameOverError, lambda: self.do_one_step(with_agent=agent)
+            )

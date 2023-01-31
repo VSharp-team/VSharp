@@ -1,3 +1,4 @@
+from contextlib import closing
 from itertools import product
 from collections import defaultdict
 
@@ -23,25 +24,22 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
     iteration_data: IterationResults = defaultdict(list)
 
     for model, map in games:
+        with closing(NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps, log=True)) as agent:
+            game_state = agent.recv_state_from_server()
+            cumulative_reward: MoveReward(0, 0)
 
-        agent = NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps)
-        game_state = agent.recv_state_from_server()
+            for _ in range(steps):
+                model.train(
+                    game_state,
+                    lambda state: agent.send_step(
+                        next_state_id=state.Id, predicted_usefullness=42.0  # пока оставить 42
+                    ),
+                )
 
-        cumulative_reward: MoveReward(0, 0)
+                reward = agent.recv_reward()
+                cumulative_reward += reward.ForMove
 
-        for _ in range(steps):
-            model.train(
-                game_state,
-                lambda state: agent.send_step(
-                    next_state_id=state.Id, predicted_usefullness=42.0  # пока оставить 42
-                ),
-            )
-
-            reward = agent.recv_reward()
-            cumulative_reward += reward.ForMove
-
-        iteration_data[map].append((model, cumulative_reward))
-        agent.close_connection()
+            iteration_data[map].append((model, cumulative_reward))
 
     return iteration_data
 
