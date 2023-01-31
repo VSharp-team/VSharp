@@ -33,7 +33,7 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
             model.train(
                 game_state,
                 lambda state: agent.send_step(
-                    next_state_id=state.Id, predicted_usefullness=42.0  # ?
+                    next_state_id=state.Id, predicted_usefullness=42.0  # пока оставить 42
                 ),
             )
 
@@ -41,6 +41,7 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
             cumulative_reward += reward.ForMove
 
         iteration_data[map].append((model, cumulative_reward))
+        agent.close_connection()
 
     return iteration_data
 
