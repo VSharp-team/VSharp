@@ -567,6 +567,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm1
             "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
             "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
+            "System.Void System.Array.Fill(T[], T)", this.FillArray
             "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
             "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
@@ -750,6 +751,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
         let dstLB = Memory.ArrayLowerBoundByDimension state src zero
         x.CommonCopyArray cilState src srcLB dst dstLB length
+
+    member private x.FillArray (cilState : cilState) _ (args : term list) =
+        assert(List.length args = 3)
+        let array, value = args[1], args[2]
+        let fill cilState k =
+            Memory.FillArray cilState.state array value
+            k [cilState]
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference array, state))
+            (x.Raise x.ArgumentNullException)
+            fill
+            id
 
     member private x.GetChars (cilState : cilState) this (args : term list) =
         assert(List.length args = 1)

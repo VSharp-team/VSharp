@@ -168,8 +168,8 @@ module internal Operations =
         | OperationType.ShiftRight_Un -> " >> "
         | OperationType.Subtract -> " - "
         | OperationType.UnaryMinus -> "-%s"
-        | OperationType.AddNoOvf
-        | OperationType.MultiplyNoOvf
+        | OperationType.AddNoOvf -> " + (no ovf) "
+        | OperationType.MultiplyNoOvf -> " * (no ovf) "
         | _ -> ""
 
     let deduceArithmeticBinaryExpressionTargetType op x y =

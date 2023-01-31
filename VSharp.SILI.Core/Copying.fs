@@ -2,31 +2,10 @@ namespace VSharp.Core
 
 open VSharp
 open Memory
+open VSharp.Core
 
 module internal Copying =
 
-// ------------------------------ Primitives -----------------------------
-
-    [<NoEquality;NoComparison>]
-    type private symbolicArrayIndexSource =
-        { lowerBound : term; upperBound : term }
-        interface INonComposableSymbolicConstantSource with
-            override x.SubTerms = seq [] :> term seq
-            override x.Time = VectorTime.zero
-            override x.TypeOfLocation = typeof<int>
-
-    let private makeArrayIndexConstant state lowerBound upperBound =
-        let source = {lowerBound = lowerBound; upperBound = upperBound}
-        let constant = Constant "i" source typeof<int32>
-        let leftBound = simplifyLessOrEqual lowerBound constant id
-        let rightBound = simplifyLessOrEqual constant upperBound id
-        let pcWithBounds = PC.add (PC.add state.pc leftBound) rightBound
-        state.pc <- pcWithBounds
-        constant
-
-// ------------------------------- Copying -------------------------------
-
-    // TODO: add heuristic for concrete memory
     let private copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType
         let offsets = List.init length id
@@ -42,25 +21,41 @@ module internal Copying =
 
     let private copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType
-        let constant = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
-        let srcIndices = delinearizeArrayIndex (add srcIndex constant) srcLens srcLBs
-        let srcElem = readArrayIndex state srcAddress srcIndices srcType
-        let casted = TypeCasting.cast srcElem dstElemType
-        let dstIndices = delinearizeArrayIndex (add dstIndex constant) dstLens dstLBs
-        writeArrayIndex state dstAddress dstIndices dstType casted
+        let srcFromIndices = delinearizeArrayIndex srcIndex srcLens srcLBs
+        let lenMinOne = sub length (makeNumber 1)
+        let srcToIndices = delinearizeArrayIndex (add srcIndex lenMinOne) srcLens srcLBs
+        let srcMemory = readArrayRange state srcAddress srcFromIndices srcToIndices srcType
+        let casted = TypeCasting.cast srcMemory dstElemType
+        let dstFromIndices = delinearizeArrayIndex dstIndex dstLens dstLBs
+        let dstToIndices = delinearizeArrayIndex (add dstIndex lenMinOne) dstLens dstLBs
+        writeArrayRange state dstAddress dstFromIndices dstToIndices dstType casted
 
-    // TODO: consider the case of overlapping src and dest arrays
-    let copyArray state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex dstType length =
+    let private copyArrayCommon state srcAddress srcIndex (_, srcDim, _ as srcType) dstAddress dstIndex dstType length =
         let dstDim = snd3 dstType
         let srcLBs = List.init srcDim (fun dim -> readLowerBound state srcAddress (makeNumber dim) srcType)
         let srcLens = List.init srcDim (fun dim -> readLength state srcAddress (makeNumber dim) srcType)
         let dstLBs = List.init dstDim (fun dim -> readLowerBound state dstAddress (makeNumber dim) dstType)
         let dstLens = List.init dstDim (fun dim -> readLength state dstAddress (makeNumber dim) dstType)
         match length.term with
-        | Concrete(length, _) ->
-            let length = length :?> int
+        | Concrete(l, _) ->
+            let length = NumericUtils.ObjToInt l
             copyArrayConcrete state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
-        | _ -> copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
+        | _ ->
+            copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
+
+    let copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
+        let cm = state.concreteMemory
+        let concreteSrcIndex = tryTermToObj state srcIndex
+        let concreteDstIndex = tryTermToObj state dstIndex
+        let concreteLength = tryTermToObj state length
+        match srcAddress.term, dstAddress.term, concreteSrcIndex, concreteDstIndex, concreteLength with
+        | ConcreteHeapAddress src, ConcreteHeapAddress dst, Some srcI, Some dstI, Some l when cm.Contains src && cm.Contains dst ->
+            let srcI = NumericUtils.ObjToLong srcI
+            let dstI = NumericUtils.ObjToLong dstI
+            let l = NumericUtils.ObjToLong l
+            cm.CopyArray src dst srcI dstI l
+        // TODO: if src array is in concrete memory, make more efficient case: get array data and write it to dst array
+        | _ -> copyArrayCommon state srcAddress srcIndex srcType dstAddress dstIndex dstType length
 
     let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress =
         let cm = state.concreteMemory
@@ -87,7 +82,6 @@ module internal Copying =
             writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' typeof<char>)
             writeClassField state stringAddress Reflection.stringLengthField length
 
-    // TODO: add heuristic for concrete memory
     let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =
         let offsets = List.init length id
         let copyOneElem offset =
@@ -97,16 +91,30 @@ module internal Copying =
         List.iter copyOneElem offsets
 
     let private fillArraySymbolic state arrayAddress arrayType startIndex length lbs lens castedValue =
-        let constant = makeArrayIndexConstant state (makeNumber 0) (sub length (makeNumber 1))
-        let indices = delinearizeArrayIndex (add startIndex constant) lens lbs
-        writeArrayIndex state arrayAddress indices arrayType castedValue
+        let lastIndex = sub length (makeNumber 1)
+        let lowerBounds = delinearizeArrayIndex startIndex lens lbs
+        let upperBounds = delinearizeArrayIndex lastIndex lens lbs
+        writeArrayRange state arrayAddress lowerBounds upperBounds arrayType castedValue
 
-    let fillArray state arrayAddress (elemType, dim, _ as arrayType) index length value =
+    let private fillArrayCommon state arrayAddress (elemType, dim, _ as arrayType) index length value =
+        let castedValue = TypeCasting.cast value elemType
         let lbs = List.init dim (fun dim -> readLowerBound state arrayAddress (makeNumber dim) arrayType)
         let lens = List.init dim (fun dim -> readLength state arrayAddress (makeNumber dim) arrayType)
-        let castedValue = TypeCasting.cast value elemType
         match length.term with
-        | Concrete(length, _) ->
-            let length = length :?> int
+        | Concrete(l, _) ->
+            let length = NumericUtils.ObjToInt l
             fillArrayConcrete state arrayAddress arrayType index length lbs lens castedValue
         | _ -> fillArraySymbolic state arrayAddress arrayType index length lbs lens castedValue
+
+    let fillArray state arrayAddress (elemType, _, _ as arrayType) index length value =
+        let cm = state.concreteMemory
+        let concreteIndex = tryTermToObj state index
+        let concreteLength = tryTermToObj state length
+        let castedValue = TypeCasting.cast value elemType
+        let concreteValue = tryTermToObj state castedValue
+        match arrayAddress.term, concreteIndex, concreteLength, concreteValue with
+        | ConcreteHeapAddress address, Some i, Some l, Some v when cm.Contains address ->
+            let i = NumericUtils.ObjToInt i
+            let l = NumericUtils.ObjToInt l
+            cm.FillArray address i l v
+        | _ -> fillArrayCommon state arrayAddress arrayType index length value

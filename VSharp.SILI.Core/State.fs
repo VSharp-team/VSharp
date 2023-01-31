@@ -21,12 +21,15 @@ type IConcreteMemory =
     abstract Allocate : concreteHeapAddress -> obj -> unit
     abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
+    // TODO: too expensive! use Seq.iter2 instead with lazy indices sequence
     abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
     abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
     abstract ReadArrayLength : concreteHeapAddress -> int -> obj
     abstract WriteClassField : concreteHeapAddress -> fieldId -> obj -> unit
     abstract WriteArrayIndex : concreteHeapAddress -> int list -> obj -> unit
     abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
+    abstract FillArray : concreteHeapAddress -> int -> int -> obj -> unit
+    abstract CopyArray : concreteHeapAddress -> concreteHeapAddress -> int64 -> int64 -> int64 -> unit
     abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
     abstract Remove : concreteHeapAddress -> unit
 

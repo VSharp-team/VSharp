@@ -123,16 +123,23 @@ module private Points =
             if PersistentSet.contains x p1 then disjoint <- false else includes <- false
         includes, disjoint
 
-    let flip (x, y) = (not x, not y)
-
     let toResult (includes, disjoint) =
         if includes then Includes
         elif disjoint then Disjoint
         else Intersects
 
+    let flip result =
+        match result with
+        | Includes -> Disjoint
+        | Intersects -> Intersects
+        | Disjoint -> Includes
+
 type points<'a when 'a : equality> =
     {points : 'a pset; thrown : bool}
     static member Singleton x = {points = PersistentSet.add PersistentSet.empty<'a> x; thrown = false}
+    static member Range lowerBound upperBound =
+        // TODO: return universe for too large bounds?
+        {points = PersistentSet.ofSeq (seq {lowerBound .. upperBound}); thrown = false}
     static member Universe = {points = PersistentSet.empty<'a>; thrown = true}
     member this.Map (mapper : 'a -> 'a) = {this with points = this.points |> PersistentSet.map mapper }
     interface IRegion<'a points> with
@@ -140,7 +147,7 @@ type points<'a when 'a : equality> =
         override this.CompareTo other =
             match this.thrown, other.thrown with
             | false, false -> Points.compare this.points other.points |> Points.toResult
-            | true, false -> Points.compare this.points other.points |> Points.flip |> Points.toResult
+            | true, false -> Points.compare this.points other.points |> Points.toResult |> Points.flip
             | false, true -> if Points.compare other.points this.points |> fst then Disjoint else Intersects
             | true, true -> if Points.compare other.points this.points |> fst then Includes else Intersects
         override this.Subtract other =

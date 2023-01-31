@@ -154,6 +154,7 @@ public static class Renderer
 
     private static CompilationUnitSyntax AddHelpersToTests(CompilationUnitSyntax testsComp)
     {
+        // TODO: add helper, only if it was used
         var allocatorProgram = ReadFromResource("VSharp.TestExtensions.Allocator.cs");
         var allocatorComp = CSharpSyntaxTree.ParseText(allocatorProgram).GetCompilationUnitRoot();
         var comparerProgram = ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs");
@@ -161,8 +162,8 @@ public static class Renderer
 
         return
             MergeCompilations(
-                MergeCompilations(allocatorComp, comparerComp),
-                testsComp
+                testsComp,
+                MergeCompilations(allocatorComp, comparerComp)
             );
     }
 

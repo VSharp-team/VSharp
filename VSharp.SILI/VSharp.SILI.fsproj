@@ -4,7 +4,6 @@
         <TargetFramework>netcoreapp6.0</TargetFramework>
         <Configurations>Debug;Release;DebugTailRec;ReleaseConcolic;DebugConcolic</Configurations>
         <Platforms>AnyCPU</Platforms>
-        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,6 +23,7 @@
         <DebugSymbols>true</DebugSymbols>
         <DefineConstants>TRACE;DEBUG</DefineConstants>
         <BuildConcolic>true</BuildConcolic>
+        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
@@ -32,6 +32,7 @@
 
     <PropertyGroup Condition=" '$(Configuration)' == 'ReleaseConcolic' ">
         <BuildConcolic>true</BuildConcolic>
+        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
     <ItemGroup>
@@ -101,7 +102,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Update="FSharp.Core" Version="7.0.0" />
+      <PackageReference Include="FSharp.Core" Version="7.0.0" />
     </ItemGroup>
 
 

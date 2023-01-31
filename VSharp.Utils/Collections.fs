@@ -180,9 +180,33 @@ module public Stack =
     let fold = List.fold
 
 module Array =
-    // TODO: this should be rewritten to seq { ... yield ... }
-    let allIndicesOfArray lbs lens =
-        List.map2 (fun lb len -> [lb .. lb + len - 1]) lbs lens |> List.cartesian
+
+    // TODO: rewrite without recursion
+    let rec allIndicesViaLens lbs lens =
+        let rank = List.length lens
+        assert(List.length lbs = rank)
+        seq {
+            match lbs, lens with
+            | lb :: lbs, len :: lens ->
+                let ub = len - lb - 1
+                for i = lb to ub do
+                    for tail in allIndicesViaLens lbs lens do
+                        i :: tail
+            | _ -> List.empty
+        }
+
+    // TODO: rewrite without recursion
+    let rec allIndicesViaBound lbs ubs =
+        let rank = List.length ubs
+        assert(List.length lbs = rank)
+        seq {
+            match lbs, ubs with
+            | lb :: lbs, ub :: lens ->
+                for i = lb to ub do
+                    for tail in allIndicesViaLens lbs lens do
+                        i :: tail
+            | _ -> List.empty
+        }
 
     let fillFast<'a> (arr : Array) (value : 'a) =
         let bytePtr = &MemoryMarshal.GetArrayDataReference arr
@@ -220,7 +244,7 @@ module Array =
                     let dims = Array.init rank id
                     let lengths = Array.map arr.GetLength dims
                     let lowerBounds = Array.map arr.GetLowerBound dims
-                    let indices = allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+                    let indices = allIndicesViaLens (Array.toList lowerBounds) (Array.toList lengths)
                     for i in indices do
                         arr.SetValue(value, Array.ofList i)
 
