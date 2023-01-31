@@ -335,7 +335,7 @@ type public SILI(options : SiliOptions) =
             if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
             then x.Stop()
             else
-                if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher
+                if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
                 then stepsPlayed <- stepsPlayed + 1u
                 if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
                     releaseBranches()

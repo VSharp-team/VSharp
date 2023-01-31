@@ -10,23 +10,25 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
     let mutable lastCollectedStatistics = Statistics()
     let mutable gameState = None
     let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
+    let mutable afterFirstAIPeek = false
     let mutable incorrectPredictedStateId = false
-    let defaultSearcher = BFSSearcher(System.UInt32.MaxValue)
+    let defaultSearcher = BFSSearcher(System.UInt32.MaxValue) :> IForwardSearcher
     let q = ResizeArray<_>()
     let availableStates = HashSet<_>()
     let init states =
-        defaultSearcher.Init q states 
+        q.AddRange states
+        defaultSearcher.Init q  
         states |> Seq.iter (availableStates.Add >> ignore)
     let reset () =
-        (defaultSearcher :> SimpleForwardSearcher :> IForwardSearcher).Reset()
+        defaultSearcher.Reset()
         availableStates.Clear()
     let update (parent, newSates) =
         if useDefaultSearcher
-        then (defaultSearcher :> SimpleForwardSearcher :> IForwardSearcher).Update (parent,newSates)
+        then defaultSearcher.Update (parent,newSates)
         newSates |> Seq.iter (availableStates.Add >> ignore)
     let remove state =
         if useDefaultSearcher
-        then (defaultSearcher :> SimpleForwardSearcher :> IForwardSearcher).Remove state
+        then defaultSearcher.Remove state
         let removed = availableStates.Remove state
         assert removed
     let pick selector =
@@ -34,12 +36,13 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         then
             let _,statistics = collectGameState (Seq.head availableStates).currentLoc
             lastCollectedStatistics <- statistics
-            useDefaultSearcher <- (statistics.CoveredVerticesInZone / statistics.TotalVisibleVerticesInZone) * 100u < coverageToSwitchToAI
-            defaultSearcher.Choose q selector
+            useDefaultSearcher <- (statistics.CoveredVerticesInZone * 100u) / statistics.TotalVisibleVerticesInZone  < coverageToSwitchToAI
+            defaultSearcher.Pick() // Choose q selector
         else
             let gameState,statistics = collectGameState (Seq.head availableStates).currentLoc
             lastCollectedStatistics <- statistics
             let stateId, predictedUsefulness = oracle.Predict gameState
+            afterFirstAIPeek <- true
             let state = availableStates |> Seq.tryFind (fun s -> s.id = stateId)
             match state with
             | Some state ->
@@ -58,7 +61,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         then
             oracle.Feedback feedback
             incorrectPredictedStateId <- false
-    member this.InAIMode with get () = not useDefaultSearcher
+    member this.InAIMode with get () = (not useDefaultSearcher) && afterFirstAIPeek 
     
     interface IForwardSearcher with
         override x.Init states = init states
