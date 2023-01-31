@@ -119,7 +119,9 @@ namespace VSharp.Runner
                 return null;
             }
 
-            var types = assembly.EnumerateExplorableTypes().Where(t => t.Namespace == namespaceArgumentValue);
+            var types =
+                assembly.EnumerateExplorableTypes()
+                    .Where(t => t.Namespace?.StartsWith(namespaceArgumentValue) == true);
 
             if (types.Count() == 0)
             {

@@ -1190,16 +1190,16 @@ type Instrumenter(communicator : Communicator, entryPoint : MethodBase, probes :
         let result =
             if Instrumenter.instrumentedFunctions.Add x.m then
                 Logger.trace "Instrumenting %s (token = %u)" (Reflection.methodToString x.m) body.properties.token
-                x.rewriter.Import()
-                x.rewriter.PrintInstructions "before instrumentation" probes
-//                Logger.trace "Placing probes..."
-                x.PlaceProbes()
-//                Logger.trace "Done placing probes!"
-                x.rewriter.PrintInstructions "after instrumentation" probes
-//                Logger.trace "Exporting..."
-                let result = x.rewriter.Export()
-//                Logger.trace "Exported!"
-                result
+                try
+                    x.rewriter.Import()
+                    x.rewriter.PrintInstructions "before instrumentation" probes
+                    x.PlaceProbes()
+                    x.rewriter.PrintInstructions "after instrumentation" probes
+                    let result = x.rewriter.Export()
+                    result
+                with e ->
+                    Logger.error "Instrumentation failed: in method %O got exception %O" x.m e
+                    x.Skip body
             else
                 Logger.trace "Duplicate JITting of %s" x.MethodName
                 x.Skip body

@@ -58,6 +58,7 @@ module Branching =
             merge2Results thenResult elseResult |> k))
         conditionInvocation state (fun (condition, conditionState) ->
         let pc = state.pc
+        assert(PC.toSeq pc |> conjunction |> state.model.Eval |> isTrue)
         let evaled = state.model.Eval condition
         if isTrue evaled then
             let elsePc = PC.add pc !!condition

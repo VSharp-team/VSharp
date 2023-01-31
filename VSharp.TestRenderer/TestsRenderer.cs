@@ -25,9 +25,6 @@ public static class TestsRenderer
     // TODO: move all format features to non-static Formatter class
     private static readonly Dictionary<string, MethodFormat> MethodsFormat = new ();
 
-    // Used only for rendering names, does not support adding usings and references
-    private static readonly CodeRenderer InternalCodeRenderer = new (new EmptyReferenceManager());
-
     // TODO: create class 'Expression' with operators?
 
     internal static SyntaxTrivia LastOffset(SyntaxNode node)
@@ -222,33 +219,35 @@ public static class TestsRenderer
         return Format(node as SyntaxNode) as CompilationUnitSyntax;
     }
 
-    private class EmptyReferenceManager : IReferenceManager
+    private static string NameForNamespace(string str)
     {
-
-        public void AddUsing(string _) { }
-
-        public void AddStaticUsing(string _) { }
-
-        public void AddAssembly(Assembly _) { }
-
-        public void AddTestExtensions() { }
-
-        public void AddObjectsComparer() { }
+        return
+            new string(
+                str.Select(c =>
+                    c is '-' or '<' or '>' or '`' or ','
+                        ? '_'
+                        : c
+                ).ToArray()
+            );
     }
 
     private static string NameForType(Type? t)
     {
         if (t == null)
             return "GeneratedClass";
-        var name = InternalCodeRenderer.RenderType(t).ToString();
-        return
-            // Filtering all non letter or digit symbols from rendered name
-            new string(
-                (from c in name
-                    where char.IsLetterOrDigit(c)
-                    select c
-                ).ToArray()
-            );
+
+        var name = t.Name;
+        var typeArgsStart = name.IndexOf('`');
+        if (typeArgsStart >= 0)
+            name = name.Remove(typeArgsStart);
+
+        if (t.IsGenericType)
+        {
+            var typeArgs = String.Join("_", t.GetGenericArguments().Select(NameForType));
+            return $"{name}_{typeArgs}";
+        }
+
+        return name;
     }
 
     private static string NameForMethod(MethodBase method)
@@ -582,7 +581,11 @@ public static class TestsRenderer
             try
             {
                 var method = test.Method;
-                Debug.Assert(method.DeclaringType == declaringType);
+                var methodType = method.DeclaringType;
+                Debug.Assert(methodType != null &&
+                    (methodType.IsGenericType && declaringType.IsGenericType &&
+                     methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
+                     methodType == declaringType));
 
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");
@@ -596,7 +599,7 @@ public static class TestsRenderer
                     .Select(t => Reflection.defaultOf(t.ParameterType)).ToArray();
                 var thisArg = test.ThisArg;
                 if (thisArg == null && !method.IsStatic)
-                    thisArg = Reflection.createObject(method.DeclaringType);
+                    thisArg = Reflection.createObject(methodType);
                 string suiteTypeName = test.IsError ? "Error" : "Test";
 
                 var testName = NameForMethod(method);
@@ -659,6 +662,7 @@ public static class TestsRenderer
         PrepareCache();
         MethodsFormat.Clear();
 
+        testProjectName = NameForNamespace(testProjectName);
         var namespaceName =
             declaringType == null || string.IsNullOrEmpty(declaringType.Namespace)
                 ? testProjectName

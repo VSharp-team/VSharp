@@ -66,6 +66,15 @@ namespace UnitTests
             Assert.AreEqual(RegionComparisonResult.Includes, ((IRegion<points<int>>) zero).CompareTo(zero));
         }
 
+        [Test]
+        public void TestPointsIntersects()
+        {
+            var zeroOne = points<int>.Range(0, 1);
+            var excludeZero = ((IRegion<points<int>>) points<int>.Universe).Subtract(points<int>.Singleton(0));
+            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<points<int>>) zeroOne).CompareTo(excludeZero));
+            Assert.AreEqual(RegionComparisonResult.Intersects, ((IRegion<points<int>>) excludeZero).CompareTo(zeroOne));
+        }
+
         private typeWrapper WrapType(Type t)
         {
             return new typeWrapper(t);

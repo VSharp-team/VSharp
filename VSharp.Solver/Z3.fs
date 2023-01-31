@@ -84,6 +84,19 @@ module internal Z3 =
                 encodingCache.regionConstants.Add(typ, regConst)
                 regConst
 
+        let TrueExpr = ctx.MkTrue()
+        let FalseExpr = ctx.MkFalse()
+
+        let (|True|_|) (expr : Expr) =
+            match expr with
+            | _ when expr = TrueExpr -> Some(True)
+            | _ -> None
+
+        let (|False|_|) (expr : Expr) =
+            match expr with
+            | _ when expr = FalseExpr -> Some(False)
+            | _ -> None
+
         member x.Reset() =
             encodingCache <- freshCache()
 
@@ -114,30 +127,74 @@ module internal Z3 =
                 | Pointer _
                 | _ -> __unreachable__())
 
-        member private x.True = ctx.MkTrue()
+        member private x.MkNot expr =
+            match expr with
+            | True -> FalseExpr
+            | False -> TrueExpr
+            | _ -> ctx.MkNot expr
 
         member private x.MkEq(left, right) =
-            if left = right then x.True
+            if left = right then TrueExpr
             else ctx.MkEq(left, right)
 
         member x.MkAnd(left, right) =
-            if left = x.True then right
-            elif right = x.True then left
-            else ctx.MkAnd(left, right)
+            match left, right with
+            | _ when left = right -> left
+            | True, _ -> right
+            | _, True -> left
+            | False, _ -> left
+            | _, False -> right
+            | _ -> ctx.MkAnd(left, right)
 
-        member private x.SimplifyAndElements (nonTrueElems : BoolExpr seq) =
-            match nonTrueElems with
-            | Seq.Empty -> x.True
+        member x.MkOr(left, right) =
+            match left, right with
+            | _ when left = right -> left
+            | True, _ -> left
+            | _, True -> right
+            | False, _ -> right
+            | _, False -> left
+            | _ -> ctx.MkOr(left, right)
+
+        member private x.SimplifyAndElements (elems : BoolExpr seq) =
+            Seq.filter (fun elem -> elem <> TrueExpr) elems |> Seq.distinct
+
+        member private x.CreateAnd (elems : BoolExpr seq) =
+            match elems with
+            | Seq.Empty -> TrueExpr
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
-            | _ -> ctx.MkAnd(nonTrueElems)
+            | elems -> ctx.MkAnd(elems)
 
-        member x.MkAnd ([<ParamArray>] elems) =
-            let nonTrueElems = Array.filter (fun elem -> elem <> x.True) elems
-            x.SimplifyAndElements nonTrueElems
+        member x.MkAnd ([<ParamArray>] elems : BoolExpr[]) =
+            if Array.contains FalseExpr elems then FalseExpr
+            else x.SimplifyAndElements elems |> x.CreateAnd
 
-        member x.MkAnd elems =
-            let nonTrueElems = Seq.filter (fun elem -> elem <> x.True) elems
-            x.SimplifyAndElements nonTrueElems
+        member x.MkAnd (elems : BoolExpr seq) =
+            if Seq.contains FalseExpr elems then FalseExpr
+            else x.SimplifyAndElements elems |> x.CreateAnd
+
+        member private x.SimplifyOrElements (nonFalseElems : BoolExpr seq) =
+            match Seq.distinct nonFalseElems with
+            | Seq.Empty -> FalseExpr
+            | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
+            | elems -> ctx.MkOr(elems)
+
+        member x.MkOr ([<ParamArray>] elems : BoolExpr[]) =
+            if Array.contains TrueExpr elems then TrueExpr
+            else
+                let nonFalseElems = Array.filter (fun elem -> elem <> FalseExpr) elems
+                x.SimplifyOrElements nonFalseElems
+
+        member x.MkOr (elems : BoolExpr seq) =
+            if Seq.contains TrueExpr elems then TrueExpr
+            else
+                let nonFalseElems = Seq.filter (fun elem -> elem <> FalseExpr) elems
+                x.SimplifyOrElements nonFalseElems
+
+        member x.MkITE(cond : BoolExpr, thenExpr, elseExpr) : Expr =
+            match cond with
+            | True -> thenExpr
+            | False -> elseExpr
+            | _ -> ctx.MkITE(cond, thenExpr, elseExpr)
 
         member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
@@ -159,8 +216,8 @@ module internal Z3 =
                     | HeapRef(address, _) -> x.EncodeTerm encCtx address
                     | _ -> internalfailf "unexpected term: %O" t
                 let typ = TypeOf t
-                if typ.IsEnum then x.AddEnumAssumptions encCtx typ result
-                else result
+                let result = if typ.IsEnum then x.AddEnumAssumptions encCtx typ result else result
+                { result with assumptions = x.SimplifyAndElements result.assumptions |> List.ofSeq }
             encodingCache.Get(t, getResult)
 
         member private x.AddEnumAssumptions encCtx typ (encodingResult : encodingResult) =
@@ -169,9 +226,9 @@ module internal Z3 =
             let values = Enum.GetValues typ |> System.Linq.Enumerable.OfType<obj>
             let createAssumption assumptions value =
                 let assumptions', concrete = x.EncodeConcrete encCtx value typ |> toTuple
-                ctx.MkEq(expr, concrete), assumptions @ assumptions'
+                x.MkEq(expr, concrete), assumptions @ assumptions'
             let options, assumptions = Seq.mapFold createAssumption encodingResult.assumptions values
-            let enumAssumptions = ctx.MkOr options
+            let enumAssumptions = x.MkOr options
             {expr = expr; assumptions = enumAssumptions :: assumptions}
 
         member private x.EncodeConcrete encCtx (obj : obj) typ : encodingResult =
@@ -183,16 +240,17 @@ module internal Z3 =
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
-                    | :? concreteHeapAddress as addr ->
-                        assert(List.isEmpty addr |> not)
-                        x.EncodeConcreteAddress encCtx addr
+                    | :? concreteHeapAddress as address ->
+                        assert(List.isEmpty address |> not)
+                        x.EncodeConcreteAddress encCtx address
                     | _ -> __unreachable__()
                 | _ -> __notImplemented__()
             encodingResult.Create expr
 
         member private x.EncodeConstant encCtx name (source : ISymbolicConstantSource) typ : encodingResult =
             match source with
-            | :? IMemoryAccessConstantSource as source -> x.EncodeMemoryAccessConstant encCtx name source List.empty typ
+            | :? IMemoryAccessConstantSource as source ->
+                x.EncodeMemoryAccessConstant encCtx name source List.empty typ
             | _ -> x.CreateConstant name typ
 
 // ------------------------------- Encoding: expression -------------------------------
@@ -217,12 +275,12 @@ module internal Z3 =
             | OperationType.ShiftLeft -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVSHL) args
             | OperationType.ShiftRight -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVASHR) args
             | OperationType.ShiftRight_Un -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVLSHR) args
-            | OperationType.LogicalNot -> x.MakeUnary encCtx ctx.MkNot args
+            | OperationType.LogicalNot -> x.MakeUnary encCtx x.MkNot args
             | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
-            | OperationType.LogicalOr -> x.MakeOperation encCtx ctx.MkOr args
+            | OperationType.LogicalOr -> x.MakeOperation encCtx x.MkOr args
             | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
             | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
-            | OperationType.NotEqual -> x.MakeBinary encCtx (ctx.MkNot << x.MkEq) args
+            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << x.MkEq) args
             | OperationType.Greater -> x.MakeBinary encCtx ctx.MkBVSGT args
             | OperationType.Greater_Un -> x.MakeBinary encCtx ctx.MkBVUGT args
             | OperationType.GreaterOrEqual -> x.MakeBinary encCtx ctx.MkBVSGE args
@@ -232,9 +290,15 @@ module internal Z3 =
             | OperationType.LessOrEqual -> x.MakeBinary encCtx ctx.MkBVSLE args
             | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
             | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
-            | OperationType.AddNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkAnd(ctx.MkBVAddNoUnderflow(x, y), ctx.MkBVAddNoOverflow(x, y, true))) args
+            | OperationType.AddNoOvf ->
+                let operation (l, r) =
+                    x.MkAnd(ctx.MkBVAddNoUnderflow(l, r), ctx.MkBVAddNoOverflow(l, r, true))
+                x.MakeBinary encCtx operation args
             | OperationType.Multiply -> x.MakeBinary encCtx ctx.MkBVMul args
-            | OperationType.MultiplyNoOvf -> x.MakeBinary encCtx (fun (x, y) -> ctx.MkAnd(ctx.MkBVMulNoUnderflow(x, y), ctx.MkBVMulNoOverflow(x, y, true))) args
+            | OperationType.MultiplyNoOvf ->
+                let operation (l, r) =
+                    x.MkAnd(ctx.MkBVMulNoUnderflow(l, r), ctx.MkBVMulNoOverflow(l, r, true))
+                x.MakeBinary encCtx operation args
             | OperationType.Subtract -> x.MakeBinary encCtx ctx.MkBVSub args
             | OperationType.Divide -> x.MakeBinary encCtx ctx.MkBVSDiv args
             | OperationType.Divide_Un -> x.MakeBinary encCtx ctx.MkBVUDiv args
@@ -276,8 +340,8 @@ module internal Z3 =
                 let endBit = ctx.MkBVMul(endByte, ctx.MkBV(8, endByte.SortSize))
                 let termSize = term.SortSize
                 let sizeExpr = ctx.MkBV(termSize, endBit.SortSize)
-                let left = ctx.MkITE(ctx.MkBVSGT(startBit, zero), startBit, zero) :?> BitVecExpr
-                let right = ctx.MkITE(ctx.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
+                let left = x.MkITE(ctx.MkBVSGT(startBit, zero), startBit, zero) :?> BitVecExpr
+                let right = x.MkITE(ctx.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
                 let size = ctx.MkBVSub(right, left)
                 let intersects = ctx.MkBVSGT(size, zero)
                 let term = x.ReverseBytes term
@@ -292,7 +356,7 @@ module internal Z3 =
                 let toShiftRight = x.ExtractOrExtend toShiftRight term.SortSize
                 let shift = ctx.MkBVAdd(ctx.MkBVSub(w, ctx.MkBVSub(s, pos)), toShiftRight)
                 let part = ctx.MkBVSHL(term, shift)
-                let res = ctx.MkITE(intersects, ctx.MkBVOR(res, part), res) :?> BitVecExpr
+                let res = x.MkITE(intersects, ctx.MkBVOR(res, part), res) :?> BitVecExpr
                 res, assumptions
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
             {expr = x.ReverseBytes result; assumptions = assumptions}
@@ -361,6 +425,7 @@ module internal Z3 =
         member private x.EncodeSymbolicAddress encCtx (heapRefSource : ISymbolicConstantSource) structFields name =
             x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
 
+        // TODO: [style] get rid of accumulators
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
             let onePointCondition acc (y : vectorTime endpoint) =
                 let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort addressType) :?> BitVecExpr
@@ -372,25 +437,26 @@ module internal Z3 =
                     | endpointSort.ClosedLeft -> ctx.MkBVSGE(key :?> BitVecExpr, bound)
                     | _ -> __unreachable__()
                 x.MkAnd(acc, condition)
-            let intervalWithoutLeftZeroBound = region.points |> List.filter (fun ep -> VectorTime.less VectorTime.zero ep.elem)
+            let intervalWithoutLeftZeroBound =
+                region.points |> List.filter (fun ep -> VectorTime.less VectorTime.zero ep.elem)
             List.fold onePointCondition acc intervalWithoutLeftZeroBound
 
-        member private x.HeapAddressKeyInRegion encCtx acc (key : heapAddressKey) (keyExpr : Expr) =
-            let region = (key :> IMemoryKey<heapAddressKey, vectorTime intervals>).Region
+        member private x.HeapAddressKeyInRegion encCtx acc (keyExpr : Expr) region =
             x.KeyInVectorTimeIntervals encCtx keyExpr acc region
 
         member private x.KeyInIntPoints key acc (region : int points) =
             let points, operation =
                 match region with
-                | {points = points; thrown = true} -> points, ctx.MkNot << x.MkEq
-                | {points = points; thrown = false} -> points, x.MkEq
+                | {points = points; thrown = true} -> points, x.MkNot
+                | {points = points; thrown = false} -> points, id
             let handleOne acc (point : int) =
                 let pointExpr = ctx.MkNumeral(point, x.Type2Sort Types.IndexType)
-                x.MkAnd(acc, operation(key, pointExpr))
-            PersistentSet.fold handleOne acc points
+                x.MkOr(acc, x.MkEq(key, pointExpr))
+            let condition = PersistentSet.fold handleOne FalseExpr points |> operation
+            x.MkAnd(acc, condition)
 
         member private x.KeyInProductRegion keyInFst keyInSnd acc (region : productRegion<'a, 'b>) =
-            let checkKeyInOne acc (fst, snd) = x.MkAnd(acc, keyInFst acc fst, keyInSnd acc snd)
+            let checkKeyInOne acc (fst, snd) = x.MkAnd(acc, keyInFst TrueExpr fst, keyInSnd TrueExpr snd)
             List.fold checkKeyInOne acc region.products
 
         member private x.KeysInIntPointsListProductRegion keys acc (region : int points listProductRegion) =
@@ -402,48 +468,44 @@ module internal Z3 =
                 x.KeyInProductRegion keyInPoints keysInProductList acc products
             | _ -> __unreachable__()
 
-        member private x.ArrayIndexKeyInRegion encCtx acc (key : heapArrayIndexKey) (keyExpr : Expr[]) =
-            assert(Array.length keyExpr = List.length key.indices + 1)
-            let region = (key :> IMemoryKey<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>).Region
+        member private x.ArrayOneIndexKeyInRegion encCtx acc (keyExpr : Expr[]) region =
             let addressInRegion = x.KeyInVectorTimeIntervals encCtx (Array.head keyExpr)
-            let indicesInRegion = x.KeysInIntPointsListProductRegion (Array.tail keyExpr)
+            let indicesInRegion acc region = x.KeysInIntPointsListProductRegion (Array.tail keyExpr) acc region
             x.KeyInProductRegion addressInRegion indicesInRegion acc region
 
-        member private x.VectorIndexKeyInRegion encCtx acc (key : heapVectorIndexKey) (keyExpr : Expr[]) =
+        member private x.VectorIndexKeyInRegion encCtx acc (keyExpr : Expr[]) region =
             assert(Array.length keyExpr = 2)
-            let region = (key :> IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>).Region
             let addressInRegion = x.KeyInVectorTimeIntervals encCtx keyExpr.[0]
             let indicesInRegion = x.KeyInIntPoints keyExpr.[1]
             x.KeyInProductRegion addressInRegion indicesInRegion acc region
 
-        member private x.stackBufferIndexKeyInRegion acc (key : stackBufferIndexKey) keyExpr =
-            let region = (key :> IMemoryKey<stackBufferIndexKey, int points>).Region
+        member private x.stackBufferIndexKeyInRegion acc keyExpr region =
             x.KeyInIntPoints keyExpr acc region
 
         member private x.GetRegionConstant (name : string) sort (structFields : fieldId list) (regSort : regionSort) =
             let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regSort, structFields)
 
-        member private x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields left mo =
+        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst structFields left mo =
             let updates = MemoryRegion.flatten mo
             let assumptions, leftExpr = encodeKey left
-            let leftInRegion = keyInRegion x.True left leftExpr
+            let leftRegion = (left :> IMemoryKey<'a, 'b>).Region
+            let leftInRegion = keyInRegion TrueExpr leftExpr leftRegion
             let assumptions = leftInRegion :: assumptions
             let inst = inst leftExpr
-            let checkOneKey (right, value) (acc, assumptions) =
-                let rightAssumptions, rightExpr = encodeKey right
+            let checkOneKey (right, reg, value) (acc, assumptions) =
+                // NOTE: we need constraints on right key, because path condition may contain it
+                // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
+                let matchAssumptions, keysAreMatch = keysAreMatch leftExpr right reg
                 // TODO: [style] auto append assumptions
-                let assumptions = List.append assumptions rightAssumptions
-                // NOTE: we need constraints on right key, because value may contain it
-                let keysEquality = keysAreEqual(leftExpr, rightExpr)
-                let keysAreMatch = keyInRegion keysEquality right rightExpr
+                let assumptions = List.append assumptions matchAssumptions
                 let readFieldIfNeed structTerm field =
                     assert(IsStruct structTerm)
                     Memory.ReadField emptyState structTerm field
                 let value = List.fold readFieldIfNeed value structFields
-                let valueExpr = x.EncodeTerm encCtx value
+                let valueExpr = specializeWithKey value left |> x.EncodeTerm encCtx
                 let assumptions = List.append assumptions valueExpr.assumptions
-                ctx.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
+                x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
             encodingResult.Create(expr, assumptions)
 
@@ -455,7 +517,11 @@ module internal Z3 =
             let array = x.GetRegionConstant name sort structFields regionSort
             let inst (k : Expr) = ctx.MkSelect(array, k)
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            let res = x.MemoryReading encCtx keyInRegion x.MkEq encodeKey inst structFields key mo
+            let keysAreMatch leftExpr right rightRegion =
+                let assumptions, rightExpr = encodeKey right
+                let eq = x.MkEq(leftExpr, rightExpr)
+                assumptions, x.KeyInVectorTimeIntervals encCtx rightExpr eq rightRegion
+            let res = x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
@@ -481,7 +547,7 @@ module internal Z3 =
             let cond = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
             {expr = expr; assumptions = cond :: assumptions}
 
-        member private x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue indices key mo typ source structFields name =
+        member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
             let valueSort = x.Type2Sort typ
@@ -491,19 +557,80 @@ module internal Z3 =
                     let sort = ctx.MkArraySort(domainSort, valueSort)
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
                     ctx.MkSelect(array, k)
-            let res = x.MemoryReading encCtx keyInRegion keysAreEqual encodeKey inst structFields key mo
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo
             let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
             | _ -> res
+
+        member private x.ArrayRangeKeyMatches encCtx leftExpr address fromIndices toIndices rightRegion =
+            // Encoding of range key
+            let addressAssumptions, addressExpr = x.EncodeTerm encCtx address |> toTuple
+            let fromAssumptions, fromIndices = x.EncodeTerms encCtx fromIndices
+            let toAssumptions, toIndices = x.EncodeTerms encCtx toIndices
+            // Accumulating assumptions
+            let assumptions = addressAssumptions @ fromAssumptions @ toAssumptions
+            let leftAddress = Array.head leftExpr
+            let leftIndices = Array.tail leftExpr
+            // Calculating match conditions:
+            // (1) left address equals right address
+            let addressesEq = x.MkEq(addressExpr, leftAddress)
+            // (2) right address and left indices are in right's region
+            // NOTE: checking left indices, because right key is range of indices and we can not encode it as Expr[]
+            let key = Array.append [|addressExpr|] leftIndices
+            let keyInRegion = x.ArrayOneIndexKeyInRegion encCtx addressesEq key rightRegion
+            // (3) every index of left key is in bounds of right key
+            let keyInBounds (i : Expr) (l : Expr) (r : Expr) =
+                let i = i :?> BitVecExpr
+                x.MkAnd(ctx.MkBVSLE(l :?> BitVecExpr, i), ctx.MkBVSLE(i, r :?> BitVecExpr))
+            let indicesConditions = Array.map3 keyInBounds leftIndices fromIndices toIndices
+            assumptions, x.MkAnd(x.MkAnd indicesConditions, keyInRegion)
+
+        member private x.ArrayIndexReading encCtx key hasDefaultValue mo typ source structFields name =
+            let encodeKey = function
+                | OneArrayIndexKey(address, indices) -> address :: indices |> x.EncodeTerms encCtx
+                | RangeArrayIndexKey _ as key -> internalfail $"EncodeMemoryAccessConstant: unexpected array key {key}"
+            let keyInRegion = x.ArrayOneIndexKeyInRegion encCtx
+            let arraysEquality (left, right) =
+                Seq.map2 (fun l r -> x.MkEq(l, r)) left right |> x.MkAnd
+            let keysAreMatch leftExpr (right : heapArrayKey) rightRegion =
+                match right with
+                | OneArrayIndexKey _ ->
+                    let assumptions, rightExpr = encodeKey right
+                    let eq = arraysEquality(leftExpr, rightExpr)
+                    assumptions, keyInRegion eq rightExpr rightRegion
+                | RangeArrayIndexKey(address, fromIndices, toIndices) ->
+                    x.ArrayRangeKeyMatches encCtx leftExpr address fromIndices toIndices rightRegion
+            let indices =
+                match key with
+                | OneArrayIndexKey(_, indices) -> indices
+                | _ -> internalfail $"EncodeMemoryAccessConstant: unexpected array key {key}"
+            x.ArrayReading encCtx SpecializeWithKey keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source structFields name
+
+        member private x.VectorIndexReading encCtx (key : heapVectorIndexKey) hasDefaultValue mo typ source structFields name =
+            let encodeKey (k : heapVectorIndexKey) =
+                [|k.address; k.index|] |> x.EncodeTerms encCtx
+            let keyInRegion = x.VectorIndexKeyInRegion encCtx
+            let keysAreEqual (left : Expr[], right : Expr[]) =
+                x.MkAnd(x.MkEq(left.[0], right.[0]), x.MkEq(left.[1], right.[1]))
+            let keysAreMatch leftExpr right rightRegion =
+                let assumptions, rightExpr = encodeKey right
+                let eq = keysAreEqual(leftExpr, rightExpr)
+                assumptions, keyInRegion eq rightExpr rightRegion
+            x.ArrayReading encCtx always keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source structFields name
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
+            let keyInRegion = x.stackBufferIndexKeyInRegion
             let inst (k : Expr) = ctx.MkSelect(array, k)
-            x.MemoryReading encCtx x.stackBufferIndexKeyInRegion x.MkEq encodeKey inst structFields key mo
+            let keysAreMatch leftExpr right rightRegion =
+                let assumptions, rightExpr = encodeKey right
+                let eq = x.MkEq(leftExpr, rightExpr)
+                assumptions, x.KeyInIntPoints rightExpr eq rightRegion
+            x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source structFields (name : string) =
             assert mo.defaultValue.IsNone
@@ -511,9 +638,9 @@ module internal Z3 =
             let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let updates = MemoryRegion.flatten mo
-            let value = Seq.tryFind (fun (k, _) -> k = key) updates
+            let value = Seq.tryFind (fun (k, _, _) -> k = key) updates
             match value with
-            | Some (_, v) -> x.EncodeTerm encCtx v
+            | Some (_, _, v) -> x.EncodeTerm encCtx v
             | None ->
                 let encodedKey = ctx.MkConst(key.ToString(), keyType)
                 encodingCache.staticKeys.Add(encodedKey, key.typ)
@@ -525,14 +652,14 @@ module internal Z3 =
             | _ when field.declaringType = typeof<decimal> && field.name = "_flags" ->
                 let expr = res.expr :?> BitVecExpr
                 let lowerWord = ctx.MkExtract(15u, 0u, expr)
-                let lowerIsZero = ctx.MkEq(lowerWord, ctx.MkBV(0, lowerWord.SortSize))
+                let lowerIsZero = x.MkEq(lowerWord, ctx.MkBV(0, lowerWord.SortSize))
                 let exp = ctx.MkExtract(23u, 16u, expr)
                 let expSize = exp.SortSize
                 let leftBound = ctx.MkBVUGE(exp, ctx.MkBV(0, expSize))
                 let rightBound = ctx.MkBVULE(exp, ctx.MkBV(28, expSize))
-                let expInBound = ctx.MkAnd(leftBound, rightBound)
+                let expInBound = x.MkAnd(leftBound, rightBound)
                 let upper = ctx.MkExtract(30u, 24u, expr)
-                let upperIsZero = ctx.MkEq(upper, ctx.MkBV(0, upper.SortSize))
+                let upperIsZero = x.MkEq(upper, ctx.MkBV(0, upper.SortSize))
                 { res with assumptions = lowerIsZero::expInBound::upperIsZero::res.assumptions }
             | _ -> res
 
@@ -540,19 +667,9 @@ module internal Z3 =
             match source with
             | HeapReading(key, mo) -> x.HeapReading encCtx key mo typ source structFields name
             | ArrayIndexReading(hasDefaultValue, key, mo) ->
-                let encodeKey (k : heapArrayIndexKey) =
-                    k.address :: k.indices |> x.EncodeTerms encCtx
-                let keyInRegion = x.ArrayIndexKeyInRegion encCtx
-                let arraysEquality (left, right) =
-                    Seq.zip left right |> Seq.fold (fun acc (left, right) -> x.MkAnd(acc, x.MkEq(left, right))) x.True
-                x.ArrayReading encCtx keyInRegion arraysEquality encodeKey hasDefaultValue key.indices key mo typ source structFields name
+                x.ArrayIndexReading encCtx key hasDefaultValue mo typ source structFields name
             | VectorIndexReading(hasDefaultValue, key, mo) ->
-                let encodeKey (k : heapVectorIndexKey) =
-                    [|k.address; k.index|] |> x.EncodeTerms encCtx
-                let keyInRegion = x.VectorIndexKeyInRegion encCtx
-                let keysAreEqual (left : Expr[], right : Expr[]) =
-                    x.MkAnd(x.MkEq(left.[0], right.[0]), x.MkEq(left.[1], right.[1]))
-                x.ArrayReading encCtx keyInRegion keysAreEqual encodeKey hasDefaultValue [key.index] key mo typ source structFields name
+                x.VectorIndexReading encCtx key hasDefaultValue mo typ source structFields name
             | StackBufferReading(key, mo) -> x.StackBufferReading encCtx key mo typ source structFields name
             | StaticsReading(key, mo) -> x.StaticsReading encCtx key mo typ source structFields name
             | StructFieldSource(structSource, field) -> x.StructReading encCtx structSource field typ structFields name
@@ -695,6 +812,8 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
+            // TODO: some of evaluated constants are written to model: most of them contain stack reading
+            // TODO: maybe encode stack reading as reading from array?
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
@@ -704,11 +823,12 @@ module internal Z3 =
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
                     match ms with
-                    | HeapAddressSource(StackReading(key)) ->
+                    | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
-                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
-                        stackEntries.Add(key, HeapRef addr t |> ref)
+                        let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let value = HeapRef address t
+                        x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
                     | HeapAddressSource(:? functionResultConstantSource as frs) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation

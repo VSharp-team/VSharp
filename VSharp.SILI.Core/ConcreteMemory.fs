@@ -5,6 +5,7 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Runtime.CompilerServices
 open System.Threading
+open System.Linq
 open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
@@ -22,10 +23,29 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     let cannotBeCopied typ = List.contains typ nonCopyableTypes
 
     let getArrayIndicesWithValues (array : Array) =
-        let ubs = List.init array.Rank array.GetUpperBound
-        let lbs = List.init array.Rank array.GetLowerBound
-        let indices = List.map2 (fun lb ub -> [lb .. ub]) lbs ubs |> List.cartesian
-        indices |> Seq.map (fun index -> index, array.GetValue(Array.ofList index))
+        assert(array <> null)
+        match array with
+        // Any T[] when T is reference type is matched with 'array<obj>'
+        | :? array<obj> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<bool> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<int8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<uint8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<int16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<uint16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<int> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<uint> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<int64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<uint64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<single> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | _ when array.GetType().IsSZArray ->
+            let szArray = array.Cast<obj>()
+            Seq.mapi (fun i x -> (List.singleton i, x :> obj)) szArray
+        | _ ->
+            let ubs = List.init array.Rank array.GetUpperBound
+            let lbs = List.init array.Rank array.GetLowerBound
+            let indices = Array.allIndicesViaBound lbs ubs
+            indices |> Seq.map (fun index -> index, array.GetValue(Array.ofList index))
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
@@ -58,7 +78,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let a' = Array.CreateInstance(typ.GetElementType(), lengths, lowerBounds)
             let phys' = {object = a'}
             copiedObjects.Add(phys, phys')
-            let indices = Array.allIndicesOfArray (Array.toList lowerBounds) (Array.toList lengths)
+            let indices = Array.allIndicesViaLens (Array.toList lowerBounds) (Array.toList lengths)
             for index in indices do
                 let index = List.toArray index
                 let v' = deepCopyObject {object = a.GetValue index}
@@ -203,6 +223,34 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             match x.ReadObject address with
             | :? Array as array -> RuntimeHelpers.InitializeArray(array, rfh)
             | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
+
+        override x.FillArray address index length value =
+            match x.ReadObject address with
+            | :? Array as array when array.Rank = 1 ->
+                for i = index to index + length do
+                    array.SetValue(value, i)
+            | :? Array -> internalfail "filling array in concrete memory: multidimensional arrays are not supported yet"
+            | obj -> internalfailf "filling array in concrete memory: expected to read array, but got %O" obj
+
+        override x.CopyArray srcAddress dstAddress srcIndex dstIndex length =
+            match x.ReadObject srcAddress, x.ReadObject dstAddress with
+            | :? Array as srcArray, (:? Array as dstArray) ->
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+            | :? String as srcString, (:? String as dstString) ->
+                let srcArray = srcString.ToCharArray()
+                let dstArray = dstString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+                let newString = String(dstArray)
+                x.WriteObject dstAddress newString
+            | :? String as srcString, (:? Array as dstArray) ->
+                let srcArray = srcString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+            | :? Array as srcArray, (:? String as dstString) ->
+                let dstArray = dstString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+                let newString = String(dstArray)
+                x.WriteObject dstAddress newString
+            | obj -> internalfailf "copying array in concrete memory: expected to read array, but got %O" obj
 
         override x.CopyCharArrayToString arrayAddress stringAddress =
             let array = x.ReadObject arrayAddress :?> char array

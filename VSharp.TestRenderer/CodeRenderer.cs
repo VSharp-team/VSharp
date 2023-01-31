@@ -146,6 +146,20 @@ internal class CodeRenderer
             [typeof(string)] = "string"
         };
 
+    internal static readonly HashSet<string> CSharpKeywords = new()
+        {
+            "bool", "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong",
+            "double", "float", "decimal", "string", "char", "void", "object", "typeof",
+            "sizeof", "null", "true", "false", "if", "else", "while", "for", "foreach",
+            "do", "switch", "case", "default", "lock", "try", "throw", "catch", "finally",
+            "goto", "break", "continue", "return", "public", "private", "internal", "protected",
+            "static", "readonly", "sealed", "const", "fixed", "stackalloc", "volatile", "new",
+            "override", "abstract", "virtual", "event", "extern", "ref", "out", "in", "is", "as",
+            "params", "__arglist", "__makeref", "__reftype", "__refvalue", "this", "base",
+            "namespace", "using", "class", "struct", "interface", "enum", "delegate", "checked",
+            "unchecked", "unsafe", "operator", "implicit", "explicit"
+        };
+
     private static ArrayTypeSyntax RenderArrayType(TypeSyntax elemType, int rank)
     {
         var dims = Enumerable.Repeat(OmittedArraySizeExpression(), rank);
@@ -197,10 +211,13 @@ internal class CodeRenderer
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
 
-        // TODO: use QualifiedName with list of types?
         string typeName = type.Name;
+        if (CSharpKeywords.Contains(typeName))
+            typeName = $"@{typeName}";
+
         if (type.IsNested && type.DeclaringType != null)
         {
+            // TODO: use QualifiedName with list of types?
             typeName = $"{RenderType(type.DeclaringType).ToString()}.{typeName}";
         }
 
@@ -473,16 +490,20 @@ internal class CodeRenderer
 
     public static ExpressionSyntax RenderArrayCreation(
         ArrayTypeSyntax type,
-        IEnumerable<ExpressionSyntax>? init,
+        List<ExpressionSyntax>? init,
         bool allowImplicit)
     {
         InitializerExpressionSyntax? initializer = null;
         if (init != null)
+        {
             initializer =
                 InitializerExpression(
                     SyntaxKind.ArrayInitializerExpression,
                     SeparatedList(init)
                 );
+            // If init is empty, we should use explicit type
+            if (init.Count == 0) allowImplicit = false;
+        }
 
         ExpressionSyntax array;
         if (allowImplicit && initializer != null)

@@ -95,16 +95,21 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
 
     let init initialStates =
         baseSearcher.Init initialStates
+        // Some states may be filtered out
+        let initialStates = baseSearcher.States()
         let groupedByType = initialStates |> Seq.map CilStateOperations.entryMethodOf |> Seq.distinct |> Seq.groupBy (fun m -> m.DeclaringType)
         typeEnumerator <- FairEnumerator(groupedByType |> Seq.map fst |> Seq.toList, getTypeTimeout, shouldStopType, onTypeRound, onTypeTimeout)
         for typ, methods in groupedByType do
-            methodEnumerators.[typ] <- FairEnumerator(
-                methods |> Seq.sortBy (fun m -> m.CFG.Calls.Count) |> Seq.toList,
-                (fun _ -> getMethodTimeout typ),
-                (fun _ -> shouldStopMethod typ),
-                onMethodRound,
-                onMethodTimeout
-            )
+            try
+                let methods = methods |> Seq.sortBy (fun m -> m.CFG.Calls.Count) |> Seq.toList
+                methodEnumerators.[typ] <- FairEnumerator(
+                    methods,
+                    (fun _ -> getMethodTimeout typ),
+                    (fun _ -> shouldStopMethod typ),
+                    onMethodRound,
+                    onMethodTimeout
+                )
+            with e -> Logger.error $"Initializing FairSearcher: unable to get CFG from methods {methods}, {e}"
 
     let update (parent, newStates) = baseSearcher.Update(parent, newStates)
 

@@ -227,11 +227,15 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
     member x.GetVisitedBlocksNotCoveredByTests (s : cilState) =
         if not isVisitedBlocksNotCoveredByTestsRelevant then
-            for kvp in visitedBlocksNotCoveredByTests do
-                visitedBlocksNotCoveredByTests.[kvp.Key] <- kvp.Key.history |> Set.filter (not << x.IsBasicBlockCoveredByTest coverageType.ByTest)
+            let currentCilStates = visitedBlocksNotCoveredByTests.Keys |> Seq.toList
+            for cilState in currentCilStates do
+                let history = Set.filter (not << x.IsBasicBlockCoveredByTest coverageType.ByTest) cilState.history
+                visitedBlocksNotCoveredByTests[cilState] <- history
             isVisitedBlocksNotCoveredByTestsRelevant <- true
 
-        if visitedBlocksNotCoveredByTests.ContainsKey s then visitedBlocksNotCoveredByTests.[s] else Set.empty
+        let blocks = ref Set.empty
+        if visitedBlocksNotCoveredByTests.TryGetValue(s, blocks) then blocks.Value
+        else Set.empty
 
     member x.IsBasicBlockCoveredByTest (coverageType : coverageType) (blockStart : codeLocation) =
         match coverageType with
@@ -257,9 +261,16 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.OnBranchesReleased() =
         branchesReleased <- true
 
+    // TODO: GetVisitedBlocksNotCoveredByTests doesn't work in parallel, rewrite 'CreateContinuousDump'
     member x.CreateContinuousDump() =
         if collectContinuousStatistics then
             let states = getStates() |> Seq.toList
+            let coveringStatesCount =
+                let isCovering s =
+                    let notCoveredBlocks = x.GetVisitedBlocksNotCoveredByTests(s)
+                    let blocksInZone = Seq.filter (fun b -> b.method.InCoverageZone) notCoveredBlocks
+                    Seq.length blocksInZone > 0
+                states |> Seq.filter isCovering |> Seq.length |> uint
             let continuousStatisticsDump = {
                 millis = stopwatch.ElapsedMilliseconds;
                 coveringStepsInsideZone = coveringStepsInsideZone;
@@ -270,7 +281,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
                 branchesReleased = branchesReleased;
                 internalFailsCount = uint internalFails.Count;
                 statesCount = getStatesCount()
-                coveringStatesCount = states |> Seq.filter (fun s -> (x.GetVisitedBlocksNotCoveredByTests(s) |> Seq.filter (fun b -> b.method.InCoverageZone)) |> Seq.length > 0) |> Seq.length |> uint
+                coveringStatesCount = coveringStatesCount
             }
             continuousStatistics.Add continuousStatisticsDump
 
@@ -297,8 +308,12 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         ()
 
     member x.TrackFork (parent : cilState) (children : cilState seq) =
-        for child in children do
-            visitedBlocksNotCoveredByTests.[child] <- visitedBlocksNotCoveredByTests.[parent]
+        let blocks = ref Set.empty
+        // TODO: check why 'parent' may not be in 'visitedBlocksNotCoveredByTests'
+        if visitedBlocksNotCoveredByTests.TryGetValue(parent, blocks) then
+            let parentBlocks = blocks.Value
+            for child in children do
+                visitedBlocksNotCoveredByTests[child] <- parentBlocks
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
