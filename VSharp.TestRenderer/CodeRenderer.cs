@@ -490,16 +490,20 @@ internal class CodeRenderer
 
     public static ExpressionSyntax RenderArrayCreation(
         ArrayTypeSyntax type,
-        IEnumerable<ExpressionSyntax>? init,
+        List<ExpressionSyntax>? init,
         bool allowImplicit)
     {
         InitializerExpressionSyntax? initializer = null;
         if (init != null)
+        {
             initializer =
                 InitializerExpression(
                     SyntaxKind.ArrayInitializerExpression,
                     SeparatedList(init)
                 );
+            // If init is empty, we should use explicit type
+            if (init.Count == 0) allowImplicit = false;
+        }
 
         ExpressionSyntax array;
         if (allowImplicit && initializer != null)
