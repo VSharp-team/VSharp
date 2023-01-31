@@ -24,7 +24,9 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
     iteration_data: IterationResults = defaultdict(list)
 
     for model, map in games:
-        with closing(NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps, log=True)) as agent:
+        with closing(
+            NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps, log=True)
+        ) as agent:
             game_state = agent.recv_state_from_server()
             cumulative_reward: MoveReward(0, 0)
 
@@ -32,7 +34,8 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
                 model.train(
                     game_state,
                     lambda state: agent.send_step(
-                        next_state_id=state.Id, predicted_usefullness=42.0  # пока оставить 42
+                        next_state_id=state.Id,
+                        predicted_usefullness=42.0,  # пока оставить 42
                     ),
                 )
 

@@ -40,7 +40,6 @@ class TestServerConnection(unittest.TestCase):
             for _ in range(self.n_steps):
                 self.do_one_step(with_agent=agent)
 
-
     def test_n_plus_one_step_throws_gameover(self):
         with closing(
             NAgent(self.server_url, map_id_to_play=self.test_map_id, steps=self.n_steps)
