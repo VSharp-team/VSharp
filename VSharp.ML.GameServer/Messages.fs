@@ -205,15 +205,17 @@ let mapsSettings =
     add 75u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    add 15u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     // too slow
     //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     // too slow
     //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    // strange behaviour
+    add 15u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    // too slow
     //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    // strange behaviour
+    // too slow
     //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
