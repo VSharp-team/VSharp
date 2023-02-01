@@ -92,7 +92,7 @@ def average_n_models(models: list[TorchModelWrapper]) -> TorchModelWrapper:
 
 
 def mutate_random(
-    model: TorchModelWrapper, mutation_volume: int, mutation_freq: int
+    model: TorchModelWrapper, mutation_volume: float, mutation_freq: float
 ) -> TorchModelWrapper:
     ...  # TODO: implement
     return model

@@ -19,9 +19,17 @@ class MutationProportions:
 @dataclass
 class MutatorConfig:
     proportions: MutationProportions
-    mutation_volume: int  # 0-100 %
-    mutation_freq: int  # 0-100 %
-    # TODO: put constraints
+    mutation_volume: float  # 0-100 %
+    mutation_freq: float  # 0-100 %
+
+    def __post_init__(self):
+        in_percents = lambda x: x >= 0 and x <= 100
+        if not in_percents(self.mutation_volume):
+            raise ValueError(
+                f"mutation volume is not in percents: {self.mutation_volume=}"
+            )
+        if not in_percents(self.mutation_freq):
+            raise ValueError(f"mutation freq is not in percents: {self.mutation_freq=}")
 
 
 class Mutator:
