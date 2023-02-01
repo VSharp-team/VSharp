@@ -242,9 +242,44 @@ let mapsSettings =
     add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
+    add 10u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
+    //too slow
+    //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
+    //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
+    //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    //25
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "inverse"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "inverse"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    add 50u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "getCofactor"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "getCofactor"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
+    //too slow
+    //add 80u "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
+    
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearchMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixMultiplicationMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MergeSortMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixInverseMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "SudokuMain"
     
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
