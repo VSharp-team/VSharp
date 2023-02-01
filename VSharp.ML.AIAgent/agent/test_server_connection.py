@@ -1,8 +1,7 @@
 from contextlib import closing
 import unittest
 
-
-from common.game import GameState
+from common.game import GameState, Reward
 from .n_agent import NAgent, get_server_maps
 
 
@@ -28,25 +27,35 @@ class TestServerConnection(unittest.TestCase):
         self.test_map_id = maps[0].Id
         self.n_steps = 5
 
-    def do_one_step(self, with_agent):
+    def do_one_step(self, with_agent: NAgent) -> Reward | NAgent.StepsCount:
         next_state = choose_state_id(with_agent.recv_state_from_server().MessageBody)
         with_agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
-        _ = with_agent.recv_reward()
+        return with_agent.recv_reward()
 
     def test_n_steps_doesnt_throw(self):
         with closing(
             NAgent(self.server_url, map_id_to_play=self.test_map_id, steps=self.n_steps)
         ) as agent:
             for _ in range(self.n_steps):
-                self.do_one_step(with_agent=agent)
+                match self.do_one_step(with_agent=agent):
+                    case Reward():
+                        pass
+                    case NAgent.StepsCount:
+                        break
 
     def test_n_plus_one_step_throws_gameover(self):
         with closing(
             NAgent(self.server_url, map_id_to_play=self.test_map_id, steps=self.n_steps)
         ) as agent:
             for _ in range(self.n_steps):
-                self.do_one_step(with_agent=agent)
+                match self.do_one_step(with_agent=agent):
+                    case Reward():
+                        pass
+                    case NAgent.StepsCount:
+                        break
+
+            self.do_one_step(with_agent=agent)  # receive gameover
 
             self.assertRaises(
-                NAgent.GameOverError, lambda: self.do_one_step(with_agent=agent)
+                NAgent.WrongAgentStateError, lambda: self.do_one_step(with_agent=agent)
             )
