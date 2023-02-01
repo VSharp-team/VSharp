@@ -171,7 +171,7 @@ public class AhoCorasick
      
     // This function finds all occurrences of
     // all array words in text.
-    static List<Tuple<string, int, int>> searchWords(String[] arr, int k,
+    public static List<Tuple<string, int, int>> SearchWords(String[] arr, int k,
                             String text)
     {
         List<Tuple<string, int, int>> result = new List<Tuple<string, int, int>>();
@@ -215,7 +215,6 @@ public class AhoCorasick
     public static List<Tuple<string, int, int>> AhoCorasickMain(string[] words, string text)
     {
         int k = words.Length;
-     
-        return searchWords(words, k, text);
+        return SearchWords(words, k, text);
     }
 }

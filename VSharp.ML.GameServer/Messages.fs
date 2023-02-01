@@ -205,26 +205,30 @@ let mapsSettings =
     add 75u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
-    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
-    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    // too slow
+    //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
+    // too slow
+    //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    // strange behaviour
     //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    // strange behaviour
     //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
     add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
-    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
     add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
-    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
-    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
-    
-    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
-    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
-    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
-    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasick"
+        
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
+    // too slow
+    //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
+    // too slow
+    //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
+    // too slow
+    //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
@@ -239,10 +243,6 @@ let mapsSettings =
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearchMain"
-    
-    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasickMain"
-    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearchMain"
-    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "BinarySearchMain"
     
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
