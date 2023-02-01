@@ -61,6 +61,9 @@ class GameMap:
     CoverageZone: bool
     NameOfObjectToCover: str
 
+    def __hash__(self) -> int:
+        return self.Id.__hash__()
+
 
 @dataclass_json
 @dataclass

@@ -1,3 +1,4 @@
+import sys
 import websocket
 from enum import Enum, auto
 from contextlib import closing
@@ -32,9 +33,11 @@ class NAgent:
     """
 
     class WrongAgentStateError(Exception):
-        def __init__(self, received, expected) -> None:
+        def __init__(
+            self, source: str, received: str, expected: str, at_step: int
+        ) -> None:
             super().__init__(
-                f"Wrong operations order: received {received}, expected {expected}"
+                f"Wrong operations order at step #{at_step}: at function <{source}> received {received}, expected {expected}"
             )
 
     class GameOverError(Exception):
@@ -62,10 +65,17 @@ class NAgent:
             print("-->", start_message, "\n")
         self._ws.send(start_message.to_json())
         self._state = NAgent.State.RECEIVING_GAMESTATE
+        self._steps_done = 0
 
-    def _check_expected_state(self, expected):
+    def _check_expected_state(self, expected: int):
         if self._state != expected:
-            raise NAgent.WrongAgentStateError(self._state, expected)
+            source = sys._getframe(1).f_code.co_name  # caller function
+            raise NAgent.WrongAgentStateError(
+                source=source,
+                received=self._state,
+                expected=expected,
+                at_step=self._steps_done,
+            )
 
     def recv_state_from_server(self) -> GameState:
         self._check_expected_state(NAgent.State.RECEIVING_GAMESTATE)
@@ -88,6 +98,8 @@ class NAgent:
             print("-->", do_step_message)
         self._ws.send(do_step_message.to_json())
         self._state = NAgent.State.RECEIVING_REWARD
+        self._sent_state_id = next_state_id
+        self._steps_done += 1
 
     def recv_reward(self) -> Reward:
         self._check_expected_state(NAgent.State.RECEIVING_REWARD)
@@ -99,15 +111,19 @@ class NAgent:
         match received.MessageType:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
                 self._state = NAgent.State.ERROR
-                raise NAgent.IncorrectSentStateError(f"Server: {received.MessageType}")
+                raise NAgent.IncorrectSentStateError(
+                    f"Sending state_id={self._sent_state_id} at step #{self._steps_done} resulted in {received.MessageType}"
+                )
 
             case ServerMessageType.GAMEOVER:
                 self._state = NAgent.State.ERROR
-                raise NAgent.GameOverError(f"Server: {received.MessageType}")
+                raise NAgent.GameOverError(
+                    f"Sending state_id={self._sent_state_id} at step #{self._steps_done} resulted in {received.MessageType}"
+                )
 
             case ServerMessageType.MOVE_REVARD:
                 self._state = NAgent.State.RECEIVING_GAMESTATE
-                return received
+                return received.MessageBody
 
             case _:
                 self.close_connection()

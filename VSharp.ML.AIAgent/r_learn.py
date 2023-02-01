@@ -27,14 +27,15 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
         with closing(
             NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps, log=True)
         ) as agent:
-            game_state = agent.recv_state_from_server()
-            cumulative_reward: MoveReward(0, 0)
+
+            cumulative_reward = MoveReward(0, 0)
 
             for _ in range(steps):
+                game_state = agent.recv_state_from_server()
                 model.train(
                     game_state,
-                    lambda state: agent.send_step(
-                        next_state_id=state.Id,
+                    lambda state_id: agent.send_step(
+                        next_state_id=state_id,
                         predicted_usefullness=42.0,  # пока оставить 42
                     ),
                 )

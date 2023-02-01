@@ -26,7 +26,7 @@ def n_tops(iteration_data, n) -> list[TorchModelWrapper]:
                 sorted(
                     iteration_data[game_map],
                     key=lambda t: (t[1].ForCoverage, t[1].ForVisitedInstructions),
-                )[::n],
+                )[:n],
             )
             # default tuple comparison works fine
         )
@@ -57,7 +57,7 @@ def random_n_tops_averaged_mutations(iteration_data, n) -> list[TorchModelWrappe
 
 def random_all_averaged_mutations(iteration_data) -> TorchModelWrapper:
     # случайные мутации среднего по всем отобранным нейронкам
-    mutate_random(averaged_all(iteration_data))
+    return mutate_random(averaged_all(iteration_data))
 
 
 def new_generation(
@@ -67,7 +67,10 @@ def new_generation(
 
     new_gen = (
         n_tops(iteration_data, proportions.n_tops)
-        + averaged_n_tops(iteration_data, proportions.averaged_n_tops)
+        + [
+            averaged_n_tops(iteration_data, proportions.n_tops)
+            for _ in range(proportions.averaged_n_tops)
+        ]
         + [averaged_all(iteration_data) for _ in range(proportions.n_averaged_all)]
         + [
             random_n_tops_averaged_mutations(iteration_data, proportions.n_tops)
