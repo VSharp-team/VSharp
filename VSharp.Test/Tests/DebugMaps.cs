@@ -29,7 +29,7 @@ public class Graph
     // src to all other vertices using Bellman-Ford
     // algorithm. The function also detects negative weight
     // cycle
-    //[TestSvm(100,timeout:30)]
+    [TestSvm(100,timeout:40,serialize:"BellmanFord_guided:true_coverage_zone:class")]
     public int[] BellmanFord(Graph graph, int src)
     {
         int V = graph.V, E = graph.E;
@@ -453,7 +453,7 @@ public class KruskalGraph
  
     // The main function to construct MST
     // using Kruskal's algorithm
-    //[TestSvm(100)]
+    [TestSvm(100)]
     public Tuple<int,List<Tuple<int,int,int>>> KruskalMST()
     {  
         List<Tuple<int, int, int>> resultEdges = new List<Tuple<int, int, int>>(); 
@@ -512,5 +512,201 @@ public class KruskalGraph
         }
 
         return new Tuple<int, List<Tuple<int, int, int>>>(minimumCost, resultEdges);
+    }
+}
+
+
+[TestSvmFixture]
+class GFG {
+
+    // return the maximum
+    // element from the array
+    static int getMax(int[] arr, int n)
+    {
+        int max = int.MinValue;
+        for (int i = 0; i < n; i++)
+            if (arr[i] > max)
+                max = arr[i];
+        return max;
+    }
+
+    // return the sum of the
+    // elements in the array
+    static int getSum(int[] arr, int n)
+    {
+        int total = 0;
+        for (int i = 0; i < n; i++)
+            total += arr[i];
+        return total;
+    }
+
+    // find minimum required
+    // painters for given
+    // maxlen which is the
+    // maximum length a painter
+    // can paint
+    static int numberOfPainters(int[] arr,
+        int n, int maxLen)
+    {
+        int total = 0, numPainters = 1;
+
+        for (int i = 0; i < n; i++) {
+            total += arr[i];
+
+            if (total > maxLen) {
+
+                // for next count
+                total = arr[i];
+                numPainters++;
+            }
+        }
+
+        return numPainters;
+    }
+
+    [TestSvm(100)]
+    static public int partition(int[] arr,
+        int n, int k)
+    {
+        int lo = getMax(arr, n);
+        int hi = getSum(arr, n);
+
+        while (lo < hi) {
+            int mid = lo + (hi - lo) / 2;
+            int requiredPainters = numberOfPainters(arr, n, mid);
+
+            // find better optimum in lower
+            // half here mid is included
+            // because we may not get
+            // anything better
+            if (requiredPainters <= k)
+                hi = mid;
+
+            // find better optimum in upper
+            // half here mid is excluded
+            // because it gives required
+            // Painters > k, which is invalid
+            else
+                lo = mid + 1;
+        }
+
+        // required
+        return lo;
+    }
+
+    // Driver code
+    [TestSvm(100)]
+    static public int BinarySearchMain(int[] arr, int k)
+    {
+        int n = arr.Length;
+        return (partition(arr, n, k));
+    }
+}
+
+[TestSvmFixture]
+public static class ConvexHull {
+    static HashSet<List<int> > hull
+        = new HashSet<List<int> >();
+    // Stores the result (points of convex hull)
+ 
+    // Returns the side of point p with respect to line
+    // joining points p1 and p2.
+    public static int findSide(List<int> p1, List<int> p2,
+                               List<int> p)
+    {
+        int val = (p[1] - p1[1]) * (p2[0] - p1[0])
+                  - (p2[1] - p1[1]) * (p[0] - p1[0]);
+ 
+        if (val > 0) {
+            return 1;
+        }
+        if (val < 0) {
+            return -1;
+        }
+        return 0;
+    }
+ 
+    // returns a value proportional to the distance
+    // between the point p and the line joining the
+    // points p1 and p2
+    public static int lineDist(List<int> p1, List<int> p2,
+                               List<int> p)
+    {
+        return Math.Abs((p[1] - p1[1]) * (p2[0] - p1[0])
+                        - (p2[1] - p1[1]) * (p[0] - p1[0]));
+    }
+ 
+    // End points of line L are p1 and p2. side can have
+    // value 1 or -1 specifying each of the parts made by
+    // the line L
+    public static void quickHull(List<List<int> > a, int n,
+                                 List<int> p1, List<int> p2,
+                                 int side)
+    {
+        int ind = -1;
+        int max_dist = 0;
+ 
+        // finding the point with maximum distance
+        // from L and also on the specified side of L.
+        for (int i = 0; i < n; i++) {
+            int temp = lineDist(p1, p2, a[i]);
+            if (findSide(p1, p2, a[i]) == side
+                && temp > max_dist) {
+                ind = i;
+                max_dist = temp;
+            }
+        }
+ 
+        // If no point is found, add the end points
+        // of L to the convex hull.
+        if (ind == -1) {
+            hull.Add(p1);
+            hull.Add(p2);
+            return;
+        }
+ 
+        // Recur for the two parts divided by a[ind]
+        quickHull(a, n, a[ind], p1,
+                  -findSide(a[ind], p1, p2));
+        quickHull(a, n, a[ind], p2,
+                  -findSide(a[ind], p2, p1));
+    }
+ 
+    public static void computeHull(List<List<int> > a, int n)
+    {
+        // a[i].second -> y-coordinate of the ith point
+        if (n < 3)
+        {
+            throw new Exception("Convex hull not possible for given set of points.");
+        }
+ 
+        // Finding the point with minimum and
+        // maximum x-coordinate
+        int min_x = 0;
+        int max_x = 0;
+        for (int i = 1; i < n; i++) {
+            if (a[i][0] < a[min_x][0]) {
+                min_x = i;
+            }
+            if (a[i][0] > a[max_x][0]) {
+                max_x = i;
+            }
+        }
+ 
+        // Recursively find convex hull points on
+        // one side of line joining a[min_x] and
+        // a[max_x]
+        quickHull(a, n, a[min_x], a[max_x], 1);
+        quickHull(a, n, a[min_x], a[max_x], -1);
+        
+    }
+ 
+    // Driver code
+    [TestSvm(100)]
+    public static HashSet<List<int>> ConvexHullMain(List<List<int> > points)
+    {
+        int n = points.Count;
+        computeHull(points, n);
+        return hull;
     }
 }
