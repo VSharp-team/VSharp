@@ -202,6 +202,7 @@ let mapsSettings =
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    add 75u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
@@ -230,13 +231,23 @@ let mapsSettings =
     add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearchMain"
     
-    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
-    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
-    add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
-    add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "AhoCorasickMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearchMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Class "BinarySearchMain"
+    
+    //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
+    //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
        
     d
 
@@ -250,13 +261,13 @@ let (|MsgTypeStart|MsgTypeStep|MsgGetAllMaps|) (str:string) =
     then MsgGetAllMaps
     else failwithf $"Unexpected message type %s{str}"
     
-let deserializeInputMessage (messageData:byte[]) =
+let deserializeInputMessage (messageData:byte[]) =    
     let rawInputMessage =
         let str = Encoding.UTF8.GetString messageData
         str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
     | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
-    | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep> rawInputMessage.MessageBody)
+    | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep>(rawInputMessage.MessageBody))
     | MsgGetAllMaps -> GetAllMaps
 
 let serializeOutgoingMessage (message:OutgoingMessage) =
