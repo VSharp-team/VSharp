@@ -331,53 +331,53 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
-            stepsCount <- stepsCount + 1
+            stepsCount <- stepsCount + 1                        
+            if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
+            then stepsPlayed <- stepsPlayed + 1u
+            if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
+                releaseBranches()
+            match action with
+            | GoFront s ->
+                try
+                    let statisticsBeforeStep =
+                        match searcher with                        
+                        | :? BidirectionalSearcher as s ->
+                            match s.ForwardSearcher with
+                            | :? AISearcher as s -> Some s.LastCollectedStatistics
+                            | _ -> None                        
+                        | _ -> None                        
+                    let statistics1 =
+                        if options.serialize
+                        then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
+                        else None
+                    x.Forward(s)                                        
+                    match searcher with                        
+                    | :? BidirectionalSearcher as searcher ->
+                        match searcher.ForwardSearcher with
+                        | :? AISearcher as searcher ->
+                            let gameState, statisticsAfterStep = collectGameState s.currentLoc
+                            searcher.LastGameState <- gameState
+                            searcher.LastCollectedStatistics <- statisticsAfterStep
+                            let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
+                            if searcher.InAIMode
+                            then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
+                        | _ -> ()
+                    | _ -> ()
+                    if options.serialize
+                    then 
+                        let _,statistics2 = collectGameState s.currentLoc
+                        saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
+                with
+                | e -> reportStateInternalFail s e
+            | GoBack(s, p) ->
+                try
+                    x.Backward p s
+                with
+                | e -> reportStateInternalFail s e
+            | Stop -> __unreachable__()
             if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
             then x.Stop()
-            else
-                if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
-                then stepsPlayed <- stepsPlayed + 1u
-                if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
-                    releaseBranches()
-                match action with
-                | GoFront s ->
-                    try
-                        let statisticsBeforeStep =
-                            match searcher with                        
-                            | :? BidirectionalSearcher as s ->
-                                match s.ForwardSearcher with
-                                | :? AISearcher as s -> Some s.LastCollectedStatistics
-                                | _ -> None                        
-                            | _ -> None                        
-                        let statistics1 =
-                            if options.serialize
-                            then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
-                            else None
-                        x.Forward(s)                                        
-                        match searcher with                        
-                        | :? BidirectionalSearcher as searcher ->
-                            match searcher.ForwardSearcher with
-                            | :? AISearcher as searcher ->
-                                let gameState, statisticsAfterStep = collectGameState s.currentLoc
-                                searcher.LastGameState <- gameState
-                                searcher.LastCollectedStatistics <- statisticsAfterStep
-                                let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
-                                if searcher.InAIMode
-                                then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
-                            | _ -> ()
-                        | _ -> ()
-                        if options.serialize
-                        then 
-                            let _,statistics2 = collectGameState s.currentLoc
-                            saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
-                    with
-                    | e -> reportStateInternalFail s e
-                | GoBack(s, p) ->
-                    try
-                        x.Backward p s
-                    with
-                    | e -> reportStateInternalFail s e
-                | Stop -> __unreachable__()
+            
         System.IO.File.AppendAllLines ("Steps.out", [sprintf $"Steps: {stepsCount}"])
 
     member private x.AnswerPobs initialStates =
