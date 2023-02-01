@@ -2,6 +2,7 @@ import sys
 import websocket
 from enum import Enum, auto
 from contextlib import closing
+from dataclasses import dataclass
 
 from common.game import GameMap
 from common.game import GameState
@@ -32,6 +33,8 @@ class NAgent:
     можно выдавать им вебсокеты, чтобы переиспользовать
     """
 
+    StepsCount = int
+
     class WrongAgentStateError(Exception):
         def __init__(
             self, source: str, received: str, expected: str, at_step: int
@@ -40,9 +43,6 @@ class NAgent:
                 f"Wrong operations order at step #{at_step}: at function <{source}> received {received}, expected {expected}"
             )
 
-    class GameOverError(Exception):
-        pass
-
     class IncorrectSentStateError(Exception):
         pass
 
@@ -50,6 +50,7 @@ class NAgent:
         SENDING_NEXT_STATE = auto()
         RECEIVING_GAMESTATE = auto()
         RECEIVING_REWARD = auto()
+        GAMEOVER = auto()
         ERROR = auto()
 
     def __init__(
@@ -65,7 +66,7 @@ class NAgent:
             print("-->", start_message, "\n")
         self._ws.send(start_message.to_json())
         self._state = NAgent.State.RECEIVING_GAMESTATE
-        self._steps_done = 0
+        self._current_step = 0
 
     def _check_expected_state(self, expected: int):
         if self._state != expected:
@@ -74,7 +75,7 @@ class NAgent:
                 source=source,
                 received=self._state,
                 expected=expected,
-                at_step=self._steps_done,
+                at_step=self._current_step,
             )
 
     def recv_state_from_server(self) -> GameState:
@@ -99,9 +100,14 @@ class NAgent:
         self._ws.send(do_step_message.to_json())
         self._state = NAgent.State.RECEIVING_REWARD
         self._sent_state_id = next_state_id
-        self._steps_done += 1
 
-    def recv_reward(self) -> Reward:
+    def recv_reward(self) -> Reward | StepsCount:
+        """
+        Requests reward from game server.
+        # Returns
+        - reward from previuos step: Reward, if game has not ended yet;
+        - steps taken to end the game: int, if the game has already ended.
+        """
         self._check_expected_state(NAgent.State.RECEIVING_REWARD)
 
         received = ServerMessage.from_json(self._ws.recv())
@@ -112,21 +118,19 @@ class NAgent:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
                 self._state = NAgent.State.ERROR
                 raise NAgent.IncorrectSentStateError(
-                    f"Sending state_id={self._sent_state_id} at step #{self._steps_done} resulted in {received.MessageType}"
+                    f"Sending state_id={self._sent_state_id} at step #{self._current_step} resulted in {received.MessageType}"
                 )
 
             case ServerMessageType.GAMEOVER:
-                self._state = NAgent.State.ERROR
-                raise NAgent.GameOverError(
-                    f"Sending state_id={self._sent_state_id} at step #{self._steps_done} resulted in {received.MessageType}"
-                )
+                self._state = NAgent.State.GAMEOVER
+                return self._current_step
 
             case ServerMessageType.MOVE_REVARD:
+                self._current_step += 1
                 self._state = NAgent.State.RECEIVING_GAMESTATE
                 return received.MessageBody
 
             case _:
-                self.close_connection()
                 self._state = NAgent.State.ERROR
                 raise RuntimeError(
                     f"Unexpected message type received: {received.MessageType}"

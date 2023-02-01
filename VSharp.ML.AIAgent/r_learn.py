@@ -2,7 +2,7 @@ from contextlib import closing
 from itertools import product
 from collections import defaultdict
 
-from common.game import GameMap, MoveReward
+from common.game import GameMap, Reward, MoveReward
 from agent.n_agent import NAgent
 from ml.torch_model_wrapper import TorchModelWrapper
 from ml.mutation_gen import MutatorConfig, Mutator
@@ -38,8 +38,12 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
                     ),
                 )
 
-                reward = agent.recv_reward()
-                cumulative_reward += reward.ForMove
+                match agent.recv_reward():
+                    case Reward() as reward:
+                        cumulative_reward += reward.ForMove
+                    case NAgent.StepsCount:
+                        # if it should be accounted for when teaching NN
+                        break
 
             iteration_data[map].append((model, cumulative_reward))
 
