@@ -2,9 +2,11 @@ import torch
 
 from agent.n_agent import get_server_maps
 from ml.torch_model_wrapper import TorchModelWrapper
+from ml.mutation_gen import MutationProportions
+from ml.mutation_gen import MutatorConfig
 from ml.models import GCN
 
-from r_learn import MutationProportions, r_learn
+from r_learn import r_learn
 from r_learn import DEFAULT_URL
 
 
@@ -20,15 +22,20 @@ def main():
     models = [TorchModelWrapper(model, optimizer, criterion) for _ in range(n_models)]
 
     maps = get_server_maps(DEFAULT_URL)
-    proportions = MutationProportions(
-        n_tops=4,
-        averaged_n_tops=1,
-        n_averaged_all=1,
-        random_n_tops_averaged_mutations=2,
-        random_all_averaged_mutations=2,
+
+    mutator_config = MutatorConfig(
+        proportions=MutationProportions(
+            n_tops=4,
+            averaged_n_tops=1,
+            n_averaged_all=1,
+            random_n_tops_averaged_mutations=2,
+            random_all_averaged_mutations=2,
+        ),
+        mutation_volume=2,
+        mutation_freq=2,
     )
 
-    r_learn(epochs, max_steps, models, maps, proportions)
+    r_learn(epochs, max_steps, models, maps, mutator_config)
 
 
 if __name__ == "__main__":
