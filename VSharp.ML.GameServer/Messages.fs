@@ -209,8 +209,8 @@ let mapsSettings =
     add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
     add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
