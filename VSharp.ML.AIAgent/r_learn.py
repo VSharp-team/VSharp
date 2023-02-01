@@ -19,7 +19,6 @@ def generate_games(models: list[TorchModelWrapper], maps: list[GameMap]):
 
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(models, maps, steps) -> IterationResults:
-
     games = generate_games(models, maps)
     iteration_data: IterationResults = defaultdict(list)
 
@@ -27,7 +26,6 @@ def r_learn_iteration(models, maps, steps) -> IterationResults:
         with closing(
             NAgent(url=DEFAULT_URL, map_id_to_play=map.Id, steps=steps, log=True)
         ) as agent:
-
             cumulative_reward = MoveReward(0, 0)
 
             for _ in range(steps):

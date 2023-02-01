@@ -64,7 +64,6 @@ def new_generation(
     iteration_data: IterationResults,
     proportions: MutationProportions,
 ) -> list[TorchModelWrapper]:
-
     new_gen = (
         n_tops(iteration_data, proportions.n_tops)
         + [
