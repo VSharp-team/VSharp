@@ -534,11 +534,7 @@ type ApplicationGraph() =
         stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
-        if initialPosition.BasicBlock.IsTouched && initialPosition.BasicBlock.AssociatedStates.Count = 0 && not initialPosition.BasicBlock.IsVisited 
-        then printfn "!!!"
-         
-        //__notImplemented__()
-
+    
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
         Logger.trace "Add states."
         for newState in states do
