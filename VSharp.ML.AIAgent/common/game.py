@@ -60,3 +60,32 @@ class GameMap:
     AssemblyFullName: str
     CoverageZone: bool
     NameOfObjectToCover: str
+
+    def __hash__(self) -> int:
+        return self.Id.__hash__()
+
+
+@dataclass_json
+@dataclass
+class MoveReward:
+    ForCoverage: int
+    ForVisitedInstructions: int
+
+    def __eq__(self, __o: "MoveReward") -> bool:
+        if type(self) != type(__o):
+            return RuntimeError(f"Can't compare {type(self)} with {type(__o)}")
+
+    def __add__(self, __o: "MoveReward") -> "MoveReward":
+        if type(self) != type(__o):
+            return RuntimeError(f"Can't add {type(__o)} to {type(self)}")
+        return MoveReward(
+            self.ForCoverage + __o.ForCoverage,
+            self.ForVisitedInstructions + __o.ForVisitedInstructions,
+        )
+
+
+@dataclass_json
+@dataclass
+class Reward:
+    ForMove: MoveReward
+    MaxPossibleReward: int
