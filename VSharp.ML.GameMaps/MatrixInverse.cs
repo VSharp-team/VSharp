@@ -96,7 +96,7 @@ public static void adjoint(int [,]A, int [,]adj)
 
 // Function to calculate and store inverse, returns false if
 // matrix is singular
-public static bool inverse(int [,]A, float [,]inverse)
+public static bool matrixInverse(int [,]A, float [,]inverse)
 {
 	// Find determinant of [,]A
 	int det = determinant(A, N);
@@ -125,7 +125,7 @@ public static Tuple<int[,],float[,]> MatrixInverseMain(int[,] A)
 
 	adjoint(A, adj);
 
-	if (inverse(A, inv))
+	if (matrixInverse(A, inv))
 		return new Tuple<int[,], float[,]>(adj, inv);
 	return null;
 }

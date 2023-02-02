@@ -254,8 +254,8 @@ let mapsSettings =
     //25
     add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     
-    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "inverse"
-    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "inverse"
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
+    add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     
     add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
     add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
@@ -273,6 +273,28 @@ let mapsSettings =
     //too slow
     //add 80u "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
     
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
+    add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
+    add 80u "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "waysToIncreaseLCSBy1"
+    add 30u "VSharp.ML.GameMaps.dll" CoverageZone.Method "waysToIncreaseLCSBy1"
+    add 70u "VSharp.ML.GameMaps.dll" CoverageZone.Method "waysToIncreaseLCSBy1"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
+    add 30u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
+    add 70u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1BFS"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
+    add 30u "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
+    add 80u "VSharp.ML.GameMaps.dll" CoverageZone.Method "findShortestPathLength"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "countIslands"
+    add 30u "VSharp.ML.GameMaps.dll" CoverageZone.Method "countIslands"
+    
+    add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
+    add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
+    
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearchMain"
@@ -280,6 +302,12 @@ let mapsSettings =
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MergeSortMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixInverseMain"
     add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "SudokuMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "WordWrapMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "LCSMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1Main"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze2Main"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "IslandsMain"
+    add 0u "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryMain"
     
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
