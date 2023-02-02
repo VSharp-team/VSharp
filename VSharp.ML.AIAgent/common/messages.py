@@ -79,19 +79,28 @@ class ServerMessageType(str, Enum):
 @dataclass_json
 @dataclass
 class ServerMessage:
-    def decode(x):
-        if x == "" or x == {}:
-            return x
-
-        for MessageBodyType in [MapsMessageBody, Reward, GameState]:
-            try:
-                return MessageBodyType.from_dict(x)
-            except (KeyError, ValueError, AttributeError):
-                pass
-
-        raise RuntimeError(f"Can't decode msg: {x}")
-
     MessageType: ServerMessageType
-    MessageBody: MapsMessageBody | Reward | GameState = field(
-        metadata=config(decoder=decode)
-    )
+
+
+@dataclass_json
+@dataclass
+class GameStateServerMessage(ServerMessage):
+    MessageBody: GameState
+
+
+@dataclass_json
+@dataclass
+class RewardServerMessage(ServerMessage):
+    MessageBody: Reward
+
+
+@dataclass_json
+@dataclass
+class MapsServerMessage(ServerMessage):
+    MessageBody: MapsMessageBody
+
+
+@dataclass_json
+@dataclass
+class GameOverServerMessage(ServerMessage):
+    MessageBody: None

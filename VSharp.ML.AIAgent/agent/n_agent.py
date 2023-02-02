@@ -1,26 +1,27 @@
-import sys
-import websocket
-from enum import Enum, auto
-from contextlib import closing
-from dataclasses import dataclass
-
+from .connection_manager import ConnectionManager
 from common.game import GameMap
 from common.game import GameState
 from common.messages import Reward
 from common.messages import ClientMessage
 from common.messages import StartMessageBody
 from common.messages import StepMessageBody
+from common.messages import GetAllMapsMessageBody
 from common.messages import ServerMessage
 from common.messages import ServerMessageType
-from common.messages import GetAllMapsMessageBody
+from common.messages import MapsServerMessage
+from common.messages import GameOverServerMessage
+from common.messages import GameStateServerMessage
+from common.messages import RewardServerMessage
 
 
-def get_server_maps(url) -> list[GameMap]:
-    with closing(websocket.create_connection(url)) as ws:
-        request_all_maps_message = ClientMessage(GetAllMapsMessageBody())
-        ws.send(request_all_maps_message.to_json())
+def get_server_maps(cm: ConnectionManager) -> list[GameMap]:
+    ws = cm.issue()
+    request_all_maps_message = ClientMessage(GetAllMapsMessageBody())
+    ws.send(request_all_maps_message.to_json())
+    maps_message = ws.recv()
 
-        return ServerMessage.from_json(ws.recv()).MessageBody.Maps
+    cm.release(ws)
+    return MapsServerMessage.from_json(maps_message).MessageBody.Maps
 
 
 class NAgent:
@@ -30,10 +31,8 @@ class NAgent:
     - ловит и кидает ошибки
     - делает шаги
 
-    можно выдавать им вебсокеты, чтобы переиспользовать
+    исползует потокобезопасную очередь
     """
-
-    StepsCount = int
 
     class WrongAgentStateError(Exception):
         def __init__(
@@ -46,17 +45,18 @@ class NAgent:
     class IncorrectSentStateError(Exception):
         pass
 
-    class State(Enum):
-        SENDING_NEXT_STATE = auto()
-        RECEIVING_GAMESTATE = auto()
-        RECEIVING_REWARD = auto()
-        GAMEOVER = auto()
-        ERROR = auto()
+    class GameOver(Exception):
+        pass
 
     def __init__(
-        self, url: str, map_id_to_play: int, steps: int, log: bool = False
+        self,
+        cm: ConnectionManager,
+        map_id_to_play: int,
+        steps: int,
+        log: bool = False,
     ) -> None:
-        self._ws = websocket.create_connection(url)
+        self.cm = cm
+        self._ws = cm.issue()
         self.log = log
 
         start_message = ClientMessage(
@@ -65,29 +65,25 @@ class NAgent:
         if log:
             print("-->", start_message, "\n")
         self._ws.send(start_message.to_json())
-        self._state = NAgent.State.RECEIVING_GAMESTATE
         self._current_step = 0
+        self.game_is_over = False
 
-    def _check_expected_state(self, expected: int):
-        if self._state != expected:
-            source = sys._getframe(1).f_code.co_name  # caller function
-            raise NAgent.WrongAgentStateError(
-                source=source,
-                received=self._state,
-                expected=expected,
-                at_step=self._current_step,
-            )
+    def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
+        if self.game_is_over:
+            raise NAgent.GameOver
+        match ServerMessage.from_json(msg).MessageType:
+            case ServerMessageType.GAMEOVER:
+                self.game_is_over = True
+                raise NAgent.GameOver
+            case _:
+                return msg
 
-    def recv_state_from_server(self) -> GameState:
-        self._check_expected_state(NAgent.State.RECEIVING_GAMESTATE)
-
-        received = ServerMessage.from_json(self._ws.recv())
-        self._state = NAgent.State.SENDING_NEXT_STATE
-        return received
+    def recv_state_or_throw_gameover(self) -> GameState:
+        received = self._ws.recv()
+        data = GameStateServerMessage.from_json(self._raise_if_gameover(received))
+        return data
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
-        self._check_expected_state(NAgent.State.SENDING_NEXT_STATE)
-
         if self.log:
             print(f"{next_state_id=}")
         do_step_message = ClientMessage(
@@ -98,43 +94,30 @@ class NAgent:
         if self.log:
             print("-->", do_step_message)
         self._ws.send(do_step_message.to_json())
-        self._state = NAgent.State.RECEIVING_REWARD
         self._sent_state_id = next_state_id
 
-    def recv_reward(self) -> Reward | StepsCount:
-        """
-        Requests reward from game server.
-        # Returns
-        - reward from previuos step: Reward, if game has not ended yet;
-        - steps taken to end the game: int, if the game has already ended.
-        """
-        self._check_expected_state(NAgent.State.RECEIVING_REWARD)
-
-        received = ServerMessage.from_json(self._ws.recv())
+    def recv_reward_or_throw_gameover(self) -> Reward:
+        data = RewardServerMessage.from_json(self._raise_if_gameover(self._ws.recv()))
         if self.log:
-            print("<--", received, end="\n\n")
+            print("<--", data.MessageType, end="\n\n")
 
-        match received.MessageType:
+        return self._process_reward_server_message(data)
+
+    def _process_reward_server_message(self, msg):
+        match msg.MessageType:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
-                self._state = NAgent.State.ERROR
                 raise NAgent.IncorrectSentStateError(
-                    f"Sending state_id={self._sent_state_id} at step #{self._current_step} resulted in {received.MessageType}"
+                    f"Sending state_id={self._sent_state_id} at step #{self._current_step} resulted in {msg.MessageType}"
                 )
-
-            case ServerMessageType.GAMEOVER:
-                self._state = NAgent.State.GAMEOVER
-                return self._current_step
 
             case ServerMessageType.MOVE_REVARD:
                 self._current_step += 1
-                self._state = NAgent.State.RECEIVING_GAMESTATE
-                return received.MessageBody
+                return msg.MessageBody
 
             case _:
-                self._state = NAgent.State.ERROR
                 raise RuntimeError(
-                    f"Unexpected message type received: {received.MessageType}"
+                    f"Unexpected message type received: {msg.MessageType}"
                 )
 
     def close(self):
-        self._ws.close()
+        self.cm.release(self._ws)
