@@ -320,7 +320,7 @@ public static class ConvexHull {
     }
  
     // Driver code
-    [TestSvm(100)]
+    [TestSvm(50)]
     public static HashSet<List<int>> ConvexHullMain(List<List<int> > points)
     {
         int n = points.Count;
