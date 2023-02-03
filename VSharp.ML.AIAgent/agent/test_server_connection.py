@@ -17,7 +17,7 @@ def get_states(game_state: GameState) -> set[int]:
     return states
 
 
-def choose_state_id(game_state: GameState) -> int:
+def dumb_strategy(game_state: GameState) -> int:
     return get_states(game_state).pop()
 
 
@@ -34,7 +34,7 @@ class TestServerConnection(unittest.TestCase):
 
     def do_one_dumb_step(self, with_agent: NAgent) -> Reward:
         game_state = with_agent.recv_state_or_throw_gameover().MessageBody
-        next_state = choose_state_id(game_state)
+        next_state = dumb_strategy(game_state)
         with_agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
         return with_agent.recv_reward_or_throw_gameover()
 

@@ -1,7 +1,7 @@
 from dataclasses_json import dataclass_json, config
 from dataclasses import dataclass, field
-import json
 from enum import Enum
+import json
 
 from .game import GameMap, GameState, Reward
 

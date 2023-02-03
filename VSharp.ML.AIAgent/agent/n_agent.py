@@ -1,4 +1,3 @@
-from .connection_manager import ConnectionManager
 from common.game import GameMap
 from common.game import GameState
 from common.messages import Reward
@@ -12,6 +11,7 @@ from common.messages import MapsServerMessage
 from common.messages import GameOverServerMessage
 from common.messages import GameStateServerMessage
 from common.messages import RewardServerMessage
+from .connection_manager import ConnectionManager
 
 
 def get_server_maps(cm: ConnectionManager) -> list[GameMap]:

@@ -2,7 +2,7 @@ from contextlib import closing
 from itertools import product
 from collections import defaultdict
 
-from common.game import GameMap, Reward, MoveReward
+from common.game import GameMap, MoveReward
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.torch_model_wrapper import TorchModelWrapper

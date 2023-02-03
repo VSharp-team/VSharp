@@ -4,7 +4,7 @@ import websocket
 
 class ConnectionManager:
     def __init__(self, urls: list[str]) -> None:
-        self.socket_q = Queue()
+        self.socket_q: Queue[websocket.WebSocket] = Queue()
         for url in urls:
             self.socket_q.put(websocket.create_connection(url))
 
