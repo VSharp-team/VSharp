@@ -37,7 +37,7 @@ class Mutator:
         self.config = config
 
     def n_tops(self, iteration_data, n) -> list[TorchModelWrapper]:
-        # топ по каждой карте (должны быть уникальны?)
+        # топ по каждой карте
         n_tops = []
         for game_map in iteration_data.keys():
             n_tops.extend(
@@ -60,7 +60,6 @@ class Mutator:
     def averaged_all(self, iteration_data) -> TorchModelWrapper:
         # среднее по всем отобранным нейронкам
 
-        # должны ли все нейронки быть уникальны?
         all = []
         for game_map in iteration_data.keys():
             all.extend(

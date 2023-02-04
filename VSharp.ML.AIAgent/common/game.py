@@ -71,13 +71,14 @@ class MoveReward:
     ForCoverage: int
     ForVisitedInstructions: int
 
-    def __eq__(self, __o: "MoveReward") -> bool:
+    def __eq__(self, __o) -> bool:
         if type(self) != type(__o):
-            return RuntimeError(f"Can't compare {type(self)} with {type(__o)}")
+            raise RuntimeError(f"Can't compare {type(self)} with {type(__o)}")
+        return self == __o
 
     def __add__(self, __o: "MoveReward") -> "MoveReward":
         if type(self) != type(__o):
-            return RuntimeError(f"Can't add {type(__o)} to {type(self)}")
+            raise RuntimeError(f"Can't add {type(__o)} to {type(self)}")
         return MoveReward(
             self.ForCoverage + __o.ForCoverage,
             self.ForVisitedInstructions + __o.ForVisitedInstructions,
