@@ -3,7 +3,6 @@ from contextlib import closing
 from common.game import MoveReward
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
-from agent.connection_manager import ConnectionManager
 from ml.models import GCN
 
 
