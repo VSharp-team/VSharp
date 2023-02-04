@@ -4,7 +4,9 @@ from dataclasses import dataclass
 from common.game import GameMap, MoveReward
 from ml.torch_model_wrapper import TorchModelWrapper, average_n_models, mutate_random
 
-IterationResults = defaultdict[GameMap : list[tuple[TorchModelWrapper, MoveReward]]]
+StepsCount = int
+ModelResult = tuple[TorchModelWrapper, tuple[MoveReward, StepsCount]]
+IterationResults = defaultdict[GameMap : list[ModelResult]]
 
 
 @dataclass
@@ -36,78 +38,87 @@ class Mutator:
     def __init__(self, config: MutatorConfig) -> None:
         self.config = config
 
-    def n_tops(self, iteration_data, n) -> list[TorchModelWrapper]:
+    def n_tops(
+        self, iteration_results: IterationResults, n: int
+    ) -> list[TorchModelWrapper]:
         # топ по каждой карте
         n_tops = []
-        for game_map in iteration_data.keys():
+        for game_map in iteration_results.keys():
             n_tops.extend(
                 map(
                     lambda t: t[0],  # take TfModelWrapper
                     sorted(
-                        iteration_data[game_map],
-                        key=lambda t: (t[1].ForCoverage, t[1].ForVisitedInstructions),
+                        iteration_results[game_map],
+                        key=lambda t: (
+                            t[1][0].ForCoverage,
+                            t[1][0].ForVisitedInstructions,
+                            t[1][1],
+                        ),  # sort by <MoveRewardReward, StepsCount>
                     )[:n],
                 )
-                # default tuple comparison works fine
             )
 
         return n_tops
 
-    def averaged_n_tops(self, iteration_data, n) -> TorchModelWrapper:
+    def averaged_n_tops(
+        self, iteration_results: IterationResults, n: int
+    ) -> TorchModelWrapper:
         # среднее по топам
-        return average_n_models(self.n_tops(iteration_data, n))
+        return average_n_models(self.n_tops(iteration_results, n))
 
-    def averaged_all(self, iteration_data) -> TorchModelWrapper:
+    def averaged_all(self, iteration_results) -> TorchModelWrapper:
         # среднее по всем отобранным нейронкам
 
         all = []
-        for game_map in iteration_data.keys():
+        for game_map in iteration_results.keys():
             all.extend(
-                map(lambda t: t[0], iteration_data[game_map])
+                map(lambda t: t[0], iteration_results[game_map])
             )  # take TfModelWrapper
 
         return average_n_models(all)
 
     def random_n_tops_averaged_mutations(
-        self, iteration_data, n
+        self, iteration_results: IterationResults, n: int
     ) -> list[TorchModelWrapper]:
         # случайные мутации среднего по топам
         return mutate_random(
-            model=self.averaged_n_tops(iteration_data, n),
+            model=self.averaged_n_tops(iteration_results, n),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
-    def random_all_averaged_mutations(self, iteration_data) -> TorchModelWrapper:
+    def random_all_averaged_mutations(
+        self, iteration_results: IterationResults
+    ) -> TorchModelWrapper:
         # случайные мутации среднего по всем отобранным нейронкам
         return mutate_random(
-            model=self.averaged_all(iteration_data),
+            model=self.averaged_all(iteration_results),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
     def new_generation(
         self,
-        iteration_data: IterationResults,
+        iteration_results: IterationResults,
     ) -> list[TorchModelWrapper]:
         new_gen = (
-            self.n_tops(iteration_data, self.config.proportions.n_tops)
+            self.n_tops(iteration_results, self.config.proportions.n_tops)
             + [
-                self.averaged_n_tops(iteration_data, self.config.proportions.n_tops)
+                self.averaged_n_tops(iteration_results, self.config.proportions.n_tops)
                 for _ in range(self.config.proportions.averaged_n_tops)
             ]
             + [
-                self.averaged_all(iteration_data)
+                self.averaged_all(iteration_results)
                 for _ in range(self.config.proportions.n_averaged_all)
             ]
             + [
                 self.random_n_tops_averaged_mutations(
-                    iteration_data, self.config.proportions.n_tops
+                    iteration_results, self.config.proportions.n_tops
                 )
                 for _ in range(self.config.proportions.random_n_tops_averaged_mutations)
             ]
             + [
-                self.random_all_averaged_mutations(iteration_data)
+                self.random_all_averaged_mutations(iteration_results)
                 for _ in range(self.config.proportions.random_all_averaged_mutations)
             ]
         )
