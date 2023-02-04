@@ -7,7 +7,7 @@ from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.torch_model_wrapper import TorchModelWrapper
 from ml.mutation_gen import MutatorConfig, Mutator
-from ml.mutation_gen import IterationResults
+from ml.mutation_gen import ModelResult, IterationResults
 
 
 def generate_games(models: list[TorchModelWrapper], maps: list[GameMap]):
@@ -23,7 +23,7 @@ def r_learn_iteration(models, maps, steps, ws) -> IterationResults:
     for model, map in games:
         with closing(NAgent(ws, map_id_to_play=map.Id, steps=steps, log=True)) as agent:
             cumulative_reward = MoveReward(0, 0)
-
+            steps_count = 0
             try:
                 for _ in range(steps):
                     game_state = agent.recv_state_or_throw_gameover()
@@ -34,12 +34,16 @@ def r_learn_iteration(models, maps, steps, ws) -> IterationResults:
 
                     reward = agent.recv_reward_or_throw_gameover()
                     cumulative_reward += reward.ForMove
+                    steps_count += 1
+
                 _ = agent.recv_state_or_throw_gameover()  # wait for gameover
+                steps_count += 1
 
             except NAgent.GameOver:
-                break
+                pass
 
-            iteration_data[map].append((model, cumulative_reward))
+        model_result: ModelResult = (model, (cumulative_reward, steps_count))
+        iteration_data[map].append(model_result)
 
     return iteration_data
 
