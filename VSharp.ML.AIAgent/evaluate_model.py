@@ -1,4 +1,5 @@
 from contextlib import closing
+import argparse
 
 from common.game import MoveReward
 from agent.connection_manager import ConnectionManager
@@ -7,12 +8,17 @@ from ml.models import GCN
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--map_id", type=int, help="game map id", default=0)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=10)
+    args = parser.parse_args()
+
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
     cm = ConnectionManager(socket_urls)
 
     model = GCN(hidden_channels=64)
-    chosen_map = 0
-    steps = 10
+    chosen_map = args.map_id
+    steps = args.steps
 
     with closing(NAgent(cm, map_id_to_play=chosen_map, steps=steps, log=True)) as agent:
         cumulative_reward = MoveReward(0, 0)
