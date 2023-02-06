@@ -67,7 +67,7 @@ type cilState =
         override this.VisitedNotCoveredVerticesInZone with get () = this.visitedNotCoveredVerticesInZone
         override this.VisitedNotCoveredVerticesOutOfZone with get () = this.visitedNotCoveredVerticesOutOfZone
         override this.History with get () = this._history
-        override this.Children with get () = this.children |> List.map (fun s -> s.id)
+        override this.Children with get () = this.children |> Seq.cast<_> |> Array.ofSeq
         //override this.VisitedNotCoveredEdgesInZone = 1u
         //override this.VisitedNotCoveredEdgesOutOfZone = 1u
 

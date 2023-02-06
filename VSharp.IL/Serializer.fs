@@ -1,9 +1,11 @@
 module VSharp.IL.Serializer
 
+open System
 open System.Collections.Generic
 open System.Text.Json
 open Microsoft.FSharp.Collections
 open VSharp
+open VSharp.Core
 open VSharp.GraphUtils
 open VSharp.ML.GameServer.Messages
 
@@ -30,8 +32,112 @@ type Statistics =
          TouchedVerticesOutOfZone = touchedVerticesOutOfZone
          TotalVisibleVerticesInZone = totalVisibleVerticesInZone
          }
+        
+[<Struct>]
+type StateMetrics =
+    val StateId: uint
+    val NextInstructionIsUncoveredInZone: float
+    val ChildNumber: uint
+    val VisitedVerticesInZone: uint
+    val HistoryLength: uint
+    val DistanceToNearestUncovered: uint
+    val DistanceToNearestReturn: uint
+    new
+        (
+            stateId,
+            nextInstructionIsUncoveredInZone,
+            childNumber,
+            visitedVerticesInZone,
+            historyLength,
+            distanceToNearestUncovered,
+            distanceTuNearestReturn
+        ) =
+        {
+            StateId = stateId
+            NextInstructionIsUncoveredInZone = nextInstructionIsUncoveredInZone
+            ChildNumber = childNumber
+            VisitedVerticesInZone = visitedVerticesInZone
+            HistoryLength = historyLength
+            DistanceToNearestUncovered = distanceToNearestUncovered
+            DistanceToNearestReturn = distanceTuNearestReturn
+        }
+
+[<Struct>]
+type StateInfoToDump =
+    val StateId: uint
+    val NextInstructionIsUncoveredInZone: float
+    val ChildNumberNormalized: float
+    val VisitedVerticesInZoneNormalized: float
+    val ExpectedWeight: float
+    new
+        (
+            stateId,
+            nextInstructionIsUncoveredInZone,
+            childNumber,
+            visitedVerticesInZone
+        ) =
+        {
+            StateId = stateId
+            NextInstructionIsUncoveredInZone = nextInstructionIsUncoveredInZone
+            ChildNumberNormalized = childNumber
+            VisitedVerticesInZoneNormalized = visitedVerticesInZone
+            ExpectedWeight = nextInstructionIsUncoveredInZone + childNumber + visitedVerticesInZone
+        }
 
 let mutable firstFreeEpisodeNumber = 0
+
+let calculateStateMetrics (state:IGraphTrackableState) =
+    let childCountStore = Dictionary<_,HashSet<_>>()
+    let rec childCount (state:IGraphTrackableState) =
+        if childCountStore.ContainsKey state
+        then childCountStore[state]
+        else             
+            let cnt = Array.fold (fun (cnt:HashSet<_>) n -> cnt.UnionWith (childCount n); cnt) (HashSet<_>(state.Children)) state.Children
+            childCountStore.Add (state,cnt)
+            cnt 
+    let childNumber = uint (childCount state).Count    
+    let visitedVerticesInZone = state.History |> Seq.fold (fun cnt basicBlock -> if basicBlock.IsGoal then cnt + 1u else cnt) 0u
+    let nextInstructionIsUncoveredInZone =
+        let currentBasicBlock = state.CodeLocation.BasicBlock
+        let notTouchedFollowingBlocs, notVisitedFollowingBlocs, notCoveredFollowingBlocs =
+            let mutable notCoveredBasicBlocksInZone = 0
+            let mutable notVisitedBasicBlocksInZone = 0
+            let mutable notTouchedBasicBlocksInZone = 0
+            let basicBlocks = HashSet<_>()
+            currentBasicBlock.OutgoingEdges.Values
+            |> Seq.iter basicBlocks.UnionWith
+            basicBlocks
+            |> Seq.iter (fun basicBlock -> if basicBlock.IsGoal
+                                           then if not basicBlock.IsTouched
+                                                then notTouchedBasicBlocksInZone <- notTouchedBasicBlocksInZone + 1
+                                                elif not basicBlock.IsVisited
+                                                then notVisitedBasicBlocksInZone <- notVisitedBasicBlocksInZone + 1
+                                                elif not basicBlock.IsCovered
+                                                then notCoveredBasicBlocksInZone <- notCoveredBasicBlocksInZone + 1)
+            notTouchedBasicBlocksInZone, notVisitedBasicBlocksInZone, notCoveredBasicBlocksInZone
+        if state.CodeLocation.offset <> currentBasicBlock.FinalOffset && currentBasicBlock.IsGoal
+        then if not currentBasicBlock.IsVisited
+             then 1.0
+             elif not currentBasicBlock.IsCovered
+             then 0.5
+             else 0.0
+        elif state.CodeLocation.offset = currentBasicBlock.FinalOffset
+        then if notTouchedFollowingBlocs > 0
+             then 1.0
+             elif notVisitedFollowingBlocs > 0
+             then 0.5
+             elif notCoveredFollowingBlocs > 0
+             then 0.3
+             else 0.0
+        else 0.0 
+    
+    let historyLength = 0u
+    let distanceToNearestUncovered = 0u
+    let distanceToNearestReturn = 0u
+    
+    StateMetrics(state.Id, nextInstructionIsUncoveredInZone, childNumber, visitedVerticesInZone, historyLength
+                 , distanceToNearestUncovered, distanceToNearestReturn)
+    
 let getFolderToStoreSerializationResult suffix =    
     let folderName = "SerializedEpisodes_for_" + suffix
     if System.IO.Directory.Exists folderName
@@ -90,6 +196,8 @@ let collectGameState (location:codeLocation) =
                 basicBlockToIdMap.Add(basicBlock, id)
                 id
     
+    let statesMetrics = ResizeArray<_>()
+        
     for kvp in basicBlocks do
         let currentBasicBlock = kvp.Value
         let isCovered = if currentBasicBlock.IsCovered then 1u else 0u
@@ -117,10 +225,10 @@ let collectGameState (location:codeLocation) =
         then
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
             
-        
         let states =
             currentBasicBlock.AssociatedStates
-            |> Seq.map (fun s ->                
+            |> Seq.map (fun s ->
+                statesMetrics.Add (calculateStateMetrics s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
                       s.PredictedUsefulness,
@@ -129,7 +237,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
                       s.History |> Seq.map getBasicBlockId |> Array.ofSeq,
-                      s.Children |> Array.ofList
+                      s.Children |> Array.map (fun s -> s.Id)
                       ))
             |> Array.ofSeq
                 
@@ -143,6 +251,23 @@ let collectGameState (location:codeLocation) =
             currentBasicBlock.IsTouched,
             states)
         |> (fun x -> vertices.Add(x.Id,x))
+        
+    let statesInfoToDump =
+        let mutable maxVisitedVertices = UInt32.MinValue
+        let mutable maxChildNumber = UInt32.MinValue
+                                 
+        statesMetrics
+        |> ResizeArray.iter (fun s ->
+            if s.VisitedVerticesInZone > maxVisitedVertices
+            then maxVisitedVertices <- s.VisitedVerticesInZone
+            if s.ChildNumber > maxChildNumber
+            then maxChildNumber <- s.ChildNumber
+            )
+        statesMetrics
+        |> ResizeArray.map (fun m -> StateInfoToDump (m.StateId
+                                                      , m.NextInstructionIsUncoveredInZone
+                                                      , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
+                                                      , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices))
     
     let edges = ResizeArray<_>()
     
@@ -156,11 +281,14 @@ let collectGameState (location:codeLocation) =
                 
     GameState (edges.ToArray())
     , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
+    , statesInfoToDump
 
-let dumpGameState (location:codeLocation) fileForResult =
-    let gameState, statistics = collectGameState location
+let dumpGameState (location:codeLocation) fileForResultWithoutExtension =
+    let gameState, statistics, statesInfoToDump = collectGameState location
     let gameStateJson = JsonSerializer.Serialize gameState
-    System.IO.File.WriteAllText(fileForResult,gameStateJson)
+    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
+    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
+    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
     statistics
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =

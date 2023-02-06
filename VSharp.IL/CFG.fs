@@ -444,7 +444,7 @@ and IGraphTrackableState =
     //abstract member VisitedAgainEdges: uint with get
     abstract member VisitedAgainVertices: uint with get
     abstract member History: HashSet<BasicBlock>
-    abstract member Children: list<uint>
+    abstract member Children: array<IGraphTrackableState>
     
     
 

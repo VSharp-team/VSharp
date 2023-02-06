@@ -34,12 +34,12 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
     let pick selector =
         if useDefaultSearcher
         then
-            let _,statistics = collectGameState (Seq.head availableStates).currentLoc
+            let _,statistics,_ = collectGameState (Seq.head availableStates).currentLoc
             lastCollectedStatistics <- statistics
             useDefaultSearcher <- (statistics.CoveredVerticesInZone * 100u) / statistics.TotalVisibleVerticesInZone  < coverageToSwitchToAI
             defaultSearcher.Pick()
         else
-            let gameState,statistics = collectGameState (Seq.head availableStates).currentLoc
+            let gameState,statistics,_ = collectGameState (Seq.head availableStates).currentLoc
             lastCollectedStatistics <- statistics
             let stateId, predictedUsefulness = oracle.Predict gameState
             afterFirstAIPeek <- true
