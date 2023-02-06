@@ -7,10 +7,6 @@ open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
 
-type coverageType =
-    | ByTest
-    | ByEntryPointTest
-
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
@@ -260,8 +256,6 @@ and Method internal (m : MethodBase) as this =
             cfg |> CfgInfo |> Some
         else None)
 
-    let blocksCoverage = Dictionary<offset, coverageType>()
-
     member x.CFG with get() =
         match cfg.Force() with
         | Some cfg -> cfg
@@ -299,16 +293,6 @@ and Method internal (m : MethodBase) as this =
 
     member x.BasicBlocksCount with get() =
         if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
-
-    member x.BlocksCoverage with get() = blocksCoverage :> IReadOnlyDictionary<_, _>
-
-    member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
-        match blocksCoverage.GetValueOrDefault(offset, ByTest) with
-        | ByTest ->
-            blocksCoverage.[offset] <- if testEntryMethod = x then ByEntryPointTest else ByTest
-        | ByEntryPointTest -> ()
-
-    member x.ResetStatistics() = blocksCoverage.Clear()
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -525,11 +509,6 @@ module Application =
     let addGoal = graph.AddGoal
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
-
-    let resetMethodStatistics() =
-        lock methods (fun () ->
-            for method in methods.Values do
-                method.ResetStatistics())
 
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody

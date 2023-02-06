@@ -100,7 +100,7 @@ type public SILI(options : SiliOptions) =
     let reportState reporter isError cmdArgs cilState message =
         try
             searcher.Remove cilState
-            if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest coverageType.ByEntryPointTest)
+            if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest)
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
@@ -381,11 +381,10 @@ type public SILI(options : SiliOptions) =
             Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
             if options.stopOnCoverageAchieved > 0 then
                 let checkCoverage() =
-                    let cov = statistics.GetApproximateCoverage(entryMethods, coverageType.ByEntryPointTest)
+                    let cov = statistics.GetApproximateCoverage entryMethods
                     cov >= uint options.stopOnCoverageAchieved
                 isCoverageAchieved <- checkCoverage
         | StackTraceReproductionMode _ -> __notImplemented__()
-        Application.resetMethodStatistics()
 
     member x.Interpret (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) (onFinished : Action<UnitTest>)
                        (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)

@@ -91,7 +91,7 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         types
 
     let onMethodRound methods =
-        List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage(m, coverageType.ByTest)) methods
+        List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage m) methods
 
     let init initialStates =
         baseSearcher.Init initialStates

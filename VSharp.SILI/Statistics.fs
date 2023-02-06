@@ -1,7 +1,6 @@
 namespace VSharp.Interpreter.IL
 
 open System
-open System.Collections.Concurrent
 open System.Diagnostics
 open System.IO
 open System.Text
@@ -64,6 +63,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
+    let blocksCoveredByTests = Dictionary<Method, HashSet<offset>>()
 
     let unansweredPobs = List<pob>()
     let stopwatch = Stopwatch()
@@ -215,7 +215,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
             for visitedState in s.history do
                 if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
 
-            let isCovered = x.IsBasicBlockCoveredByTest coverageType.ByTest currentLoc
+            let isCovered = x.IsBasicBlockCoveredByTest currentLoc
             if currentMethod.InCoverageZone && not isCovered then
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
@@ -238,20 +238,20 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         if visitedBlocksNotCoveredByTests.TryGetValue(s, blocks) then blocks.Value
         else Set.empty
 
-    member x.IsBasicBlockCoveredByTest (coverageType : coverageType) (blockStart : codeLocation) =
-        if not <| blockStart.method.BlocksCoverage.ContainsKey blockStart.offset then
-            false
+    member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
+        let mutable coveredBlocks = ref null
+        if blocksCoveredByTests.TryGetValue(blockStart.method, coveredBlocks) then
+            coveredBlocks.Value.Contains blockStart.offset
         else
-            match coverageType with
-            | ByTest -> true
-            | ByEntryPointTest -> blockStart.method.BlocksCoverage.[blockStart.offset] = ByEntryPointTest
+            false
 
-    member x.GetApproximateCoverage (methods : Method seq, coverageType : coverageType) =
+    member x.GetApproximateCoverage (methods : Method seq) =
         let getCoveredBlocksCount (m : Method) =
-            match coverageType with
-            | ByTest -> m.BlocksCoverage.Count
-            | ByEntryPointTest ->
-                m.BlocksCoverage.Values |> Seq.filter (fun t -> t = ByEntryPointTest) |> Seq.length
+            let mutable coveredBlocks = ref null
+            if blocksCoveredByTests.TryGetValue(m, coveredBlocks) then
+                coveredBlocks.Value.Count
+            else
+                0
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
         let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
         let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount
@@ -260,8 +260,8 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         else
             0u
 
-    member x.GetApproximateCoverage (method : Method, coverageType : coverageType) =
-        x.GetApproximateCoverage(Seq.singleton method, coverageType)
+    member x.GetApproximateCoverage (method : Method) =
+        x.GetApproximateCoverage(Seq.singleton method)
 
     member x.OnBranchesReleased() =
         branchesReleased <- true
@@ -294,8 +294,16 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         testsCount <- testsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
         x.CreateContinuousDump()
+
+        let mutable coveredBlocks = ref null
         for block in s.history do
-            block.method.SetBlockIsCoveredByTest(block.offset, entryMethodOf s)
+
+            if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
+                coveredBlocks.Value.Add block.offset |> ignore
+            else
+                let coveredBlocks = HashSet()
+                coveredBlocks.Add block.offset |> ignore
+                blocksCoveredByTests[block.method] <- coveredBlocks
 
             if block.method.InCoverageZone then
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
