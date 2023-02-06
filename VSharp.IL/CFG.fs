@@ -12,15 +12,25 @@ type coverageType =
     | ByTest
     | ByEntryPointTest
 
+type [<Measure>] terminalSymbol
 module CallGraph =
     let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
     let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
-    
-type [<Measure>] terminalSymbol
+    let dummyTerminalForCallShortcut = 3<terminalSymbol>
+
 
 type ICfgNode =
         abstract OutgoingEdges : seq<ICfgNode> with get
         abstract Offset : offset 
+
+type IInterproceduralCfgNode =
+        abstract OutgoingEdges : seq<IInterproceduralCfgNode> with get
+        abstract IsCovered : bool with get
+        abstract IsVisited : bool with get
+        abstract IsTouched : bool with get
+        abstract IsGoal : bool with get
+        abstract IsSink : bool with get
+
 
 [<RequireQualifiedAccess>]
 type EdgeType =
@@ -38,13 +48,14 @@ type EdgeLabel =
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) =
+type BasicBlock (method: MethodWithBody, startOffset: offset) =    
     //inherit InputGraphVertexBase ()    
     let mutable finalOffset = Some startOffset
     let mutable startOffset = startOffset
     let mutable isGoal = false
     let mutable isCovered = false
-    let mutable isVisited = false    
+    let mutable isVisited = false
+    let mutable isSink = false
     let mutable visitedInstructions = 0u
     let associatedStates = HashSet<IGraphTrackableState>()
     let incomingCFGEdges = HashSet<BasicBlock>()
@@ -74,6 +85,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     member this.IsGoal
         with get () = isGoal
         and set v = isGoal <- v
+        
+    member this.IsSink
+        with get () = isSink
+        and set v = isSink <- v
     member this.HasSiblings
         with get () =
             let siblings = HashSet<BasicBlock>()
@@ -100,11 +115,29 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     interface ICfgNode with
         member this.OutgoingEdges
             with get () =
-                let exists,cfgEdges = outgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge
-                if exists
-                then cfgEdges |> Seq.cast<ICfgNode>
-                else Seq.empty
+                let exists1,cfgEdges = outgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge
+                let exists2,cfgSpecialEdges = outgoingEdges.TryGetValue CallGraph.dummyTerminalForCallShortcut
+                seq{
+                    if exists1
+                    then yield! cfgEdges |> Seq.cast<ICfgNode>
+                    if exists2
+                    then yield! cfgSpecialEdges |> Seq.cast<ICfgNode>
+                }
         member this.Offset = startOffset
+        
+    interface IInterproceduralCfgNode with
+        member this.OutgoingEdges
+            with get () =
+                seq{
+                    for kvp in outgoingEdges do
+                        if kvp.Key <> CallGraph.dummyTerminalForCallShortcut
+                        then yield! kvp.Value |> Seq.cast<IInterproceduralCfgNode>
+                }
+        member this.IsCovered with get() = this.IsCovered
+        member this.IsVisited with get() = this.IsVisited
+        member this.IsTouched with get() = this.IsTouched
+        member this.IsGoal with get() = this.IsGoal
+        member this.IsSink with get() = this.IsSink
         
 and [<Struct>] CallInfo =
     val Callee: Method
@@ -306,6 +339,7 @@ and CfgInfo internal (method : MethodWithBody) =
             |]
 
         dfs startVertices
+        sinks |> ResizeArray.iter (fun basicBlock -> basicBlock.IsSink <- true)
     
     static member TerminalForCFGEdge = 0<terminalSymbol>
     member this.SortedBasicBlocks = sortedBasicBlocks
@@ -473,6 +507,7 @@ type ApplicationGraph() =
     
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
+    
     let addCallEdge (callSource:codeLocation) (callTarget:codeLocation) =   
         let callerMethodCfgInfo = callSource.method.CFG
         let calledMethodCfgInfo = callTarget.method.CFG
@@ -487,9 +522,13 @@ type ApplicationGraph() =
                 then callFrom
                 else
                     let returnTo = callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
-                    //needInvalidate <-
-                    //    callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge
-                    //    && returnTo.IncomingCFGEdges.Remove callFrom
+                    
+                    needInvalidate <-
+                        callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge
+                        && returnTo.IncomingCFGEdges.Remove callFrom
+                    if needInvalidate
+                    then
+                        callFrom.OutgoingEdges.Add(CallGraph.dummyTerminalForCallShortcut, HashSet<_>([returnTo]))
                     returnTo
                     
                                         

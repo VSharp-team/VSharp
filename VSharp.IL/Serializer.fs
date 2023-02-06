@@ -2,6 +2,7 @@ module VSharp.IL.Serializer
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open System.Text.Json
 open Microsoft.FSharp.Collections
 open VSharp
@@ -41,6 +42,7 @@ type StateMetrics =
     val VisitedVerticesInZone: uint
     val HistoryLength: uint
     val DistanceToNearestUncovered: uint
+    val DistanceToNearestNotVisited: uint
     val DistanceToNearestReturn: uint
     new
         (
@@ -50,6 +52,7 @@ type StateMetrics =
             visitedVerticesInZone,
             historyLength,
             distanceToNearestUncovered,
+            distanceToNearestNotVisited,
             distanceTuNearestReturn
         ) =
         {
@@ -59,6 +62,7 @@ type StateMetrics =
             VisitedVerticesInZone = visitedVerticesInZone
             HistoryLength = historyLength
             DistanceToNearestUncovered = distanceToNearestUncovered
+            DistanceToNearestNotVisited = distanceToNearestNotVisited
             DistanceToNearestReturn = distanceTuNearestReturn
         }
 
@@ -68,25 +72,46 @@ type StateInfoToDump =
     val NextInstructionIsUncoveredInZone: float
     val ChildNumberNormalized: float
     val VisitedVerticesInZoneNormalized: float
+    val DistanceToReturnNormalized: float
+    val DistanceToUncoveredNormalized: float
+    val DistanceToNotVisitedNormalized: float
     val ExpectedWeight: float
     new
         (
             stateId,
             nextInstructionIsUncoveredInZone,
             childNumber,
-            visitedVerticesInZone
+            visitedVerticesInZone,
+            distanceToReturn,
+            distanceToUncovered,
+            distanceToNotVisited            
         ) =
         {
             StateId = stateId
             NextInstructionIsUncoveredInZone = nextInstructionIsUncoveredInZone
             ChildNumberNormalized = childNumber
             VisitedVerticesInZoneNormalized = visitedVerticesInZone
-            ExpectedWeight = nextInstructionIsUncoveredInZone + childNumber + visitedVerticesInZone
+            DistanceToReturnNormalized = distanceToReturn
+            DistanceToUncoveredNormalized = distanceToUncovered
+            DistanceToNotVisitedNormalized = distanceToNotVisited
+            ExpectedWeight = nextInstructionIsUncoveredInZone + childNumber + visitedVerticesInZone + distanceToReturn + distanceToUncovered + distanceToNotVisited
         }
 
 let mutable firstFreeEpisodeNumber = 0
 
-let calculateStateMetrics (state:IGraphTrackableState) =
+let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackableState) =
+    let currentBasicBlock = state.CodeLocation.BasicBlock
+    let distances = 
+        let assembly = currentBasicBlock.Method.Module.Assembly
+        let callGraphDist = Dict.getValueOrUpdate interproceduralGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
+        Dict.getValueOrUpdate callGraphDist (currentBasicBlock :> IInterproceduralCfgNode) (fun () ->        
+        let dist = incrementalSourcedDijkstraAlgo (currentBasicBlock :> IInterproceduralCfgNode) callGraphDist
+        let distFromNode = Dictionary<IInterproceduralCfgNode, uint>()
+        for i in dist do
+            if i.Value <> infinity then
+                distFromNode.Add(i.Key, i.Value)
+        distFromNode)
+            
     let childCountStore = Dictionary<_,HashSet<_>>()
     let rec childCount (state:IGraphTrackableState) =
         if childCountStore.ContainsKey state
@@ -97,8 +122,7 @@ let calculateStateMetrics (state:IGraphTrackableState) =
             cnt 
     let childNumber = uint (childCount state).Count    
     let visitedVerticesInZone = state.History |> Seq.fold (fun cnt basicBlock -> if basicBlock.IsGoal then cnt + 1u else cnt) 0u
-    let nextInstructionIsUncoveredInZone =
-        let currentBasicBlock = state.CodeLocation.BasicBlock
+    let nextInstructionIsUncoveredInZone =        
         let notTouchedFollowingBlocs, notVisitedFollowingBlocs, notCoveredFollowingBlocs =
             let mutable notCoveredBasicBlocksInZone = 0
             let mutable notVisitedBasicBlocksInZone = 0
@@ -132,11 +156,17 @@ let calculateStateMetrics (state:IGraphTrackableState) =
         else 0.0 
     
     let historyLength = 0u
-    let distanceToNearestUncovered = 0u
-    let distanceToNearestReturn = 0u
+    let getMinBy cond =
+        let s = distances |> Seq.filter cond
+        if Seq.isEmpty s
+        then UInt32.MaxValue
+        else s |> Seq.minBy (fun x -> x.Value) |> fun x -> x.Value
+    let distanceToNearestUncovered = getMinBy (fun kvp -> kvp.Key.IsGoal && not kvp.Key.IsCovered)
+    let distanceToNearestNotVisited = getMinBy (fun kvp -> kvp.Key.IsGoal && not kvp.Key.IsVisited)
+    let distanceToNearestReturn = getMinBy (fun kvp -> kvp.Key.IsGoal && kvp.Key.IsSink)
     
     StateMetrics(state.Id, nextInstructionIsUncoveredInZone, childNumber, visitedVerticesInZone, historyLength
-                 , distanceToNearestUncovered, distanceToNearestReturn)
+                 , distanceToNearestUncovered, distanceToNearestNotVisited, distanceToNearestReturn)
     
 let getFolderToStoreSerializationResult suffix =    
     let folderName = "SerializedEpisodes_for_" + suffix
@@ -224,11 +254,13 @@ let collectGameState (location:codeLocation) =
         elif currentBasicBlock.IsTouched
         then
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
-            
+        
+        let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
+        
         let states =
             currentBasicBlock.AssociatedStates
             |> Seq.map (fun s ->
-                statesMetrics.Add (calculateStateMetrics s)
+                statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
                       s.PredictedUsefulness,
@@ -255,6 +287,9 @@ let collectGameState (location:codeLocation) =
     let statesInfoToDump =
         let mutable maxVisitedVertices = UInt32.MinValue
         let mutable maxChildNumber = UInt32.MinValue
+        let mutable minDistToUncovered = UInt32.MaxValue
+        let mutable minDistToNotVisited = UInt32.MaxValue
+        let mutable minDistToSink = UInt32.MaxValue
                                  
         statesMetrics
         |> ResizeArray.iter (fun s ->
@@ -262,12 +297,28 @@ let collectGameState (location:codeLocation) =
             then maxVisitedVertices <- s.VisitedVerticesInZone
             if s.ChildNumber > maxChildNumber
             then maxChildNumber <- s.ChildNumber
+            if s.DistanceToNearestUncovered < minDistToUncovered
+            then minDistToUncovered <- s.DistanceToNearestUncovered
+            if s.DistanceToNearestNotVisited < minDistToNotVisited
+            then minDistToNotVisited <- s.DistanceToNearestNotVisited
+            if s.DistanceToNearestReturn < minDistToSink
+            then minDistToSink <- s.DistanceToNearestReturn
             )
+        let normalize minV v =
+            if v = 0u
+            then 1.0
+            elif v = UInt32.MaxValue
+            then 0.0
+            else float minV / float v
+            
         statesMetrics
         |> ResizeArray.map (fun m -> StateInfoToDump (m.StateId
                                                       , m.NextInstructionIsUncoveredInZone
                                                       , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
-                                                      , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices))
+                                                      , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices
+                                                      , normalize minDistToSink m.DistanceToNearestReturn 
+                                                      , normalize minDistToUncovered m.DistanceToNearestUncovered
+                                                      , normalize minDistToUncovered m.DistanceToNearestNotVisited))
     
     let edges = ResizeArray<_>()
     
