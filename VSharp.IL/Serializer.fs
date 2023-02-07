@@ -124,7 +124,7 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
             childCountStore.Add (state,cnt)
             cnt 
     let childNumber = uint (childCount state).Count    
-    let visitedVerticesInZone = state.History |> Seq.fold (fun cnt kvp -> if kvp.Key.IsGoal then cnt + 1u else cnt) 0u
+    let visitedVerticesInZone = state.History |> Seq.fold (fun cnt kvp -> if kvp.Key.IsGoal && not kvp.Key.IsCovered then cnt + 1u else cnt) 0u
     let nextInstructionIsUncoveredInZone =        
         let notTouchedFollowingBlocs, notVisitedFollowingBlocs, notCoveredFollowingBlocs =
             let mutable notCoveredBasicBlocksInZone = 0
@@ -273,7 +273,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
-                      s.History |> Seq.map (fun kvp -> getBasicBlockId kvp.Key) |> Array.ofSeq,
+                      s.History |> Seq.map (fun kvp -> StateHistoryElem(getBasicBlockId kvp.Key, kvp.Value)) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id)
                       ))
             |> Array.ofSeq
@@ -294,7 +294,7 @@ let collectGameState (location:codeLocation) =
         let mutable maxChildNumber = UInt32.MinValue
         let mutable minDistToUncovered = UInt32.MaxValue
         let mutable minDistToNotVisited = UInt32.MaxValue
-        let mutable minDistToSink = UInt32.MaxValue
+        let mutable minDistToReturn = UInt32.MaxValue
                                  
         statesMetrics
         |> ResizeArray.iter (fun s ->
@@ -306,15 +306,15 @@ let collectGameState (location:codeLocation) =
             then minDistToUncovered <- s.DistanceToNearestUncovered
             if s.DistanceToNearestNotVisited < minDistToNotVisited
             then minDistToNotVisited <- s.DistanceToNearestNotVisited
-            if s.DistanceToNearestReturn < minDistToSink
-            then minDistToSink <- s.DistanceToNearestReturn
+            if s.DistanceToNearestReturn < minDistToReturn
+            then minDistToReturn <- s.DistanceToNearestReturn
             )
-        let normalize minV v =
-            if v = 0u
+        let normalize minV v (sm:StateMetrics) =            
+            if v = minV || (v = UInt32.MaxValue && sm.DistanceToNearestReturn = UInt32.MaxValue) 
             then 1.0
             elif v = UInt32.MaxValue
             then 0.0
-            else float minV / float v
+            else float (1u + minV) / float (1u + v)
             
         statesMetrics
         |> ResizeArray.map (fun m -> StateInfoToDump (m.StateId
@@ -322,9 +322,9 @@ let collectGameState (location:codeLocation) =
                                                       , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
                                                       , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices
                                                       , float m.VisitedVerticesInZone / float m.HistoryLength
-                                                      , normalize minDistToSink m.DistanceToNearestReturn 
-                                                      , normalize minDistToUncovered m.DistanceToNearestUncovered
-                                                      , normalize minDistToUncovered m.DistanceToNearestNotVisited))
+                                                      , normalize minDistToReturn m.DistanceToNearestReturn m 
+                                                      , normalize minDistToUncovered m.DistanceToNearestUncovered m
+                                                      , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
     
     let edges = ResizeArray<_>()
     

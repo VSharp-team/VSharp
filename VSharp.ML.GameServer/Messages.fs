@@ -43,6 +43,16 @@ type InputMessage =
     | Step of GameStep    
 
 [<Struct>]
+type StateHistoryElem =
+    val GraphVertexId: uint
+    val NumOfVisits: uint
+    new (graphVertexId, numOfVisits) =
+        {
+            GraphVertexId = graphVertexId
+            NumOfVisits = numOfVisits
+        }
+
+[<Struct>]
 type State =
     val Id: uint
     val Position: uint
@@ -51,7 +61,7 @@ type State =
     val VisitedAgainVertices: uint
     val VisitedNotCoveredVerticesInZone: uint
     val VisitedNotCoveredVerticesOutOfZone: uint
-    val History: array<uint>
+    val History: array<StateHistoryElem>
     val Children: array<uint> 
     new(id,
         position,
