@@ -477,7 +477,7 @@ and IGraphTrackableState =
     //abstract member VisitedNotCoveredEdgesOutOfZone: uint with get,set
     //abstract member VisitedAgainEdges: uint with get
     abstract member VisitedAgainVertices: uint with get
-    abstract member History: HashSet<BasicBlock>
+    abstract member History:  Dictionary<BasicBlock,uint>
     abstract member Children: array<IGraphTrackableState>
     
     
@@ -559,12 +559,15 @@ type ApplicationGraph() =
             assert added
         else ()
 
-    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =        
-        Logger.trace "Move state."
+    let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
         initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition        
         stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
-        stateWithNewPosition.History.Add stateWithNewPosition.CodeLocation.BasicBlock
-        //stateWithNewPosition.CodeLocation.BasicBlock.IsTouched <- true
+        if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.BasicBlock
+        then
+             if initialPosition.BasicBlock <> stateWithNewPosition.CodeLocation.BasicBlock
+             then stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]
+                    <- stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock] + 1u
+        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.BasicBlock, 1u)
         stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions <-
             max
                 stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
@@ -575,11 +578,11 @@ type ApplicationGraph() =
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
     
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
-        Logger.trace "Add states."
         for newState in states do
             newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
-            newState.History.Add newState.CodeLocation.BasicBlock
-            //newState.CodeLocation.BasicBlock.IsTouched <- true
+            if newState.History.ContainsKey newState.CodeLocation.BasicBlock
+            then newState.History[newState.CodeLocation.BasicBlock] <- newState.History[newState.CodeLocation.BasicBlock] + 1u
+            else newState.History.Add(newState.CodeLocation.BasicBlock, 1u)
             newState.CodeLocation.BasicBlock.VisitedInstructions <-
                 max
                     newState.CodeLocation.BasicBlock.VisitedInstructions
@@ -588,8 +591,6 @@ type ApplicationGraph() =
             newState.CodeLocation.BasicBlock.IsVisited <-
                 newState.CodeLocation.BasicBlock.IsVisited
                 || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
-   
-        //__notImplemented__()
 
     let getShortestDistancesToGoals (states:array<codeLocation>) =
         __notImplemented__()

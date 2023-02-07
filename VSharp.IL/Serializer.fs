@@ -72,6 +72,7 @@ type StateInfoToDump =
     val NextInstructionIsUncoveredInZone: float
     val ChildNumberNormalized: float
     val VisitedVerticesInZoneNormalized: float
+    val Productivity: float
     val DistanceToReturnNormalized: float
     val DistanceToUncoveredNormalized: float
     val DistanceToNotVisitedNormalized: float
@@ -82,6 +83,7 @@ type StateInfoToDump =
             nextInstructionIsUncoveredInZone,
             childNumber,
             visitedVerticesInZone,
+            productivity,
             distanceToReturn,
             distanceToUncovered,
             distanceToNotVisited            
@@ -91,10 +93,11 @@ type StateInfoToDump =
             NextInstructionIsUncoveredInZone = nextInstructionIsUncoveredInZone
             ChildNumberNormalized = childNumber
             VisitedVerticesInZoneNormalized = visitedVerticesInZone
+            Productivity = productivity
             DistanceToReturnNormalized = distanceToReturn
             DistanceToUncoveredNormalized = distanceToUncovered
             DistanceToNotVisitedNormalized = distanceToNotVisited
-            ExpectedWeight = nextInstructionIsUncoveredInZone + childNumber + visitedVerticesInZone + distanceToReturn + distanceToUncovered + distanceToNotVisited
+            ExpectedWeight = nextInstructionIsUncoveredInZone + childNumber + visitedVerticesInZone + distanceToReturn + distanceToUncovered + distanceToNotVisited + productivity
         }
 
 let mutable firstFreeEpisodeNumber = 0
@@ -121,7 +124,7 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
             childCountStore.Add (state,cnt)
             cnt 
     let childNumber = uint (childCount state).Count    
-    let visitedVerticesInZone = state.History |> Seq.fold (fun cnt basicBlock -> if basicBlock.IsGoal then cnt + 1u else cnt) 0u
+    let visitedVerticesInZone = state.History |> Seq.fold (fun cnt kvp -> if kvp.Key.IsGoal then cnt + 1u else cnt) 0u
     let nextInstructionIsUncoveredInZone =        
         let notTouchedFollowingBlocs, notVisitedFollowingBlocs, notCoveredFollowingBlocs =
             let mutable notCoveredBasicBlocksInZone = 0
@@ -155,12 +158,14 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
              else 0.0
         else 0.0 
     
-    let historyLength = 0u
+    let historyLength = state.History |> Seq.fold (fun cnt kvp -> cnt + kvp.Value) 0u
+    
     let getMinBy cond =
         let s = distances |> Seq.filter cond
         if Seq.isEmpty s
         then UInt32.MaxValue
         else s |> Seq.minBy (fun x -> x.Value) |> fun x -> x.Value
+        
     let distanceToNearestUncovered = getMinBy (fun kvp -> kvp.Key.IsGoal && not kvp.Key.IsCovered)
     let distanceToNearestNotVisited = getMinBy (fun kvp -> kvp.Key.IsGoal && not kvp.Key.IsVisited)
     let distanceToNearestReturn = getMinBy (fun kvp -> kvp.Key.IsGoal && kvp.Key.IsSink)
@@ -268,7 +273,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
-                      s.History |> Seq.map getBasicBlockId |> Array.ofSeq,
+                      s.History |> Seq.map (fun kvp -> getBasicBlockId kvp.Key) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id)
                       ))
             |> Array.ofSeq
@@ -316,6 +321,7 @@ let collectGameState (location:codeLocation) =
                                                       , m.NextInstructionIsUncoveredInZone
                                                       , if maxChildNumber = 0u then 0.0 else  float m.ChildNumber / float maxChildNumber
                                                       , if maxVisitedVertices = 0u then 0.0 else float m.VisitedVerticesInZone / float maxVisitedVertices
+                                                      , float m.VisitedVerticesInZone / float m.HistoryLength
                                                       , normalize minDistToSink m.DistanceToNearestReturn 
                                                       , normalize minDistToUncovered m.DistanceToNearestUncovered
                                                       , normalize minDistToUncovered m.DistanceToNearestNotVisited))

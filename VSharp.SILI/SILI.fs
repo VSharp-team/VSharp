@@ -294,6 +294,10 @@ type public SILI(options : SiliOptions) =
                 concolicMachines.Remove(s) |> ignore
                 concolicMachines.Add(cilState', machine)
         Application.moveState loc s (Seq.cast<_> newStates)
+        for newState in newStates do
+            let historyCopy = Dictionary<_,_>()
+            for kvp in s._history do historyCopy.Add(kvp.Key, kvp.Value)
+            newState._history <- historyCopy
         s.children <- s.children @ newStates
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates

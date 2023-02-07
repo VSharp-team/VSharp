@@ -39,7 +39,7 @@ type cilState =
       mutable visitedAgainVertices: uint
       mutable visitedNotCoveredVerticesInZone: uint
       mutable visitedNotCoveredVerticesOutOfZone: uint
-      mutable _history: HashSet<BasicBlock>
+      mutable _history: Dictionary<BasicBlock,uint>
       mutable children: list<cilState>
     }
     with
@@ -104,7 +104,7 @@ module internal CilStateOperations =
           visitedAgainVertices = 0u
           visitedNotCoveredVerticesInZone = 0u
           visitedNotCoveredVerticesOutOfZone = 0u
-          _history = HashSet()
+          _history = Dictionary()
           children = []
         }
 
@@ -274,7 +274,8 @@ module internal CilStateOperations =
 
     // TODO: Not mutable -- copies cilState #do
     let changeState (cilState : cilState) state =
-        if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
+        if LanguagePrimitives.PhysicalEquality state cilState.state
+        then cilState
         else {cilState with state = state; id = getNextStateId()}
 
     let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
