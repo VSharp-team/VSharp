@@ -87,15 +87,19 @@ module TestGenerator =
                     let updates = region.updates
                     let indices = List<int array>()
                     let values = List<obj>()
-                    updates |> RegionTree.foldr (fun _ k () ->
-                        let heapAddress = model.Eval k.key.address
-                        match heapAddress with
-                        | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
-                            let i : int array = k.key.indices |> List.map (encode >> unbox) |> Array.ofList
-                            let v = encode k.value
-                            indices.Add(i)
-                            values.Add(v)
-                        | _ -> ()) ()
+                    let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
+                        match k.key with
+                        | OneArrayIndexKey(address, keyIndices) ->
+                            let heapAddress = model.Eval address
+                            match heapAddress with
+                            | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
+                                let i : int array = keyIndices |> List.map (encode >> unbox) |> Array.ofList
+                                let v = encode k.value
+                                indices.Add(i)
+                                values.Add(v)
+                            | _ -> ()
+                        | RangeArrayIndexKey _ -> internalfail $"unexpected array key {k.key}"
+                    updates |> RegionTree.foldr addOneKey ()
                     defaultValue, indices.ToArray(), values.ToArray()
                 | None -> null, Array.empty, Array.empty
             // TODO: if addr is managed by concrete memory, then just serialize it normally (by test.MemoryGraph.AddArray)

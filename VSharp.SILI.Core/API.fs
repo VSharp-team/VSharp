@@ -163,6 +163,8 @@ module API =
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
+        let SpecializeWithKey constant key = Memory.specializeWithKey constant key
+
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
             | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))
@@ -461,6 +463,17 @@ module API =
                 let value = if Types.IsValueType elemType then makeNumber 0 else NullRef elemType
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
+
+        let FillArray state array value =
+            match array.term with
+            | HeapRef(address, sightType) ->
+                let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
+                // Asserting that array is vector (T[])
+                assert(thd3 arrayType)
+                let zero = makeNumber 0
+                let length = Memory.readLength state address zero arrayType
+                Copying.fillArray state address arrayType zero length value
+            | _ -> internalfailf "Filling array: expected heapRef, but got %O" array
 
         let StringFromReplicatedChar state string char length =
             let cm = state.concreteMemory

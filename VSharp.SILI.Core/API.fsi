@@ -94,7 +94,7 @@ module API =
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
-        val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayIndexKey * memoryRegion<heapArrayIndexKey, productRegion<vectorTime intervals, int points listProductRegion>>>
+        val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayKey * memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>>
         val (|VectorIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
         val (|StackBufferReading|_|) : ISymbolicConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
         val (|StaticsReading|_|) : ISymbolicConstantSource -> option<symbolicTypeKey * memoryRegion<symbolicTypeKey, freeRegion<typeWrapper>>>
@@ -109,6 +109,8 @@ module API =
         val (|MockResultSource|_|) : ISymbolicConstantSource -> option<concreteHeapAddress * MethodMock>
 
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
+
+        val SpecializeWithKey : term -> heapArrayKey -> term
 
         val HeapReferenceToBoxReference : term -> term
 
@@ -269,6 +271,7 @@ module API =
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
 
         val ClearArray : state -> term -> term -> term -> unit
+        val FillArray : state -> term -> term -> unit
 
         val StringFromReplicatedChar : state -> term -> term -> term -> unit
 

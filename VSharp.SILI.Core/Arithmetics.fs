@@ -27,6 +27,21 @@ module Calculator1 =
         let add = add.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         add.Invoke(x, y)
 
+    let AddOvf(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let addOvf = DynamicMethod("AddOvf", typeof<obj>, args)
+        let il = addOvf.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Add_Ovf)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let addOvf = addOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        addOvf.Invoke(x, y)
+
     let Sub(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
@@ -56,6 +71,21 @@ module Calculator1 =
         il.Emit(OpCodes.Ret)
         let mul = mul.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         mul.Invoke(x, y)
+
+    let MulOvf(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let mulOvf = DynamicMethod("MulOvf", typeof<obj>, args)
+        let il = mulOvf.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Mul_Ovf)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let mulOvf = mulOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        mulOvf.Invoke(x, y)
 
     let Div(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
@@ -159,6 +189,21 @@ module Calculator1 =
         il.Emit(OpCodes.Ret)
         let isZero = isZero.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
         isZero.Invoke(x) = 1
+
+    type unaryToObjDelegateType = delegate of obj -> obj
+
+    let BitwiseNot(x : obj, t : System.Type) =
+        assert(x <> null && isNumeric <| x.GetType())
+        let args = [| typeof<obj> |]
+        let bitwiseNot = DynamicMethod("BitwiseNot", typeof<obj>, args)
+        let il = bitwiseNot.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Not)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let bitwiseNot = bitwiseNot.CreateDelegate(typeof<unaryToObjDelegateType>) :?> unaryToObjDelegateType
+        bitwiseNot.Invoke(x)
 
 [<AutoOpen>]
 module internal Arithmetics =
@@ -286,7 +331,9 @@ module internal Arithmetics =
 // ------------------------------ Simplification of bitwise not ------------------------------
 
     and private simplifyBinaryNot t x k =
-        k <| makeUnary OperationType.BitwiseNot x t
+        match x.term with
+        | Concrete(x, _) -> castConcrete (Calculator1.BitwiseNot(x, t)) t |> k
+        | _ -> makeUnary OperationType.BitwiseNot x t |> k
 
 // ------------------------------- Simplification of unary "-" -------------------------------
 
@@ -635,6 +682,32 @@ module internal Arithmetics =
     and simplifyGreaterOrEqual x y k = simplifyLess x y ((!!) >> k)
     and simplifyGreaterOrEqualUn x y k = simplifyLessUn x y ((!!) >> k)
 
+// ------------------------------- Simplification of no overflow check -------------------------------
+
+    let simplifyAddNoOvf x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(t1 = t2)
+            try
+                Calculator1.AddOvf(x, y, t1) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.AddNoOvf x y bool
+
+    let simplifyMultiplyNoOvf x y =
+        match x.term, y.term with
+        | Concrete(x, t1), Concrete(y, t2) ->
+            let mutable noOverflow = true
+            assert(t1 = t2)
+            try
+                Calculator1.MulOvf(x, y, t1) |> ignore
+            with :? System.OverflowException ->
+                noOverflow <- false
+            makeBool noOverflow
+        | _ -> makeBinary OperationType.MultiplyNoOvf x y bool
+
 // ------------------------------- General functions -------------------------------
 
     let inline private deduceArithmeticTargetType x y =
@@ -687,8 +760,8 @@ module internal Arithmetics =
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
         | OperationType.BitwiseXor -> simplifyBitwise op x y t (typeOf x) k
-        | OperationType.AddNoOvf
-        | OperationType.MultiplyNoOvf -> makeBinary op x y t |> k
+        | OperationType.AddNoOvf -> simplifyAddNoOvf x y |> k
+        | OperationType.MultiplyNoOvf -> simplifyMultiplyNoOvf x y |> k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let simplifyUnaryOperation op x t k =
@@ -736,8 +809,8 @@ module internal Arithmetics =
     // TODO: - if signed, then it should keep the sign
     let rec makeExpressionNoOvf expr k =
         match expr with
-        | Add(x, y, _) -> makeBinary OperationType.AddNoOvf x y bool |> k
-        | Mul(x, y, _) -> makeBinary OperationType.MultiplyNoOvf x y bool |> k
+        | Add(x, y, _) -> simplifyAddNoOvf x y |> k
+        | Mul(x, y, _) -> simplifyMultiplyNoOvf x y |> k
         | {term = Expression(_, args, _) } ->
             Cps.List.foldlk (fun acc x k -> makeExpressionNoOvf x (fun x' -> k (acc &&& x'))) True args k
         | _ -> k True

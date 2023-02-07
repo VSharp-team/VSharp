@@ -204,6 +204,26 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             | :? Array as array -> RuntimeHelpers.InitializeArray(array, rfh)
             | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
 
+        override x.FillArray address index length value =
+            match x.ReadObject address with
+            | :? Array as array when array.Rank = 1 ->
+                for i = index to index + length do
+                    array.SetValue(value, i)
+            | :? Array -> internalfail "filling array in concrete memory: multidimensional arrays are not supported yet"
+            | obj -> internalfailf "filling array in concrete memory: expected to read array, but got %O" obj
+
+        override x.CopyArray srcAddress dstAddress srcIndex dstIndex length =
+            match x.ReadObject srcAddress, x.ReadObject dstAddress with
+            | :? Array as srcArray, (:? Array as dstArray) ->
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+            | :? String as srcString, (:? String as dstString) ->
+                let srcArray = srcString.ToCharArray()
+                let dstArray = dstString.ToCharArray()
+                Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
+                let newString = String(dstArray)
+                x.WriteObject dstAddress newString
+            | obj -> internalfailf "copying array in concrete memory: expected to read array, but got %O" obj
+
         override x.CopyCharArrayToString arrayAddress stringAddress =
             let array = x.ReadObject arrayAddress :?> char array
             let string = new string(array) :> obj
