@@ -4,6 +4,7 @@ using VSharp.Test;
 
 namespace IntegrationTests;
 
+
 [TestSvmFixture]
 public class Graph
 {
@@ -29,7 +30,8 @@ public class Graph
     // src to all other vertices using Bellman-Ford
     // algorithm. The function also detects negative weight
     // cycle
-    [TestSvm(100,timeout:40,serialize:"BellmanFord_guided:true_coverage_zone:class")]
+    [TestSvm(100,timeout:100,serialize:"BellmanFord_guided:true_coverage_zone:class")]
+    //[TestSvm(100)]
     public int[] BellmanFord(Graph graph, int src)
     {
         int V = graph.V, E = graph.E;
@@ -246,7 +248,8 @@ public class AhoCorasick
      
     // This function finds all occurrences of
     // all array words in text.
-    static List<Tuple<string, int, int>> searchWords(String[] arr, int k,
+    [TestSvm(100,timeout:200, coverageZone:CoverageZone.Method, serialize:"AhoCorasick.searchWords_true_coverage_zone:method")]
+    public static List<Tuple<string, int, int>> searchWords(String[] arr, int k,
                             String text)
     {
         List<Tuple<string, int, int>> result = new List<Tuple<string, int, int>>();
@@ -288,6 +291,7 @@ public class AhoCorasick
      
     // Driver code
     //[TestSvm(100, guidedMode: true, coverageZone:CoverageZone.Method)]
+    [TestSvm(100)]
     public static List<Tuple<string, int, int>> AhoCorasickMain(string[] words, string text)
     {
         int k = words.Length;
@@ -299,7 +303,8 @@ public class AhoCorasick
 [TestSvmFixture]
 public class KMPSearch
 {
-    //[TestSvm(100, guidedMode: false, coverageZone:CoverageZone.Method, serialize:"KMPSearchSearch_guided:false_coverage_zone:method")]
+    [TestSvm(100, guidedMode: false, coverageZone:CoverageZone.Method, serialize:"KMPSearchSearch_guided:false_coverage_zone:method")]
+    //[TestSvm(100)]
     public static List<int> Search(string pat, string txt)
     {
         List<int> result = new List<int>();
