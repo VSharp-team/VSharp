@@ -2,7 +2,7 @@ from contextlib import closing
 import unittest
 
 from common.game import GameState, Reward
-from .n_agent import NAgent, get_server_maps
+from .n_agent import NAgent, get_validation_maps
 from .connection_manager import ConnectionManager
 
 
@@ -29,7 +29,7 @@ class TestServerConnection(unittest.TestCase):
         cls.n_steps = 1
         cls.cm = ConnectionManager(urls)
 
-        maps = get_server_maps(cls.cm)
+        maps = get_validation_maps(cls.cm)
         cls.test_map_id = maps[0].Id
 
     def do_one_dumb_step(self, with_agent: NAgent) -> Reward:

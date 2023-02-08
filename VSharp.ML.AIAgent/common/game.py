@@ -56,6 +56,7 @@ class GameState:
 @dataclass
 class GameMap:
     Id: int
+    MaxSteps: int
     CoverageToStart: int
     AssemblyFullName: str
     CoverageZone: bool

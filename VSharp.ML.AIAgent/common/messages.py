@@ -9,7 +9,8 @@ from .game import GameMap, GameState, Reward
 class ClientMessageType(str, Enum):
     START = "start"
     STEP = "step"
-    GETALLMAPS = "getallmaps"
+    GETTRAINMAPS = "gettrainmaps"
+    GETVALIDATIONMAPS = "getvalidationmaps"
 
 
 @dataclass_json
@@ -21,9 +22,16 @@ class ClientMessageBody:
 
 @dataclass_json
 @dataclass
-class GetAllMapsMessageBody(ClientMessageBody):
+class GetTrainMapsMessageBody(ClientMessageBody):
     def type(self) -> ClientMessageType:
-        return ClientMessageType.GETALLMAPS
+        return ClientMessageType.GETTRAINMAPS
+
+
+@dataclass_json
+@dataclass
+class GetValidationMapsMessageBody(ClientMessageBody):
+    def type(self) -> ClientMessageType:
+        return ClientMessageType.GETVALIDATIONMAPS
 
 
 @dataclass_json
