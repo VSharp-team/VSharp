@@ -100,7 +100,6 @@ module Branching =
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState (PC.add pc notCondition)
                     thenState.model <- model.mdl
-                    elseState.pc <- PC.add pc notCondition
                     execution thenState elseState condition k
             else
                 conditionState.pc <- PC.add pc notCondition
