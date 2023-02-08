@@ -514,4 +514,5 @@ module Application =
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody
         Method.ReportCFGLoaded <- fun m ->
             graph.RegisterMethod m
-            let added = _loadedMethods.Add(m) in assert added
+            let added = lock _loadedMethods (fun () -> _loadedMethods.Add m)
+            assert added
