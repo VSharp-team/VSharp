@@ -4,6 +4,13 @@ from dataclasses_json import dataclass_json
 
 @dataclass_json
 @dataclass
+class StateHistoryElem:
+    GraphVertexId: int
+    NumOfVisits: int
+
+
+@dataclass_json
+@dataclass
 class State:
     Id: int
     Position: int
@@ -12,7 +19,7 @@ class State:
     VisitedAgainVertices: int
     VisitedNotCoveredVerticesInZone: int
     VisitedNotCoveredVerticesOutOfZone: int
-    History: list[int]
+    History: list[StateHistoryElem]
     Children: list[int]
 
     def __hash__(self) -> int:
