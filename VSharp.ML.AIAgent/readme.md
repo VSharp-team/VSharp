@@ -32,15 +32,16 @@ python3 main.py
 ```
 ## Evaluation
 
-| Map       | V# default settings (steps,coverage) | V# + AI (steps,coverage)|
-|-----------|--------------------------------------|-------------------------|
-| Loan Exam (1)    | 14284, 90                            |                         |
-| BinarySearch     | 299, 100                             |                         |
-| KMPSearch.Search | 1985, 100                            |                         |
-| AhoCorasickMain  | 183373, 100                          |                         | 
-| BellmanFord      | 8700, 100                            |                         |
-| ApplyMoveAndCheckValid | 70419, 100 |  |
-| CheckMate1 | 64736 , 100 | |
-| CheckMoveIsValidAndApply | 62225, 100 | | 
+| Map                      | V# default settings (steps,coverage) | V# + AI (steps,coverage)|
+|--------------------------|--------------------------------------|-------------------------|
+| Loan Exam (1)            | 14284, 90                            |                         |
+| BinarySearch             | 299, 100                             |                         |
+| KMPSearch.Search         | 1985, 100                            |                         |
+| AhoCorasickMain          | 183373, 100                          |                         | 
+| BellmanFord              | 8700, 100                            |                         |
+| ApplyMoveAndCheckValid   | 70419, 100                           |                         |
+| CheckMate1               | 64736 , 100                          |                         |
+| CheckMoveIsValidAndApply | 62225, 100                           |                         | 
+| BridgesGraph.bridge      | 9555, 100                            |                         |
 
 (1) -- Manual tuning of settings: [TestSvm(90, 0, 20, false, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class, guidedMode: false)]
