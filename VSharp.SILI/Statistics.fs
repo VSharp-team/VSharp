@@ -232,7 +232,7 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         if not isVisitedBlocksNotCoveredByTestsRelevant then
             let currentCilStates = visitedBlocksNotCoveredByTests.Keys |> Seq.toList
             for cilState in currentCilStates do
-                let history = Set.filter (not << x.IsBasicBlockCoveredByTest coverageType.ByTest) cilState.history
+                let history = Set.filter (not << x.IsBasicBlockCoveredByTest) cilState.history
                 visitedBlocksNotCoveredByTests[cilState] <- history
             isVisitedBlocksNotCoveredByTestsRelevant <- true
 
@@ -320,6 +320,10 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         ()
 
     member x.TrackFork (parent : cilState) (children : cilState seq) =
+        if Logger.isTagEnabled Logger.stateTraceTag then
+            for child in children do
+                Logger.traceWithTag Logger.stateTraceTag $"BRANCH: {parent.id} -> {child.id}"
+
         let blocks = ref Set.empty
         // TODO: check why 'parent' may not be in 'visitedBlocksNotCoveredByTests'
         if visitedBlocksNotCoveredByTests.TryGetValue(parent, blocks) then
