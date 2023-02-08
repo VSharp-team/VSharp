@@ -225,9 +225,10 @@ namespace VSharp.Test
                 }
 
                 Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
-                var methodInfo = innerCommand.Test.Method.MethodInfo;
+                var originMethodInfo = innerCommand.Test.Method.MethodInfo;
+                var exploredMethodInfo = AssemblyManager.NormalizeMethod(originMethodInfo);
                 var stats = new TestStatistics(
-                    methodInfo,
+                    exploredMethodInfo,
                     _searchStrat.IsGuidedMode,
                     _releaseBranches,
                     _timeout,
@@ -252,10 +253,9 @@ namespace VSharp.Test
                         stopOnCoverageAchieved: _expectedCoverage ?? -1
                     );
                     using var explorer = new SILI(_options);
-                    AssemblyManager.Load(methodInfo.Module.Assembly);
 
                     explorer.Interpret(
-                        new [] { methodInfo },
+                        new [] { exploredMethodInfo },
                         new Tuple<MethodBase, string[]>[] {},
                         unitTests.GenerateTest,
                         unitTests.GenerateError,
@@ -289,7 +289,7 @@ namespace VSharp.Test
                             TestContext.Out.WriteLine("Starting tests renderer...");
                             try
                             {
-                                Renderer.Render(tests, true, false, methodInfo.DeclaringType);
+                                Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
                             }
                             catch (Exception e)
                             {
@@ -308,7 +308,7 @@ namespace VSharp.Test
                             : "Starting tests checker...");
                         var runnerDir = new DirectoryInfo(Directory.GetCurrentDirectory());
                         var testChecker = new TestResultsChecker(testsDir, runnerDir, _expectedCoverage);
-                        if (testChecker.Check(methodInfo, out var actualCoverage))
+                        if (testChecker.Check(exploredMethodInfo, out var actualCoverage))
                             context.CurrentResult.SetResult(ResultState.Success);
                         else
                             context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);

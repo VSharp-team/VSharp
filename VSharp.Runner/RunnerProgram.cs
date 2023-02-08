@@ -17,11 +17,12 @@ namespace VSharp.Runner
         {
             try
             {
-                return AssemblyManager.Resolve(assemblyPath.FullName);
+                return AssemblyManager.LoadFromAssemblyPath(assemblyPath.FullName);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.Error.WriteLine("I did not found assembly {0}", assemblyPath.FullName);
+                Console.Error.WriteLine("I did not load assembly {0}; Error:{1}", assemblyPath.FullName, ex.Message);
+                Console.Error.WriteLine(ex.StackTrace);
                 return null;
             }
         }
