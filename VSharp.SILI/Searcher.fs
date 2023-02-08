@@ -124,8 +124,12 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
             option {
                 if not <| violatesLevel s maxBound then return! weighter.Weight s
             }
-        with :? InsufficientInformationException as e ->
+        with
+        | :? InsufficientInformationException as e ->
             s.iie <- Some e
+            None
+        | :? InternalException as e ->
+            Logger.error "WeightedSearcher: failed to get weight of state %O" e
             None
     let add (s : cilState) =
         let weight = optionWeight s

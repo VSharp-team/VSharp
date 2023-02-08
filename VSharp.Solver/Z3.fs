@@ -812,6 +812,8 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
+            // TODO: some of evaluated constants are written to model: most of them contain stack reading
+            // TODO: maybe encode stack reading as reading from array?
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
@@ -821,11 +823,12 @@ module internal Z3 =
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation decoded
                 | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
                     match ms with
-                    | HeapAddressSource(StackReading(key)) ->
+                    | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = key.TypeOfLocation
-                        let addr = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
-                        stackEntries.Add(key, HeapRef addr t |> ref)
+                        let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let value = HeapRef address t
+                        x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
                     | HeapAddressSource(:? functionResultConstantSource as frs) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
