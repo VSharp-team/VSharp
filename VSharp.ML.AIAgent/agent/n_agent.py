@@ -92,7 +92,7 @@ class NAgent:
     def recv_state_or_throw_gameover(self) -> GameState:
         received = self._ws.recv()
         data = GameStateServerMessage.from_json(self._raise_if_gameover(received))
-        return data
+        return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
         if self.log:

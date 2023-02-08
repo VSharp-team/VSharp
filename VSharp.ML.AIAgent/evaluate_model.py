@@ -2,6 +2,7 @@ from contextlib import closing
 import argparse
 
 from common.game import MoveReward
+from common.utils import compute_coverage_percent
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.models import GCN
@@ -48,6 +49,9 @@ def main():
     print("=" * 80)
     print(f"Reward: {model_result[0]}")
     print(f"Steps: {model_result[1]}")
+    print(
+        f"Coverage: {compute_coverage_percent(game_state, model_result[0].ForCoverage):.2f}"
+    )
 
 
 if __name__ == "__main__":
