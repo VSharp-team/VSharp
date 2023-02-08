@@ -130,20 +130,20 @@ namespace IntegrationTests
             return left;
         }
 
-        class Customer
+        public class Customer
         {
             public int Id { get; set; }
             public long Money { get; set; }
             public int OrderId { get; set; }
         }
 
-        class Order
+        public class Order
         {
             public int Id { get; set; }
             public int Cost { get; set; }
         }
 
-        [Ignore("Heisenbug: division by zero appears sometimes")]
+        [TestSvm(100)]
         public static long HardSymbolicLinqTest(int m1, int m2, int id1, int id2, int c1, int c2)
         {
             if (m1 <= 0 | m2 <= 0 | c1 <= 0 | c2 <= 0)
