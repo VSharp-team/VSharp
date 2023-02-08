@@ -6,7 +6,7 @@ from common.utils import compute_coverage_percent
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.models import GCN
-from ml.utils import load_model
+from ml.utils import load_full_model
 from ml.predict_state_hetero import PredictStateHetGNN
 from ml.data_loader import ServerDataloaderHetero
 
@@ -20,8 +20,7 @@ def main():
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
     cm = ConnectionManager(socket_urls)
 
-    model = GCN(hidden_channels=64)
-    model = load_model(model, "<path/to/model>")
+    model = load_full_model("VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full")
 
     chosen_map = args.map_id
     steps = args.steps

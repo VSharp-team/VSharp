@@ -3,9 +3,9 @@ import torch.nn.functional as F
 from torch_geometric.nn import to_hetero
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
-from models import GNN_Het
 
-import data_loader
+from .models import GNN_Het
+from .data_loader import get_data_hetero
 
 
 class PredictStateHetGNN:
@@ -105,6 +105,4 @@ class PredictStateHetGNN:
 
 
 if __name__ == "__main__":
-    PredictStateHetGNN(
-        dataset=data_loader.get_data_hetero(path="../../GNN_V#/Serialized_test")
-    )
+    PredictStateHetGNN(dataset=get_data_hetero(path="../../GNN_V#/Serialized_test"))

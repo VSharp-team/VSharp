@@ -5,7 +5,7 @@ from torch_geometric.nn import GATConv, Linear
 from torch_geometric.nn import GCNConv, SAGEConv, HeteroConv
 from torch_geometric.nn import global_mean_pool
 
-from data_loader import NUM_NODE_FEATURES
+from .data_loader import NUM_NODE_FEATURES
 
 NUM_PREDICTED_VALUES = 4
 
