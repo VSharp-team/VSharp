@@ -79,18 +79,20 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | (Text, data, true) ->
                 let message = deserializeInputMessage data
                 match message with
-                | GetAllMaps ->
-                    do! sendResponse (Maps mapsSettings.Values)
+                | GetTrainMaps ->
+                    do! sendResponse (Maps trainMaps.Values)
+                | GetValidationMaps ->
+                    do! sendResponse (Maps validationMaps.Values)
                 | Start gameStartParams ->
-                    let settings = mapsSettings.[gameStartParams.MapId]
+                    let settings = trainMaps.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
                     match settings.CoverageZone with
                     | CoverageZone.Method ->
                         let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore                        
+                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore                        
                     | CoverageZone.Class ->
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
+                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     Application.reset()
                     API.Reset()
