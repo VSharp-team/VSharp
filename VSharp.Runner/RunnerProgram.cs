@@ -65,10 +65,8 @@ namespace VSharp.Runner
                 {
                     try
                     {
-                        var nullOrMethod = module.ResolveMethod(metadataToken);
-                        if (nullOrMethod == null) continue;
-                        method = nullOrMethod;
-                        break;
+                        method = module.ResolveMethod(metadataToken);
+                        if (method != null) break;
                     }
                     catch
                     {
@@ -89,10 +87,10 @@ namespace VSharp.Runner
                 {
                     try
                     {
-                        var nullOrMethod = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
-                        if (nullOrMethod == null) continue;
-                        method = nullOrMethod;
-                        break;
+                        method = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
+                        method ??= type.GetMethods(Reflection.allBindingFlags)
+                            .FirstOrDefault(m => $"{type.FullName}.{m.Name}".Contains(methodArgumentValue));
+                        if (method != null) break;
                     }
                     catch (Exception)
                     {
