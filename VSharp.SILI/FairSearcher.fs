@@ -99,11 +99,15 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         let initialStates = baseSearcher.States()
         let groupedByType = initialStates |> Seq.map CilStateOperations.entryMethodOf |> Seq.distinct |> Seq.groupBy (fun m -> m.DeclaringType)
         typeEnumerator <- FairEnumerator(groupedByType |> Seq.map fst |> Seq.toList, getTypeTimeout, shouldStopType, onTypeRound, onTypeTimeout)
+        let rec getWeight (m : Method) =
+            match m.CFG with
+            | Some cfg -> cfg.Calls.Count
+            // Internal call case
+            | None -> 0
         for typ, methods in groupedByType do
             try
-                let methods = methods |> Seq.sortBy (fun m -> m.CFG.Calls.Count) |> Seq.toList
                 methodEnumerators.[typ] <- FairEnumerator(
-                    methods,
+                    methods |> Seq.sortBy getWeight |> Seq.toList,
                     (fun _ -> getMethodTimeout typ),
                     (fun _ -> shouldStopMethod typ),
                     onMethodRound,

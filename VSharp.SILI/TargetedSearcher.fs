@@ -24,7 +24,7 @@ type TargetedSearcher(maxBound, target, isPaused) =
                 let currLoc = tryCurrentLoc state
                 match currLoc with
                 | Some loc ->
-                    let cfg = loc.method.CFG
+                    let cfg = loc.method.ForceCFG
                     cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
@@ -89,7 +89,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->
-            let cfg = currLoc.method.CFG
+            let cfg = currLoc.method.ForceCFG
             let onVertex = cfg.IsBasicBlockStart currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
             onVertex && level > threshold
@@ -108,7 +108,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let addReturnTarget state =
         let startingLoc = startingLoc state
         let startingMethod = startingLoc.method
-        let cfg = startingMethod.CFG
+        let cfg = startingMethod.ForceCFG
 
         for retOffset in cfg.Sinks do
             let target = {offset = retOffset; method = startingMethod}

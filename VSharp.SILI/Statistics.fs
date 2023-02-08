@@ -94,9 +94,9 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
-        if method.HasBody then
-            method.CFG.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
-        else false
+        match method.CFG with
+        | Some cfg -> cfg.SortedOffsets.BinarySearch(codeLocation.offset) >= 0
+        | None -> false
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
         let sb = PrettyPrinting.appendLine sb $"%s{placeHolder}Method = %s{m.FullName}: ["
@@ -122,13 +122,14 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
             let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
             distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
-        if method.HasBody then
-            method.CFG.DistancesFrom currentLoc.offset
+        match method.CFG with
+        | Some cfg ->
+            cfg.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
-        else None
+        | None -> None
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
         let infinity = UInt32.MaxValue
@@ -142,13 +143,14 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
             let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
-        if method.HasBody then
-            method.CFG.DistancesFrom currentLoc.offset
+        match method.CFG with
+        | Some cfg ->
+            cfg.DistancesFrom currentLoc.offset
             |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
             |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key offsetDistancePair.Value)
             |> Seq.tryHead
             |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key; method = method })
-        else None
+        | None -> None
 
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")

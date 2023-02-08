@@ -256,8 +256,10 @@ and Method internal (m : MethodBase) as this =
             cfg |> CfgInfo |> Some
         else None)
 
-    member x.CFG with get() =
-        match cfg.Force() with
+    member x.CFG with get() = cfg.Force()
+
+    member x.ForceCFG with get() =
+        match x.CFG with
         | Some cfg -> cfg
         | None -> internalfailf $"Getting CFG of method {x} without body (extern or abstract)"
 
@@ -267,7 +269,7 @@ and Method internal (m : MethodBase) as this =
 
     // Returns a sequence of strings, one per instruction in basic block
     member x.BasicBlockToString (offset : offset) : string seq =
-        let cfg = x.CFG
+        let cfg = x.ForceCFG
         let idx = cfg.ResolveBasicBlockIndex offset
         let offset = cfg.SortedOffsets.[idx]
         let parsedInstrs = x.ParsedInstructions
@@ -292,7 +294,9 @@ and Method internal (m : MethodBase) as this =
     member x.CheckAttributes with get() = Method.AttributesZone x
 
     member x.BasicBlocksCount with get() =
-        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
+        match x.CFG with
+        | Some cfg -> cfg.SortedOffsets |> Seq.length |> uint
+        | None -> 0u
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -313,7 +317,9 @@ type public codeLocation = {offset : offset; method : Method}
 module public CodeLocation =
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
-        method.HasBody && method.CFG.HasSiblings blockStart.offset
+        match method.CFG with
+        | Some cfg -> cfg.HasSiblings blockStart.offset
+        | None -> false
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
@@ -353,14 +359,6 @@ type ApplicationGraph() as this =
         __notImplemented__()
 
     let messagesProcessor = MailboxProcessor.Start(fun inbox ->
-        let tryGetCfgInfo (method : Method) =
-            if method.HasBody then
-                // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
-                // TODO: fix it
-                let cfg = method.CFG
-                Some cfg
-            else None
-
         async{
             while true do
                 let! message = inbox.Receive()
@@ -374,10 +372,10 @@ type ApplicationGraph() as this =
                             | Some ch -> ch.Reply cfgInfo
                             | None -> ()
                         assert method.HasBody
-                        let cfg = tryGetCfgInfo method |> Option.get
+                        let cfg = method.CFG |> Option.get
                         reply cfg
                     | AddCallEdge (_from, _to) ->
-                        match tryGetCfgInfo _from.method, tryGetCfgInfo _to.method with
+                        match _from.method.CFG, _to.method.CFG with
                         | Some _, Some _ ->  addCallEdge _from _to
                         | _ -> ()
                     | AddGoals positions ->
@@ -390,7 +388,7 @@ type ApplicationGraph() as this =
                     | AddForkedStates (parentState, forkedStates) ->
                         addStates (Some parentState) (Array.ofSeq forkedStates)
                     | MoveState (_from,_to) ->
-                        tryGetCfgInfo _to.CodeLocation.method |> ignore
+                        _to.CodeLocation.method.CFG |> ignore
                         moveState _from _to
                     | GetShortestDistancesToGoals (replyChannel, states) ->
                         Logger.trace "Get shortest distances."
