@@ -4,7 +4,7 @@ from common.messages import Reward
 from common.messages import ClientMessage
 from common.messages import StartMessageBody
 from common.messages import StepMessageBody
-from common.messages import GetAllMapsMessageBody
+from common.messages import GetTrainMapsMessageBody, GetValidationMapsMessageBody
 from common.messages import ServerMessage
 from common.messages import ServerMessageType
 from common.messages import MapsServerMessage
@@ -14,9 +14,20 @@ from common.messages import RewardServerMessage
 from .connection_manager import ConnectionManager
 
 
-def get_server_maps(cm: ConnectionManager) -> list[GameMap]:
+def get_validation_maps(cm: ConnectionManager) -> list[GameMap]:
+    return get_maps(cm, with_message_body_type=GetValidationMapsMessageBody)
+
+
+def get_train_maps(cm: ConnectionManager) -> list[GameMap]:
+    return get_maps(cm, with_message_body_type=GetTrainMapsMessageBody)
+
+
+def get_maps(
+    cm: ConnectionManager,
+    with_message_body_type: GetTrainMapsMessageBody | GetValidationMapsMessageBody,
+) -> list[GameMap]:
     ws = cm.issue()
-    request_all_maps_message = ClientMessage(GetAllMapsMessageBody())
+    request_all_maps_message = ClientMessage(with_message_body_type())
     ws.send(request_all_maps_message.to_json())
     maps_message = ws.recv()
 
@@ -81,7 +92,7 @@ class NAgent:
     def recv_state_or_throw_gameover(self) -> GameState:
         received = self._ws.recv()
         data = GameStateServerMessage.from_json(self._raise_if_gameover(received))
-        return data
+        return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
         if self.log:

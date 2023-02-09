@@ -1,7 +1,7 @@
 import torch
 
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_server_maps
+from agent.n_agent import get_train_maps
 from ml.torch_model_wrapper import TorchModelWrapper
 from ml.mutation_gen import MutationProportions
 from ml.mutation_gen import MutatorConfig
@@ -24,7 +24,7 @@ def main():
 
     models = [TorchModelWrapper(model, optimizer, criterion) for _ in range(n_models)]
 
-    maps = get_server_maps(cm)
+    maps = get_train_maps(cm)
 
     mutator_config = MutatorConfig(
         proportions=MutationProportions(

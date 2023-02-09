@@ -85,6 +85,9 @@ class TorchModelWrapper:
         encoded_expected = actual_reward_closure(0)
         ...
 
+    def predict(input: GameState):
+        ...
+
 
 def average_n_models(models: list[TorchModelWrapper]) -> TorchModelWrapper:
     ...  # TODO: implement
