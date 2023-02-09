@@ -340,6 +340,7 @@ let trainMaps, validationMaps =
     add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "ApplyMoveAndCheckOtherValidMoves"
     add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "CheckMate1"
     add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "CheckMoveIsValidAndApply"
+    add 15000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bridge"
           
     trainMaps, validationMaps
 

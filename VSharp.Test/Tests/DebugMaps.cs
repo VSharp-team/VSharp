@@ -864,3 +864,587 @@ public static bool EulerMain(EulerGraph g)
 	return g.isEulerianCycle();
 }
 }
+
+
+// This class represents a undirected graph  
+// using adjacency list representation 
+[TestSvmFixture]
+public class BridgesGraph 
+{ 
+    private int V; // No. of vertices 
+    private List<Tuple<int, int>> bridges; 
+
+    // Array of lists for Adjacency List Representation 
+    private List<int> []adj; 
+    int time = 0; 
+    static readonly int NIL = -1; 
+
+    // Constructor 
+    BridgesGraph(int v) 
+    { 
+        V = v; 
+        adj = new List<int>[v]; 
+        for (int i = 0; i < v; ++i) 
+            adj[i] = new List<int>(); 
+    } 
+
+    // Function to add an edge into the graph 
+    void addEdge(int v, int w) 
+    { 
+        adj[v].Add(w); // Add w to v's list. 
+        adj[w].Add(v); //Add v to w's list 
+    } 
+
+    // A recursive function that finds and prints bridges 
+    // using DFS traversal 
+    // u --> The vertex to be visited next 
+    // visited[] --> keeps track of visited vertices 
+    // disc[] --> Stores discovery times of visited vertices 
+    // parent[] --> Stores parent vertices in DFS tree 
+    void bridgeUtil(int u, bool []visited, int []disc, 
+                    int []low, int []parent) 
+    { 
+
+        // Mark the current node as visited 
+        visited[u] = true; 
+
+        // Initialize discovery time and low value 
+        disc[u] = low[u] = ++time; 
+
+        // Go through all vertices adjacent to this 
+        foreach(int i in adj[u]) 
+        { 
+            int v = i; // v is current adjacent of u 
+
+            // If v is not visited yet, then make it a child 
+            // of u in DFS tree and recur for it. 
+            // If v is not visited yet, then recur for it 
+            if (!visited[v]) 
+            { 
+                parent[v] = u; 
+                bridgeUtil(v, visited, disc, low, parent); 
+
+                // Check if the subtree rooted with v has a 
+                // connection to one of the ancestors of u 
+                low[u] = Math.Min(low[u], low[v]); 
+
+                // If the lowest vertex reachable from subtree 
+                // under v is below u in DFS tree, then u-v is 
+                // a bridge 
+                if (low[v] > disc[u]) 
+                    bridges.Add (new Tuple<int,int> (u, v)); 
+            } 
+
+            // Update low value of u for parent function calls. 
+            else if (v != parent[u]) 
+                low[u] = Math.Min(low[u], disc[v]); 
+        } 
+    } 
+
+
+    // DFS based function to find all bridges. It uses recursive 
+    // function bridgeUtil() 
+    [TestSvm(100,coverageZone:CoverageZone.Method)]
+    public void bridge() 
+    { 
+        // Mark all the vertices as not visited 
+        bool []visited = new bool[V]; 
+        int []disc = new int[V]; 
+        int []low = new int[V]; 
+        int []parent = new int[V]; 
+
+
+        // Initialize parent and visited,  
+        // and ap(articulation point) arrays 
+        for (int i = 0; i < V; i++) 
+        { 
+            parent[i] = NIL; 
+            visited[i] = false; 
+        } 
+
+        // Call the recursive helper function to find Bridges 
+        // in DFS tree rooted with vertex 'i' 
+        for (int i = 0; i < V; i++) 
+            if (visited[i] == false) 
+                bridgeUtil(i, visited, disc, low, parent); 
+    } 
+
+    // Driver code
+    [TestSvm(100,coverageZone:CoverageZone.Method)]
+    public List<Tuple<int,int>> BridgesMain(BridgesGraph g) 
+    {
+        g.bridge();
+        return bridges;
+    } 
+} 
+
+// This class represents an undirected graph
+// using adjacency list representation
+[TestSvmFixture]
+public class CutVerticesGraph {
+	private int V; // No. of vertices
+
+	// Array of lists for Adjacency List Representation
+	private List<int>[] adj;
+	int time = 0;
+	static readonly int NIL = -1;
+
+	// Constructor
+	CutVerticesGraph(int v)
+	{
+		V = v;
+		adj = new List<int>[v];
+		for (int i = 0; i < v; ++i)
+			adj[i] = new List<int>();
+	}
+
+	// Function to add an edge into the graph
+	void addEdge(int v, int w)
+	{
+		adj[v].Add(w); // Add w to v's list.
+		adj[w].Add(v); // Add v to w's list
+	}
+
+	// A recursive function that find articulation points using DFS
+	// u --> The vertex to be visited next
+	// visited[] --> keeps track of visited vertices
+	// disc[] --> Stores discovery times of visited vertices
+	// parent[] --> Stores parent vertices in DFS tree
+	// ap[] --> Store articulation points
+    [TestSvm(100,coverageZone:CoverageZone.Method)]
+    public void APUtil(int u, bool[] visited, int[] disc,
+				int[] low, int[] parent, bool[] ap)
+	{
+
+		// Count of children in DFS Tree
+		int children = 0;
+
+		// Mark the current node as visited
+		visited[u] = true;
+
+		// Initialize discovery time and low value
+		disc[u] = low[u] = ++time;
+
+		// Go through all vertices adjacent to this
+		foreach(int i in adj[u])
+		{
+			int v = i; // v is current adjacent of u
+
+			// If v is not visited yet, then make it a child of u
+			// in DFS tree and recur for it
+			if (!visited[v]) {
+				children++;
+				parent[v] = u;
+				APUtil(v, visited, disc, low, parent, ap);
+
+				// Check if the subtree rooted with v has
+				// a connection to one of the ancestors of u
+				low[u] = Math.Min(low[u], low[v]);
+
+				// u is an articulation point in following cases
+
+				// (1) u is root of DFS tree and has two or more children.
+				if (parent[u] == NIL && children > 1)
+					ap[u] = true;
+
+				// (2) If u is not root and low value of one of its child
+				// is more than discovery value of u.
+				if (parent[u] != NIL && low[v] >= disc[u])
+					ap[u] = true;
+			}
+
+			// Update low value of u for parent function calls.
+			else if (v != parent[u])
+				low[u] = Math.Min(low[u], disc[v]);
+		}
+	}
+
+	// The function to do DFS traversal.
+	// It uses recursive function APUtil()
+	[TestSvm(100,coverageZone:CoverageZone.Method)]
+    public bool[] AP()
+	{
+		// Mark all the vertices as not visited
+		bool[] visited = new bool[V];
+		int[] disc = new int[V];
+		int[] low = new int[V];
+		int[] parent = new int[V];
+		bool[] ap = new bool[V]; // To store articulation points
+
+		// Initialize parent and visited, and
+		// ap(articulation point) arrays
+		for (int i = 0; i < V; i++) {
+			parent[i] = NIL;
+			visited[i] = false;
+			ap[i] = false;
+		}
+
+		// Call the recursive helper function to find articulation
+		// points in DFS tree rooted with vertex 'i'
+		for (int i = 0; i < V; i++)
+			if (visited[i] == false)
+				APUtil(i, visited, disc, low, parent, ap);
+
+		// Now ap[] contains articulation points, print them
+		return ap;
+	}
+
+	// Driver method
+	public static bool[] CutVerticesMain(CutVerticesGraph g)
+    {
+        return g.AP();
+    }
+}
+
+
+[TestSvmFixture]
+class TravelingSalesmanProblem {
+
+	static int V = 10;
+
+	// implementation of traveling Salesman Problem
+	[TestSvm(66,coverageZone:CoverageZone.Method)]
+	public static int travllingSalesmanProblem(int[, ] graph,
+										int s)
+	{
+		List<int> vertex = new List<int>();
+
+		for (int i = 0; i < V; i++)
+			if (i != s)
+				vertex.Add(i);
+
+		// store minimum weight
+		// Hamiltonian Cycle.
+		int min_path = Int32.MaxValue;
+
+		do {
+			// store current Path weight(cost)
+			int current_pathweight = 0;
+			int k = s;
+
+			// compute current path weight
+			for (int i = 0; i < vertex.Count; i++) {
+				current_pathweight += graph[k, vertex[i]];
+				k = vertex[i];
+			}
+
+			current_pathweight += graph[k, s];
+
+			// update minimum
+			min_path
+				= Math.Min(min_path, current_pathweight);
+
+		} while (findNextPermutation(vertex));
+
+		return min_path;
+	}
+
+	// Function to swap the data resent in the left and
+	// right indices
+	public static List<int> swap(List<int> data, int left,
+								int right)
+	{
+		// Swap the data
+		int temp = data[left];
+		data[left] = data[right];
+		data[right] = temp;
+
+		// Return the updated array
+		return data;
+	}
+
+	// Function to reverse the sub-array starting from left
+	// to the right both inclusive
+	public static List<int> reverse(List<int> data,
+									int left, int right)
+	{
+		// Reverse the sub-array
+		while (left < right) {
+			int temp = data[left];
+			data[left++] = data[right];
+			data[right--] = temp;
+		}
+
+		// Return the updated array
+		return data;
+	}
+
+	// Function to find the next permutation of the given
+	// integer array
+	public static bool findNextPermutation(List<int> data)
+	{
+		// If the given dataset is empty
+		// or contains only one element
+		// next_permutation is not possible
+		if (data.Count <= 1)
+			return false;
+		int last = data.Count - 2;
+
+		// find the longest non-increasing
+		// suffix and find the pivot
+		while (last >= 0) {
+			if (data[last] < data[last + 1])
+				break;
+			last--;
+		}
+
+		// If there is no increasing pair
+		// there is no higher order permutation
+		if (last < 0)
+			return false;
+		int nextGreater = data.Count - 1;
+
+		// Find the rightmost successor
+		// to the pivot
+		for (int i = data.Count - 1; i > last; i--) {
+			if (data[i] > data[last]) {
+				nextGreater = i;
+				break;
+			}
+		}
+
+		// Swap the successor and
+		// the pivot
+		data = swap(data, nextGreater, last);
+
+		// Reverse the suffix
+		data = reverse(data, last + 1, data.Count - 1);
+
+		// Return true as the
+		// next_permutation is done
+		return true;
+	}
+
+	// Driver Code
+	public static int TSPMain(int[, ] graph, int s)
+	{
+		return travllingSalesmanProblem(graph, s);
+	}
+}
+
+// A C# program to find maximal
+// Bipartite matching.
+
+[TestSvmFixture]
+class BipartiteMatchingGraph
+{
+	// M is number of applicants
+	// and N is number of jobs
+	static int M = 6;
+	static int N = 6;
+
+	// A DFS based recursive function
+	// that returns true if a matching
+	// for vertex u is possible
+	[TestSvm(100)]
+	public bool bpm(bool [,]bpGraph, int u,
+			bool []seen, int []matchR)
+	{
+		// Try every job one by one
+		for (int v = 0; v < N; v++)
+		{
+			// If applicant u is interested
+			// in job v and v is not visited
+			if (bpGraph[u, v] && !seen[v])
+			{
+				// Mark v as visited
+				seen[v] = true;
+
+				// If job 'v' is not assigned to
+				// an applicant OR previously assigned
+				// applicant for job v (which is matchR[v])
+				// has an alternate job available.
+				// Since v is marked as visited in the above
+				// line, matchR[v] in the following recursive
+				// call will not get job 'v' again
+				if (matchR[v] < 0 || bpm(bpGraph, matchR[v],
+										seen, matchR))
+				{
+					matchR[v] = u;
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	// Returns maximum number of
+	// matching from M to N
+	int maxBPM(bool [,]bpGraph)
+	{
+		// An array to keep track of the
+		// applicants assigned to jobs.
+		// The value of matchR[i] is the
+		// applicant number assigned to job i,
+		// the value -1 indicates nobody is assigned.
+		int []matchR = new int[N];
+
+		// Initially all jobs are available
+		for(int i = 0; i < N; ++i)
+			matchR[i] = -1;
+
+		// Count of jobs assigned to applicants
+		int result = 0;
+		for (int u = 0; u < M; u++)
+		{
+			// Mark all jobs as not
+			// seen for next applicant.
+			bool []seen = new bool[N] ;
+			for(int i = 0; i < N; ++i)
+				seen[i] = false;
+
+			// Find if the applicant
+			// 'u' can get a job
+			if (bpm(bpGraph, u, seen, matchR))
+				result++;
+		}
+		return result;
+	}
+
+	// Driver Code
+	public static int BipartiteMatchingMain (bool[,] bpGraph)
+	{
+		// Let us create a bpGraph shown
+		// in the above example
+		
+		BipartiteMatchingGraph m = new BipartiteMatchingGraph();
+	    return m.maxBPM(bpGraph);
+	}
+}
+
+
+
+
+	[TestSvmFixture]
+	class KnapsackBag : IEnumerable<KnapsackBag.Item>
+	{
+		List<Item> items;
+		const int MaxWeightAllowed = 400;
+
+		public KnapsackBag()
+		{
+			items = new List<Item>();
+		}
+
+		void AddItem(Item i)
+		{
+			if ((TotalWeight + i.Weight) <= MaxWeightAllowed)
+				items.Add(i);
+		}
+
+		[TestSvm(100)]
+		public void Calculate(List<Item> items)
+		{
+			foreach (Item i in Sorte(items))
+			{
+				AddItem(i);
+			}
+		}
+
+		[TestSvm(100)]
+		public List<Item> Sorte(List<Item> inputItems)
+		{
+			List<Item> choosenItems = new List<Item>();
+			for (int i = 0; i < inputItems.Count; i++)
+			{
+				int j = -1;
+				if (i == 0)
+				{
+					choosenItems.Add(inputItems[i]);
+				}
+
+				if (i > 0)
+				{
+					if (!RecursiveF(inputItems, choosenItems, i, choosenItems.Count - 1, false, ref j))
+					{
+						choosenItems.Add(inputItems[i]);
+					}
+				}
+			}
+
+			return choosenItems;
+		}
+
+		bool RecursiveF(List<Item> knapsackItems, List<Item> choosenItems, int i, int lastBound, bool dec,
+			ref int indxToAdd)
+		{
+			if (!(lastBound < 0))
+			{
+				if (knapsackItems[i].ResultWV < choosenItems[lastBound].ResultWV)
+				{
+					indxToAdd = lastBound;
+				}
+
+				return RecursiveF(knapsackItems, choosenItems, i, lastBound - 1, true, ref indxToAdd);
+			}
+
+			if (indxToAdd > -1)
+			{
+				choosenItems.Insert(indxToAdd, knapsackItems[i]);
+				return true;
+			}
+
+			return false;
+		}
+
+		#region IEnumerable<Item> Members
+
+		IEnumerator<Item> IEnumerable<Item>.GetEnumerator()
+		{
+			foreach (Item i in items)
+				yield return i;
+		}
+
+		#endregion
+
+		#region IEnumerable Members
+
+		System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator()
+		{
+			return items.GetEnumerator();
+		}
+
+		#endregion
+
+		public int TotalWeight
+		{
+			get
+			{
+				var sum = 0;
+				foreach (Item i in this)
+				{
+					sum += i.Weight;
+				}
+
+				return sum;
+			}
+		}
+
+		public class Item
+		{
+			public string Name { get; set; }
+			public int Weight { get; set; }
+			public int Value { get; set; }
+
+			public int ResultWV
+			{
+				get { return Weight - Value; }
+			}
+
+			public override string ToString()
+			{
+				return "Name : " + Name + "        Wieght : " + Weight + "       Value : " + Value +
+				       "     ResultWV : " + ResultWV;
+			}
+		}
+	}
+
+	class Knapsack
+	{
+		static KnapsackBag KnapsackMain(List<KnapsackBag.Item> knapsackItems)
+		{
+			KnapsackBag b = new KnapsackBag();
+			b.Calculate(knapsackItems);
+			return b;
+		}
+	}
