@@ -9,7 +9,6 @@ from ml.converter import convert_input_to_tensor
 from .protocols import ModelWrapper, Mutable
 from common.game import GameState
 
-NUM_FEATURES = 4
 MAX_W, MIN_W = 1, -1
 
 
@@ -23,17 +22,23 @@ class GeneticLearner(ModelWrapper):
         return GeneticLearner._model
 
     @staticmethod
-    def set_model(torch_model: torch.nn.Module):
+    def set_model(torch_model: torch.nn.Module, num_features: int):
         GeneticLearner._model = torch_model
+        GeneticLearner.NUM_FEATURES = num_features
 
-    def __init__(self, weights: npt.ArrayLike = np.array(range(NUM_FEATURES))) -> None:
-        self.weights = weights
+    def __init__(self, weights: npt.NDArray = None) -> None:
+        if weights == None:
+            self.weights = np.zeros((GeneticLearner.NUM_FEATURES))
+        else:
+            self.weights = weights
 
     def predict(self, input: GameState):
         data = convert_input_to_tensor(input)
-        out = GeneticLearner._model(data.x_dict, data.edge_index_dict)
-
-        return out * self.weights
+        out: list[tuple[int, npt.NDArray]] = GeneticLearner._model(
+            data.x_dict, data.edge_index_dict
+        )
+        weighted = [(index, array * self.weights) for (index, array) in out]
+        return max(weighted, key=lambda x: np.sum(x[1]))[0]
 
     @staticmethod
     def average_n_mutables(ms: list[Mutable]) -> Mutable:
@@ -48,10 +53,10 @@ class GeneticLearner(ModelWrapper):
         mutation_freq - разброс изменения весов, в пределах (MAX_W, MIN_W)
         """
         new_mutable = deepcopy(mutable)
-        to_mutate = floor(NUM_FEATURES / (mutation_volume / 100))
+        to_mutate = floor(GeneticLearner.NUM_FEATURES / (mutation_volume / 100))
 
         for _ in range(to_mutate):
-            index_to_mutate = random.randint(0, NUM_FEATURES - 1)
+            index_to_mutate = random.randint(0, GeneticLearner.NUM_FEATURES - 1)
             new_mutable.weights[index_to_mutate] = variate(
                 val=new_mutable.weights[index_to_mutate],
                 range_percent=mutation_freq,
