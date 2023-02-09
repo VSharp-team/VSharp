@@ -173,7 +173,11 @@ namespace VSharp
                 );
 
             using var explorer = new SILI(options);
-            Core.API.ConfigureSolver(SolverPool.mkSolver());
+
+            // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+            // stops exactly in timeout. To guarantee that we need to pass timeout
+            // based on remaining time to solver dynamically.
+            Core.API.ConfigureSolver(SolverPool.mkSolver(timeout / 2 * 1000));
 
             void HandleInternalFail(Method? method, Exception exception)
             {

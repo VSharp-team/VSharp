@@ -224,7 +224,7 @@ namespace VSharp.Test
                     );
                 }
 
-                Core.API.ConfigureSolver(SolverPool.mkSolver());
+                Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var stats = new TestStatistics(
                     methodInfo,
