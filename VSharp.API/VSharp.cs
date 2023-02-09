@@ -61,11 +61,15 @@ namespace VSharp
         /// </summary>
         Error,
         /// <summary>
-        /// Error and info messages.
+        /// Error and warning messages.
+        /// </summary>
+        Warning,
+        /// <summary>
+        /// Error, warning and info messages.
         /// </summary>
         Info,
         /// <summary>
-        /// Only error messages with detailed continuous statistics saved to .csv file in the output directory.
+        /// Only error messages with detailed continuous statistics which is saved to .csv file in the output directory.
         /// </summary>
         StatisticsCollection
     }
@@ -193,14 +197,15 @@ namespace VSharp
                     messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
                 }
 
-                messageBuilder.AppendLine($"Exception: {exception.GetType()} {exception.Message}");
+                messageBuilder.Append($"Exception: {exception.GetType()} {exception.Message}");
 
                 var trace = new StackTrace(exception, true);
                 var frame = trace.GetFrame(0);
 
                 if (frame is not null)
                 {
-                    messageBuilder.AppendLine($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                    messageBuilder.AppendLine();
+                    messageBuilder.Append($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
                 }
 
                 Logger.printLogString(Logger.Error, messageBuilder.ToString());
@@ -213,7 +218,7 @@ namespace VSharp
                     return;
                 }
 
-                Logger.printLogString(Logger.Critical, $"{exception}\n");
+                Logger.printLogString(Logger.Critical, $"{exception}");
             }
 
             var isolated = new List<MethodBase>();
@@ -279,6 +284,7 @@ namespace VSharp
                 Verbosity.Quiet => Logger.Quiet,
                 Verbosity.Critical => Logger.Critical,
                 Verbosity.Error => Logger.Error,
+                Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
                 Verbosity.StatisticsCollection => Logger.Error
             };

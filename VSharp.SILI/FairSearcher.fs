@@ -94,16 +94,15 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage m) methods
 
     let rec getCallsCount (m : Method) =
-        assert m.HasBody
         try
             match m.CFG with
             | Some cfg -> cfg.Calls.Count
-            // Internal call case
-            | None -> -1
+            | None ->
+                Logger.warning $"Fair searcher: cannot get CFG while getting calls count in {m.FullName}"
+                Int32.MaxValue
         with :? InsufficientInformationException as e ->
-            // IIEs will be propagated by SILI later if needed
-            Logger.info $"Fair searcher: IIE ({e.Message}) on getting calls count in {m.FullName}"
-            -1
+            Logger.warning $"Fair searcher: IIE ({e.Message}) on getting calls count in {m.FullName}"
+            Int32.MaxValue
 
     let init initialStates =
         baseSearcher.Init initialStates

@@ -15,7 +15,10 @@ open VSharp.Solver
 type public SILI(options : SiliOptions) =
 
     let timeout = if options.timeout <= 0 then Double.PositiveInfinity else float options.timeout * 1000.0
-    let branchReleaseTimeout = if options.timeout <= 0 || not options.releaseBranches then Double.PositiveInfinity else timeout * 80.0 / 100.0
+    let branchReleaseTimeout =
+        if options.timeout <= 0 then Double.PositiveInfinity
+        elif not options.releaseBranches then timeout
+        else timeout * 80.0 / 100.0
 
     let mutable branchesReleased = false
     let mutable isStopped = false
@@ -321,7 +324,7 @@ type public SILI(options : SiliOptions) =
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
         while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
-            if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
+            if options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
                 releaseBranches()
             match action with
             | GoFront s ->
