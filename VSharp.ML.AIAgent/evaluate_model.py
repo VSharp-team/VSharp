@@ -1,4 +1,4 @@
-from contextlib import closing
+from contextlib import closing, suppress
 import argparse
 
 from common.game import MoveReward
@@ -6,8 +6,6 @@ from common.utils import compute_coverage_percent
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.utils import load_full_model
-from ml.predict_state_hetero import PredictStateHetGNN
-from ml.data_loader import ServerDataloaderHetero
 from ml.model_wrappers.protocols import Predictor
 from ml.model_wrappers.genetic_learner import GeneticLearner
 
@@ -31,7 +29,7 @@ def main():
     with closing(NAgent(cm, map_id_to_play=chosen_map, steps=steps, log=True)) as agent:
         cumulative_reward = MoveReward(0, 0)
         steps_count = 0
-        try:
+        with suppress(NAgent.GameOver):
             for _ in range(steps):
                 game_state = agent.recv_state_or_throw_gameover()
                 next_step_id = predictor.predict(game_state)
@@ -46,9 +44,6 @@ def main():
 
             _ = agent.recv_state_or_throw_gameover()  # wait for gameover
             steps_count += 1
-
-        except NAgent.GameOver:
-            pass
 
         model_result = (cumulative_reward, steps_count)
 

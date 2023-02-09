@@ -1,6 +1,6 @@
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import TypeAlias, TypeVar, Type
+from typing import TypeAlias, Type
 from common.game import GameMap, MoveReward
 from ml.model_wrappers.protocols import Mutable
 
@@ -32,9 +32,6 @@ class MutatorConfig:
             )
         if not in_percents(self.mutation_freq):
             raise ValueError(f"mutation freq is not in percents: {self.mutation_freq=}")
-
-
-GenericMutable = TypeVar("GenericMutable")
 
 
 class Mutator:

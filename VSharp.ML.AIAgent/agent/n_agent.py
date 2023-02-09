@@ -4,7 +4,8 @@ from common.messages import Reward
 from common.messages import ClientMessage
 from common.messages import StartMessageBody
 from common.messages import StepMessageBody
-from common.messages import GetTrainMapsMessageBody, GetValidationMapsMessageBody
+from common.messages import GetTrainMapsMessageBody
+from common.messages import GetValidationMapsMessageBody
 from common.messages import ServerMessage
 from common.messages import ServerMessageType
 from common.messages import MapsServerMessage
@@ -50,7 +51,8 @@ class NAgent:
             self, source: str, received: str, expected: str, at_step: int
         ) -> None:
             super().__init__(
-                f"Wrong operations order at step #{at_step}: at function <{source}> received {received}, expected {expected}"
+                f"Wrong operations order at step #{at_step}: at function \
+                <{source}> received {received}, expected {expected}",
             )
 
     class IncorrectSentStateError(Exception):
@@ -118,7 +120,8 @@ class NAgent:
         match msg.MessageType:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
                 raise NAgent.IncorrectSentStateError(
-                    f"Sending state_id={self._sent_state_id} at step #{self._current_step} resulted in {msg.MessageType}"
+                    f"Sending state_id={self._sent_state_id} \
+                    at step #{self._current_step} resulted in {msg.MessageType}"
                 )
 
             case ServerMessageType.MOVE_REVARD:

@@ -1,4 +1,4 @@
-from contextlib import closing
+from contextlib import closing, suppress
 from itertools import product
 from collections import defaultdict
 
@@ -24,7 +24,8 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
         with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps, log=True)) as agent:
             cumulative_reward = MoveReward(0, 0)
             steps_count = 0
-            try:
+
+            with suppress(NAgent.GameOver):
                 for _ in range(steps):
                     game_state = agent.recv_state_or_throw_gameover()
                     agent.send_step(
@@ -39,9 +40,6 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
                 _ = agent.recv_state_or_throw_gameover()  # wait for gameover
                 steps_count += 1
 
-            except NAgent.GameOver:
-                pass
-
         model_result: ModelResult = (model, (cumulative_reward, steps_count))
         iteration_data[map].append(model_result)
 
@@ -49,13 +47,13 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
 
 
 def r_learn(
-    epochs,
-    steps,
+    epochs: int,
+    steps: int,
     models: list[RLearner],
-    maps,
+    maps: list[GameMap],
     mutator_config: MutatorConfig,
     connection_manager: ConnectionManager,
-):
+) -> None:
     mutator = Mutator(mutator_config, RLearner)
     for _ in range(epochs):
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)

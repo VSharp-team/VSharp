@@ -1,4 +1,4 @@
-from contextlib import closing
+from contextlib import closing, suppress
 import unittest
 
 from common.game import GameState, Reward
@@ -66,13 +66,10 @@ class TestServerConnection(unittest.TestCase):
                     steps=self.n_steps,
                 )
             ) as agent:
-                try:
+                with suppress(NAgent.GameOver):
                     for _ in range(self.n_steps):
                         self.do_one_dumb_step(with_agent=agent)
                     self.do_one_dumb_step(with_agent=agent)  # fake step
-
-                except NAgent.GameOver:
-                    pass
 
     @classmethod
     def tearDownClass(cls) -> None:

@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import Protocol, TypeAlias
+from typing import Protocol
 
 from common.game import GameState
 
