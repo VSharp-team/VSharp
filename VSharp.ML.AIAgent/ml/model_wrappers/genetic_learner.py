@@ -6,15 +6,14 @@ from math import floor
 from copy import deepcopy
 
 from ml.converter import convert_input_to_tensor
-from .mutable import Mutable
-from .predictor import Predictor
+from .protocols import ModelWrapper, Mutable
 from common.game import GameState
 
 NUM_FEATURES = 4
 MAX_W, MIN_W = 1, -1
 
 
-class GeneticLearner(Predictor, Mutable):
+class GeneticLearner(ModelWrapper):
     _model: torch.nn.Module
 
     @staticmethod
@@ -60,6 +59,9 @@ class GeneticLearner(Predictor, Mutable):
             )
 
         return new_mutable
+
+    def train_single_val(self):
+        return super().train_single_val()
 
 
 def variate(val: float, range_percent: float, borders: tuple[float, float]):

@@ -3,8 +3,7 @@ import torch
 from torch_geometric.data import Data
 from typing import Callable
 
-from .predictor import Predictor
-from .mutable import Mutable
+from .protocols import ModelWrapper, Mutable
 from common.game import State, GameState
 from common.messages import Reward
 
@@ -33,7 +32,7 @@ LossFunction = (
 )
 
 
-class TorchModelWrapper(Predictor, Mutable):
+class TorchModelWrapper(ModelWrapper):
     """
     обертка над моделью (например, из TensorFlow)
     - обучает модель
@@ -98,3 +97,6 @@ class TorchModelWrapper(Predictor, Mutable):
         mutable: Mutable, mutation_volume: float, mutation_freq: float
     ) -> Mutable:
         return mutable
+
+    def train_single_val(self):
+        return super().train_single_val()

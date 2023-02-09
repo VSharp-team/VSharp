@@ -5,12 +5,12 @@ from collections import defaultdict
 from common.game import GameMap, MoveReward
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
-from ml.model_wrappers.torch_model import TorchModelWrapper
+from ml.model_wrappers.protocols import RLearner
 from ml.mutation_gen import MutatorConfig, Mutator
 from ml.mutation_gen import ModelResult, IterationResults
 
 
-def generate_games(models: list[TorchModelWrapper], maps: list[GameMap]):
+def generate_games(models: list[RLearner], maps: list[GameMap]):
     # cartesian product
     return product(models, maps)
 
@@ -51,12 +51,12 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
 def r_learn(
     epochs,
     steps,
-    models: list[TorchModelWrapper],
+    models: list[RLearner],
     maps,
     mutator_config: MutatorConfig,
     connection_manager: ConnectionManager,
 ):
-    mutator = Mutator(mutator_config, TorchModelWrapper)
+    mutator = Mutator(mutator_config, RLearner)
     for _ in range(epochs):
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
         models = mutator.new_generation(iteration_data)

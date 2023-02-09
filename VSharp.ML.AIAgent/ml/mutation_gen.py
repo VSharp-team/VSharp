@@ -2,7 +2,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import TypeAlias, TypeVar, Type
 from common.game import GameMap, MoveReward
-from ml.model_wrappers.mutable import Mutable
+from ml.model_wrappers.protocols import Mutable
 
 StepsCount: TypeAlias = int
 ModelResult: TypeAlias = tuple[Mutable, tuple[MoveReward, StepsCount]]

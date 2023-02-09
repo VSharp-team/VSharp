@@ -8,7 +8,7 @@ from agent.n_agent import NAgent
 from ml.utils import load_full_model
 from ml.predict_state_hetero import PredictStateHetGNN
 from ml.data_loader import ServerDataloaderHetero
-from ml.model_wrappers.predictor import Predictor
+from ml.model_wrappers.protocols import Predictor
 from ml.model_wrappers.genetic_learner import GeneticLearner
 
 
