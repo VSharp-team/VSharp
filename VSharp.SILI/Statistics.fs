@@ -244,23 +244,20 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         let mutable coveredBlocks = ref null
         if blocksCoveredByTests.TryGetValue(blockStart.method, coveredBlocks) then
             coveredBlocks.Value.Contains blockStart.offset
-        else
-            false
+        else false
 
     member x.GetApproximateCoverage (methods : Method seq) =
         let getCoveredBlocksCount (m : Method) =
             let mutable coveredBlocks = ref null
             if blocksCoveredByTests.TryGetValue(m, coveredBlocks) then
                 coveredBlocks.Value.Count
-            else
-                0
+            else 0
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
         let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
         let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount
         if totalBlocksCount <> 0u then
             uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
-        else
-            0u
+        else 0u
 
     member x.GetApproximateCoverage (method : Method) =
         x.GetApproximateCoverage(Seq.singleton method)
@@ -299,14 +296,12 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
         let mutable coveredBlocks = ref null
         for block in s.history do
-
             if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
                 coveredBlocks.Value.Add block.offset |> ignore
             else
                 let coveredBlocks = HashSet()
                 coveredBlocks.Add block.offset |> ignore
                 blocksCoveredByTests[block.method] <- coveredBlocks
-
             if block.method.InCoverageZone then
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
 

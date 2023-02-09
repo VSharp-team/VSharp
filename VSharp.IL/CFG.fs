@@ -1,5 +1,6 @@
 namespace VSharp
 
+open System.Collections.Concurrent
 open global.System
 open System.Reflection
 open System.Collections.Generic
@@ -469,16 +470,15 @@ type NullVisualizer() =
 
 
 module Application =
-    let private methods = Dictionary<methodDescriptor, Method>()
-    let private _loadedMethods = HashSet<_>()
+    let private methods = ConcurrentDictionary<methodDescriptor, Method>()
+    let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
     let graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
 
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
-        lock methods (fun () ->
-        Dict.getValueOrUpdate methods desc (fun () -> Method(m)))
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m))
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
@@ -512,5 +512,5 @@ module Application =
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody
         Method.ReportCFGLoaded <- fun m ->
             graph.RegisterMethod m
-            let added = lock _loadedMethods (fun () -> _loadedMethods.Add m)
+            let added = _loadedMethods.TryAdd(m, ())
             assert added

@@ -5,7 +5,7 @@ namespace VSharp.TestExtensions;
 
 public static class ObjectsComparer
 {
-    private class InnerComparer
+    private class Comparer
     {
         // For circular references handling
         private readonly HashSet<(object, object)> _comparedObjects = new();
@@ -94,7 +94,7 @@ public static class ObjectsComparer
 
     public static bool CompareObjects(object? expected, object? got)
     {
-        var comparer = new InnerComparer();
+        var comparer = new Comparer();
         return comparer.CompareObjects(expected, got);
     }
 }

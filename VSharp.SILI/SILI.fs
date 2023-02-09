@@ -400,7 +400,6 @@ type public SILI(options : SiliOptions) =
             reportInternalFail <- wrapOnInternalFail onInternalFail
             reportStateInternalFail <- wrapOnStateInternalFail onInternalFail
             reportCrash <- wrapOnCrash onCrash
-
             reportIncomplete <- wrapOnIIE onIIE
             reportStateIncomplete <- wrapOnStateIIE onIIE
             reportFinished <- wrapOnTest onFinished None
