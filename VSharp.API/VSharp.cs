@@ -1,11 +1,11 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Microsoft.FSharp.Core;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
@@ -52,6 +52,10 @@ namespace VSharp
         /// No output messages.
         /// </summary>
         Quiet,
+        /// <summary>
+        /// Only critical error messages.
+        /// </summary>
+        Critical,
         /// <summary>
         /// Only error messages.
         /// </summary>
@@ -178,15 +182,34 @@ namespace VSharp
                     return;
                 }
 
-                var messageBuilder = new StringBuilder("EXCEPTION |");
+                var messageBuilder = new StringBuilder();
+
                 if (method is not null)
                 {
-                    messageBuilder.Append($" {method.DeclaringType}.{method.Name} |");
+                    messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
                 }
 
-                messageBuilder.Append($" {exception.GetType().Name} {exception.Message}");
+                messageBuilder.AppendLine($"Exception: {exception.GetType()} {exception.Message}");
 
-                Console.WriteLine(messageBuilder.ToString());
+                var trace = new StackTrace(exception, true);
+                var frame = trace.GetFrame(0);
+
+                if (frame is not null)
+                {
+                    messageBuilder.AppendLine($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                }
+
+                Logger.printLogString(Logger.Error, messageBuilder.ToString());
+            }
+
+            void HandleCrash(Exception exception)
+            {
+                if (verbosity == Verbosity.Quiet)
+                {
+                    return;
+                }
+
+                Logger.printLogString(Logger.Critical, $"{exception}\n");
             }
 
             var isolated = new List<MethodBase>();
@@ -205,7 +228,7 @@ namespace VSharp
             }
 
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                (m, e) => HandleInternalFail(OptionModule.ToObj(m), e));
+                HandleInternalFail, HandleCrash);
 
             if (verbosity == Verbosity.StatisticsCollection)
             {
@@ -250,6 +273,7 @@ namespace VSharp
             return verbosity switch
             {
                 Verbosity.Quiet => Logger.Quiet,
+                Verbosity.Critical => Logger.Critical,
                 Verbosity.Error => Logger.Error,
                 Verbosity.Info => Logger.Info,
                 Verbosity.StatisticsCollection => Logger.Error

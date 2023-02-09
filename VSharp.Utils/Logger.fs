@@ -9,10 +9,11 @@ module Logger =
     let stateTraceTag = "StateTrace"
 
     let Quiet = 0
-    let Error = 1
-    let Warning = 2
-    let Info = 3
-    let Trace = 4
+    let Critical = 1
+    let Error = 2
+    let Warning = 3
+    let Info = 4
+    let Trace = 5
 
     let mutable currentLogLevel = Error
     let mutable currentTextWriter = Console.Out
@@ -25,10 +26,11 @@ module Logger =
     let public isTagEnabled tag = tagFilter tag
 
     let LevelToString = function
-        | 1 -> "Error"
-        | 2 -> "Warning"
-        | 3 -> "Info"
-        | 4 -> "Trace"
+        | 1 -> "Critical"
+        | 2 -> "Error"
+        | 3 -> "Warning"
+        | 4 -> "Info"
+        | 5 -> "Trace"
         | _ -> "Unknown"
 
     let writeLineString vLevel tag (message : string) =

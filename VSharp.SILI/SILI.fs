@@ -37,7 +37,8 @@ type public SILI(options : SiliOptions) =
     let mutable reportStateIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : InsufficientInformationException -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportInternalFail : Method option -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportInternalFail : Method -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportCrash : Exception -> unit = fun _ -> internalfail "reporter not configured!"
 
     let mutable isCoverageAchieved : unit -> bool = always false
 
@@ -147,7 +148,7 @@ type public SILI(options : SiliOptions) =
     let wrapOnIIE (action : Action<InsufficientInformationException>) (iie: InsufficientInformationException) =
         action.Invoke iie
 
-    let wrapOnStateInternalFail (action : Action<Method option, Exception>) (state : cilState) (e : Exception) =
+    let wrapOnStateInternalFail (action : Action<Method, Exception>) (state : cilState) (e : Exception) =
         match e with
         | :? InsufficientInformationException as e ->
             if state.iie.IsNone then
@@ -157,15 +158,17 @@ type public SILI(options : SiliOptions) =
             statistics.InternalFails.Add(e)
             Application.terminateState state
             searcher.Remove state
-            action.Invoke(entryMethodOf state |> Some, e)
+            action.Invoke(entryMethodOf state, e)
 
-    let wrapOnInternalFail (action : Action<Method option, Exception>) (method : Method option) (e : Exception) =
+    let wrapOnInternalFail (action : Action<Method, Exception>) (method : Method) (e : Exception) =
         match e with
         | :? InsufficientInformationException as e ->
             reportIncomplete e
         | _ ->
             statistics.InternalFails.Add(e)
             action.Invoke(method, e)
+
+    let wrapOnCrash (action : Action<Exception>) (e : Exception) = action.Invoke e
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
@@ -198,7 +201,7 @@ type public SILI(options : SiliOptions) =
             | _ -> None
         with
         | e ->
-            reportInternalFail (Some method) e
+            reportInternalFail method e
             None
 
     member private x.FormIsolatedInitialStates (method : Method, typModel : typeModel) =
@@ -227,7 +230,7 @@ type public SILI(options : SiliOptions) =
             | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton
         with
         | e ->
-            reportInternalFail (Some method) e
+            reportInternalFail method e
             []
 
     member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], typModel : typeModel) : cilState list =
@@ -255,7 +258,7 @@ type public SILI(options : SiliOptions) =
             [initialState]
         with
         | e ->
-            reportInternalFail (Some method) e
+            reportInternalFail method e
             []
 
     member private x.Forward (s : cilState) =
@@ -388,10 +391,13 @@ type public SILI(options : SiliOptions) =
 
     member x.Interpret (isolated : MethodBase seq) (entryPoints : (MethodBase * string[]) seq) (onFinished : Action<UnitTest>)
                        (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
-                       (onInternalFail : Action<Method option, Exception>) : unit =
+                       (onInternalFail : Action<Method, Exception>) (onCrash : Action<Exception>): unit =
         try
+
             reportInternalFail <- wrapOnInternalFail onInternalFail
             reportStateInternalFail <- wrapOnStateInternalFail onInternalFail
+            reportCrash <- wrapOnCrash onCrash
+
             reportIncomplete <- wrapOnIIE onIIE
             reportStateIncomplete <- wrapOnStateIIE onIIE
             reportFinished <- wrapOnTest onFinished None
@@ -420,12 +426,13 @@ type public SILI(options : SiliOptions) =
                 statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
                 if not initialStates.IsEmpty then
                     x.AnswerPobs initialStates
-            with
-            | e -> reportInternalFail None e
+            with e -> reportCrash e
         finally
-            statistics.ExplorationFinished()
-            API.Restore()
-            searcher.Reset()
+            try
+                statistics.ExplorationFinished()
+                API.Restore()
+                searcher.Reset()
+            with e -> reportCrash e
 
     member x.Stop() = isStopped <- true
 

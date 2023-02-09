@@ -254,7 +254,15 @@ namespace VSharp.Test
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
 
-                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, (_, e) => throw e);
+                    explorer.Interpret(
+                        new [] { methodInfo },
+                        new Tuple<MethodBase, string[]>[] {},
+                        unitTests.GenerateTest,
+                        unitTests.GenerateError,
+                        _ => { },
+                        (_, e) => throw e,
+                        e => throw e
+                    );
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
