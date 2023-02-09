@@ -1410,6 +1410,7 @@ module internal Memory =
     let private composeTime state time =
         if time = [] then state.currentTime
         elif VectorTime.less VectorTime.zero time |> not then time
+        elif state.complete then time
         else state.currentTime @ time
 
     let rec private fillHole state term =

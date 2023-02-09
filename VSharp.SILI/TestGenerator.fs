@@ -189,7 +189,7 @@ module TestGenerator =
                     assert(Array.length parametersInfo = 1)
                     test.AddArg (Array.head parametersInfo) args
                 | None ->
-                    parametersInfo |> Seq.iter (fun pi ->
+                    for pi in parametersInfo do
                         let value =
                             if pi.ParameterType.IsByRef then
                                 let key = ParameterKey pi
@@ -198,7 +198,7 @@ module TestGenerator =
                             else
                                 Memory.ReadArgument modelState pi |> model.Complete
                         let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                        test.AddArg pi concreteValue)
+                        test.AddArg pi concreteValue
 
                 if m.HasThis then
                     let thisTerm =

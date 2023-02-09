@@ -1957,12 +1957,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
         let numElements = pop cilState
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
-            (fun cilState k ->
+        let allocate cilState k =
+            try
                 let ref = Memory.AllocateVectorArray cilState.state numElements elemType
                 push ref cilState
-                k [cilState])
+                k [cilState]
+            with
+            | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            allocate
             (this.Raise this.OverflowException)
             id
 
