@@ -5,7 +5,7 @@ from collections import defaultdict
 from common.game import GameMap, MoveReward
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
-from ml.torch_model_wrapper import TorchModelWrapper
+from ml.model_wrappers.torch_model import TorchModelWrapper
 from ml.mutation_gen import MutatorConfig, Mutator
 from ml.mutation_gen import ModelResult, IterationResults
 
@@ -56,7 +56,7 @@ def r_learn(
     mutator_config: MutatorConfig,
     connection_manager: ConnectionManager,
 ):
-    mutator = Mutator(mutator_config)
+    mutator = Mutator(mutator_config, TorchModelWrapper)
     for _ in range(epochs):
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
         models = mutator.new_generation(iteration_data)

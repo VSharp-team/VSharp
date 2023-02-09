@@ -3,7 +3,8 @@ import torch
 from torch_geometric.data import Data
 from typing import Callable
 
-
+from .predictor import Predictor
+from .mutable import Mutable
 from common.game import State, GameState
 from common.messages import Reward
 
@@ -32,7 +33,7 @@ LossFunction = (
 )
 
 
-class TorchModelWrapper:
+class TorchModelWrapper(Predictor, Mutable):
     """
     обертка над моделью (например, из TensorFlow)
     - обучает модель
@@ -57,9 +58,9 @@ class TorchModelWrapper:
         input later can be changed to <GameState, History, ...>
         """
 
-        nodes = []  # ?
-        edges = []  # ?
-        edge_attr_ = []  # ?
+        nodes: list = []  # ?
+        edges: list = []  # ?
+        edge_attr_: list = []  # ?
 
         x = torch.tensor(np.array(nodes), dtype=torch.float)
         edge_index = torch.tensor(edges, dtype=torch.long)
@@ -85,17 +86,15 @@ class TorchModelWrapper:
         encoded_expected = actual_reward_closure(0)
         ...
 
-    def predict(input: GameState):
+    def predict(self, input: GameState):
         ...
 
+    @staticmethod
+    def average_n_mutables(ms: list[Mutable]) -> Mutable:
+        return ms[0]
 
-def average_n_models(models: list[TorchModelWrapper]) -> TorchModelWrapper:
-    ...  # TODO: implement
-    return models[0]
-
-
-def mutate_random(
-    model: TorchModelWrapper, mutation_volume: float, mutation_freq: float
-) -> TorchModelWrapper:
-    ...  # TODO: implement
-    return model
+    @staticmethod
+    def mutate(
+        mutable: Mutable, mutation_volume: float, mutation_freq: float
+    ) -> Mutable:
+        return mutable

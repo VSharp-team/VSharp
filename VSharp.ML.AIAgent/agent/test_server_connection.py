@@ -22,6 +22,8 @@ def dumb_strategy(game_state: GameState) -> int:
 
 
 class TestServerConnection(unittest.TestCase):
+    cm: ConnectionManager
+
     @classmethod
     def setUpClass(cls):
         urls = ["ws://0.0.0.0:8080/gameServer"]
@@ -33,7 +35,7 @@ class TestServerConnection(unittest.TestCase):
         cls.test_map_id = maps[0].Id
 
     def do_one_dumb_step(self, with_agent: NAgent) -> Reward:
-        game_state = with_agent.recv_state_or_throw_gameover().MessageBody
+        game_state = with_agent.recv_state_or_throw_gameover()
         next_state = dumb_strategy(game_state)
         with_agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
         return with_agent.recv_reward_or_throw_gameover()

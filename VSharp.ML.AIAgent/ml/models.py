@@ -1,6 +1,5 @@
 import torch
 import torch.nn.functional as F
-from torch.nn import Linear
 from torch_geometric.nn import GATConv, Linear
 from torch_geometric.nn import GCNConv, SAGEConv, HeteroConv
 from torch_geometric.nn import global_mean_pool

@@ -2,7 +2,7 @@ import torch
 
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_train_maps
-from ml.torch_model_wrapper import TorchModelWrapper
+from ml.model_wrappers.torch_model import TorchModelWrapper
 from ml.mutation_gen import MutationProportions
 from ml.mutation_gen import MutatorConfig
 from ml.models import GCN

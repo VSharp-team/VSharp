@@ -105,4 +105,5 @@ class PredictStateHetGNN:
 
 
 if __name__ == "__main__":
-    PredictStateHetGNN(dataset=get_data_hetero(path="../../GNN_V#/Serialized_test"))
+    gnn = PredictStateHetGNN()
+    gnn.start(dataset=get_data_hetero(path="../../GNN_V#/Serialized_test"))
