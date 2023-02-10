@@ -117,6 +117,7 @@ namespace VSharp
         /// Writes textual summary of test generation process.
         /// </summary>
         /// <param name="writer">Output writer.</param>
+        // TODO: Unify with Statistics.PrintStatistics
         public void GenerateReport(TextWriter writer)
         {
             writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", TestGenerationTime.Hours,
@@ -132,6 +133,8 @@ namespace VSharp
                 }
             }
             writer.WriteLine("Test results written to {0}", OutputDir.FullName);
+            writer.WriteLine($"Tests generated: {TestsCount}");
+            writer.WriteLine($"Errors generated: {ErrorsCount}");
         }
 
         /// <summary>
@@ -187,6 +190,12 @@ namespace VSharp
             {
                 if (verbosity == Verbosity.Quiet)
                 {
+                    return;
+                }
+
+                if (exception is UnknownMethodException unknownMethodException)
+                {
+                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}");
                     return;
                 }
 

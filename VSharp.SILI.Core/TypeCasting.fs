@@ -149,11 +149,11 @@ module internal TypeCasting =
                     let notMock() = addressIsType l (Memory.typeOfHeapLocation state l) (fillType r)
                     match l with
                     | {term = ConcreteHeapAddress addr} ->
-                        match state.allocatedTypes[addr] with
-                        | MockType mockType ->
-                            match mockType.SuperTypes |> Seq.tryFind (fun st -> st.IsAssignableTo r) with
-                            | Some _ -> True
-                            | None -> False
+                        // None when addr is null
+                        match PersistentDict.tryFind state.allocatedTypes addr with
+                        | Some(MockType mockType) ->
+                            let assignableExists = mockType.SuperTypes |> Seq.exists (fun st -> st.IsAssignableTo r)
+                            if assignableExists then True else False
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, SymbolicType r ->
