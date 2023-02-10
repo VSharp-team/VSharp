@@ -146,13 +146,22 @@ module internal TypeCasting =
                     addressIsAddress l (Memory.typeOfHeapLocation state l) r (Memory.typeOfHeapLocation state r)
                 | SymbolicType l, ConcreteType r ->
                     let l = fillTerm l
-                    addressIsType l (Memory.typeOfHeapLocation state l) (fillType r)
+                    let notMock() = addressIsType l (Memory.typeOfHeapLocation state l) (fillType r)
+                    match l with
+                    | {term = ConcreteHeapAddress addr} ->
+                        match state.allocatedTypes[addr] with
+                        | MockType mockType ->
+                            match mockType.SuperTypes |> Seq.tryFind (fun st -> st.IsAssignableTo r) with
+                            | Some _ -> True
+                            | None -> False
+                        | _ -> notMock()
+                    | _ -> notMock()
                 | ConcreteType l, SymbolicType r ->
                     let r = fillTerm r
                     let notMock() = typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
                     match r with
                     | {term = ConcreteHeapAddress addr} ->
-                        match state.allocatedTypes.[addr] with
+                        match state.allocatedTypes[addr] with
                         | MockType _ -> False
                         | _ -> notMock()
                     | _ -> notMock()
