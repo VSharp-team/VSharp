@@ -37,9 +37,8 @@ namespace VSharp.Runner
             var specificClass =
                 assembly.GetType(classArgumentValue) ??
                 assembly.GetTypes()
-                    .Where(t => (t.FullName ?? t.Name)
-                    .Contains(classArgumentValue))
-                    .MinBy(t => t.Name.Length);
+                    .Where(t => (t.FullName ?? t.Name).Contains(classArgumentValue))
+                    .MinBy(t => t.FullName?.Length ?? t.Name.Length);
             if (specificClass == null)
             {
                 Console.Error.WriteLine("I did not found type you specified {0} in assembly {1}", classArgumentValue,

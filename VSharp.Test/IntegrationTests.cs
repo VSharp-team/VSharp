@@ -73,7 +73,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            Logger.ConfigureWriter(TestContext.Progress);
+            Logger.configureWriter(TestContext.Progress);
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
 
@@ -224,7 +224,7 @@ namespace VSharp.Test
                     );
                 }
 
-                Core.API.ConfigureSolver(SolverPool.mkSolver());
+                Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
                 var methodInfo = innerCommand.Test.Method.MethodInfo;
                 var stats = new TestStatistics(
                     methodInfo,
@@ -254,7 +254,15 @@ namespace VSharp.Test
                     using var explorer = new SILI(_options);
                     AssemblyManager.Load(methodInfo.Module.Assembly);
 
-                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, (_, e) => throw e);
+                    explorer.Interpret(
+                        new [] { methodInfo },
+                        new Tuple<MethodBase, string[]>[] {},
+                        unitTests.GenerateTest,
+                        unitTests.GenerateError,
+                        _ => { },
+                        (_, e) => throw e,
+                        e => throw e
+                    );
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {

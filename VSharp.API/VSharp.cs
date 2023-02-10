@@ -1,11 +1,11 @@
 ﻿#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Microsoft.FSharp.Core;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
@@ -53,15 +53,23 @@ namespace VSharp
         /// </summary>
         Quiet,
         /// <summary>
+        /// Only critical error messages.
+        /// </summary>
+        Critical,
+        /// <summary>
         /// Only error messages.
         /// </summary>
         Error,
         /// <summary>
-        /// Error and info messages.
+        /// Error and warning messages.
+        /// </summary>
+        Warning,
+        /// <summary>
+        /// Error, warning and info messages.
         /// </summary>
         Info,
         /// <summary>
-        /// Only error messages with detailed continuous statistics saved to .csv file in the output directory.
+        /// Only error messages with detailed continuous statistics which is saved to .csv file in the output directory.
         /// </summary>
         StatisticsCollection
     }
@@ -143,7 +151,7 @@ namespace VSharp
         private static Statistics StartExploration(IEnumerable<MethodBase> methods, string resultsFolder,
             coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1)
         {
-            Logger.current_log_level = verbosity.ToLoggerLevel();
+            Logger.currentLogLevel = verbosity.ToLoggerLevel();
 
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
@@ -169,7 +177,11 @@ namespace VSharp
                 );
 
             using var explorer = new SILI(options);
-            Core.API.ConfigureSolver(SolverPool.mkSolver());
+
+            // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+            // stops exactly in timeout. To guarantee that we need to pass timeout
+            // based on remaining time to solver dynamically.
+            Core.API.ConfigureSolver(SolverPool.mkSolver(timeout / 2 * 1000));
 
             void HandleInternalFail(Method? method, Exception exception)
             {
@@ -178,15 +190,35 @@ namespace VSharp
                     return;
                 }
 
-                var messageBuilder = new StringBuilder("EXCEPTION |");
+                var messageBuilder = new StringBuilder();
+
                 if (method is not null)
                 {
-                    messageBuilder.Append($" {method.DeclaringType}.{method.Name} |");
+                    messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
                 }
 
-                messageBuilder.Append($" {exception.GetType().Name} {exception.Message}");
+                messageBuilder.Append($"Exception: {exception.GetType()} {exception.Message}");
 
-                Console.WriteLine(messageBuilder.ToString());
+                var trace = new StackTrace(exception, true);
+                var frame = trace.GetFrame(0);
+
+                if (frame is not null)
+                {
+                    messageBuilder.AppendLine();
+                    messageBuilder.Append($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                }
+
+                Logger.printLogString(Logger.Error, messageBuilder.ToString());
+            }
+
+            void HandleCrash(Exception exception)
+            {
+                if (verbosity == Verbosity.Quiet)
+                {
+                    return;
+                }
+
+                Logger.printLogString(Logger.Critical, $"{exception}");
             }
 
             var isolated = new List<MethodBase>();
@@ -205,7 +237,7 @@ namespace VSharp
             }
 
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                (m, e) => HandleInternalFail(OptionModule.ToObj(m), e));
+                HandleInternalFail, HandleCrash);
 
             if (verbosity == Verbosity.StatisticsCollection)
             {
@@ -250,7 +282,9 @@ namespace VSharp
             return verbosity switch
             {
                 Verbosity.Quiet => Logger.Quiet,
+                Verbosity.Critical => Logger.Critical,
                 Verbosity.Error => Logger.Error,
+                Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
                 Verbosity.StatisticsCollection => Logger.Error
             };

@@ -19,7 +19,7 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
     let visitedEdges = HashSet<codeLocation * codeLocation>()
     let states = ResizeArray<IGraphTrackableState>()
 
-    let loc2BB loc = {method = loc.method; offset = loc.method.CFG.ResolveBasicBlock loc.offset}
+    let loc2BB loc = {method = loc.method; offset = loc.method.ForceCFG.ResolveBasicBlock loc.offset}
 
     let leave loc =
         stateMarkers.[loc] <- stateMarkers.[loc] - 1
@@ -53,7 +53,7 @@ type DotVisualizer(outputDirectory : DirectoryInfo) =
         $"{id fromLoc} -> {id toLoc} [color=\"{colorOfEdge fromLoc toLoc}\"]"
 
     let methodToDot (m : Method) =
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         seq{
             let name = m.FullName
             let id = m.Id

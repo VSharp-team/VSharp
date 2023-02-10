@@ -2031,7 +2031,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let ip = currentIp cilState
         assert(ip.CanBeExpanded())
         let startingOffset = ip.Offset()
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         let endOffset =
             let lastOffset = Seq.last cfg.SortedOffsets
             let rec binarySearch l r =
@@ -2075,7 +2075,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

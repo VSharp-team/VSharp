@@ -626,7 +626,7 @@ public static class TestsRenderer
             }
             catch (Exception e)
             {
-                Logger.writeLineString(Logger.Error, $"Tests renderer: rendering test failed: {e}");
+                Logger.printLogString(Logger.Error, $"Tests renderer: rendering test failed: {e}");
             }
         }
         generatedClass.Render();

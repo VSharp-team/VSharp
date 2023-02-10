@@ -921,22 +921,15 @@ module internal Z3 =
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
-    type internal Z3Solver() =
-//        let optCtx = ctx.MkOptimize()
-        let optCtx = ctx.MkSolver()
+    type internal Z3Solver(timeoutMs : uint option) =
+        let solver = ctx.MkSolver()
 
-//        let addSoftConstraints lvl =
-//            let pathAtoms =
-//                seq {
-//                    for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
-//                        if levelAtoms.[i] <> null then
-//                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
-//                }
-//            optCtx.Push()
-//            let weight = 1u
-//            let group = null
-//            pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
-//            pathAtoms
+        do
+            match timeoutMs with
+            | Some timeoutMs ->
+                let parameters = ctx.MkParams().Add("timeout", timeoutMs);
+                solver.Parameters <- parameters
+            | None -> ()
 
         interface ISolver with
             member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
@@ -952,19 +945,22 @@ module internal Z3 =
                                 yield query.expr
                             } |> Array.ofSeq
     //                    let pathAtoms = addSoftConstraints q.lvl
-                        let result = optCtx.Check assumptions
+                        let result = solver.Check assumptions
                         match result with
                         | Status.SATISFIABLE ->
                             Logger.trace "SATISFIABLE"
-                            let z3Model = optCtx.Model
+                            let z3Model = solver.Model
                             let model = builder.MkModel z3Model
                             SmtSat { mdl = model }
                         | Status.UNSATISFIABLE ->
                             Logger.trace "UNSATISFIABLE"
                             SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                         | Status.UNKNOWN ->
+                            Logger.error $"Solver returned Status.UNKNOWN. Reason: {solver.ReasonUnknown}\n\
+                                Expression: {assumptions |> Seq.map (fun a -> a.ToString()) |> Seq.toList}"
+
                             Logger.trace "UNKNOWN"
-                            SmtUnknown optCtx.ReasonUnknown
+                            SmtUnknown solver.ReasonUnknown
                         | _ -> __unreachable__()
                     with
                     | :? EncodingException as e ->
@@ -978,7 +974,7 @@ module internal Z3 =
                 Logger.printLogLazy Logger.Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
-                optCtx.Assert(encoded)
+                solver.Assert(encoded)
 
             member x.SetMaxBufferSize size =
                 builder.SetMaxBufferSize size
