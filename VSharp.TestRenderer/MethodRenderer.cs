@@ -338,23 +338,23 @@ internal class MethodRenderer : CodeRenderer
             Debug.Assert(elemType != null);
             var initializer = new List<ExpressionSyntax>();
             if (rank > 1)
-            {
                 throw new NotImplementedException("implement rendering for non-vector arrays");
-            }
-            else
+
+            for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
             {
-                for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
-                {
-                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
-                    var value = obj.GetValue(i);
-                    var needExplicitType = NeedExplicitType(value, elemType);
-                    // TODO: if lower bound != 0, use Array.CreateInstance
-                    initializer.Add(RenderObject(value, elementPreferredName, needExplicitType));
-                }
+                var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                var value = obj.GetValue(i);
+                var needExplicitType = NeedExplicitType(value, elemType);
+                // TODO: if lower bound != 0, use Array.CreateInstance
+                initializer.Add(RenderObject(value, elementPreferredName, needExplicitType));
             }
 
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
-            return RenderArrayCreation(type, initializer, allowImplicit);
+            var isPublic = elemType.IsPublic || elemType.IsNestedPublic;
+            if (allowImplicit || isPublic)
+                return RenderArrayCreation(type, initializer, allowImplicit);
+
+            throw new NotImplementedException("implement rendering for arrays with non-public element type");
         }
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
