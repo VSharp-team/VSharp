@@ -313,7 +313,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(method.Module.Assembly);
+            AssemblyManager.LoadCopy(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
             var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, null, timeout);
             if (renderTests)
@@ -340,7 +340,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(type.Module.Assembly);
+            AssemblyManager.LoadCopy(type.Module.Assembly);
 
             var methods = new List<MethodBase>(type.EnumerateExplorableMethods());
             if (methods.Count == 0)
@@ -377,7 +377,7 @@ namespace VSharp
             var typesArray = types as Type[] ?? types.ToArray();
             foreach (var type in typesArray)
             {
-                AssemblyManager.Load(type.Module.Assembly);
+                AssemblyManager.LoadCopy(type.Module.Assembly);
                 methods.AddRange(type.EnumerateExplorableMethods());
             }
 
@@ -415,7 +415,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(assembly);
+            AssemblyManager.LoadCopy(assembly);
             var methods =
                 new List<MethodBase>(assembly.EnumerateExplorableTypes().SelectMany(t => t.EnumerateExplorableMethods()));
             if (methods.Count == 0)
@@ -451,7 +451,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(assembly);
+            AssemblyManager.LoadCopy(assembly);
 
             var entryPoint = assembly.EntryPoint;
             if (entryPoint == null)

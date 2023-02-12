@@ -94,7 +94,8 @@ module Serialization =
         if t.assemblyName = null then null
         else
             let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
-            mdle.GetType(t.fullName)
+            let t1 = mdle.GetType(t.fullName)
+            AssemblyManager.NormalizeType t1
 
 
 type ITypeMockSerializer =

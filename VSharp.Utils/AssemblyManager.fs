@@ -2,120 +2,39 @@ namespace VSharp
 
 open System
 open System.Collections.Generic
-open System.IO
 open System.Reflection
-open System.Runtime.Loader
-open Microsoft.Extensions.DependencyModel
-open Microsoft.Extensions.DependencyModel.Resolution
-
-type internal CurrentDirectoryAssemblyResolver(assemblyPath : string) =
-    interface ICompilationAssemblyResolver with
-        member x.TryResolveAssemblyPaths(library : CompilationLibrary, assemblies : List<string>) =
-            let path = Path.Combine(assemblyPath, library.Name + ".dll")
-            if File.Exists path then
-                assemblies.Add path
-                true
-            else false
-
-[<AllowNullLiteral>]
-type internal AssemblyResolveContext(assembly : Assembly) as this =
-    let assemblyDir = Path.GetDirectoryName assembly.Location
-
-    // NB: DependencyContext.Load returns null for .NET Framework assemblies, and dependencies are
-    // loaded from shared libraries
-    let depsContext = DependencyContext.Load assembly
-
-    let resolver : ICompilationAssemblyResolver = CSharpUtils.CompositeCompilationAssemblyResolver [|
-                CurrentDirectoryAssemblyResolver assemblyDir;
-                AppBaseCompilationAssemblyResolver assemblyDir :> ICompilationAssemblyResolver;
-                ReferenceAssemblyPathResolver() :> ICompilationAssemblyResolver;
-                PackageCompilationAssemblyResolver() :> ICompilationAssemblyResolver |] :> ICompilationAssemblyResolver
-    let assemblyContext = AssemblyLoadContext.GetLoadContext assembly
-    let resolvingHandler = Func<_,_,_> this.OnResolving
-    let resolvedAssemblies = ResizeArray<Assembly>(seq {assembly})
-
-    let () =
-        assemblyContext.add_Resolving resolvingHandler
-
-    new(assemblyPath : string) =
-        new AssemblyResolveContext(Assembly.LoadFile(assemblyPath))
-
-    member private x.OnResolving (_ : AssemblyLoadContext) (assemblyName : AssemblyName) : Assembly =
-        let compLib = x.TryGetFromCompilationLibs(assemblyName)
-        let compLib =
-            match compLib with
-            | None -> x.TryGetFromRuntimeLibs(assemblyName)
-            | _ -> compLib
-
-        let resolved =
-            match compLib with
-            | Some compLib ->
-                x.LoadLibrary compLib
-            | None ->
-                x.LoadFromSharedLibrary assemblyName
-        if resolved <> null then
-            resolvedAssemblies.Add resolved
-        resolved
-
-    member private x.LoadFromSharedLibrary(assemblyName : AssemblyName) =
-        let dllPath = Path.Combine(assemblyDir, $"%s{(assemblyName.Name.Split(',')).[0]}.dll");
-        try
-            assemblyContext.LoadFromAssemblyPath dllPath
-        with ex ->
-            Logger.error $"[AssemblyManager] Assembly resolution failed: {ex}"
-            null
-
-    member x.TryGetFromCompilationLibs(assemblyName : AssemblyName) : CompilationLibrary option =
-        match depsContext with
-        | null -> None
-        | _ -> depsContext.CompileLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase))
-
-    member private x.TryGetFromRuntimeLibs(assemblyName : AssemblyName) : CompilationLibrary option =
-        match depsContext with
-        | null -> None
-        | _ ->
-            match depsContext.RuntimeLibraries |> Seq.tryFind (fun e -> e.Name.Equals(assemblyName.Name, StringComparison.OrdinalIgnoreCase)) with
-            | Some runLib ->
-                CompilationLibrary(
-                    runLib.Type,
-                    runLib.Name,
-                    runLib.Version,
-                    runLib.Hash,
-                    runLib.RuntimeAssemblyGroups |> Seq.collect (fun g -> g.AssetPaths),
-                    runLib.Dependencies,
-                    runLib.Serviceable) |> Some
-            | None -> None
-
-    member private x.LoadLibrary(compLib : CompilationLibrary) =
-        try
-            let assemblies = List<string>();
-            if resolver.TryResolveAssemblyPaths(compLib, assemblies) then
-                assemblyContext.LoadFromAssemblyPath(assemblies.[0])
-            else null
-        with ex ->
-            Logger.error "[AssemblyManager] Assembly resolution failed: %O" ex
-            null
-
-    member x.ResolvedAssemblies with get() = ResizeArray(resolvedAssemblies)
-    member x.Assembly with get() = assembly
-
-    interface IDisposable with
-        override x.Dispose() =
-            assemblyContext.remove_Resolving resolvingHandler
+open VSharp.CSharpUtils
 
 module AssemblyManager =
-    let mutable private currentResolver : AssemblyResolveContext = null
+    let mutable private alc = VSharpAssemblyLoadContext("vsharp_alc_0")
+    
+    let mutable private alcVersion = 0
 
-    let Resolve (assemblyPath : string) =
-        if currentResolver <> null then
-            (currentResolver :> IDisposable).Dispose()
-        currentResolver <- new AssemblyResolveContext(assemblyPath)
-        currentResolver.Assembly
+    let GetAssemblies() =
+        alc.Assemblies
+        
+    let SetDependenciesDirs (dirs : IEnumerable<string>) =
+        alc.DependenciesDirs = dirs
+    
+    let LoadFromAssemblyPath (assemblyPath : string) =
+        alc.LoadFromAssemblyPath assemblyPath
 
-    let Load (assembly : Assembly) =
-        if currentResolver <> null && currentResolver.Assembly <> assembly then
-            (currentResolver :> IDisposable).Dispose()
-        currentResolver <- new AssemblyResolveContext(assembly)
+    let LoadCopy (assembly : Assembly) =
+        alc.LoadFromAssemblyPath(assembly.Location)
 
-    let Assemblies() =
-        if currentResolver <> null then currentResolver.ResolvedAssemblies else null
+    let LoadFromAssemblyName (assemblyName : string) =
+        alc.LoadFromAssemblyName(AssemblyName(assemblyName))
+
+    let NormalizeType (t : Type) =
+        alc.NormalizeType(t)
+
+    let NormalizeMethod (m : MethodInfo) =
+        alc.NormalizeMethod(m)
+
+    // Used in tests to reset the state. For example, in tests Veritas.
+    // A more correct approach is to inject a VSharpAssemblyLoadContext instance
+    // into all places of use via the constructor.
+    // But there are no resources for this approach.
+    let Reset() =
+        alcVersion <- alcVersion + 1
+        alc <- VSharpAssemblyLoadContext("vsharp_alc_" + alcVersion.ToString())
