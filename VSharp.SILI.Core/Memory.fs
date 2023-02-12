@@ -372,7 +372,7 @@ module internal Memory =
         | StructType _ ->
             let makeField _ field typ =
                 let fieldSource = {baseSource = source; field = field}
-                makeSymbolicValue fieldSource (toString field) typ
+                makeSymbolicValue fieldSource $"{name}.{field}" typ
             makeStruct false makeField typ
         | ReferenceType ->
             let addressSource : heapAddressSource = {baseSource = source}
@@ -1484,7 +1484,7 @@ module internal Memory =
         | :? stackReading as sr -> Some(sr.key)
         | _ -> None
 
-    type structField with
+    type private structField with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
                 let structTerm =

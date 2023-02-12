@@ -234,7 +234,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression encCtx t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm encCtx address
-                    | _ -> internalfailf "unexpected term: %O" t
+                    | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions encCtx typ result else result
                 { result with assumptions = x.SimplifyAndElements result.assumptions |> List.ofSeq }
