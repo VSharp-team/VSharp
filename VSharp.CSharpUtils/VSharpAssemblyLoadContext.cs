@@ -102,9 +102,14 @@ namespace VSharp.CSharpUtils
 
         public MethodInfo NormalizeMethod(MethodInfo originMethod)
         {
-            LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
-            // WARNING: we do not consider global methods here.
-            // They need to be normalized separately. If the method is global, then ReflectedType == null
+            var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
+            if (originMethod.ReflectedType is null)
+            {
+                return asm.Modules
+                    .SelectMany(m => m.GetMethods())
+                    .First(m => m.MetadataToken == originMethod.MetadataToken);
+            }
+
             var type = _types[originMethod.ReflectedType.FullName];
             var method = type.GetMethods()
                 .First(m => m.MetadataToken == originMethod.MetadataToken);
