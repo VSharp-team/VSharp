@@ -161,8 +161,9 @@ module internal TypeCasting =
                     let notMock() = typeIsAddress (fillType l) r (Memory.typeOfHeapLocation state r)
                     match r with
                     | {term = ConcreteHeapAddress addr} ->
-                        match state.allocatedTypes[addr] with
-                        | MockType _ -> False
+                        // None when addr is null
+                        match PersistentDict.tryFind state.allocatedTypes addr with
+                        | Some(MockType _) -> False
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
