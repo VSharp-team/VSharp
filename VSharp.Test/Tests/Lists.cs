@@ -370,7 +370,7 @@ namespace IntegrationTests
             return 3;
         }
 
-        [Ignore("Heisenbug")]
+        [TestSvm(100)]
         public static int TestOverlappingCopy1(int[] a, int i)
         {
             if (a != null && a.Length > 5)

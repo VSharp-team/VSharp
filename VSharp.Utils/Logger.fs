@@ -53,7 +53,7 @@ module Logger =
         if currentLogLevel >= vLevel && tagFilter tag then
             Printf.ksprintf (writeLineString vLevel tag) format (s.Force())
 
-    let public printLogLazy vLevel format (s : Lazy<_>) = printLogLazyWithTag "" vLevel format
+    let public printLogLazy vLevel format s = printLogLazyWithTag "" vLevel format s
 
     let public error format = printLog Error format
     let public warning format = printLog Warning format

@@ -20,9 +20,10 @@ internal class CodeRenderer
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
-        public readonly List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> SetupClauses;
+        // TODO: need to save type of clauses from mock definition?
+        public readonly List<(MethodInfo, Type, SimpleNameSyntax)> SetupClauses;
 
-        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses)
+        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses)
         {
             MockName = mockName;
             SetupClauses = setupClauses;
@@ -56,7 +57,7 @@ internal class CodeRenderer
 
         public DelegateMockInfo(
             SimpleNameSyntax mockName,
-            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses,
+            List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses,
             SimpleNameSyntax delegateMethod,
             Type delegateType) : base(mockName, setupClauses)
         {

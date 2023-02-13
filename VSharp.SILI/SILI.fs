@@ -3,6 +3,7 @@ namespace VSharp.Interpreter.IL
 open System
 open System.Reflection
 open System.Collections.Generic
+open System.Threading.Tasks
 open FSharpx.Collections
 
 open VSharp
@@ -14,9 +15,12 @@ open VSharp.Solver
 
 type public SILI(options : SiliOptions) =
 
-    let timeout = if options.timeout <= 0 then Double.PositiveInfinity else float options.timeout * 1000.0
+    let hasTimeout = options.timeout > 0
+    let timeout =
+        if not hasTimeout then Double.PositiveInfinity
+        else float options.timeout * 1000.0
     let branchReleaseTimeout =
-        if options.timeout <= 0 then Double.PositiveInfinity
+        if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then timeout
         else timeout * 80.0 / 100.0
 
@@ -405,30 +409,42 @@ type public SILI(options : SiliOptions) =
             reportFinished <- wrapOnTest onFinished None
             reportError <- wrapOnError onException None
             try
-                let trySubstituteTypeParameters method =
-                    let typeModel = typeModel.CreateEmpty()
-                    (Option.defaultValue method (x.TrySubstituteTypeParameters typeModel method), typeModel)
-                interpreter.ConfigureErrorReporter reportError
-                let isolated =
-                    isolated
-                    |> Seq.map trySubstituteTypeParameters
-                    |> Seq.map (fun (m, tm) -> Application.getMethod m, tm) |> Seq.toList
-                let entryPoints =
-                    entryPoints
-                    |> Seq.map (fun (m, a) ->
-                        let m, tm = trySubstituteTypeParameters m
-                        (Application.getMethod m, a, tm))
-                    |> Seq.toList
-                x.Reset ((isolated |> List.map fst) @ (entryPoints |> List.map (fun (m, _, _) -> m)))
-                let isolatedInitialStates = isolated |> List.collect x.FormIsolatedInitialStates
-                let entryPointsInitialStates = entryPoints |> List.collect x.FormEntryPointInitialStates
-                let iieStates, initialStates = isolatedInitialStates @ entryPointsInitialStates |> List.partition (fun state -> state.iie.IsSome)
-                iieStates |> List.iter reportStateIncomplete
-                statistics.SetStatesGetter(fun () -> searcher.States())
-                statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
-                if not initialStates.IsEmpty then
-                    x.AnswerPobs initialStates
-            with e -> reportCrash e
+                let initializeAndStart () =
+                    let trySubstituteTypeParameters method =
+                        let typeModel = typeModel.CreateEmpty()
+                        (Option.defaultValue method (x.TrySubstituteTypeParameters typeModel method), typeModel)
+                    interpreter.ConfigureErrorReporter reportError
+                    let isolated =
+                        isolated
+                        |> Seq.map trySubstituteTypeParameters
+                        |> Seq.map (fun (m, tm) -> Application.getMethod m, tm) |> Seq.toList
+                    let entryPoints =
+                        entryPoints
+                        |> Seq.map (fun (m, a) ->
+                            let m, tm = trySubstituteTypeParameters m
+                            (Application.getMethod m, a, tm))
+                        |> Seq.toList
+                    x.Reset ((isolated |> List.map fst) @ (entryPoints |> List.map (fun (m, _, _) -> m)))
+                    let isolatedInitialStates = isolated |> List.collect x.FormIsolatedInitialStates
+                    let entryPointsInitialStates = entryPoints |> List.collect x.FormEntryPointInitialStates
+                    let iieStates, initialStates =
+                        isolatedInitialStates @ entryPointsInitialStates
+                        |> List.partition (fun state -> state.iie.IsSome)
+                    iieStates |> List.iter reportStateIncomplete
+                    statistics.SetStatesGetter(fun () -> searcher.States())
+                    statistics.SetStatesCountGetter(fun () -> searcher.StatesCount)
+                    if not initialStates.IsEmpty then
+                        x.AnswerPobs initialStates
+                let explorationTask = Task.Run(initializeAndStart)
+                let finished =
+                    if hasTimeout then explorationTask.Wait(int (timeout * 1.5))
+                    else explorationTask.Wait(); true
+                if not finished then Logger.warning "Execution was cancelled due to timeout"
+            with
+            | :? AggregateException as e ->
+                Logger.warning "Execution was cancelled"
+                reportCrash e.InnerException
+            | e -> reportCrash e
         finally
             try
                 statistics.ExplorationFinished()
