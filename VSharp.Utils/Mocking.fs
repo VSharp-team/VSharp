@@ -201,10 +201,14 @@ module Mocking =
             interfaces |> ResizeArray.iter typeBuilder.AddInterfaceImplementation
 
             methods |> ResizeArray.iter (fun methodMock -> methodMock.Build typeBuilder)
-            // TODO: type = ICollection, method GetEnumerator does not overriden and fails to create type
             typeBuilder.CreateType()
 
         member x.Serialize(encode : obj -> obj) =
+            let interfaces =
+                Seq.collect TypeUtils.getBaseInterfaces interfaces
+                |> Seq.append interfaces
+                |> Seq.distinct
+                |> ResizeArray.ofSeq
             let interfaceMethods = interfaces |> ResizeArray.toArray |> Array.collect (fun i -> i.GetMethods())
             let methodsToImplement =
                 match baseClass with

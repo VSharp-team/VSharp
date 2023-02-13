@@ -671,7 +671,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let zero = MakeNumber 0
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
-            let check = index << lb ||| (Arithmetics.Add index length) >> numOfAllElements ||| length << zero
+            let check = (index << lb) ||| ((Arithmetics.Add index length) >> numOfAllElements) ||| (length << zero)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.IndexOutOfRangeException)
