@@ -394,18 +394,19 @@ public static class TestsRenderer
         MethodsFormat[test.MethodId.ToString()] = f;
     }
 
-    private static (ArrayTypeSyntax, SimpleNameSyntax, SimpleNameSyntax) RenderNonVoidMockedMethod(
+    private static (Type, SimpleNameSyntax, SimpleNameSyntax) RenderNonVoidMockedMethod(
         TypeRenderer mock,
         MethodInfo m)
     {
         // Rendering mocked method clauses
-        var returnTypeArray = (ArrayTypeSyntax) mock.RenderType(m.ReturnType.MakeArrayType());
+        var returnType = m.ReturnType.MakeArrayType();
+        var renderedReturnType = (ArrayTypeSyntax) mock.RenderType(returnType);
         var methodName = mock.RenderMethodName(m).ToString();
         var valuesFieldName = $"_clauses{methodName}";
         var emptyArray =
             RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
         var valuesField =
-            mock.AddField(returnTypeArray, valuesFieldName, new[] { Private }, emptyArray);
+            mock.AddField(renderedReturnType, valuesFieldName, new[] { Private }, emptyArray);
         var currentName = $"_currentClause{methodName}";
         var zero = RenderLiteral(0);
         var currentValueField =
@@ -417,7 +418,7 @@ public static class TestsRenderer
                 null,
                 new [] { Public },
                 mock.VoidType,
-                (returnTypeArray, "clauses")
+                (renderedReturnType, "clauses")
             );
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
@@ -448,7 +449,7 @@ public static class TestsRenderer
             RenderArrayAccess(valuesField, new ExpressionSyntax[] { fieldWithIncrement });
         body.AddReturn(validCase);
         mockedMethod.Render();
-        return (returnTypeArray, setupMethod.MethodId, mockedMethod.MethodId);
+        return (returnType, setupMethod.MethodId, mockedMethod.MethodId);
     }
 
     private static SimpleNameSyntax RenderVoidMockedMethod(
@@ -480,7 +481,7 @@ public static class TestsRenderer
         Mocking.Type typeMock,
         bool isDelegate)
     {
-        var methodsInfo = new List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)>();
+        var methodsInfo = new List<(MethodInfo, Type, SimpleNameSyntax)>();
 
         SimpleNameSyntax? methodId = null;
 

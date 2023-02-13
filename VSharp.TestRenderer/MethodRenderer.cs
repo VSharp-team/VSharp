@@ -349,6 +349,7 @@ internal class MethodRenderer : CodeRenderer
                 initializer.Add(RenderObject(value, elementPreferredName, needExplicitType));
             }
 
+            // TODO: handle recursive array case
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
             var isPublic = elemType.IsPublic || elemType.IsNestedPublic;
             if (allowImplicit || isPublic)
@@ -524,7 +525,7 @@ internal class MethodRenderer : CodeRenderer
         private void RenderClausesSetup(
             Type typeOfMock,
             SimpleNameSyntax mockId,
-            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> clauses)
+            List<(MethodInfo, Type, SimpleNameSyntax)> clauses)
         {
             if (clauses.Count == 0) return;
 
@@ -538,7 +539,8 @@ internal class MethodRenderer : CodeRenderer
 
                 if (storage.Length > 0)
                 {
-                    var values = RenderArray(valuesType, storage, "values");
+                    var renderedType = (ArrayTypeSyntax) RenderType(valuesType);
+                    var values = RenderArray(renderedType, storage, "values");
                     var renderedValues =
                         storage.Length <= 5 ? values : AddDecl("values", null, values);
                     AddExpression(RenderCall(mockId, setupMethod, renderedValues));

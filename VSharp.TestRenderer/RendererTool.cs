@@ -310,7 +310,7 @@ public static class Renderer
             }
             case PropertyDeclarationSyntax propertyDecl:
             {
-                return propertyDecl.Identifier.ToString();
+                return $"{propertyDecl.ExplicitInterfaceSpecifier}{propertyDecl.Type}{propertyDecl.Identifier}";
             }
             case BaseNamespaceDeclarationSyntax namespaceDecl:
             {
