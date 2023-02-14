@@ -401,8 +401,7 @@ and Method internal (m : MethodBase) as this =
         member this.OutgoingEdges with get () =
             let edges = HashSet<_>()              
             for bb in this.CFG.EntryPoint.IncomingCallEdges do                
-                let added = edges.Add bb.Method
-                assert added
+                edges.Add bb.Method |> ignore                
             edges |> Seq.cast<IReversedCallGraphNode>
 
     static member val internal AttributesZone : Method -> bool = fun _ -> true with get, set
