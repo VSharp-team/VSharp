@@ -61,7 +61,7 @@ class Mutator:
 
     def averaged_n_tops(self, iteration_results: IterationResults, n: int) -> Mutable:
         # среднее по топам
-        return self.mutable_type.average_n_models(self.n_tops(iteration_results, n))
+        return self.mutable_type.average_n_mutables(self.n_tops(iteration_results, n))
 
     def averaged_all(self, iteration_results) -> Mutable:
         # среднее по всем отобранным нейронкам
@@ -72,14 +72,14 @@ class Mutator:
                 map(lambda t: t[0], iteration_results[game_map])
             )  # take TfModelWrapper
 
-        return self.mutable_type.average_n_models(all)
+        return self.mutable_type.average_n_mutables(all)
 
     def random_n_tops_averaged_mutations(
         self, iteration_results: IterationResults, n: int
     ) -> list[Mutable]:
         # случайные мутации среднего по топам
         return self.mutable_type.mutate(
-            model=self.averaged_n_tops(iteration_results, n),
+            mutable=self.averaged_n_tops(iteration_results, n),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
@@ -89,7 +89,7 @@ class Mutator:
     ) -> Mutable:
         # случайные мутации среднего по всем отобранным нейронкам
         return self.mutable_type.mutate(
-            model=self.averaged_all(iteration_results),
+            mutable=self.averaged_all(iteration_results),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )

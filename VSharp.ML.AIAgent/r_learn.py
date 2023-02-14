@@ -3,9 +3,11 @@ from itertools import product
 from collections import defaultdict
 
 from common.game import GameMap, MoveReward
+from common.utils import compute_coverage_percent
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from ml.model_wrappers.protocols import RLearner
+from ml.model_wrappers.torch_model import TorchModelWrapper
 from ml.mutation_gen import MutatorConfig, Mutator
 from ml.mutation_gen import ModelResult, IterationResults
 
@@ -21,7 +23,7 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
     iteration_data: IterationResults = defaultdict(list)
 
     for model, map in games:
-        with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps, log=True)) as agent:
+        with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
             cumulative_reward = MoveReward(0, 0)
             steps_count = 0
 
@@ -41,6 +43,13 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
                 steps_count += 1
 
         model_result: ModelResult = (model, (cumulative_reward, steps_count))
+        print("=" * 80)
+        print(f"model {model}:")
+        print(f"steps: {steps_count}")
+        print(f"reward: {cumulative_reward}")
+        print(
+            f"coverage: {compute_coverage_percent(game_state, model_result[1][0].ForCoverage):.2f}"
+        )
         iteration_data[map].append(model_result)
 
     return iteration_data
@@ -54,7 +63,7 @@ def r_learn(
     mutator_config: MutatorConfig,
     connection_manager: ConnectionManager,
 ) -> None:
-    mutator = Mutator(mutator_config, RLearner)
+    mutator = Mutator(mutator_config, TorchModelWrapper)
     for _ in range(epochs):
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
         models = mutator.new_generation(iteration_data)

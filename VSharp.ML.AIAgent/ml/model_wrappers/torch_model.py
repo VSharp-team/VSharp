@@ -1,3 +1,5 @@
+import random
+import string
 import numpy as np
 import torch
 from torch_geometric.data import Data
@@ -48,6 +50,11 @@ class TorchModelWrapper(ModelWrapper):
         self.model = torch_model
         self.optimiser = optimiser
         self.criterion = criterion
+
+        self.name = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+
+    def __str__(self) -> str:
+        return self.name
 
     @staticmethod
     def convert_input_to_tensor(input: GameState):
