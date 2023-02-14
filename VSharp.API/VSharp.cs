@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -367,7 +367,7 @@ namespace VSharp
         /// Generates test coverage for all public methods of specified types.
         /// </summary>
         /// <param name="types">Types to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
@@ -382,11 +382,13 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            List<MethodBase> methods = new List<MethodBase>();
+            var methods = new List<MethodBase>();
             var typesArray = types as Type[] ?? types.ToArray();
+            var assemblies = new HashSet<Assembly>();
+
             foreach (var type in typesArray)
             {
-                AssemblyManager.LoadCopy(type.Module.Assembly);
+                assemblies.Add(type.Assembly);
                 methods.AddRange(type.EnumerateExplorableMethods());
             }
 
@@ -394,6 +396,11 @@ namespace VSharp
             {
                 var names = String.Join(", ", typesArray.Select(t => t.FullName));
                 throw new ArgumentException("I've not found any public methods or constructors of classes " + names);
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                AssemblyManager.LoadCopy(assembly);
             }
 
             var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout);
@@ -470,7 +477,10 @@ namespace VSharp
 
             var methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, args, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, args, timeout);
+            if (renderTests)
+                Render(statistics);
+            return statistics;
         }
 
         /// <summary>

@@ -342,6 +342,33 @@ namespace IntegrationTests
             return a;
         }
     }
+
+    [TestSvmFixture]
+    public static class NestedGenerics
+    {
+        [TestSvm(100)]
+        public static int NestedGenericsSmokeTest(List<Bag<int>> list)
+        {
+            if (list.Count > 0)
+            {
+                return 0;
+            }
+
+            return 1;
+        }
+        
+        [TestSvm(100)]
+        public static int NestedGenericsSmokeTest2(Dictionary<int, Bag<int>> dict)
+        {
+            if (dict.Count > 0)
+            {
+                return 0;
+            }
+
+            return 1;
+        }
+    }
+
 //    public static class GenericCast
 //    {
 //        public static void FilterAndKeep(List<Pawn> listPawn, IKeeper<Pawn> bag)
