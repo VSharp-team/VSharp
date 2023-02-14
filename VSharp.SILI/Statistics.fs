@@ -56,7 +56,6 @@ type continuousStatistics =
 
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics(statsDumpIntervalMs : int) as this =
-    let startIp2currentIp = Dictionary<codeLocation, Dictionary<codeLocation, uint>>()
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<codeLocation * string>()
@@ -180,22 +179,8 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.TrackStepForward (s : cilState) =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
-        let startLoc = ip2codeLocation s.startingIP
-        let currentLoc = ip2codeLocation (currentIp s)
-        match startLoc, currentLoc with
-        | Some startLoc, Some currentLoc when isHeadOfBasicBlock currentLoc ->
-            let mutable startRefDict = ref null
-            if not <| startIp2currentIp.TryGetValue(startLoc, startRefDict) then
-                startRefDict <- ref (Dictionary<codeLocation, uint>())
-                startIp2currentIp.Add(startLoc, startRefDict.Value)
-            let startDict = startRefDict.Value
-
-            let mutable currentRef = ref 0u
-            if not <| startDict.TryGetValue(currentLoc, currentRef) then
-                currentRef <- ref 0u
-                startDict.Add(currentLoc, 0u)
-            startDict.[currentLoc] <- currentRef.Value + 1u
-
+        match ip2codeLocation (currentIp s) with
+        | Some currentLoc when isHeadOfBasicBlock currentLoc ->
             let mutable totalRef = ref 0u
             if not <| totalVisited.TryGetValue(currentLoc, totalRef) then
                 totalRef <- ref 0u
@@ -329,7 +314,6 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
     member x.Reset() =
-        startIp2currentIp.Clear()
         totalVisited.Clear()
         unansweredPobs.Clear()
         internalFails.Clear()
