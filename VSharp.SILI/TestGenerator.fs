@@ -133,9 +133,10 @@ module TestGenerator =
                 obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
+            let term2Obj = model.Eval >> term2obj model state indices mockCache test
             let eval address =
-                address |> Ref |> Memory.Read state |> model.Eval |> term2obj model state indices mockCache test
-            let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache test)
+                address |> Ref |> Memory.Read state |> term2Obj
+            let arr2Obj = encodeArrayCompactly state model term2Obj
             let typ = state.allocatedTypes.[addr]
             obj2test eval arr2Obj indices (encodeTypeMock model state indices mockCache test >> test.AllocateMockObject) test addr typ
         | Combined(terms, t) ->
@@ -189,7 +190,7 @@ module TestGenerator =
                     assert(Array.length parametersInfo = 1)
                     test.AddArg (Array.head parametersInfo) args
                 | None ->
-                    parametersInfo |> Seq.iter (fun pi ->
+                    for pi in parametersInfo do
                         let value =
                             if pi.ParameterType.IsByRef then
                                 let key = ParameterKey pi
@@ -198,7 +199,7 @@ module TestGenerator =
                             else
                                 Memory.ReadArgument modelState pi |> model.Complete
                         let concreteValue : obj = term2obj model cilState.state indices mockCache test value
-                        test.AddArg pi concreteValue)
+                        test.AddArg pi concreteValue
 
                 if m.HasThis then
                     let thisTerm =

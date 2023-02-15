@@ -44,10 +44,12 @@ module CallGraph =
             if List.contains current processedMethods || not (fromCurrentAssembly assembly current) then exit processedMethods methodsQueue
             else
                 let processedMethods = current :: processedMethods
-                if current.HasBody then
-                    current.CFG.Calls |> Seq.iter (fun kvp ->
+                match current.CFG with
+                | Some cfg ->
+                    cfg.Calls |> Seq.iter (fun kvp ->
                         let m = kvp.Value.Callee
                         addCall methods methodsReachability current m)
+                | None -> ()
                 let newQ =
                     if methodsReachability.ContainsKey(current) then List.ofSeq methodsReachability.[current] @ methodsQueue
                     else methodsQueue
@@ -120,4 +122,3 @@ module CallGraph =
             if i.Value <> GraphUtils.infinity then
                 distToNode.Add(i.Key, i.Value)
         distToNode)
-

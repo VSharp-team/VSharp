@@ -205,6 +205,11 @@ module Mocking =
             typeBuilder.CreateType()
 
         member x.Serialize(encode : obj -> obj) =
+            let interfaces =
+                Seq.collect TypeUtils.getBaseInterfaces interfaces
+                |> Seq.append interfaces
+                |> Seq.distinct
+                |> ResizeArray.ofSeq
             let interfaceMethods = interfaces |> ResizeArray.toArray |> Array.collect (fun i -> i.GetMethods())
             let methodsToImplement =
                 match baseClass with

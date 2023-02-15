@@ -1,15 +1,12 @@
 namespace VSharp
 
+open System.Collections.Concurrent
 open global.System
 open System.Reflection
 open System.Collections.Generic
 open FSharpx.Collections
 open Microsoft.FSharp.Collections
 open VSharp
-
-type coverageType =
-    | ByTest
-    | ByEntryPointTest
 
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
@@ -260,10 +257,10 @@ and Method internal (m : MethodBase) as this =
             cfg |> CfgInfo |> Some
         else None)
 
-    let blocksCoverage = Dictionary<offset, coverageType>()
+    member x.CFG with get() = cfg.Force()
 
-    member x.CFG with get() =
-        match cfg.Force() with
+    member x.ForceCFG with get() =
+        match x.CFG with
         | Some cfg -> cfg
         | None -> internalfailf $"Getting CFG of method {x} without body (extern or abstract)"
 
@@ -273,7 +270,7 @@ and Method internal (m : MethodBase) as this =
 
     // Returns a sequence of strings, one per instruction in basic block
     member x.BasicBlockToString (offset : offset) : string seq =
-        let cfg = x.CFG
+        let cfg = x.ForceCFG
         let idx = cfg.ResolveBasicBlockIndex offset
         let offset = cfg.SortedOffsets.[idx]
         let parsedInstrs = x.ParsedInstructions
@@ -298,20 +295,9 @@ and Method internal (m : MethodBase) as this =
     member x.CheckAttributes with get() = Method.AttributesZone x
 
     member x.BasicBlocksCount with get() =
-        if x.HasBody then x.CFG.SortedOffsets |> Seq.length |> uint else 0u
-
-    member x.BlocksCoveredByTests with get() = blocksCoverage.Keys |> Set.ofSeq
-
-    member x.BlocksCoveredFromEntryPoint with get() =
-        blocksCoverage |> Seq.choose (fun kv -> if kv.Value = ByEntryPointTest then Some kv.Key else None) |> Set.ofSeq
-
-    member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
-        match blocksCoverage.GetValueOrDefault(offset, ByTest) with
-        | ByTest ->
-            blocksCoverage.[offset] <- if testEntryMethod = x then ByEntryPointTest else ByTest
-        | ByEntryPointTest -> ()
-
-    member x.ResetStatistics() = blocksCoverage.Clear()
+        match x.CFG with
+        | Some cfg -> cfg.SortedOffsets |> Seq.length |> uint
+        | None -> 0u
 
 [<CustomEquality; CustomComparison>]
 type public codeLocation = {offset : offset; method : Method}
@@ -332,7 +318,9 @@ type public codeLocation = {offset : offset; method : Method}
 module public CodeLocation =
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
-        method.HasBody && method.CFG.HasSiblings blockStart.offset
+        match method.CFG with
+        | Some cfg -> cfg.HasSiblings blockStart.offset
+        | None -> false
 
 type IGraphTrackableState =
     abstract member CodeLocation: codeLocation
@@ -361,25 +349,17 @@ type ApplicationGraph() as this =
         //__notImplemented__()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
-        Logger.trace "Move state."
+        ()
         //__notImplemented__()
 
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
-        Logger.trace "Add states."
+        ()
         //__notImplemented__()
 
     let getShortestDistancesToGoals (states:array<codeLocation>) =
         __notImplemented__()
 
     let messagesProcessor = MailboxProcessor.Start(fun inbox ->
-        let tryGetCfgInfo (method : Method) =
-            if method.HasBody then
-                // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
-                // TODO: fix it
-                let cfg = method.CFG
-                Some cfg
-            else None
-
         async{
             while true do
                 let! message = inbox.Receive()
@@ -393,10 +373,10 @@ type ApplicationGraph() as this =
                             | Some ch -> ch.Reply cfgInfo
                             | None -> ()
                         assert method.HasBody
-                        let cfg = tryGetCfgInfo method |> Option.get
+                        let cfg = method.CFG |> Option.get
                         reply cfg
                     | AddCallEdge (_from, _to) ->
-                        match tryGetCfgInfo _from.method, tryGetCfgInfo _to.method with
+                        match _from.method.CFG, _to.method.CFG with
                         | Some _, Some _ ->  addCallEdge _from _to
                         | _ -> ()
                     | AddGoals positions ->
@@ -409,7 +389,7 @@ type ApplicationGraph() as this =
                     | AddForkedStates (parentState, forkedStates) ->
                         addStates (Some parentState) (Array.ofSeq forkedStates)
                     | MoveState (_from,_to) ->
-                        tryGetCfgInfo _to.CodeLocation.method |> ignore
+                        _to.CodeLocation.method.CFG |> ignore
                         moveState _from _to
                     | GetShortestDistancesToGoals (replyChannel, states) ->
                         Logger.trace "Get shortest distances."
@@ -490,16 +470,15 @@ type NullVisualizer() =
 
 
 module Application =
-    let private methods = Dictionary<methodDescriptor, Method>()
-    let private _loadedMethods = HashSet<_>()
+    let private methods = ConcurrentDictionary<methodDescriptor, Method>()
+    let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
     let graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
 
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
-        lock methods (fun () ->
-        Dict.getValueOrUpdate methods desc (fun () -> Method(m)))
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m))
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
@@ -529,13 +508,9 @@ module Application =
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
 
-    let resetMethodStatistics() =
-        lock methods (fun () ->
-            for method in methods.Values do
-                method.ResetStatistics())
-
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody
         Method.ReportCFGLoaded <- fun m ->
             graph.RegisterMethod m
-            let added = _loadedMethods.Add(m) in assert added
+            let added = _loadedMethods.TryAdd(m, ())
+            assert added

@@ -1,9 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using VSharp.Test;
 
 namespace IntegrationTests;
-
-using VSharp.Test;
 
 public interface IDependence
 {
@@ -18,6 +18,16 @@ public interface IDependence2
 public interface INetwork
 {
     int Read();
+}
+
+public interface IFoo
+{
+    int Foo();
+}
+
+public interface IBar : IFoo
+{
+    int Bar();
 }
 
 [TestSvmFixture]
@@ -48,7 +58,7 @@ public class Mocking
 
         if (input.X > 0)
             throw new NullReferenceException("explicit");
-        
+
         input.X = -input.X;
 
         return input.X;
@@ -67,4 +77,32 @@ public class Mocking
         return count;
     }
 
+    [TestSvm(100)]
+    public bool Enumerable(IEnumerable<int> enumerable)
+    {
+        var enumerator = enumerable.GetEnumerator();
+        return enumerator.MoveNext();
+    }
+
+    [TestSvm(100)]
+    public bool InterfaceInheritance1(IBar iBar)
+    {
+        if (iBar.Foo() > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    [TestSvm(100)]
+    public bool InterfaceInheritance2(IBar iBar)
+    {
+        if (iBar.Bar() > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
 }

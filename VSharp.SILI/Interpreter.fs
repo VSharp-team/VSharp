@@ -671,7 +671,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let zero = MakeNumber 0
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
-            let check = index << lb ||| (Arithmetics.Add index length) >> numOfAllElements ||| length << zero
+            let check = (index << lb) ||| ((Arithmetics.Add index length) >> numOfAllElements) ||| (length << zero)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.IndexOutOfRangeException)
@@ -1957,12 +1957,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
         let numElements = pop cilState
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
-            (fun cilState k ->
+        let allocate cilState k =
+            try
                 let ref = Memory.AllocateVectorArray cilState.state numElements elemType
                 push ref cilState
-                k [cilState])
+                k [cilState]
+            with
+            | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            allocate
             (this.Raise this.OverflowException)
             id
 
@@ -2027,7 +2031,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let ip = currentIp cilState
         assert(ip.CanBeExpanded())
         let startingOffset = ip.Offset()
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         let endOffset =
             let lastOffset = Seq.last cfg.SortedOffsets
             let rec binarySearch l r =
@@ -2071,7 +2075,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

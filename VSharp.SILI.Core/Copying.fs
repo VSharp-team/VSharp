@@ -16,8 +16,13 @@ module internal Copying =
             let casted = TypeCasting.cast srcElem dstElemType
             let dstIndex = add dstIndex (makeNumber offset)
             let dstIndices = delinearizeArrayIndex dstIndex dstLens dstLBs
+            // Saving source elements before writing in case of overlapping copy
+            dstIndices, casted
+        let toWrite = List.map copyOneElem offsets
+        let writeCopied (dstIndices, casted) =
+            // Writing saved source elements
             writeArrayIndex state dstAddress dstIndices dstType casted
-        List.iter copyOneElem offsets
+        List.iter writeCopied toWrite
 
     let private copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length =
         let dstElemType = fst3 dstType

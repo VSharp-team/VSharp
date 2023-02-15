@@ -44,7 +44,7 @@ module EqualityComparer =
             let compareOneField acc (field, _) =
                 let block1Field = Memory.ReadField state block1 field
                 let block2Field = Memory.ReadField state block2 field
-                block1Field === block2Field &&& acc
+                (block1Field === block2Field) &&& acc
             let blockFields = Reflection.fieldsOf false blockType
             Array.fold compareOneField True blockFields
         let typeEquals = Types.RefIsRef state block1 block2 &&& Types.RefIsRef state block2 block1
