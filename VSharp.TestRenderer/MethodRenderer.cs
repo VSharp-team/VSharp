@@ -384,7 +384,7 @@ internal class MethodRenderer : CodeRenderer
                 var defaultValueName = preferredName + "Default";
                 var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
                 var call =
-                    RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
+                    RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
                 AddExpression(call);
             }
             for (int i = 0; i < indices.Length; i++)
