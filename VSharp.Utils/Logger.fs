@@ -33,7 +33,7 @@ module Logger =
         | 5 -> "Trace"
         | _ -> "Unknown"
 
-    let writeLineString vLevel tag (message : string) =
+    let private writeLineString vLevel tag (message : string) =
         let builder = StringBuilder $"[{LevelToString vLevel}] "
         let builder = if writeTimestamps then builder.Append $"[%A{DateTime.Now}] " else builder
         let builder = if tag <> "" then builder.Append $"[{tag}] " else builder

@@ -188,8 +188,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
             let mocker = Mocking.Mocker([||])
             let decodeTypeParameter (concrete : typeRepr) (mock : typeMockRepr) =
                 let t = Serialization.decodeType concrete
-                if t = null then
-                    mocker.BuildDynamicType mock |> snd
+                if t = null then mocker.BuildDynamicType mock |> snd
                 else t
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters

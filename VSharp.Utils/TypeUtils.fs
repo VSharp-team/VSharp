@@ -41,7 +41,11 @@ module TypeUtils =
     let addressType = typeof<AddressTypeAgent>
 
     let szArrayHelper = lazy Type.GetType("System.SZArrayHelper")
+
     // ---------------------------------- Basic type predicates ----------------------------------
+
+    let isPublic (x : Type) =
+        x.IsPublic || x.IsNestedPublic
 
     let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType

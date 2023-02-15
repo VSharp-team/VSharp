@@ -13,6 +13,7 @@ type IMethod =
     abstract FullName : string
     abstract ReturnType : Type
     abstract DeclaringType : Type
+    abstract ReflectedType : Type
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool

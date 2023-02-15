@@ -54,6 +54,7 @@ module public SolverInteraction =
             onSolverStopped()
             match result, state.model with
             | SmtSat { mdl = StateModel(modelState, _) }, StateModel(_, typeModel) ->
-                SmtSat { mdl = StateModel(modelState, typeModel) }
+                // Copying type model to prevent it from mutating in forked state
+                SmtSat { mdl = StateModel(modelState, typeModel.Copy()) }
             | result, _ -> result
         | None -> SmtUnknown ""

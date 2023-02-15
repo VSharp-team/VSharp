@@ -399,8 +399,7 @@ internal class MethodRenderer : CodeRenderer
 
             // TODO: handle recursive array case
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
-            var isPublic = elemType.IsPublic || elemType.IsNestedPublic;
-            if (allowImplicit || isPublic)
+            if (allowImplicit || TypeUtils.isPublic(elemType))
                 return RenderArrayCreation(type, initializer, allowImplicit);
 
             throw new NotImplementedException("implement rendering for arrays with non-public element type");
@@ -530,7 +529,7 @@ internal class MethodRenderer : CodeRenderer
             var physAddress = new physicalAddress(obj);
 
             var type = obj.GetType();
-            var isPublicType = type.IsPublic || type.IsNestedPublic;
+            var isPublicType = TypeUtils.isPublic(type);
             var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
             // Rendering field values of object

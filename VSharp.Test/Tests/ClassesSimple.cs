@@ -284,12 +284,12 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class ClassesSimpleMerge
     {
-        class A
+        public class A
         {
             public int x;
         }
 
-        class B
+        public class B
         {
             public int x;
         }

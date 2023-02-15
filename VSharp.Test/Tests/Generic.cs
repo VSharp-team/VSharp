@@ -63,10 +63,11 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
-    public static class GenericTest<T, U, P, K, N, Z>
+    public static class GenericTest<T, U, P, K, N, Z, C>
         where T : U
         where U : IKeeper<P>
         where P : struct, IKeeper<T>
+        where C : class
         where K : class, IKeeper<U>
         where N : IKeeper<K>
         where Z : List<int>
@@ -81,12 +82,6 @@ namespace IntegrationTests
         public static U RetU(U u)
         {
             return u;
-        }
-
-        [TestSvm]
-        public static P RetP(P p)
-        {
-            return p;
         }
 
         [TestSvm]
@@ -105,6 +100,22 @@ namespace IntegrationTests
         public static Z RetZ(Z z)
         {
             return z;
+        }
+
+        [TestSvm(100)]
+        public static int HardBranch(object o, C t)
+        {
+            if (o is List<T>)
+            {
+                if (t is List<T>)
+                {
+                    return 1;
+                }
+
+                return 2;
+            }
+
+            return 3;
         }
     }
 
@@ -356,7 +367,7 @@ namespace IntegrationTests
 
             return 1;
         }
-        
+
         [TestSvm(100)]
         public static int NestedGenericsSmokeTest2(Dictionary<int, Bag<int>> dict)
         {
