@@ -708,6 +708,20 @@ namespace IntegrationTests
         }
     }
 
+    [TestSvmFixture]
+    public class ArrayCopying
+    {
+        private List<int> _elements;
+
+        public int Count => _elements.Count - 1;
+
+        [TestSvm(100)]
+        public void CopyTo(int[] array, int arrayIndex)
+        {
+            _elements.CopyTo(1, array, arrayIndex, Count);
+        }
+    }
+
     public static class Container
     {
         public static int X = 0;
