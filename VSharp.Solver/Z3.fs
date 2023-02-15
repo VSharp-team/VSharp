@@ -126,7 +126,9 @@ module internal Z3 =
                 | Pointer _
                 | _ -> __unreachable__())
 
-        member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
+        member private x.DefaultValue (sort : Sort) =
+            if sort = ctx.BoolSort then ctx.MkFalse() :> Expr
+            else ctx.MkNumeral(0, sort)
 
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
             let encoded = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
@@ -402,7 +404,14 @@ module internal Z3 =
                     failToEncode "encoding real numbers is not implemented"
                 | Cast(Numeric t1, Numeric t2) when numericSizeOf t1 = numericSizeOf t2 ->
                     x.EncodeTerm encCtx (List.head args)
-                | Cast _ -> __notImplemented__()
+                | Cast(Bool, Numeric t) ->
+                    let arg = x.EncodeTerm encCtx (List.head args)
+                    let expr = arg.expr :?> BoolExpr
+                    let sort = x.Type2Sort(t)
+                    let converted = x.MkITE(expr, ctx.MkNumeral(1, sort), ctx.MkNumeral(0, sort))
+                    {expr = converted; assumptions = arg.assumptions}
+                | Cast(fromType, toType) ->
+                    internalfail $"EncodeExpression: encoding of term {term} from {fromType} to {toType} is not supported"
                 | Combine -> x.EncodeCombine encCtx args typ)
 
         member private this.MakeUnary<'a, 'b when 'a :> Expr and 'a : equality and 'b :> Expr and 'b : equality>
