@@ -3,36 +3,43 @@ import argparse
 
 from common.game import MoveReward
 from common.utils import compute_coverage_percent
+from common.utils import get_states
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
+from agent.n_agent import get_validation_maps
 from ml.utils import load_full_model
-from ml.model_wrappers.protocols import Predictor
-from ml.model_wrappers.genetic_learner import GeneticLearner
+from ml.predict_state_hetero import PredictStateHetGNN
+from ml.data_loader import ServerDataloaderHetero
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--map_id", type=int, help="game map id", default=0)
-    parser.add_argument("--steps", type=int, help="amount of steps", default=10)
+    parser.add_argument("--map_id", type=int, help="game map id", default=3)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=100)
     args = parser.parse_args()
 
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
     cm = ConnectionManager(socket_urls)
+    maps = get_validation_maps(cm)
 
     model = load_full_model("VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full")
-    predictor: Predictor = GeneticLearner()
-    predictor.set_model(model)
 
     chosen_map = args.map_id
     steps = args.steps
 
-    with closing(NAgent(cm, map_id_to_play=chosen_map, steps=steps, log=True)) as agent:
+    with closing(NAgent(cm, map_id_to_play=chosen_map, steps=steps)) as agent:
         cumulative_reward = MoveReward(0, 0)
         steps_count = 0
         with suppress(NAgent.GameOver):
             for _ in range(steps):
                 game_state = agent.recv_state_or_throw_gameover()
-                next_step_id = predictor.predict(game_state)
+                input, state_map = ServerDataloaderHetero.convert_input_to_tensor(
+                    game_state
+                )
+                next_step_id = PredictStateHetGNN.predict_state(model, input, state_map)
+                print(
+                    f"available states: {get_states(game_state)}, picked: {next_step_id}"
+                )
                 agent.send_step(
                     next_state_id=next_step_id,
                     predicted_usefullness=42.0,  # left it a constant for now

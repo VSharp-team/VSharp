@@ -2,19 +2,9 @@ from contextlib import closing, suppress
 import unittest
 
 from common.game import GameState, Reward
+from common.utils import get_states
 from .n_agent import NAgent, get_validation_maps
 from .connection_manager import ConnectionManager
-
-
-def get_states(game_state: GameState) -> set[int]:
-    states = set()
-    for edge in game_state.Map:
-        for state in edge.VertexFrom.States:
-            states.add(state.Id)
-        for state in edge.VertexTo.States:
-            states.add(state.Id)
-
-    return states
 
 
 def dumb_strategy(game_state: GameState) -> int:
