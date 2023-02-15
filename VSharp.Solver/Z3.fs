@@ -871,7 +871,7 @@ module internal Z3 =
                     match ms with
                     | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
-                        let t = key.TypeOfLocation
+                        let t = if List.isEmpty fields then key.TypeOfLocation else (List.last fields).typ
                         let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
