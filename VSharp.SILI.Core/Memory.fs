@@ -227,13 +227,10 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private stackReading =
-        {key : stackKey; time : vectorTime option}
+        {key : stackKey; time : vectorTime}
         interface IMemoryAccessConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time =
-                match x.time with
-                | Some time -> time
-                | None -> internalfailf "Requesting time of primitive stack location %O" x.key
+            override x.Time = x.time
             override x.TypeOfLocation = x.key.TypeOfLocation
 
     [<StructuralEquality;NoComparison>]
@@ -416,7 +413,7 @@ module internal Memory =
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} addressType) declaringType
+        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
@@ -601,9 +598,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         let makeSymbolic typ =
             if s.complete then makeDefaultValue typ
-            else
-                let time = if isValueType typ then None else Some s.startingTime
-                makeSymbolicStackRead key typ time
+            else makeSymbolicStackRead key typ s.startingTime
         CallStack.readStackLocation s.stack key makeSymbolic
 
     let readStruct (structTerm : term) (field : fieldId) =
@@ -1385,7 +1380,7 @@ module internal Memory =
     let allocateTemporaryLocalVariableOfType state name index typ =
         let tmpKey = TemporaryLocalVariableKey(typ, index)
         let ref = PrimitiveStackLocation tmpKey |> Ref
-        let value = makeSymbolicValue {key = tmpKey; time = Some VectorTime.zero} name typ
+        let value = makeSymbolicValue {key = tmpKey; time = VectorTime.zero} name typ
         allocateOnStack state tmpKey value
         ref
 
