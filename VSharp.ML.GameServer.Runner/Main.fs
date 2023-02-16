@@ -73,6 +73,8 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         
         Oracle(predict,feedback)
         
+    let mutable inTrainMode = true
+    
     while loop do
         let! msg = webSocket.read()
         match msg with
@@ -80,11 +82,16 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                 let message = deserializeInputMessage data
                 match message with
                 | GetTrainMaps ->
+                    inTrainMode <- true
                     do! sendResponse (Maps trainMaps.Values)
                 | GetValidationMaps ->
+                    inTrainMode <- false
                     do! sendResponse (Maps validationMaps.Values)
                 | Start gameStartParams ->
-                    let settings = trainMaps.[gameStartParams.MapId]
+                    let settings =
+                        if inTrainMode
+                        then trainMaps.[gameStartParams.MapId]
+                        else validationMaps.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
                     match settings.CoverageZone with
                     | CoverageZone.Method ->
