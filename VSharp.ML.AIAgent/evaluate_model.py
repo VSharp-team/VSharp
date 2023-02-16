@@ -14,15 +14,20 @@ from ml.data_loader import ServerDataloaderHetero
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--map_id", type=int, help="game map id", default=3)
-    parser.add_argument("--steps", type=int, help="amount of steps", default=100)
+    parser.add_argument("--map_id", type=int, help="game map id", default=1)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=5000)
     args = parser.parse_args()
 
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
     cm = ConnectionManager(socket_urls)
     maps = get_validation_maps(cm)
 
-    model = load_full_model("VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full")
+    # Only full path works fine on Linux.
+    # But it is not a way.
+    # How to use relative path on Linux?
+    model = load_full_model(
+        "/home/gsv/Projects/VSharp/VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full"
+    )
 
     chosen_map = args.map_id
     steps = args.steps
@@ -38,7 +43,7 @@ def main():
                 )
                 next_step_id = PredictStateHetGNN.predict_state(model, input, state_map)
                 print(
-                    f"available states: {get_states(game_state)}, picked: {next_step_id}"
+                    f"step: {steps_count}, available states: {get_states(game_state)}, picked: {next_step_id}"
                 )
                 agent.send_step(
                     next_state_id=next_step_id,
