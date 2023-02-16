@@ -904,7 +904,7 @@ module internal Z3 =
                 let arr = m.Eval(constant, false)
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
-                    else fields.Head.typ
+                    else (List.last fields).typ
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
