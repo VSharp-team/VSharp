@@ -34,7 +34,7 @@ type cilState =
       /// <summary>
       /// Deterministic state id.
       /// </summary>
-      id : uint
+      id : uint<VSharp.ML.GameServer.Messages.stateId>
       mutable predictedUsefulness: float
       mutable visitedAgainVertices: uint
       mutable visitedNotCoveredVerticesInZone: uint
@@ -77,11 +77,11 @@ type cilStateComparer(comparer) =
             comparer x y
 
 module internal CilStateOperations =
-
-    let mutable currentStateId = 0u
+    
+    let mutable currentStateId = 0u<VSharp.ML.GameServer.Messages.stateId>
     let getNextStateId() =
         let nextId = currentStateId
-        currentStateId <- currentStateId + 1u
+        currentStateId <- currentStateId + 1u<VSharp.ML.GameServer.Messages.stateId>
         nextId
 
     let makeCilState entryMethod curV initialEvaluationStackSize state =

@@ -13,6 +13,7 @@ type coverageType =
     | ByEntryPointTest
 
 type [<Measure>] terminalSymbol
+
 module CallGraph =
     let callGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<ICallGraphNode>>()
     let callGraphDistanceTo = Dictionary<Assembly, GraphUtils.distanceCache<IReversedCallGraphNode>>()
@@ -467,7 +468,7 @@ and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset;
 and IGraphTrackableState =
     abstract member CodeLocation: codeLocation
     abstract member CallStack: list<Method>
-    abstract member Id: uint
+    abstract member Id: uint<VSharp.ML.GameServer.Messages.stateId>
     abstract member PathConditionSize: uint
     abstract member PredictedUsefulness: float with get
     abstract member VisitedNotCoveredVerticesInZone: uint with get

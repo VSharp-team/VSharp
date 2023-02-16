@@ -36,7 +36,7 @@ type Statistics =
         
 [<Struct>]
 type StateMetrics =
-    val StateId: uint
+    val StateId: uint<stateId>
     val NextInstructionIsUncoveredInZone: float
     val ChildNumber: uint
     val VisitedVerticesInZone: uint
@@ -68,7 +68,7 @@ type StateMetrics =
 
 [<Struct>]
 type StateInfoToDump =
-    val StateId: uint
+    val StateId: uint<stateId>
     val NextInstructionIsUncoveredInZone: float
     val ChildNumberNormalized: float
     val VisitedVerticesInZoneNormalized: float
@@ -193,9 +193,10 @@ let collectGameState (location:codeLocation) =
     let mutable touchedVerticesInZone = 0u
     let mutable touchedVerticesOutOfZone = 0u
     let mutable totalVisibleVerticesInZone = 0u    
-    let mutable firstFreeBasicBlockID = 0
+    let mutable firstFreeBasicBlockID = 0u<graphVertexId>
     
     let vertices = Dictionary<_,_>()
+    let allStates = HashSet<_>()
 
     let basicBlocks = Dictionary<_,_>()
     let basicBlocksIds = Dictionary<_,_>()
@@ -209,7 +210,7 @@ let collectGameState (location:codeLocation) =
                     basicBlock.IsGoal <- method.InCoverageZone
                     basicBlocks.Add(firstFreeBasicBlockID, basicBlock)
                     basicBlocksIds.Add(basicBlock, firstFreeBasicBlockID)
-                    firstFreeBasicBlockID <- firstFreeBasicBlockID + 1
+                    firstFreeBasicBlockID <- firstFreeBasicBlockID + 1u<graphVertexId>
                     basicBlock.IncomingCallEdges
                     |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))                     
             (method :> ICallGraphNode).OutgoingEdges
@@ -227,7 +228,7 @@ let collectGameState (location:codeLocation) =
             then id
             else
                 let id = uint firstFreeBasicBlockID
-                firstFreeBasicBlockID <- firstFreeBasicBlockID + 1
+                firstFreeBasicBlockID <- firstFreeBasicBlockID + 1u<graphVertexId>
                 basicBlockToIdMap.Add(basicBlock, id)
                 id
     
@@ -275,12 +276,17 @@ let collectGameState (location:codeLocation) =
                       s.VisitedNotCoveredVerticesOutOfZone,
                       s.History |> Seq.map (fun kvp -> StateHistoryElem(getBasicBlockId kvp.Key, kvp.Value)) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id)
-                      ))
+                      )
+                |> allStates.Add
+                |> ignore
+                s.Id
+                )
             |> Array.ofSeq
                 
+
         GameMapVertex(
             0u,
-            uint kvp.Key,
+            kvp.Key,
             currentBasicBlock.IsGoal,
             uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<offsets>,
             currentBasicBlock.IsCovered,
@@ -288,6 +294,7 @@ let collectGameState (location:codeLocation) =
             currentBasicBlock.IsTouched,
             states)
         |> (fun x -> vertices.Add(x.Id,x))
+        
         
     let statesInfoToDump =
         let mutable maxVisitedVertices = UInt32.MinValue
@@ -331,12 +338,12 @@ let collectGameState (location:codeLocation) =
     for kvp in basicBlocks do
         for outgoingEdges in kvp.Value.OutgoingEdges do
             for targetBasicBlock in outgoingEdges.Value do
-                GameMapEdge (vertices.[uint kvp.Key],
-                             vertices[uint basicBlocksIds[targetBasicBlock]],
+                GameMapEdge (vertices.[kvp.Key].Id,
+                             vertices[basicBlocksIds[targetBasicBlock]].Id,
                              GameEdgeLabel (int outgoingEdges.Key))
                 |> edges.Add
                 
-    GameState (edges.ToArray())
+    GameState (vertices.Values |> Array.ofSeq, allStates |> Array.ofSeq, edges.ToArray())
     , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
     , statesInfoToDump
 
@@ -357,7 +364,7 @@ let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statist
     
     Reward (rewardForCoverage, rewardForVisitedInstructions, maxPossibleReward)
 
-let saveExpectedResult fileForExpectedResults (movedStateId:uint) (statistics1:Statistics) (statistics2:Statistics) =
+let saveExpectedResult fileForExpectedResults (movedStateId:uint<stateId>) (statistics1:Statistics) (statistics2:Statistics) =
     let reward = computeReward statistics1 statistics2
     
     System.IO.File.AppendAllLines(fileForExpectedResults, [sprintf $"%d{firstFreeEpisodeNumber} %d{movedStateId} %d{reward.ForMove.ForCoverage} %d{reward.ForMove.ForVisitedInstructions} %d{reward.MaxPossibleReward}"])

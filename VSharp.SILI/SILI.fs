@@ -422,7 +422,7 @@ type public SILI(options : SiliOptions) =
         API.Reset()
         SolverPool.reset()
         stepsCount <- 0
-        currentStateId <- 0u
+        currentStateId <- 0u<stateId>
         statistics.Reset()
         searcher.Reset()
         isStopped <- false

@@ -41,7 +41,9 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         else
             let gameState,statistics,_ = collectGameState (Seq.head availableStates).currentLoc
             lastCollectedStatistics <- statistics
-            let stateId, predictedUsefulness = oracle.Predict gameState
+            let stateId, predictedUsefulness =
+                let x,y = oracle.Predict gameState
+                x * 1u<stateId>, y
             afterFirstAIPeek <- true
             let state = availableStates |> Seq.tryFind (fun s -> s.id = stateId)
             match state with

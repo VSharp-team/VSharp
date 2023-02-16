@@ -53,9 +53,12 @@ type StateHistoryElem =
             NumOfVisits = numOfVisits
         }
 
+type [<Measure>] stateId
+type [<Measure>] graphVertexId
+
 [<Struct>]
 type State =
-    val Id: uint
+    val Id: uint<stateId>
     val Position: uint
     val PredictedUsefulness: float
     val PathConditionSize: uint
@@ -63,7 +66,7 @@ type State =
     val VisitedNotCoveredVerticesInZone: uint
     val VisitedNotCoveredVerticesOutOfZone: uint
     val History: array<StateHistoryElem>
-    val Children: array<uint> 
+    val Children: array<uint<stateId>> 
     new(id,
         position,
         predictedUsefulness,
@@ -88,13 +91,13 @@ type State =
 [<Struct>]    
 type GameMapVertex =
     val Uid: uint
-    val Id: uint
+    val Id: uint<graphVertexId>
     val InCoverageZone: bool
     val BasicBlockSize: uint
     val CoveredByTest: bool
     val VisitedByState: bool
     val TouchedByState: bool
-    val States: State[]
+    val States: uint<stateId>[]
     new (uid,
          id,
          inCoverageZone,
@@ -121,16 +124,18 @@ type GameEdgeLabel =
 
 [<Struct>]
 type GameMapEdge =
-    val VertexFrom: GameMapVertex
-    val VertexTo: GameMapVertex
+    val VertexFrom: uint<graphVertexId>
+    val VertexTo: uint<graphVertexId>
     val Label: GameEdgeLabel
     new (vFrom, vTo, label) = {VertexFrom = vFrom; VertexTo = vTo; Label = label}
     
 [<Struct>]
 type GameState =
     interface IRawOutgoingMessageBody
+    val GraphVertices: GameMapVertex[]
+    val States: State[]
     val Map: GameMapEdge[]
-    new (map) = {Map = map}
+    new (graphVertices, states, map) = {GraphVertices = graphVertices; States = states; Map = map}
     
 type [<Measure>] coverageReward
 type [<Measure>] visitedInstructionsReward
@@ -152,7 +157,7 @@ type Reward =
 
 type Feedback =
     | MoveReward of Reward
-    | IncorrectPredictedStateId of uint
+    | IncorrectPredictedStateId of uint<stateId>
     | ServerError of string
 
 type CoverageZone =
@@ -196,14 +201,14 @@ type GameMap =
 [<Struct>]
  type IncorrectPredictedStateIdMessageBody =
      interface IRawOutgoingMessageBody
-     val StateId: uint
+     val StateId: uint<stateId>
      new (stateId) = {StateId = stateId}     
  
 type OutgoingMessage =
     | GameOver
     | Maps of seq<GameMap>
     | MoveReward of Reward
-    | IncorrectPredictedStateId of uint
+    | IncorrectPredictedStateId of uint<stateId>
     | ReadyForNextStep of GameState
     | ServerError of string
     
