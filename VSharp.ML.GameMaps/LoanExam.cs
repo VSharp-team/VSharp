@@ -1,7 +1,3 @@
-using System;
-
-namespace IntegrationTests;
-
 public enum CreditPurpose
 {
     ConsumerCredit,
