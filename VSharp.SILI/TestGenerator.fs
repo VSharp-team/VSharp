@@ -156,7 +156,7 @@ module TestGenerator =
             freshMock
         Dict.getValueOrUpdate mockCache mock createMock
 
-    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
+    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
         let suitableState cilState =
             let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             match () with
@@ -184,12 +184,12 @@ module TestGenerator =
                 test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
 
                 let parametersInfo = m.Parameters
-                match cmdArgs with
-                | Some args ->
-                    // NOTE: entry point with specified args case
-                    assert(Array.length parametersInfo = 1)
-                    test.AddArg (Array.head parametersInfo) args
-                | None ->
+                if cilState.state.complete then
+                    for pi in parametersInfo do
+                        let arg = Memory.ReadArgument cilState.state pi
+                        let concreteArg = term2obj model cilState.state indices mockCache test arg
+                        test.AddArg (Array.head parametersInfo) concreteArg
+                else
                     for pi in parametersInfo do
                         let value =
                             if pi.ParameterType.IsByRef then
@@ -232,9 +232,9 @@ module TestGenerator =
                 Some test
         | _ -> __unreachable__()
 
-    let internal state2test isError (m : Method) cmdArgs (cilState : cilState) message =
+    let internal state2test isError (m : Method) (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
 
-        model2test test isError indices mockCache m cilState.state.model cmdArgs cilState message
+        model2test test isError indices mockCache m cilState.state.model cilState message
