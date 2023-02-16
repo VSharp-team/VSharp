@@ -68,7 +68,9 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : DirectoryInfo, expe
         elif typ.IsGenericParameter then typ.Name
         elif typ.IsByRef then
             typeNameForDotCover (typ.GetElementType())
-        else typ.FullName.Replace("+", ".") // Replace + in inner class names with dots
+        else
+            let name = if typ.FullName <> null then typ.FullName else typ.Name
+            name.Replace("+", ".") // Replace + in inner class names with dots
 
     let splitTypeName (typeName : string) =
         // NOTE: splitting inner classes
