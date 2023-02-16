@@ -22,12 +22,7 @@ def main():
     cm = ConnectionManager(socket_urls)
     maps = get_validation_maps(cm)
 
-    # Only full path works fine on Linux.
-    # But it is not a way.
-    # How to use relative path on Linux?
-    model = load_full_model(
-        "/home/gsv/Projects/VSharp/VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full"
-    )
+    model = load_full_model("ml/imported/GNN_state_pred_het_full")
 
     chosen_map = args.map_id
     steps = args.steps
