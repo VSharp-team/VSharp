@@ -105,7 +105,7 @@ type public SILI(options : SiliOptions) =
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
 
-    let reportState reporter isError cmdArgs cilState message =
+    let reportState reporter isError cilState message =
         try
             searcher.Remove cilState
             if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest)
@@ -124,7 +124,7 @@ type public SILI(options : SiliOptions) =
                         else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 if not isError || statistics.EmitError cilState message
                 then
-                    match TestGenerator.state2test isError entryMethod cmdArgs cilState message with
+                    match TestGenerator.state2test isError entryMethod cilState message with
                     | Some test ->
                         statistics.TrackFinished cilState
                         reporter test
@@ -135,16 +135,16 @@ type public SILI(options : SiliOptions) =
             cilState.iie <- Some e
             reportStateIncomplete cilState
 
-    let wrapOnTest (action : Action<UnitTest>) cmdArgs (state : cilState) =
+    let wrapOnTest (action : Action<UnitTest>) (state : cilState) =
         Logger.info "Result of method %s is %O" (entryMethodOf state).FullName state.Result
         Application.terminateState state
-        reportState action.Invoke false cmdArgs state null
+        reportState action.Invoke false state null
 
-    let wrapOnError (action : Action<UnitTest>) cmdArgs (state : cilState) errorMessage =
+    let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage =
         if not <| String.IsNullOrWhiteSpace errorMessage then
             Logger.info "Error in %s: %s" (entryMethodOf state).FullName errorMessage
         Application.terminateState state
-        reportState action.Invoke true cmdArgs state errorMessage
+        reportState action.Invoke true state errorMessage
 
     let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
@@ -244,13 +244,12 @@ type public SILI(options : SiliOptions) =
         try
             assert method.IsStatic
             let optionArgs = if mainArguments = null then None else Some mainArguments
-            let state = Memory.EmptyState()
+            let state = { Memory.EmptyState() with complete = mainArguments <> null }
             state.model <- Memory.EmptyModel method typModel
             let argsToState args =
-                let argTerms = Seq.map (fun str -> Memory.AllocateString str state) args
                 let stringType = typeof<string>
                 let argsNumber = MakeNumber mainArguments.Length
-                Memory.AllocateConcreteVectorArray state argsNumber stringType argTerms
+                Memory.AllocateConcreteVectorArray state argsNumber stringType args
             let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
             ILInterpreter.InitFunctionFrame state method None arguments
             if Option.isNone optionArgs then
@@ -405,8 +404,8 @@ type public SILI(options : SiliOptions) =
             reportCrash <- wrapOnCrash onCrash
             reportIncomplete <- wrapOnIIE onIIE
             reportStateIncomplete <- wrapOnStateIIE onIIE
-            reportFinished <- wrapOnTest onFinished None
-            reportError <- wrapOnError onException None
+            reportFinished <- wrapOnTest onFinished
+            reportError <- wrapOnError onException
             try
                 let initializeAndStart () =
                     let trySubstituteTypeParameters method =
