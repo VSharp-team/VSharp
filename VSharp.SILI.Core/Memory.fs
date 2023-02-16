@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -197,7 +198,10 @@ module internal Memory =
             override x.TypeOfLocation = typeof<int32>
 
     let hashConcreteAddress (address : concreteHeapAddress) =
-        address.GetHashCode() |> makeNumber
+        let hashValue =
+            if address = VectorTime.zero then RuntimeHelpers.GetHashCode null
+            else address.GetHashCode()
+        hashValue |> makeNumber
 
     let getHashCode object =
         // TODO: implement GetHashCode() for value type (it's boxed)
