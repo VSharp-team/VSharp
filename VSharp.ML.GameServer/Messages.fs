@@ -35,7 +35,9 @@ type GameStartParams =
 type GameStep =
     val StateId: uint
     val PredictedStateUsefulness: float
-    new (stateId, predictedUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedUsefulness}
+    
+    [<JsonConstructor>]
+    new (stateId, predictedStateUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedStateUsefulness}
         
 type InputMessage =
     | GetTrainMaps
