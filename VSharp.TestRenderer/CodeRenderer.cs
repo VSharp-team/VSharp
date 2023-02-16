@@ -68,6 +68,9 @@ internal class CodeRenderer
 
     private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
 
+    // TODO: make non-static
+    public static Dictionary<object, CompactArrayRepr> CompactRepresentations = new ();
+
     public static void PrepareCache()
     {
         MocksInfo.Clear();

@@ -65,6 +65,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
     let isError = info.isError
     let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
+    let compactRepresentations = memoryGraph.CompactRepresentations()
 //    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
 //    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
@@ -109,6 +110,8 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
             p.SetValue(info, v)
 
     member x.TypeMocks with get() = typeMocks
+
+    member x.CompactRepresentations with get() = compactRepresentations
 
     member x.DefineTypeMock(name : string) =
         let mock = Mocking.Type(name)

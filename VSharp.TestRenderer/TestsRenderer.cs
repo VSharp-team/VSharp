@@ -585,6 +585,7 @@ public static class TestsRenderer
             {
                 var method = test.Method;
                 var methodType = method.DeclaringType;
+                CompactRepresentations = test.CompactRepresentations;
                 Debug.Assert(methodType != null &&
                     (methodType.IsGenericType && declaringType.IsGenericType &&
                      methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||

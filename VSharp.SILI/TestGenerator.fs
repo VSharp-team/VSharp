@@ -68,6 +68,7 @@ module TestGenerator =
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
+            // TODO: Use compact representation for big arrays
             test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
         else
             let arrays =
