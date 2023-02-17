@@ -160,7 +160,7 @@ module TestGenerator =
         let suitableState cilState =
             let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             match () with
-            | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
+            | _ when m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter m ->
                 Memory.CallStackSize cilState.state = 2
             | _ -> Memory.CallStackSize cilState.state = 1
         if not <| suitableState cilState
