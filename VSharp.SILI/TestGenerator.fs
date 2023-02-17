@@ -5,6 +5,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open System.Linq;
 
 module TestGenerator =
 
@@ -86,24 +87,43 @@ module TestGenerator =
                         | Some defaultValue -> encode defaultValue
                         | None -> null
                     let updates = region.updates
-                    let indices = List<int array>()
-                    let values = List<obj>()
+                    let indicesWithValues = SortedDictionary<int list, obj>()
                     let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
+                        let value = k.value
                         match k.key with
                         | OneArrayIndexKey(address, keyIndices) ->
                             let heapAddress = model.Eval address
                             match heapAddress with
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
-                                let i : int array = keyIndices |> List.map (encode >> unbox) |> Array.ofList
-                                let v = encode k.value
-                                indices.Add(i)
-                                values.Add(v)
+                                let i = keyIndices |> List.map (encode >> unbox)
+                                let v = encode value
+                                indicesWithValues[i] <- v
                             | _ -> ()
-                        | RangeArrayIndexKey _ -> internalfail $"unexpected array key {k.key}"
+                        | RangeArrayIndexKey(address, fromIndices, toIndices) ->
+                            let heapAddress = model.Eval address
+                            match heapAddress with
+                            | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
+                                let fromIndices : int list = fromIndices |> List.map (encode >> unbox)
+                                let toIndices : int list = toIndices |> List.map (encode >> unbox)
+                                let allIndices = Array.allIndicesViaBound fromIndices toIndices
+                                match value.term with
+                                | Constant(_, ArrayRangeReading, _) ->
+                                    for i in allIndices do
+                                        let index = List.map MakeNumber i
+                                        let key = OneArrayIndexKey(heapAddress, index)
+                                        let v = SpecializeWithKey value key k.key |> encode
+                                        indicesWithValues[i] <- v
+                                | _ ->
+                                    for i in allIndices do
+                                        let v = encode value
+                                        indicesWithValues[i] <- v
+                            | _ -> ()
                     updates |> RegionTree.foldr addOneKey ()
+                    let indices = indicesWithValues.Keys.ToArray()
+                    let values = indicesWithValues.Values.ToArray()
                     defaultValue, indices.ToArray(), values.ToArray()
                 | None -> null, Array.empty, Array.empty
-            // TODO: if addr is managed by concrete memory, then just serialize it normally (by test.MemoryGraph.AddArray)
+            let indices = Array.map Array.ofList indices
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
     let rec private term2obj (model : model) state indices mockCache (test : UnitTest) = function

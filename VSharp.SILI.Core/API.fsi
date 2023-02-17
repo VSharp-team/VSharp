@@ -94,6 +94,7 @@ module API =
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
+        val (|ArrayRangeReading|_|) : ISymbolicConstantSource -> option<unit>
         val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayKey * memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>>
         val (|VectorIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
         val (|StackBufferReading|_|) : ISymbolicConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
@@ -110,7 +111,7 @@ module API =
 
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
-        val SpecializeWithKey : term -> heapArrayKey -> term
+        val SpecializeWithKey : term -> heapArrayKey -> heapArrayKey -> term
 
         val HeapReferenceToBoxReference : term -> term
 
