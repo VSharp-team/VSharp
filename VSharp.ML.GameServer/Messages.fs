@@ -337,6 +337,8 @@ let trainMaps, validationMaps =
      
     let add = add' validationMaps
     
+    add 20000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    add 20000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     add 20000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LoanExamBuild"
     add 1000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
     add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "ApplyMoveAndCheckOtherValidMoves"
