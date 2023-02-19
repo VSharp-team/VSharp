@@ -14,8 +14,8 @@ from ml.data_loader import ServerDataloaderHetero
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--map_id", type=int, help="game map id", default=1)
-    parser.add_argument("--steps", type=int, help="amount of steps", default=2000)
+    parser.add_argument("--map_id", type=int, help="game map id", default=4)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=1600)
     args = parser.parse_args()
 
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
