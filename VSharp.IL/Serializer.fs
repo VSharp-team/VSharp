@@ -232,6 +232,12 @@ let collectGameState (location:codeLocation) =
                 id
     
     let statesMetrics = ResizeArray<_>()
+
+    let activeStates =
+        basicBlocks
+        |> Seq.collect (fun kvp -> kvp.Value.AssociatedStates)
+        |> Seq.map (fun s -> s.Id)
+        |> fun x -> HashSet x
         
     for kvp in basicBlocks do
         let currentBasicBlock = kvp.Value
@@ -274,7 +280,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
                       s.History |> Seq.map (fun kvp -> StateHistoryElem(getBasicBlockId kvp.Key, kvp.Value)) |> Array.ofSeq,
-                      s.Children |> Array.map (fun s -> s.Id)
+                      s.Children |> Array.map (fun s -> s.Id) |> Array.filter activeStates.Contains
                       ))
             |> Array.ofSeq
                 
