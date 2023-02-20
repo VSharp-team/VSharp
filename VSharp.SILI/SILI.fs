@@ -116,7 +116,7 @@ type public SILI(options : SiliOptions) =
                     if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod then
                         Memory.ForcePopFrames (callStackSize - 2) cilState.state
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                match TestGenerator.state2test isError entryMethod cilState message with
+                match TestGenerator.state2test isError entryMethod cilState.state message with
                 | Some test ->
                     statistics.TrackFinished cilState
                     reporter test
@@ -128,7 +128,8 @@ type public SILI(options : SiliOptions) =
             reportStateIncomplete cilState
 
     let wrapOnTest (action : Action<UnitTest>) (state : cilState) =
-        Logger.info $"Result of method {(entryMethodOf state).FullName} is {state.Result}"
+        let result = Memory.StateResult state.state
+        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName result
         Application.terminateState state
         reportState action.Invoke false state null
 

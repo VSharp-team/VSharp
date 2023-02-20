@@ -612,6 +612,22 @@ module API =
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
 
+        let StateResult (state : state) =
+            let callStackSize = CallStackSize state
+            match EvaluationStack.Length state.evaluationStack with
+            | _ when callStackSize > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+            | 0 -> Nop
+            | 1 ->
+                let result = EvaluationStack.Pop state.evaluationStack |> fst
+                let method = GetCurrentExploringFunction state
+                match method with
+                | _ ->
+                    assert(callStackSize = 1)
+                    Types.Cast result method.ReturnType
+                | _ when state.exceptionsRegister.UnhandledError -> Nop
+                | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
+            | _ -> internalfail "EvaluationStack size was bigger than 1"
+
     module Print =
         let Dump state = Memory.dump state
         let PrintPC pc = PC.toString pc

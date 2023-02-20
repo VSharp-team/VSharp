@@ -11,7 +11,7 @@ open System.Linq;
 module TestGenerator =
 
     let mutable private maxBufferSize = 128
-    let internal setMaxBufferSize size = maxBufferSize <- size
+    let public setMaxBufferSize size = maxBufferSize <- size
 
     let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) encodeMock evalField (test : UnitTest) addr (mock : ITypeMock) =
         let index = test.MemoryGraph.ReserveRepresentation()
@@ -219,8 +219,7 @@ module TestGenerator =
         let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
         test.AddExternMock extMock
 
-    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
-        let state = cilState.state
+    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (state : state) message =
         let suitableState state =
             let methodHasByRefParameter = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             if m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter then
@@ -303,14 +302,14 @@ module TestGenerator =
                 test.ErrorMessage <- message
 
                 if not isError && not hasException then
-                    let retVal = model.Eval cilState.Result
+                    let retVal = Memory.StateResult state |> model.Eval
                     test.Expected <- term2obj model state indices mockCache implementations test retVal
                 Some test
         | _ -> __unreachable__()
 
-    let internal state2test isError (m : Method) (cilState : cilState) message =
+    let public state2test isError (m : Method) (state : state) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
 
-        model2test test isError indices mockCache m cilState.state.model cilState message
+        model2test test isError indices mockCache m state.model state message
