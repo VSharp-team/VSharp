@@ -131,6 +131,7 @@ type ITypeMockSerializer =
 and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRepr : bool) =
 
     let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
+    let compactRepresentations = Dictionary<obj, CompactArrayRepr>()
 
     let rec allocateDefault (obj : obj) =
         match obj with
@@ -152,7 +153,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             mocker.Deserialize allocateDefault obj
         | _ -> obj
 
-    let mutable sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
+    let sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
     let objReprs = List<obj>(repr.objects)
 
     let rec decodeValue (obj : obj) =
@@ -166,6 +167,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                 internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
             let obj = allocateDefault repr
             decodeStructure repr obj
+            obj
         | :? arrayRepr -> internalfail "Unexpected array representation inside object!"
         | :? enumRepr as repr ->
             let t = sourceTypes.[repr.typ]
@@ -173,14 +175,13 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         | _ when mocker.IsMockRepresentation obj -> mocker.Deserialize decodeValue obj
         | _ -> obj
 
-    and decodeStructure (repr : structureRepr) obj =
+    and decodeStructure (repr : structureRepr) obj : unit =
         let t = obj.GetType()
         Reflection.fieldsOf false t |> Array.iteri (fun i (_, field) ->
             let value = decodeValue repr.fields.[i]
             field.SetValue(obj, value))
-        obj
 
-    and decodeArray (repr : arrayRepr) (obj : obj) =
+    and decodeArray (repr : arrayRepr) (obj : obj) : unit =
         assert(repr.lowerBounds = null || repr.lengths.Length = repr.lowerBounds.Length)
         let arr = obj :?> Array
         match repr with
@@ -196,18 +197,14 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                     let value = decodeValue r
                     let indices = Array.delinearizeArrayIndex i lens lbs
                     arr.SetValue(value, indices))
-            arr :> obj
-        | _ when createCompactRepr ->
-            let values = Array.map decodeValue repr.values
-            let defaultValue = decodeValue repr.defaultValue
-            Array.fill arr defaultValue
-            Array.iter2 (fun (i : int[]) v -> arr.SetValue(decodeValue v, i)) repr.indices repr.values
-            {array = arr; defaultValue = defaultValue; indices = repr.indices; values = values}
         | _ ->
             let defaultValue = decodeValue repr.defaultValue
+            let values = Array.map decodeValue repr.values
             Array.fill arr defaultValue
-            Array.iter2 (fun (i : int[]) v -> arr.SetValue(decodeValue v, i)) repr.indices repr.values
-            arr
+            Array.iter2 (fun (i : int[]) v -> arr.SetValue(v, i)) repr.indices values
+            if createCompactRepr then
+                let compactRepr = {array = arr; defaultValue = defaultValue; indices = repr.indices; values = values}
+                compactRepresentations.Add(arr, compactRepr)
 
     and decodeObject (repr : obj) obj =
         match repr with
@@ -217,14 +214,13 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             decodeArray repr obj
         | _ when mocker.IsMockRepresentation repr ->
             mocker.UpdateMock decodeValue repr obj
-            obj
         | _ -> ()
 
-    let () =
-        let seq = Seq.map2 decodeObject objReprs sourceObjects
-        sourceObjects <- List<obj>(seq)
+    let () = Seq.iter2 decodeObject objReprs sourceObjects
 
     member x.DecodeValue (obj : obj) = decodeValue obj
+
+    member x.CompactRepresentations() = compactRepresentations
 
     member private x.IsSerializable (t : Type) =
         // TODO: find out which types can be serialized by XMLSerializer

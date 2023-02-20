@@ -405,7 +405,9 @@ module public Reflection =
     let concretizeMethodParameters (declaringType : Type) (method : MethodBase) (values : Type[]) =
         match method with
         | :? MethodInfo as mi ->
-            let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
+            let method =
+                declaringType.GetMethods(allBindingFlags)
+                |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
             if method.IsGenericMethod then
                 assert(values.Length = method.GetGenericArguments().Length)
                 method.MakeGenericMethod(values) :> MethodBase

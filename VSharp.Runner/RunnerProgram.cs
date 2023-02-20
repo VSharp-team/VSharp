@@ -187,7 +187,7 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
             allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             var publicMethodsOfClassCommand =
-                new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
+                new Command("--type", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
             var classArgument = new Argument<string>("class-name");
             publicMethodsOfClassCommand.AddArgument(classArgument);

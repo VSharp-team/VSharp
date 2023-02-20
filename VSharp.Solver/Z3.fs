@@ -533,7 +533,7 @@ module internal Z3 =
                     assert(IsStruct structTerm)
                     Memory.ReadField emptyState structTerm field
                 let value = List.fold readFieldIfNeed value structFields
-                let valueExpr = specializeWithKey value left |> x.EncodeTerm encCtx
+                let valueExpr = specializeWithKey value left right |> x.EncodeTerm encCtx
                 let assumptions = List.append assumptions valueExpr.assumptions
                 x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
@@ -553,7 +553,8 @@ module internal Z3 =
                 let assumptions, rightExpr = encodeKey right
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInVectorTimeIntervals encCtx rightExpr eq rightRegion
-            let res = x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo typ
+            let specialize v _ _ = v
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo typ
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
@@ -659,7 +660,8 @@ module internal Z3 =
                 let assumptions, rightExpr = encodeKey right
                 let eq = keysAreEqual(leftExpr, rightExpr)
                 assumptions, keyInRegion eq rightExpr rightRegion
-            x.ArrayReading encCtx always keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source structFields name
+            let specialize v _ _ = v
+            x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source structFields name
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
@@ -674,7 +676,8 @@ module internal Z3 =
                 let assumptions, rightExpr = encodeKey right
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInIntPoints rightExpr eq rightRegion
-            x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo typ
+            let specialize v _ _ = v
+            x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo typ
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source structFields (name : string) =
             assert mo.defaultValue.IsNone

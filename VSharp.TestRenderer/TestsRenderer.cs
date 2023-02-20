@@ -295,9 +295,11 @@ public static class TestsRenderer
         // Declaring arguments and 'this' of testing method
         IdentifierNameSyntax? thisArgId = null;
         string thisArgName = "thisArg";
+        Type? thisArgType = null;
         if (thisArg != null)
         {
             Debug.Assert(Reflection.hasThis(method));
+            thisArgType = thisArg.GetType();
             var needExplicitType = thisArg is Delegate;
             var renderedThis = mainBlock.RenderObject(thisArg, thisArgName, needExplicitType);
             if (renderedThis is IdentifierNameSyntax id)
@@ -332,7 +334,7 @@ public static class TestsRenderer
         f.HasArgs = mainBlock.StatementsCount() > 0;
 
         // Calling testing method
-        var callMethod = test.RenderCall(thisArgId, method, renderedArgs);
+        var callMethod = test.RenderCall(thisArgId, thisArgType, method, renderedArgs);
         f.CallingTest = callMethod.NormalizeWhitespace().ToString();
 
         var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
@@ -583,6 +585,7 @@ public static class TestsRenderer
             {
                 var method = test.Method;
                 var methodType = method.DeclaringType;
+                CompactRepresentations = test.CompactRepresentations;
                 Debug.Assert(methodType != null &&
                     (methodType.IsGenericType && declaringType.IsGenericType &&
                      methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||

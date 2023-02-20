@@ -259,6 +259,13 @@ type public SILI(options : SiliOptions) =
                 let argsParameter = Array.head parameters
                 let argsParameterTerm = Memory.ReadArgument state argsParameter
                 AddConstraint state (!!(IsNullReference argsParameterTerm))
+                // Filling model with default args to match PC
+                let modelState =
+                    match state.model with
+                    | StateModel(modelState, _) -> modelState
+                    | _ -> __unreachable__()
+                let argsForModel = Memory.AllocateVectorArray modelState (MakeNumber 0) typeof<String>
+                Memory.WriteLocalVariable modelState (ParameterKey argsParameter) argsForModel
             Memory.InitializeStaticMembers state method.DeclaringType
             let initialState = makeInitialState method state
             [initialState]

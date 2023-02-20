@@ -137,6 +137,12 @@ module API =
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
+
+        let (|ArrayRangeReading|_|) (src : ISymbolicConstantSource) =
+            match src with
+            | Memory.ArrayRangeReading _ -> Some()
+            | _ -> None
+
         let (|ArrayIndexReading|_|) src = Memory.(|ArrayIndexReading|_|) src
         let (|VectorIndexReading|_|) src = Memory.(|VectorIndexReading|_|) src
         let (|StackBufferReading|_|) src = Memory.(|StackBufferReading|_|) src
@@ -163,7 +169,7 @@ module API =
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
-        let SpecializeWithKey constant key = Memory.specializeWithKey constant key
+        let SpecializeWithKey constant key writeKey = Memory.specializeWithKey constant key writeKey
 
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
