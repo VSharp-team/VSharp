@@ -8,6 +8,7 @@ def count_vertexes_in_coverage_zone(game_state: GameState):
         for vertex in (edge.VertexFrom, edge.VertexTo):
             if vertex.Id not in vertexes_ids and vertex.InCoverageZone:
                 in_coverage_zone += 1
+                vertexes_ids.add(vertex.Id)
 
     return in_coverage_zone
 
