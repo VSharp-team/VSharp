@@ -210,6 +210,9 @@ let collectGameState (location:codeLocation) =
                     basicBlocks.Add(firstFreeBasicBlockID, basicBlock)
                     basicBlocksIds.Add(basicBlock, firstFreeBasicBlockID)
                     firstFreeBasicBlockID <- firstFreeBasicBlockID + 1
+                    for state in basicBlock.AssociatedStates do
+                         state.History
+                         |> Seq.iter (fun kvp -> collectFullGraph (kvp.Key.Method :?> Method))
                     basicBlock.IncomingCallEdges
                     |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))                     
             (method :> ICallGraphNode).OutgoingEdges
