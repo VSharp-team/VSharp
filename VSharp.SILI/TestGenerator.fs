@@ -5,6 +5,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open System.Linq;
 
 module TestGenerator =
 
@@ -68,6 +69,7 @@ module TestGenerator =
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
+            // TODO: Use compact representation for big arrays
             test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
         else
             let arrays =
@@ -85,24 +87,43 @@ module TestGenerator =
                         | Some defaultValue -> encode defaultValue
                         | None -> null
                     let updates = region.updates
-                    let indices = List<int array>()
-                    let values = List<obj>()
+                    let indicesWithValues = SortedDictionary<int list, obj>()
                     let addOneKey _ (k : updateTreeKey<heapArrayKey, term>) () =
+                        let value = k.value
                         match k.key with
                         | OneArrayIndexKey(address, keyIndices) ->
                             let heapAddress = model.Eval address
                             match heapAddress with
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
-                                let i : int array = keyIndices |> List.map (encode >> unbox) |> Array.ofList
-                                let v = encode k.value
-                                indices.Add(i)
-                                values.Add(v)
+                                let i = keyIndices |> List.map (encode >> unbox)
+                                let v = encode value
+                                indicesWithValues[i] <- v
                             | _ -> ()
-                        | RangeArrayIndexKey _ -> internalfail $"unexpected array key {k.key}"
+                        | RangeArrayIndexKey(address, fromIndices, toIndices) ->
+                            let heapAddress = model.Eval address
+                            match heapAddress with
+                            | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
+                                let fromIndices : int list = fromIndices |> List.map (encode >> unbox)
+                                let toIndices : int list = toIndices |> List.map (encode >> unbox)
+                                let allIndices = Array.allIndicesViaBound fromIndices toIndices
+                                match value.term with
+                                | Constant(_, ArrayRangeReading, _) ->
+                                    for i in allIndices do
+                                        let index = List.map MakeNumber i
+                                        let key = OneArrayIndexKey(heapAddress, index)
+                                        let v = SpecializeWithKey value key k.key |> encode
+                                        indicesWithValues[i] <- v
+                                | _ ->
+                                    for i in allIndices do
+                                        let v = encode value
+                                        indicesWithValues[i] <- v
+                            | _ -> ()
                     updates |> RegionTree.foldr addOneKey ()
+                    let indices = indicesWithValues.Keys.ToArray()
+                    let values = indicesWithValues.Values.ToArray()
                     defaultValue, indices.ToArray(), values.ToArray()
                 | None -> null, Array.empty, Array.empty
-            // TODO: if addr is managed by concrete memory, then just serialize it normally (by test.MemoryGraph.AddArray)
+            let indices = Array.map Array.ofList indices
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
     let rec private term2obj (model : model) state indices mockCache (test : UnitTest) = function
@@ -156,11 +177,11 @@ module TestGenerator =
             freshMock
         Dict.getValueOrUpdate mockCache mock createMock
 
-    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model cmdArgs (cilState : cilState) message =
+    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
         let suitableState cilState =
             let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             match () with
-            | _ when m.DeclaringType.IsValueType || methodHasByRefParameter m ->
+            | _ when m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter m ->
                 Memory.CallStackSize cilState.state = 2
             | _ -> Memory.CallStackSize cilState.state = 1
         if not <| suitableState cilState
@@ -184,12 +205,12 @@ module TestGenerator =
                 test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
 
                 let parametersInfo = m.Parameters
-                match cmdArgs with
-                | Some args ->
-                    // NOTE: entry point with specified args case
-                    assert(Array.length parametersInfo = 1)
-                    test.AddArg (Array.head parametersInfo) args
-                | None ->
+                if cilState.state.complete then
+                    for pi in parametersInfo do
+                        let arg = Memory.ReadArgument cilState.state pi
+                        let concreteArg = term2obj model cilState.state indices mockCache test arg
+                        test.AddArg (Array.head parametersInfo) concreteArg
+                else
                     for pi in parametersInfo do
                         let value =
                             if pi.ParameterType.IsByRef then
@@ -232,9 +253,9 @@ module TestGenerator =
                 Some test
         | _ -> __unreachable__()
 
-    let internal state2test isError (m : Method) cmdArgs (cilState : cilState) message =
+    let internal state2test isError (m : Method) (cilState : cilState) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
 
-        model2test test isError indices mockCache m cilState.state.model cmdArgs cilState message
+        model2test test isError indices mockCache m cilState.state.model cilState message

@@ -4,43 +4,67 @@ open global.System
 open System.Reflection
 
 module Loader =
+
+    let private implementsAttribute = lazy AssemblyManager.NormalizeType(typeof<ImplementsAttribute>)
+
+    let private getImplementsName (attr : Attribute) =
+        let implementsNameField = implementsAttribute.Value.GetField("Name")
+        implementsNameField.GetValue(attr) :?> string
+
     let private collectImplementations (ts : Type seq) =
         let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
-        ts
-        |> Seq.collect (fun t ->
+        ts |> Seq.collect (fun t ->
             t.GetMethods(bindingFlags)
             |> Seq.choose (fun m ->
-                match m.GetCustomAttributes(typedefof<ImplementsAttribute>) with
-                | Seq.Cons(:? ImplementsAttribute as attr, _) -> Some (attr.Name, m)
-                | _ -> None))
+                // Case for assembly, loaded via default load context (F# internal calls)
+                let findViaDefault (attr : Attribute) =
+                    match attr with
+                    | :? ImplementsAttribute as attr -> Some (attr.Name, m)
+                    | _ -> None
+                // Case for assembly, loaded via VSharp load context (C# internal calls)
+                let findViaVSharpLoadContext (attr : Attribute) = Some (getImplementsName attr, m)
+                let attrFromDefaultContext = m.GetCustomAttributes<ImplementsAttribute>() |> Seq.tryPick findViaDefault
+                match attrFromDefaultContext with
+                | Some info -> Some info
+                | None -> m.GetCustomAttributes(implementsAttribute.Value) |> Seq.tryPick findViaVSharpLoadContext))
         |> Map.ofSeq
 
+    let private CSharpUtilsAssembly =
+        AssemblyName("VSharp.CSharpUtils").FullName |> AssemblyManager.LoadFromAssemblyName
+
     let public CSharpImplementations =
+        // Loading assembly and collecting methods via VSharp assembly load context,
+        // because C# internal calls will be explored by VSharp
         seq [
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Array")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Monitor")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.RuntimeHelpersUtils")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.CLRConfig")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Interop")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.NumberFormatInfo")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.StringUtils")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.CharUnicodeInfo")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.BlockChain")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.GC")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.DateTimeUtils")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.ThreadUtils")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.DelegateUtils")
-            Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.DiagnosticsUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.Array")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.Monitor")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.RuntimeHelpersUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.CLRConfig")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.Interop")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.NumberFormatInfo")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.StringUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.CharUnicodeInfo")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.BlockChain")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.GC")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DateTimeUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.ThreadUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DelegateUtils")
+            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DiagnosticsUtils")
         ]
         |> collectImplementations
 
     let public FSharpImplementations =
+        // Loading assembly and collecting methods via default assembly load context,
+        // because all VSharp types, like VSharp.Core.state are loaded via default load context,
+        // so F# internal calls (which use state) must be loaded via default load context
         Assembly.GetExecutingAssembly().GetTypes()
         |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
         |> collectImplementations
 
     let private runtimeExceptionsConstructors =
-        Assembly.Load(AssemblyName("VSharp.CSharpUtils")).GetType("VSharp.CSharpUtils.Exceptions")
+        // Loading assembly and collecting methods via VSharp assembly load context,
+        // because exceptions constructors will be explored by VSharp
+        CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.Exceptions")
         |> Seq.singleton
         |> collectImplementations
 

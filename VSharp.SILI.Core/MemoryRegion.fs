@@ -90,10 +90,18 @@ type heapArrayKey =
         | OneArrayIndexKey(a, _) -> a
         | RangeArrayIndexKey(a, _, _) -> a
 
-    member x.ChangeAddress address =
-        match x with
-        | OneArrayIndexKey(_, indices) -> OneArrayIndexKey(address, indices)
-        | RangeArrayIndexKey(_, fromIndices, toIndices) -> RangeArrayIndexKey(address, fromIndices, toIndices)
+    member x.Specialize writeKey srcA srcF srcT =
+        match x, writeKey with
+        | OneArrayIndexKey(_, i), OneArrayIndexKey(_, dstI)
+        | OneArrayIndexKey(_, i), RangeArrayIndexKey(_, dstI, _) ->
+            let newI = List.map3 (fun i dstI srcF -> add (sub i dstI) srcF) i dstI srcF
+            OneArrayIndexKey(srcA, newI)
+        | RangeArrayIndexKey(_, fI, tI), OneArrayIndexKey(_, dstI)
+        | RangeArrayIndexKey(_, fI, tI), RangeArrayIndexKey(_, dstI, _) ->
+            let delta = List.map3 (fun fI tI dstI -> (sub fI dstI), (sub tI dstI)) fI tI dstI
+            let fromIndices = List.map2 (fun (fD, _) srcF -> add fD srcF) delta srcF
+            let toIndices = List.map2 (fun (_, tD) srcT -> add tD srcT) delta srcT
+            RangeArrayIndexKey(srcA, fromIndices, toIndices)
 
     member x.Rank =
         match x with

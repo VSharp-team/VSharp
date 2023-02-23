@@ -360,6 +360,10 @@ internal class MethodRenderer : CodeRenderer
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
         {
+            CompactArrayRepr? compactRepr;
+            if (CompactRepresentations.TryGetValue(obj, out compactRepr))
+                return RenderCompactArray(compactRepr, preferredName);
+
             var type = (ArrayTypeSyntax) RenderType(obj.GetType());
             return RenderArray(type, obj, preferredName);
         }
@@ -384,7 +388,7 @@ internal class MethodRenderer : CodeRenderer
                 var defaultValueName = preferredName + "Default";
                 var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
                 var call =
-                    RenderCall(AllocatorType(), "Fill", arrayId, defaultId);
+                    RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
                 AddExpression(call);
             }
             for (int i = 0; i < indices.Length; i++)
