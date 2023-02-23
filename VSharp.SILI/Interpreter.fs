@@ -583,7 +583,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         createException cilState
         k [cilState]
 
-    member private x.AccessMultidimensionalArray accessor (cilState : cilState) upperBounds indices (k : cilState list -> 'a) =
+    member private x.AccessMultidimensionalArray accessor (cilState : cilState) lengths indices (k : cilState list -> 'a) =
         let checkArrayBounds upperBounds indices =
             let checkOneBound acc (upperBound, index) =
                 let lowerBound = Concrete 0 Types.TLength
@@ -594,13 +594,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let upperBoundsAndIndices = List.zip upperBounds indices
             List.fold checkOneBound True upperBoundsAndIndices
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (checkArrayBounds upperBounds indices, state))
+            (fun state k -> k (checkArrayBounds lengths indices, state))
             accessor
             (x.Raise x.IndexOutOfRangeException)
             k
 
-    member private x.AccessArray accessor (cilState : cilState) upperBound index k =
-        x.AccessMultidimensionalArray accessor cilState [upperBound] [index] k
+    member private x.AccessArray accessor (cilState : cilState) length index k =
+        x.AccessMultidimensionalArray accessor cilState [length] [index] k
 
     member private x.AccessArrayDimension accessor (cilState : cilState) (this : term) (dimension : term) =
         let upperBound = Memory.ArrayRank cilState.state this
@@ -671,7 +671,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let zero = MakeNumber 0
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
-            let check = index << lb ||| (Arithmetics.Add index length) >> numOfAllElements ||| length << zero
+            let check = (index << lb) ||| ((Arithmetics.Add index length) >> numOfAllElements) ||| (length << zero)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.IndexOutOfRangeException)
@@ -688,6 +688,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let srcType = MostConcreteTypeOfHeapRef state src
         let dstType = MostConcreteTypeOfHeapRef state dst
         let (>>) = API.Arithmetics.(>>)
+        let (>>=) = API.Arithmetics.(>>=)
         let (<<) = API.Arithmetics.(<<)
         let add = Arithmetics.Add
         let zero = TypeUtils.Int32.Zero
@@ -699,7 +700,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
             k [cilState]
         let lengthCheck (cilState : cilState) =
-            let check = ((add srcIndex length) >> srcNumOfAllElements) ||| ((add dstIndex length) >> dstNumOfAllElements)
+            let endSrcIndex = add srcIndex length
+            let srcNumOfAllElements = srcNumOfAllElements
+            let endDstIndex = add dstIndex length
+            let dstNumOfAllElements = dstNumOfAllElements
+            let check =
+                (endSrcIndex >> srcNumOfAllElements) ||| (endSrcIndex << srcLB)
+                ||| (endDstIndex >> dstNumOfAllElements) ||| (endDstIndex << dstLB)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.ArgumentException)
@@ -707,8 +714,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let indicesCheck (cilState : cilState) =
             // TODO: extended form needs
             let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False)
-            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >> srcNumOfAllElements else False)
-            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >> dstNumOfAllElements else False)
+            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False)
+            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False)
 
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
@@ -1957,12 +1964,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
         let numElements = pop cilState
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
-            (fun cilState k ->
+        let allocate cilState k =
+            try
                 let ref = Memory.AllocateVectorArray cilState.state numElements elemType
                 push ref cilState
-                k [cilState])
+                k [cilState]
+            with
+            | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            allocate
             (this.Raise this.OverflowException)
             id
 
@@ -2027,7 +2038,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let ip = currentIp cilState
         assert(ip.CanBeExpanded())
         let startingOffset = ip.Offset()
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         let endOffset =
             let lastOffset = Seq.last cfg.SortedBasicBlocks
             let rec binarySearch l r =
@@ -2071,7 +2082,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

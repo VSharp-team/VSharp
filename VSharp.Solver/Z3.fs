@@ -7,7 +7,6 @@ open VSharp
 open VSharp.TypeUtils
 open VSharp.Core
 open VSharp.Core.SolverInteraction
-open Logger
 
 module internal Z3 =
 
@@ -127,6 +126,27 @@ module internal Z3 =
                 | Pointer _
                 | _ -> __unreachable__())
 
+        member private x.DefaultValue (sort : Sort) =
+            if sort = ctx.BoolSort then ctx.MkFalse() :> Expr
+            else ctx.MkNumeral(0, sort)
+
+        member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
+            let encoded = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
+            encodingCache.heapAddresses[(addressType, encoded)] <- address
+            encoded
+
+        member private x.CreateConstant name typ =
+            let sort = x.Type2Sort typ
+            let constant = ctx.MkConst(x.ValidateId name, sort)
+            let assumptions =
+                if typ = addressType then
+                    let zero = ctx.MkNumeral(0, sort)
+                    ctx.MkBVSLT(constant :?> BitVecExpr, zero :?> BitVecExpr) |> List.singleton
+                else List.empty
+            {expr = constant; assumptions = assumptions}
+
+// ------------------------------- Encoding: logic simplifications -------------------------------
+
         member private x.MkNot expr =
             match expr with
             | True -> FalseExpr
@@ -196,13 +216,15 @@ module internal Z3 =
             | False -> elseExpr
             | _ -> ctx.MkITE(cond, thenExpr, elseExpr)
 
-        member private x.DefaultValue sort = ctx.MkNumeral(0, sort)
-        member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
-            // TODO: cache in heapAddresses?
+// ------------------------------- Encoding: arithmetic simplifications -------------------------------
 
-        member private x.CreateConstant name typ =
-            ctx.MkConst(x.ValidateId name, x.Type2Sort typ) |> encodingResult.Create
+        member x.MkBVSLE(left, right) : BoolExpr =
+            if left = right then TrueExpr
+            else ctx.MkBVSLE(left, right)
+
+        member x.MkBVSGE(left, right) : BoolExpr =
+            if left = right then TrueExpr
+            else ctx.MkBVSGE(left, right)
 
 // ------------------------------- Encoding: common -------------------------------
 
@@ -214,7 +236,7 @@ module internal Z3 =
                     | Constant(name, source, typ) -> x.EncodeConstant encCtx name.v source typ
                     | Expression(op, args, typ) -> x.EncodeExpression encCtx t op args typ
                     | HeapRef(address, _) -> x.EncodeTerm encCtx address
-                    | _ -> internalfailf "unexpected term: %O" t
+                    | _ -> internalfail $"EncodeTerm: unexpected term: {t}"
                 let typ = TypeOf t
                 let result = if typ.IsEnum then x.AddEnumAssumptions encCtx typ result else result
                 { result with assumptions = x.SimplifyAndElements result.assumptions |> List.ofSeq }
@@ -283,11 +305,11 @@ module internal Z3 =
             | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << x.MkEq) args
             | OperationType.Greater -> x.MakeBinary encCtx ctx.MkBVSGT args
             | OperationType.Greater_Un -> x.MakeBinary encCtx ctx.MkBVUGT args
-            | OperationType.GreaterOrEqual -> x.MakeBinary encCtx ctx.MkBVSGE args
+            | OperationType.GreaterOrEqual -> x.MakeBinary encCtx x.MkBVSGE args
             | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVUGE args
             | OperationType.Less -> x.MakeBinary encCtx ctx.MkBVSLT args
             | OperationType.Less_Un -> x.MakeBinary encCtx ctx.MkBVULT args
-            | OperationType.LessOrEqual -> x.MakeBinary encCtx ctx.MkBVSLE args
+            | OperationType.LessOrEqual -> x.MakeBinary encCtx x.MkBVSLE args
             | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
             | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
             | OperationType.AddNoOvf ->
@@ -382,7 +404,14 @@ module internal Z3 =
                     failToEncode "encoding real numbers is not implemented"
                 | Cast(Numeric t1, Numeric t2) when numericSizeOf t1 = numericSizeOf t2 ->
                     x.EncodeTerm encCtx (List.head args)
-                | Cast _ -> __notImplemented__()
+                | Cast(Bool, Numeric t) ->
+                    let arg = x.EncodeTerm encCtx (List.head args)
+                    let expr = arg.expr :?> BoolExpr
+                    let sort = x.Type2Sort(t)
+                    let converted = x.MkITE(expr, ctx.MkNumeral(1, sort), ctx.MkNumeral(0, sort))
+                    {expr = converted; assumptions = arg.assumptions}
+                | Cast(fromType, toType) ->
+                    internalfail $"EncodeExpression: encoding of term {term} from {fromType} to {toType} is not supported"
                 | Combine -> x.EncodeCombine encCtx args typ)
 
         member private this.MakeUnary<'a, 'b when 'a :> Expr and 'a : equality and 'b :> Expr and 'b : equality>
@@ -432,9 +461,9 @@ module internal Z3 =
                 let condition =
                     match y.sort with
                     | endpointSort.OpenRight -> ctx.MkBVSLT(key :?> BitVecExpr, bound)
-                    | endpointSort.ClosedRight -> ctx.MkBVSLE(key :?> BitVecExpr, bound)
+                    | endpointSort.ClosedRight -> x.MkBVSLE(key :?> BitVecExpr, bound)
                     | endpointSort.OpenLeft -> ctx.MkBVSGT(key :?> BitVecExpr, bound)
-                    | endpointSort.ClosedLeft -> ctx.MkBVSGE(key :?> BitVecExpr, bound)
+                    | endpointSort.ClosedLeft -> x.MkBVSGE(key :?> BitVecExpr, bound)
                     | _ -> __unreachable__()
                 x.MkAnd(acc, condition)
             let intervalWithoutLeftZeroBound =
@@ -486,13 +515,14 @@ module internal Z3 =
             let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regSort, structFields)
 
-        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst structFields left mo =
+        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst structFields left mo typ =
             let updates = MemoryRegion.flatten mo
             let assumptions, leftExpr = encodeKey left
             let leftRegion = (left :> IMemoryKey<'a, 'b>).Region
             let leftInRegion = keyInRegion TrueExpr leftExpr leftRegion
             let assumptions = leftInRegion :: assumptions
-            let inst = inst leftExpr
+            let inst, instAssumptions = inst leftExpr
+            let assumptions = instAssumptions @ assumptions
             let checkOneKey (right, reg, value) (acc, assumptions) =
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
@@ -503,7 +533,7 @@ module internal Z3 =
                     assert(IsStruct structTerm)
                     Memory.ReadField emptyState structTerm field
                 let value = List.fold readFieldIfNeed value structFields
-                let valueExpr = specializeWithKey value left |> x.EncodeTerm encCtx
+                let valueExpr = specializeWithKey value left right |> x.EncodeTerm encCtx
                 let assumptions = List.append assumptions valueExpr.assumptions
                 x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
@@ -515,26 +545,38 @@ module internal Z3 =
             let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let regionSort = GetHeapReadingRegionSort source
             let array = x.GetRegionConstant name sort structFields regionSort
-            let inst (k : Expr) = ctx.MkSelect(array, k)
+            let inst (k : Expr) =
+                let expr = ctx.MkSelect(array, k)
+                expr, x.GenerateInstAssumptions expr typ
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
             let keysAreMatch leftExpr right rightRegion =
                 let assumptions, rightExpr = encodeKey right
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInVectorTimeIntervals encCtx rightExpr eq rightRegion
-            let res = x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo
+            let specialize v _ _ = v
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo typ
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
+
+        // Generating assumptions for instantiation
+        member private x.GenerateInstAssumptions (inst : Expr) typ =
+            if typ = addressType then
+                // In case of symbolic address instantiation, adding assumption "inst < 0"
+                let zero = ctx.MkNumeral(0, inst.Sort) :?> BitVecExpr
+                let belowZero = ctx.MkBVSLT(inst :?> BitVecExpr, zero)
+                belowZero |> List.singleton
+            else List.empty
 
         // NOTE: temporary generating string with 0 <= length <= 20
         member private x.GenerateLengthAssumptions encodingResult =
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
-            let lengthIsNonNegative = ctx.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
+            let lengthIsNonNegative = x.MkBVSGE(expr, ctx.MkBV(0, expr.SortSize))
             let assumptions = lengthIsNonNegative :: assumptions
             let assumptions =
                 if maxBufferSize < 0 then assumptions
-                else (ctx.MkBVSLE(expr, ctx.MkBV(maxBufferSize, expr.SortSize))) :: assumptions
+                else x.MkBVSLE(expr, ctx.MkBV(maxBufferSize, expr.SortSize)) :: assumptions
             // TODO: this limits length < 20, delete when model normalization is complete
             { encodingResult with assumptions = assumptions }
 
@@ -552,12 +594,13 @@ module internal Z3 =
             let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
             let valueSort = x.Type2Sort typ
             let inst (k : Expr[]) =
-                if hasDefaultValue then x.DefaultValue valueSort
+                if hasDefaultValue then x.DefaultValue valueSort, List.empty
                 else
                     let sort = ctx.MkArraySort(domainSort, valueSort)
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
-                    ctx.MkSelect(array, k)
-            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo
+                    let expr = ctx.MkSelect(array, k)
+                    expr, x.GenerateInstAssumptions expr typ
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo typ
             let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
@@ -582,7 +625,7 @@ module internal Z3 =
             // (3) every index of left key is in bounds of right key
             let keyInBounds (i : Expr) (l : Expr) (r : Expr) =
                 let i = i :?> BitVecExpr
-                x.MkAnd(ctx.MkBVSLE(l :?> BitVecExpr, i), ctx.MkBVSLE(i, r :?> BitVecExpr))
+                x.MkAnd(x.MkBVSLE(l :?> BitVecExpr, i), x.MkBVSLE(i, r :?> BitVecExpr))
             let indicesConditions = Array.map3 keyInBounds leftIndices fromIndices toIndices
             assumptions, x.MkAnd(x.MkAnd indicesConditions, keyInRegion)
 
@@ -617,7 +660,8 @@ module internal Z3 =
                 let assumptions, rightExpr = encodeKey right
                 let eq = keysAreEqual(leftExpr, rightExpr)
                 assumptions, keyInRegion eq rightExpr rightRegion
-            x.ArrayReading encCtx always keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source structFields name
+            let specialize v _ _ = v
+            x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source structFields name
 
         member private x.StackBufferReading encCtx key mo typ source structFields name =
             assert mo.defaultValue.IsNone
@@ -625,12 +669,15 @@ module internal Z3 =
             let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort structFields
             let keyInRegion = x.stackBufferIndexKeyInRegion
-            let inst (k : Expr) = ctx.MkSelect(array, k)
+            let inst (k : Expr) =
+                let expr = ctx.MkSelect(array, k)
+                expr, x.GenerateInstAssumptions expr typ
             let keysAreMatch leftExpr right rightRegion =
                 let assumptions, rightExpr = encodeKey right
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInIntPoints rightExpr eq rightRegion
-            x.MemoryReading encCtx always keyInRegion keysAreMatch encodeKey inst structFields key mo
+            let specialize v _ _ = v
+            x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst structFields key mo typ
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source structFields (name : string) =
             assert mo.defaultValue.IsNone
@@ -701,6 +748,8 @@ module internal Z3 =
             let charArray = typeof<char[]>
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
             elif checkAndGet (typ, expr) then result.Value
+            // Case for concrete heap address
+            elif checkAndGet (addressType, expr) then result.Value
             elif typ = typeof<string> && checkAndGet (charArray, expr) then
                 // NOTE: storing most concrete type for string
                 encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
@@ -825,7 +874,7 @@ module internal Z3 =
                     match ms with
                     | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
-                        let t = key.TypeOfLocation
+                        let t = if List.isEmpty fields then key.TypeOfLocation else (List.last fields).typ
                         let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
@@ -858,7 +907,7 @@ module internal Z3 =
                 let arr = m.Eval(constant, false)
                 let typeOfLocation =
                     if fields.IsEmpty then region.TypeOfLocation
-                    else fields.Head.typ
+                    else (List.last fields).typ
                 let rec parseArray (arr : Expr) =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
@@ -906,27 +955,20 @@ module internal Z3 =
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
-    type internal Z3Solver() =
-//        let optCtx = ctx.MkOptimize()
-        let optCtx = ctx.MkSolver()
+    type internal Z3Solver(timeoutMs : uint option) =
+        let solver = ctx.MkSolver()
 
-//        let addSoftConstraints lvl =
-//            let pathAtoms =
-//                seq {
-//                    for i in 0 .. min (levelAtoms.Count - 1) (Level.toInt lvl) do
-//                        if levelAtoms.[i] <> null then
-//                            yield! __notImplemented__() (* pathAtoms.[uint32(i)] *)
-//                }
-//            optCtx.Push()
-//            let weight = 1u
-//            let group = null
-//            pathAtoms |> Seq.iter (fun atom -> optCtx.AssertSoft(atom, weight, group) |> ignore)
-//            pathAtoms
+        do
+            match timeoutMs with
+            | Some timeoutMs ->
+                let parameters = ctx.MkParams().Add("timeout", timeoutMs);
+                solver.Parameters <- parameters
+            | None -> ()
 
         interface ISolver with
             member x.CheckSat (encCtx : encodingContext) (q : term) : smtResult =
-                printLog Trace "SOLVER: trying to solve constraints..."
-                printLogLazy Trace "%s" (lazy(q.ToString()))
+                Logger.printLog Logger.Trace "SOLVER: trying to solve constraints..."
+                Logger.printLogLazy Logger.Trace "%s" (lazy q.ToString())
                 try
                     try
                         let query = builder.EncodeTerm encCtx q
@@ -937,33 +979,36 @@ module internal Z3 =
                                 yield query.expr
                             } |> Array.ofSeq
     //                    let pathAtoms = addSoftConstraints q.lvl
-                        let result = optCtx.Check assumptions
+                        let result = solver.Check assumptions
                         match result with
                         | Status.SATISFIABLE ->
-                            trace "SATISFIABLE"
-                            let z3Model = optCtx.Model
+                            Logger.trace "SATISFIABLE"
+                            let z3Model = solver.Model
                             let model = builder.MkModel z3Model
                             SmtSat { mdl = model }
                         | Status.UNSATISFIABLE ->
-                            trace "UNSATISFIABLE"
+                            Logger.trace "UNSATISFIABLE"
                             SmtUnsat { core = Array.empty (*optCtx.UnsatCore |> Array.map (builder.Decode Bool)*) }
                         | Status.UNKNOWN ->
-                            trace "UNKNOWN"
-                            SmtUnknown optCtx.ReasonUnknown
+                            Logger.error $"Solver returned Status.UNKNOWN. Reason: {solver.ReasonUnknown}\n\
+                                Expression: {assumptions |> Seq.map (fun a -> a.ToString()) |> Seq.toList}"
+
+                            Logger.trace "UNKNOWN"
+                            SmtUnknown solver.ReasonUnknown
                         | _ -> __unreachable__()
                     with
                     | :? EncodingException as e ->
-                        printLog Info "SOLVER: exception was thrown: %s" e.Message
+                        Logger.printLog Logger.Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
                     // TODO: need to reset encoding cache on every 'CheckSat'?
                     builder.Reset()
 
             member x.Assert encCtx (fml : term) =
-                printLogLazy Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
+                Logger.printLogLazy Logger.Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
-                optCtx.Assert(encoded)
+                solver.Assert(encoded)
 
             member x.SetMaxBufferSize size =
                 builder.SetMaxBufferSize size

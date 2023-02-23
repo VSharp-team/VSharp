@@ -211,6 +211,47 @@ namespace IntegrationTests
             return a;
         }
 
+        [TestSvm(100)]
+        public static int[] CopySymbolicIndicesToConcreteArray(int srcI, int dstI, int len)
+        {
+            int[] arr = new int[5] {10, 2, 3, 4, 5};
+            int[] a = new int[5] {1, 1, 1, 1, 1};
+            Array.Copy(arr, srcI, a, dstI, len);
+            if (a[2] == 3)
+                return Array.Empty<int>();
+            return a;
+        }
+
+        [TestSvm(100)]
+        public static int[] CopySymbolicIndicesToConcreteArray1(int srcI1, int dstI1, int len1, int srcI2, int dstI2, int len2)
+        {
+            int[] arr = new int[5] {10, 2, 3, 4, 5};
+            int[] a = new int[5] {1, 1, 1, 1, 1};
+            Array.Copy(arr, srcI1, a, dstI1, len1);
+            if (a[2] == 3)
+                return a;
+            int[] b = new int[5] {1, 1, 1, 1, 1};
+            Array.Copy(a, srcI2, b, dstI2, len2);
+            if (b[2] == 3)
+                return Array.Empty<int>();
+            return a;
+        }
+
+        [TestSvm(100)]
+        public static int[] CopySymbolicIndicesToConcreteArray2(int srcI, int dstI, int len)
+        {
+            int[] arr = new int[5] {10, 2, 3, 4, 5};
+            int[] a = new int[5] {1, 1, 1, 1, 1};
+            arr[dstI + len] = len;
+            Array.Copy(arr, srcI, a, dstI, len);
+            int[] b = new int[5] {3, 3, 3, 3, 3};
+            Array.Copy(a, dstI, b, dstI, len + 1);
+            if (b[dstI + len] == len)
+                // Should be unreachable
+                return Array.Empty<int>();
+            return a;
+        }
+
         [TestSvm(86)]
         public static int TestSolvingCopy(int[] a, int[] b, int i)
         {
@@ -705,6 +746,20 @@ namespace IntegrationTests
             }
 
             return arr;
+        }
+    }
+
+    [TestSvmFixture]
+    public class ArrayCopying
+    {
+        private List<int> _elements;
+
+        public int Count => _elements.Count - 1;
+
+        [TestSvm(100)]
+        public void CopyTo(int[] array, int arrayIndex)
+        {
+            _elements.CopyTo(1, array, arrayIndex, Count);
         }
     }
 

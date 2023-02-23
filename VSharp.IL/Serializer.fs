@@ -206,7 +206,7 @@ let collectGameState (location:codeLocation) =
         then            
             let added = visitedMethods.Add method
             assert added
-            for basicBlock in method.CFG.SortedBasicBlocks do
+            for basicBlock in method.ForceCFG.SortedBasicBlocks do
                     basicBlock.IsGoal <- method.InCoverageZone
                     basicBlocks.Add(firstFreeBasicBlockID, basicBlock)
                     basicBlocksIds.Add(basicBlock, firstFreeBasicBlockID)

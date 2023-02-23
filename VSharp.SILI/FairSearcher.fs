@@ -91,7 +91,18 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         types
 
     let onMethodRound methods =
-        List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage(m, coverageType.ByTest)) methods
+        List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage m) methods
+
+    let rec getCallsCount (m : Method) =
+        try
+            match m.CFG with
+            | Some cfg -> cfg.Calls.Count
+            | None ->
+                Logger.warning $"Fair searcher: cannot get CFG while getting calls count in {m.FullName}"
+                Int32.MaxValue
+        with :? InsufficientInformationException as e ->
+            Logger.warning $"Fair searcher: IIE ({e.Message}) on getting calls count in {m.FullName}"
+            Int32.MaxValue
 
     let init initialStates =
         baseSearcher.Init initialStates
@@ -100,16 +111,14 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         let groupedByType = initialStates |> Seq.map CilStateOperations.entryMethodOf |> Seq.distinct |> Seq.groupBy (fun m -> m.DeclaringType)
         typeEnumerator <- FairEnumerator(groupedByType |> Seq.map fst |> Seq.toList, getTypeTimeout, shouldStopType, onTypeRound, onTypeTimeout)
         for typ, methods in groupedByType do
-            try
-                let methods = methods |> Seq.sortBy (fun m -> m.CFG.Calls.Count) |> Seq.toList
-                methodEnumerators.[typ] <- FairEnumerator(
-                    methods,
-                    (fun _ -> getMethodTimeout typ),
-                    (fun _ -> shouldStopMethod typ),
-                    onMethodRound,
-                    onMethodTimeout
-                )
-            with e -> Logger.error $"Initializing FairSearcher: unable to get CFG from methods {methods}, {e}"
+            methodEnumerators.[typ] <- FairEnumerator(
+                // Heuristics to explore the methods without calls first
+                methods |> Seq.sortBy getCallsCount |> Seq.toList,
+                (fun _ -> getMethodTimeout typ),
+                (fun _ -> shouldStopMethod typ),
+                onMethodRound,
+                onMethodTimeout
+            )
 
     let update (parent, newStates) = baseSearcher.Update(parent, newStates)
 

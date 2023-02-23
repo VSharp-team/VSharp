@@ -295,9 +295,11 @@ public static class TestsRenderer
         // Declaring arguments and 'this' of testing method
         IdentifierNameSyntax? thisArgId = null;
         string thisArgName = "thisArg";
+        Type? thisArgType = null;
         if (thisArg != null)
         {
             Debug.Assert(Reflection.hasThis(method));
+            thisArgType = thisArg.GetType();
             var needExplicitType = thisArg is Delegate;
             var renderedThis = mainBlock.RenderObject(thisArg, thisArgName, needExplicitType);
             if (renderedThis is IdentifierNameSyntax id)
@@ -332,7 +334,7 @@ public static class TestsRenderer
         f.HasArgs = mainBlock.StatementsCount() > 0;
 
         // Calling testing method
-        var callMethod = test.RenderCall(thisArgId, method, renderedArgs);
+        var callMethod = test.RenderCall(thisArgId, thisArgType, method, renderedArgs);
         f.CallingTest = callMethod.NormalizeWhitespace().ToString();
 
         var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
@@ -394,18 +396,19 @@ public static class TestsRenderer
         MethodsFormat[test.MethodId.ToString()] = f;
     }
 
-    private static (ArrayTypeSyntax, SimpleNameSyntax, SimpleNameSyntax) RenderNonVoidMockedMethod(
+    private static (Type, SimpleNameSyntax, SimpleNameSyntax) RenderNonVoidMockedMethod(
         TypeRenderer mock,
         MethodInfo m)
     {
         // Rendering mocked method clauses
-        var returnTypeArray = (ArrayTypeSyntax) mock.RenderType(m.ReturnType.MakeArrayType());
+        var returnType = m.ReturnType.MakeArrayType();
+        var renderedReturnType = (ArrayTypeSyntax) mock.RenderType(returnType);
         var methodName = mock.RenderMethodName(m).ToString();
         var valuesFieldName = $"_clauses{methodName}";
         var emptyArray =
             RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
         var valuesField =
-            mock.AddField(returnTypeArray, valuesFieldName, new[] { Private }, emptyArray);
+            mock.AddField(renderedReturnType, valuesFieldName, new[] { Private }, emptyArray);
         var currentName = $"_currentClause{methodName}";
         var zero = RenderLiteral(0);
         var currentValueField =
@@ -417,7 +420,7 @@ public static class TestsRenderer
                 null,
                 new [] { Public },
                 mock.VoidType,
-                (returnTypeArray, "clauses")
+                (renderedReturnType, "clauses")
             );
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
@@ -448,7 +451,7 @@ public static class TestsRenderer
             RenderArrayAccess(valuesField, new ExpressionSyntax[] { fieldWithIncrement });
         body.AddReturn(validCase);
         mockedMethod.Render();
-        return (returnTypeArray, setupMethod.MethodId, mockedMethod.MethodId);
+        return (returnType, setupMethod.MethodId, mockedMethod.MethodId);
     }
 
     private static SimpleNameSyntax RenderVoidMockedMethod(
@@ -480,7 +483,7 @@ public static class TestsRenderer
         Mocking.Type typeMock,
         bool isDelegate)
     {
-        var methodsInfo = new List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)>();
+        var methodsInfo = new List<(MethodInfo, Type, SimpleNameSyntax)>();
 
         SimpleNameSyntax? methodId = null;
 
@@ -582,6 +585,7 @@ public static class TestsRenderer
             {
                 var method = test.Method;
                 var methodType = method.DeclaringType;
+                CompactRepresentations = test.CompactRepresentations;
                 Debug.Assert(methodType != null &&
                     (methodType.IsGenericType && declaringType.IsGenericType &&
                      methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
@@ -626,7 +630,7 @@ public static class TestsRenderer
             }
             catch (Exception e)
             {
-                Logger.writeLineString(Logger.Error, $"Tests renderer: rendering test failed: {e}");
+                Logger.printLogString(Logger.Error, $"Tests renderer: rendering test failed: {e}");
             }
         }
         generatedClass.Render();

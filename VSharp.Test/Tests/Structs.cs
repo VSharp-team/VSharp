@@ -34,5 +34,16 @@ namespace IntegrationTests
                 throw new ArgumentException();
             }
         }
+
+        [TestSvm(100)]
+        public static int StaticMethod(Point p)
+        {
+            if (p._x > 0)
+            {
+                return 0;
+            }
+
+            return 1;
+        }
     }
 }

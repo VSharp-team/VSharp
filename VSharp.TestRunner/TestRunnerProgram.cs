@@ -1,8 +1,7 @@
 ﻿using System;
-using System.IO;
 using System.CommandLine;
 using System.CommandLine.Invocation;
-
+using System.IO;
 
 namespace VSharp.TestRunner
 {
@@ -71,7 +70,7 @@ namespace VSharp.TestRunner
                 return ReproduceTests(testPath, suite, disableCheck, recursive);
             });
 
-            return rootCommand.InvokeAsync(args).Result;
+            return rootCommand.Invoke(args);
         }
     }
 }

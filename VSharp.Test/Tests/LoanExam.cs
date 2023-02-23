@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using VSharp.Test;
 
 namespace IntegrationTests;
@@ -194,7 +194,7 @@ public class LoanExam
         }
     }
 
-    [TestSvm(90, 0, 20, false, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class, guidedMode: false)]
+    [TestSvm(95, 0, 15, false, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class, guidedMode: false, releaseBranches: false)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;

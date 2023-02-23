@@ -290,6 +290,14 @@ module TypeUtils =
                 i.GetGenericTypeDefinition() = targetInterface.GetGenericTypeDefinition()
         t.GetInterfaces() |> Seq.exists matches
 
+    let rec getBaseInterfaces (t : Type) =
+        seq {
+            let bases = t.GetInterfaces()
+            yield! bases
+            for b in bases do
+                yield! getBaseInterfaces b
+        }
+
     // --------------------------------------- Conversions ---------------------------------------
 
     let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.CommandLine;
@@ -17,11 +17,12 @@ namespace VSharp.Runner
         {
             try
             {
-                return AssemblyManager.Resolve(assemblyPath.FullName);
+                return AssemblyManager.LoadFromAssemblyPath(assemblyPath.FullName);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                Console.Error.WriteLine("I did not found assembly {0}", assemblyPath.FullName);
+                Console.Error.WriteLine("I did not load assembly {0}; Error:{1}", assemblyPath.FullName, ex.Message);
+                Console.Error.WriteLine(ex.StackTrace);
                 return null;
             }
         }
@@ -37,9 +38,8 @@ namespace VSharp.Runner
             var specificClass =
                 assembly.GetType(classArgumentValue) ??
                 assembly.GetTypes()
-                    .Where(t => (t.FullName ?? t.Name)
-                    .Contains(classArgumentValue))
-                    .MinBy(t => t.Name.Length);
+                    .Where(t => (t.FullName ?? t.Name).Contains(classArgumentValue))
+                    .MinBy(t => t.FullName?.Length ?? t.Name.Length);
             if (specificClass == null)
             {
                 Console.Error.WriteLine("I did not found type you specified {0} in assembly {1}", classArgumentValue,
@@ -65,10 +65,8 @@ namespace VSharp.Runner
                 {
                     try
                     {
-                        var nullOrMethod = module.ResolveMethod(metadataToken);
-                        if (nullOrMethod == null) continue;
-                        method = nullOrMethod;
-                        break;
+                        method = module.ResolveMethod(metadataToken);
+                        if (method != null) break;
                     }
                     catch
                     {
@@ -89,10 +87,10 @@ namespace VSharp.Runner
                 {
                     try
                     {
-                        var nullOrMethod = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
-                        if (nullOrMethod == null) continue;
-                        method = nullOrMethod;
-                        break;
+                        method = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
+                        method ??= type.GetMethods(Reflection.allBindingFlags)
+                            .FirstOrDefault(m => $"{type.FullName}.{m.Name}".Contains(methodArgumentValue));
+                        if (method != null) break;
                     }
                     catch (Exception)
                     {
@@ -189,7 +187,7 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
             allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             var publicMethodsOfClassCommand =
-                new Command("--public-methods-of-class", "Generate unit tests for all public methods of specified class");
+                new Command("--type", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
             var classArgument = new Argument<string>("class-name");
             publicMethodsOfClassCommand.AddArgument(classArgument);

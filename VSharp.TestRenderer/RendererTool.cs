@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.Loader;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
@@ -8,75 +7,7 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-// TODO: unify with TestRunner's assembly load method
-internal class AssemblyResolver
-{
-    private static IEnumerable<string>? _extraAssemblyLoadDirs;
 
-    public static void Configure(IEnumerable<string> extraAssemblyLoadDirs)
-    {
-        _extraAssemblyLoadDirs = extraAssemblyLoadDirs;
-    }
-
-    public static void AddResolve(AssemblyLoadContext? assemblyLoadContext = null)
-    {
-        if (assemblyLoadContext != null)
-            assemblyLoadContext.Resolving += ResolveAssembly;
-        else
-            AppDomain.CurrentDomain.AssemblyResolve += ResolveAssembly;
-    }
-
-    public static void RemoveResolve(AssemblyLoadContext? assemblyLoadContext = null)
-    {
-        if (assemblyLoadContext != null)
-            assemblyLoadContext.Resolving -= ResolveAssembly;
-        else
-            AppDomain.CurrentDomain.AssemblyResolve -= ResolveAssembly;
-    }
-
-    private static Assembly? ResolveAssembly(AssemblyLoadContext assemblyLoadContext, AssemblyName args)
-    {
-        return AssemblyLoadContextOnResolving(assemblyLoadContext.Assemblies, args);
-    }
-
-    private static Assembly? ResolveAssembly(object? _, ResolveEventArgs args)
-    {
-        var loadedAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-        var assemblyName = new AssemblyName(args.Name);
-        return AssemblyLoadContextOnResolving(loadedAssemblies, assemblyName);
-    }
-
-    private static Assembly? AssemblyLoadContextOnResolving(IEnumerable<Assembly> loadedAssemblies, AssemblyName args)
-    {
-        var existingInstance =
-            loadedAssemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
-        if (existingInstance != null)
-        {
-            return existingInstance;
-        }
-
-        if (_extraAssemblyLoadDirs == null) return null;
-
-        var argsAssemblyName = args.Name + ".dll";
-        Debug.Assert(argsAssemblyName != null, "args.Name != null");
-        foreach (var path in _extraAssemblyLoadDirs)
-        {
-            var assemblyPath = Path.Combine(path, argsAssemblyName);
-            if (!File.Exists(assemblyPath))
-                return null;
-            // Old version
-            // Assembly assembly = Assembly.LoadFrom(assemblyPath);
-            // return assembly;
-
-            // Max Arshinov's version
-            using var stream = File.OpenRead(assemblyPath);
-            var assembly = AssemblyLoadContext.Default.LoadFromStream(stream);
-            return assembly;
-        }
-
-        return null;
-    }
-}
 
 public static class Renderer
 {
@@ -103,7 +34,7 @@ public static class Renderer
         {
             // TODO: try to add reference via 'dotnet add reference' (like with '.csproj' reference)
             Debug.Assert(testingProject.Extension == ".dll");
-            var assembly = Assembly.LoadFrom(testingProject.FullName);
+            var assembly = AssemblyManager.LoadFromAssemblyPath(testingProject.FullName);
             var text = File.ReadAllText(testProject.FullName);
             var location = $"<HintPath>{assembly.Location}</HintPath>";
             if (!text.Contains(location))
@@ -310,7 +241,7 @@ public static class Renderer
             }
             case PropertyDeclarationSyntax propertyDecl:
             {
-                return propertyDecl.Identifier.ToString();
+                return $"{propertyDecl.ExplicitInterfaceSpecifier}{propertyDecl.Type}{propertyDecl.Identifier}";
             }
             case BaseNamespaceDeclarationSyntax namespaceDecl:
             {
@@ -318,7 +249,7 @@ public static class Renderer
             }
             default:
             {
-                Logger.writeLineString(Logger.Error, $"NameOfMember: unexpected case {member}");
+                Logger.printLogString(Logger.Error, $"NameOfMember: unexpected case {member}");
                 return member.ToString();
             }
         }
@@ -537,8 +468,6 @@ public static class Renderer
             ti = UnitTest.DeserializeTestInfo(stream);
         }
 
-        AssemblyResolver.Configure(ti.extraAssemblyLoadDirs);
-
         return UnitTest.DeserializeFromTestInfo(ti, true);
     }
 
@@ -553,7 +482,7 @@ public static class Renderer
             }
             catch (Exception e)
             {
-                Logger.writeLineString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
+                Logger.printLogString(Logger.Error, $"Tests renderer: deserialization of test failed: {e}");
             }
         }
 
@@ -565,25 +494,22 @@ public static class Renderer
         Type? declaringType,
         string? testProjectName,
         bool wrapErrors = false,
-        bool singleFile = false,
-        AssemblyLoadContext? assemblyLoadContext = null)
+        bool singleFile = false)
     {
-        AssemblyResolver.AddResolve(assemblyLoadContext);
 
         var unitTests = DeserializeTests(tests);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
-        Assembly testAssembly = unitTests.First().Method.Module.Assembly;
+        var originAssembly = unitTests.First().Method.Module.Assembly;
+        var exploredAssembly = AssemblyManager.LoadCopy(originAssembly);
 
-        testProjectName ??= testAssembly.GetName().Name + ".Tests";
+        testProjectName ??= exploredAssembly.GetName().Name + ".Tests";
         Debug.Assert(testProjectName != null);
 
         var testsPrograms =
             TestsRenderer.RenderTests(unitTests, testProjectName, wrapErrors, singleFile, declaringType);
 
-        AssemblyResolver.RemoveResolve(assemblyLoadContext);
-
-        return (testsPrograms, testAssembly);
+        return (testsPrograms, exploredAssembly);
     }
 
     // Writing generated tests and mocks to files
@@ -607,7 +533,6 @@ public static class Renderer
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
         Type declaringType,
-        AssemblyLoadContext assemblyLoadContext,
         FileInfo? solutionForTests = null,
         string? targetFramework = null)
     {
@@ -616,7 +541,7 @@ public static class Renderer
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests, targetFramework);
 
         var (testsPrograms, _) =
-            RunTestsRenderer(tests, declaringType, testProjectPath.Name, false, false, assemblyLoadContext);
+            RunTestsRenderer(tests, declaringType, testProjectPath.Name, false, false);
 
         var renderedFiles = WriteResults(testProjectPath, testsPrograms);
 

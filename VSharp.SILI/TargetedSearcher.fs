@@ -24,7 +24,7 @@ type TargetedSearcher(maxBound, target, isPaused) =
                 let currLoc = tryCurrentLoc state
                 match currLoc with
                 | Some loc ->
-                    let cfg = loc.method.CFG
+                    let cfg = loc.method.ForceCFG
                     cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
@@ -89,7 +89,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
         | Some currLoc ->
-            let cfg = currLoc.method.CFG
+            let cfg = currLoc.method.ForceCFG
             let onVertex = cfg.IsBasicBlockStart currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
             onVertex && level > threshold
@@ -108,7 +108,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let addReturnTarget state =
         let startingLoc = startingLoc state
         let startingMethod = startingLoc.method
-        let cfg = startingMethod.CFG
+        let cfg = startingMethod.ForceCFG
 
         for retOffset in cfg.Sinks do
             let target = {offset = retOffset.StartOffset; method = startingMethod}
@@ -121,6 +121,12 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             | None ->
                 state.targets <-Some (Set.add target Set.empty)
                 insertInTargetedSearcher state target
+
+    let deleteTargetedSearcher target =
+        let targetedSearcher = getTargetedSearcher target
+        for state in targetedSearcher.ToSeq () do
+            removeTarget state target
+        targetedSearchers.Remove target |> ignore
 
     let updateTargetedSearchers parent (newStates : cilState seq) =
         let addedCilStates = Dictionary<codeLocation, cilState list>()
@@ -151,13 +157,8 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         if not <| List.isEmpty reachedStates then
             reachedOrUnreachableTargets.Add kvpair.Key |> ignore
             for state in reachedStates do
+                deleteTargetedSearcher kvpair.Key
                 addReturnTarget state)
-
-    let deleteTargetedSearcher target =
-        let targetedSearcher = getTargetedSearcher target
-        for state in targetedSearcher.ToSeq () do
-            removeTarget state target
-        targetedSearchers.Remove target |> ignore
 
     let insertInTargetedSearchers states =
         states
@@ -186,7 +187,11 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             pause state
 
     let rec pick' (selector : (cilState -> bool) option) =
-        let pick (searcher : IForwardSearcher) = if selector.IsSome then searcher.Pick selector.Value else searcher.Pick()
+        let pick (searcher : IForwardSearcher) =
+            if selector.IsSome then
+                searcher.Pick(fun s -> not <| isPaused s && selector.Value s)
+            else
+                searcher.Pick(not << isPaused)
         let pickFromBaseSearcher () =
             match pick baseSearcher with
             | Some state ->

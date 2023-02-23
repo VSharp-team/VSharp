@@ -1,5 +1,6 @@
 namespace VSharp
 
+open System.Collections.Concurrent
 open VSharp.GraphUtils
 open global.System
 open System.Reflection
@@ -371,10 +372,10 @@ and Method internal (m : MethodBase) as this =
             cfg
         else None)
 
-    let blocksCoverage = Dictionary<offset, coverageType>()
+    member x.CFG with get() = cfg.Force()
 
-    member x.CFG with get() =
-        match cfg.Force() with
+    member x.ForceCFG with get() =
+        match x.CFG with
         | Some cfg -> cfg
         | None -> internalfailf $"Getting CFG of method {x} without body (extern or abstract)"
 
@@ -388,45 +389,16 @@ and Method internal (m : MethodBase) as this =
     interface ICallGraphNode with
         member this.OutgoingEdges with get () =
             let edges = HashSet<_>()
-            for bb in this.CFG.SortedBasicBlocks do 
-                for kvp in bb.OutgoingEdges do
-                    if kvp.Key <> CfgInfo.TerminalForCFGEdge
-                    then
-                        for target in kvp.Value do
-                            (* let added = *)
-                            edges.Add target.Method |> ignore 
-                            //assert added
+            match this.CFG with
+            | Some cfg -> 
+                for bb in cfg.SortedBasicBlocks do 
+                    for kvp in bb.OutgoingEdges do
+                        if kvp.Key <> CfgInfo.TerminalForCFGEdge
+                        then
+                            for target in kvp.Value do
+                                edges.Add target.Method |> ignore
+            | None -> ()
             edges |> Seq.cast<ICallGraphNode>
-            
-    interface IReversedCallGraphNode with
-        member this.OutgoingEdges with get () =
-            let edges = HashSet<_>()              
-            for bb in this.CFG.EntryPoint.IncomingCallEdges do                
-                edges.Add bb.Method |> ignore                
-            edges |> Seq.cast<IReversedCallGraphNode>
-
-    static member val internal AttributesZone : Method -> bool = fun _ -> true with get, set
-
-    member x.CheckAttributes with get() = Method.AttributesZone x
-
-    member x.BasicBlocksCount with get() =
-        if x.HasBody then x.CFG.SortedBasicBlocks.Count |> uint else 0u
-
-    member x.BlocksCoveredByTests with get() = blocksCoverage.Keys |> Set.ofSeq
-
-    member x.BlocksCoveredFromEntryPoint with get() =
-        blocksCoverage |> Seq.choose (fun kv -> if kv.Value = ByEntryPointTest then Some kv.Key else None) |> Set.ofSeq
-    member this.CallGraphDistanceFromMe
-        with get () =
-            let assembly = this.Module.Assembly
-            let callGraphDist = Dict.getValueOrUpdate CallGraph.callGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
-            Dict.getValueOrUpdate callGraphDist this (fun () ->        
-            let dist = incrementalSourcedDijkstraAlgo (this :> ICallGraphNode) callGraphDist
-            let distFromNode = Dictionary<ICallGraphNode, uint>()
-            for i in dist do
-                if i.Value <> infinity then
-                    distFromNode.Add(i.Key, i.Value)
-            distFromNode)
             
     member this.CallGraphDistanceToMe
         with get () =
@@ -438,20 +410,33 @@ and Method internal (m : MethodBase) as this =
             for i in dist do
                 if i.Value <> infinity then
                     distToNode.Add(i.Key, i.Value)
-            distToNode)            
+            distToNode)
+            
+    interface IReversedCallGraphNode with
+        member this.OutgoingEdges with get () =
+            let edges = HashSet<_>()
+            match this.CFG with
+            | Some cfg -> 
+                for bb in cfg.EntryPoint.IncomingCallEdges do                
+                    edges.Add bb.Method |> ignore
+            | None -> ()
+            edges |> Seq.cast<IReversedCallGraphNode>
 
-    member x.SetBlockIsCoveredByTest(offset : offset, testEntryMethod : Method) =
-        match blocksCoverage.GetValueOrDefault(offset, ByTest) with
-        | ByTest ->
-            blocksCoverage.[offset] <- if testEntryMethod = x then ByEntryPointTest else ByTest
-        | ByEntryPointTest -> ()
+    static member val internal AttributesZone : Method -> bool = fun _ -> true with get, set
 
-    member x.ResetStatistics() = blocksCoverage.Clear()
+    member x.CheckAttributes with get() = Method.AttributesZone x
 
+    member x.BasicBlocksCount with get() =
+        match x.CFG with
+        | Some cfg -> cfg.SortedBasicBlocks |> Seq.length |> uint
+        | None -> 0u
 
 and [<CustomEquality; CustomComparison>] public codeLocation = {offset : offset; method : Method}
     with
-    member this.BasicBlock = this.method.CFG.ResolveBasicBlock this.offset
+    member this.BasicBlock =
+        match this.method.CFG with
+        | Some cfg -> cfg.ResolveBasicBlock this.offset
+        | None -> Unchecked.defaultof<_>
     override x.Equals y =
         match y with
         | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
@@ -473,9 +458,6 @@ and IGraphTrackableState =
     abstract member PredictedUsefulness: float with get
     abstract member VisitedNotCoveredVerticesInZone: uint with get
     abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
-    //abstract member VisitedNotCoveredEdgesInZone: uint with get,set
-    //abstract member VisitedNotCoveredEdgesOutOfZone: uint with get,set
-    //abstract member VisitedAgainEdges: uint with get
     abstract member VisitedAgainVertices: uint with get
     abstract member History:  Dictionary<BasicBlock,uint>
     abstract member Children: array<IGraphTrackableState>
@@ -485,7 +467,9 @@ and IGraphTrackableState =
 module public CodeLocation =
     let hasSiblings (blockStart : codeLocation) =
         let method = blockStart.method
-        method.HasBody && method.CFG.HasSiblings blockStart.offset
+        match method.CFG with
+        | Some cfg -> cfg.HasSiblings blockStart.offset
+        | None -> false
 
 type private ApplicationGraphMessage =
     | ResetQueryEngine
@@ -509,8 +493,8 @@ type ApplicationGraph() =
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
     
     let addCallEdge (callSource:codeLocation) (callTarget:codeLocation) =   
-        let callerMethodCfgInfo = callSource.method.CFG
-        let calledMethodCfgInfo = callTarget.method.CFG
+        let callerMethodCfgInfo = callSource.method.ForceCFG
+        let calledMethodCfgInfo = callTarget.method.ForceCFG
         let callFrom = callSource.BasicBlock
         let callTo = calledMethodCfgInfo.EntryPoint
         let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.BasicBlock  
@@ -625,10 +609,10 @@ type ApplicationGraph() =
                             | Some ch -> ch.Reply cfgInfo
                             | None -> ()
                         assert method.HasBody
-                        let cfg = tryGetCfgInfo method |> Option.get
+                        let cfg = method.CFG |> Option.get
                         reply cfg
                     | AddCallEdge (_from, _to) ->
-                        match tryGetCfgInfo _from.method, tryGetCfgInfo _to.method with
+                        match _from.method.CFG, _to.method.CFG with
                         | Some _, Some _ ->  addCallEdge _from _to
                         | _ -> ()
                     | AddGoals positions ->
@@ -641,7 +625,7 @@ type ApplicationGraph() =
                     | AddForkedStates (parentState, forkedStates) ->
                         addStates (Some parentState) (Array.ofSeq forkedStates)
                     | MoveState (_from,_to) ->
-                        tryGetCfgInfo _to.CodeLocation.method |> ignore
+                        _to.CodeLocation.method.CFG |> ignore
                         moveState _from _to
                     | GetShortestDistancesToGoals (replyChannel, states) ->
                         Logger.trace "Get shortest distances."
@@ -738,8 +722,8 @@ type NullVisualizer() =
 
 
 module Application =
-    let private methods = Dictionary<methodDescriptor, Method>()
-    let private _loadedMethods = HashSet<_>()
+    let private methods = ConcurrentDictionary<methodDescriptor, Method>()
+    let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
     let mutable graph = ApplicationGraph()
     let mutable visualizer : IVisualizer = NullVisualizer()
@@ -750,8 +734,7 @@ module Application =
         _loadedMethods.Clear()
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
-        lock methods (fun () ->
-        Dict.getValueOrUpdate methods desc (fun () -> Method(m)))
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m))
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
@@ -781,13 +764,9 @@ module Application =
     let addGoals = graph.AddGoals
     let removeGoal = graph.RemoveGoal
 
-    let resetMethodStatistics() =
-        lock methods (fun () ->
-            for method in methods.Values do
-                method.ResetStatistics())
-
     do
         MethodWithBody.InstantiateNew <- fun m -> getMethod m :> MethodWithBody
         Method.ReportCFGLoaded <- fun m ->
             graph.RegisterMethod m
-            let added = _loadedMethods.Add(m) in assert added
+            let added = _loadedMethods.TryAdd(m, ())
+            assert added

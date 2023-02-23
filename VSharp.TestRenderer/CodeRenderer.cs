@@ -20,9 +20,10 @@ internal class CodeRenderer
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
-        public readonly List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> SetupClauses;
+        // TODO: need to save type of clauses from mock definition?
+        public readonly List<(MethodInfo, Type, SimpleNameSyntax)> SetupClauses;
 
-        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses)
+        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses)
         {
             MockName = mockName;
             SetupClauses = setupClauses;
@@ -56,7 +57,7 @@ internal class CodeRenderer
 
         public DelegateMockInfo(
             SimpleNameSyntax mockName,
-            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses,
+            List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses,
             SimpleNameSyntax delegateMethod,
             Type delegateType) : base(mockName, setupClauses)
         {
@@ -66,6 +67,9 @@ internal class CodeRenderer
     }
 
     private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
+
+    // TODO: make non-static
+    public static Dictionary<object, CompactArrayRepr> CompactRepresentations = new ();
 
     public static void PrepareCache()
     {
@@ -300,6 +304,8 @@ internal class CodeRenderer
     }
 
     public IdentifierNameSyntax AllocatorObject => IdentifierName(nameof(Allocator<int>.Object));
+    public IdentifierNameSyntax AllocatorCall => IdentifierName(nameof(Allocator.Call));
+    public IdentifierNameSyntax AllocatorFill => IdentifierName(nameof(Allocator.Fill));
 
     // Prerendered program types
     public TypeSyntax ObjectType => RenderType(typeof(object));
@@ -678,7 +684,40 @@ internal class CodeRenderer
         return RenderCall(IdentifierName(functionName), args);
     }
 
-    public ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
+    private ExpressionSyntax RenderPrivateCall(
+        ExpressionSyntax? thisArg,
+        MethodBase method,
+        ArgumentSyntax[] args)
+    {
+        var length = args.Length;
+        ArgumentSyntax[] newArgs;
+        ExpressionSyntax function;
+        if (thisArg == null)
+        {
+            Debug.Assert(!Reflection.hasThis(method));
+            newArgs = new ArgumentSyntax[length + 2];
+            System.Array.Copy(args, 0, newArgs, 2, length);
+            var type = method.DeclaringType;
+            Debug.Assert(type != null);
+            newArgs[0] = Argument(RenderLiteral(type.AssemblyQualifiedName));
+            newArgs[1] = Argument(RenderLiteral(method.Name));
+            function = RenderMemberAccess(AllocatorType(), AllocatorCall);
+            return RenderCall(function, newArgs);
+        }
+
+        Debug.Assert(Reflection.hasThis(method));
+        newArgs = new ArgumentSyntax[length + 1];
+        System.Array.Copy(args, 0, newArgs, 1, length);
+        newArgs[0] = Argument(RenderLiteral(method.Name));
+        function = RenderMemberAccess(thisArg, AllocatorCall);
+        return RenderCall(function, newArgs);
+    }
+
+    public ExpressionSyntax RenderCall(
+        ExpressionSyntax? thisArg,
+        Type? thisType,
+        MethodBase method,
+        params ExpressionSyntax[] args)
     {
         var functionArgs = args.Select(Argument).ToArray();
         var parameters = method.GetParameters();
@@ -704,6 +743,10 @@ internal class CodeRenderer
             var init = System.Array.Empty<ExpressionSyntax>();
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
+
+        if (!method.IsPublic || thisType is { IsPublic: false, IsNestedPublic: false } ||
+            thisArg == null && method.DeclaringType is { IsPublic: false, IsNestedPublic: false })
+            return RenderPrivateCall(thisArg, method, functionArgs);
 
         if (method.IsSpecialName && method.Name == "get_Item")
         {
