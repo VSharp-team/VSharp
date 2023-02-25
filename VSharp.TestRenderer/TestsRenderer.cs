@@ -288,7 +288,7 @@ public static class TestsRenderer
         bool isError,
         bool wrapErrors,
         Type? ex,
-        object expected)
+        object? expected)
     {
         var mainBlock = test.Body;
         MethodFormat f = new MethodFormat();
