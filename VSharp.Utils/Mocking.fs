@@ -58,6 +58,13 @@ module Mocking =
         let counterFieldName = counterFieldName baseMethod
         let mutable returnType = baseMethod.ReturnType
 
+        do
+            let hasOutParameter =
+                baseMethod.GetParameters()
+                |> Array.exists (fun x -> x.IsOut)
+
+            if hasOutParameter then __notImplemented__ ()
+
         member x.BaseMethod = baseMethod
         member x.ReturnValues = returnValues
 
