@@ -30,6 +30,59 @@ internal interface IBlock
     BlockSyntax Render();
 }
 
+internal class ParameterRenderInfo
+{
+    private readonly string _parameterName;
+    private readonly TypeSyntax _type;
+    private readonly SyntaxTokenList _additionalParams;
+
+    public ParameterRenderInfo(string parameterName, TypeSyntax type)
+    {
+        _parameterName = parameterName;
+        _type = type;
+        _additionalParams = TokenList();
+    }
+
+    public ParameterRenderInfo(string parameterName, TypeSyntax type, ParameterInfo parameterInfo)
+    {
+        _parameterName = parameterName;
+        _type = type;
+        _additionalParams = GetAdditionalParamsFromParameterInfo(parameterInfo);
+    }
+
+    public string GetParameterName()
+    {
+        return _parameterName;
+    }
+
+    public ParameterSyntax BuildParameter(SyntaxToken identifier)
+    {
+        return Parameter(identifier).WithType(_type).WithModifiers(_additionalParams);
+    }
+
+    private static SyntaxTokenList GetAdditionalParamsFromParameterInfo(ParameterInfo parameterInfo)
+    {
+        var list = new List<SyntaxToken>();
+        if (parameterInfo.ParameterType.IsByRef)
+        {
+            if (parameterInfo.IsIn)
+            {
+                list.Add(Token(SyntaxKind.InKeyword));
+            }
+            else if (parameterInfo.IsOut)
+            {
+                list.Add(Token(SyntaxKind.OutKeyword));
+            }
+            else
+            {
+                list.Add(Token(SyntaxKind.RefKeyword));
+            }
+        }
+
+        return TokenList(list);
+    }
+}
+
 // After creating method, 'Render()' should be called
 // Otherwise it will not be added to declaring type
 internal class MethodRenderer : CodeRenderer
@@ -58,7 +111,7 @@ internal class MethodRenderer : CodeRenderer
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
         SimpleNameSyntax? interfaceName,
-        params (TypeSyntax, string)[] args) : base(referenceManager)
+        params ParameterRenderInfo[] args) : base(referenceManager)
     {
         // Creating identifiers cache
         var methodIdCache = new IdentifiersCache(cache);
@@ -102,10 +155,10 @@ internal class MethodRenderer : CodeRenderer
         ParametersIds = new IdentifierNameSyntax[args.Length];
         for (var i = 0; i < args.Length; i++)
         {
-            var (type, varName) = args[i];
+            var varName = args[i].GetParameterName();
             var arg = methodIdCache.GenerateIdentifier(varName);
             ParametersIds[i] = arg;
-            parameters[i] = Parameter(arg.Identifier).WithType(type);
+            parameters[i] = args[i].BuildParameter(arg.Identifier);
         }
         var parameterList =
             ParameterList(

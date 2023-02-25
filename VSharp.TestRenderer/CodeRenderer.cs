@@ -215,7 +215,9 @@ internal class CodeRenderer
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
 
-        string typeName = type.Name;
+        string typeName =
+            type.Name
+            .Replace("&", ""); // ByRef types contains & in name
         if (CSharpKeywords.Contains(typeName))
             typeName = $"@{typeName}";
 

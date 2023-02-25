@@ -116,7 +116,7 @@ internal class TypeRenderer : CodeRenderer
         TypeSyntax resultType,
         IdentifierNameSyntax[]? genericNames,
         SimpleNameSyntax? interfaceName,
-        params (TypeSyntax, string)[] args)
+        params ParameterRenderInfo[] args)
     {
         var method =
             new MethodRenderer(
@@ -140,7 +140,7 @@ internal class TypeRenderer : CodeRenderer
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
         TypeSyntax resultType,
-        params (TypeSyntax, string)[] args)
+        params ParameterRenderInfo[] args)
     {
         SimpleNameSyntax methodId = _cache.GenerateIdentifier(methodName);
         return AddMethod(methodId, attributes, modifiers, resultType, null, null, args);
@@ -223,7 +223,7 @@ internal class TypeRenderer : CodeRenderer
             generics = method.GetGenericArguments().Select(t => IdentifierName(t.ToString())).ToArray();
         var args =
             method.GetParameters()
-                .Select(p => (RenderType(p.ParameterType), p.Name ?? "arg"))
+                .Select(p => new ParameterRenderInfo(p.Name ?? "arg", RenderType(p.ParameterType), p))
                 .ToArray();
         var modifiersArray = modifiers.ToArray();
 
@@ -243,7 +243,7 @@ internal class TypeRenderer : CodeRenderer
     public MethodRenderer AddConstructor(
         AttributeListSyntax? attributes,
         SyntaxToken[] modifiers,
-        params (TypeSyntax, string)[] args)
+        params ParameterRenderInfo[] args)
     {
         var method =
             new MethodRenderer(
