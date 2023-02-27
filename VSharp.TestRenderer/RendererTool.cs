@@ -532,7 +532,7 @@ public static class Renderer
     public static (DirectoryInfo, List<string>) Render(
         IEnumerable<FileInfo> tests,
         FileInfo testingProject,
-        Type declaringType,
+        Type? declaringType = null,
         FileInfo? solutionForTests = null,
         string? targetFramework = null)
     {
