@@ -276,7 +276,8 @@ public static class TestsRenderer
     private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter)
     {
         var needExplicitType = NeedExplicitType(obj, parameter.ParameterType);
-        return block.RenderObject(obj, parameter.Name, needExplicitType);
+        var correctName = parameter.Name is null? null: CorrectNameGenerator.GetVariableName(parameter.Name);
+        return block.RenderObject(obj, correctName, needExplicitType);
     }
 
     private static void RenderTest(

@@ -150,7 +150,7 @@ internal class CodeRenderer
             [typeof(string)] = "string"
         };
 
-    private static readonly HashSet<string> CSharpKeywords = new()
+    internal static readonly HashSet<string> CSharpKeywords = new()
         {
             "bool", "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong",
             "double", "float", "decimal", "string", "char", "void", "object", "typeof",
@@ -189,12 +189,6 @@ internal class CodeRenderer
         return genericName;
     }
 
-    private static string GetTypeName(Type type)
-    {
-        return type.Name
-            .TrimEnd('&'); // ByRef types contains & in name
-    }
-
     public TypeSyntax RenderType(Type type)
     {
         Debug.Assert(type != null);
@@ -221,9 +215,7 @@ internal class CodeRenderer
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
 
-        string typeName = GetTypeName(type);
-        if (CSharpKeywords.Contains(typeName))
-            typeName = $"@{typeName}";
+        string typeName = CorrectNameGenerator.GetTypeName(type);
 
         if (type.IsNested && type.DeclaringType != null)
         {
@@ -247,7 +239,7 @@ internal class CodeRenderer
         if (typeNamespace != null)
             _referenceManager.AddUsing(typeNamespace);
 
-        string typeName = GetTypeName(type);
+        string typeName = CorrectNameGenerator.GetTypeName(type);
         if (type.IsNested && type.DeclaringType != null)
         {
             typeName = $"{RenderType(type.DeclaringType)}.{typeName}";
@@ -926,5 +918,54 @@ internal class CodeRenderer
     public static ExpressionSyntax RenderAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
     {
         return RenderCall(IdentifierName("Assert"), "AreEqual", x, y);
+    }
+}
+
+internal static class CorrectNameGenerator
+{
+    public static string GetTypeName(Type type)
+    {
+        var typeName = type.Name;
+
+        // Name can't be a csharp keyword
+        if (CodeRenderer.CSharpKeywords.Contains(typeName))
+            typeName = $"@{typeName}";
+
+        return typeName.TrimEnd('&'); // ByRef types contains & in name
+    }
+
+    public static string GetVariableName(string name)
+    {
+        var correctName = new System.Text.StringBuilder(name);
+
+        // Name must start from letter, '@' or '_'
+        var firstCorrectCharIndex = -1;
+        for (var i = 0; i < correctName.Length; i++)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch($"{correctName[i]}", "[a-zA-Z_@]"))
+            {
+                firstCorrectCharIndex = i;
+                break;
+            }
+        }
+        if (firstCorrectCharIndex == -1)
+        {
+            throw new Exception($"Unable to correct name: {name}");
+        }
+        correctName.Remove(0, firstCorrectCharIndex);
+
+        // Whitespaces are not allowed at name
+        correctName.Replace(" ", "");
+
+        // @ allowed only in start of name
+        correctName.Replace("@", "", 1, correctName.Length - 1);
+
+        // Name can't be a csharp keyword
+        if (CodeRenderer.CSharpKeywords.Contains(name))
+        {
+            correctName.Insert(0, '@');
+        }
+
+        return correctName.ToString();
     }
 }

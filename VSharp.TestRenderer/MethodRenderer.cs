@@ -516,7 +516,8 @@ internal class MethodRenderer : CodeRenderer
                 var fieldName = RenderObject(name);
                 var value = fieldInfo.GetValue(obj);
                 var needExplicitType = NeedExplicitType(value, typeof(object));
-                var fieldValue = RenderObject(value, name, needExplicitType);
+                var validName = CorrectNameGenerator.GetVariableName(name);
+                var fieldValue = RenderObject(value, validName, needExplicitType);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
@@ -670,6 +671,7 @@ internal class MethodRenderer : CodeRenderer
             return result;
         }
 
+        // 'preferredName' must be correct .NET identifier
         public ExpressionSyntax RenderObject(
             object? obj,
             string? preferredName = null,
