@@ -32,27 +32,22 @@ internal interface IBlock
 
 internal class ParameterRenderInfo
 {
-    private readonly string _parameterName;
     private readonly TypeSyntax _type;
     private readonly SyntaxTokenList _additionalParams;
+    public string ParameterName { get; }
 
     public ParameterRenderInfo(string parameterName, TypeSyntax type)
     {
-        _parameterName = parameterName;
+        ParameterName = parameterName;
         _type = type;
         _additionalParams = TokenList();
     }
 
     public ParameterRenderInfo(string parameterName, TypeSyntax type, ParameterInfo parameterInfo)
     {
-        _parameterName = parameterName;
+        ParameterName = parameterName;
         _type = type;
         _additionalParams = GetAdditionalParamsFromParameterInfo(parameterInfo);
-    }
-
-    public string GetParameterName()
-    {
-        return _parameterName;
     }
 
     public ParameterSyntax BuildParameter(SyntaxToken identifier)
@@ -155,7 +150,7 @@ internal class MethodRenderer : CodeRenderer
         ParametersIds = new IdentifierNameSyntax[args.Length];
         for (var i = 0; i < args.Length; i++)
         {
-            var varName = args[i].GetParameterName();
+            var varName = args[i].ParameterName;
             var arg = methodIdCache.GenerateIdentifier(varName);
             ParametersIds[i] = arg;
             parameters[i] = args[i].BuildParameter(arg.Identifier);

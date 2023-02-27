@@ -63,7 +63,7 @@ module Mocking =
                 baseMethod.GetParameters()
                 |> Array.exists (fun x -> x.IsOut)
 
-            if hasOutParameter then __notImplemented__ ()
+            if hasOutParameter then internalfail "Method with out parameters mocking not implemented"
 
         member x.BaseMethod = baseMethod
         member x.ReturnValues = returnValues

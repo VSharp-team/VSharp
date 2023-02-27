@@ -403,6 +403,9 @@ module TypeUtils =
         let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || canConvert lType rType
         commonConcreteCanCast canCast leftType rightType id (fun _ _ -> false)
 
+    /// If 'leftType' is assignable to 'rightType' and 'rightType' is assignable to 'leftType',
+    /// 'mostConcreteType' will return 'leftType'
+    /// Example: mostConcreteType typeof<uint array> typeof<int array> == typeof<uint array>
     let inline mostConcreteType (leftType : Type) (rightType : Type) =
         if leftType = null then rightType
         elif rightType = null then leftType

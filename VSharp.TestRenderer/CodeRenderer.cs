@@ -150,7 +150,7 @@ internal class CodeRenderer
             [typeof(string)] = "string"
         };
 
-    internal static readonly HashSet<string> CSharpKeywords = new()
+    private static readonly HashSet<string> CSharpKeywords = new()
         {
             "bool", "byte", "sbyte", "short", "ushort", "int", "uint", "long", "ulong",
             "double", "float", "decimal", "string", "char", "void", "object", "typeof",
@@ -189,6 +189,12 @@ internal class CodeRenderer
         return genericName;
     }
 
+    private static string GetTypeName(Type type)
+    {
+        return type.Name
+            .TrimEnd('&'); // ByRef types contains & in name
+    }
+
     public TypeSyntax RenderType(Type type)
     {
         Debug.Assert(type != null);
@@ -215,9 +221,7 @@ internal class CodeRenderer
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
 
-        string typeName =
-            type.Name
-            .Replace("&", ""); // ByRef types contains & in name
+        string typeName = GetTypeName(type);
         if (CSharpKeywords.Contains(typeName))
             typeName = $"@{typeName}";
 
@@ -243,7 +247,7 @@ internal class CodeRenderer
         if (typeNamespace != null)
             _referenceManager.AddUsing(typeNamespace);
 
-        string typeName = type.Name;
+        string typeName = GetTypeName(type);
         if (type.IsNested && type.DeclaringType != null)
         {
             typeName = $"{RenderType(type.DeclaringType)}.{typeName}";

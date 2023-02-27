@@ -436,7 +436,7 @@ module internal Memory =
             | Some address -> address
             | None when obj = null -> VectorTime.zero
             | None ->
-                let typ = mostConcreteType t (obj.GetType())
+                let typ = mostConcreteType (obj.GetType()) t
                 if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
                 let concreteAddress = allocateType state typ
                 cm.Allocate concreteAddress obj
