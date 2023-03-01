@@ -48,14 +48,16 @@ class GameEdgeLabel:
 @dataclass_json
 @dataclass
 class GameMapEdge:
-    VertexFrom: GameMapVertex
-    VertexTo: GameMapVertex
+    VertexFrom: int
+    VertexTo: int
     Label: GameEdgeLabel
 
 
 @dataclass_json
 @dataclass
 class GameState:
+    GraphVertices: list[GameMapVertex]
+    States: list[State]
     Map: list[GameMapEdge]
 
 
