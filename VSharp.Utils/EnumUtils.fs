@@ -16,3 +16,18 @@ module EnumUtils =
             __insufficientInformation__ $"Cannot determine underlying type for generic enum type {t.Name}"
 
         t.GetEnumUnderlyingType()
+
+    let getEnumDefaultValue (t : Type) =
+        if not t.IsEnum then
+            invalidArg "t" "Type must be enum"
+
+        let value = Activator.CreateInstance t
+
+        if t.IsEnumDefined value then
+            value
+        else
+            let allValues = t.GetEnumValues()
+            if allValues.Length <> 0 then
+                allValues.GetValue(0)
+            else
+                value

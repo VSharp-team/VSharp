@@ -798,7 +798,7 @@ module internal Terms =
     let rec makeDefaultValue typ =
         match typ with
         | Bool -> False
-        | Numeric t when t.IsEnum -> castConcrete (Activator.CreateInstance t) t
+        | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
         | Numeric t when t = typeof<char> -> makeNumber (char 33)
