@@ -53,11 +53,11 @@ class Mutator:
                             t[1][0].ForVisitedInstructions,
                             t[1][1],
                         ),  # sort by <MoveRewardReward, StepsCount>
-                    )[:n],
+                    ),
                 )
             )
 
-        return n_tops
+        return n_tops[:n]
 
     def averaged_n_tops(self, iteration_results: IterationResults, n: int) -> Mutable:
         # среднее по топам
@@ -119,5 +119,6 @@ class Mutator:
                 for _ in range(self.config.proportions.random_all_averaged_mutations)
             ]
         )
+        assert len(new_gen) == 10
 
         return new_gen

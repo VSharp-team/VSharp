@@ -1,18 +1,16 @@
+from collections import defaultdict
 from contextlib import closing, suppress
 from itertools import product
-from collections import defaultdict
 
-from common.game import GameMap, MoveReward
-from common.utils import compute_coverage_percent
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
-from ml.model_wrappers.protocols import RLearner
-from ml.model_wrappers.torch_model import TorchModelWrapper
-from ml.mutation_gen import MutatorConfig, Mutator
-from ml.mutation_gen import ModelResult, IterationResults
+from common.game import GameMap, MoveReward
+from common.utils import compute_coverage_percent
+from ml.model_wrappers.protocols import Predictor
+from ml.mutation_gen import IterationResults, ModelResult, Mutator
 
 
-def generate_games(models: list[RLearner], maps: list[GameMap]):
+def generate_games(models: list[Predictor], maps: list[GameMap]):
     # cartesian product
     return product(models, maps)
 
@@ -30,8 +28,9 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
             with suppress(NAgent.GameOver):
                 for _ in range(steps):
                     game_state = agent.recv_state_or_throw_gameover()
+                    predicted_state_id = model.predict(game_state)
                     agent.send_step(
-                        next_state_id=0,
+                        next_state_id=predicted_state_id,
                         predicted_usefullness=42.0,  # left it a constant for now
                     )
 
@@ -58,12 +57,16 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
 def r_learn(
     epochs: int,
     steps: int,
-    models: list[RLearner],
+    models: list[Predictor],
     maps: list[GameMap],
-    mutator_config: MutatorConfig,
+    mutator: Mutator,
     connection_manager: ConnectionManager,
 ) -> None:
-    mutator = Mutator(mutator_config, TorchModelWrapper)
-    for _ in range(epochs):
+    for epoch in range(epochs):
+        print(f"epoch# {epoch}")
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
         models = mutator.new_generation(iteration_data)
+
+    print("survived: ")
+    for model in models:
+        print(model)

@@ -1,28 +1,26 @@
-from contextlib import closing, suppress
 import argparse
+from contextlib import closing, suppress
 
-from common.game import MoveReward
-from common.utils import compute_coverage_percent
-from common.utils import get_states
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import NAgent
-from agent.n_agent import get_validation_maps
-from ml.utils import load_full_model
-from ml.predict_state_hetero import PredictStateHetGNN
+from agent.n_agent import NAgent, get_validation_maps
+from common.game import MoveReward
+from common.utils import compute_coverage_percent, get_states
 from ml.data_loader import ServerDataloaderHetero
+from ml.predict_state_hetero import PredictStateHetGNN
+from ml.utils import load_full_model
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--map_id", type=int, help="game map id", default=5)
-    parser.add_argument("--steps", type=int, help="amount of steps", default=20000)
+    parser.add_argument("--map_id", type=int, help="game map id", default=0)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=1000)
     args = parser.parse_args()
 
     socket_urls = ["ws://0.0.0.0:8080/gameServer"]
     cm = ConnectionManager(socket_urls)
     maps = get_validation_maps(cm)
 
-    model = load_full_model("ml/imported/GNN_state_pred_het_full")
+    model = load_full_model("VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full")
 
     chosen_map = args.map_id
     steps = args.steps
@@ -36,7 +34,9 @@ def main():
                 input, state_map = ServerDataloaderHetero.convert_input_to_tensor(
                     game_state
                 )
-                next_step_id = PredictStateHetGNN.predict_state(model, input, state_map)
+                next_step_id, vector = PredictStateHetGNN.predict_state(
+                    model, input, state_map
+                )
                 print(
                     f"step: {steps_count}, available states: {get_states(game_state)}, picked: {next_step_id}"
                 )

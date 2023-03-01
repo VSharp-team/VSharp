@@ -1,13 +1,16 @@
 import random
-import torch
+import string
+from copy import deepcopy
+from math import floor
+
 import numpy as np
 import numpy.typing as npt
-from math import floor
-from copy import deepcopy
-
-from ml.converter import convert_input_to_tensor
-from .protocols import ModelWrapper, Mutable
+import torch
 from common.game import GameState
+from ml.data_loader import ServerDataloaderHetero
+from ml.predict_state_hetero import PredictStateHetGNN
+
+from .protocols import ModelWrapper, Mutable
 
 MAX_W, MIN_W = 1, -1
 
@@ -27,22 +30,27 @@ class GeneticLearner(ModelWrapper):
         GeneticLearner.NUM_FEATURES = num_features
 
     def __init__(self, weights: npt.NDArray = None) -> None:
-        if weights == None:
-            self.weights = np.zeros((GeneticLearner.NUM_FEATURES))
+        if weights is None:
+            self.weights = np.random.rand((GeneticLearner.NUM_FEATURES))
         else:
             self.weights = weights
 
+        self.name = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+
+    def __str__(self) -> str:
+        return f"{self.name}: {[round(component, 2) for component in self.weights]}"
+
     def predict(self, input: GameState):
-        data = convert_input_to_tensor(input)
-        out: list[tuple[int, npt.NDArray]] = GeneticLearner._model(
-            data.x_dict, data.edge_index_dict
+        input, state_map = ServerDataloaderHetero.convert_input_to_tensor(input)
+        next_step_id, _ = PredictStateHetGNN.predict_state(
+            GeneticLearner._model, input, state_map
         )
-        weighted = [(index, array * self.weights) for (index, array) in out]
-        return max(weighted, key=lambda x: np.sum(x[1]))[0]
+        return next_step_id
 
     @staticmethod
     def average_n_mutables(ms: list[Mutable]) -> Mutable:
-        return np.mean(ms, axis=0)
+        mutables_weights = [model.weights for model in ms]
+        return GeneticLearner(weights=np.mean(mutables_weights, axis=0))
 
     @staticmethod
     def mutate(
@@ -52,6 +60,7 @@ class GeneticLearner(ModelWrapper):
         mutation_volume - процент компонентов вектора весов, которые будут мутированы\n
         mutation_freq - разброс изменения весов, в пределах (MAX_W, MIN_W)
         """
+        assert mutation_freq < MAX_W and mutation_freq > MIN_W
         new_mutable = deepcopy(mutable)
         to_mutate = floor(GeneticLearner.NUM_FEATURES / (mutation_volume / 100))
 
