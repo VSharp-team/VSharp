@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -212,8 +213,6 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
-                AssemblyManager.LoadCopy(context.CurrentTest.Method.MethodInfo.Module.Assembly);
-
                 IStatisticsReporter reporter = null;
 
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
@@ -261,8 +260,8 @@ namespace VSharp.Test
                         unitTests.GenerateTest,
                         unitTests.GenerateError,
                         _ => { },
-                        (_, e) => throw e,
-                        e => throw e
+                        (_, e) => ExceptionDispatchInfo.Capture(e).Throw(),
+                        e => ExceptionDispatchInfo.Capture(e).Throw()
                     );
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
