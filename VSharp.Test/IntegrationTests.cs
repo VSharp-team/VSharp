@@ -326,7 +326,6 @@ namespace VSharp.Test
                     reporter?.Report(stats with { Exception = e });
                 }
 
-                AssemblyManager.Reset();
                 return context.CurrentResult;
             }
 

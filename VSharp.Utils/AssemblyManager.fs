@@ -7,7 +7,7 @@ open System.Reflection.Emit
 open VSharp.CSharpUtils
 
 module AssemblyManager =
-    let mutable private alc = VSharpAssemblyLoadContext("vsharp_alc_0")
+    let mutable private alc = new VSharpAssemblyLoadContext("vsharp_alc_0")
 
     let mutable private alcVersion = 0
 
@@ -36,9 +36,15 @@ module AssemblyManager =
     // A more correct approach is to inject a VSharpAssemblyLoadContext instance
     // into all places of use via the constructor.
     // But there are no resources for this approach.
+    //
+    // WARNING: Using this method doesn't guarantee that types and methods associated
+    // with current context won't appear during further execution -- because of global
+    // caches, like terms hash map and Application. Particularly, types with the same names
+    // from different contexts may appear (and don't be equal)
     let Reset() =
         alcVersion <- alcVersion + 1
-        alc <- VSharpAssemblyLoadContext("vsharp_alc_" + alcVersion.ToString())
+        alc.Dispose()
+        alc <- new VSharpAssemblyLoadContext("vsharp_alc_" + alcVersion.ToString())
 
     let DefineDynamicAssembly (name : AssemblyName, access : AssemblyBuilderAccess) =
         using (alc.EnterContextualReflection()) (fun _ -> AssemblyBuilder.DefineDynamicAssembly(name, access))
