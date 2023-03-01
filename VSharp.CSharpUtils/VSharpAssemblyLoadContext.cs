@@ -12,7 +12,7 @@ namespace VSharp.CSharpUtils
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
 
         private readonly Dictionary<string, Type> _types = new();
-        
+
         public IEnumerable<string> DependenciesDirs { get; set; } = new List<string>();
 
         public VSharpAssemblyLoadContext(string name) : base(name)
@@ -29,7 +29,7 @@ namespace VSharp.CSharpUtils
                 {
                     var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
                     if (!File.Exists(assemblyPath))
-                        return null;
+                        continue;
                     var assembly = LoadFromAssemblyPath(assemblyPath);
                     return assembly;
                 }
@@ -87,7 +87,7 @@ namespace VSharp.CSharpUtils
         }
 
         // Some types (for example, generic arguments)
-        // may be loaded from the default context (AssemblyLoadContext.Default). 
+        // may be loaded from the default context (AssemblyLoadContext.Default).
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
@@ -100,7 +100,7 @@ namespace VSharp.CSharpUtils
             return _types.GetValueOrDefault(t.FullName, t);
         }
 
-        public MethodInfo NormalizeMethod(MethodInfo originMethod)
+        public MethodInfo NormalizeMethod(MethodBase originMethod)
         {
             var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
             if (originMethod.ReflectedType is null)

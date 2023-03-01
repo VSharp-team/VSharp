@@ -212,6 +212,8 @@ namespace VSharp.Test
 
             private TestResult Explore(TestExecutionContext context)
             {
+                AssemblyManager.LoadCopy(context.CurrentTest.Method.MethodInfo.Module.Assembly);
+
                 IStatisticsReporter reporter = null;
 
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
@@ -325,6 +327,7 @@ namespace VSharp.Test
                     reporter?.Report(stats with { Exception = e });
                 }
 
+                AssemblyManager.Reset();
                 return context.CurrentResult;
             }
 

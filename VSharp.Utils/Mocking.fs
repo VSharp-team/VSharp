@@ -263,7 +263,7 @@ module Mocking =
         let mockTypes : (Type * System.Type) option array = Array.zeroCreate mockTypeReprs.Length
         let moduleBuilder = lazy(
             let dynamicAssemblyName = "VSharpTypeMocks"
-            let assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
+            let assemblyBuilder = AssemblyManager.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
             assemblyBuilder.DefineDynamicModule dynamicAssemblyName)
 
         member x.MakeMockObject (mockTypeIndex : int) =
