@@ -67,11 +67,7 @@ namespace VSharp
         /// <summary>
         /// Error, warning and info messages.
         /// </summary>
-        Info,
-        /// <summary>
-        /// Only error messages with detailed continuous statistics which is saved to .csv file in the output directory.
-        /// </summary>
-        StatisticsCollection
+        Info
     }
 
     /// <summary>
@@ -159,7 +155,6 @@ namespace VSharp
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
             var baseSearchMode = searchStrategy.ToSiliMode();
-            var collectStatistics = verbosity == Verbosity.StatisticsCollection;
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
@@ -175,7 +170,6 @@ namespace VSharp
                     releaseBranches: true,
                     maxBufferSize: 128,
                     checkAttributes: true,
-                    collectContinuousDump: collectStatistics,
                     stopOnCoverageAchieved: 100
                 );
 
@@ -248,11 +242,6 @@ namespace VSharp
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                 HandleInternalFail, HandleCrash);
 
-            if (verbosity == Verbosity.StatisticsCollection)
-            {
-                StatisticsReporter.SaveReports(unitTests.TestDirectory.FullName, explorer.Statistics, true);
-            }
-
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
                 unitTests.UnitTestsCount, unitTests.ErrorsCount,
                 explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct());
@@ -295,7 +284,7 @@ namespace VSharp
                 Verbosity.Error => Logger.Error,
                 Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
-                Verbosity.StatisticsCollection => Logger.Error
+                _ => throw new UnreachableException("Unknown verbosity level")
             };
         }
 

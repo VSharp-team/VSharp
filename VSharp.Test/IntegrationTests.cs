@@ -249,7 +249,6 @@ namespace VSharp.Test
                         releaseBranches: _releaseBranches,
                         maxBufferSize: 128,
                         checkAttributes: _checkAttributes,
-                        collectContinuousDump: false,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1
                     );
                     using var explorer = new SILI(_options);
