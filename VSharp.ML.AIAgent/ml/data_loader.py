@@ -1,13 +1,13 @@
 import argparse
 import json
 import os.path
-from torch_geometric.data import Data, HeteroData
 from os import walk
 from typing import Dict, Tuple
-import torch
-import numpy as np
 
+import numpy as np
+import torch
 from common.game import GameState
+from torch_geometric.data import Data, HeteroData
 
 # NUM_NODE_FEATURES = 49
 NUM_NODE_FEATURES = 6

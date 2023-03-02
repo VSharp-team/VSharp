@@ -1,3 +1,7 @@
+import logging
+import logging.config
+
+from constants import Constant
 from common.game import GameMap, GameState
 from common.messages import (
     ClientMessage,
@@ -15,6 +19,8 @@ from common.messages import (
 )
 
 from .connection_manager import ConnectionManager
+
+logger = logging.getLogger(Constant.Loggers.AGENT_LOGGER)
 
 
 def get_validation_maps(cm: ConnectionManager) -> list[GameMap]:
@@ -77,8 +83,7 @@ class NAgent:
         start_message = ClientMessage(
             StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
         )
-        if log:
-            print("-->", start_message, "\n")
+        logger.debug(f"--> {start_message}")
         self._ws.send(start_message.to_json())
         self._current_step = 0
         self.game_is_over = False
@@ -99,22 +104,19 @@ class NAgent:
         return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
-        if self.log:
-            print(f"{next_state_id=}")
+        logger.debug(f"{next_state_id=}")
         do_step_message = ClientMessage(
             StepMessageBody(
                 StateId=next_state_id, PredictedStateUsefulness=predicted_usefullness
             )
         )
-        if self.log:
-            print("-->", do_step_message)
+        logger.debug(f"--> {do_step_message}")
         self._ws.send(do_step_message.to_json())
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
         data = RewardServerMessage.from_json(self._raise_if_gameover(self._ws.recv()))
-        if self.log:
-            print("<--", data.MessageType, end="\n\n")
+        logger.debug(f"<-- {data.MessageType}")
 
         return self._process_reward_server_message(data)
 

@@ -1,6 +1,8 @@
 import torch
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_validation_maps
+from constants import Constant
+from logger.setup import setup_loggers
 from ml.model_wrappers.torch_model import TorchModelWrapper
 from ml.models import GCN
 from ml.mutation_gen import MutationProportions, Mutator, MutatorConfig
@@ -8,7 +10,8 @@ from r_learn import r_learn
 
 
 def main():
-    socket_urls = ["ws://0.0.0.0:8080/gameServer"]
+    setup_loggers()
+    socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
     cm = ConnectionManager(socket_urls)
 
     model = GCN(hidden_channels=64)
@@ -17,7 +20,7 @@ def main():
 
     epochs = 2
     max_steps = 2
-    n_models = 1
+    n_models = 10
 
     models = [TorchModelWrapper(model, optimizer, criterion) for _ in range(n_models)]
 

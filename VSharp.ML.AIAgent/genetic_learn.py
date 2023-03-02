@@ -1,5 +1,7 @@
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_validation_maps
+from constants import Constant
+from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.mutation_gen import MutationProportions, Mutator, MutatorConfig
 from ml.utils import load_full_model
@@ -7,12 +9,11 @@ from r_learn import r_learn
 
 
 def main():
-    socket_urls = ["ws://0.0.0.0:8080/gameServer"]
+    setup_loggers()
+    socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
     cm = ConnectionManager(socket_urls)
 
-    loaded_model = load_full_model(
-        "VSharp.ML.AIAgent/ml/imported/GNN_state_pred_het_full"
-    )
+    loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
     epochs = 20
     max_steps = 1000

@@ -1,3 +1,4 @@
+import logging
 from collections import defaultdict
 from contextlib import closing, suppress
 from itertools import product
@@ -6,8 +7,11 @@ from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent
+from constants import Constant
 from ml.model_wrappers.protocols import Predictor
 from ml.mutation_gen import IterationResults, ModelResult, Mutator
+
+logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
 
 def generate_games(models: list[Predictor], maps: list[GameMap]):
@@ -42,12 +46,14 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
                 steps_count += 1
 
         model_result: ModelResult = (model, (cumulative_reward, steps_count))
-        print("=" * 80)
-        print(f"model {model}:")
-        print(f"steps: {steps_count}")
-        print(f"reward: {cumulative_reward}")
-        print(
-            f"coverage: {compute_coverage_percent(game_state, model_result[1][0].ForCoverage):.2f}"
+        coverage_percent = compute_coverage_percent(
+            game_state, model_result[1][0].ForCoverage
+        )
+        logger.info(
+            f"{model} finished: in {steps} steps, "
+            f"with reward: {cumulative_reward} "
+            f"and coverage: "
+            f"{coverage_percent:.2f}"
         )
         iteration_data[map].append(model_result)
 
@@ -63,10 +69,11 @@ def r_learn(
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
-        print(f"epoch# {epoch}")
+        logger.info(f"epoch# {epoch}")
         iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
         models = mutator.new_generation(iteration_data)
 
-    print("survived: ")
+    survived = "\n"
     for model in models:
-        print(model)
+        survived += str(model) + "\n"
+    logger.info(f"survived models: {survived}")
