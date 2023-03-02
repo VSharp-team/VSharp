@@ -1,17 +1,19 @@
-from common.game import GameMap
-from common.game import GameState
-from common.messages import Reward
-from common.messages import ClientMessage
-from common.messages import StartMessageBody
-from common.messages import StepMessageBody
-from common.messages import GetTrainMapsMessageBody
-from common.messages import GetValidationMapsMessageBody
-from common.messages import ServerMessage
-from common.messages import ServerMessageType
-from common.messages import MapsServerMessage
-from common.messages import GameOverServerMessage
-from common.messages import GameStateServerMessage
-from common.messages import RewardServerMessage
+from common.game import GameMap, GameState
+from common.messages import (
+    ClientMessage,
+    GameOverServerMessage,
+    GameStateServerMessage,
+    GetTrainMapsMessageBody,
+    GetValidationMapsMessageBody,
+    MapsServerMessage,
+    Reward,
+    RewardServerMessage,
+    ServerMessage,
+    ServerMessageType,
+    StartMessageBody,
+    StepMessageBody,
+)
+
 from .connection_manager import ConnectionManager
 
 

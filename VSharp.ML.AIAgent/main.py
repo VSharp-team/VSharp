@@ -1,12 +1,9 @@
 import torch
-
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_validation_maps
 from ml.model_wrappers.torch_model import TorchModelWrapper
-from ml.mutation_gen import MutationProportions
-from ml.mutation_gen import MutatorConfig
 from ml.models import GCN
-
+from ml.mutation_gen import MutationProportions, Mutator, MutatorConfig
 from r_learn import r_learn
 
 
@@ -34,11 +31,13 @@ def main():
             random_n_tops_averaged_mutations=2,
             random_all_averaged_mutations=2,
         ),
-        mutation_volume=2,
-        mutation_freq=2,
+        mutation_volume=0.2,
+        mutation_freq=0.2,
     )
 
-    r_learn(epochs, max_steps, models, maps, mutator_config, cm)
+    r_learn(
+        epochs, max_steps, models, maps, Mutator(mutator_config, TorchModelWrapper), cm
+    )
 
     cm.close()
 

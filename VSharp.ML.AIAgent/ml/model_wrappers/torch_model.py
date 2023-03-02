@@ -1,13 +1,14 @@
 import random
 import string
-import numpy as np
-import torch
-from torch_geometric.data import Data
 from typing import Callable
 
-from .protocols import ModelWrapper, Mutable
-from common.game import State, GameState
+import numpy as np
+import torch
+from common.game import GameState, State
 from common.messages import Reward
+from torch_geometric.data import Data
+
+from .protocols import ModelWrapper, Mutable
 
 LossFunction = (
     torch.nn.L1Loss

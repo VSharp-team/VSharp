@@ -1,10 +1,11 @@
-from contextlib import closing, suppress
 import unittest
+from contextlib import closing, suppress
 
 from common.game import GameState, Reward
 from common.utils import get_states
-from .n_agent import NAgent, get_validation_maps
+
 from .connection_manager import ConnectionManager
+from .n_agent import NAgent, get_validation_maps
 
 
 def dumb_strategy(game_state: GameState) -> int:

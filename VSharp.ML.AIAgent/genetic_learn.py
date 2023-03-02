@@ -1,9 +1,9 @@
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_validation_maps
-from ml.mutation_gen import MutationProportions, MutatorConfig, Mutator
+from ml.model_wrappers.genetic_learner import GeneticLearner
+from ml.mutation_gen import MutationProportions, Mutator, MutatorConfig
 from ml.utils import load_full_model
 from r_learn import r_learn
-from ml.model_wrappers.genetic_learner import GeneticLearner
 
 
 def main():
