@@ -106,7 +106,8 @@ module TypeSolver =
                 match supertypes |> Seq.tryFind (fun u -> u.IsNotPublic) with
                 | Some u -> [u.Assembly] :> _ seq
                 | None -> sure <- false; assemblies
-            for assembly in assemblies do
+            // Dynamic mock assemblies may appear here
+            for assembly in assemblies |> Seq.filter (fun a -> not a.IsDynamic) do
                 yield! assembly.GetExportedTypes() |> Seq.filter validate |> Seq.map ConcreteType
             if supertypes |> Seq.forall (fun t -> t.IsPublic || t.IsNestedPublic) then
                 yield mock supertypes |> MockType

@@ -9,9 +9,15 @@ namespace IntegrationTests
     {
         public enum Color
         {
-            Red
-            , Blue
-            , Yellow
+            Red,
+            Blue,
+            Yellow
+        }
+
+        public enum NonZeroEnum
+        {
+            First = 1,
+            Second = 2
         }
 
         [TestSvm(100)]
@@ -41,6 +47,12 @@ namespace IntegrationTests
         public static Type GetEnumType(Color c)
         {
             return c.GetType();
+        }
+
+        [TestSvm(100)]
+        public static int NonZeroEnumTest(NonZeroEnum e)
+        {
+            return 1;
         }
     }
 }

@@ -229,13 +229,15 @@ namespace VSharp
 
             foreach (var method in methods)
             {
-                if (method == method.Module.Assembly.EntryPoint)
+                var normalizedMethod = AssemblyManager.NormalizeMethod(method);
+
+                if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
-                    entryPoints.Add(new Tuple<MethodBase, string[]?>(method, mainArguments));
+                    entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
                 }
                 else
                 {
-                    isolated.Add(method);
+                    isolated.Add(normalizedMethod);
                 }
             }
 
@@ -666,7 +668,5 @@ namespace VSharp
             var stats = Cover(assembly, args, timeout, outputDirectory, renderTests, searchStrategy, verbosity);
             return Reproduce(stats.OutputDir);
         }
-
     }
-
 }

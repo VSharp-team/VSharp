@@ -7,35 +7,37 @@ using System.Runtime.Loader;
 
 namespace VSharp.CSharpUtils
 {
-    public class VSharpAssemblyLoadContext : AssemblyLoadContext
+    public class VSharpAssemblyLoadContext : AssemblyLoadContext, IDisposable
     {
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
 
         private readonly Dictionary<string, Type> _types = new();
-        
+
         public IEnumerable<string> DependenciesDirs { get; set; } = new List<string>();
+
+        private Assembly OnAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
+            if (existingInstance != null)
+            {
+                return existingInstance;
+            }
+            foreach (var path in DependenciesDirs)
+            {
+                var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
+                if (!File.Exists(assemblyPath))
+                    continue;
+                var assembly = LoadFromAssemblyPath(assemblyPath);
+                return assembly;
+            }
+
+            return null;
+        }
 
         public VSharpAssemblyLoadContext(string name) : base(name)
         {
             // Doesn't work with this.Resolving. It is not yet known why.
-            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-            {
-                var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
-                if (existingInstance != null)
-                {
-                    return existingInstance;
-                }
-                foreach (var path in DependenciesDirs)
-                {
-                    var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
-                    if (!File.Exists(assemblyPath))
-                        return null;
-                    var assembly = LoadFromAssemblyPath(assemblyPath);
-                    return assembly;
-                }
-
-                return null;
-            };
+            AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -87,7 +89,7 @@ namespace VSharp.CSharpUtils
         }
 
         // Some types (for example, generic arguments)
-        // may be loaded from the default context (AssemblyLoadContext.Default). 
+        // may be loaded from the default context (AssemblyLoadContext.Default).
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
@@ -100,7 +102,7 @@ namespace VSharp.CSharpUtils
             return _types.GetValueOrDefault(t.FullName, t);
         }
 
-        public MethodInfo NormalizeMethod(MethodInfo originMethod)
+        public MethodInfo NormalizeMethod(MethodBase originMethod)
         {
             var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
             if (originMethod.ReflectedType is null)
@@ -114,6 +116,11 @@ namespace VSharp.CSharpUtils
             var method = type.GetMethods()
                 .First(m => m.MetadataToken == originMethod.MetadataToken);
             return method;
+        }
+
+        public void Dispose()
+        {
+            AppDomain.CurrentDomain.AssemblyResolve -= OnAssemblyResolve;
         }
     }
 }
