@@ -443,16 +443,19 @@ module public Reflection =
 
     let fieldIntersects (field : fieldId) =
         let fieldInfo = getFieldInfo field
-        let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
-        let intersects o s = o + s > offset && o < offset + size
-        let fields = fieldsOf false field.declaringType
-        let checkIntersects (_, fieldInfo : FieldInfo) =
-            let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-            let s = TypeUtils.internalSizeOf fieldInfo.FieldType
-            intersects o s
-        let intersectingFields = Array.filter checkIntersects fields
-        Array.length intersectingFields > 1
+        let fieldType = fieldInfo.FieldType
+        if fieldType.ContainsGenericParameters then false
+        else
+            let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+            let size = TypeUtils.internalSizeOf fieldType
+            let intersects o s = o + s > offset && o < offset + size
+            let fields = fieldsOf false field.declaringType
+            let checkIntersects (_, fieldInfo : FieldInfo) =
+                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
+                intersects o s
+            let intersectingFields = Array.filter checkIntersects fields
+            Array.length intersectingFields > 1
 
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
