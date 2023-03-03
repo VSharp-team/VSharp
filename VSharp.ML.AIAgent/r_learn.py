@@ -6,7 +6,7 @@ from itertools import product
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
-from common.utils import compute_coverage_percent
+from common.utils import compute_coverage_percent, get_states
 from constants import Constant
 from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Predictor
@@ -26,7 +26,9 @@ def generate_games(models: list[Predictor], maps: list[GameMap]):
 
 
 # вот эту функцию можно параллелить (внутренний for, например)
-def r_learn_iteration(models, maps, steps, cm) -> GameMapsModelResults:
+def r_learn_iteration(
+    models: list[Predictor], maps: list[GameMap], steps: int, cm: ConnectionManager
+) -> GameMapsModelResults:
     games = generate_games(models, maps)
     game_maps_model_results: GameMapsModelResults = defaultdict(list)
 
@@ -39,6 +41,9 @@ def r_learn_iteration(models, maps, steps, cm) -> GameMapsModelResults:
                 for _ in range(steps):
                     game_state = agent.recv_state_or_throw_gameover()
                     predicted_state_id = model.predict(game_state)
+                    logger.debug(
+                        f"<{model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
+                    )
                     agent.send_step(
                         next_state_id=predicted_state_id,
                         predicted_usefullness=42.0,  # left it a constant for now
@@ -59,9 +64,10 @@ def r_learn_iteration(models, maps, steps, cm) -> GameMapsModelResults:
         )
 
         logger.info(
-            f"{model} finished map {map.NameOfObjectToCover} in {steps} steps, "
-            f"with coverage: "
-            f"{coverage_percent:.2f} %"
+            f"<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
+            f"coverage: {coverage_percent:.2f}%, "
+            f"reward.ForCoverage: {cumulative_reward.ForCoverage}, "
+            f"reward.ForVisitedInstructions: {cumulative_reward.ForVisitedInstructions}"
         )
         game_maps_model_results[map].append(model_result)
 

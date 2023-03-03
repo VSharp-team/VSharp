@@ -58,7 +58,6 @@ class Mutator:
     def n_tops(
         self, game_map_model_results: GameMapsModelResults, n: int
     ) -> list[Mutable]:
-        # топ по каждой карте
         all_model_results: list[Mutable] = []
 
         for model_result_list in game_map_model_results.values():
@@ -88,14 +87,11 @@ class Mutator:
     def averaged_n_tops(
         self, game_map_model_results: GameMapsModelResults, n: int
     ) -> Mutable:
-        # среднее по топам
         return self.mutable_type.average_n_mutables(
             self.n_tops(game_map_model_results, n)
         )
 
     def averaged_all(self, game_map_model_results: GameMapsModelResults) -> Mutable:
-        # среднее по всем отобранным нейронкам
-
         all: list[Mutable] = []
         for model_results_mapping_list_for_map in game_map_model_results.values():
             all.extend(map(lambda t: t.mutable, model_results_mapping_list_for_map))
@@ -105,7 +101,6 @@ class Mutator:
     def random_n_tops_averaged_mutations(
         self, game_map_model_results: GameMapsModelResults, n: int
     ) -> list[Mutable]:
-        # случайные мутации среднего по топам
         return self.mutable_type.mutate(
             mutable=self.averaged_n_tops(game_map_model_results, n),
             mutation_volume=self.config.mutation_volume,
@@ -115,7 +110,6 @@ class Mutator:
     def random_all_averaged_mutations(
         self, game_map_model_results: GameMapsModelResults
     ) -> Mutable:
-        # случайные мутации среднего по всем отобранным нейронкам
         return self.mutable_type.mutate(
             mutable=self.averaged_all(game_map_model_results),
             mutation_volume=self.config.mutation_volume,

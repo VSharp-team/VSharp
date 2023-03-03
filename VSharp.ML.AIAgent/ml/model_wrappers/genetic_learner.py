@@ -62,12 +62,12 @@ class GeneticLearner(ModelWrapper):
         mutable: Mutable, mutation_volume: float, mutation_freq: float
     ) -> Mutable:
         """
-        mutation_volume - процент компонентов вектора весов, которые будут мутированы\n
-        mutation_freq - разброс изменения весов, в пределах (MAX_W, MIN_W)
+        mutation_volume - 0..1, percentage of components of the weights vector to mutate
+        mutation_freq - 0..1, variation of weights, within (MAX_W, MIN_W)
         """
         assert mutation_freq < MAX_W and mutation_freq > MIN_W
         new_mutable = deepcopy(mutable)
-        to_mutate = floor(GeneticLearner.NUM_FEATURES / (mutation_volume / 100))
+        to_mutate = floor(GeneticLearner.NUM_FEATURES * mutation_volume)
 
         for _ in range(to_mutate):
             index_to_mutate = random.randint(0, GeneticLearner.NUM_FEATURES - 1)

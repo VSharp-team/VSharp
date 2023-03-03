@@ -45,15 +45,6 @@ def get_maps(
 
 
 class NAgent:
-    """
-    агент для взаимодействия с сервером
-    - отслеживает состояние общения
-    - ловит и кидает ошибки
-    - делает шаги
-
-    исползует потокобезопасную очередь
-    """
-
     class WrongAgentStateError(Exception):
         def __init__(
             self, source: str, received: str, expected: str, at_step: int

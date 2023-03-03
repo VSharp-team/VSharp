@@ -36,12 +36,6 @@ LossFunction = (
 
 
 class TorchModelWrapper(ModelWrapper):
-    """
-    обертка над моделью (например, из TensorFlow)
-    - обучает модель
-    - возвращает статистику обучения
-    """
-
     def __init__(
         self,
         torch_model: torch.nn.Module,

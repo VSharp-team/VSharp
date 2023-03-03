@@ -16,8 +16,8 @@ def main():
     setup_loggers()
     logger = global_logger()
     parser = argparse.ArgumentParser()
-    parser.add_argument("--map_id", type=int, help="game map id", default=0)
-    parser.add_argument("--steps", type=int, help="amount of steps", default=10)
+    parser.add_argument("--map_id", type=int, help="game map id", default=5)
+    parser.add_argument("--steps", type=int, help="amount of steps", default=20000)
     args = parser.parse_args()
 
     socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
@@ -56,9 +56,9 @@ def main():
             _ = agent.recv_state_or_throw_gameover()  # wait for gameover
             steps_count += 1
 
-        model_result = (cumulative_reward, steps_count)
-
-    coverage_percent = compute_coverage_percent(game_state, model_result[0].ForCoverage)
+    coverage_percent = compute_coverage_percent(
+        game_state, cumulative_reward.ForCoverage
+    )
     logger.info(
         f"finished: in {steps} steps "
         f"with reward: {cumulative_reward} "
