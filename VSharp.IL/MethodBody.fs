@@ -340,14 +340,14 @@ module MethodBody =
     let unconditionalBranchTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | UnconditionalBranch target -> target
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"unconditionalBranchTarget: unexpected ip transition {ipTransition}"
 
     let fallThroughTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | FallThrough target -> target
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"fallThroughTarget: unexpected ip transition {ipTransition}"
 
     let conditionalBranchTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | ConditionalBranch(fallThrough, rest) -> fallThrough, rest
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"conditionalBranchTarget: unexpected ip transition {ipTransition}"
