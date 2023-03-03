@@ -226,8 +226,9 @@ namespace VSharp.Test
                 }
 
                 Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
-                var originMethodInfo = innerCommand.Test.Method.MethodInfo;
-                var exploredMethodInfo = AssemblyManager.NormalizeMethod(originMethodInfo);
+                var normalizedMethod = AssemblyManager.NormalizeMethod(innerCommand.Test.Method.MethodInfo);
+                Debug.Assert(normalizedMethod is MethodInfo);
+                var exploredMethodInfo = normalizedMethod as MethodInfo;
                 var stats = new TestStatistics(
                     exploredMethodInfo,
                     _searchStrat.IsGuidedMode,
