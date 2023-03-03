@@ -29,21 +29,26 @@ class GeneticLearner(ModelWrapper):
         GeneticLearner._model = torch_model
         GeneticLearner.NUM_FEATURES = num_features
 
+    def name(self) -> str:
+        return self._name
+
     def __init__(self, weights: npt.NDArray = None) -> None:
         if weights is None:
             self.weights = np.random.rand((GeneticLearner.NUM_FEATURES))
         else:
             self.weights = weights
 
-        self.name = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        self._name = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=5)
+        )
 
     def __str__(self) -> str:
-        return f"{self.name}: {[round(component, 2) for component in self.weights]}"
+        return f"{self.name()}: {[round(component, 2) for component in self.weights]}"
 
     def predict(self, input: GameState):
         input, state_map = ServerDataloaderHetero.convert_input_to_tensor(input)
-        next_step_id, _ = PredictStateHetGNN.predict_state(
-            GeneticLearner._model, input, state_map
+        next_step_id, _ = PredictStateHetGNN.predict_state_weighted(
+            GeneticLearner._model, self.weights, input, state_map
         )
         return next_step_id
 
@@ -67,7 +72,7 @@ class GeneticLearner(ModelWrapper):
         for _ in range(to_mutate):
             index_to_mutate = random.randint(0, GeneticLearner.NUM_FEATURES - 1)
             new_mutable.weights[index_to_mutate] = variate(
-                val=new_mutable.weights[index_to_mutate],
+                val=mutable.weights[index_to_mutate],
                 range_percent=mutation_freq,
                 borders=(MIN_W, MAX_W),
             )

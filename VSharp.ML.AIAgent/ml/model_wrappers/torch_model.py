@@ -52,10 +52,15 @@ class TorchModelWrapper(ModelWrapper):
         self.optimiser = optimiser
         self.criterion = criterion
 
-        self.name = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
+        self._name = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=5)
+        )
 
     def __str__(self) -> str:
-        return self.name
+        return self._name
+
+    def name(self) -> str:
+        return str(self)
 
     @staticmethod
     def convert_input_to_tensor(input: GameState):

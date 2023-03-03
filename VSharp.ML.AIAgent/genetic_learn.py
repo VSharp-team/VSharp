@@ -16,7 +16,7 @@ def main():
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
     epochs = 20
-    max_steps = 1000
+    max_steps = 100
     n_models = 10
 
     GeneticLearner.set_model(loaded_model, 8)
@@ -32,7 +32,7 @@ def main():
             random_all_averaged_mutations=2,
         ),
         mutation_volume=0.25,
-        mutation_freq=0.02,
+        mutation_freq=0.1,
     )
 
     r_learn(

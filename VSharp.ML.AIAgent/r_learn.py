@@ -8,8 +8,14 @@ from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent
 from constants import Constant
+from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Predictor
-from ml.mutation_gen import IterationResults, ModelResult, Mutator
+from ml.mutation_gen import (
+    GameMapsModelResults,
+    MutableResult,
+    MutableResultMapping,
+    Mutator,
+)
 
 logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
@@ -20,9 +26,9 @@ def generate_games(models: list[Predictor], maps: list[GameMap]):
 
 
 # вот эту функцию можно параллелить (внутренний for, например)
-def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
+def r_learn_iteration(models, maps, steps, cm) -> GameMapsModelResults:
     games = generate_games(models, maps)
-    iteration_data: IterationResults = defaultdict(list)
+    game_maps_model_results: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
         with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
@@ -45,19 +51,21 @@ def r_learn_iteration(models, maps, steps, cm) -> IterationResults:
                 _ = agent.recv_state_or_throw_gameover()  # wait for gameover
                 steps_count += 1
 
-        model_result: ModelResult = (model, (cumulative_reward, steps_count))
         coverage_percent = compute_coverage_percent(
-            game_state, model_result[1][0].ForCoverage
+            game_state, cumulative_reward.ForCoverage
         )
-        logger.info(
-            f"{model} finished: in {steps} steps, "
-            f"with reward: {cumulative_reward} "
-            f"and coverage: "
-            f"{coverage_percent:.2f}"
+        model_result: MutableResultMapping = MutableResultMapping(
+            model, MutableResult(cumulative_reward, steps_count, coverage_percent)
         )
-        iteration_data[map].append(model_result)
 
-    return iteration_data
+        logger.info(
+            f"{model} finished map {map.NameOfObjectToCover} in {steps} steps, "
+            f"with coverage: "
+            f"{coverage_percent:.2f} %"
+        )
+        game_maps_model_results[map].append(model_result)
+
+    return game_maps_model_results
 
 
 def r_learn(
@@ -70,8 +78,11 @@ def r_learn(
 ) -> None:
     for epoch in range(epochs):
         logger.info(f"epoch# {epoch}")
-        iteration_data = r_learn_iteration(models, maps, steps, connection_manager)
-        models = mutator.new_generation(iteration_data)
+        game_maps_model_results = r_learn_iteration(
+            models, maps, steps, connection_manager
+        )
+        models = mutator.new_generation(game_maps_model_results)
+        display_pivot_table(game_maps_model_results)
 
     survived = "\n"
     for model in models:

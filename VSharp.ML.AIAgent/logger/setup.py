@@ -7,6 +7,21 @@ def global_logger():
     return logging.getLogger()
 
 
+def table_logger():
+    logger = logging.getLogger(Constant.Loggers.TABLE_LOGGER)
+    logger.setLevel(logging.INFO)
+    fh = logging.FileHandler(Constant.LOG_DIR / "tables_global.log", mode="w")
+
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.INFO)
+    logger.addHandler(ch)
+
+    fh.setLevel(logging.INFO)
+    logger.addHandler(fh)
+
+    return logger
+
+
 def setup_logger(name: str, with_level=logging.DEBUG):
     # create logger
     logger = logging.getLogger(name)
@@ -14,7 +29,6 @@ def setup_logger(name: str, with_level=logging.DEBUG):
 
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
-    ch = logging.StreamHandler()
 
     fh = logging.FileHandler(Constant.LOG_DIR / "global.log", mode="w")
     fh.setLevel(logging.DEBUG)

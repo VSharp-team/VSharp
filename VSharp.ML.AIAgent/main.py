@@ -20,7 +20,7 @@ def main():
 
     epochs = 2
     max_steps = 2
-    n_models = 10
+    n_models = 2
 
     models = [TorchModelWrapper(model, optimizer, criterion) for _ in range(n_models)]
 
