@@ -11,6 +11,8 @@ namespace VSharp.TestRenderer;
 
 public static class Renderer
 {
+    private static readonly string NewLine = Environment.NewLine;
+
     private static void RunDotnet(ProcessStartInfo startInfo)
     {
         startInfo.FileName = "dotnet";
@@ -39,21 +41,23 @@ public static class Renderer
             var location = $"<HintPath>{assembly.Location}</HintPath>";
             if (!text.Contains(location))
             {
-                var reference = $"<Reference Include=\"{assembly.FullName}\">\n{location}\n</Reference>";
-                text = text.Replace("</ItemGroup>", $"{reference}\n</ItemGroup>");
+                var reference = $"<Reference Include=\"{assembly.FullName}\">{NewLine}{location}{NewLine}</Reference>";
+                text = text.Replace("</ItemGroup>", $"{reference}{NewLine}</ItemGroup>");
                 File.WriteAllText(testProject.FullName, text);
             }
         }
     }
 
-    private static void AllowUnsafeBlocks(FileInfo testProject)
+    private static void AddTestProjectProperties(FileInfo testProject)
     {
-        // TODO: add, only if generated tests have unsafe modifier
         var text = File.ReadAllText(testProject.FullName);
-        var allow = "<AllowUnsafeBlocks>true</AllowUnsafeBlocks>";
+        // TODO: add, only if generated tests have unsafe modifier
+        var allow = "    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>";
+        // Without this property duplicate AssemblyInfo.cs may appear and the solution will fail to build
+        var disableAssemblyInfoGeneration = "  <GenerateAssemblyInfo>false</GenerateAssemblyInfo>";
         if (!text.Contains(allow))
         {
-            text = text.Replace("</PropertyGroup>", $"{allow}\n</PropertyGroup>");
+            text = text.Replace("</PropertyGroup>", $"{disableAssemblyInfoGeneration}{NewLine}{allow}{NewLine}  </PropertyGroup>");
             File.WriteAllText(testProject.FullName, text);
         }
     }
@@ -127,9 +131,6 @@ public static class Renderer
             var projectName = testingProject.Directory?.Name;
             Debug.Assert(projectName != null);
             testProjectPath = outputDir.CreateSubdirectory($"{projectName}.Tests");
-            var parentDir = testingProject.Directory?.Parent;
-            Debug.Assert(parentDir != null);
-            outputDir = parentDir;
         }
         else
         {
@@ -173,7 +174,7 @@ public static class Renderer
         // Adding testing project reference to it
         AddUnderTestProjectReference(testProject, testingProject);
         // Allowing unsafe code inside project
-        AllowUnsafeBlocks(testProject);
+        AddTestProjectProperties(testProject);
         // Adding it to solution
         AddProjectToSolution(solution?.Directory, testProject);
         // Need to copy extension, only if rendering standard project,
@@ -536,8 +537,8 @@ public static class Renderer
         FileInfo? solutionForTests = null,
         string? targetFramework = null)
     {
-        var outputDir = testingProject.Directory?.Parent;
-        Debug.Assert(outputDir != null && outputDir.Exists);
+        var outputDir = solutionForTests?.Directory;
+        Debug.Assert(outputDir is { Exists: true });
         var testProjectPath = GenerateTestProject(outputDir, testingProject, solutionForTests, targetFramework);
 
         var (testsPrograms, _) =
