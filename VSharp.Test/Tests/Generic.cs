@@ -63,6 +63,30 @@ namespace IntegrationTests
     }
 
     [TestSvmFixture]
+    public static class GenericSubst
+    {
+        public static class MyList<T>
+        {
+            public class MyEnumerator<T>
+            {
+                public class MyCurrent<T>
+                {
+                    public int Position = 0;
+                }
+                public MyCurrent<T> Current = new MyCurrent<T>();
+            }
+        }
+
+        [TestSvm]
+        public static int SubstNestedGeneric(MyList<object>.MyEnumerator<double>.MyCurrent<long> current)
+        {
+            if (current.Position > 0)
+                return 0;
+            return 42;
+        }
+    }
+
+    [TestSvmFixture]
     public static class GenericTest<T, U, P, K, N, Z, C>
         where T : U
         where U : IKeeper<P>

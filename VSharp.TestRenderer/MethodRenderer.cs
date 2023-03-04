@@ -105,7 +105,7 @@ internal class MethodRenderer : CodeRenderer
         bool isConstructor,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
-        SimpleNameSyntax? interfaceName,
+        NameSyntax? interfaceName,
         params ParameterRenderInfo[] args) : base(referenceManager)
     {
         // Creating identifiers cache

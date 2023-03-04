@@ -208,10 +208,24 @@ internal class CodeRenderer
     {
         Debug.Assert(type != null);
 
-        _referenceManager.AddAssembly(type.Assembly);
+        if (type.IsArray)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return RenderArrayType(RenderType(elemType), type.GetArrayRank());
+        }
 
         if (PredefinedTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
+
+        return RenderTypeName(type);
+    }
+
+    public SimpleNameSyntax RenderSimpleTypeName(Type type)
+    {
+        Debug.Assert(type != null);
+
+        _referenceManager.AddAssembly(type.Assembly);
 
         if (type.IsGenericParameter)
             return IdentifierName(type.ToString());
@@ -220,45 +234,10 @@ internal class CodeRenderer
         if (typeNamespace != null)
             _referenceManager.AddUsing(typeNamespace);
 
-        if (type.IsArray)
-        {
-            var elemType = type.GetElementType();
-            Debug.Assert(elemType != null);
-            return RenderArrayType(RenderType(elemType), type.GetArrayRank());
-        }
-
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
 
         string typeName = CorrectNameGenerator.GetTypeName(type);
-
-        if (type.IsNested && type.DeclaringType != null)
-        {
-            // TODO: use QualifiedName with list of types?
-            typeName = $"{RenderType(type.DeclaringType).ToString()}.{typeName}";
-        }
-
-        if (type.IsGenericType)
-        {
-            var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
-            return RenderGenericName(typeName, typeArgs);
-        }
-
-        return ParseTypeName(typeName);
-    }
-
-    // TODO: unify with RenderType
-    public SimpleNameSyntax RenderTypeName(Type type)
-    {
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
-
-        string typeName = CorrectNameGenerator.GetTypeName(type);
-        if (type.IsNested && type.DeclaringType != null)
-        {
-            typeName = $"{RenderType(type.DeclaringType)}.{typeName}";
-        }
 
         if (type.IsGenericType)
         {
@@ -269,13 +248,63 @@ internal class CodeRenderer
         return IdentifierName(typeName);
     }
 
+    public NameSyntax RenderTypeName(Type type)
+    {
+        return RenderTypeNameRec(type).Item1;
+    }
+
+    private (NameSyntax, int) RenderTypeNameRec(Type type, TypeSyntax[]? typeArgs = null)
+    {
+        Debug.Assert(type != null);
+
+        string typeName = CorrectNameGenerator.GetTypeName(type);
+
+        var isNested = type.IsNested;
+        if (type.IsGenericParameter || !isNested && (typeArgs == null || !type.IsGenericType))
+            return (RenderSimpleTypeName(type), 0);
+
+        _referenceManager.AddAssembly(type.Assembly);
+
+        var typeNamespace = type.Namespace;
+        if (typeNamespace != null)
+            _referenceManager.AddUsing(typeNamespace);
+
+        if (type.IsGenericType)
+        {
+            var genericArgs = type.GetGenericArguments();
+            typeArgs ??= genericArgs.Select(RenderType).ToArray();
+            NameSyntax? declaringType = null;
+            var usedGenerics = 0;
+            if (isNested)
+            {
+                Debug.Assert(type.DeclaringType != null);
+                (declaringType, usedGenerics) = RenderTypeNameRec(type.DeclaringType, typeArgs);
+                if (usedGenerics == typeArgs.Length)
+                    return (QualifiedName(declaringType, IdentifierName(typeName)), usedGenerics);
+            }
+            var allGenericsLength = genericArgs.Length;
+            var neededGenericsLength = allGenericsLength - usedGenerics;
+            var neededGenerics =
+                typeArgs
+                    .Skip(usedGenerics)
+                    .Take(neededGenericsLength)
+                    .ToArray();
+            var current = RenderGenericName(typeName, neededGenerics);
+            NameSyntax result = declaringType == null ? current : QualifiedName(declaringType, current);
+            return (result, allGenericsLength);
+        }
+
+        Debug.Assert(type.IsNested && type.DeclaringType != null);
+        return (QualifiedName(RenderTypeName(type.DeclaringType), IdentifierName(typeName)), 0);
+    }
+
     public SimpleNameSyntax RenderMethodName(MethodBase method)
     {
         var type = method.DeclaringType;
         return method switch
         {
             { IsGenericMethod : true } => GenericName(method.Name),
-            { IsConstructor : true } when type != null => RenderTypeName(type),
+            { IsConstructor : true } when type != null => RenderSimpleTypeName(type),
             _ when IsGetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
             _ when IsSetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
             _ => IdentifierName(method.Name)
@@ -839,7 +868,7 @@ internal class CodeRenderer
         TypeSyntax propertyType,
         SyntaxToken propertyId,
         SyntaxToken[] modifiers,
-        SimpleNameSyntax? interfaceName)
+        NameSyntax? interfaceName)
     {
         var propertyDecl =
             PropertyDeclaration(propertyType, propertyId)

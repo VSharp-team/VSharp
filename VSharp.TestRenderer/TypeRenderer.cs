@@ -115,7 +115,7 @@ internal class TypeRenderer : CodeRenderer
         SyntaxToken[] modifiers,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? genericNames,
-        SimpleNameSyntax? interfaceName,
+        NameSyntax? interfaceName,
         params ParameterRenderInfo[] args)
     {
         var method =
@@ -159,7 +159,7 @@ internal class TypeRenderer : CodeRenderer
         MethodBase method,
         SimpleNameSyntax propertyId,
         SyntaxToken[] modifiers,
-        SimpleNameSyntax? interfaceName,
+        NameSyntax? interfaceName,
         ParameterRenderInfo[] args)
     {
         var declaringType = method.DeclaringType;
@@ -222,7 +222,7 @@ internal class TypeRenderer : CodeRenderer
         Debug.Assert(declaringType != null);
 
         var modifiers = new List<SyntaxToken>();
-        SimpleNameSyntax? interfaceName = null;
+        NameSyntax? interfaceName = null;
         // Indexer has no explicit interface specifier
         if (declaringType.IsInterface && !IsIndexer(method))
         {
