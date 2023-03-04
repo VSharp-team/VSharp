@@ -190,6 +190,16 @@ public class Mocking
         return n;
     }
 
+    [TestSvm(100)]
+    public int ItemMock(IList<int> list)
+    {
+        if (list[1] == 0)
+        {
+            return 1;
+        }
+        return 0;
+    }
+
     [Ignore("multiple mocks with same method are not supported")]
     public int BranchInterface2(INum num, INum num1)
     {

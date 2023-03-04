@@ -31,9 +31,9 @@ internal class TypeRenderer : CodeRenderer
     private readonly struct PropertyWrapper
     {
         private readonly PropertyInfo _property;
-        public readonly PropertyDeclarationSyntax Declaration;
+        public readonly BasePropertyDeclarationSyntax Declaration;
 
-        public PropertyWrapper(PropertyInfo property, PropertyDeclarationSyntax declaration)
+        public PropertyWrapper(PropertyInfo property, BasePropertyDeclarationSyntax declaration)
         {
             _property = property;
             Declaration = declaration;
@@ -152,21 +152,39 @@ internal class TypeRenderer : CodeRenderer
         Set
     }
 
+    // Adds to rendering type property or indexer
     private MethodRenderer AddPropertyMethod(
         string propertyName,
         AccessorType accessorType,
         MethodBase method,
         SimpleNameSyntax propertyId,
         SyntaxToken[] modifiers,
-        SimpleNameSyntax? interfaceName)
+        SimpleNameSyntax? interfaceName,
+        ParameterRenderInfo[] args)
     {
         var declaringType = method.DeclaringType;
         var bindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
         var property = declaringType?.GetProperty(propertyName, bindingFlags);
         Debug.Assert(property != null);
         var propertyType = RenderType(property.PropertyType);
-        var propertyDecl =
-            RenderPropertyDeclaration(propertyType, propertyId.Identifier, modifiers, interfaceName);
+        BasePropertyDeclarationSyntax propertyDecl;
+        if (IsIndexer(method))
+        {
+            var indexerArgs =
+                accessorType == AccessorType.Set
+                    // If it's set method, skipping 'value' argument
+                    ? args.Take(args.Length - 1)
+                    : args;
+            var renderedArgs =
+                indexerArgs.Select(a =>
+                    a.BuildParameter(_cache.GenerateIdentifier(a.ParameterName).Identifier)
+                );
+            propertyDecl = RenderIndexerDeclaration(propertyType, modifiers, renderedArgs);
+        }
+        else
+        {
+            propertyDecl = RenderPropertyDeclaration(propertyType, propertyId.Identifier, modifiers, interfaceName);
+        }
 
         var renderer =
             new MethodRenderer(
@@ -205,7 +223,8 @@ internal class TypeRenderer : CodeRenderer
 
         var modifiers = new List<SyntaxToken>();
         SimpleNameSyntax? interfaceName = null;
-        if (declaringType.IsInterface)
+        // Indexer has no explicit interface specifier
+        if (declaringType.IsInterface && !IsIndexer(method))
         {
             interfaceName = RenderTypeName(declaringType);
         }
@@ -232,10 +251,10 @@ internal class TypeRenderer : CodeRenderer
 
         var methodId = RenderMethodName(method);
         if (IsGetPropertyMethod(method, out var propertyName))
-            return AddPropertyMethod(propertyName, AccessorType.Get, method, methodId, modifiers.ToArray(), interfaceName);
+            return AddPropertyMethod(propertyName, AccessorType.Get, method, methodId, modifiersArray, interfaceName, args);
 
         if (IsSetPropertyMethod(method, out propertyName))
-            return AddPropertyMethod(propertyName, AccessorType.Set, method, methodId, modifiers.ToArray(), interfaceName);
+            return AddPropertyMethod(propertyName, AccessorType.Set, method, methodId, modifiersArray, interfaceName, args);
 
         return AddMethod(methodId, null, modifiersArray, resultType, generics, interfaceName, args);
     }

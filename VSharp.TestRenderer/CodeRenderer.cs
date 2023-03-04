@@ -118,6 +118,21 @@ internal class CodeRenderer
         return false;
     }
 
+    public static bool IsGetItem(MethodBase method)
+    {
+        return method.IsSpecialName && method.Name == "get_Item";
+    }
+
+    public static bool IsSetItem(MethodBase method)
+    {
+        return method.IsSpecialName && method.Name == "set_Item";
+    }
+
+    public static bool IsIndexer(MethodBase method)
+    {
+        return IsGetItem(method) || IsSetItem(method);
+    }
+
     public static bool NeedExplicitType(object? obj, Type? containerType)
     {
         var needExplicitNumericType =
@@ -746,7 +761,7 @@ internal class CodeRenderer
             thisArg == null && method.DeclaringType is { IsPublic: false, IsNestedPublic: false })
             return RenderPrivateCall(thisArg, method, functionArgs);
 
-        if (method.IsSpecialName && method.Name == "get_Item")
+        if (IsGetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -755,7 +770,7 @@ internal class CodeRenderer
             return ElementAccessExpression(thisArg).WithArgumentList(indexArgument);
         }
 
-        if (method.IsSpecialName && method.Name == "set_Item")
+        if (IsSetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -834,6 +849,18 @@ internal class CodeRenderer
                 ExplicitInterfaceSpecifier(interfaceName)
             );
         return propertyDecl;
+    }
+
+    public static IndexerDeclarationSyntax RenderIndexerDeclaration(
+        TypeSyntax indexerType,
+        SyntaxToken[] modifiers,
+        IEnumerable<ParameterSyntax> args)
+    {
+        var indexerDecl =
+            IndexerDeclaration(indexerType)
+                .AddModifiers(modifiers)
+                .WithParameterList(BracketedParameterList(SeparatedList(args)));
+        return indexerDecl;
     }
 
     public static LiteralExpressionSyntax RenderLiteral(string? literal)
