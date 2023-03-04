@@ -263,7 +263,7 @@ public static class Renderer
         if (oldMembers.Count == 0)
             return null;
 
-        var dictWithMembers = new Dictionary<string, MemberDeclarationSyntax>();
+        var dictWithMembers = new SortedDictionary<string, MemberDeclarationSyntax>();
         foreach (var oldMember in oldMembers)
         {
             var key = NameOfMember(oldMember);

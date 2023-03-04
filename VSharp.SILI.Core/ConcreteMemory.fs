@@ -229,7 +229,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.WriteArrayIndex address (indices : int list) value =
             match x.ReadObject address with
             | :? Array as array ->
-                array.SetValue(value, Array.ofList indices)
+                let elemType = array.GetType().GetElementType()
+                let castedValue =
+                    if value <> null && TypeUtils.canConvert (value.GetType()) elemType then
+                        // This is done mostly because of signed to unsigned conversions (Example: int16 -> char)
+                        TypeUtils.convert value elemType
+                    else value
+                array.SetValue(castedValue, Array.ofList indices)
             // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
             | :? String as string when List.length indices = 1 ->
                 let charArray = string.ToCharArray()
