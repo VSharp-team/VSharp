@@ -145,7 +145,7 @@ internal class CodeRenderer
         return needExplicitNumericType || needExplicitDelegateType;
     }
 
-    internal static readonly Dictionary<Type, string> PrimitiveTypes = new()
+    internal static readonly Dictionary<Type, string> PredefinedTypes = new()
         {
             [typeof(void)] = "void",
             [typeof(byte)] = "byte",
@@ -210,11 +210,11 @@ internal class CodeRenderer
 
         _referenceManager.AddAssembly(type.Assembly);
 
-        if (PrimitiveTypes.TryGetValue(type, out var name))
+        if (PredefinedTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
 
         if (type.IsGenericParameter)
-            return ParseTypeName(type.ToString());
+            return IdentifierName(type.ToString());
 
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)

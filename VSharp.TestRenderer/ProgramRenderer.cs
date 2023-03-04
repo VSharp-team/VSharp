@@ -27,7 +27,7 @@ internal class ProgramRenderer
     public ProgramRenderer(string namespaceName)
     {
         // Creating identifiers cache
-        _cache = new IdentifiersCache(PrimitiveTypes.Values); // TODO: add other types
+        _cache = new IdentifiersCache(PredefinedTypes.Values); // TODO: add other types
 
         // Creating reference manager
         var namespaces = new List<string>();

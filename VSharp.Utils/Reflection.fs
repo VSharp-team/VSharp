@@ -299,6 +299,7 @@ module public Reflection =
         | _ when t = typeof<String> -> String.Empty :> obj
         | _ when TypeUtils.isNullable t -> null
         | _ when t.IsArray -> Array.CreateInstance(typeof<obj>, 1)
+        | _ when t.ContainsGenericParameters -> internalfail $"Creating object of open generic type {t}"
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
