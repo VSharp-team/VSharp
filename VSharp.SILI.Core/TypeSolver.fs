@@ -391,8 +391,8 @@ module TypeSolver =
             let genericParams = Array.append typeParams methodParams
             let solvingResult = solve (getMock typeModel.typeMocks) List.empty genericParams
             match solvingResult with
-            | Some (_, typeParams) ->
-                let classParams, methodParams = Array.splitAt typeParams.Length typeParams
+            | Some (_, genericParams) ->
+                let classParams, methodParams = Array.splitAt typeParams.Length genericParams
                 typeModel.classesParams <- classParams
                 typeModel.methodsParams <- methodParams
                 Some(classParams, methodParams)
