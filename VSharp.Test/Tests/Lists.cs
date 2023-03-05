@@ -1582,4 +1582,79 @@ namespace IntegrationTests
 
     }
 
+    public class ArrayException : Exception{}
+
+    [TestSvmFixture]
+    public sealed class PrivateContentArray
+    {
+        private class Content
+        {
+            public int X { get; set; }
+        }
+
+        [TestSvm]
+        public static object GetArray()
+        {
+            var result = new Content[2];
+            result[0] = new Content
+            {
+                X = 1
+            };
+            return result;
+        }
+    }
+    
+    [TestSvmFixture]
+    public sealed class InnerPrivateContentArray
+    {
+        private class Content
+        {
+            public int X { get; set; }
+        }
+
+        private readonly Content[] _arr = new Content[10];
+
+        
+        [TestSvm]
+        public int GetValue(int index)
+        {
+            if (index < 0 || index > 10)
+                throw new ArrayException();
+            return _arr[index].X;
+        }
+
+        [TestSvm]
+        public void SetValue(int index, int value)
+        {
+            if (index < 0 || index > 10)
+                throw new ArrayException();
+            _arr[index].X = value;
+        }
+    }
+    
+    [TestSvmFixture]
+    public sealed class InnerPrivateContentArrayMultiDimensional
+    {
+        private class Content
+        {
+            public int X { get; set; }
+        }
+
+        private readonly Content[,] _arr = new Content[1,1];
+
+        
+        [TestSvm]
+        public int GetValue(int index1, int index2)
+        {
+            if (_arr[index1, index2].X == 100 && _arr[index2, index1].X != 100)
+                throw new ArrayException();
+            return _arr[index1, index2].X;
+        }
+
+        [TestSvm]
+        public void SetValue(int index1, int index2, int value)
+        {
+            _arr[index1, index2].X = value;
+        }
+    }
 }
