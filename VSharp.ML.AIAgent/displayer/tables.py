@@ -4,6 +4,8 @@ import pandas as pd
 from logger.setup import table_logger
 from ml.mutation_gen import GameMapsModelResults, MutableResult
 
+from config import Config
+
 MutableNameResultMapping: tuple[str, MutableResult] = namedtuple(
     "MutableNameResultMapping", ["name", "result"]
 )
@@ -19,7 +21,7 @@ def get_sample_val(d: dict):
     return d[sample_key]
 
 
-def display_pivot_table(input_map_models_mappings: GameMapsModelResults, verbose=True):
+def display_pivot_table(input_map_models_mappings: GameMapsModelResults):
     formatted_mappings: defaultdict[str, list[tuple[str, float]]] = defaultdict(list)
 
     for map_obj, mutable_result_mapping_list in input_map_models_mappings.items():
@@ -27,7 +29,9 @@ def display_pivot_table(input_map_models_mappings: GameMapsModelResults, verbose
             map(
                 lambda mutable_result_mapping: MutableNameResultMapping(
                     mutable_result_mapping.mutable.name(),
-                    mutable_result_mapping.mutable_result.printable(verbose),
+                    mutable_result_mapping.mutable_result.printable(
+                        Config.VERBOSE_TABLES
+                    ),
                 ),
                 mutable_result_mapping_list,
             )

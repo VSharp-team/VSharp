@@ -95,7 +95,6 @@ class NAgent:
         return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
-        logger.debug(f"{next_state_id=}")
         do_step_message = ClientMessage(
             StepMessageBody(
                 StateId=next_state_id, PredictedStateUsefulness=predicted_usefullness
