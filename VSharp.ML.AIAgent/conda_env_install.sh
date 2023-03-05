@@ -1,4 +1,5 @@
 conda install numpy
+conda install pandas
 conda install pytorch torchvision torchaudio -c pytorch
 python3 -m pip install torch-scatter
 python3 -m pip install torch-sparse

@@ -1,12 +1,9 @@
 import torch
-
-from torch_geometric.nn import GATConv, Linear
+import torch.nn.functional as F
+from torch.nn import Linear
+from torch_geometric.nn import GATConv, GCNConv, Linear, SAGEConv, global_mean_pool
 
 from .data_loader import NUM_NODE_FEATURES
-from torch.nn import Linear
-import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, SAGEConv
-from torch_geometric.nn import global_mean_pool
 
 NUM_PREDICTED_VALUES = 4
 

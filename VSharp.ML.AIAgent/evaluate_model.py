@@ -1,28 +1,30 @@
-from contextlib import closing, suppress
 import argparse
+from contextlib import closing, suppress
 
-from common.game import MoveReward
-from common.utils import compute_coverage_percent
-from common.utils import get_states
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import NAgent
-from agent.n_agent import get_validation_maps
-from ml.utils import load_full_model
-from ml.predict_state_hetero import PredictStateHetGNN
+from agent.n_agent import NAgent, get_validation_maps
+from common.game import MoveReward
+from common.utils import compute_coverage_percent, get_states
+from constants import Constant
+from logger.setup import global_logger, setup_loggers
 from ml.data_loader import ServerDataloaderHetero
+from ml.predict_state_hetero import PredictStateHetGNN
+from ml.utils import load_full_model
 
 
 def main():
+    setup_loggers()
+    logger = global_logger()
     parser = argparse.ArgumentParser()
     parser.add_argument("--map_id", type=int, help="game map id", default=5)
     parser.add_argument("--steps", type=int, help="amount of steps", default=20000)
     args = parser.parse_args()
 
-    socket_urls = ["ws://0.0.0.0:8080/gameServer"]
+    socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
     cm = ConnectionManager(socket_urls)
     maps = get_validation_maps(cm)
 
-    model = load_full_model("ml/imported/GNN_state_pred_het_full")
+    model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
     chosen_map = args.map_id
     steps = args.steps
@@ -36,8 +38,10 @@ def main():
                 input, state_map = ServerDataloaderHetero.convert_input_to_tensor(
                     game_state
                 )
-                next_step_id = PredictStateHetGNN.predict_state(model, input, state_map)
-                print(
+                next_step_id, vector = PredictStateHetGNN.predict_state(
+                    model, input, state_map
+                )
+                logger.debug(
                     f"step: {steps_count}, available states: {get_states(game_state)}, picked: {next_step_id}"
                 )
                 agent.send_step(
@@ -52,13 +56,14 @@ def main():
             _ = agent.recv_state_or_throw_gameover()  # wait for gameover
             steps_count += 1
 
-        model_result = (cumulative_reward, steps_count)
-
-    print("=" * 80)
-    print(f"Reward: {model_result[0]}")
-    print(f"Steps: {model_result[1]}")
-    print(
-        f"Coverage: {compute_coverage_percent(game_state, model_result[0].ForCoverage):.2f}"
+    coverage_percent = compute_coverage_percent(
+        game_state, cumulative_reward.ForCoverage
+    )
+    logger.info(
+        f"finished: in {steps} steps "
+        f"with reward: {cumulative_reward} "
+        f"and coverage: "
+        f"{coverage_percent:.2f}"
     )
 
 

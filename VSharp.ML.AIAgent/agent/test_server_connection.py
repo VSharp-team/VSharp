@@ -1,10 +1,12 @@
-from contextlib import closing, suppress
 import unittest
+from contextlib import closing, suppress
 
 from common.game import GameState, Reward
 from common.utils import get_states
-from .n_agent import NAgent, get_validation_maps
+from constants import Constant
+
 from .connection_manager import ConnectionManager
+from .n_agent import NAgent, get_validation_maps
 
 
 def dumb_strategy(game_state: GameState) -> int:
@@ -16,7 +18,7 @@ class TestServerConnection(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        urls = ["ws://0.0.0.0:8080/gameServer"]
+        urls = [Constant.DEFAULT_GAMESERVER_URL]
 
         cls.n_steps = 1
         cls.cm = ConnectionManager(urls)

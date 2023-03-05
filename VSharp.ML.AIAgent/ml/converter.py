@@ -1,9 +1,9 @@
-from torch_geometric.data import HeteroData
-import torch
-import numpy as np
 from operator import itemgetter
 
+import numpy as np
+import torch
 from common.game import GameState
+from torch_geometric.data import HeteroData
 
 
 def convert_input_to_tensor(input: GameState):

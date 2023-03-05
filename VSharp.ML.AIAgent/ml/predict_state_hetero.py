@@ -1,17 +1,16 @@
 import os.path
-
+from collections import namedtuple
 from typing import Dict
 
 import torch
-from torch.autograd import Variable
-from torch_geometric.nn import to_hetero, to_hetero_with_bases
-from torch_geometric.data import HeteroData
-
+import torch.nn.functional as F
 from ml.data_loader import get_data_hetero
 from ml.models import GNN_Het
-from random import shuffle
+from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
-import torch.nn.functional as F
+from torch_geometric.nn import to_hetero
+
+StateVectorMapping = namedtuple("StateVectorMapping", ["state", "vector"])
 
 
 class PredictStateHetGNN:
@@ -118,9 +117,39 @@ class PredictStateHetGNN:
     def predict_state(model, data: HeteroData, state_map: Dict[int, int]) -> int:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
-        state_map = {v: k for k, v in state_map.items()}  # inversion for prediction
+        reversed_state_map = {v: k for k, v in state_map.items()}
         out = model(data.x_dict, data.edge_index_dict)
-        return state_map[int(out["state_vertex"].argmax(dim=0)[0])]
+
+        remapped = []
+
+        for index, vector in enumerate(out["state_vertex"]):
+            state_vector_mapping = StateVectorMapping(
+                state=reversed_state_map[index], vector=vector.tolist()
+            )
+            remapped.append(state_vector_mapping)
+
+        return max(remapped, key=lambda mapping: sum(mapping.vector))
+
+    @staticmethod
+    def predict_state_weighted(
+        model, weights, data: HeteroData, state_map: Dict[int, int]
+    ) -> int:
+        """Gets state id from model and heterogeneous graph
+        data.state_map - maps real state id to state index"""
+
+        reversed_state_map = {v: k for k, v in state_map.items()}
+        out = model(data.x_dict, data.edge_index_dict)
+
+        remapped = []
+
+        for index, vector in enumerate(out["state_vertex"]):
+            state_vector_mapping = StateVectorMapping(
+                state=reversed_state_map[index],
+                vector=(vector.detach().numpy() * weights).tolist(),
+            )
+            remapped.append(state_vector_mapping)
+
+        return max(remapped, key=lambda mapping: sum(mapping.vector))
 
     def save(self, model, dir):
         filepath = os.path.join(dir, "GNN_state_pred_het_dict")

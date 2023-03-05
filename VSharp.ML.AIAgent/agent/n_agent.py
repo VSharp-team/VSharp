@@ -1,18 +1,26 @@
-from common.game import GameMap
-from common.game import GameState
-from common.messages import Reward
-from common.messages import ClientMessage
-from common.messages import StartMessageBody
-from common.messages import StepMessageBody
-from common.messages import GetTrainMapsMessageBody
-from common.messages import GetValidationMapsMessageBody
-from common.messages import ServerMessage
-from common.messages import ServerMessageType
-from common.messages import MapsServerMessage
-from common.messages import GameOverServerMessage
-from common.messages import GameStateServerMessage
-from common.messages import RewardServerMessage
+import logging
+import logging.config
+
+from constants import Constant
+from common.game import GameMap, GameState
+from common.messages import (
+    ClientMessage,
+    GameOverServerMessage,
+    GameStateServerMessage,
+    GetTrainMapsMessageBody,
+    GetValidationMapsMessageBody,
+    MapsServerMessage,
+    Reward,
+    RewardServerMessage,
+    ServerMessage,
+    ServerMessageType,
+    StartMessageBody,
+    StepMessageBody,
+)
+
 from .connection_manager import ConnectionManager
+
+logger = logging.getLogger(Constant.Loggers.AGENT_LOGGER)
 
 
 def get_validation_maps(cm: ConnectionManager) -> list[GameMap]:
@@ -37,15 +45,6 @@ def get_maps(
 
 
 class NAgent:
-    """
-    агент для взаимодействия с сервером
-    - отслеживает состояние общения
-    - ловит и кидает ошибки
-    - делает шаги
-
-    исползует потокобезопасную очередь
-    """
-
     class WrongAgentStateError(Exception):
         def __init__(
             self, source: str, received: str, expected: str, at_step: int
@@ -75,8 +74,7 @@ class NAgent:
         start_message = ClientMessage(
             StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
         )
-        if log:
-            print("-->", start_message, "\n")
+        logger.debug(f"--> {start_message}")
         self._ws.send(start_message.to_json())
         self._current_step = 0
         self.game_is_over = False
@@ -97,22 +95,18 @@ class NAgent:
         return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
-        if self.log:
-            print(f"{next_state_id=}")
         do_step_message = ClientMessage(
             StepMessageBody(
                 StateId=next_state_id, PredictedStateUsefulness=predicted_usefullness
             )
         )
-        if self.log:
-            print("-->", do_step_message)
+        logger.debug(f"--> {do_step_message}")
         self._ws.send(do_step_message.to_json())
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
         data = RewardServerMessage.from_json(self._raise_if_gameover(self._ws.recv()))
-        if self.log:
-            print("<--", data.MessageType, end="\n\n")
+        logger.debug(f"<-- {data.MessageType}")
 
         return self._process_reward_server_message(data)
 
