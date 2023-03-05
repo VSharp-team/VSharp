@@ -7,7 +7,7 @@ from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent, get_states
-from constants import Constant
+from common.constants import Constant
 from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Predictor
 from ml.mutation_gen import (
@@ -25,52 +25,67 @@ def generate_games(models: list[Predictor], maps: list[GameMap]):
     return product(models, maps)
 
 
+def play_map(
+    with_agent: NAgent, with_model: Predictor, steps: int
+) -> MutableResultMapping:
+    cumulative_reward = MoveReward(0, 0)
+    steps_count = 0
+
+    with suppress(NAgent.GameOver):
+        for _ in range(steps):
+            game_state = with_agent.recv_state_or_throw_gameover()
+            predicted_state_id = with_model.predict(game_state)
+
+            with_agent.send_step(
+                next_state_id=predicted_state_id,
+                predicted_usefullness=42.0,  # left it a constant for now
+            )
+
+            logger.debug(
+                f"<{with_model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
+            )
+
+            reward = with_agent.recv_reward_or_throw_gameover()
+            cumulative_reward += reward.ForMove
+            steps_count += 1
+
+        _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
+        steps_count += 1
+
+    model_result: MutableResultMapping = MutableResultMapping(
+        with_model,
+        MutableResult(
+            cumulative_reward,
+            steps_count,
+            compute_coverage_percent(game_state, cumulative_reward.ForCoverage),
+        ),
+    )
+
+    return model_result
+
+
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(
     models: list[Predictor], maps: list[GameMap], steps: int, cm: ConnectionManager
 ) -> GameMapsModelResults:
     games = generate_games(models, maps)
-    game_maps_model_results: GameMapsModelResults = defaultdict(list)
+    model_results_on_map: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
         with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-            cumulative_reward = MoveReward(0, 0)
-            steps_count = 0
+            mutable_result_mapping = play_map(
+                with_agent=agent, with_model=model, steps=steps
+            )
 
-            with suppress(NAgent.GameOver):
-                for _ in range(steps):
-                    game_state = agent.recv_state_or_throw_gameover()
-                    predicted_state_id = model.predict(game_state)
-                    logger.debug(
-                        f"<{model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
-                    )
-                    agent.send_step(
-                        next_state_id=predicted_state_id,
-                        predicted_usefullness=42.0,  # left it a constant for now
-                    )
-
-                    reward = agent.recv_reward_or_throw_gameover()
-                    cumulative_reward += reward.ForMove
-                    steps_count += 1
-
-                _ = agent.recv_state_or_throw_gameover()  # wait for gameover
-                steps_count += 1
-
-        coverage_percent = compute_coverage_percent(
-            game_state, cumulative_reward.ForCoverage
-        )
-        model_result: MutableResultMapping = MutableResultMapping(
-            model, MutableResult(cumulative_reward, steps_count, coverage_percent)
-        )
+        model_results_on_map[map].append(mutable_result_mapping)
 
         logger.info(
             f"<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
-            f"coverage: {coverage_percent:.2f}%, "
-            f"reward.ForVisitedInstructions: {cumulative_reward.ForVisitedInstructions}"
+            f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
+            f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
-        game_maps_model_results[map].append(model_result)
 
-    return game_maps_model_results
+    return model_results_on_map
 
 
 def r_learn(

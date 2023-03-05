@@ -13,7 +13,7 @@ class Named(Protocol):
 class Mutable(Named, Protocol):
     @staticmethod
     @abstractmethod
-    def average_n_mutables(ms: list["Mutable"]):
+    def average(mutables: list["Mutable"]):
         raise NotImplementedError
 
     @staticmethod
