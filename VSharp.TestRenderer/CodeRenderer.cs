@@ -583,6 +583,14 @@ internal class CodeRenderer
         ExpressionSyntax[]? args,
         (ExpressionSyntax, ExpressionSyntax)[] init)
     {
+        return RenderObjectCreation(type, args, init.Select(x => (new [] {x.Item1}, x.Item2)).ToArray());
+    }
+
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(
+        TypeSyntax type,
+        ExpressionSyntax[]? args,
+        (ExpressionSyntax[], ExpressionSyntax)[] init)
+    {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
         var i = 0;
         foreach (var (key, value) in init)
@@ -590,7 +598,7 @@ internal class CodeRenderer
             var keyAccess =
                 ImplicitElementAccess(
                     BracketedArgumentList(
-                        SingletonSeparatedList(Argument(key))
+                        SeparatedList(key.Select(Argument))
                     )
                 );
             keysWithValues[i] = RenderAssignment(keyAccess, value);
