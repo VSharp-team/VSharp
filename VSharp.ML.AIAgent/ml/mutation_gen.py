@@ -5,9 +5,6 @@ from typing import Type, TypeAlias
 from common.game import GameMap, MoveReward
 from ml.model_wrappers.protocols import Mutable
 
-CoveragePercent: TypeAlias = float
-StepsCount: TypeAlias = int
-
 
 @dataclass
 class MutableResult:
