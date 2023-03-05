@@ -289,8 +289,12 @@ module API =
             | HeapRef(addr, typ) ->
                 let elemType, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                 assert(dim = List.length indices)
+                let safeContext valueType =
+                    valueType = elemType ||
+                    TypeUtils.canCastImplicitly valueType elemType &&
+                    TypeUtils.internalSizeOf elemType = TypeUtils.internalSizeOf valueType
                 match valueType with
-                | Some valueType when not (TypeUtils.canCastImplicitly valueType elemType && TypeUtils.internalSizeOf elemType = TypeUtils.internalSizeOf valueType) ->
+                | Some valueType when not (safeContext valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
             | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->

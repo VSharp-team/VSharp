@@ -1349,36 +1349,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
         Memory.AllocateDelegate cilState.state lambda |> k
 
-    member x.CommonNewObj isCallNeeded (ctor : Method) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =
-        __notImplemented__()
-//        let typ = constructorInfo.DeclaringType
-//        let constructedTermType = typ |> Types.FromDotNetType cilState.state
-//        let blockCase (cilState : cilState) =
-//            let callConstructor (cilState : cilState) reference afterCall =
-//                if isCallNeeded then
-//                    methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Specified args) false (fun cilState ->
-//                    x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
-//                else withResultState reference cilState.state |> changeState cilState |> List.singleton
-//            let referenceTypeCase (cilState : cilState) =
-//                let ref, state = Memory.AllocateDefaultClass cilState.state constructedTermType
-//                callConstructor (withState state cilState) ref (List.map (pushToOpStack ref))
-//            let valueTypeCase (cilState : cilState) =
-//                let freshValue = Memory.DefaultOf constructedTermType
-//                let ref, state = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
-//                let modifyResult (cilState : cilState) =
-//                    let value = Memory.ReadSafe cilState.state ref
-//                    pushToOpStack value cilState
-//                callConstructor (withState state cilState) ref (List.map modifyResult)
-//            if Types.IsValueType constructedTermType then valueTypeCase cilState
-//            else referenceTypeCase cilState
-//        let nonDelegateCase (cilState : cilState) =
-//            if typ.IsArray && constructorInfo.GetMethodBody() = null
-//                then x.ReduceArrayCreation typ cilState args id
-//                else blockCase cilState
-//        if Reflection.IsDelegateConstructor constructorInfo
-//            then x.CommonCreateDelegate constructorInfo cilState args k
-//            else nonDelegateCase cilState |> k
-
     member x.NewObj (m : Method) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Newobj.Size) |> Application.getMethod
         assert (calledMethod :> IMethod).IsConstructor
@@ -1392,7 +1362,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             Memory.CallStackSize afterCall.state = stackSizeBefore
         let modifyValueResultIfConstructorWasCalled stackSizeBefore (afterCall : cilState) =
             if wasConstructorInlined stackSizeBefore afterCall then pushNewObjForValueTypes afterCall
-            else ()
 
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
