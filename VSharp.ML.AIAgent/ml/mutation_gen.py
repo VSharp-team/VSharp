@@ -15,6 +15,17 @@ class MutableResult:
     steps_count: int
     coverage_percent: float
 
+    def printable(self, verbose) -> str:
+        coverage_percent_format = (
+            f"coverage %: {self.coverage_percent:.2f},"
+            if verbose
+            else f"%c={self.coverage_percent:.2f}"
+        )
+        steps_format = (
+            f"steps: {self.steps_count}," if verbose else f"#s={self.steps_count}"
+        )
+        return f"{coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
+
 
 @dataclass
 class MutableResultMapping:
@@ -58,11 +69,6 @@ class Mutator:
     def n_tops(
         self, game_map_model_results: GameMapsModelResults, n: int
     ) -> list[Mutable]:
-        all_model_results: list[Mutable] = []
-
-        for model_result_list in game_map_model_results.values():
-            all_model_results.extend(model_result_list)
-
         def model_result_by_reward_asc_steps_desc(
             mutable_mapping: MutableResultMapping,
         ):
@@ -74,15 +80,21 @@ class Mutator:
                 -result.steps_count,
             )
 
-        n_tops = [
-            mapping.mutable
-            for mapping in sorted(
-                all_model_results,
-                key=lambda mr: model_result_by_reward_asc_steps_desc(mr),
-            )[:n]
-        ]
+        all_model_results: list[list[Mutable]] = []
 
-        return n_tops
+        for model_result_mapping_list in game_map_model_results.values():
+            all_model_results.append(
+                sorted(
+                    model_result_mapping_list, key=model_result_by_reward_asc_steps_desc
+                )
+            )
+
+        result_array = []
+
+        for i in range(n):
+            result_array.append(all_model_results[i % len(all_model_results)].pop())
+
+        return [mapping.mutable for mapping in result_array]
 
     def averaged_n_tops(
         self, game_map_model_results: GameMapsModelResults, n: int

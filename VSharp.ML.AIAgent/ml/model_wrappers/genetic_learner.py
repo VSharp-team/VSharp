@@ -34,7 +34,8 @@ class GeneticLearner(ModelWrapper):
 
     def __init__(self, weights: npt.NDArray = None) -> None:
         if weights is None:
-            self.weights = np.random.rand((GeneticLearner.NUM_FEATURES))
+            # -1 to 1
+            self.weights = np.random.rand((GeneticLearner.NUM_FEATURES)) * 2 - 1
         else:
             self.weights = weights
 

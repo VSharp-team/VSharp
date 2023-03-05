@@ -66,7 +66,6 @@ def r_learn_iteration(
         logger.info(
             f"<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
             f"coverage: {coverage_percent:.2f}%, "
-            f"reward.ForCoverage: {cumulative_reward.ForCoverage}, "
             f"reward.ForVisitedInstructions: {cumulative_reward.ForVisitedInstructions}"
         )
         game_maps_model_results[map].append(model_result)

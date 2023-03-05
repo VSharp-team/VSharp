@@ -1,5 +1,6 @@
 import logging
 
+from config import Config
 from constants import Constant
 
 
@@ -54,5 +55,12 @@ def setup_logger(name: str, with_level=logging.DEBUG):
 
 
 def setup_loggers():
-    setup_logger(Constant.Loggers.AGENT_LOGGER, logging.INFO)
-    setup_logger(Constant.Loggers.ML_LOGGER, logging.INFO)
+    if Config.SHOW_AGENT_LOGS:
+        setup_logger(Constant.Loggers.AGENT_LOGGER, logging.DEBUG)
+    else:
+        setup_logger(Constant.Loggers.AGENT_LOGGER, logging.INFO)
+
+    if Config.SHOW_ML_TRACES:
+        setup_logger(Constant.Loggers.ML_LOGGER, logging.DEBUG)
+    else:
+        setup_logger(Constant.Loggers.ML_LOGGER, logging.INFO)
