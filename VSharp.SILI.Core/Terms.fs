@@ -432,6 +432,10 @@ module internal Terms =
             typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
         if actualType = t then
             Concrete concrete t
+        elif actualType = typeof<int> && t = typeof<IntPtr> then
+            Concrete (IntPtr(concrete :?> int)) t
+        elif actualType = typeof<uint> && t = typeof<UIntPtr> then
+            Concrete (UIntPtr(concrete :?> uint)) t
         elif t.IsEnum && TypeUtils.isNumeric actualType then
             let underlyingType = getEnumUnderlyingTypeChecked t
             let underlyingValue = convert concrete underlyingType
@@ -804,6 +808,8 @@ module internal Terms =
         // TODO: change serializer
         | Numeric t when t = typeof<char> -> makeNumber (char 33)
         | Numeric t -> castConcrete 0 t
+        | _ when typ = typeof<IntPtr> -> castConcrete 0 typ
+        | _ when typ = typeof<UIntPtr> -> castConcrete 0u typ
         | ByRef _
         | ArrayType _
         | ClassType _

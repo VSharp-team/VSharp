@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Runtime.CompilerServices
 open System.Threading
-open System.Linq
 open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
@@ -71,10 +70,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     let rec deepCopyObject (phys : physicalAddress) =
         let obj = phys.object
         let typ = TypeUtils.getTypeOfConcrete obj
+        let shouldNotCopy typ =
+            cannotBeCopied typ || TypeUtils.isPrimitive typ
+            || typ.IsEnum || typ.IsPointer || typ = typeof<System.Reflection.Pointer>
+            || typ = typeof<IntPtr> || typ = typeof<UIntPtr>
         match obj with
         | null -> phys
-        | _ when cannotBeCopied typ || TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
-        | :? System.Reflection.Pointer -> phys
+        | _ when shouldNotCopy typ -> phys
         | _ -> deepCopyComplex phys typ
 
     and deepCopyComplex (phys : physicalAddress) typ =
