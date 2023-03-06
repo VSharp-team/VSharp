@@ -15,9 +15,9 @@ def main():
 
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
-    epochs = 20
-    max_steps = 100
-    n_models = 10
+    epochs = 30
+    max_steps = 250
+    n_models = 15
 
     GeneticLearner.set_model(loaded_model, 8)
     models = [GeneticLearner() for _ in range(n_models)]
