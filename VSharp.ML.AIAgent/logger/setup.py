@@ -1,7 +1,7 @@
 import logging
 
 from config import Config
-from constants import Constant
+from common.constants import Constant
 
 
 def global_logger():

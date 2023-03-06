@@ -5,7 +5,7 @@ from typing import Callable
 import numpy as np
 import torch
 from common.game import GameState, State
-from common.messages import Reward
+from agent.messages import Reward
 from torch_geometric.data import Data
 
 from .protocols import ModelWrapper, Mutable
@@ -96,7 +96,7 @@ class TorchModelWrapper(ModelWrapper):
         ...
 
     @staticmethod
-    def average_n_mutables(ms: list[Mutable]) -> Mutable:
+    def average(ms: list[Mutable]) -> Mutable:
         return ms[0]
 
     @staticmethod

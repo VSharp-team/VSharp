@@ -4,7 +4,7 @@ from enum import Enum
 
 from dataclasses_json import config, dataclass_json
 
-from .game import GameMap, GameState, Reward
+from common.game import GameMap, GameState, Reward
 
 
 class ClientMessageType(str, Enum):

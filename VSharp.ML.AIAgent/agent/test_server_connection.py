@@ -3,7 +3,7 @@ from contextlib import closing, suppress
 
 from common.game import GameState, Reward
 from common.utils import get_states
-from constants import Constant
+from common.constants import Constant
 
 from .connection_manager import ConnectionManager
 from .n_agent import NAgent, get_validation_maps

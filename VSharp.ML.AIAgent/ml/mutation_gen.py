@@ -36,10 +36,10 @@ GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping
 @dataclass
 class MutationProportions:
     n_tops: int
-    averaged_n_tops: int
-    n_averaged_all: int
-    random_n_tops_averaged_mutations: int
-    random_all_averaged_mutations: int
+    average_of_n_tops: int
+    average_of_all: int
+    mutate_average_of_n_tops: int
+    mutate_average_of_all: int
 
 
 @dataclass
@@ -64,9 +64,9 @@ class Mutator:
         self.mutable_type = mutable_type
 
     def n_tops(
-        self, game_map_model_results: GameMapsModelResults, n: int
+        self, model_results_on_map: GameMapsModelResults, n: int
     ) -> list[Mutable]:
-        def model_result_by_reward_asc_steps_desc(
+        def sort_by_reward_asc_steps_desc(
             mutable_mapping: MutableResultMapping,
         ):
             # sort by <MoveRewardReward, -StepsCount (less is better)>
@@ -79,11 +79,9 @@ class Mutator:
 
         all_model_results: list[list[Mutable]] = []
 
-        for model_result_mapping_list in game_map_model_results.values():
+        for model_result_mapping_list in model_results_on_map.values():
             all_model_results.append(
-                sorted(
-                    model_result_mapping_list, key=model_result_by_reward_asc_steps_desc
-                )
+                sorted(model_result_mapping_list, key=sort_by_reward_asc_steps_desc)
             )
 
         result_array = []
@@ -93,63 +91,61 @@ class Mutator:
 
         return [mapping.mutable for mapping in result_array]
 
-    def averaged_n_tops(
-        self, game_map_model_results: GameMapsModelResults, n: int
+    def average_of_n_tops(
+        self, model_results_on_map: GameMapsModelResults, n: int
     ) -> Mutable:
-        return self.mutable_type.average_n_mutables(
-            self.n_tops(game_map_model_results, n)
-        )
+        return self.mutable_type.average(self.n_tops(model_results_on_map, n))
 
-    def averaged_all(self, game_map_model_results: GameMapsModelResults) -> Mutable:
+    def average_of_all(self, model_results_on_map: GameMapsModelResults) -> Mutable:
         all: list[Mutable] = []
-        for model_results_mapping_list_for_map in game_map_model_results.values():
+        for model_results_mapping_list_for_map in model_results_on_map.values():
             all.extend(map(lambda t: t.mutable, model_results_mapping_list_for_map))
 
-        return self.mutable_type.average_n_mutables(all)
+        return self.mutable_type.average(all)
 
-    def random_n_tops_averaged_mutations(
-        self, game_map_model_results: GameMapsModelResults, n: int
-    ) -> list[Mutable]:
+    def mutate_average_of_n_tops(
+        self, model_results_on_map: GameMapsModelResults, n: int
+    ) -> Mutable:
         return self.mutable_type.mutate(
-            mutable=self.averaged_n_tops(game_map_model_results, n),
+            mutable=self.average_of_n_tops(model_results_on_map, n),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
-    def random_all_averaged_mutations(
-        self, game_map_model_results: GameMapsModelResults
+    def mutate_average_of_all(
+        self, model_results_on_map: GameMapsModelResults
     ) -> Mutable:
         return self.mutable_type.mutate(
-            mutable=self.averaged_all(game_map_model_results),
+            mutable=self.average_of_all(model_results_on_map),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
     def new_generation(
         self,
-        game_map_model_results: GameMapsModelResults,
+        model_results_on_map: GameMapsModelResults,
     ) -> list[Mutable]:
         new_gen = (
-            self.n_tops(game_map_model_results, self.config.proportions.n_tops)
+            self.n_tops(model_results_on_map, self.config.proportions.n_tops)
             + [
-                self.averaged_n_tops(
-                    game_map_model_results, self.config.proportions.n_tops
+                self.average_of_n_tops(
+                    model_results_on_map, self.config.proportions.n_tops
                 )
-                for _ in range(self.config.proportions.averaged_n_tops)
+                for _ in range(self.config.proportions.average_of_n_tops)
             ]
             + [
-                self.averaged_all(game_map_model_results)
-                for _ in range(self.config.proportions.n_averaged_all)
+                self.average_of_all(model_results_on_map)
+                for _ in range(self.config.proportions.average_of_all)
             ]
             + [
-                self.random_n_tops_averaged_mutations(
-                    game_map_model_results, self.config.proportions.n_tops
+                self.mutate_average_of_n_tops(
+                    model_results_on_map, self.config.proportions.n_tops
                 )
-                for _ in range(self.config.proportions.random_n_tops_averaged_mutations)
+                for _ in range(self.config.proportions.mutate_average_of_n_tops)
             ]
             + [
-                self.random_all_averaged_mutations(game_map_model_results)
-                for _ in range(self.config.proportions.random_all_averaged_mutations)
+                self.mutate_average_of_all(model_results_on_map)
+                for _ in range(self.config.proportions.mutate_average_of_all)
             ]
         )
 

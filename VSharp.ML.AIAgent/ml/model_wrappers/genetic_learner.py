@@ -54,7 +54,7 @@ class GeneticLearner(ModelWrapper):
         return next_step_id
 
     @staticmethod
-    def average_n_mutables(ms: list[Mutable]) -> Mutable:
+    def average(ms: list[Mutable]) -> Mutable:
         mutables_weights = [model.weights for model in ms]
         return GeneticLearner(weights=np.mean(mutables_weights, axis=0))
 

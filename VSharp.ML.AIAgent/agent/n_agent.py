@@ -1,9 +1,12 @@
 import logging
 import logging.config
+from typing import Type
 
-from constants import Constant
 from common.game import GameMap, GameState
-from common.messages import (
+from common.constants import Constant
+
+from .connection_manager import ConnectionManager
+from .messages import (
     ClientMessage,
     GameOverServerMessage,
     GameStateServerMessage,
@@ -18,8 +21,6 @@ from common.messages import (
     StepMessageBody,
 )
 
-from .connection_manager import ConnectionManager
-
 logger = logging.getLogger(Constant.Loggers.AGENT_LOGGER)
 
 
@@ -33,7 +34,8 @@ def get_train_maps(cm: ConnectionManager) -> list[GameMap]:
 
 def get_maps(
     cm: ConnectionManager,
-    with_message_body_type: GetTrainMapsMessageBody | GetValidationMapsMessageBody,
+    with_message_body_type: Type[GetTrainMapsMessageBody]
+    | Type[GetValidationMapsMessageBody],
 ) -> list[GameMap]:
     ws = cm.issue()
     request_all_maps_message = ClientMessage(with_message_body_type())
@@ -65,11 +67,9 @@ class NAgent:
         cm: ConnectionManager,
         map_id_to_play: int,
         steps: int,
-        log: bool = False,
     ) -> None:
         self.cm = cm
         self._ws = cm.issue()
-        self.log = log
 
         start_message = ClientMessage(
             StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
