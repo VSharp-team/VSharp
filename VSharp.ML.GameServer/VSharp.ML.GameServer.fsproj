@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <Compile Include="Messages.fs" />
+        <Compile Include="Maps.fs" />
     </ItemGroup>
 
 </Project>
