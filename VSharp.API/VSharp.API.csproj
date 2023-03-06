@@ -14,6 +14,15 @@
         <PackageReadmeFile>docs/README.md</PackageReadmeFile>
     </PropertyGroup>
 
+    <Target Name="PreparePackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">
+        <ReadLinesFromFile File="docs/release-notes.txt" >
+            <Output TaskParameter="Lines" ItemName="ReleaseNoteLines"/>
+        </ReadLinesFromFile>
+        <PropertyGroup>
+            <PackageReleaseNotes>@(ReleaseNoteLines, '%0a')</PackageReleaseNotes>
+        </PropertyGroup>
+    </Target>
+
     <ItemGroup>
         <None Include="docs/README.md" Pack="true" PackagePath="docs/" />
     </ItemGroup>
