@@ -78,7 +78,7 @@ namespace VSharp.CSharpUtils
             }
 
             var asm = base.LoadFromAssemblyPath(path);
-            foreach (var t in asm.GetTypes())
+            foreach (var t in asm.GetTypesChecked())
             {
                 if (t.FullName is null)
                 {
