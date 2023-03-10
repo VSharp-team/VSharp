@@ -40,7 +40,7 @@ module internal Z3 =
         sorts : IDictionary<Type, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
-        heapAddresses : IDictionary<Type * Expr, vectorTime>
+        heapAddresses : IDictionary<Expr, Type * vectorTime>
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
@@ -62,7 +62,7 @@ module internal Z3 =
         sorts = Dictionary<Type, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
-        heapAddresses = Dictionary<Type * Expr, vectorTime>()
+        heapAddresses = Dictionary<Expr, Type * vectorTime>()
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
@@ -131,8 +131,8 @@ module internal Z3 =
             else ctx.MkNumeral(0, sort)
 
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            let encoded = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
-            encodingCache.heapAddresses[(addressType, encoded)] <- address
+            let encoded = ctx.MkNumeral(encCtx.addressOrder[address], x.Type2Sort addressType)
+            encodingCache.heapAddresses[encoded] <- (addressType, address)
             encoded
 
         member private x.CreateConstant name typ =
@@ -741,26 +741,23 @@ module internal Z3 =
             elif bv.SortSize = 16u then typeof<int16>
             else __unreachable__()
 
-        member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
+        member private x.DecodeConcreteHeapAddress (typ : Type) (expr : Expr) : vectorTime =
             // TODO: maybe throw away typ?
-            let result = ref vectorTime.Empty
-            let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
-            let charArray = typeof<char[]>
+            let result = ref (typeof<int>, vectorTime.Empty)
+            let addresses = encodingCache.heapAddresses
+            let checkAndGet key = addresses.TryGetValue(key, result)
             if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif checkAndGet (typ, expr) then result.Value
-            // Case for concrete heap address
-            elif checkAndGet (addressType, expr) then result.Value
-            elif typ = typeof<string> && checkAndGet (charArray, expr) then
-                // NOTE: storing most concrete type for string
-                encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
-                encodingCache.heapAddresses.Add((typ, expr), result.Value)
-                result.Value
-            elif typ = charArray && checkAndGet (typeof<string>, expr) then result.Value
+            elif checkAndGet expr then
+                let t, address = result.Value
+                if typ.IsAssignableTo t || typ = typeof<string> && t = typeof<char[]> then
+                    addresses[expr] <- (typ, address)
+                    address
+                else address
             else
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
-                let addr = [encodingCache.lastSymbolicAddress]
-                encodingCache.heapAddresses.Add((typ, expr), addr)
-                addr
+                let address = [encodingCache.lastSymbolicAddress]
+                addresses.Add(expr, (typ, address))
+                address
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
             let result = ref typeof<Void>
@@ -942,10 +939,9 @@ module internal Z3 =
                 Memory.FillRegion state constantValue region)
 
             encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let typ, _ = kvp.Key
-                let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes)
+                let typ, address = kvp.Value
+                if VectorTime.less address VectorTime.zero && not <| PersistentDict.contains address state.allocatedTypes then
+                    state.allocatedTypes <- PersistentDict.add address (ConcreteType typ) state.allocatedTypes)
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
