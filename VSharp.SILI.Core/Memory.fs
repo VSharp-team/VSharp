@@ -40,7 +40,7 @@ module internal Memory =
         startingTime = VectorTime.zero
         model = PrimitiveModel (Dictionary())
         complete = complete
-        typeMocks = Dictionary<_,_>()
+        methodMocks = Dictionary()
     }
 
     type memoryMode =
@@ -51,9 +51,12 @@ module internal Memory =
 
     let copy (state : state) newPc =
         let cm = state.concreteMemory.Copy()
-        let newTypeMocks = Dictionary<_,_>()
-        state.typeMocks |> Seq.iter (fun kvp -> newTypeMocks.Add(kvp.Key, kvp.Value.Copy()))
-        { state with pc = newPc; concreteMemory = cm }
+        let methodMocks = Dictionary()
+        for entry in state.methodMocks do
+            let method = entry.Key
+            let newMock = entry.Value.Copy()
+            methodMocks.Add(method, newMock)
+        { state with pc = newPc; concreteMemory = cm; methodMocks = methodMocks }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -436,7 +439,7 @@ module internal Memory =
             | Some address -> address
             | None when obj = null -> VectorTime.zero
             | None ->
-                let typ = mostConcreteType t (obj.GetType())
+                let typ = mostConcreteType (obj.GetType()) t
                 if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
                 let concreteAddress = allocateType state typ
                 cm.Allocate concreteAddress obj
@@ -1578,6 +1581,11 @@ module internal Memory =
         let substituteTypeVariablesToSymbolicType state = function
             | ConcreteType t -> t |> substituteTypeVariables state |> ConcreteType
             | MockType _ -> __unreachable__()
+        let methodMocks = Dictionary()
+        for kvp in state.methodMocks do
+            methodMocks.Add(kvp.Key, kvp.Value)
+        for kvp in state'.methodMocks do
+            methodMocks.Add(kvp.Key, kvp.Value)
         // TODO: do nothing if state is empty!
         list {
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
@@ -1598,8 +1606,6 @@ module internal Memory =
             let typeVariables = composeTypeVariablesOf state state'
             let delegates = composeConcreteDictionaries (composeTime state) id state.delegates state'.delegates
             let currentTime = composeTime state state'.currentTime
-            let mocks = Dictionary<_,_>(state.typeMocks)
-            state'.typeMocks |> Seq.iter (fun kvp -> mocks.Add(kvp.Key, kvp.Value.Copy()))
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -1621,9 +1627,9 @@ module internal Memory =
                     delegates = delegates
                     currentTime = currentTime
                     startingTime = state.startingTime
-                    model = state.model // TODO: compose models?
+                    model = state.model // TODO: compose models (for example, mocks)
                     complete = state.complete
-                    typeMocks = mocks
+                    methodMocks = methodMocks
                 }
         }
 

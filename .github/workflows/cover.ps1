@@ -22,26 +22,25 @@ foreach ($s in $Env:SEARCHERS.Split(" "))
 
         if ($Env:NAMESPACE) 
         {
-            dotnet VSharp.Runner.dll --namespace "$Env:NAMESPACE" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v StatisticsCollection
+            dotnet VSharp.Runner.dll --namespace "$Env:NAMESPACE" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v Warning
         } 
         elseif ($Env:METHOD) 
         {
-            dotnet VSharp.Runner.dll --method "$Env:METHOD" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v StatisticsCollection
+            dotnet VSharp.Runner.dll --method "$Env:METHOD" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v Warning
         } 
         elseif ($Env:CLASS) 
         {
-            dotnet VSharp.Runner.dll --public-methods-of-class "$Env:CLASS" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v StatisticsCollection
+            dotnet VSharp.Runner.dll --public-methods-of-class "$Env:CLASS" "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v Warning
         } 
         else 
         {
-            dotnet VSharp.Runner.dll --all-public-methods "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v StatisticsCollection
+            dotnet VSharp.Runner.dll --all-public-methods "$DLL_PATH" -t "$t" -o "$TEMP_DIR" --strat "$s" -v Warning
         } 
 
         cd "$Env:GITHUB_WORKSPACE/test_runner"
 
         dotnet-dotcover exec VSharp.TestRunner.dll "$TEMP_DIR/VSharp.tests.0" --dcFilters="-:module=Microsoft.*;-:module=FSharp.*;-:class=VSharp.*;-:module=VSharp.Utils" --dcReportType="JSON|HTML" --dcOutput="$TIMEOUT_PATH/coverage.json;$TIMEOUT_PATH/coverage.html"
 
-        Copy-Item "$TEMP_DIR\VSharp.tests.0\reports\continuous.csv" -Destination "$TIMEOUT_PATH"
         Remove-Item $TEMP_DIR -Recurse -Force
     }
 }

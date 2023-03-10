@@ -13,6 +13,7 @@ type IMethod =
     abstract FullName : string
     abstract ReturnType : Type
     abstract DeclaringType : Type
+    abstract ReflectedType : Type
     abstract Parameters : Reflection.ParameterInfo[]
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool
@@ -431,6 +432,10 @@ module internal Terms =
             typedefof<System.Reflection.MethodBase>.IsAssignableFrom(actualType) && typedefof<IntPtr>.IsAssignableFrom(t)
         if actualType = t then
             Concrete concrete t
+        elif actualType = typeof<int> && t = typeof<IntPtr> then
+            Concrete (IntPtr(concrete :?> int)) t
+        elif actualType = typeof<uint> && t = typeof<UIntPtr> then
+            Concrete (UIntPtr(concrete :?> uint)) t
         elif t.IsEnum && TypeUtils.isNumeric actualType then
             let underlyingType = getEnumUnderlyingTypeChecked t
             let underlyingValue = convert concrete underlyingType
@@ -798,11 +803,13 @@ module internal Terms =
     let rec makeDefaultValue typ =
         match typ with
         | Bool -> False
-        | Numeric t when t.IsEnum -> castConcrete (Activator.CreateInstance t) t
+        | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
         | Numeric t when t = typeof<char> -> makeNumber (char 33)
         | Numeric t -> castConcrete 0 t
+        | _ when typ = typeof<IntPtr> -> castConcrete 0 typ
+        | _ when typ = typeof<UIntPtr> -> castConcrete 0u typ
         | ByRef _
         | ArrayType _
         | ClassType _

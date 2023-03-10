@@ -30,6 +30,54 @@ internal interface IBlock
     BlockSyntax Render();
 }
 
+internal class ParameterRenderInfo
+{
+    private readonly SyntaxTokenList _modifiers;
+    public string ParameterName { get; }
+    public TypeSyntax Type { get; }
+
+    public ParameterRenderInfo(string parameterName, TypeSyntax type)
+    {
+        ParameterName = parameterName;
+        Type = type;
+        _modifiers = TokenList();
+    }
+
+    public ParameterRenderInfo(string parameterName, TypeSyntax type, ParameterInfo parameterInfo)
+    {
+        ParameterName = parameterName;
+        Type = type;
+        _modifiers = ModifiersFromParameterInfo(parameterInfo);
+    }
+
+    public ParameterSyntax BuildParameter(SyntaxToken identifier)
+    {
+        return Parameter(identifier).WithType(Type).WithModifiers(_modifiers);
+    }
+
+    private static SyntaxTokenList ModifiersFromParameterInfo(ParameterInfo parameterInfo)
+    {
+        var list = new List<SyntaxToken>();
+        if (parameterInfo.ParameterType.IsByRef)
+        {
+            if (parameterInfo.IsIn)
+            {
+                list.Add(Token(SyntaxKind.InKeyword));
+            }
+            else if (parameterInfo.IsOut)
+            {
+                list.Add(Token(SyntaxKind.OutKeyword));
+            }
+            else
+            {
+                list.Add(Token(SyntaxKind.RefKeyword));
+            }
+        }
+
+        return TokenList(list);
+    }
+}
+
 // After creating method, 'Render()' should be called
 // Otherwise it will not be added to declaring type
 internal class MethodRenderer : CodeRenderer
@@ -57,8 +105,8 @@ internal class MethodRenderer : CodeRenderer
         bool isConstructor,
         TypeSyntax resultType,
         IdentifierNameSyntax[]? generics,
-        SimpleNameSyntax? interfaceName,
-        params (TypeSyntax, string)[] args) : base(referenceManager)
+        NameSyntax? interfaceName,
+        params ParameterRenderInfo[] args) : base(referenceManager)
     {
         // Creating identifiers cache
         var methodIdCache = new IdentifiersCache(cache);
@@ -102,10 +150,10 @@ internal class MethodRenderer : CodeRenderer
         ParametersIds = new IdentifierNameSyntax[args.Length];
         for (var i = 0; i < args.Length; i++)
         {
-            var (type, varName) = args[i];
+            var varName = args[i].ParameterName;
             var arg = methodIdCache.GenerateIdentifier(varName);
             ParametersIds[i] = arg;
-            parameters[i] = Parameter(arg.Identifier).WithType(type);
+            parameters[i] = args[i].BuildParameter(arg.Identifier);
         }
         var parameterList =
             ParameterList(
@@ -330,6 +378,50 @@ internal class MethodRenderer : CodeRenderer
             _statements.Add(ReturnStatement(whatToReturn));
         }
 
+        private ExpressionSyntax RenderPrivateElemArray(
+            System.Array obj,
+            (int, ExpressionSyntax) [] elems,
+            int length,
+            string? preferredName = null,
+            object? defaultValue = null)
+        {
+            return RenderPrivateElemArray(
+                obj,
+                elems.Select(elem => (new[] { elem.Item1 }, elem.Item2)).ToArray(),
+                new[] { length },
+                preferredName,
+                defaultValue);
+        }
+
+        private ExpressionSyntax RenderPrivateElemArray(
+            System.Array obj,
+            (int[], ExpressionSyntax) [] elems,
+            int [] lengths,
+            string? preferredName = null,
+            object? defaultValue = null)
+        {
+            var arrayName = preferredName ?? "obj";
+            var indicesWithValues = elems
+                .Select(elem => (elem.Item1.Select(index => RenderObject(index)).ToArray(), elem.Item2))
+                .ToArray();
+
+            var objectRenderedType = RenderType(typeof(object));
+            var objType = obj.GetType();
+            var arrayType = objType.AssemblyQualifiedName;
+            var elemType = objType.GetElementType();
+
+            var defaultElemValue = defaultValue ?? (elemType.IsValueType ? Activator.CreateInstance(elemType) : null);
+            var arrayLengths = lengths.Select(length => RenderObject(length));
+            var args = arrayLengths
+                    .Prepend(RenderObject(defaultElemValue, arrayName + "_ElemDefaultValue"))
+                    .Prepend(RenderLiteral(arrayType))
+                    .ToArray();
+            var allocator = RenderObjectCreation(AllocatorType(objectRenderedType), args, indicesWithValues);
+            var resultObject = RenderMemberAccess(allocator, AllocatorObject);
+            var objId = AddDecl(arrayName, objectRenderedType, resultObject);
+            return objId;
+        }
+
         private ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array obj, string? preferredName)
         {
             // TODO: use compact array representation, if array is big enough?
@@ -340,7 +432,10 @@ internal class MethodRenderer : CodeRenderer
             if (rank > 1)
                 throw new NotImplementedException("implement rendering for non-vector arrays");
 
-            for (int i = obj.GetLowerBound(0); i <= obj.GetUpperBound(0); i++)
+            var lowerBound = obj.GetLowerBound(0);
+            var upperBound = obj.GetUpperBound(0);
+
+            for (int i = lowerBound; i <= upperBound; i++)
             {
                 var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
                 var value = obj.GetValue(i);
@@ -351,11 +446,15 @@ internal class MethodRenderer : CodeRenderer
 
             // TODO: handle recursive array case
             var allowImplicit = elemType is { IsValueType: true } && rank == 1;
-            var isPublic = elemType.IsPublic || elemType.IsNestedPublic;
-            if (allowImplicit || isPublic)
+            if (allowImplicit || TypeUtils.isPublic(elemType))
                 return RenderArrayCreation(type, initializer, allowImplicit);
 
-            throw new NotImplementedException("implement rendering for arrays with non-public element type");
+            var elems = new (int, ExpressionSyntax)[initializer.Count];
+            for (int i = lowerBound; i <= upperBound; i++)
+            {
+                elems[i - lowerBound] = (i, initializer[i - lowerBound]);
+            }
+            return RenderPrivateElemArray(obj, elems, elems.Length, preferredName);
         }
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
@@ -380,28 +479,38 @@ internal class MethodRenderer : CodeRenderer
             var elemType = array.GetType().GetElementType();
             Debug.Assert(elemType != null);
             var arrayPreferredName = preferredName ?? "array";
-            var createArray = RenderArrayCreation(type, lengths);
-            var arrayId = AddDecl(arrayPreferredName, type, createArray);
-            if (defaultValue != null)
-            {
-                var needExplicitType = NeedExplicitType(defaultValue, typeof(object));
-                var defaultValueName = preferredName + "Default";
-                var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
-                var call =
-                    RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
-                AddExpression(call);
-            }
+
+            var renderedValues = new ExpressionSyntax[indices.Length];
             for (int i = 0; i < indices.Length; i++)
             {
                 var elementPreferredName = arrayPreferredName + "_Elem" + i;
                 var value = values[i];
                 var needExplicitType = NeedExplicitType(value, elemType);
-                var renderedValue = RenderObject(value, elementPreferredName, needExplicitType);
-                var assignment = RenderArrayAssignment(arrayId, renderedValue, indices[i]);
-                AddAssignment(assignment);
+                renderedValues[i] = RenderObject(value, elementPreferredName, needExplicitType);
             }
 
-            return arrayId;
+            if (TypeUtils.isPublic(elemType))
+            {
+                var createArray = RenderArrayCreation(type, lengths);
+                var arrayId = AddDecl(arrayPreferredName, type, createArray);
+                if (defaultValue != null)
+                {
+                    var needExplicitType = NeedExplicitType(defaultValue, typeof(object));
+                    var defaultValueName = preferredName + "Default";
+                    var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
+                    var call =
+                        RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
+                    AddExpression(call);
+                }
+                for (int i = 0; i < indices.Length; i++)
+                    AddAssignment(RenderArrayAssignment(arrayId, renderedValues[i], indices[i]));
+                return arrayId;
+            }
+
+            var elems = new (int[], ExpressionSyntax)[indices.Length];
+            for (int i = 0; i < indices.Length; i++)
+                elems[i] = (indices[i], renderedValues[i]);
+            return RenderPrivateElemArray(array, elems, lengths, preferredName, defaultValue);
         }
 
         private ExpressionSyntax RenderCompactNonVector(
@@ -468,7 +577,8 @@ internal class MethodRenderer : CodeRenderer
                 var fieldName = RenderObject(name);
                 var value = fieldInfo.GetValue(obj);
                 var needExplicitType = NeedExplicitType(value, typeof(object));
-                var fieldValue = RenderObject(value, name, needExplicitType);
+                var validName = CorrectNameGenerator.GetVariableName(name);
+                var fieldValue = RenderObject(value, validName, needExplicitType);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
@@ -481,7 +591,7 @@ internal class MethodRenderer : CodeRenderer
             var physAddress = new physicalAddress(obj);
 
             var type = obj.GetType();
-            var isPublicType = type.IsPublic || type.IsNestedPublic;
+            var isPublicType = TypeUtils.isPublic(type);
             var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
             // Rendering field values of object
@@ -622,6 +732,7 @@ internal class MethodRenderer : CodeRenderer
             return result;
         }
 
+        // 'preferredName' must be correct .NET identifier
         public ExpressionSyntax RenderObject(
             object? obj,
             string? preferredName = null,

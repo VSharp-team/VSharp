@@ -42,10 +42,9 @@ module API =
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let SolveTypes (model : model) (state : state) = TypeSolver.solveTypes model state
     let SolveGenericMethodParameters (typeModel : typeModel) (method : IMethod) =
         TypeSolver.solveMethodParameters typeModel method
-    let ResolveCallVirt state thisAddress ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress ancestorMethod
+    let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
 
     let mutable private reportError = fun _ _ -> ()
     let reportUnspecifiedError state = reportError state "Unspecified"
@@ -62,6 +61,8 @@ module API =
         reportError <- fun _ _ -> ()
         result
     let UnspecifiedErrorReporter() = ErrorReporter "Unspecified"
+
+    let MockMethod state method = MethodMocking.mockMethod state method
 
     [<AutoOpen>]
     module public Terms =
@@ -162,10 +163,6 @@ module API =
         let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
-        let (|MockResultSource|_|) (src : ISymbolicConstantSource) =
-            match src with
-            | :? functionResultConstantSource as fr -> Some(fr.concreteThis, fr.mock)
-            | _ -> None
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
@@ -292,8 +289,12 @@ module API =
             | HeapRef(addr, typ) ->
                 let elemType, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                 assert(dim = List.length indices)
+                let safeContext valueType =
+                    valueType = elemType ||
+                    TypeUtils.canCastImplicitly valueType elemType &&
+                    TypeUtils.internalSizeOf elemType = TypeUtils.internalSizeOf valueType
                 match valueType with
-                | Some valueType when not (TypeUtils.canCastImplicitly valueType elemType && TypeUtils.internalSizeOf elemType = TypeUtils.internalSizeOf valueType) ->
+                | Some valueType when not (safeContext valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
             | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->
@@ -310,6 +311,7 @@ module API =
                 fieldId.declaringType.IsAssignableFrom typ
             match reference.term with
             | HeapRef(address, typ) when isSuitableField address typ |> not ->
+                // TODO: check this case with casting via "is"
                 Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
                 let offset = Reflection.getFieldOffset fieldId |> MakeNumber
                 Ptr (HeapLocation(address, typ)) fieldId.typ offset

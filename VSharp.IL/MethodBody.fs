@@ -36,7 +36,7 @@ type MethodWithBody internal (m : MethodBase) =
     let isStaticConstructor = lazy(Reflection.isStaticConstructor m)
     let isConstructor = m.IsConstructor
     let isGenericMethod = m.IsGenericMethod
-    let genericArguments = lazy(m.GetGenericArguments())
+    let genericArguments = lazy(if m.IsGenericMethod && not m.IsConstructor then m.GetGenericArguments() else Array.empty)
     let attributes = m.Attributes
     let customAttributes = m.CustomAttributes
     let methodImplementationFlags = lazy(m.GetMethodImplementationFlags())
@@ -96,6 +96,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.ReturnType = returnType
     member x.Module = m.Module
     member x.DeclaringType = m.DeclaringType
+    member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters
     member x.LocalVariables = localVariables
     member x.HasThis = hasThis
@@ -188,12 +189,13 @@ type MethodWithBody internal (m : MethodBase) =
         override x.Name = name
         override x.FullName = fullName
         override x.ReturnType = returnType
+        override x.ReflectedType = m.ReflectedType
         override x.DeclaringType = m.DeclaringType
         override x.Parameters = parameters
         override x.LocalVariables = localVariables
         override x.HasThis = hasThis
         override x.IsConstructor = isConstructor
-        override x.GenericArguments with get() = genericArguments.Force()
+        override x.GenericArguments with get() = genericArguments.Value
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
         override x.CompareTo(y : obj) =
@@ -338,14 +340,14 @@ module MethodBody =
     let unconditionalBranchTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | UnconditionalBranch target -> target
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"unconditionalBranchTarget: unexpected ip transition {ipTransition}"
 
     let fallThroughTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | FallThrough target -> target
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"fallThroughTarget: unexpected ip transition {ipTransition}"
 
     let conditionalBranchTarget (m : MethodWithBody) pos =
         match getIpTransition m pos with
         | ConditionalBranch(fallThrough, rest) -> fallThrough, rest
-        | _ -> __unreachable__()
+        | ipTransition -> internalfail $"conditionalBranchTarget: unexpected ip transition {ipTransition}"

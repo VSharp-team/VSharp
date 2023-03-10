@@ -35,16 +35,23 @@ type IConcreteMemory =
 
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
-    abstract Call : concreteHeapAddress -> term list -> term option
+    abstract Call : term -> term list -> term option
     abstract GetImplementationClauses : unit -> term array
+    abstract Copy : unit -> IMethodMock
 
 type ITypeMock =
     abstract Name : string
     abstract SuperTypes : Type seq
     abstract IsValueType : bool
-    abstract MethodMock : IMethod -> IMethodMock
-    abstract MethodMocks : IMethodMock seq
     abstract Copy : unit -> ITypeMock
+
+type private EmptyTypeMock() =
+    let mockIsNotReady () = internalfail "Empty mock"
+    interface ITypeMock with
+        override x.Name = mockIsNotReady()
+        override x.SuperTypes = mockIsNotReady()
+        override x.IsValueType = mockIsNotReady()
+        override x.Copy() = mockIsNotReady()
 
 type symbolicType =
     | ConcreteType of Type
@@ -127,43 +134,112 @@ with
                 model.EvalDict subst source term typ complete
             | term -> term) id id term
 
+// TODO: use set instead of list? #type
+and typeConstraints =
+    {
+        supertypes : Type list
+        subtypes : Type list
+        notSubtypes : Type list
+        notSupertypes : Type list
+    }
+with
+    static member Empty =
+        let empty = List.empty
+        { subtypes = empty; supertypes = empty; notSubtypes = empty; notSupertypes = empty }
+
+    member x.Merge(other : typeConstraints) =
+        if x = typeConstraints.Empty then other
+        else
+            {
+                supertypes = x.supertypes @ other.supertypes |> List.distinct
+                subtypes = x.subtypes @ other.subtypes |> List.distinct
+                notSubtypes = x.notSubtypes @ other.notSubtypes |> List.distinct
+                notSupertypes = x.notSupertypes @ other.notSupertypes |> List.distinct
+            }
+
 and typeModel =
     {
+        constraints : Dictionary<term, typeConstraints>
+        addressesTypes : Dictionary<term, symbolicType seq>
         mutable classesParams : symbolicType[]
         mutable methodsParams : symbolicType[]
+        typeMocks : IDictionary<Type list, ITypeMock>
     }
 with
     static member CreateEmpty() =
         {
+            constraints = Dictionary()
+            addressesTypes = Dictionary()
             classesParams = Array.empty
             methodsParams = Array.empty
+            typeMocks = Dictionary()
         }
+
+    member x.AddConstraint address typeConstraint =
+        let constraints = x.constraints
+        let current = ref typeConstraints.Empty
+        if constraints.TryGetValue(address, current) then
+            if current.Value <> typeConstraint then
+                constraints[address] <- current.Value.Merge typeConstraint
+        else constraints.Add(address, typeConstraint)
+
+    member x.Copy() =
+        let newConstraints = Dictionary(x.constraints)
+        let newTypeMocks = Dictionary<Type list, ITypeMock>()
+        let newAddressesTypes = Dictionary()
+        for entry in x.addressesTypes do
+            let address = entry.Key
+            let types = entry.Value
+            let changeType = function
+                | ConcreteType _ as t -> t
+                | MockType m ->
+                    let superTypes = Seq.toList m.SuperTypes
+                    let mock = ref (EmptyTypeMock() :> ITypeMock)
+                    if newTypeMocks.TryGetValue(superTypes, mock) then MockType mock.Value
+                    else
+                        let newMock = m.Copy()
+                        newTypeMocks.Add(superTypes, newMock)
+                        MockType newMock
+            let newTypes = Seq.map changeType types
+            newAddressesTypes.Add(address, newTypes)
+        {
+            constraints = newConstraints
+            addressesTypes = newAddressesTypes
+            classesParams = x.classesParams
+            methodsParams = x.methodsParams
+            typeMocks = newTypeMocks
+        }
+
+    member x.Item(address : term) =
+        let types = ref null
+        if x.addressesTypes.TryGetValue(address, types) then Some types.Value
+        else None
 
 and
     [<ReferenceEquality>]
     state = {
-    mutable pc : pathCondition
-    mutable evaluationStack : evaluationStack
-    mutable stack : callStack                                          // Arguments and local variables
-    mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
-    mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
-    mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
-    mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
-    mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
-    mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
-    mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
-    mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
-    concreteMemory : IConcreteMemory                                   // Fully concrete objects
-    mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
-    mutable typeVariables : typeVariables                              // Type variables assignment in the current state
-    mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
-    mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
-    mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-    mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
-    mutable model : model                                              // Concrete valuation of symbolics
-    complete : bool                                                    // If true, reading of undefined locations would result in default values
-    typeMocks : IDictionary<Type list, ITypeMock>
-}
+        mutable pc : pathCondition
+        mutable evaluationStack : evaluationStack
+        mutable stack : callStack                                          // Arguments and local variables
+        mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc
+        mutable classFields : pdict<fieldId, heapRegion>                   // Fields of classes in heap
+        mutable arrays : pdict<arrayType, arrayRegion>                     // Contents of arrays in heap
+        mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
+        mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
+        mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
+        mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
+        mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
+        concreteMemory : IConcreteMemory                                   // Fully concrete objects
+        mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+        mutable typeVariables : typeVariables                              // Type variables assignment in the current state
+        mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
+        mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
+        mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
+        mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+        mutable model : model                                              // Concrete valuation of symbolics
+        complete : bool                                                    // If true, reading of undefined locations would result in default values
+        methodMocks : IDictionary<IMethod, IMethodMock>
+    }
 
 and
     IStatedSymbolicConstantSource =

@@ -276,7 +276,8 @@ public static class TestsRenderer
     private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter)
     {
         var needExplicitType = NeedExplicitType(obj, parameter.ParameterType);
-        return block.RenderObject(obj, parameter.Name, needExplicitType);
+        var correctName = parameter.Name is null? null: CorrectNameGenerator.GetVariableName(parameter.Name);
+        return block.RenderObject(obj, correctName, needExplicitType);
     }
 
     private static void RenderTest(
@@ -287,7 +288,7 @@ public static class TestsRenderer
         bool isError,
         bool wrapErrors,
         Type? ex,
-        object expected)
+        object? expected)
     {
         var mainBlock = test.Body;
         MethodFormat f = new MethodFormat();
@@ -420,7 +421,7 @@ public static class TestsRenderer
                 null,
                 new [] { Public },
                 mock.VoidType,
-                (renderedReturnType, "clauses")
+                new ParameterRenderInfo("clauses", renderedReturnType)
             );
         var setupBody = setupMethod.Body;
         var valuesArg = setupMethod.GetOneArg();
@@ -623,7 +624,7 @@ public static class TestsRenderer
                     attributes,
                     modifiers,
                     generatedClass.VoidType,
-                    System.Array.Empty<(TypeSyntax, string)>()
+                    System.Array.Empty<ParameterRenderInfo>()
                 );
                 RenderTest(testRenderer, method, parameters, thisArg, test.IsError,
                     wrapErrors, test.Exception, test.Expected);

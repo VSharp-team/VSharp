@@ -29,9 +29,7 @@ type public SILI(options : SiliOptions) =
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics =
-        let dumpInterval = if options.collectContinuousDump then 250 else -1
-        new SILIStatistics(dumpInterval)
+    let statistics = new SILIStatistics()
 
     let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()

@@ -1093,10 +1093,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif method.HasBody then cilState |> List.singleton |> k
         else internalfailf "Non-extern method %s without body!" method.FullName
 
-    member private x.InvokeVirtualMethod (cilState : cilState) calledMethod targetMethod k =
+    member private x.InvokeVirtualMethod (cilState : cilState) calledMethod (targetMethod : Method) k =
         // Getting this and arguments values by old keys
         let this = Memory.ReadThis cilState.state calledMethod
         let args = calledMethod.Parameters |> Seq.map (Memory.ReadArgument cilState.state) |> List.ofSeq
+        // Casting this to reflected type of method
+        let this = Types.Cast this targetMethod.ReflectedType
         // Popping frame created for ancestor calledMethod
         popFrameOf cilState
         // Creating valid frame with stackKeys corresponding to actual targetMethod
@@ -1130,17 +1132,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member x.CallAbstract targetType (ancestorMethod : Method) cilState k =
         let this = Memory.ReadThis cilState.state ancestorMethod
-        let _, candidateTypes = ResolveCallVirt cilState.state this ancestorMethod
+        let thisType = MostConcreteTypeOfHeapRef cilState.state this
+        let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
         let candidateMethods = seq {
             for t in candidateTypes do
                 match t with
                 | ConcreteType t ->
                     let overriden = x.ResolveVirtualMethod t ancestorMethod
-                    // TODO: more complex criteria here... Maybe t.IsAssignableTo targetType?
-                    if overriden.InCoverageZone || t = targetType then
+                    if overriden.InCoverageZone || t.IsAssignableTo targetType && targetType.Assembly = t.Assembly then
                         yield (t, overriden)
-                | _ -> ()}
+                | _ -> ()
+        }
         let candidateMethods = candidateMethods |> Seq.toList |> List.distinctBy snd
         let typeMocks = seq {
             for t in candidateTypes do
@@ -1159,15 +1162,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     | StateModel(s, _) -> s
                     | _ -> __unreachable__()
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
-                candidateTypes |> Seq.iter (function
-                    | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
-                    | _ -> ())
-//                let methodMock = mock.MethodMocks |> Seq.find (fun m -> m.BaseMethod.Name = ancestorMethod.Name && m.BaseMethod.GetParameters() |> Array.forall (fun p -> p.ParameterType = signature.[p.Position]))
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
-                let methodMock = mock.MethodMock overriden
-                match methodMock.Call thisInModel [] with // TODO: pass args!
+                let methodMock = MockMethod cilState.state overriden
+                match methodMock.Call this [] with // TODO: pass args!
                 | Some result ->
                     assert(ancestorMethod.ReturnType <> typeof<Void>)
                     push result cilState
@@ -1350,36 +1349,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
         Memory.AllocateDelegate cilState.state lambda |> k
 
-    member x.CommonNewObj isCallNeeded (ctor : Method) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =
-        __notImplemented__()
-//        let typ = constructorInfo.DeclaringType
-//        let constructedTermType = typ |> Types.FromDotNetType cilState.state
-//        let blockCase (cilState : cilState) =
-//            let callConstructor (cilState : cilState) reference afterCall =
-//                if isCallNeeded then
-//                    methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Specified args) false (fun cilState ->
-//                    x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
-//                else withResultState reference cilState.state |> changeState cilState |> List.singleton
-//            let referenceTypeCase (cilState : cilState) =
-//                let ref, state = Memory.AllocateDefaultClass cilState.state constructedTermType
-//                callConstructor (withState state cilState) ref (List.map (pushToOpStack ref))
-//            let valueTypeCase (cilState : cilState) =
-//                let freshValue = Memory.DefaultOf constructedTermType
-//                let ref, state = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
-//                let modifyResult (cilState : cilState) =
-//                    let value = Memory.ReadSafe cilState.state ref
-//                    pushToOpStack value cilState
-//                callConstructor (withState state cilState) ref (List.map modifyResult)
-//            if Types.IsValueType constructedTermType then valueTypeCase cilState
-//            else referenceTypeCase cilState
-//        let nonDelegateCase (cilState : cilState) =
-//            if typ.IsArray && constructorInfo.GetMethodBody() = null
-//                then x.ReduceArrayCreation typ cilState args id
-//                else blockCase cilState
-//        if Reflection.IsDelegateConstructor constructorInfo
-//            then x.CommonCreateDelegate constructorInfo cilState args k
-//            else nonDelegateCase cilState |> k
-
     member x.NewObj (m : Method) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Newobj.Size) |> Application.getMethod
         assert (calledMethod :> IMethod).IsConstructor
@@ -1393,7 +1362,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             Memory.CallStackSize afterCall.state = stackSizeBefore
         let modifyValueResultIfConstructorWasCalled stackSizeBefore (afterCall : cilState) =
             if wasConstructorInlined stackSizeBefore afterCall then pushNewObjForValueTypes afterCall
-            else ()
 
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =

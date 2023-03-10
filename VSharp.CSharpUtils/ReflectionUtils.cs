@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using VSharp;
 
 namespace VSharp.CSharpUtils
 {
@@ -21,7 +20,6 @@ namespace VSharp.CSharpUtils
             {
                 yield return ctor;
             }
-
         }
 
         public static IEnumerable<Type> EnumerateExplorableTypes(this Assembly assembly)
@@ -42,6 +40,19 @@ namespace VSharp.CSharpUtils
                 }
             }
             return types.Where(t => t.IsPublic || t.IsNestedPublic);
+        }
+
+        public static IEnumerable<Type> GetTypesChecked(this Assembly assembly)
+        {
+            try
+            {
+                return assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                // TODO: pass logger here and show warnings
+                return e.Types.Where(t => t is not null);
+            }
         }
     }
 }

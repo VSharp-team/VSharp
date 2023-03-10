@@ -40,22 +40,8 @@ type statisticsDump =
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
 
-type continuousStatistics =
-    {
-        millis: int64
-        coveringStepsInsideZone : uint
-        nonCoveringStepsInsideZone : uint
-        coveringStepsOutsideZone : uint
-        nonCoveringStepsOutsideZone : uint
-        testsCount : uint
-        branchesReleased : bool
-        internalFailsCount : uint
-        statesCount : int
-        coveringStatesCount : uint
-    }
-
 // TODO: move statistics into (unique) instances of code location!
-type public SILIStatistics(statsDumpIntervalMs : int) as this =
+type public SILIStatistics() as this =
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<codeLocation * string>()
@@ -84,9 +70,6 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
 
     let mutable testsCount = 0u
     let mutable branchesReleased = false
-
-    let collectContinuousStatistics = statsDumpIntervalMs > 0
-    let continuousStatistics = List<continuousStatistics>()
 
     let formatTimeSpan (span : TimeSpan) =
         String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
@@ -171,8 +154,6 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
             writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
-    let continuousDumpEventHandler = ElapsedEventHandler(fun _ _ -> this.CreateContinuousDump())
-
     member x.TrackStepForward (s : cilState) =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
@@ -248,34 +229,9 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.OnBranchesReleased() =
         branchesReleased <- true
 
-    // TODO: GetVisitedBlocksNotCoveredByTests doesn't work in parallel, rewrite 'CreateContinuousDump'
-    member x.CreateContinuousDump() =
-        if collectContinuousStatistics then
-            let states = getStates() |> Seq.toList
-            let coveringStatesCount =
-                let isCovering s =
-                    let notCoveredBlocks = x.GetVisitedBlocksNotCoveredByTests(s)
-                    let blocksInZone = Seq.filter (fun b -> b.method.InCoverageZone) notCoveredBlocks
-                    Seq.length blocksInZone > 0
-                states |> Seq.filter isCovering |> Seq.length |> uint
-            let continuousStatisticsDump = {
-                millis = stopwatch.ElapsedMilliseconds;
-                coveringStepsInsideZone = coveringStepsInsideZone;
-                nonCoveringStepsInsideZone = nonCoveringStepsInsideZone;
-                coveringStepsOutsideZone = coveringStepsOutsideZone;
-                nonCoveringStepsOutsideZone = nonCoveringStepsOutsideZone;
-                testsCount = testsCount;
-                branchesReleased = branchesReleased;
-                internalFailsCount = uint internalFails.Count;
-                statesCount = getStatesCount()
-                coveringStatesCount = coveringStatesCount
-            }
-            continuousStatistics.Add continuousStatisticsDump
-
     member x.TrackFinished (s : cilState) =
         testsCount <- testsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
-        x.CreateContinuousDump()
 
         let mutable coveredBlocks = ref null
         for block in s.history do
@@ -328,25 +284,11 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
         branchesReleased <- false
         testsCount <- 0u
 
-        dumpTimer.Enabled <- false
-        dumpTimer.Elapsed.RemoveHandler continuousDumpEventHandler
-        continuousStatistics.Clear()
-
     member x.SolverStarted() = solverStopwatch.Start()
     member x.SolverStopped() = solverStopwatch.Stop()
 
-    member x.ExplorationStarted() =
-        stopwatch.Start()
-        if collectContinuousStatistics then
-            dumpTimer.Interval <- float statsDumpIntervalMs
-            dumpTimer.Elapsed.AddHandler continuousDumpEventHandler
-            dumpTimer.Start()
-
-    member x.ExplorationFinished() =
-        stopwatch.Stop()
-        if collectContinuousStatistics then
-            dumpTimer.Stop()
-            dumpTimer.Elapsed.RemoveHandler continuousDumpEventHandler
+    member x.ExplorationStarted() = stopwatch.Start()
+    member x.ExplorationFinished() = stopwatch.Stop()
 
     member x.SetStatesCountGetter(getter : unit -> int) =
         getStatesCount <- getter
@@ -363,8 +305,6 @@ type public SILIStatistics(statsDumpIntervalMs : int) as this =
     member x.IncompleteStates with get() = iies
 
     member x.InternalFails with get() = internalFails
-
-    member x.ContinuousStatistics with get() = continuousStatistics
 
     member x.StepsCount with get() = stepsCount
 

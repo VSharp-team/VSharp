@@ -1,5 +1,7 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -7,35 +9,37 @@ using System.Runtime.Loader;
 
 namespace VSharp.CSharpUtils
 {
-    public class VSharpAssemblyLoadContext : AssemblyLoadContext
+    public class VSharpAssemblyLoadContext : AssemblyLoadContext, IDisposable
     {
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
 
         private readonly Dictionary<string, Type> _types = new();
-        
+
         public IEnumerable<string> DependenciesDirs { get; set; } = new List<string>();
+
+        private Assembly? OnAssemblyResolve(object sender, ResolveEventArgs args)
+        {
+            var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
+            if (existingInstance != null)
+            {
+                return existingInstance;
+            }
+            foreach (var path in DependenciesDirs)
+            {
+                var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
+                if (!File.Exists(assemblyPath))
+                    continue;
+                var assembly = LoadFromAssemblyPath(assemblyPath);
+                return assembly;
+            }
+
+            return null;
+        }
 
         public VSharpAssemblyLoadContext(string name) : base(name)
         {
             // Doesn't work with this.Resolving. It is not yet known why.
-            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-            {
-                var existingInstance = Assemblies.FirstOrDefault(assembly => assembly.FullName == args.Name);
-                if (existingInstance != null)
-                {
-                    return existingInstance;
-                }
-                foreach (var path in DependenciesDirs)
-                {
-                    var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
-                    if (!File.Exists(assemblyPath))
-                        return null;
-                    var assembly = LoadFromAssemblyPath(assemblyPath);
-                    return assembly;
-                }
-
-                return null;
-            };
+            AppDomain.CurrentDomain.AssemblyResolve += OnAssemblyResolve;
         }
 
         protected override Assembly? Load(AssemblyName assemblyName)
@@ -74,7 +78,7 @@ namespace VSharp.CSharpUtils
             }
 
             var asm = base.LoadFromAssemblyPath(path);
-            foreach (var t in asm.GetTypes())
+            foreach (var t in asm.GetTypesChecked())
             {
                 if (t.FullName is null)
                 {
@@ -87,7 +91,7 @@ namespace VSharp.CSharpUtils
         }
 
         // Some types (for example, generic arguments)
-        // may be loaded from the default context (AssemblyLoadContext.Default). 
+        // may be loaded from the default context (AssemblyLoadContext.Default).
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
@@ -100,20 +104,31 @@ namespace VSharp.CSharpUtils
             return _types.GetValueOrDefault(t.FullName, t);
         }
 
-        public MethodInfo NormalizeMethod(MethodInfo originMethod)
+        public MethodBase NormalizeMethod(MethodBase originMethod)
         {
+            const BindingFlags bindingFlags =
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
             var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
-            if (originMethod.ReflectedType is null)
+            var reflectedType = originMethod.ReflectedType;
+            if (reflectedType is null)
             {
                 return asm.Modules
-                    .SelectMany(m => m.GetMethods())
-                    .First(m => m.MetadataToken == originMethod.MetadataToken);
+                    .SelectMany(m => m.GetMethods(bindingFlags))
+                    .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod);
             }
 
-            var type = _types[originMethod.ReflectedType.FullName];
-            var method = type.GetMethods()
-                .First(m => m.MetadataToken == originMethod.MetadataToken);
+            Debug.Assert(reflectedType.FullName != null);
+            var type = _types[reflectedType.FullName];
+            var method = type.GetMethods(bindingFlags)
+                .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken,
+                    type.GetConstructors(bindingFlags)
+                        .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod));
             return method;
+        }
+
+        public void Dispose()
+        {
+            AppDomain.CurrentDomain.AssemblyResolve -= OnAssemblyResolve;
         }
     }
 }

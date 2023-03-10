@@ -7,47 +7,6 @@ from textwrap import wrap
 
 root_dir = sys.argv[1]
 
-tests_count_figs = {}
-covering_states_p_figs = {}
-states_figs = {}
-errors_figs = {}
-
-def draw_graphs(searcher, timeout):
-    df = pd.read_csv(f"{root_dir}/{searcher}/{timeout}/continuous.csv")
-    
-    df["CoveringStatesProportion"] = df['CoveringStatesCount'] / df['StatesCount']
-    
-    if timeout not in tests_count_figs:
-        tests_count_figs[timeout] = df.plot(x="ElapsedMillis", y=["TestsCount"], label=[searcher], title=f"Generated tests count (timeout: {timeout}s)")
-    else:
-        df.plot(x="ElapsedMillis", y=["TestsCount"], label=[searcher], ax=tests_count_figs[timeout])
-        
-    if timeout not in states_figs:
-        states_figs[timeout] = df.plot(x="ElapsedMillis", y=["StatesCount"], label=[searcher], title=f"States count (timeout: {timeout}s)")
-    else:
-        df.plot(x="ElapsedMillis", y=["StatesCount"], label=[searcher], ax=states_figs[timeout])
-        
-    if timeout not in errors_figs:
-        errors_figs[timeout] = df.plot(x="ElapsedMillis", y=["ErrorsCount"], label=[searcher], title=f"Internal fails count (timeout: {timeout}s)")
-    else:
-        df.plot(x="ElapsedMillis", y=["ErrorsCount"], label=[searcher], ax=errors_figs[timeout])
-        
-    if timeout not in covering_states_p_figs:
-        covering_states_p_figs[timeout] = df.plot(x="ElapsedMillis", y=["CoveringStatesProportion"], label=[searcher], title=f"Covering states proportion (timeout: {timeout}s)")
-    else:
-        df.plot(x="ElapsedMillis", y=["CoveringStatesProportion"], label=[searcher], ax=covering_states_p_figs[timeout])
-
-for searcher_dir in filter(lambda f: f.is_dir(), os.scandir(root_dir)):
-    for timeout_dir in filter(lambda f: f.is_dir(), os.scandir(searcher_dir)):
-        draw_graphs(searcher_dir.name, timeout_dir.name)
-
-for searcher_dir in filter(lambda f: f.is_dir(), os.scandir(root_dir)):
-    for timeout_dir in filter(lambda f: f.is_dir(), os.scandir(searcher_dir)):
-        tests_count_figs[timeout_dir.name].get_figure().savefig(f'{root_dir}/{timeout_dir.name}-TestsCount.png')
-        covering_states_p_figs[timeout_dir.name].get_figure().savefig(f'{root_dir}/{timeout_dir.name}-CoveringStates.png')
-        states_figs[timeout_dir.name].get_figure().savefig(f'{root_dir}/{timeout_dir.name}-StatesCount.png')
-        errors_figs[timeout_dir.name].get_figure().savefig(f'{root_dir}/{timeout_dir.name}-ErrorsCount.png')
-
 method_rows = []
 type_rows = []
 ctors = {}

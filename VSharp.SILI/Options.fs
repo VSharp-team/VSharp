@@ -47,7 +47,6 @@ type SiliOptions = {
     releaseBranches : bool
     maxBufferSize : int
     checkAttributes : bool
-    collectContinuousDump : bool
     stopOnCoverageAchieved : int
     oracle: Option<Oracle>
     coverageToSwitchToAI: uint

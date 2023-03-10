@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Runtime.CompilerServices
 open System.Threading
-open System.Linq
 open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
@@ -71,10 +70,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     let rec deepCopyObject (phys : physicalAddress) =
         let obj = phys.object
         let typ = TypeUtils.getTypeOfConcrete obj
+        let shouldNotCopy typ =
+            cannotBeCopied typ || TypeUtils.isPrimitive typ
+            || typ.IsEnum || typ.IsPointer || typ = typeof<System.Reflection.Pointer>
+            || typ = typeof<IntPtr> || typ = typeof<UIntPtr>
         match obj with
         | null -> phys
-        | _ when cannotBeCopied typ || TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
-        | :? System.Reflection.Pointer -> phys
+        | _ when shouldNotCopy typ -> phys
         | _ -> deepCopyComplex phys typ
 
     and deepCopyComplex (phys : physicalAddress) typ =
@@ -229,7 +231,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.WriteArrayIndex address (indices : int list) value =
             match x.ReadObject address with
             | :? Array as array ->
-                array.SetValue(value, Array.ofList indices)
+                let elemType = array.GetType().GetElementType()
+                let castedValue =
+                    if value <> null && TypeUtils.canConvert (value.GetType()) elemType then
+                        // This is done mostly because of signed to unsigned conversions (Example: int16 -> char)
+                        TypeUtils.convert value elemType
+                    else value
+                array.SetValue(castedValue, Array.ofList indices)
             // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
             | :? String as string when List.length indices = 1 ->
                 let charArray = string.ToCharArray()

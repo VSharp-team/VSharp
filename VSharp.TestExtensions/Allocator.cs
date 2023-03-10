@@ -174,6 +174,15 @@ public class Allocator<T>
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
 
+    public Allocator(string typeName, object? defaultValue, params int[] lengths)
+    {
+        Type? notPublicType = Type.GetType(typeName);
+        _objectType = notPublicType ?? _objectType;
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths);
+        Allocator.Fill(_toAllocate as Array, defaultValue);
+    }
+
     public Allocator(object allocated)
     {
         _toAllocate = allocated;
