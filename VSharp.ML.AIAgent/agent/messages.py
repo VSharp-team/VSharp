@@ -1,9 +1,10 @@
-from dataclasses_json import dataclass_json, config
+import json
 from dataclasses import dataclass, field
 from enum import Enum
-import json
 
-from .game import GameMap, GameState, Reward
+from dataclasses_json import config, dataclass_json
+
+from common.game import GameMap, GameState, Reward
 
 
 class ClientMessageType(str, Enum):

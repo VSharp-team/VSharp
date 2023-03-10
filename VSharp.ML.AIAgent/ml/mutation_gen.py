@@ -1,31 +1,55 @@
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import Type, TypeAlias
 
 from common.game import GameMap, MoveReward
-from ml.torch_model_wrapper import TorchModelWrapper, average_n_models, mutate_random
+from ml.model_wrappers.protocols import Mutable
 
-StepsCount = int
-ModelResult = tuple[TorchModelWrapper, tuple[MoveReward, StepsCount]]
-IterationResults = defaultdict[GameMap : list[ModelResult]]
+
+@dataclass
+class MutableResult:
+    move_reward: MoveReward
+    steps_count: int
+    coverage_percent: float
+
+    def printable(self, verbose) -> str:
+        coverage_percent_format = (
+            f"coverage %: {self.coverage_percent:.2f},"
+            if verbose
+            else f"%c={self.coverage_percent:.2f}"
+        )
+        steps_format = (
+            f"steps: {self.steps_count}," if verbose else f"#s={self.steps_count}"
+        )
+        return f"{coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
+
+
+@dataclass
+class MutableResultMapping:
+    mutable: Mutable
+    mutable_result: MutableResult
+
+
+GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping]]
 
 
 @dataclass
 class MutationProportions:
     n_tops: int
-    averaged_n_tops: int
-    n_averaged_all: int
-    random_n_tops_averaged_mutations: int
-    random_all_averaged_mutations: int
+    average_of_n_tops: int
+    average_of_all: int
+    mutate_average_of_n_tops: int
+    mutate_average_of_all: int
 
 
 @dataclass
 class MutatorConfig:
     proportions: MutationProportions
-    mutation_volume: float  # 0-100 %
-    mutation_freq: float  # 0-100 %
+    mutation_volume: float  # 0-1
+    mutation_freq: float  # 0-1
 
     def __post_init__(self):
-        in_percents = lambda x: x >= 0 and x <= 100
+        in_percents = lambda x: x >= 0 and x <= 1
         if not in_percents(self.mutation_volume):
             raise ValueError(
                 f"mutation volume is not in percents: {self.mutation_volume=}"
@@ -35,91 +59,93 @@ class MutatorConfig:
 
 
 class Mutator:
-    def __init__(self, config: MutatorConfig) -> None:
+    def __init__(self, config: MutatorConfig, mutable_type: Type[Mutable]) -> None:
         self.config = config
+        self.mutable_type = mutable_type
 
     def n_tops(
-        self, iteration_results: IterationResults, n: int
-    ) -> list[TorchModelWrapper]:
-        # топ по каждой карте
-        n_tops = []
-        for game_map in iteration_results.keys():
-            n_tops.extend(
-                map(
-                    lambda t: t[0],  # take TfModelWrapper
-                    sorted(
-                        iteration_results[game_map],
-                        key=lambda t: (
-                            t[1][0].ForCoverage,
-                            t[1][0].ForVisitedInstructions,
-                            t[1][1],
-                        ),  # sort by <MoveRewardReward, StepsCount>
-                    )[:n],
-                )
+        self, model_results_on_map: GameMapsModelResults, n: int
+    ) -> list[Mutable]:
+        def sort_by_reward_asc_steps_desc(
+            mutable_mapping: MutableResultMapping,
+        ):
+            # sort by <MoveRewardReward, -StepsCount (less is better)>
+            result = mutable_mapping.mutable_result
+            return (
+                result.move_reward.ForCoverage,
+                result.move_reward.ForVisitedInstructions,
+                -result.steps_count,
             )
 
-        return n_tops
+        all_model_results: list[list[Mutable]] = []
 
-    def averaged_n_tops(
-        self, iteration_results: IterationResults, n: int
-    ) -> TorchModelWrapper:
-        # среднее по топам
-        return average_n_models(self.n_tops(iteration_results, n))
+        for model_result_mapping_list in model_results_on_map.values():
+            all_model_results.append(
+                sorted(model_result_mapping_list, key=sort_by_reward_asc_steps_desc)
+            )
 
-    def averaged_all(self, iteration_results) -> TorchModelWrapper:
-        # среднее по всем отобранным нейронкам
+        result_array = []
 
-        all = []
-        for game_map in iteration_results.keys():
-            all.extend(
-                map(lambda t: t[0], iteration_results[game_map])
-            )  # take TfModelWrapper
+        for i in range(n):
+            result_array.append(all_model_results[i % len(all_model_results)].pop())
 
-        return average_n_models(all)
+        return [mapping.mutable for mapping in result_array]
 
-    def random_n_tops_averaged_mutations(
-        self, iteration_results: IterationResults, n: int
-    ) -> list[TorchModelWrapper]:
-        # случайные мутации среднего по топам
-        return mutate_random(
-            model=self.averaged_n_tops(iteration_results, n),
+    def average_of_n_tops(
+        self, model_results_on_map: GameMapsModelResults, n: int
+    ) -> Mutable:
+        return self.mutable_type.average(self.n_tops(model_results_on_map, n))
+
+    def average_of_all(self, model_results_on_map: GameMapsModelResults) -> Mutable:
+        all: list[Mutable] = []
+        for model_results_mapping_list_for_map in model_results_on_map.values():
+            all.extend(map(lambda t: t.mutable, model_results_mapping_list_for_map))
+
+        return self.mutable_type.average(all)
+
+    def mutate_average_of_n_tops(
+        self, model_results_on_map: GameMapsModelResults, n: int
+    ) -> Mutable:
+        return self.mutable_type.mutate(
+            mutable=self.average_of_n_tops(model_results_on_map, n),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
-    def random_all_averaged_mutations(
-        self, iteration_results: IterationResults
-    ) -> TorchModelWrapper:
-        # случайные мутации среднего по всем отобранным нейронкам
-        return mutate_random(
-            model=self.averaged_all(iteration_results),
+    def mutate_average_of_all(
+        self, model_results_on_map: GameMapsModelResults
+    ) -> Mutable:
+        return self.mutable_type.mutate(
+            mutable=self.average_of_all(model_results_on_map),
             mutation_volume=self.config.mutation_volume,
             mutation_freq=self.config.mutation_freq,
         )
 
     def new_generation(
         self,
-        iteration_results: IterationResults,
-    ) -> list[TorchModelWrapper]:
+        model_results_on_map: GameMapsModelResults,
+    ) -> list[Mutable]:
         new_gen = (
-            self.n_tops(iteration_results, self.config.proportions.n_tops)
+            self.n_tops(model_results_on_map, self.config.proportions.n_tops)
             + [
-                self.averaged_n_tops(iteration_results, self.config.proportions.n_tops)
-                for _ in range(self.config.proportions.averaged_n_tops)
-            ]
-            + [
-                self.averaged_all(iteration_results)
-                for _ in range(self.config.proportions.n_averaged_all)
-            ]
-            + [
-                self.random_n_tops_averaged_mutations(
-                    iteration_results, self.config.proportions.n_tops
+                self.average_of_n_tops(
+                    model_results_on_map, self.config.proportions.n_tops
                 )
-                for _ in range(self.config.proportions.random_n_tops_averaged_mutations)
+                for _ in range(self.config.proportions.average_of_n_tops)
             ]
             + [
-                self.random_all_averaged_mutations(iteration_results)
-                for _ in range(self.config.proportions.random_all_averaged_mutations)
+                self.average_of_all(model_results_on_map)
+                for _ in range(self.config.proportions.average_of_all)
+            ]
+            + [
+                self.mutate_average_of_n_tops(
+                    model_results_on_map, self.config.proportions.n_tops
+                )
+                for _ in range(self.config.proportions.mutate_average_of_n_tops)
+            ]
+            + [
+                self.mutate_average_of_all(model_results_on_map)
+                for _ in range(self.config.proportions.mutate_average_of_all)
             ]
         )
 

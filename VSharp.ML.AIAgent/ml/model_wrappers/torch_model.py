@@ -1,11 +1,14 @@
-import numpy as np
-import torch
-from torch_geometric.data import Data
+import random
+import string
 from typing import Callable
 
+import numpy as np
+import torch
+from common.game import GameState, State
+from agent.messages import Reward
+from torch_geometric.data import Data
 
-from common.game import State, GameState
-from common.messages import Reward
+from .protocols import ModelWrapper, Mutable
 
 LossFunction = (
     torch.nn.L1Loss
@@ -32,13 +35,7 @@ LossFunction = (
 )
 
 
-class TorchModelWrapper:
-    """
-    обертка над моделью (например, из TensorFlow)
-    - обучает модель
-    - возвращает статистику обучения
-    """
-
+class TorchModelWrapper(ModelWrapper):
     def __init__(
         self,
         torch_model: torch.nn.Module,
@@ -49,6 +46,16 @@ class TorchModelWrapper:
         self.optimiser = optimiser
         self.criterion = criterion
 
+        self._name = "".join(
+            random.choices(string.ascii_uppercase + string.digits, k=5)
+        )
+
+    def __str__(self) -> str:
+        return self._name
+
+    def name(self) -> str:
+        return str(self)
+
     @staticmethod
     def convert_input_to_tensor(input: GameState):
         """
@@ -57,9 +64,9 @@ class TorchModelWrapper:
         input later can be changed to <GameState, History, ...>
         """
 
-        nodes = []  # ?
-        edges = []  # ?
-        edge_attr_ = []  # ?
+        nodes: list = []  # ?
+        edges: list = []  # ?
+        edge_attr_: list = []  # ?
 
         x = torch.tensor(np.array(nodes), dtype=torch.float)
         edge_index = torch.tensor(edges, dtype=torch.long)
@@ -85,17 +92,18 @@ class TorchModelWrapper:
         encoded_expected = actual_reward_closure(0)
         ...
 
-    def predict(input: GameState):
+    def predict(self, input: GameState):
         ...
 
+    @staticmethod
+    def average(ms: list[Mutable]) -> Mutable:
+        return ms[0]
 
-def average_n_models(models: list[TorchModelWrapper]) -> TorchModelWrapper:
-    ...  # TODO: implement
-    return models[0]
+    @staticmethod
+    def mutate(
+        mutable: Mutable, mutation_volume: float, mutation_freq: float
+    ) -> Mutable:
+        return mutable
 
-
-def mutate_random(
-    model: TorchModelWrapper, mutation_volume: float, mutation_freq: float
-) -> TorchModelWrapper:
-    ...  # TODO: implement
-    return model
+    def train_single_val(self):
+        return super().train_single_val()

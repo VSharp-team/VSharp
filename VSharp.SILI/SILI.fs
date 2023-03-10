@@ -108,10 +108,7 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError cilState message =
         try
-            searcher.Remove cilState
-            let removed = cilState.currentLoc.BasicBlock.AssociatedStates.Remove cilState
-            assert removed
-           
+            searcher.Remove cilState            
             if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest)
             then
                 let hasException =

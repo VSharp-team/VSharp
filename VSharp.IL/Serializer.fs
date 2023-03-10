@@ -210,7 +210,10 @@ let collectGameState (location:codeLocation) =
                     basicBlock.IsGoal <- method.InCoverageZone
                     basicBlocks.Add(firstFreeBasicBlockID, basicBlock)
                     basicBlocksIds.Add(basicBlock, firstFreeBasicBlockID)
-                    firstFreeBasicBlockID <- firstFreeBasicBlockID + 1u<graphVertexId>
+                    firstFreeBasicBlockID <- firstFreeBasicBlockID + + 1u<graphVertexId>
+                    for state in basicBlock.AssociatedStates do
+                         state.History
+                         |> Seq.iter (fun kvp -> collectFullGraph (kvp.Key.Method :?> Method))
                     basicBlock.IncomingCallEdges
                     |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))                     
             (method :> ICallGraphNode).OutgoingEdges
@@ -233,6 +236,12 @@ let collectGameState (location:codeLocation) =
                 id
     
     let statesMetrics = ResizeArray<_>()
+
+    let activeStates =
+        basicBlocks
+        |> Seq.collect (fun kvp -> kvp.Value.AssociatedStates)
+        |> Seq.map (fun s -> s.Id)
+        |> fun x -> HashSet x
         
     for kvp in basicBlocks do
         let currentBasicBlock = kvp.Value

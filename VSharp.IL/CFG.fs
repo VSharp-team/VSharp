@@ -544,8 +544,11 @@ type ApplicationGraph() =
         else ()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
-        initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition        
-        stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+        let removed = initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
+        if removed        
+        then
+            let added = stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
+            assert added 
         if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.BasicBlock
         then
              if initialPosition.BasicBlock <> stateWithNewPosition.CodeLocation.BasicBlock
