@@ -508,8 +508,8 @@ module internal Arithmetics =
 
     and private simplifyConcreteRemainder t x y =
         let success = ref true
-        let result =
-            Calculator.Rem(x, y, t, success)
+        let result = Calculator.Rem(x, y, t, success)
+        assert success.Value
         castConcrete result t
 
     and private divides t x y =

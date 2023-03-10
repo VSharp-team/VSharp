@@ -231,6 +231,7 @@ module API =
         let Mul x y = mul x y
         let Sub x y = sub x y
         let Add x y = add x y
+        let Rem x y = rem x y
         let IsZero term = checkEqualZero term id
 
         let Acos x = acos x
