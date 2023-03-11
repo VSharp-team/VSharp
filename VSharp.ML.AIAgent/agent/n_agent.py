@@ -43,7 +43,9 @@ def get_maps(
     maps_message = ws.recv()
 
     cm.release(ws)
-    return MapsServerMessage.from_json(maps_message).MessageBody.Maps
+    return MapsServerMessage.from_json_handle(
+        maps_message, expected=MapsServerMessage
+    ).MessageBody.Maps
 
 
 class NAgent:
@@ -82,7 +84,7 @@ class NAgent:
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
             raise NAgent.GameOver
-        match ServerMessage.from_json(msg).MessageType:
+        match ServerMessage.from_json_handle(msg, expected=ServerMessage).MessageType:
             case ServerMessageType.GAMEOVER:
                 self.game_is_over = True
                 raise NAgent.GameOver
@@ -91,7 +93,9 @@ class NAgent:
 
     def recv_state_or_throw_gameover(self) -> GameState:
         received = self._ws.recv()
-        data = GameStateServerMessage.from_json(self._raise_if_gameover(received))
+        data = GameStateServerMessage.from_json_handle(
+            self._raise_if_gameover(received), expected=GameStateServerMessage
+        )
         return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
@@ -105,7 +109,9 @@ class NAgent:
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
-        data = RewardServerMessage.from_json(self._raise_if_gameover(self._ws.recv()))
+        data = RewardServerMessage.from_json_handle(
+            self._raise_if_gameover(self._ws.recv()), expected=RewardServerMessage
+        )
         logger.debug(f"<-- {data.MessageType}")
 
         return self._process_reward_server_message(data)

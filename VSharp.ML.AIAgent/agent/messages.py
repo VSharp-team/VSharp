@@ -2,9 +2,8 @@ import json
 from dataclasses import dataclass, field
 from enum import Enum
 
-from dataclasses_json import config, dataclass_json
-
 from common.game import GameMap, GameState, Reward
+from dataclasses_json import config, dataclass_json
 
 
 class ClientMessageType(str, Enum):
@@ -90,26 +89,35 @@ class ServerMessageType(str, Enum):
 class ServerMessage:
     MessageType: ServerMessageType
 
+    class DeserializationException(Exception):
+        pass
 
-@dataclass_json
+    def from_json_handle(*args, expected, **kwargs):
+        try:
+            return expected.from_json(args[0], **kwargs)
+        except Exception as e:
+            raise ServerMessage.DeserializationException(
+                f"{type(e)} - {e}: "
+                f"tried to decode {expected}, "
+                f"got raw data: {json.dumps(json.loads(args[0]), indent=2)}"
+            )
+
+
 @dataclass
 class GameStateServerMessage(ServerMessage):
     MessageBody: GameState
 
 
-@dataclass_json
 @dataclass
 class RewardServerMessage(ServerMessage):
     MessageBody: Reward
 
 
-@dataclass_json
 @dataclass
 class MapsServerMessage(ServerMessage):
     MessageBody: MapsMessageBody
 
 
-@dataclass_json
 @dataclass
 class GameOverServerMessage(ServerMessage):
     MessageBody: None
