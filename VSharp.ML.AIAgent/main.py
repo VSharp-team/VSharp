@@ -3,7 +3,7 @@ from agent.n_agent import get_validation_maps, get_train_maps
 from common.constants import Constant
 from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
-from ml.mutation_gen import MutationProportions, Mutator, MutatorConfig
+from ml.mutation.mutation_gen import MutationProportions, Mutator, MutatorConfig
 from ml.utils import load_full_model
 from r_learn import r_learn
 

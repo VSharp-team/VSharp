@@ -5,17 +5,17 @@ from itertools import product
 
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
+from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent, get_states
-from common.constants import Constant
 from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Predictor
-from ml.mutation_gen import (
+from ml.mutation.classes import (
     GameMapsModelResults,
     MutableResult,
     MutableResultMapping,
-    Mutator,
 )
+from ml.mutation.mutator import Mutator
 
 logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
