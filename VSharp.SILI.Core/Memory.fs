@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Runtime.CompilerServices
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -39,7 +40,7 @@ module internal Memory =
         startingTime = VectorTime.zero
         model = PrimitiveModel (Dictionary())
         complete = complete
-        typeMocks = Dictionary<_,_>()
+        methodMocks = Dictionary()
     }
 
     type memoryMode =
@@ -50,9 +51,12 @@ module internal Memory =
 
     let copy (state : state) newPc =
         let cm = state.concreteMemory.Copy()
-        let newTypeMocks = Dictionary<_,_>()
-        state.typeMocks |> Seq.iter (fun kvp -> newTypeMocks.Add(kvp.Key, kvp.Value.Copy()))
-        { state with pc = newPc; concreteMemory = cm }
+        let methodMocks = Dictionary()
+        for entry in state.methodMocks do
+            let method = entry.Key
+            let newMock = entry.Value.Copy()
+            methodMocks.Add(method, newMock)
+        { state with pc = newPc; concreteMemory = cm; methodMocks = methodMocks }
 
     let private isZeroAddress (x : concreteHeapAddress) =
         x = VectorTime.zero
@@ -197,7 +201,10 @@ module internal Memory =
             override x.TypeOfLocation = typeof<int32>
 
     let hashConcreteAddress (address : concreteHeapAddress) =
-        address.GetHashCode() |> makeNumber
+        let hashValue =
+            if address = VectorTime.zero then RuntimeHelpers.GetHashCode null
+            else address.GetHashCode()
+        hashValue |> makeNumber
 
     let getHashCode object =
         // TODO: implement GetHashCode() for value type (it's boxed)
@@ -223,13 +230,10 @@ module internal Memory =
 
     [<StructuralEquality;NoComparison>]
     type private stackReading =
-        {key : stackKey; time : vectorTime option}
+        {key : stackKey; time : vectorTime}
         interface IMemoryAccessConstantSource with
             override x.SubTerms = Seq.empty
-            override x.Time =
-                match x.time with
-                | Some time -> time
-                | None -> internalfailf "Requesting time of primitive stack location %O" x.key
+            override x.Time = x.time
             override x.TypeOfLocation = x.key.TypeOfLocation
 
     [<StructuralEquality;NoComparison>]
@@ -265,6 +269,21 @@ module internal Memory =
         | :? arrayReading as ar -> Some(isConcreteHeapAddress ar.key.Address, ar.key, ar.memoryObject)
         | _ -> None
 
+    let (|ArrayRangeReading|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? arrayReading as { memoryObject = mo; key = RangeArrayIndexKey(address, fromIndices, toIndices); picker = picker; time = time } ->
+            Some(mo, address, fromIndices, toIndices, picker, time)
+        | _ -> None
+
+    let specializeWithKey constant (key : heapArrayKey) (writeKey : heapArrayKey) =
+        match constant.term with
+        | Constant(_, ArrayRangeReading(mo, srcAddress, srcFrom, srcTo, picker, time), typ) ->
+            let key = key.Specialize writeKey srcAddress srcFrom srcTo
+            let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
+            let name = picker.mkname key
+            Constant name source typ
+        | _ -> constant
+
     // VectorIndexKey is used for length and lower bounds
     // We suppose, that lower bounds will always be default -- 0
     let (|VectorIndexReading|_|) (src : ISymbolicConstantSource) =
@@ -296,34 +315,6 @@ module internal Memory =
             internalfail "unexpected array index reading via 'heapReading' source"
         | :? arrayReading as ar -> ar.picker.sort
         | _ -> __unreachable__()
-
-    [<StructuralEquality;NoComparison>]
-    type boundReading =
-        {
-            arrayAddress : heapAddress
-            picker : regionPicker<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
-            memoryObject : memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
-            time : vectorTime
-        }
-        interface IMemoryAccessConstantSource with
-            override x.SubTerms = Seq.empty
-            override x.Time = x.time
-            override x.TypeOfLocation = x.picker.sort.TypeOfLocation
-
-    let (|BoundReading|_|) (src : ISymbolicConstantSource) =
-        match src with
-        | :? boundReading as { memoryObject = mo; arrayAddress = srcAddress; picker = picker; time = time } ->
-            Some(mo, srcAddress, picker, time)
-        | _ -> None
-
-    let specializeWithKey constant (key : heapArrayKey) =
-        match constant.term with
-        | Constant(_, BoundReading(mo, srcAddress, picker, time), typ) ->
-            let key = key.ChangeAddress(srcAddress)
-            let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
-            let name = picker.mkname key
-            Constant name source typ
-        | _ -> constant
 
     [<StructuralEquality;NoComparison>]
     type private structField =
@@ -372,7 +363,7 @@ module internal Memory =
         | StructType _ ->
             let makeField _ field typ =
                 let fieldSource = {baseSource = source; field = field}
-                makeSymbolicValue fieldSource (toString field) typ
+                makeSymbolicValue fieldSource $"{name}.{field}" typ
             makeStruct false makeField typ
         | ReferenceType ->
             let addressSource : heapAddressSource = {baseSource = source}
@@ -394,25 +385,20 @@ module internal Memory =
 
     let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
         match singleValue with
-        | Some {key = key'; value = {term = Constant(_, BoundReading(mo, srcAddress, picker, _), _)}} when key'.Includes key ->
-            let key = key.ChangeAddress(srcAddress)
-            let inst = makeArraySymbolicHeapRead state picker key state.startingTime
-            MemoryRegion.read mo key (picker.isDefaultKey state) inst
+        | Some {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, p, _), _)}} when key'.Includes key ->
+            let key = key.Specialize key' srcA srcF srcT
+            let inst = makeArraySymbolicHeapRead state p key state.startingTime
+            MemoryRegion.read mo key (p.isDefaultKey state) inst
         | Some { key = key'; value = value } when key'.Includes key -> value
         | _ ->
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
             let name = picker.mkname key
             makeSymbolicValue source name typ
 
-    let private makeSymbolicHeapRangeRead picker time typ memoryObject fromAddress =
-        let source = {arrayAddress = fromAddress; picker = picker; memoryObject = memoryObject; time = time}
-        let name = memoryObject.ToString()
-        makeSymbolicValue source name typ
-
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
         if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = Some VectorTime.zero}} addressType) declaringType
+        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
@@ -453,7 +439,7 @@ module internal Memory =
             | Some address -> address
             | None when obj = null -> VectorTime.zero
             | None ->
-                let typ = mostConcreteType t (obj.GetType())
+                let typ = mostConcreteType (obj.GetType()) t
                 if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
                 let concreteAddress = allocateType state typ
                 cm.Allocate concreteAddress obj
@@ -597,9 +583,7 @@ module internal Memory =
     let readStackLocation (s : state) key =
         let makeSymbolic typ =
             if s.complete then makeDefaultValue typ
-            else
-                let time = if isValueType typ then None else Some s.startingTime
-                makeSymbolicStackRead key typ time
+            else makeSymbolicStackRead key typ s.startingTime
         CallStack.readStackLocation s.stack key makeSymbolic
 
     let readStruct (structTerm : term) (field : fieldId) =
@@ -644,11 +628,7 @@ module internal Memory =
             let time =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
-            match key with
-            | OneArrayIndexKey _ ->
-                makeArraySymbolicHeapRead state picker key time typ memory singleValue
-            | RangeArrayIndexKey(address, _, _) ->
-                makeSymbolicHeapRangeRead picker time typ memory address
+            makeArraySymbolicHeapRead state picker key time typ memory singleValue
         MemoryRegion.read region key (isDefault state) instantiate
 
     let private readArrayKeySymbolic state key arrayType =
@@ -1381,7 +1361,7 @@ module internal Memory =
     let allocateTemporaryLocalVariableOfType state name index typ =
         let tmpKey = TemporaryLocalVariableKey(typ, index)
         let ref = PrimitiveStackLocation tmpKey |> Ref
-        let value = makeSymbolicValue {key = tmpKey; time = Some VectorTime.zero} name typ
+        let value = makeSymbolicValue {key = tmpKey; time = VectorTime.zero} name typ
         allocateOnStack state tmpKey value
         ref
 
@@ -1410,6 +1390,7 @@ module internal Memory =
     let private composeTime state time =
         if time = [] then state.currentTime
         elif VectorTime.less VectorTime.zero time |> not then time
+        elif state.complete then time
         else state.currentTime @ time
 
     let rec private fillHole state term =
@@ -1457,21 +1438,6 @@ module internal Memory =
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
 
-    type boundReading with
-        interface IMemoryAccessConstantSource with
-            override x.Compose state =
-                // TODO: do nothing if state is empty!
-                let substTerm = fillHoles state
-                let substType = substituteTypeVariables state
-                let substTime = composeTime state
-                let address = substTerm x.arrayAddress
-                let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
-                let before = x.picker.extract state
-                let afters = MemoryRegion.compose before effect
-                let read (region : memoryRegion<heapArrayKey, productRegion<intervals<vectorTime>, listProductRegion<points<int>>>>) =
-                    makeSymbolicHeapRangeRead x.picker state.startingTime region.typ region address
-                afters |> List.map (mapsnd read) |> Merging.merge
-
     type stackReading with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
@@ -1483,7 +1449,7 @@ module internal Memory =
         | :? stackReading as sr -> Some(sr.key)
         | _ -> None
 
-    type structField with
+    type private structField with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
                 let structTerm =
@@ -1615,6 +1581,11 @@ module internal Memory =
         let substituteTypeVariablesToSymbolicType state = function
             | ConcreteType t -> t |> substituteTypeVariables state |> ConcreteType
             | MockType _ -> __unreachable__()
+        let methodMocks = Dictionary()
+        for kvp in state.methodMocks do
+            methodMocks.Add(kvp.Key, kvp.Value)
+        for kvp in state'.methodMocks do
+            methodMocks.Add(kvp.Key, kvp.Value)
         // TODO: do nothing if state is empty!
         list {
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
@@ -1635,8 +1606,6 @@ module internal Memory =
             let typeVariables = composeTypeVariablesOf state state'
             let delegates = composeConcreteDictionaries (composeTime state) id state.delegates state'.delegates
             let currentTime = composeTime state state'.currentTime
-            let mocks = Dictionary<_,_>(state.typeMocks)
-            state'.typeMocks |> Seq.iter (fun kvp -> mocks.Add(kvp.Key, kvp.Value.Copy()))
             let g = g1 &&& g2 &&& g3 &&& g4 &&& g5 &&& g6
             if not <| isFalse g then
                 return {
@@ -1658,9 +1627,9 @@ module internal Memory =
                     delegates = delegates
                     currentTime = currentTime
                     startingTime = state.startingTime
-                    model = state.model // TODO: compose models?
+                    model = state.model // TODO: compose models (for example, mocks)
                     complete = state.complete
-                    typeMocks = mocks
+                    methodMocks = methodMocks
                 }
         }
 

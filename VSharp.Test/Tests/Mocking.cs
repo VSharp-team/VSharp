@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using NUnit.Framework;
+using VSharp.Test;
 
 namespace IntegrationTests;
-
-using VSharp.Test;
 
 public interface IDependence
 {
@@ -18,6 +19,79 @@ public interface IDependence2
 public interface INetwork
 {
     int Read();
+}
+
+public interface IFoo
+{
+    int Foo();
+}
+
+public interface IBar : IFoo
+{
+    int Bar();
+}
+
+public interface INum
+{
+    int GetNum();
+}
+
+public interface INum2 : INum
+{
+    int GetNum2();
+}
+
+public class NumImpl1 : INum
+{
+    public int GetNum()
+    {
+        return 1;
+    }
+}
+
+public class NumImpl2 : INum
+{
+    public int GetNum()
+    {
+        return 2;
+    }
+}
+
+public class NumImpl3 : INum2
+{
+    public int GetNum()
+    {
+        return 2;
+    }
+
+    public int GetNum2()
+    {
+        return 4;
+    }
+}
+
+public class A
+{
+    public virtual int GetNum()
+    {
+        return 2;
+    }
+}
+
+public class B : A
+{
+    public override int GetNum()
+    {
+        return 3;
+    }
+}
+
+public class C : B
+{
+    public override int GetNum()
+    {
+        return 4;
+    }
 }
 
 [TestSvmFixture]
@@ -48,7 +122,7 @@ public class Mocking
 
         if (input.X > 0)
             throw new NullReferenceException("explicit");
-        
+
         input.X = -input.X;
 
         return input.X;
@@ -67,4 +141,157 @@ public class Mocking
         return count;
     }
 
+    [TestSvm(100)]
+    public bool Enumerable(IEnumerable<int> enumerable)
+    {
+        var enumerator = enumerable.GetEnumerator();
+        return enumerator.MoveNext();
+    }
+
+    [TestSvm(100)]
+    public bool InterfaceInheritance1(IBar iBar)
+    {
+        if (iBar.Foo() > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    [TestSvm(100)]
+    public bool InterfaceInheritance2(IBar iBar)
+    {
+        if (iBar.Bar() > 0)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    [TestSvm(100)]
+    public int BranchInterface(INum num)
+    {
+        var n = num.GetNum();
+
+        if (num is NumImpl1)
+        {
+            n += 11;
+            return n;
+        }
+
+        if (num is NumImpl2)
+        {
+            n += 12;
+            return n;
+        }
+
+        return n;
+    }
+
+    [TestSvm(100)]
+    public int ItemMock(IList<int> list)
+    {
+        if (list[1] == 0)
+        {
+            return 1;
+        }
+        return 0;
+    }
+
+    [Ignore("multiple mocks with same method are not supported")]
+    public int BranchInterface2(INum num, INum num1)
+    {
+        var n = num.GetNum();
+        var n1 = num1.GetNum();
+
+        if (num is INum2 num2 && num1 is INum2 num3)
+        {
+            n += num2.GetNum2();
+            n1 += num3.GetNum2();
+            n += num2.GetNum();
+            n1 += num3.GetNum();
+            if (num == num1)
+                return n * n1;
+            if (n > n1)
+                return n - n1;
+            return n + n1;
+        }
+
+        if (num is INum2 num4)
+        {
+            n += num4.GetNum2();
+            return n;
+        }
+
+        if (num1 is INum2 num5)
+        {
+            n1 += num5.GetNum2();
+            return n1;
+        }
+
+        return n;
+    }
+
+    [Ignore("multiple mocks with same method are not supported")]
+    public int BranchInterface3(INum num, INum num1)
+    {
+        if (num != num1)
+        {
+            var n = num.GetNum();
+            var n1 = num1.GetNum();
+
+            if (num is INum2 num2 && num1 is INum2 num3)
+            {
+                n += num2.GetNum2();
+                n1 += num3.GetNum2();
+                n += num2.GetNum();
+                n1 += num3.GetNum();
+                if (n > n1)
+                    return n - n1;
+                return n + n1;
+            }
+
+            if (num is INum2 num4)
+            {
+                n += num4.GetNum2();
+                return n;
+            }
+
+            if (num1 is INum2 num5)
+            {
+                n1 += num5.GetNum2();
+                return n1;
+            }
+
+            return n;
+        }
+
+        return 0;
+    }
+
+    [Ignore("multiple mocks with same method are not supported")]
+    public static int MultipleMocks(A a, A b)
+    {
+        if (a != b)
+        {
+            if (a.GetNum() > 10 && b.GetNum() == 14)
+                return 1;
+        }
+
+        return 0;
+    }
+
+    [Ignore("multiple mocks with same method are not supported")]
+    public static int MultipleMocks2(A a, A b)
+    {
+        if (a != b && a is B)
+        {
+            if (a.GetNum() > 10 && b.GetNum() == 14)
+                return 1;
+        }
+
+        return 0;
+    }
 }

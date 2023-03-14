@@ -232,3 +232,9 @@ VSharp.Test/GeneratedTests/**
 
 # VisualStudioCode settings
 .vscode
+
+#Pytjon environments
+**/.env/**
+
+#Python caches
+**/__pycache__/**

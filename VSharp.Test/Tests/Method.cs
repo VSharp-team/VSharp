@@ -181,16 +181,31 @@ namespace IntegrationTests
             public virtual int F() {
                 return 1;
             }
+
+            [TestSvm]
+            public virtual int VirtualTest() {
+                return 1;
+            }
         }
 
         public class B : A {
             public override int F() {
                 return 2;
             }
+
+            [TestSvm]
+            public override int VirtualTest() {
+                return 2;
+            }
         }
 
         public class C : B {
             public override int F() {
+                return 3;
+            }
+
+            [TestSvm]
+            public override int VirtualTest() {
                 return 3;
             }
         }

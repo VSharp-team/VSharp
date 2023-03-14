@@ -1,6 +1,4 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -11,28 +9,6 @@ namespace VSharp.TestRunner
 {
     public static class TestRunner
     {
-
-        private static IEnumerable<string> _extraAssemblyLoadDirs;
-
-        private static Assembly TryLoadAssemblyFrom(object sender, ResolveEventArgs args)
-        {
-            var existingInstance = AppDomain.CurrentDomain.GetAssemblies().FirstOrDefault(assembly => assembly.FullName == args.Name);
-            if (existingInstance != null)
-            {
-                return existingInstance;
-            }
-            foreach (string path in _extraAssemblyLoadDirs)
-            {
-                string assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");
-                if (!File.Exists(assemblyPath))
-                    return null;
-                Assembly assembly = Assembly.LoadFrom(assemblyPath);
-                return assembly;
-            }
-
-            return null;
-        }
-
         private static bool ReproduceTest(FileInfo fileInfo, SuiteType suiteType, bool checkResult, bool fileMode = false)
         {
             try
@@ -42,9 +18,8 @@ namespace VSharp.TestRunner
                 {
                     ti = UnitTest.DeserializeTestInfo(stream);
                 }
-                _extraAssemblyLoadDirs = ti.extraAssemblyLoadDirs;
+                AssemblyManager.SetDependenciesDirs(ti.extraAssemblyLoadDirs);
                 UnitTest test = UnitTest.DeserializeFromTestInfo(ti, false);
-                // _extraAssemblyLoadDirs = test.ExtraAssemblyLoadDirs;
 
                 var method = test.Method;
 
@@ -133,14 +108,11 @@ namespace VSharp.TestRunner
 
         public static bool ReproduceTest(FileInfo file, bool checkResult)
         {
-            AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
             return ReproduceTest(file, SuiteType.TestsAndErrors, checkResult, true);
         }
 
         public static bool ReproduceTests(DirectoryInfo testsDir, SuiteType suiteType = SuiteType.TestsAndErrors, bool recursive = false)
         {
-            AppDomain.CurrentDomain.AssemblyResolve += TryLoadAssemblyFrom;
-
             var tests = testsDir.EnumerateFiles("*.vst", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
             var testsList = tests.ToList();
 

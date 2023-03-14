@@ -46,7 +46,7 @@ with
         methodTypeParameters = Array.empty
         mockClassTypeParameters = Array.empty
         mockMethodTypeParameters = Array.empty
-        throwsException = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null}
+        throwsException = {assemblyName = null; moduleFullyQualifiedName = null; name = null; genericArgs = null}
         memory = {objects = Array.empty; types = Array.empty}
         extraAssemblyLoadDirs = Array.empty
         typeMocks = Array.empty
@@ -58,13 +58,14 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
     let memoryGraph = MemoryGraph(info.memory, mocker, createCompactRepr)
     let exceptionInfo = info.throwsException
     let throwsException =
-        if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; fullName = null} then null
+        if exceptionInfo = {assemblyName = null; moduleFullyQualifiedName = null; name = null; genericArgs = null} then null
         else Serialization.decodeType exceptionInfo
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let isError = info.isError
     let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
+    let compactRepresentations = memoryGraph.CompactRepresentations()
 //    let classTypeParameters = info.classTypeParameters |> Array.map Serialization.decodeType
 //    let methodTypeParameters = info.methodTypeParameters |> Array.map Serialization.decodeType
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
@@ -109,6 +110,8 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
             p.SetValue(info, v)
 
     member x.TypeMocks with get() = typeMocks
+
+    member x.CompactRepresentations with get() = compactRepresentations
 
     member x.DefineTypeMock(name : string) =
         let mock = Mocking.Type(name)
@@ -185,8 +188,7 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
             let mocker = Mocking.Mocker([||])
             let decodeTypeParameter (concrete : typeRepr) (mock : typeMockRepr) =
                 let t = Serialization.decodeType concrete
-                if t = null then
-                    mocker.BuildDynamicType mock |> snd
+                if t = null then mocker.BuildDynamicType mock |> snd
                 else t
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters

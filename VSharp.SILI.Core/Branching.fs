@@ -3,7 +3,7 @@ namespace VSharp.Core
 open VSharp
 
 module Branching =
-    let checkSat state = TypeSolver.checkSatWithSubtyping state
+    let checkSat state condition = TypeSolver.checkSatWithSubtyping state condition
 
     let commonGuardedStatedApplyk f state term mergeResults k =
         match term.term with
@@ -30,26 +30,6 @@ module Branching =
 
     let mutable branchesReleased = false
 
-    let checkSatAndExec condition conditionState pc thenPc elsePc thenBranch bothBranches k =
-        if not branchesReleased then
-            conditionState.pc <- elsePc
-            match checkSat conditionState with
-            | SolverInteraction.SmtUnsat _ ->
-                conditionState.pc <- pc
-                thenBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtUnknown _ ->
-                conditionState.pc <- thenPc
-                thenBranch conditionState (List.singleton >> k)
-            | SolverInteraction.SmtSat model ->
-                let thenState = conditionState
-                let elseState = Memory.copy conditionState elsePc
-                elseState.model <- model.mdl
-                thenState.pc <- thenPc
-                bothBranches thenState elseState condition k
-        else
-            conditionState.pc <- thenPc
-            thenBranch conditionState (List.singleton >> k)
-
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         let execution thenState elseState condition k =
             assert (condition <> True && condition <> False)
@@ -61,46 +41,54 @@ module Branching =
         assert(PC.toSeq pc |> conjunction |> state.model.Eval |> isTrue)
         let evaled = state.model.Eval condition
         if isTrue evaled then
-            let elsePc = PC.add pc !!condition
+            let notCondition = !!condition
+            assert(state.model.Eval notCondition |> isFalse)
+            let elsePc = PC.add pc notCondition
             if PC.isFalse elsePc then
                 thenBranch conditionState (List.singleton >> k)
             elif not branchesReleased then
                 conditionState.pc <- elsePc
-                match checkSat conditionState with
+                match checkSat conditionState notCondition with
                 | SolverInteraction.SmtUnsat _ ->
                     conditionState.pc <- pc
+                    TypeSolver.refineTypes conditionState condition
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- PC.add pc condition
+                    TypeSolver.refineTypes conditionState condition
                     thenBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState elsePc
                     elseState.model <- model.mdl
                     thenState.pc <- PC.add pc condition
+                    TypeSolver.refineTypes thenState condition
                     execution thenState elseState condition k
             else
                 conditionState.pc <- PC.add pc condition
                 thenBranch conditionState (List.singleton >> k)
         elif isFalse evaled then
             let notCondition = !!condition
+            assert(state.model.Eval notCondition |> isTrue)
             let thenPc = PC.add state.pc condition
             if PC.isFalse thenPc then
                 elseBranch conditionState (List.singleton >> k)
             elif not branchesReleased then
                 conditionState.pc <- thenPc
-                match checkSat conditionState with
+                match checkSat conditionState condition with
                 | SolverInteraction.SmtUnsat _ ->
                     conditionState.pc <- pc
+                    TypeSolver.refineTypes conditionState notCondition
                     elseBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtUnknown _ ->
                     conditionState.pc <- PC.add pc notCondition
+                    TypeSolver.refineTypes conditionState notCondition
                     elseBranch conditionState (List.singleton >> k)
                 | SolverInteraction.SmtSat model ->
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState (PC.add pc notCondition)
                     thenState.model <- model.mdl
-                    elseState.pc <- PC.add pc notCondition
+                    TypeSolver.refineTypes elseState notCondition
                     execution thenState elseState condition k
             else
                 conditionState.pc <- PC.add pc notCondition

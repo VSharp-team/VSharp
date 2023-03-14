@@ -20,9 +20,10 @@ internal class CodeRenderer
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
-        public readonly List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> SetupClauses;
+        // TODO: need to save type of clauses from mock definition?
+        public readonly List<(MethodInfo, Type, SimpleNameSyntax)> SetupClauses;
 
-        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses)
+        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses)
         {
             MockName = mockName;
             SetupClauses = setupClauses;
@@ -56,7 +57,7 @@ internal class CodeRenderer
 
         public DelegateMockInfo(
             SimpleNameSyntax mockName,
-            List<(MethodInfo, ArrayTypeSyntax, SimpleNameSyntax)> setupClauses,
+            List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses,
             SimpleNameSyntax delegateMethod,
             Type delegateType) : base(mockName, setupClauses)
         {
@@ -66,6 +67,9 @@ internal class CodeRenderer
     }
 
     private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
+
+    // TODO: make non-static
+    public static Dictionary<object, CompactArrayRepr> CompactRepresentations = new ();
 
     public static void PrepareCache()
     {
@@ -114,6 +118,21 @@ internal class CodeRenderer
         return false;
     }
 
+    public static bool IsGetItem(MethodBase method)
+    {
+        return method.IsSpecialName && method.Name == "get_Item";
+    }
+
+    public static bool IsSetItem(MethodBase method)
+    {
+        return method.IsSpecialName && method.Name == "set_Item";
+    }
+
+    public static bool IsIndexer(MethodBase method)
+    {
+        return IsGetItem(method) || IsSetItem(method);
+    }
+
     public static bool NeedExplicitType(object? obj, Type? containerType)
     {
         var needExplicitNumericType =
@@ -126,7 +145,7 @@ internal class CodeRenderer
         return needExplicitNumericType || needExplicitDelegateType;
     }
 
-    internal static readonly Dictionary<Type, string> PrimitiveTypes = new()
+    internal static readonly Dictionary<Type, string> PredefinedTypes = new()
         {
             [typeof(void)] = "void",
             [typeof(byte)] = "byte",
@@ -189,18 +208,6 @@ internal class CodeRenderer
     {
         Debug.Assert(type != null);
 
-        _referenceManager.AddAssembly(type.Assembly);
-
-        if (PrimitiveTypes.TryGetValue(type, out var name))
-            return ParseTypeName(name);
-
-        if (type.IsGenericParameter)
-            return ParseTypeName(type.ToString());
-
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
-
         if (type.IsArray)
         {
             var elemType = type.GetElementType();
@@ -208,40 +215,29 @@ internal class CodeRenderer
             return RenderArrayType(RenderType(elemType), type.GetArrayRank());
         }
 
-        if (HasMockInfo(type.Name))
-            return GetMockInfo(type.Name).MockName;
+        if (PredefinedTypes.TryGetValue(type, out var name))
+            return ParseTypeName(name);
 
-        string typeName = type.Name;
-        if (CSharpKeywords.Contains(typeName))
-            typeName = $"@{typeName}";
-
-        if (type.IsNested && type.DeclaringType != null)
-        {
-            // TODO: use QualifiedName with list of types?
-            typeName = $"{RenderType(type.DeclaringType).ToString()}.{typeName}";
-        }
-
-        if (type.IsGenericType)
-        {
-            var typeArgs = type.GetGenericArguments().Select(RenderType).ToArray();
-            return RenderGenericName(typeName, typeArgs);
-        }
-
-        return ParseTypeName(typeName);
+        return RenderTypeName(type);
     }
 
-    // TODO: unify with RenderType
-    public SimpleNameSyntax RenderTypeName(Type type)
+    public SimpleNameSyntax RenderSimpleTypeName(Type type)
     {
+        Debug.Assert(type != null);
+
+        _referenceManager.AddAssembly(type.Assembly);
+
+        if (type.IsGenericParameter)
+            return IdentifierName(type.ToString());
+
         var typeNamespace = type.Namespace;
         if (typeNamespace != null)
             _referenceManager.AddUsing(typeNamespace);
 
-        string typeName = type.Name;
-        if (type.IsNested && type.DeclaringType != null)
-        {
-            typeName = $"{RenderType(type.DeclaringType)}.{typeName}";
-        }
+        if (HasMockInfo(type.Name))
+            return GetMockInfo(type.Name).MockName;
+
+        string typeName = CorrectNameGenerator.GetTypeName(type);
 
         if (type.IsGenericType)
         {
@@ -252,13 +248,63 @@ internal class CodeRenderer
         return IdentifierName(typeName);
     }
 
+    public NameSyntax RenderTypeName(Type type)
+    {
+        return RenderTypeNameRec(type).Item1;
+    }
+
+    private (NameSyntax, int) RenderTypeNameRec(Type type, TypeSyntax[]? typeArgs = null)
+    {
+        Debug.Assert(type != null);
+
+        string typeName = CorrectNameGenerator.GetTypeName(type);
+
+        var isNested = type.IsNested;
+        if (type.IsGenericParameter || !isNested && (typeArgs == null || !type.IsGenericType))
+            return (RenderSimpleTypeName(type), 0);
+
+        _referenceManager.AddAssembly(type.Assembly);
+
+        var typeNamespace = type.Namespace;
+        if (typeNamespace != null)
+            _referenceManager.AddUsing(typeNamespace);
+
+        if (type.IsGenericType)
+        {
+            var genericArgs = type.GetGenericArguments();
+            typeArgs ??= genericArgs.Select(RenderType).ToArray();
+            NameSyntax? declaringType = null;
+            var usedGenerics = 0;
+            if (isNested)
+            {
+                Debug.Assert(type.DeclaringType != null);
+                (declaringType, usedGenerics) = RenderTypeNameRec(type.DeclaringType, typeArgs);
+                if (usedGenerics == typeArgs.Length)
+                    return (QualifiedName(declaringType, IdentifierName(typeName)), usedGenerics);
+            }
+            var allGenericsLength = genericArgs.Length;
+            var neededGenericsLength = allGenericsLength - usedGenerics;
+            var neededGenerics =
+                typeArgs
+                    .Skip(usedGenerics)
+                    .Take(neededGenericsLength)
+                    .ToArray();
+            var current = RenderGenericName(typeName, neededGenerics);
+            NameSyntax result = declaringType == null ? current : QualifiedName(declaringType, current);
+            return (result, allGenericsLength);
+        }
+
+        Debug.Assert(type.IsNested && type.DeclaringType != null);
+        return (QualifiedName(RenderTypeName(type.DeclaringType), IdentifierName(typeName)), 0);
+    }
+
     public SimpleNameSyntax RenderMethodName(MethodBase method)
     {
         var type = method.DeclaringType;
         return method switch
         {
             { IsGenericMethod : true } => GenericName(method.Name),
-            { IsConstructor : true } when type != null => RenderTypeName(type),
+            { IsConstructor : true } when type != null => RenderSimpleTypeName(type),
             _ when IsGetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
             _ when IsSetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
             _ => IdentifierName(method.Name)
@@ -300,6 +346,8 @@ internal class CodeRenderer
     }
 
     public IdentifierNameSyntax AllocatorObject => IdentifierName(nameof(Allocator<int>.Object));
+    public IdentifierNameSyntax AllocatorCall => IdentifierName(nameof(Allocator.Call));
+    public IdentifierNameSyntax AllocatorFill => IdentifierName(nameof(Allocator.Fill));
 
     // Prerendered program types
     public TypeSyntax ObjectType => RenderType(typeof(object));
@@ -579,6 +627,14 @@ internal class CodeRenderer
         ExpressionSyntax[]? args,
         (ExpressionSyntax, ExpressionSyntax)[] init)
     {
+        return RenderObjectCreation(type, args, init.Select(x => (new [] {x.Item1}, x.Item2)).ToArray());
+    }
+
+    public static ObjectCreationExpressionSyntax RenderObjectCreation(
+        TypeSyntax type,
+        ExpressionSyntax[]? args,
+        (ExpressionSyntax[], ExpressionSyntax)[] init)
+    {
         ExpressionSyntax[] keysWithValues = new ExpressionSyntax[init.Length];
         var i = 0;
         foreach (var (key, value) in init)
@@ -586,7 +642,7 @@ internal class CodeRenderer
             var keyAccess =
                 ImplicitElementAccess(
                     BracketedArgumentList(
-                        SingletonSeparatedList(Argument(key))
+                        SeparatedList(key.Select(Argument))
                     )
                 );
             keysWithValues[i] = RenderAssignment(keyAccess, value);
@@ -678,7 +734,40 @@ internal class CodeRenderer
         return RenderCall(IdentifierName(functionName), args);
     }
 
-    public ExpressionSyntax RenderCall(ExpressionSyntax? thisArg, MethodBase method, params ExpressionSyntax[] args)
+    private ExpressionSyntax RenderPrivateCall(
+        ExpressionSyntax? thisArg,
+        MethodBase method,
+        ArgumentSyntax[] args)
+    {
+        var length = args.Length;
+        ArgumentSyntax[] newArgs;
+        ExpressionSyntax function;
+        if (thisArg == null)
+        {
+            Debug.Assert(!Reflection.hasThis(method));
+            newArgs = new ArgumentSyntax[length + 2];
+            System.Array.Copy(args, 0, newArgs, 2, length);
+            var type = method.DeclaringType;
+            Debug.Assert(type != null);
+            newArgs[0] = Argument(RenderLiteral(type.AssemblyQualifiedName));
+            newArgs[1] = Argument(RenderLiteral(method.Name));
+            function = RenderMemberAccess(AllocatorType(), AllocatorCall);
+            return RenderCall(function, newArgs);
+        }
+
+        Debug.Assert(Reflection.hasThis(method));
+        newArgs = new ArgumentSyntax[length + 1];
+        System.Array.Copy(args, 0, newArgs, 1, length);
+        newArgs[0] = Argument(RenderLiteral(method.Name));
+        function = RenderMemberAccess(thisArg, AllocatorCall);
+        return RenderCall(function, newArgs);
+    }
+
+    public ExpressionSyntax RenderCall(
+        ExpressionSyntax? thisArg,
+        Type? thisType,
+        MethodBase method,
+        params ExpressionSyntax[] args)
     {
         var functionArgs = args.Select(Argument).ToArray();
         var parameters = method.GetParameters();
@@ -705,7 +794,11 @@ internal class CodeRenderer
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
-        if (method.IsSpecialName && method.Name == "get_Item")
+        if (!method.IsPublic || thisType is { IsPublic: false, IsNestedPublic: false } ||
+            thisArg == null && method.DeclaringType is { IsPublic: false, IsNestedPublic: false })
+            return RenderPrivateCall(thisArg, method, functionArgs);
+
+        if (IsGetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -714,7 +807,7 @@ internal class CodeRenderer
             return ElementAccessExpression(thisArg).WithArgumentList(indexArgument);
         }
 
-        if (method.IsSpecialName && method.Name == "set_Item")
+        if (IsSetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -783,7 +876,7 @@ internal class CodeRenderer
         TypeSyntax propertyType,
         SyntaxToken propertyId,
         SyntaxToken[] modifiers,
-        SimpleNameSyntax? interfaceName)
+        NameSyntax? interfaceName)
     {
         var propertyDecl =
             PropertyDeclaration(propertyType, propertyId)
@@ -793,6 +886,18 @@ internal class CodeRenderer
                 ExplicitInterfaceSpecifier(interfaceName)
             );
         return propertyDecl;
+    }
+
+    public static IndexerDeclarationSyntax RenderIndexerDeclaration(
+        TypeSyntax indexerType,
+        SyntaxToken[] modifiers,
+        IEnumerable<ParameterSyntax> args)
+    {
+        var indexerDecl =
+            IndexerDeclaration(indexerType)
+                .AddModifiers(modifiers)
+                .WithParameterList(BracketedParameterList(SeparatedList(args)));
+        return indexerDecl;
     }
 
     public static LiteralExpressionSyntax RenderLiteral(string? literal)
@@ -877,5 +982,54 @@ internal class CodeRenderer
     public static ExpressionSyntax RenderAssertEqual(ExpressionSyntax x, ExpressionSyntax y)
     {
         return RenderCall(IdentifierName("Assert"), "AreEqual", x, y);
+    }
+}
+
+internal static class CorrectNameGenerator
+{
+    public static string GetTypeName(Type type)
+    {
+        var typeName = type.Name;
+
+        // Name can't be a csharp keyword
+        if (CodeRenderer.CSharpKeywords.Contains(typeName))
+            typeName = $"@{typeName}";
+
+        return typeName.TrimEnd('&'); // ByRef types contains & in name
+    }
+
+    public static string GetVariableName(string name)
+    {
+        var correctName = new System.Text.StringBuilder(name);
+
+        // Name must start from letter, '@' or '_'
+        var firstCorrectCharIndex = -1;
+        for (var i = 0; i < correctName.Length; i++)
+        {
+            if (System.Text.RegularExpressions.Regex.IsMatch($"{correctName[i]}", "[a-zA-Z_@]"))
+            {
+                firstCorrectCharIndex = i;
+                break;
+            }
+        }
+        if (firstCorrectCharIndex == -1)
+        {
+            throw new Exception($"Unable to correct name: {name}");
+        }
+        correctName.Remove(0, firstCorrectCharIndex);
+
+        // Whitespaces are not allowed at name
+        correctName.Replace(" ", "");
+
+        // @ allowed only in start of name
+        correctName.Replace("@", "", 1, correctName.Length - 1);
+
+        // Name can't be a csharp keyword
+        if (CodeRenderer.CSharpKeywords.Contains(name))
+        {
+            correctName.Insert(0, '@');
+        }
+
+        return correctName.ToString();
     }
 }

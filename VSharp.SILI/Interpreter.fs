@@ -583,7 +583,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         createException cilState
         k [cilState]
 
-    member private x.AccessMultidimensionalArray accessor (cilState : cilState) upperBounds indices (k : cilState list -> 'a) =
+    member private x.AccessMultidimensionalArray accessor (cilState : cilState) lengths indices (k : cilState list -> 'a) =
         let checkArrayBounds upperBounds indices =
             let checkOneBound acc (upperBound, index) =
                 let lowerBound = Concrete 0 Types.TLength
@@ -594,13 +594,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let upperBoundsAndIndices = List.zip upperBounds indices
             List.fold checkOneBound True upperBoundsAndIndices
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (checkArrayBounds upperBounds indices, state))
+            (fun state k -> k (checkArrayBounds lengths indices, state))
             accessor
             (x.Raise x.IndexOutOfRangeException)
             k
 
-    member private x.AccessArray accessor (cilState : cilState) upperBound index k =
-        x.AccessMultidimensionalArray accessor cilState [upperBound] [index] k
+    member private x.AccessArray accessor (cilState : cilState) length index k =
+        x.AccessMultidimensionalArray accessor cilState [length] [index] k
 
     member private x.AccessArrayDimension accessor (cilState : cilState) (this : term) (dimension : term) =
         let upperBound = Memory.ArrayRank cilState.state this
@@ -671,7 +671,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             let zero = MakeNumber 0
             let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
             let numOfAllElements = Memory.CountOfArrayElements cilState.state array
-            let check = index << lb ||| (Arithmetics.Add index length) >> numOfAllElements ||| length << zero
+            let check = (index << lb) ||| ((Arithmetics.Add index length) >> numOfAllElements) ||| (length << zero)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.IndexOutOfRangeException)
@@ -688,6 +688,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let srcType = MostConcreteTypeOfHeapRef state src
         let dstType = MostConcreteTypeOfHeapRef state dst
         let (>>) = API.Arithmetics.(>>)
+        let (>>=) = API.Arithmetics.(>>=)
         let (<<) = API.Arithmetics.(<<)
         let add = Arithmetics.Add
         let zero = TypeUtils.Int32.Zero
@@ -699,7 +700,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
             k [cilState]
         let lengthCheck (cilState : cilState) =
-            let check = ((add srcIndex length) >> srcNumOfAllElements) ||| ((add dstIndex length) >> dstNumOfAllElements)
+            let endSrcIndex = add srcIndex length
+            let srcNumOfAllElements = srcNumOfAllElements
+            let endDstIndex = add dstIndex length
+            let dstNumOfAllElements = dstNumOfAllElements
+            let check =
+                (endSrcIndex >> srcNumOfAllElements) ||| (endSrcIndex << srcLB)
+                ||| (endDstIndex >> dstNumOfAllElements) ||| (endDstIndex << dstLB)
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (check, state))
                 (x.Raise x.ArgumentException)
@@ -707,8 +714,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let indicesCheck (cilState : cilState) =
             // TODO: extended form needs
             let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False)
-            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >> srcNumOfAllElements else False)
-            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >> dstNumOfAllElements else False)
+            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False)
+            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False)
 
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
@@ -1086,10 +1093,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif method.HasBody then cilState |> List.singleton |> k
         else internalfailf "Non-extern method %s without body!" method.FullName
 
-    member private x.InvokeVirtualMethod (cilState : cilState) calledMethod targetMethod k =
+    member private x.InvokeVirtualMethod (cilState : cilState) calledMethod (targetMethod : Method) k =
         // Getting this and arguments values by old keys
         let this = Memory.ReadThis cilState.state calledMethod
         let args = calledMethod.Parameters |> Seq.map (Memory.ReadArgument cilState.state) |> List.ofSeq
+        // Casting this to reflected type of method
+        let this = Types.Cast this targetMethod.ReflectedType
         // Popping frame created for ancestor calledMethod
         popFrameOf cilState
         // Creating valid frame with stackKeys corresponding to actual targetMethod
@@ -1123,17 +1132,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member x.CallAbstract targetType (ancestorMethod : Method) cilState k =
         let this = Memory.ReadThis cilState.state ancestorMethod
-        let _, candidateTypes = ResolveCallVirt cilState.state this ancestorMethod
+        let thisType = MostConcreteTypeOfHeapRef cilState.state this
+        let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
         let candidateMethods = seq {
             for t in candidateTypes do
                 match t with
                 | ConcreteType t ->
                     let overriden = x.ResolveVirtualMethod t ancestorMethod
-                    // TODO: more complex criteria here... Maybe t.IsAssignableTo targetType?
-                    if overriden.InCoverageZone || t = targetType then
+                    if overriden.InCoverageZone || t.IsAssignableTo targetType && targetType.Assembly = t.Assembly then
                         yield (t, overriden)
-                | _ -> ()}
+                | _ -> ()
+        }
         let candidateMethods = candidateMethods |> Seq.toList |> List.distinctBy snd
         let typeMocks = seq {
             for t in candidateTypes do
@@ -1152,15 +1162,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     | StateModel(s, _) -> s
                     | _ -> __unreachable__()
                 modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
-                candidateTypes |> Seq.iter (function
-                    | ConcreteType t -> AddConstraint cilState.state !!(Types.TypeIsRef cilState.state t this)
-                    | _ -> ())
-//                let methodMock = mock.MethodMocks |> Seq.find (fun m -> m.BaseMethod.Name = ancestorMethod.Name && m.BaseMethod.GetParameters() |> Array.forall (fun p -> p.ParameterType = signature.[p.Position]))
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
-                let methodMock = mock.MethodMock overriden
-                match methodMock.Call thisInModel [] with // TODO: pass args!
+                let methodMock = MockMethod cilState.state overriden
+                match methodMock.Call this [] with // TODO: pass args!
                 | Some result ->
                     assert(ancestorMethod.ReturnType <> typeof<Void>)
                     push result cilState
@@ -1343,36 +1349,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
         Memory.AllocateDelegate cilState.state lambda |> k
 
-    member x.CommonNewObj isCallNeeded (ctor : Method) (cilState : cilState) (args : term list) (k : cilState list -> 'a) : 'a =
-        __notImplemented__()
-//        let typ = constructorInfo.DeclaringType
-//        let constructedTermType = typ |> Types.FromDotNetType cilState.state
-//        let blockCase (cilState : cilState) =
-//            let callConstructor (cilState : cilState) reference afterCall =
-//                if isCallNeeded then
-//                    methodInterpreter.ReduceFunctionSignatureCIL cilState constructorInfo (Some reference) (Specified args) false (fun cilState ->
-//                    x.InlineMethodBaseCallIfNeeded constructorInfo cilState afterCall)
-//                else withResultState reference cilState.state |> changeState cilState |> List.singleton
-//            let referenceTypeCase (cilState : cilState) =
-//                let ref, state = Memory.AllocateDefaultClass cilState.state constructedTermType
-//                callConstructor (withState state cilState) ref (List.map (pushToOpStack ref))
-//            let valueTypeCase (cilState : cilState) =
-//                let freshValue = Memory.DefaultOf constructedTermType
-//                let ref, state = Memory.AllocateTemporaryLocalVariable cilState.state typ freshValue
-//                let modifyResult (cilState : cilState) =
-//                    let value = Memory.ReadSafe cilState.state ref
-//                    pushToOpStack value cilState
-//                callConstructor (withState state cilState) ref (List.map modifyResult)
-//            if Types.IsValueType constructedTermType then valueTypeCase cilState
-//            else referenceTypeCase cilState
-//        let nonDelegateCase (cilState : cilState) =
-//            if typ.IsArray && constructorInfo.GetMethodBody() = null
-//                then x.ReduceArrayCreation typ cilState args id
-//                else blockCase cilState
-//        if Reflection.IsDelegateConstructor constructorInfo
-//            then x.CommonCreateDelegate constructorInfo cilState args k
-//            else nonDelegateCase cilState |> k
-
     member x.NewObj (m : Method) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Newobj.Size) |> Application.getMethod
         assert (calledMethod :> IMethod).IsConstructor
@@ -1386,7 +1362,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             Memory.CallStackSize afterCall.state = stackSizeBefore
         let modifyValueResultIfConstructorWasCalled stackSizeBefore (afterCall : cilState) =
             if wasConstructorInlined stackSizeBefore afterCall then pushNewObjForValueTypes afterCall
-            else ()
 
         let blockCase (cilState : cilState) =
             let callConstructor (cilState : cilState) reference afterCall =
@@ -1957,12 +1932,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
         let numElements = pop cilState
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
-            (fun cilState k ->
+        let allocate cilState k =
+            try
                 let ref = Memory.AllocateVectorArray cilState.state numElements elemType
                 push ref cilState
-                k [cilState])
+                k [cilState]
+            with
+            | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            allocate
             (this.Raise this.OverflowException)
             id
 
@@ -2027,7 +2006,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let ip = currentIp cilState
         assert(ip.CanBeExpanded())
         let startingOffset = ip.Offset()
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         let endOffset =
             let lastOffset = Seq.last cfg.SortedBasicBlocks
             let rec binarySearch l r =
@@ -2071,7 +2050,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         executeAllInstructions ([],[],[]) cilState id
 
     member private x.IncrementLevelIfNeeded (m : Method) (offset : offset) (cilState : cilState) =
-        let cfg = m.CFG
+        let cfg = m.ForceCFG
         if offset = 0<offsets> || cfg.IsLoopEntry offset then
             incrementLevel cilState {offset = offset; method = m}
 

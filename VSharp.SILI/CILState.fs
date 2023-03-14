@@ -17,7 +17,7 @@ type cilState =
       //TODO: #mb frames list #mb transfer to Core.State
       mutable iie : InsufficientInformationException option
       mutable level : level
-      mutable startingIP : ip
+      startingIP : ip
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable suspended : bool
@@ -85,8 +85,9 @@ module internal CilStateOperations =
         nextId
 
     let makeCilState entryMethod curV initialEvaluationStackSize state =
+        let currentLoc = ip2codeLocation curV |> Option.get
         { ipStack = [curV]
-          currentLoc = ip2codeLocation curV |> Option.get
+          currentLoc = currentLoc
           state = state
           filterResult = None
           iie = None
@@ -97,7 +98,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
-          history = Set.empty
+          history = Set.singleton currentLoc
           entryMethod = Some entryMethod
           id = getNextStateId()
           predictedUsefulness = 0.0

@@ -1,20 +1,12 @@
-from contextlib import closing
 import unittest
+from contextlib import closing, suppress
 
 from common.game import GameState, Reward
-from .n_agent import NAgent, get_validation_maps
+from common.utils import get_states
+from common.constants import Constant
+
 from .connection_manager import ConnectionManager
-
-
-def get_states(game_state: GameState) -> set[int]:
-    states = set()
-    for edge in game_state.Map:
-        for state in edge.VertexFrom.States:
-            states.add(state.Id)
-        for state in edge.VertexTo.States:
-            states.add(state.Id)
-
-    return states
+from .n_agent import NAgent, get_validation_maps
 
 
 def dumb_strategy(game_state: GameState) -> int:
@@ -22,9 +14,11 @@ def dumb_strategy(game_state: GameState) -> int:
 
 
 class TestServerConnection(unittest.TestCase):
+    cm: ConnectionManager
+
     @classmethod
     def setUpClass(cls):
-        urls = ["ws://0.0.0.0:8080/gameServer"]
+        urls = [Constant.DEFAULT_GAMESERVER_URL]
 
         cls.n_steps = 1
         cls.cm = ConnectionManager(urls)
@@ -33,7 +27,7 @@ class TestServerConnection(unittest.TestCase):
         cls.test_map_id = maps[0].Id
 
     def do_one_dumb_step(self, with_agent: NAgent) -> Reward:
-        game_state = with_agent.recv_state_or_throw_gameover().MessageBody
+        game_state = with_agent.recv_state_or_throw_gameover()
         next_state = dumb_strategy(game_state)
         with_agent.send_step(next_state_id=next_state, predicted_usefullness=42.0)
         return with_agent.recv_reward_or_throw_gameover()
@@ -64,13 +58,10 @@ class TestServerConnection(unittest.TestCase):
                     steps=self.n_steps,
                 )
             ) as agent:
-                try:
+                with suppress(NAgent.GameOver):
                     for _ in range(self.n_steps):
                         self.do_one_dumb_step(with_agent=agent)
                     self.do_one_dumb_step(with_agent=agent)  # fake step
-
-                except NAgent.GameOver:
-                    pass
 
     @classmethod
     def tearDownClass(cls) -> None:

@@ -41,7 +41,11 @@ module TypeUtils =
     let addressType = typeof<AddressTypeAgent>
 
     let szArrayHelper = lazy Type.GetType("System.SZArrayHelper")
+
     // ---------------------------------- Basic type predicates ----------------------------------
+
+    let isPublic (x : Type) =
+        x.IsPublic || x.IsNestedPublic
 
     let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType
@@ -108,6 +112,7 @@ module TypeUtils =
 
     // TODO: wrap Type, cache size there
     let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+        assert(not typ.ContainsGenericParameters)
         let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
         let gen = meth.GetILGenerator()
         gen.Emit(OpCodes.Sizeof, typ)
@@ -290,6 +295,14 @@ module TypeUtils =
                 i.GetGenericTypeDefinition() = targetInterface.GetGenericTypeDefinition()
         t.GetInterfaces() |> Seq.exists matches
 
+    let rec getBaseInterfaces (t : Type) =
+        seq {
+            let bases = t.GetInterfaces()
+            yield! bases
+            for b in bases do
+                yield! getBaseInterfaces b
+        }
+
     // --------------------------------------- Conversions ---------------------------------------
 
     let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType
@@ -395,6 +408,9 @@ module TypeUtils =
         let canCast lType (rType : Type) = rType.IsAssignableFrom(lType) || canConvert lType rType
         commonConcreteCanCast canCast leftType rightType id (fun _ _ -> false)
 
+    /// If 'leftType' is assignable to 'rightType' and 'rightType' is assignable to 'leftType',
+    /// 'mostConcreteType' will return 'leftType'
+    /// Example: mostConcreteType typeof<uint array> typeof<int array> == typeof<uint array>
     let inline mostConcreteType (leftType : Type) (rightType : Type) =
         if leftType = null then rightType
         elif rightType = null then leftType

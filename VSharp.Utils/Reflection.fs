@@ -46,24 +46,24 @@ module public Reflection =
     // ------------------------------- Assemblies -------------------------------
 
     let loadAssembly (assemblyName : string) =
-        let assemblies = AppDomain.CurrentDomain.GetAssemblies()
-        let dynamicAssemblies = assemblies |> Array.filter (fun a -> a.IsDynamic)
-        let dynamicOption = dynamicAssemblies |> Array.tryFind (fun a -> a.FullName.Contains(assemblyName))
+        let assemblies = AssemblyManager.GetAssemblies()
+        let dynamicAssemblies = assemblies |> Seq.filter (fun a -> a.IsDynamic)
+        let dynamicOption = dynamicAssemblies |> Seq.tryFind (fun a -> a.FullName.Contains(assemblyName))
         match dynamicOption with
         | Some a -> a
-        | None -> Assembly.Load(assemblyName)
+        | None -> AssemblyManager.LoadFromAssemblyName assemblyName
 
     // --------------------------- Metadata Resolving ---------------------------
 
     let resolveModule (assemblyName : string) (moduleName : string) =
         let assembly =
-            match AppDomain.CurrentDomain.GetAssemblies() |> Array.tryFindBack (fun assembly -> assembly.FullName = assemblyName) with
+            match AssemblyManager.GetAssemblies() |> Seq.tryFindBack (fun assembly -> assembly.FullName = assemblyName) with
             | Some assembly -> assembly
             | None ->
                 try
-                    Assembly.Load(assemblyName)
+                    AssemblyManager.LoadFromAssemblyName assemblyName
                 with _ ->
-                AssemblyManager.Resolve moduleName
+                    AssemblyManager.LoadFromAssemblyPath moduleName
         assembly.Modules |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
 
     let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
@@ -299,6 +299,7 @@ module public Reflection =
         | _ when t = typeof<String> -> String.Empty :> obj
         | _ when TypeUtils.isNullable t -> null
         | _ when t.IsArray -> Array.CreateInstance(typeof<obj>, 1)
+        | _ when t.ContainsGenericParameters -> internalfail $"Creating object of open generic type {t}"
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
@@ -405,7 +406,9 @@ module public Reflection =
     let concretizeMethodParameters (declaringType : Type) (method : MethodBase) (values : Type[]) =
         match method with
         | :? MethodInfo as mi ->
-            let method = declaringType.GetMethods() |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
+            let method =
+                declaringType.GetMethods(allBindingFlags)
+                |> Array.find (fun x -> x.MetadataToken = mi.MetadataToken)
             if method.IsGenericMethod then
                 assert(values.Length = method.GetGenericArguments().Length)
                 method.MakeGenericMethod(values) :> MethodBase
@@ -441,16 +444,19 @@ module public Reflection =
 
     let fieldIntersects (field : fieldId) =
         let fieldInfo = getFieldInfo field
-        let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
-        let intersects o s = o + s > offset && o < offset + size
-        let fields = fieldsOf false field.declaringType
-        let checkIntersects (_, fieldInfo : FieldInfo) =
-            let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-            let s = TypeUtils.internalSizeOf fieldInfo.FieldType
-            intersects o s
-        let intersectingFields = Array.filter checkIntersects fields
-        Array.length intersectingFields > 1
+        let fieldType = fieldInfo.FieldType
+        if fieldType.ContainsGenericParameters then false
+        else
+            let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+            let size = TypeUtils.internalSizeOf fieldType
+            let intersects o s = o + s > offset && o < offset + size
+            let fields = fieldsOf false field.declaringType
+            let checkIntersects (_, fieldInfo : FieldInfo) =
+                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
+                intersects o s
+            let intersectingFields = Array.filter checkIntersects fields
+            Array.length intersectingFields > 1
 
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =

@@ -1,27 +1,23 @@
 import torch
-from torch.nn import Linear
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv
-from torch_geometric.nn import global_mean_pool
+from torch.nn import Linear
+from torch_geometric.nn import GATConv, GCNConv, Linear, SAGEConv, global_mean_pool
 
-NUM_NODE_FEATURES = 49
+from .data_loader import NUM_NODE_FEATURES
+
+NUM_PREDICTED_VALUES = 4
 
 
-class GCN_SimpleNoEdgeLabels(torch.nn.Module):
-    def __init__(self):
+class GNN_Het(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = GCNConv(NUM_NODE_FEATURES, 16)
-        self.conv2 = GCNConv(16, 1)
+        self.conv1 = SAGEConv((-1, -1), hidden_channels)
+        self.conv2 = SAGEConv((-1, -1), out_channels)
 
-    def forward(self, data):
-        x, edge_index = data.x, data.edge_index
-
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = F.dropout(x, training=self.training)
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
         x = self.conv2(x, edge_index)
-
-        return F.log_softmax(x, dim=1)
+        return x
 
 
 class GCN(torch.nn.Module):
@@ -45,4 +41,19 @@ class GCN(torch.nn.Module):
         x = F.dropout(x, p=0.5, training=self.training)
         x = self.lin(x)
 
+        return x
+
+
+class GAT(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
+        self.lin1 = Linear(-1, hidden_channels)
+        self.conv2 = GATConv((-1, -1), out_channels, add_self_loops=False)
+        self.lin2 = Linear(-1, out_channels)
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index) + self.lin1(x)
+        x = x.relu()
+        x = self.conv2(x, edge_index) + self.lin2(x)
         return x

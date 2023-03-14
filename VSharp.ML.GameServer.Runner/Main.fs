@@ -1,5 +1,4 @@
 open System.IO
-open System.Text.Json
 open Argu
 open Microsoft.FSharp.Core
 open Suave
@@ -13,9 +12,9 @@ open VSharp
 open VSharp.Core
 open VSharp.Interpreter.IL
 open VSharp.ML.GameServer.Messages
+open VSharp.ML.GameServer.Maps
 open VSharp.Runner
-  
-  
+   
 type CliArguments =
     | [<Unique>] Port of int
     interface IArgParserTemplate with
@@ -73,7 +72,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         
         Oracle(predict,feedback)
         
-    let mutable inTrainMode = false
+    let mutable inTrainMode = true
     
     while loop do
         let! msg = webSocket.read()

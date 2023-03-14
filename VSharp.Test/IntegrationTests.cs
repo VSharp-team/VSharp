@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Threading;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
@@ -73,7 +74,7 @@ namespace VSharp.Test
             };
             Thread.CurrentThread.CurrentCulture = ci;
 
-            Logger.ConfigureWriter(TestContext.Progress);
+            Logger.configureWriter(TestContext.Progress);
             // SVM.ConfigureSimplifier(new Z3Simplifier()); can be used to enable Z3-based simplification (not recommended)
         }
 
@@ -244,10 +245,12 @@ namespace VSharp.Test
                     );
                 }
 
-                Core.API.ConfigureSolver(SolverPool.mkSolver());
-                var methodInfo = innerCommand.Test.Method.MethodInfo;
+                Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
+                var normalizedMethod = AssemblyManager.NormalizeMethod(innerCommand.Test.Method.MethodInfo);
+                Debug.Assert(normalizedMethod is MethodInfo);
+                var exploredMethodInfo = normalizedMethod as MethodInfo;
                 var stats = new TestStatistics(
-                    methodInfo,
+                    exploredMethodInfo,
                     _searchStrat.IsGuidedMode,
                     _releaseBranches,
                     _timeout,
@@ -259,27 +262,33 @@ namespace VSharp.Test
                 {
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
-                        explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                        _executionMode,
-                        unitTests.TestDirectory,
-                        _recThresholdForTest,
-                        _timeout,
-                        false,
-                        _releaseBranches,
-                        128,
-                        _checkAttributes,
-                        false,
+                        explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
+                        executionMode: _executionMode,
+                        outputDirectory: unitTests.TestDirectory,
+                        recThreshold: _recThresholdForTest,
+                        timeout: _timeout,
+                        visualize: false,
+                        releaseBranches: _releaseBranches,
+                        maxBufferSize: 128,
+                        checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
-                        null,
-                        0,
-                        0,
-                        _serialize,
-                        _pathToSerialize
+                        oracle:null,
+                        coverageToSwitchToAI:0,
+                        stepsToPlay:0,
+                        serialize:_serialize,
+                        pathToSerialize:_pathToSerialize
                             );
                     using var explorer = new SILI(_options);
-                    AssemblyManager.Load(methodInfo.Module.Assembly);
 
-                    explorer.Interpret(new [] { methodInfo }, new Tuple<MethodBase, string[]>[] {}, unitTests.GenerateTest, unitTests.GenerateError, _ => { }, (_, e) => throw e);
+                    explorer.Interpret(
+                        new [] { exploredMethodInfo },
+                        new Tuple<MethodBase, string[]>[] {},
+                        unitTests.GenerateTest,
+                        unitTests.GenerateError,
+                        _ => { },
+                        (_, e) => ExceptionDispatchInfo.Capture(e).Throw(),
+                        e => ExceptionDispatchInfo.Capture(e).Throw()
+                    );
 
                     if (unitTests.UnitTestsCount == 0 && unitTests.ErrorsCount == 0 && explorer.Statistics.IncompleteStates.Count == 0)
                     {
@@ -306,7 +315,7 @@ namespace VSharp.Test
                             TestContext.Out.WriteLine("Starting tests renderer...");
                             try
                             {
-                                Renderer.Render(tests, true, false, methodInfo.DeclaringType);
+                                Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
                             }
                             catch (Exception e)
                             {
@@ -325,7 +334,7 @@ namespace VSharp.Test
                             : "Starting tests checker...");
                         var runnerDir = new DirectoryInfo(Directory.GetCurrentDirectory());
                         var testChecker = new TestResultsChecker(testsDir, runnerDir, _expectedCoverage);
-                        if (testChecker.Check(methodInfo, out var actualCoverage))
+                        if (testChecker.Check(exploredMethodInfo, out var actualCoverage))
                             context.CurrentResult.SetResult(ResultState.Success);
                         else
                             context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);

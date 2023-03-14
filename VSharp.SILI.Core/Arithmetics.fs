@@ -30,8 +30,8 @@ module Calculator1 =
     let AddOvf(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
-        let add = DynamicMethod("Add", typeof<obj>, args)
-        let il = add.GetILGenerator(256)
+        let addOvf = DynamicMethod("AddOvf", typeof<obj>, args)
+        let il = addOvf.GetILGenerator(256)
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, x.GetType())
         il.Emit(OpCodes.Ldarg_1)
@@ -39,8 +39,8 @@ module Calculator1 =
         il.Emit(OpCodes.Add_Ovf)
         il.Emit(OpCodes.Box, t)
         il.Emit(OpCodes.Ret)
-        let add = add.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
-        add.Invoke(x, y)
+        let addOvf = addOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        addOvf.Invoke(x, y)
 
     let Sub(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
@@ -75,8 +75,8 @@ module Calculator1 =
     let MulOvf(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
-        let mul = DynamicMethod("Mul", typeof<obj>, args)
-        let il = mul.GetILGenerator(256)
+        let mulOvf = DynamicMethod("MulOvf", typeof<obj>, args)
+        let il = mulOvf.GetILGenerator(256)
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, x.GetType())
         il.Emit(OpCodes.Ldarg_1)
@@ -84,8 +84,8 @@ module Calculator1 =
         il.Emit(OpCodes.Mul_Ovf)
         il.Emit(OpCodes.Box, t)
         il.Emit(OpCodes.Ret)
-        let mul = mul.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
-        mul.Invoke(x, y)
+        let mulOvf = mulOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        mulOvf.Invoke(x, y)
 
     let Div(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
@@ -202,8 +202,8 @@ module Calculator1 =
         il.Emit(OpCodes.Not)
         il.Emit(OpCodes.Box, t)
         il.Emit(OpCodes.Ret)
-        let mul = bitwiseNot.CreateDelegate(typeof<unaryToObjDelegateType>) :?> unaryToObjDelegateType
-        mul.Invoke(x)
+        let bitwiseNot = bitwiseNot.CreateDelegate(typeof<unaryToObjDelegateType>) :?> unaryToObjDelegateType
+        bitwiseNot.Invoke(x)
 
 [<AutoOpen>]
 module internal Arithmetics =

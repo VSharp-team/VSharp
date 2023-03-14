@@ -30,13 +30,14 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
-    val SolveTypes : model -> state -> (symbolicType[] * symbolicType[]) option
     val SolveGenericMethodParameters : typeModel -> IMethod -> (symbolicType[] * symbolicType[]) option
-    val ResolveCallVirt : state -> term -> IMethod -> concreteHeapAddress * symbolicType seq
+    val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
     val ErrorReporter : string -> (state -> term -> unit)
     val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
+
+    val MockMethod : state -> IMethod -> IMethodMock
 
     [<AutoOpen>]
     module Terms =
@@ -94,6 +95,7 @@ module API =
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
+        val (|ArrayRangeReading|_|) : ISymbolicConstantSource -> option<unit>
         val (|ArrayIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapArrayKey * memoryRegion<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>>
         val (|VectorIndexReading|_|) : ISymbolicConstantSource -> option<bool * heapVectorIndexKey * memoryRegion<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>>
         val (|StackBufferReading|_|) : ISymbolicConstantSource -> option<stackBufferIndexKey * memoryRegion<stackBufferIndexKey, int points>>
@@ -106,11 +108,10 @@ module API =
         val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
-        val (|MockResultSource|_|) : ISymbolicConstantSource -> option<concreteHeapAddress * MethodMock>
 
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
-        val SpecializeWithKey : term -> heapArrayKey -> term
+        val SpecializeWithKey : term -> heapArrayKey -> heapArrayKey -> term
 
         val HeapReferenceToBoxReference : term -> term
 

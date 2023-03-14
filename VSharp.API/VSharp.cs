@@ -1,12 +1,12 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
-using Microsoft.FSharp.Core;
 using VSharp.CSharpUtils;
 using VSharp.IL;
 using VSharp.Interpreter.IL;
@@ -56,17 +56,21 @@ namespace VSharp
         /// </summary>
         Quiet,
         /// <summary>
+        /// Only critical error messages.
+        /// </summary>
+        Critical,
+        /// <summary>
         /// Only error messages.
         /// </summary>
         Error,
         /// <summary>
-        /// Error and info messages.
+        /// Error and warning messages.
         /// </summary>
-        Info,
+        Warning,
         /// <summary>
-        /// Only error messages with detailed continuous statistics saved to .csv file in the output directory.
+        /// Error, warning and info messages.
         /// </summary>
-        StatisticsCollection
+        Info
     }
 
     /// <summary>
@@ -112,6 +116,7 @@ namespace VSharp
         /// Writes textual summary of test generation process.
         /// </summary>
         /// <param name="writer">Output writer.</param>
+        // TODO: Unify with Statistics.PrintStatistics
         public void GenerateReport(TextWriter writer)
         {
             writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", TestGenerationTime.Hours,
@@ -127,6 +132,8 @@ namespace VSharp
                 }
             }
             writer.WriteLine("Test results written to {0}", OutputDir.FullName);
+            writer.WriteLine($"Tests generated: {TestsCount}");
+            writer.WriteLine($"Errors generated: {ErrorsCount}");
         }
 
         /// <summary>
@@ -147,12 +154,11 @@ namespace VSharp
             coverageZone coverageZone, SearchStrategy searchStrategy, Verbosity verbosity, string[]? mainArguments = null, int timeout = -1, Oracle? oracle = null, uint coverageToSwitchToAI = 0, uint stepsToPlay = 0)
             
         {
-            Logger.current_log_level = verbosity.ToLoggerLevel();
+            Logger.currentLogLevel = verbosity.ToLoggerLevel();
 
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
             var baseSearchMode = searchStrategy.ToSiliMode();
-            var collectStatistics = verbosity == Verbosity.StatisticsCollection;
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
@@ -160,24 +166,27 @@ namespace VSharp
                         coverageZone,
                         timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
                     ),
-                    executionMode.SymbolicMode,
-                    unitTests.TestDirectory,
-                    recThreshold,
-                    timeout,
-                    false,
-                    true,
-                    128,
-                    true,
-                    collectStatistics,
-                    100,
-                    oracle,
-                    coverageToSwitchToAI,
-                    stepsToPlay,
-                    false,
-                    "");
+                    executionMode: executionMode.SymbolicMode,
+                    outputDirectory: unitTests.TestDirectory,
+                    recThreshold: recThreshold,
+                    timeout: timeout,
+                    visualize: false,
+                    releaseBranches: true,
+                    maxBufferSize: 128,
+                    checkAttributes: true,
+                    stopOnCoverageAchieved: 100,
+                    oracle:oracle,
+                    coverageToSwitchToAI:coverageToSwitchToAI,
+                    stepsToPlay:stepsToPlay,
+                    serialize:false,
+                    pathToSerialize:"");
 
             using var explorer = new SILI(options);
-            Core.API.ConfigureSolver(SolverPool.mkSolver());
+
+            // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+            // stops exactly in timeout. To guarantee that we need to pass timeout
+            // based on remaining time to solver dynamically.
+            Core.API.ConfigureSolver(SolverPool.mkSolver(timeout / 2 * 1000));
 
             void HandleInternalFail(Method? method, Exception exception)
             {
@@ -186,15 +195,41 @@ namespace VSharp
                     return;
                 }
 
-                var messageBuilder = new StringBuilder("EXCEPTION |");
-                if (method is not null)
+                if (exception is UnknownMethodException unknownMethodException)
                 {
-                    messageBuilder.Append($" {method.DeclaringType}.{method.Name} |");
+                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}");
+                    return;
                 }
 
-                messageBuilder.Append($" {exception.GetType().Name} {exception.Message}");
+                var messageBuilder = new StringBuilder();
 
-                Console.WriteLine(messageBuilder.ToString());
+                if (method is not null)
+                {
+                    messageBuilder.AppendLine($"Explored method: {method.DeclaringType}.{method.Name}");
+                }
+
+                messageBuilder.Append($"Exception: {exception.GetType()} {exception.Message}");
+
+                var trace = new StackTrace(exception, true);
+                var frame = trace.GetFrame(0);
+
+                if (frame is not null)
+                {
+                    messageBuilder.AppendLine();
+                    messageBuilder.Append($"At: {frame.GetFileName()}, {frame.GetFileLineNumber()}");
+                }
+
+                Logger.printLogString(Logger.Error, messageBuilder.ToString());
+            }
+
+            void HandleCrash(Exception exception)
+            {
+                if (verbosity == Verbosity.Quiet)
+                {
+                    return;
+                }
+
+                Logger.printLogString(Logger.Critical, $"{exception}");
             }
 
             var isolated = new List<MethodBase>();
@@ -202,23 +237,20 @@ namespace VSharp
 
             foreach (var method in methods)
             {
-                if (method == method.Module.Assembly.EntryPoint)
+                var normalizedMethod = AssemblyManager.NormalizeMethod(method);
+
+                if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
-                    entryPoints.Add(new Tuple<MethodBase, string[]?>(method, mainArguments));
+                    entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
                 }
                 else
                 {
-                    isolated.Add(method);
+                    isolated.Add(normalizedMethod);
                 }
             }
             explorer.Stop();
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
-                (m, e) => HandleInternalFail(OptionModule.ToObj(m), e));
-
-            if (verbosity == Verbosity.StatisticsCollection)
-            {
-                StatisticsReporter.SaveReports(unitTests.TestDirectory.FullName, explorer.Statistics, true);
-            }
+                HandleInternalFail, HandleCrash);
 
             var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
                 unitTests.UnitTestsCount, unitTests.ErrorsCount,
@@ -259,9 +291,11 @@ namespace VSharp
             return verbosity switch
             {
                 Verbosity.Quiet => Logger.Quiet,
+                Verbosity.Critical => Logger.Critical,
                 Verbosity.Error => Logger.Error,
+                Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
-                Verbosity.StatisticsCollection => Logger.Error
+                _ => throw new UnreachableException("Unknown verbosity level")
             };
         }
 
@@ -273,7 +307,7 @@ namespace VSharp
         /// <summary>
         /// Generates test coverage for specified method.
         /// </summary>
-        /// <param name="method">Type to be covered with tests.</param>
+        /// <param name="method">Method to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
@@ -291,11 +325,67 @@ namespace VSharp
             uint coverageToSwitchToAI = 0,
             uint stepsToPlay = 0)
         {
-            AssemblyManager.Load(method.Module.Assembly);
+            AssemblyManager.LoadCopy(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
             var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, null, timeout, oracle, coverageToSwitchToAI, stepsToPlay);
             if (renderTests)
                 Render(statistics, method.DeclaringType);
+            return statistics;
+        }
+
+        /// <summary>
+        /// Generates test coverage for specified methods.
+        /// </summary>
+        /// <param name="methods">Methods to be covered with tests.</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
+        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
+        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <returns>Summary of tests generation process.</returns>
+        public static Statistics Cover(
+            IEnumerable<MethodBase> methods,
+            int timeout = -1,
+            string outputDirectory = "",
+            bool renderTests = false,
+            SearchStrategy searchStrategy = DefaultSearchStrategy,
+            Verbosity verbosity = DefaultVerbosity)
+        {
+            var methodArray = methods as MethodBase[] ?? methods.ToArray();
+            var types = new HashSet<Type>();
+            var assemblies = new HashSet<Assembly>();
+
+            foreach (var method in methodArray)
+            {
+                assemblies.Add(method.Module.Assembly);
+
+                if (method.DeclaringType is not null)
+                {
+                    types.Add(method.DeclaringType);
+                }
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                AssemblyManager.LoadCopy(assembly);
+            }
+
+            var zone = coverageZone.ModuleZone;
+
+            if (methodArray.Length == 1)
+            {
+                zone = coverageZone.MethodZone;
+            }
+            else if (types.Count == 1)
+            {
+                zone = coverageZone.ClassZone;
+            }
+
+            var statistics = StartExploration(methodArray, outputDirectory, zone, searchStrategy, verbosity, null, timeout);
+
+            if (renderTests)
+                Render(statistics, types.SingleOrDefault());
+
             return statistics;
         }
 
@@ -322,7 +412,7 @@ namespace VSharp
             uint stepsToPlay = 0
             )
         {
-            AssemblyManager.Load(type.Module.Assembly);
+            AssemblyManager.LoadCopy(type.Module.Assembly);
 
             var methods = new List<MethodBase>(type.EnumerateExplorableMethods());
             if (methods.Count == 0)
@@ -340,7 +430,7 @@ namespace VSharp
         /// Generates test coverage for all public methods of specified types.
         /// </summary>
         /// <param name="types">Types to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
         /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
@@ -355,11 +445,13 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            List<MethodBase> methods = new List<MethodBase>();
+            var methods = new List<MethodBase>();
             var typesArray = types as Type[] ?? types.ToArray();
+            var assemblies = new HashSet<Assembly>();
+
             foreach (var type in typesArray)
             {
-                AssemblyManager.Load(type.Module.Assembly);
+                assemblies.Add(type.Assembly);
                 methods.AddRange(type.EnumerateExplorableMethods());
             }
 
@@ -367,6 +459,11 @@ namespace VSharp
             {
                 var names = String.Join(", ", typesArray.Select(t => t.FullName));
                 throw new ArgumentException("I've not found any public methods or constructors of classes " + names);
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                AssemblyManager.LoadCopy(assembly);
             }
 
             var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout);
@@ -397,7 +494,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(assembly);
+            AssemblyManager.LoadCopy(assembly);
             var methods =
                 new List<MethodBase>(assembly.EnumerateExplorableTypes().SelectMany(t => t.EnumerateExplorableMethods()));
             if (methods.Count == 0)
@@ -433,7 +530,7 @@ namespace VSharp
             SearchStrategy searchStrategy = DefaultSearchStrategy,
             Verbosity verbosity = DefaultVerbosity)
         {
-            AssemblyManager.Load(assembly);
+            AssemblyManager.LoadCopy(assembly);
 
             var entryPoint = assembly.EntryPoint;
             if (entryPoint == null)
@@ -443,13 +540,16 @@ namespace VSharp
 
             var methods = new List<MethodBase> { entryPoint };
 
-            return StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, args, timeout);
+            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, args, timeout);
+            if (renderTests)
+                Render(statistics);
+            return statistics;
         }
 
         /// <summary>
         /// Generates test coverage for the specified method and runs all tests.
         /// </summary>
-        /// <param name="method">Type to be covered with tests.</param>
+        /// <param name="method">Method to be covered with tests.</param>
         /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
         /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
         /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
@@ -465,6 +565,28 @@ namespace VSharp
             Verbosity verbosity = DefaultVerbosity)
         {
             var stats = Cover(method, timeout, outputDirectory, renderTests, searchStrategy, verbosity);
+            return Reproduce(stats.OutputDir);
+        }
+
+        /// <summary>
+        /// Generates test coverage for the specified methods and runs all tests.
+        /// </summary>
+        /// <param name="methods">Methods to be covered with tests.</param>
+        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
+        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
+        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
+        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <returns>True if all generated tests have passed.</returns>
+        public static bool CoverAndRun(
+            IEnumerable<MethodBase> methods,
+            int timeout = -1,
+            string outputDirectory = "",
+            bool renderTests = false,
+            SearchStrategy searchStrategy = DefaultSearchStrategy,
+            Verbosity verbosity = DefaultVerbosity)
+        {
+            var stats = Cover(methods, timeout, outputDirectory, renderTests, searchStrategy, verbosity);
             return Reproduce(stats.OutputDir);
         }
 
@@ -562,7 +684,5 @@ namespace VSharp
             var stats = Cover(assembly, args, timeout, outputDirectory, renderTests, searchStrategy, verbosity);
             return Reproduce(stats.OutputDir);
         }
-
     }
-
 }

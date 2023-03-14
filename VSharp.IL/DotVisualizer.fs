@@ -51,7 +51,7 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
         $"{id fromLoc} -> {id toLoc} [color=\"{colorOfEdge fromLoc toLoc}\"]"
 
     let methodToDot (m : Method) =
-        let basicBlocks = if m.HasBody then m.CFG.SortedBasicBlocks else ResizeArray()
+        let basicBlocks = if m.HasBody then m.ForceCFG.SortedBasicBlocks else ResizeArray()
         let edges = ResizeArray<_>()
         seq{
             let name = m.FullName

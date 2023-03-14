@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Runtime.Serialization
 open System.Runtime.CompilerServices
 open System.Threading
-open System.Linq
 open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
@@ -21,6 +20,31 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     ]
 
     let cannotBeCopied typ = List.contains typ nonCopyableTypes
+
+    let indexedArrayElemsCommon (arr : Array) =
+        let ubs = Array.init arr.Rank arr.GetUpperBound
+        let lbs = Array.init arr.Rank arr.GetLowerBound
+        let idx = Array.copy lbs
+        let rec incrementIdx d =
+            if d >= 0 then
+                if idx[d] = ubs[d] then
+                    idx[d] <- lbs[d]
+                    incrementIdx (d - 1)
+                else
+                    idx[d] <- idx[d] + 1
+        seq {
+            for element in arr do
+                yield idx |> Array.toList, element
+                incrementIdx <| arr.Rank - 1
+        }
+
+    let indexedArrayElemsLin (arr : Array) =
+        let mutable idx = arr.GetLowerBound(0)
+        seq {
+            for element in arr do
+                yield idx |> List.singleton, element
+                idx <- idx + 1
+        }
 
     let getArrayIndicesWithValues (array : Array) =
         assert(array <> null)
@@ -38,24 +62,21 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         | :? array<uint64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | :? array<single> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | _ when array.GetType().IsSZArray ->
-            let szArray = array.Cast<obj>()
-            Seq.mapi (fun i x -> (List.singleton i, x :> obj)) szArray
-        | _ ->
-            let ubs = List.init array.Rank array.GetUpperBound
-            let lbs = List.init array.Rank array.GetLowerBound
-            let indices = Array.allIndicesViaBound lbs ubs
-            indices |> Seq.map (fun index -> index, array.GetValue(Array.ofList index))
+        | _ when array.GetType().IsSZArray -> indexedArrayElemsLin array
+        | _ -> indexedArrayElemsCommon array
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
     let rec deepCopyObject (phys : physicalAddress) =
         let obj = phys.object
         let typ = TypeUtils.getTypeOfConcrete obj
+        let shouldNotCopy typ =
+            cannotBeCopied typ || TypeUtils.isPrimitive typ
+            || typ.IsEnum || typ.IsPointer || typ = typeof<System.Reflection.Pointer>
+            || typ = typeof<IntPtr> || typ = typeof<UIntPtr>
         match obj with
         | null -> phys
-        | _ when cannotBeCopied typ || TypeUtils.isPrimitive typ || typ.IsEnum || typ.IsPointer -> phys
-        | :? System.Reflection.Pointer -> phys
+        | _ when shouldNotCopy typ -> phys
         | _ -> deepCopyComplex phys typ
 
     and deepCopyComplex (phys : physicalAddress) typ =
@@ -210,7 +231,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.WriteArrayIndex address (indices : int list) value =
             match x.ReadObject address with
             | :? Array as array ->
-                array.SetValue(value, Array.ofList indices)
+                let elemType = array.GetType().GetElementType()
+                let castedValue =
+                    if value <> null && TypeUtils.canConvert (value.GetType()) elemType then
+                        // This is done mostly because of signed to unsigned conversions (Example: int16 -> char)
+                        TypeUtils.convert value elemType
+                    else value
+                array.SetValue(castedValue, Array.ofList indices)
             // TODO: strings must be immutable! This is used by copying, so copy string another way #hack
             | :? String as string when List.length indices = 1 ->
                 let charArray = string.ToCharArray()

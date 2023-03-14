@@ -12,17 +12,28 @@ python version >= 3.10 required
 ### 1. Game server connection + Torch installation using conda/miniconda
 
 Works on ARM proc, macOS v13.1
+Python 3.10.8
 
 ```sh
 cd VSharp.ML.AIAgent
-conda create -p .env
+
+# load env from condig file:
+conda env create -f environment.yml
+# optional: specify your path by adding -p <your env path>
+# by default env with name 'agent_env' will be created
 
 # activate env with your script:
 conda activate <enter your system path>/VSharp/VSharp.ML.AIAgent/.env
-
-# then install deps
-source conda_env_install.sh
+cd ..
 ```
+
+### 1.1 Dumping env config
+
+use
+```sh
+conda env export | grep -v "^prefix: " > conda_env.yml
+```
+to dump current env info into config file
 
 ### 2. Launch training
 

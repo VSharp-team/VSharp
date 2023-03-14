@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+
 from dataclasses_json import dataclass_json
 
 
@@ -93,6 +94,11 @@ class MoveReward:
             self.ForCoverage + __o.ForCoverage,
             self.ForVisitedInstructions + __o.ForVisitedInstructions,
         )
+
+    def printable(self, verbose=False) -> str:
+        if verbose:
+            return f"ForVisitedInstructions: {self.ForVisitedInstructions}"
+        return f"#vi={self.ForVisitedInstructions}"
 
 
 @dataclass_json

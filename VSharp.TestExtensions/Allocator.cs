@@ -101,6 +101,46 @@ public static class Allocator
             }
         }
     }
+
+    private static object? Call(Type type, object? thisArg, string methodName, params object[]? args)
+    {
+        var allBindingFlags = BindingFlags.NonPublic | BindingFlags.Public;
+        if (thisArg == null)
+            allBindingFlags |= BindingFlags.Static;
+        else
+            allBindingFlags |= BindingFlags.Instance;
+
+        var method = type.GetMethod(methodName, allBindingFlags);
+        Debug.Assert(method != null);
+        args ??= new object[] { null! };
+        try
+        {
+            return method.Invoke(thisArg, args);
+        }
+        catch (TargetInvocationException e)
+        {
+            var inner = e.InnerException;
+            if (inner != null)
+                throw inner;
+            throw;
+        }
+    }
+
+    // Calls methods of non-public classes
+    public static object? Call(this object thisArg, string methodName, params object[]? args)
+    {
+        Debug.Assert(thisArg != null);
+        var type = thisArg.GetType();
+        return Call(type, thisArg, methodName, args);
+    }
+
+    // Calls static methods of non-public classes
+    public static object? Call(string typeName, string methodName, params object[]? args)
+    {
+        var type = Type.GetType(typeName);
+        Debug.Assert(type != null);
+        return Call(type, null, methodName:methodName, args);
+    }
 }
 
 public class Allocator<T>
@@ -131,6 +171,15 @@ public class Allocator<T>
     {
         Debug.Assert(_objectType.IsArray);
         _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths, lowerBounds);
+        Allocator.Fill(_toAllocate as Array, defaultValue);
+    }
+
+    public Allocator(string typeName, object? defaultValue, params int[] lengths)
+    {
+        Type? notPublicType = Type.GetType(typeName);
+        _objectType = notPublicType ?? _objectType;
+        Debug.Assert(_objectType.IsArray);
+        _toAllocate = Array.CreateInstance(_objectType.GetElementType()!, lengths);
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
 
