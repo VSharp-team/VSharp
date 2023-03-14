@@ -6,7 +6,7 @@ from typing import Dict, Tuple
 
 import numpy as np
 import torch
-from common.game import GameState
+from common.game import GameState, GameMapVertex
 from torch_geometric.data import Data, HeteroData
 
 # NUM_NODE_FEATURES = 49
@@ -98,6 +98,20 @@ class DataLoader:  # TODO: inheritance and more ways to load (different predicti
         return data
 
 
+def find_vertex_in_game_state(id: int, game_state: GameState) -> GameMapVertex | None:
+    for vertex in game_state.GraphVertices:
+        if vertex.Id == id:
+            return vertex
+
+    raise RuntimeError
+
+
+def find_state_in_game_state(
+    states_ids: list[int], game_state: GameState
+) -> list[GameState]:
+    return [s for s in game_state.States if s.Id in states_ids]
+
+
 class ServerDataloaderHetero(DataLoader):
     def __init__(self, data_dir):
         self.data_dir = data_dir
@@ -141,7 +155,7 @@ class ServerDataloaderHetero(DataLoader):
         Converts game env to tensors and state_map
         input later can be changed to <GameState, History, ...>
         """
-        mp = input.Map
+        game_map_edges = input.Map
         data = HeteroData()
         nodes_vertex_set = set()
         nodes_state_set = set()
@@ -159,9 +173,12 @@ class ServerDataloaderHetero(DataLoader):
         vertex_map: Dict[int, int] = {}  # Maps real vertex id to its index
         vertex_index = 0
         state_index = 0
-        for m in mp:
+        for game_map_edge in game_map_edges:
             # process vertices
-            vertex_from, vertex_to = m.VertexFrom.__dict__, m.VertexTo.__dict__
+            vertex_from, vertex_to = (
+                find_vertex_in_game_state(game_map_edge.VertexFrom, input).__dict__,
+                find_vertex_in_game_state(game_map_edge.VertexTo, input).__dict__,
+            )
             for v in [vertex_from, vertex_to]:
                 vertex_id = int(v["Id"])
                 if vertex_id not in nodes_vertex_set:
@@ -188,15 +205,18 @@ class ServerDataloaderHetero(DataLoader):
                     ]
                 )
             )
-            edges_attr_v_v.append(np.array([m.Label.Token]))
+            edges_attr_v_v.append(np.array([game_map_edge.Label.Token]))
         # dealing with states
         # nodes_number = 0 #unique id for every node!
         states_info = {}
-        for m in mp:
-            vertex_from, vertex_to = m.VertexFrom.__dict__, m.VertexTo.__dict__
+        for game_map_edge in game_map_edges:
+            vertex_from, vertex_to = (
+                find_vertex_in_game_state(game_map_edge.VertexFrom, input).__dict__,
+                find_vertex_in_game_state(game_map_edge.VertexTo, input).__dict__,
+            )
             for v in [vertex_from, vertex_to]:
                 vertex_id = v["Id"]
-                states = v["States"]
+                states = find_state_in_game_state(v["States"], input)
                 if states:  # proccess states independently
                     for s in states:
                         dct = s.__dict__

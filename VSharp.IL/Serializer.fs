@@ -284,7 +284,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
                       s.History |> Seq.map (fun kvp -> StateHistoryElem(getBasicBlockId kvp.Key, kvp.Value)) |> Array.ofSeq,
-                      s.Children |> Array.map (fun s -> s.Id)
+                      s.Children |> Array.map (fun s -> s.Id) |> Array.filter activeStates.Contains
                       )
                 |> allStates.Add
                 |> ignore
