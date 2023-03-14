@@ -15,21 +15,24 @@ def main():
 
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
-    epochs = 30
-    max_steps = 250
-    n_models = 15
+    epochs = 2
+    max_steps = 500
+    n_models = 10
 
     GeneticLearner.set_model(loaded_model, 8)
-    models = [GeneticLearner() for _ in range(n_models)]
+    models = [
+        GeneticLearner([-0.12, -0.17, 0.3, 0.16, 0.01, 0.33, 0.24, -0.05])
+        for _ in range(n_models)
+    ]
 
     maps = get_validation_maps(cm)
     mutator_config = MutatorConfig(
         proportions=MutationProportions(
-            n_tops=4,
+            n_tops=2,
             average_of_n_tops=1,
             average_of_all=1,
-            mutate_average_of_n_tops=2,
-            mutate_average_of_all=2,
+            mutate_average_of_n_tops=3,
+            mutate_average_of_all=3,
         ),
         mutation_volume=0.25,
         mutation_freq=0.1,
