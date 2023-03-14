@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Type
 
 from ml.model_wrappers.protocols import Mutable
@@ -10,6 +11,13 @@ from .strategy import (
     MutateAverageOfNTopsStrategy,
     NTopsStrategy,
 )
+
+
+@dataclass
+class StrategiesParams:
+    n_tops: int
+    mutation_config: MutatorConfig
+    mutable_type: Type[Mutable]
 
 
 class Mutator:

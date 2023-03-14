@@ -30,21 +30,18 @@ class MutableResultMapping:
     mutable_result: MutableResult
 
 
-GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping]]
-
-
 @dataclass
-class MutationProportions:
-    n_tops: int
-    average_of_n_tops: int
-    average_of_all: int
-    mutate_average_of_n_tops: int
-    mutate_average_of_all: int
+class MapResultMapping:
+    map: GameMap
+    mutable_result: MutableResult
+
+
+GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping]]
+ModelResultsOnGameMaps: TypeAlias = defaultdict[Mutable, list[MapResultMapping]]
 
 
 @dataclass
 class MutatorConfig:
-    proportions: MutationProportions
     mutation_volume: float  # 0-1
     mutation_freq: float  # 0-1
 

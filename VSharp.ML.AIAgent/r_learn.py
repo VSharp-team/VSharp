@@ -15,7 +15,7 @@ from ml.mutation.classes import (
     MutableResult,
     MutableResultMapping,
 )
-from ml.mutation.mutator import Mutator
+from ml.mutation.strategy import MutationStrategyBuilder
 
 logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
@@ -92,7 +92,7 @@ def r_learn(
     steps: int,
     models: list[Predictor],
     maps: list[GameMap],
-    mutator: Mutator,
+    mutator: MutationStrategyBuilder,
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
@@ -100,7 +100,7 @@ def r_learn(
         game_maps_model_results = r_learn_iteration(
             models, maps, steps, connection_manager
         )
-        models = mutator.new_generation(game_maps_model_results)
+        models = mutator.create_mutation(game_maps_model_results)
         display_pivot_table(game_maps_model_results)
 
     survived = "\n"

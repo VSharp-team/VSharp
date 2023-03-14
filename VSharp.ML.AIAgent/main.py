@@ -3,7 +3,16 @@ from agent.n_agent import get_validation_maps, get_train_maps
 from common.constants import Constant
 from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
-from ml.mutation.mutation_gen import MutationProportions, Mutator, MutatorConfig
+from ml.mutation.classes import MutatorConfig
+from ml.mutation.strategy import (
+    AverageOfAllStrategy,
+    AverageOfNTopsStrategy,
+    MutateAverageOfAllStrategy,
+    MutateAverageOfNTopsStrategy,
+    MutationStrategyBuilder,
+    KEuclideanBestStrategy,
+    NTopsStrategy,
+)
 from ml.utils import load_full_model
 from r_learn import r_learn
 
@@ -25,22 +34,24 @@ def main():
         for _ in range(n_models)
     ]
 
-    maps = get_train_maps(cm)
-    mutator_config = MutatorConfig(
-        proportions=MutationProportions(
-            n_tops=2,
-            average_of_n_tops=1,
-            average_of_all=1,
-            mutate_average_of_n_tops=3,
-            mutate_average_of_all=3,
-        ),
-        mutation_volume=0.25,
-        mutation_freq=0.1,
+    maps = get_validation_maps(cm)
+
+    mutator_config = MutatorConfig(mutation_volume=0.25, mutation_freq=0.1)
+
+    mutator = MutationStrategyBuilder(
+        [
+            NTopsStrategy(n=4),
+            KEuclideanBestStrategy(k=2),
+            AverageOfNTopsStrategy(n=4, mutable_type=GeneticLearner),
+            AverageOfAllStrategy(GeneticLearner),
+            MutateAverageOfNTopsStrategy(
+                n=4, mutable_type=GeneticLearner, config=mutator_config
+            ),
+            MutateAverageOfAllStrategy(GeneticLearner, mutator_config),
+        ]
     )
 
-    r_learn(
-        epochs, max_steps, models, maps, Mutator(mutator_config, GeneticLearner), cm
-    )
+    r_learn(epochs, max_steps, models, maps, mutator, cm)
 
     cm.close()
 
