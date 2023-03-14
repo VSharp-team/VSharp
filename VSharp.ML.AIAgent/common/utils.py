@@ -3,14 +3,11 @@ from .game import GameState
 
 def count_vertexes_in_coverage_zone(game_state: GameState):
     vertexes_ids: set[int] = set()
-    in_coverage_zone = 0
-    for edge in game_state.Map:
-        for vertex in (edge.VertexFrom, edge.VertexTo):
-            if vertex.Id not in vertexes_ids and vertex.InCoverageZone:
-                in_coverage_zone += 1
-                vertexes_ids.add(vertex.Id)
+    for vertex in game_state.GraphVertices:
+        if vertex.InCoverageZone:
+            vertexes_ids.add(vertex.Id)
 
-    return in_coverage_zone
+    return len(vertexes_ids)
 
 
 def compute_coverage_percent(game_state: GameState, reward_for_coverage: int):
