@@ -35,14 +35,13 @@ def play_map(
         for _ in range(steps):
             game_state = with_agent.recv_state_or_throw_gameover()
             predicted_state_id = with_model.predict(game_state)
+            logger.debug(
+                f"<{with_model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
+            )
 
             with_agent.send_step(
                 next_state_id=predicted_state_id,
                 predicted_usefullness=42.0,  # left it a constant for now
-            )
-
-            logger.debug(
-                f"<{with_model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
             )
 
             reward = with_agent.recv_reward_or_throw_gameover()
