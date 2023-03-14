@@ -37,7 +37,7 @@ class GameMapVertex:
     CoveredByTest: bool
     VisitedByState: bool
     TouchedByState: bool
-    States: list[State]
+    States: list[int]
 
 
 @dataclass_json

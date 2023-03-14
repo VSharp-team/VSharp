@@ -47,9 +47,9 @@ class GeneticLearner(ModelWrapper):
         return f"{self.name()}: {[round(component, 2) for component in self.weights]}"
 
     def predict(self, input: GameState):
-        input, state_map = ServerDataloaderHetero.convert_input_to_tensor(input)
+        hetero_input, state_map = ServerDataloaderHetero.convert_input_to_tensor(input)
         next_step_id, _ = PredictStateHetGNN.predict_state_weighted(
-            GeneticLearner._model, self.weights, input, state_map
+            GeneticLearner._model, self.weights, hetero_input, state_map
         )
         return next_step_id
 

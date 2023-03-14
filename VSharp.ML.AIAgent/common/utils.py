@@ -15,11 +15,4 @@ def compute_coverage_percent(game_state: GameState, reward_for_coverage: int):
 
 
 def get_states(game_state: GameState) -> set[int]:
-    states = set()
-    for edge in game_state.Map:
-        for state in edge.VertexFrom.States:
-            states.add(state.Id)
-        for state in edge.VertexTo.States:
-            states.add(state.Id)
-
-    return states
+    return {s.Id for s in game_state.States}
