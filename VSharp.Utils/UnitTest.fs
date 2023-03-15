@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System
+open System.Diagnostics
 open System.IO
 open System.Reflection
 open System.Xml.Serialization
@@ -184,37 +185,32 @@ type UnitTest private (m : MethodBase, info : testInfo, createCompactRepr : bool
     static member DeserializeFromTestInfo(ti : testInfo, createCompactRepr : bool) =
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
-            if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
+            if mdle = null then
+                raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
             let mocker = Mocking.Mocker([||])
             let decodeTypeParameter (concrete : typeRepr) (mock : typeMockRepr) =
                 let t = Serialization.decodeType concrete
                 if t = null then mocker.BuildDynamicType mock |> snd
                 else t
-            let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
             let method = mdle.ResolveMethod(ti.token)
-
             let declaringType = method.DeclaringType
-
-            let getGenericTypeDefinition typ =
-                let decoded = Serialization.decodeType typ
-                if decoded <> null && decoded.IsGenericType then
-                    decoded.GetGenericTypeDefinition()
-                else
-                    decoded
-            let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
-            let declaringTypeIndex = Array.IndexOf(typeDefinitions, declaringType)
-
-            let declaringType = Reflection.concretizeTypeParameters declaringType tp
+            let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
+            let concreteDeclaringType = Reflection.concretizeTypeParameters method.DeclaringType tp
+            let method = Reflection.concretizeMethodParameters concreteDeclaringType method mp
 
             // Ensure that parameters are substituted in memoryRepr
             if not method.IsStatic && declaringType.IsGenericType && ti.memory.types.Length > 0 then
-                // TODO: index out of bounds exceptions #lifetimes
-                ti.memory.types.[declaringTypeIndex] <- Serialization.encodeType declaringType
+                let getGenericTypeDefinition typ =
+                    let decoded = Serialization.decodeType typ
+                    if decoded <> null && decoded.IsGenericType then
+                        decoded.GetGenericTypeDefinition()
+                    else decoded
+                let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
+                let declaringTypeIndex = Array.IndexOf(typeDefinitions, declaringType)
+                Debug.Assert(declaringTypeIndex >= 0)
+                ti.memory.types[declaringTypeIndex] <- Serialization.encodeType concreteDeclaringType
 
-            let method = Reflection.concretizeMethodParameters declaringType method mp
-
-            if mdle = null then raise <| InvalidOperationException(sprintf "Could not resolve method %d!" ti.token)
             UnitTest(method, ti, createCompactRepr)
         with child ->
             let exn = InvalidDataException("Input test is incorrect", child)

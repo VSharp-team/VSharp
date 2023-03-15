@@ -217,7 +217,7 @@ module TypeSolver =
                 | ConcreteHeapAddress a ->
                     match state.allocatedTypes[a] with
                     | ConcreteType t -> t
-                    | MockType m ->  internalfail $"Generating constraints: unexpected mock from allocatedTypes {m}"
+                    | MockType m -> internalfail $"Generating constraints: unexpected mock from allocatedTypes {m}"
                 | _ -> internalfail $"Generating constraints: unexpected address {address}"
 
             let toList (d : Dictionary<concreteHeapAddress, HashSet<Type>>) address =

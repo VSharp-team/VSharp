@@ -497,7 +497,6 @@ public static class Renderer
         bool wrapErrors = false,
         bool singleFile = false)
     {
-
         var unitTests = DeserializeTests(tests);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");

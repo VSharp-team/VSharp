@@ -892,10 +892,10 @@ module internal Z3 =
                 | _ -> ())
 
             let frame = stackEntries |> Seq.map (fun kvp ->
-                    let key = kvp.Key
-                    let term = kvp.Value.Value
-                    let typ = TypeOf term
-                    (key, Some term, typ))
+                let key = kvp.Key
+                let term = kvp.Value.Value
+                let typ = TypeOf term
+                (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
 
             let defaultValues = Dictionary<regionSort, term ref>()

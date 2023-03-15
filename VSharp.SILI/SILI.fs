@@ -188,7 +188,9 @@ type public SILI(options : SiliOptions) =
             if pi.ParameterType.IsByRef then
                 if Memory.CallStackSize initialState = 0 then
                     Memory.NewStackFrame initialState None []
-                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name (pi.Position + 1) (pi.ParameterType.GetElementType())
+                let typ = pi.ParameterType.GetElementType()
+                let position = pi.Position + 1
+                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name position typ
                 Some stackRef
             else
                 None
@@ -217,10 +219,10 @@ type public SILI(options : SiliOptions) =
             reportInternalFail method e
             None
 
-    member private x.FormIsolatedInitialStates (method : Method, typModel : typeModel) =
+    member private x.FormIsolatedInitialStates (method : Method, typeModel : typeModel) =
         try
             let initialState = Memory.EmptyState()
-            initialState.model <- Memory.EmptyModel method typModel
+            initialState.model <- Memory.EmptyModel method typeModel
             let cilState = makeInitialState method initialState
             let this(*, isMethodOfStruct*) =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
@@ -246,12 +248,12 @@ type public SILI(options : SiliOptions) =
             reportInternalFail method e
             []
 
-    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], typModel : typeModel) : cilState list =
+    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], typeModel : typeModel) : cilState list =
         try
             assert method.IsStatic
             let optionArgs = if mainArguments = null then None else Some mainArguments
             let state = { Memory.EmptyState() with complete = mainArguments <> null }
-            state.model <- Memory.EmptyModel method typModel
+            state.model <- Memory.EmptyModel method typeModel
             let argsToState args =
                 let stringType = typeof<string>
                 let argsNumber = MakeNumber mainArguments.Length
