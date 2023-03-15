@@ -1,5 +1,5 @@
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_validation_maps
+from agent.n_agent import get_validation_maps, get_train_maps
 from common.constants import Constant
 from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
@@ -15,17 +15,17 @@ def main():
 
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
-    epochs = 2
-    max_steps = 500
+    epochs = 10
+    max_steps = 300
     n_models = 10
 
     GeneticLearner.set_model(loaded_model, 8)
     models = [
-        GeneticLearner([-0.12, -0.17, 0.3, 0.16, 0.01, 0.33, 0.24, -0.05])
+        GeneticLearner()  # ([-0.12, -0.17, 0.3, 0.16, 0.01, 0.33, 0.24, -0.05])
         for _ in range(n_models)
     ]
 
-    maps = get_validation_maps(cm)
+    maps = get_train_maps(cm)
     mutator_config = MutatorConfig(
         proportions=MutationProportions(
             n_tops=2,
