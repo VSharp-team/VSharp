@@ -19,7 +19,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         typeof<Thread>
     ]
 
-    let cannotBeCopied typ = List.contains typ nonCopyableTypes
+    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
 
     let indexedArrayElemsCommon (arr : Array) =
         let ubs = Array.init arr.Rank arr.GetUpperBound
