@@ -173,7 +173,13 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
-        let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
+        let AddConstraint conditionState condition =
+            Memory.addConstraint conditionState condition
+            match conditionState.model with
+            | StateModel(_, typeModel) ->
+                Seq.singleton condition |> TypeSolver.addTypeConstraints typeModel
+            | model -> internalfail $"AddConstraint: unexpected model {model}"
+
         let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
         let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
         let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc

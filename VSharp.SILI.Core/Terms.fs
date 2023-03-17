@@ -738,15 +738,15 @@ module internal Terms =
             foldSeq folder gs state (fun state ->
             foldSeq folder vs state k)
         | Slice(t, s, e, pos) ->
-            folder state t (fun state ->
-            folder state s (fun state ->
-            folder state e (fun state ->
-            folder state pos k)))
+            doFold folder state t (fun state ->
+            doFold folder state s (fun state ->
+            doFold folder state e (fun state ->
+            doFold folder state pos k)))
         | _ -> k state
 
     and doFold folder state term k =
-        foldChildren folder state term (fun state ->
-        folder state term k)
+        folder state term k (fun state ->
+        foldChildren folder state term k)
 
     and foldAddress folder state address k =
         match address with
@@ -777,13 +777,17 @@ module internal Terms =
         foldSeq folder terms state id
 
     let iter action term =
-        doFold (fun () t k -> k (action t)) () term id
+        doFold action () term id
+
+    let iterSeq action terms =
+        Cps.Seq.foldlk (doFold action) () terms id
 
     let discoverConstants terms =
         let result = HashSet<term>()
-        let addConstant = function
-            | {term = Constant _} as constant -> result.Add constant |> ignore
-            | _ -> ()
+        let addConstant _ t _ into =
+            match t.term with
+            | Constant _ -> result.Add t |> ignore |> into
+            | _ -> into ()
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
 

@@ -40,7 +40,7 @@ module internal Z3 =
         sorts : IDictionary<Type, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
-        heapAddresses : IDictionary<Expr, Type * vectorTime>
+        heapAddresses : IDictionary<Expr, vectorTime>
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
@@ -62,7 +62,7 @@ module internal Z3 =
         sorts = Dictionary<Type, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
-        heapAddresses = Dictionary<Expr, Type * vectorTime>()
+        heapAddresses = Dictionary<Expr, vectorTime>()
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
@@ -132,7 +132,7 @@ module internal Z3 =
 
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
             let encoded = ctx.MkNumeral(encCtx.addressOrder[address], x.Type2Sort addressType)
-            encodingCache.heapAddresses[encoded] <- (addressType, address)
+            encodingCache.heapAddresses[encoded] <- address
             encoded
 
         member private x.CreateConstant name typ =
@@ -742,21 +742,16 @@ module internal Z3 =
             else __unreachable__()
 
         member private x.DecodeConcreteHeapAddress (typ : Type) (expr : Expr) : vectorTime =
-            // TODO: maybe throw away typ?
-            let result = ref (typeof<int>, vectorTime.Empty)
             let addresses = encodingCache.heapAddresses
-            let checkAndGet key = addresses.TryGetValue(key, result)
-            if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif checkAndGet expr then
-                let t, address = result.Value
-                if typ.IsAssignableTo t || typ = typeof<string> && t = typeof<char[]> then
-                    addresses[expr] <- (typ, address)
-                    address
-                else address
-            else
+            let result = ref vectorTime.Empty
+            let existing = addresses.TryGetValue(expr, result)
+            match expr with
+            | :? BitVecNum as expr when expr.Int64 = 0L -> VectorTime.zero
+            | _ when existing -> result.Value
+            | _ ->
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
                 let address = [encodingCache.lastSymbolicAddress]
-                addresses.Add(expr, (typ, address))
+                addresses.Add(expr, address)
                 address
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
@@ -938,10 +933,6 @@ module internal Z3 =
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
-            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let typ, address = kvp.Value
-                if VectorTime.less address VectorTime.zero && not <| PersistentDict.contains address state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add address (ConcreteType typ) state.allocatedTypes)
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()

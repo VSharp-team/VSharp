@@ -137,29 +137,100 @@ with
 // TODO: use set instead of list? #type
 and typeConstraints =
     {
-        supertypes : Type list
-        subtypes : Type list
-        notSubtypes : Type list
-        notSupertypes : Type list
+        mutable supertypes : Type list
+        mutable subtypes : Type list
+        mutable notSubtypes : Type list
+        mutable notSupertypes : Type list
     }
 with
-    static member Empty =
+    static member Empty() =
         let empty = List.empty
         { subtypes = empty; supertypes = empty; notSubtypes = empty; notSupertypes = empty }
 
+    static member FromSuperTypes(superTypes : Type list) =
+        let empty = List.empty
+        let superTypes = List.filter (fun t -> t <> typeof<obj>) superTypes |> List.distinct
+        { subtypes = empty; supertypes = superTypes; notSubtypes = empty; notSupertypes = empty }
+
     member x.Merge(other : typeConstraints) =
-        if x = typeConstraints.Empty then other
-        else
-            {
-                supertypes = x.supertypes @ other.supertypes |> List.distinct
-                subtypes = x.subtypes @ other.subtypes |> List.distinct
-                notSubtypes = x.notSubtypes @ other.notSubtypes |> List.distinct
-                notSupertypes = x.notSupertypes @ other.notSupertypes |> List.distinct
-            }
+        if x.supertypes <> other.supertypes then
+            x.supertypes <- x.supertypes @ other.supertypes |> List.distinct
+        if x.subtypes <> other.subtypes then
+            x.subtypes <- x.subtypes @ other.subtypes |> List.distinct
+        if x.notSubtypes <> other.notSubtypes then
+            x.notSubtypes <- x.notSubtypes @ other.notSubtypes |> List.distinct
+        if x.notSupertypes <> other.notSupertypes then
+            x.notSupertypes <- x.notSupertypes @ other.notSupertypes |> List.distinct
+
+    member x.AddSuperType(superType : Type) =
+        if superType <> typeof<obj> then
+            x.supertypes <- superType :: x.supertypes |> List.distinct
+
+    member x.Copy() =
+        {
+            supertypes = x.supertypes
+            subtypes = x.subtypes
+            notSubtypes = x.notSubtypes
+            notSupertypes = x.notSupertypes
+        }
+
+and typesConstraints private (newAddresses, constraints) =
+
+    new () =
+        let newAddresses = ResizeArray<term>()
+        let allConstraints = Dictionary<term, typeConstraints>()
+        typesConstraints(newAddresses, allConstraints)
+
+    member x.Copy() =
+        let copiedNewAddresses = ResizeArray<term>(newAddresses)
+        let copiedConstraints = Dictionary<term, typeConstraints>()
+        for entry in constraints do
+            copiedConstraints.Add(entry.Key, entry.Value.Copy())
+        typesConstraints(copiedNewAddresses, copiedConstraints)
+
+    member private x.AddNewAddress address =
+        if newAddresses.Contains address |> not then
+            newAddresses.Add address
+
+    member x.ClearNewAddresses() =
+        newAddresses.Clear()
+
+    member x.NewAddresses with get() = newAddresses
+
+    member x.Add (address : term) (typeConstraint : typeConstraints) =
+        x.AddNewAddress address
+        let current = ref (typeConstraints.Empty())
+        if constraints.TryGetValue(address, current) then
+            current.Value.Merge typeConstraint
+        else constraints.Add(address, typeConstraint)
+
+    member x.Remove (address : term) =
+        newAddresses.Remove address |> ignore
+        constraints.Remove address |> ignore
+
+    member x.MergeConstraints (addresses : term seq) =
+        let resultConstraints = typeConstraints.Empty()
+        for address in addresses do
+            let constraints = constraints[address]
+            resultConstraints.Merge constraints
+            x.AddNewAddress address
+        for address in addresses do
+            constraints[address] <- resultConstraints
+
+    interface System.Collections.IEnumerable with
+        member this.GetEnumerator() =
+          upcast constraints.GetEnumerator()
+
+    interface IEnumerable<KeyValuePair<term, typeConstraints>> with
+        override this.GetEnumerator() =
+          constraints.GetEnumerator()
+
+    member x.Item(address : term) =
+        constraints[address].Copy()
 
 and typeModel =
     {
-        constraints : Dictionary<term, typeConstraints>
+        constraints : typesConstraints
         addressesTypes : Dictionary<term, symbolicType seq>
         mutable classesParams : symbolicType[]
         mutable methodsParams : symbolicType[]
@@ -168,7 +239,7 @@ and typeModel =
 with
     static member CreateEmpty() =
         {
-            constraints = Dictionary()
+            constraints = typesConstraints()
             addressesTypes = Dictionary()
             classesParams = Array.empty
             methodsParams = Array.empty
@@ -176,15 +247,14 @@ with
         }
 
     member x.AddConstraint address typeConstraint =
-        let constraints = x.constraints
-        let current = ref typeConstraints.Empty
-        if constraints.TryGetValue(address, current) then
-            if current.Value <> typeConstraint then
-                constraints[address] <- current.Value.Merge typeConstraint
-        else constraints.Add(address, typeConstraint)
+        x.constraints.Add address typeConstraint
+
+    member x.AddSuperType address superType =
+        let typeConstraint = List.singleton superType |> typeConstraints.FromSuperTypes
+        x.AddConstraint address typeConstraint
 
     member x.Copy() =
-        let newConstraints = Dictionary(x.constraints)
+        let newConstraints = x.constraints.Copy()
         let newTypeMocks = Dictionary<Type list, ITypeMock>()
         let newAddressesTypes = Dictionary()
         for entry in x.addressesTypes do
