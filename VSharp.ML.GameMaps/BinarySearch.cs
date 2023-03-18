@@ -74,7 +74,7 @@ class GFG {
         return lo;
     }
     
-    static public int BinarySearchMain(int[] arr, int k)
+    static public int BinSearchMain(int[] arr, int k)
     {
         int n = arr.Length;
         return (bsPartition(arr, n, k));
