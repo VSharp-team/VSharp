@@ -185,8 +185,9 @@ type public SILIStatistics() as this =
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
                 isVisitedBlocksNotCoveredByTestsRelevant <- false
     
-            if currentLoc.offset = currentLoc.BasicBlock.FinalOffset
-            then  setBasicBlockIsVisited s currentLoc
+            //if currentLoc.offset = currentLoc.BasicBlock.FinalOffset
+            //then
+            setBasicBlockIsVisited s currentLoc
         | _ -> ()
 
     member x.IsCovered (loc : codeLocation) =
