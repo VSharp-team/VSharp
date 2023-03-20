@@ -67,6 +67,7 @@ module TypeSolver =
     let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
         enumerateTypes supertypes mock (fun t -> not t.IsAbstract && validate t) assemblies
 
+    // TODO: move to 'typeConstraints' member? #type
     let private isContradicting (c : typeConstraints) =
         let nonComparable (t : Type) (u : Type) =
             u.IsClass && t.IsClass && (not <| u.IsAssignableTo t) && (not <| u.IsAssignableFrom t)
@@ -220,34 +221,38 @@ module TypeSolver =
                 }
             typeModel.AddConstraint address typeConstraint
 
+    let private mergeConstraints model typeModel =
+        // Clustering type constraints with same address in model
+        let eqInModel = Dictionary<concreteHeapAddress, List<term>>()
+        let currentConstraints = typeModel.constraints
+        for entry in currentConstraints do
+            let address = entry.Key
+            let concreteAddress = addressInModel model address
+            if concreteAddress <> VectorTime.zero then
+                let current = ref null
+                if eqInModel.TryGetValue(concreteAddress, current) then
+                    let same = current.Value
+                    same.Add(address)
+                else
+                    let same = List()
+                    same.Add(address)
+                    eqInModel.Add(concreteAddress, same)
+            else
+                currentConstraints.Remove address
+
+        // Merging constraints with same address in model
+        for entry in eqInModel do
+            let same = entry.Value
+            if same.Count > 1 then
+                currentConstraints.MergeConstraints same
+
     let private generateConstraints (model : model) conditions =
         match model with
         | StateModel(_, typeModel) ->
+            // Parsing constraints from path condition, adding them to 'typeModel.constraints'
             addTypeConstraints typeModel conditions
-
-            // Clustering type constraints with same address in model
-            let eqInModel = Dictionary<concreteHeapAddress, List<term>>()
-            let currentConstraints = typeModel.constraints
-            for entry in currentConstraints do
-                let address = entry.Key
-                let concreteAddress = addressInModel model address
-                if concreteAddress <> VectorTime.zero then
-                    let current = ref null
-                    if eqInModel.TryGetValue(concreteAddress, current) then
-                        let same = current.Value
-                        same.Add(address)
-                    else
-                        let same = List()
-                        same.Add(address)
-                        eqInModel.Add(concreteAddress, same)
-                else
-                    currentConstraints.Remove address
-
-            // Merging constraints with same address in model
-            for entry in eqInModel do
-                let same = entry.Value
-                if same.Count > 1 then
-                    currentConstraints.MergeConstraints same
+            // Merging constraints of same addresses in model
+            mergeConstraints model typeModel
         | PrimitiveModel _ -> __unreachable__()
 
     let private generateGenericConstraints (typeVars : Type list) =
@@ -411,7 +416,6 @@ module TypeSolver =
                     typeModel.methodsParams <- methodParams
                 TypeSat typeModel
 
-    // TODO: delete, when model from Z3 will not be recreated
     let private refineTypesInModel modelState model typeModel =
         for entry in typeModel.addressesTypes do
             let address = entry.Key

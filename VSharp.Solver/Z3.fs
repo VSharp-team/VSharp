@@ -41,6 +41,7 @@ module internal Z3 =
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
         heapAddresses : IDictionary<Expr, vectorTime>
+        addressesConstants : HashSet<Expr>
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
@@ -63,6 +64,7 @@ module internal Z3 =
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
         heapAddresses = Dictionary<Expr, vectorTime>()
+        addressesConstants = HashSet<Expr>()
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
@@ -107,6 +109,8 @@ module internal Z3 =
             if Char.IsDigit id.[0] then "_" + id else id
 
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
+
+        member x.AddressesConstants with get() = encodingCache.addressesConstants
 
         member private x.Type2Sort typ =
             Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
@@ -452,7 +456,9 @@ module internal Z3 =
 // ------------------------------- Encoding: memory reading -------------------------------
 
         member private x.EncodeSymbolicAddress encCtx (heapRefSource : ISymbolicConstantSource) structFields name =
-            x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
+            let res = x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
+            encodingCache.addressesConstants.Add(res.expr) |> ignore
+            res
 
         // TODO: [style] get rid of accumulators
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
@@ -944,7 +950,7 @@ module internal Z3 =
     let private builder = Z3Builder(ctx)
 
     type internal Z3Solver(timeoutMs : uint option) =
-        let solver = ctx.MkSolver()
+        let solver = ctx.MkOptimize()
 
         do
             match timeoutMs with
@@ -967,6 +973,14 @@ module internal Z3 =
                                 yield query.expr
                             } |> Array.ofSeq
     //                    let pathAtoms = addSoftConstraints q.lvl
+
+                        let constants = builder.AddressesConstants
+                        for address1 in constants do
+                            for address2 in constants do
+                                if address1 <> address2 then
+                                    let cond = ctx.MkNot(ctx.MkEq(address1, address2))
+                                    solver.AssertSoft(cond, 1u, "addresses") |> ignore
+
                         let result = solver.Check assumptions
                         match result with
                         | Status.SATISFIABLE ->
