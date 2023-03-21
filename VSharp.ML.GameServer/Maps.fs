@@ -13,14 +13,13 @@ let trainMaps, validationMaps =
             maps.Add(firstFreeMapId, GameMap(firstFreeMapId, maxSteps, coverageToStart, pathToDll, coverageZone, objectToCover))
             firstFreeMapId <- firstFreeMapId + 1u
     
-    let add = add' trainMaps 10000000u<step>
+    let add = add' trainMaps 10000000u<step>    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 75u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
-    add 15u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
+    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
     // too slow
     //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     // too slow
@@ -36,8 +35,8 @@ let trainMaps, validationMaps =
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"
     
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
-    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Class "KMPSearch"
+    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
+    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
         
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchWords"
     // too slow

@@ -4,7 +4,10 @@
 
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 class MatrixMultiplication {
 
 static int ROW_1 = 4,COL_1 = 4, ROW_2 = 4, COL_2 = 4;

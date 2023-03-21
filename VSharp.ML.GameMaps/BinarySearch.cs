@@ -1,3 +1,7 @@
+using NUnit.Framework;
+using VSharp.Test;
+
+[TestSvmFixture, Category("Dataset")]
 class GFG {
 
     // return the maximum
@@ -45,6 +49,7 @@ class GFG {
         return numPainters;
     }
     
+    [TestSvm(100,serialize:"bsPartition"), Category("Dataset")]
     static public int bsPartition(int[] arr,
         int n, int k)
     {

@@ -3,7 +3,10 @@
 // to a destination cell.
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 class BinaryMaze1
 {
 static int ROW = 9;
@@ -55,7 +58,8 @@ static int []colNum = {0, -1, 1, 0};
 
 // function to find the shortest path between
 // a given source cell to a destination cell.
-public static int BinaryMaze1BFS(int [,]mat, Point src,
+	[TestSvm(100,serialize:"BinaryMaze1BFS"), Category("Dataset")]
+	public static int BinaryMaze1BFS(int [,]mat, Point src,
 						Point dest)
 {
 	// check source and destination cell
@@ -130,6 +134,7 @@ public static int BinaryMaze1Main(int[,] mat)
 
 // C# implementation of the code
 
+[TestSvmFixture, Category("Dataset")]
 class BinaryMaze2 {
 
 	static bool[, ] visited;
@@ -183,6 +188,7 @@ class BinaryMaze2 {
 	}
 
 	// Wrapper over findShortestPath() function
+	[TestSvm(100,serialize:"findShortestPathLength"), Category("Dataset")]
 	public static int findShortestPathLength(int[, ] mat,
 									int[] src, int[] dest)
 	{
@@ -211,6 +217,7 @@ class BinaryMaze2 {
 		return -1;
 	}
 	
+	[TestSvm(100,serialize:"BinaryMaze2Main"), Category("Dataset")]
 	public static int BinaryMaze2Main(int[,] mat)
 	{
 		int[] src = { 0, 0 };

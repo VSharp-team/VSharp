@@ -5,9 +5,12 @@
 // undirected graph
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
 // This class represents a directed
 // graph using adjacency list
+[TestSvmFixture, Category("Dataset")]
 class EulerGraph{
 	
 // No. of vertices

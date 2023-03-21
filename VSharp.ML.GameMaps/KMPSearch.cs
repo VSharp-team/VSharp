@@ -1,8 +1,13 @@
+using NUnit.Framework;
+using VSharp.Test;
+
 namespace VSharp.ML.GameMaps;
 
+[TestSvmFixture, Category("Dataset")]
 public class KMPSearch
 {
-    static List<int> Search(string pat, string txt)
+    [TestSvm(100,serialize:"SearchKMP"), Category("Dataset")]
+    static List<int> SearchKMP(string pat, string txt)
     {
         List<int> result = new List<int>();
         int M = pat.Length;
@@ -79,7 +84,7 @@ public class KMPSearch
     // Driver program to test above function
     public static List<int> KMPSearchMain(string txt, string pattern)
     {
-        var result = Search(pattern, txt);
+        var result = SearchKMP(pattern, txt);
         return result;
     }
 }

@@ -1,7 +1,10 @@
 // C# program to find adjoint and inverse of a matrix
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 class MatrixInverse
 {
 	
@@ -38,7 +41,8 @@ public static void getCofactor(int [,]A, int [,]temp, int p, int q, int n)
 
 /* Recursive function for finding determinant of matrix.
 n is current dimension of [,]A. */
-public static int determinant(int [,]A, int n)
+	[TestSvm(100,serialize:"determinant"), Category("Dataset")]
+	public static int determinant(int [,]A, int n)
 {
 	int D = 0; // Initialize result
 
@@ -64,7 +68,8 @@ public static int determinant(int [,]A, int n)
 }
 
 // Function to get adjoint of A[N,N] in adj[N,N].
-public static void adjoint(int [,]A, int [,]adj)
+	[TestSvm(100,serialize:"adjoint"), Category("Dataset")]
+	public static void adjoint(int [,]A, int [,]adj)
 {
 	if (N == 1)
 	{
@@ -96,7 +101,8 @@ public static void adjoint(int [,]A, int [,]adj)
 
 // Function to calculate and store inverse, returns false if
 // matrix is singular
-public static bool matrixInverse(int [,]A, float [,]inverse)
+	[TestSvm(100,serialize:"matrixInverse"), Category("Dataset")]
+	public static bool matrixInverse(int [,]A, float [,]inverse)
 {
 	// Find determinant of [,]A
 	int det = determinant(A, N);

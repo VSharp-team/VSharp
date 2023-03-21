@@ -2,14 +2,18 @@
 // to increase LCS by 1
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 class LCS{
 	
 static int M = 26;
 
 // Method returns total ways to increase
 // LCS length by 1
-static int waysToIncreaseLCSBy1(String str1,
+	[TestSvm(100,serialize:"waysToIncreaseLCSBy1"), Category("Dataset")]
+	static int waysToIncreaseLCSBy1(String str1,
 								String str2)
 {
 	int m = str1.Length, n = str2.Length;

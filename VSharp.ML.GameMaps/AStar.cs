@@ -1,3 +1,7 @@
+using NUnit.Framework;
+using VSharp.Test;
+
+[TestSvmFixture, Category("Dataset")]
 class A_star
     {
         // Coordinates of a cell - implements the method Equals

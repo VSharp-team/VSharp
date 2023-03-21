@@ -1,7 +1,12 @@
-﻿namespace VSharp.ML.GameMaps;
+﻿using NUnit.Framework;
+using VSharp.Test;
 
+namespace VSharp.ML.GameMaps;
+
+[TestSvmFixture, Category("Dataset")]
 public class ControlFlow
 {
+    [TestSvm(100,serialize:"BinarySearch"), Category("Dataset")]
     public static int BinarySearch(int[] a, int x, int lo, int hi)
     {
         if (a == null) throw new ArgumentException("a == null");
@@ -177,6 +182,7 @@ public class ControlFlow
         return String.Concat(numbers) ;
     }
 
+    [TestSvm(100,serialize:"NestedFors"), Category("Dataset")]
     public static int NestedFors(int x)
     {
         int sum = 0;

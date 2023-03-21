@@ -2,9 +2,12 @@
 // in a given undirected graph 
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
 
 // This class represents a undirected graph  
 // using adjacency list representation 
+[TestSvmFixture, Category("Dataset")]
 public class BridgesGraph 
 { 
     private int V; // No. of vertices 

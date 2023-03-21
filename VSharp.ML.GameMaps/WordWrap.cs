@@ -2,13 +2,17 @@
 // optimized solution of
 // Word Wrap problem.
 using System;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 class WordWrap
 {
 
 // Function to find space optimized
 // solution of Word Wrap problem.
-public static List<Tuple<int, int>> solveWordWrap(int[] arr, int n, int k)
+	[TestSvm(100,serialize:"solveWordWrap"), Category("Dataset")]
+	public static List<Tuple<int, int>> solveWordWrap(int[] arr, int n, int k)
 {
 	int i, j;
 

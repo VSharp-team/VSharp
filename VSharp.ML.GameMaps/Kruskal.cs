@@ -85,7 +85,7 @@ public class KruskalGraph
         // order of their weight. If we are not allowed
         // to change the given graph, we can create
         // a copy of array of edges
-        Array.Sort(edge);
+        global::System.Array.Sort(edge);
  
         // Allocate memory for creating V subsets
         subset[] subsets = new subset[V];

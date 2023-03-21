@@ -1,5 +1,9 @@
 // C# program for Merge Sort
 using System;
+using NUnit.Framework;
+using VSharp.Test;
+
+[TestSvmFixture, Category("Dataset")]
 class MergeSort {
 
     // Merges two subarrays of []arr.
@@ -65,6 +69,7 @@ class MergeSort {
     // Main function that
     // sorts arr[l..r] using
     // merge()
+    [TestSvm(100,serialize:"mergeSort"), Category("Dataset")]
     public void mergeSort(int[] arr, int l, int r)
     {
         if (l < r) {

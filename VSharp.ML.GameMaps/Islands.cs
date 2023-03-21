@@ -1,6 +1,10 @@
 // C# Program to count islands in boolean 2D matrix
 using System;
 using System.Collections.Generic;
+using NUnit.Framework;
+using VSharp.Test;
+
+[TestSvmFixture, Category("Dataset")]
 class Islands {
 
     // A utility function to do DFS for a 2D
@@ -40,6 +44,7 @@ class Islands {
         }
     }
 
+    [TestSvm(100,serialize:"countIslands"), Category("Dataset")]
     public static int countIslands(int[, ] M)
     {
         int ROW = M.GetLength(0);

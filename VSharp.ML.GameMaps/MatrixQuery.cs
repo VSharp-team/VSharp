@@ -1,7 +1,12 @@
 // C# Code For A Boolean
 // Matrix Question
 
+using NUnit.Framework;
+using VSharp.Test;
+
+[TestSvmFixture, Category("Dataset")]
 class MatrixQuery {
+    [TestSvm(100,serialize:"MatrixQueryModifyMatrix"), Category("Dataset")]
     public static void MatrixQueryModifyMatrix(int[, ] mat)
     {
 

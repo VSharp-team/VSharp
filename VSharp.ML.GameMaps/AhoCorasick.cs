@@ -1,5 +1,9 @@
+using NUnit.Framework;
+using VSharp.Test;
+
 namespace VSharp.ML.GameMaps;
 
+[TestSvmFixture, Category("Dataset")]
 public class AhoCorasick
 {
     // Max number of states in the matching
@@ -171,6 +175,8 @@ public class AhoCorasick
      
     // This function finds all occurrences of
     // all array words in text.
+
+    [TestSvm(100,serialize:"AhoCorasick.SearchWords"), Category("Dataset")]
     public static List<Tuple<string, int, int>> SearchWords(String[] arr, int k,
                             String text)
     {

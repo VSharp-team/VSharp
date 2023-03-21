@@ -1,6 +1,9 @@
 /* C# program for Sudoku generator */
 using System;
+using NUnit.Framework;
+using VSharp.Test;
 
+[TestSvmFixture, Category("Dataset")]
 public class Sudoku
 {
 	int[,] mat;
@@ -109,6 +112,7 @@ public class Sudoku
 
 	// A recursive function to fill remaining
 	// matrix
+	[TestSvm(100,serialize:"fillRemaining"), Category("Dataset")]
 	public bool fillRemaining(int i, int j)
 	{
 		// System.out.println(i+" "+j);
