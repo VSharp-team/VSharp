@@ -236,6 +236,7 @@ type public SILIStatistics() as this =
 
         let mutable coveredBlocks = ref null
         for block in s.history do
+            block.BasicBlock.IsCovered <- true
             if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
                 coveredBlocks.Value.Add block.offset |> ignore
             else
@@ -243,9 +244,7 @@ type public SILIStatistics() as this =
                 coveredBlocks.Add block.offset |> ignore
                 blocksCoveredByTests[block.method] <- coveredBlocks
             if block.method.InCoverageZone then
-                isVisitedBlocksNotCoveredByTestsRelevant <- false
-            if block.BasicBlock.FinalOffset = block.offset
-            then block.BasicBlock.IsCovered <- true
+                isVisitedBlocksNotCoveredByTestsRelevant <- false            
 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
@@ -284,6 +283,7 @@ type public SILIStatistics() as this =
 
         branchesReleased <- false
         testsCount <- 0u
+        blocksCoveredByTests.Clear()
 
     member x.SolverStarted() = solverStopwatch.Start()
     member x.SolverStopped() = solverStopwatch.Stop()
