@@ -878,7 +878,8 @@ module internal Z3 =
                         let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
-                    | HeapAddressSource(:? functionResultConstantSource as frs) ->
+                    | HeapAddressSource(StructFieldChain(_, (:? functionResultConstantSource as frs)))
+                    | StructFieldChain(_, (:? functionResultConstantSource as frs)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
                         let term = x.Decode t refinedExpr

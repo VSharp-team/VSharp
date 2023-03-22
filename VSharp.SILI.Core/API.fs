@@ -154,9 +154,7 @@ module API =
                 | Memory.StructFieldSource(baseSource, field) ->
                     structFieldChainRec (field::acc) baseSource
                 | src -> Some(acc, src)
-            match src with
-            | :? IMemoryAccessConstantSource as ms -> structFieldChainRec [ ] ms
-            | _ -> None
+            structFieldChainRec [ ] src
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
         let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src

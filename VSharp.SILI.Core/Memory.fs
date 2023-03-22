@@ -1452,19 +1452,19 @@ module internal Memory =
     type private structField with
         interface IMemoryAccessConstantSource with
             override x.Compose state =
-                let structTerm =
-                    match x.baseSource with
-                    | :? IStatedSymbolicConstantSource as baseSource ->
-                        baseSource.Compose state
-                    | src ->
-                        match state.model with
-                        | PrimitiveModel subst when state.complete ->
-                            let value = ref Nop
-                            if subst.TryGetValue(x, value) then value.Value
-                            else makeDefaultValue src.TypeOfLocation
-                        | _ ->
-                            makeSymbolicValue src (src.ToString()) src.TypeOfLocation
-                readStruct structTerm x.field
+                match x.baseSource with
+                | :? IStatedSymbolicConstantSource as baseSource ->
+                    let structTerm = baseSource.Compose state
+                    readStruct structTerm x.field
+                | _ ->
+                    let x = x :> ISymbolicConstantSource
+                    match state.model with
+                    | PrimitiveModel subst when state.complete ->
+                        let value = ref Nop
+                        if subst.TryGetValue(x, value) then value.Value
+                        else makeDefaultValue x.TypeOfLocation
+                    | _ ->
+                        makeSymbolicValue x (x.ToString()) x.TypeOfLocation
 
     type private heapAddressSource with
         interface IMemoryAccessConstantSource  with
