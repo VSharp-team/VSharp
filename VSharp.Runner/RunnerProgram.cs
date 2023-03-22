@@ -89,7 +89,8 @@ namespace VSharp.Runner
                     {
                         method = type.GetMethod(methodArgumentValue, Reflection.allBindingFlags);
                         method ??= type.GetMethods(Reflection.allBindingFlags)
-                            .FirstOrDefault(m => $"{type.FullName}.{m.Name}".Contains(methodArgumentValue));
+                            .Where(m => $"{type.FullName}.{m.Name}".Contains(methodArgumentValue))
+                            .MinBy(m => m.Name.Length);
                         if (method != null) break;
                     }
                     catch (Exception)
