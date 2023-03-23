@@ -19,10 +19,18 @@ type public SILI(options : SiliOptions) =
     let timeout =
         if not hasTimeout then Double.PositiveInfinity
         else float options.timeout * 1000.0
+    let solverTimeout =
+        if options.solverTimeout > 0 then options.solverTimeout * 1000
+        else options.timeout / 2 * 1000
     let branchReleaseTimeout =
         if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then timeout
         else timeout * 80.0 / 100.0
+
+    // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+    // stops exactly in timeout. To guarantee that we need to pass timeout
+    // based on remaining time to solver dynamically.
+    do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
 
     let mutable branchesReleased = false
     let mutable isStopped = false
