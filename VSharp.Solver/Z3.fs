@@ -747,7 +747,7 @@ module internal Z3 =
             elif bv.SortSize = 16u then typeof<int16>
             else __unreachable__()
 
-        member private x.DecodeConcreteHeapAddress (typ : Type) (expr : Expr) : vectorTime =
+        member private x.DecodeConcreteHeapAddress (expr : Expr) : vectorTime =
             let addresses = encodingCache.heapAddresses
             let result = ref vectorTime.Empty
             let existing = addresses.TryGetValue(expr, result)
@@ -766,31 +766,28 @@ module internal Z3 =
             else __notImplemented__()
 
         member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
-            let toType (elementType : Type, rank, isVector) =
-                if isVector then elementType.MakeArrayType()
-                else elementType.MakeArrayType(rank)
             match reg with
             | HeapFieldSort field ->
                 assert(exprs.Length = 1)
-                let address = exprs.[0] |> x.DecodeConcreteHeapAddress field.declaringType |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 ClassField(address, field)
             | StaticFieldSort field ->
                 assert(exprs.Length = 1)
-                let typ = x.DecodeSymbolicTypeAddress exprs.[0]
+                let typ = x.DecodeSymbolicTypeAddress exprs[0]
                 StaticField(typ, field)
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLength(heapAddress, index, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
@@ -810,7 +807,7 @@ module internal Z3 =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
             | :? BitVecNum as bv when not (Types.IsValueType t) ->
-                let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
@@ -840,7 +837,7 @@ module internal Z3 =
             | field::fields ->
                 match structure with
                 | {term = Struct(contents, _)} ->
-                    let recurred = x.WriteFields contents.[field] value fields
+                    let recurred = x.WriteFields contents[field] value fields
                     Memory.WriteStructField structure field recurred
                 | _ -> internalfail "Expected structure, but got %O" structure
             | [] -> __unreachable__()
@@ -873,7 +870,7 @@ module internal Z3 =
                     | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = if List.isEmpty fields then key.TypeOfLocation else (List.last fields).typ
-                        let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
                     | HeapAddressSource(StructFieldChain(_, (:? functionResultConstantSource as frs)))
@@ -913,7 +910,7 @@ module internal Z3 =
                         let constantValue =
                             if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
+                                let addr = x.DecodeConcreteHeapAddress arr.Args[0] |> ConcreteHeapAddress
                                 HeapRef addr typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     elif arr.IsDefaultArray then
@@ -926,7 +923,7 @@ module internal Z3 =
                             if Types.IsValueType typeOfLocation then
                                 x.Decode typeOfLocation (Array.last arr.Args)
                             else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
+                                let address = Array.last arr.Args |> x.DecodeConcreteHeapAddress |> ConcreteHeapAddress
                                 HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write state (Ref address) value
@@ -972,7 +969,6 @@ module internal Z3 =
                                 yield! (Seq.cast<_> assumptions)
                                 yield query.expr
                             } |> Array.ofSeq
-    //                    let pathAtoms = addSoftConstraints q.lvl
 
                         let constants = builder.AddressesConstants
                         for address1 in constants do
@@ -1003,7 +999,6 @@ module internal Z3 =
                         Logger.printLog Logger.Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
-                    // TODO: need to reset encoding cache on every 'CheckSat'?
                     builder.Reset()
 
             member x.Assert encCtx (fml : term) =

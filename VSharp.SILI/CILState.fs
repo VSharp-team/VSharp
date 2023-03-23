@@ -102,7 +102,7 @@ module internal CilStateOperations =
     let isExecutable (s : cilState) =
         match s.ipStack with
         | [] -> __unreachable__()
-        | Exit _ :: [] -> false
+        | [ Exit _ ] -> false
         | _ -> true
 
     let isError (s : cilState) =
