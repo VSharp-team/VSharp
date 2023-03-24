@@ -396,17 +396,17 @@ module internal Arithmetics =
 //                matched
 //                unmatched
 
-    and private simplifyMultiplicationOfDivision op t a b y matched unmatched =
+    and private simplifyMultiplicationOfDivision isSigned t a b y matched unmatched =
         // Simplifying (a / b) * y at this step
         match a, b, y with
         // (a / b) * y = (a * y) / b if a and y are concrete and unchecked
         | ConcreteT(aval, _), b, ConcreteT(yval, _) ->
             let aMulY = simplifyConcreteMultiplication t aval yval
-            simplifyDivision op t aMulY b matched
+            simplifyDivision isSigned t aMulY b matched
         // (a / (y * d)) * y = a/d if unchecked
-        | _, Mul(c, d, _), _ when c = y -> simplifyDivision op t a d matched
+        | _, Mul(c, d, _), _ when c = y -> simplifyDivision isSigned t a d matched
         // (a / (c * y)) * y = a/c if unchecked
-        | _, Mul(c, d, _), _ when d = y -> simplifyDivision op t a c matched
+        | _, Mul(c, d, _), _ when d = y -> simplifyDivision isSigned t a c matched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationOfShifts (t : System.Type) a b y matched unmatched =
@@ -487,6 +487,10 @@ module internal Arithmetics =
                 | x, y when x = y -> castConcrete 1 t |> k
                 // x / -x = -1 if unchecked
                 | x, UnaryMinusT(y, _) when not <| isUnsigned t && x = y -> castConcrete -1 t |> k
+                // x / 2^n = x >> n if unchecked and x is unsigned
+                | _, ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) && not isSigned ->
+                    let n = Calculator.WhatPowerOf2(powOf2) |> makeNumber
+                    simplifyShift OperationType.ShiftRight_Un t x n k
                 // (a >> b) / 2^n = a >> (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
                 // (a >> b) / 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
 //                | CastExpr(ShiftRight(a, b, Numeric(Id t2)), (Numeric(Id t1) as t)) when not <| typeIsLessType t1 t2 -> Some(ShiftRight(primitiveCast x t, y, t)) ->
@@ -508,8 +512,8 @@ module internal Arithmetics =
 
     and private simplifyConcreteRemainder t x y =
         let success = ref true
-        let result =
-            Calculator.Rem(x, y, t, success)
+        let result = Calculator.Rem(x, y, t, success)
+        assert success.Value
         castConcrete result t
 
     and private divides t x y =

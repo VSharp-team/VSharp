@@ -141,7 +141,7 @@ module internal Z3 =
             let assumptions =
                 if typ = addressType then
                     let zero = ctx.MkNumeral(0, sort)
-                    ctx.MkBVSLT(constant :?> BitVecExpr, zero :?> BitVecExpr) |> List.singleton
+                    ctx.MkBVSLE(constant :?> BitVecExpr, zero :?> BitVecExpr) |> List.singleton
                 else List.empty
             {expr = constant; assumptions = assumptions}
 
@@ -564,7 +564,7 @@ module internal Z3 =
             if typ = addressType then
                 // In case of symbolic address instantiation, adding assumption "inst < 0"
                 let zero = ctx.MkNumeral(0, inst.Sort) :?> BitVecExpr
-                let belowZero = ctx.MkBVSLT(inst :?> BitVecExpr, zero)
+                let belowZero = ctx.MkBVSLE(inst :?> BitVecExpr, zero)
                 belowZero |> List.singleton
             else List.empty
 
@@ -878,7 +878,8 @@ module internal Z3 =
                         let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
-                    | HeapAddressSource(:? functionResultConstantSource as frs) ->
+                    | HeapAddressSource(StructFieldChain(_, (:? functionResultConstantSource as frs)))
+                    | StructFieldChain(_, (:? functionResultConstantSource as frs)) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = (frs :> ISymbolicConstantSource).TypeOfLocation
                         let term = x.Decode t refinedExpr

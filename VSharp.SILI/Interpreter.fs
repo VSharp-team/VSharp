@@ -572,6 +572,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
             "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
+            "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -811,6 +812,15 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (fun cilState k ->
                 reportError cilState "Debug.Assert failed"
                 k [])
+            id
+
+    member private x.FastMod (cilState : cilState) this (args : term list) =
+        assert(List.length args = 3 && Option.isNone this)
+        let hashCode, length = args.[0], args.[1]
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (length === MakeNumber 0, state))
+            (x.Raise x.DivideByZeroException)
+            (fun cilState k -> push (Arithmetics.Rem hashCode length) cilState; k [cilState])
             id
 
     member private x.TrustedIntrinsics =
