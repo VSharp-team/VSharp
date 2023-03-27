@@ -17,6 +17,12 @@ module AssemblyManager =
     let SetDependenciesDirs (dirs : IEnumerable<string>) =
         alc.DependenciesDirs = dirs
 
+    let AddExtraResolver (resolver : Func<string, string>) =
+        alc.add_ExtraResolver resolver
+
+    let RemoveExtraResolver (resolver : Func<string, string>) =
+        alc.remove_ExtraResolver resolver
+
     let LoadFromAssemblyPath (assemblyPath : string) =
         alc.LoadFromAssemblyPath assemblyPath
 
