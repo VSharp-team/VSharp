@@ -42,6 +42,11 @@ namespace VSharp.CSharpUtils
             return types.Where(t => t.IsPublic || t.IsNestedPublic);
         }
 
+        public static IEnumerable<Type> GetExportedTypesChecked(this Assembly assembly)
+        {
+            return assembly.GetTypesChecked().Where(t => t.IsPublic || t.IsNestedPublic);
+        }
+
         public static IEnumerable<Type> GetTypesChecked(this Assembly assembly)
         {
             try

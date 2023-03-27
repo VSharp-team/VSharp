@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <PackageId>VSTeam.VSharp</PackageId>
-        <Version>0.0.7</Version>
+        <Version>0.0.8</Version>
         <Authors>VSharp team</Authors>
         <Title>V#</Title>
         <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
@@ -15,8 +15,8 @@
     </PropertyGroup>
 
     <Target Name="PreparePackageReleaseNotesFromFile" BeforeTargets="GenerateNuspec">
-        <ReadLinesFromFile File="docs/release-notes.txt" >
-            <Output TaskParameter="Lines" ItemName="ReleaseNoteLines"/>
+        <ReadLinesFromFile File="docs/release-notes.txt">
+            <Output TaskParameter="Lines" ItemName="ReleaseNoteLines" />
         </ReadLinesFromFile>
         <PropertyGroup>
             <PackageReleaseNotes>@(ReleaseNoteLines, '%0a')</PackageReleaseNotes>

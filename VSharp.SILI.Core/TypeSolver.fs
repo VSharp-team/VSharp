@@ -6,6 +6,7 @@ open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+open VSharp.CSharpUtils
 
 // ------------------------------------------------- Type mocks -------------------------------------------------
 
@@ -57,7 +58,7 @@ module TypeSolver =
                     // Dynamic mock assemblies may appear here
                     assemblies |> Seq.filter (fun a -> not a.IsDynamic)
             for assembly in assemblies do
-                let types = assembly.GetExportedTypes()
+                let types = assembly.GetExportedTypesChecked()
                 yield! types |> Seq.filter (fun t -> not t.ContainsGenericParameters && validate t) |> Seq.map ConcreteType
             if not hasPrivateSuperType then
                 yield mock supertypes |> MockType
