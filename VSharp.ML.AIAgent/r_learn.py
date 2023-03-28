@@ -2,6 +2,7 @@ import logging
 from collections import defaultdict
 from contextlib import closing, suppress
 from itertools import product
+from typing import Callable, TypeAlias
 
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
@@ -9,13 +10,14 @@ from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent, get_states
 from displayer.tables import display_pivot_table
-from ml.model_wrappers.protocols import Predictor
+from ml.model_wrappers.protocols import Mutable, Predictor
 from ml.mutation.classes import (
     GameMapsModelResults,
     MutableResult,
     MutableResultMapping,
 )
-from ml.mutation.strategy import MutationStrategyBuilder
+
+NewGenProviderFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
 
 logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
@@ -92,7 +94,7 @@ def r_learn(
     steps: int,
     models: list[Predictor],
     maps: list[GameMap],
-    mutator: MutationStrategyBuilder,
+    new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
@@ -100,7 +102,7 @@ def r_learn(
         game_maps_model_results = r_learn_iteration(
             models, maps, steps, connection_manager
         )
-        models = mutator.create_mutation(game_maps_model_results)
+        models = new_gen_provider_function(game_maps_model_results)
         display_pivot_table(game_maps_model_results)
 
     survived = "\n"

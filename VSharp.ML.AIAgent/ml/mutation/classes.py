@@ -38,18 +38,3 @@ class MapResultMapping:
 
 GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping]]
 ModelResultsOnGameMaps: TypeAlias = defaultdict[Mutable, list[MapResultMapping]]
-
-
-@dataclass
-class MutatorConfig:
-    mutation_volume: float  # 0-1
-    mutation_freq: float  # 0-1
-
-    def __post_init__(self):
-        in_percents = lambda x: x >= 0 and x <= 1
-        if not in_percents(self.mutation_volume):
-            raise ValueError(
-                f"mutation volume is not in percents: {self.mutation_volume=}"
-            )
-        if not in_percents(self.mutation_freq):
-            raise ValueError(f"mutation freq is not in percents: {self.mutation_freq=}")

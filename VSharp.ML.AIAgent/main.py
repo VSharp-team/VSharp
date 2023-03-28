@@ -1,20 +1,42 @@
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_validation_maps, get_train_maps
+from agent.n_agent import get_validation_maps
 from common.constants import Constant
 from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
-from ml.mutation.classes import MutatorConfig
-from ml.mutation.strategy import (
-    AverageOfAllStrategy,
-    AverageOfNTopsStrategy,
-    MutateAverageOfAllStrategy,
-    MutateAverageOfNTopsStrategy,
-    MutationStrategyBuilder,
-    KEuclideanBestStrategy,
-    NTopsStrategy,
+from ml.mutation.classes import GameMapsModelResults
+from ml.mutation.selection import (
+    select_all_models,
+    select_k_euclidean_best,
+    select_n_best,
 )
 from ml.utils import load_full_model
 from r_learn import r_learn
+
+
+def new_gen_function(mr: GameMapsModelResults) -> list:
+    best_mutables = [*select_k_euclidean_best(mr, k=3), *select_n_best(mr, n=4)]
+
+    average_of_selected = lambda ms: GeneticLearner.average(ms)
+    mutate_average_of_selected = lambda ms: GeneticLearner.mutate(
+        GeneticLearner.average(ms),
+        mutation_volume=0.25,
+        mutation_freq=0.1,
+    )
+
+    mutated_average_of_all = lambda mr: GeneticLearner.mutate(
+        GeneticLearner.average(select_all_models(mr)),
+        mutation_volume=0.25,
+        mutation_freq=0.1,
+    )
+
+    return [
+        *select_k_euclidean_best(mr, k=3),
+        average_of_selected(best_mutables),
+        mutate_average_of_selected(best_mutables),
+        mutate_average_of_selected(best_mutables),
+        mutate_average_of_selected(best_mutables),
+        mutated_average_of_all(mr),
+    ]
 
 
 def main():
@@ -36,22 +58,7 @@ def main():
 
     maps = get_validation_maps(cm)
 
-    mutator_config = MutatorConfig(mutation_volume=0.25, mutation_freq=0.1)
-
-    mutator = MutationStrategyBuilder(
-        [
-            NTopsStrategy(n=4),
-            KEuclideanBestStrategy(k=2),
-            AverageOfNTopsStrategy(n=4, mutable_type=GeneticLearner),
-            AverageOfAllStrategy(GeneticLearner),
-            MutateAverageOfNTopsStrategy(
-                n=4, mutable_type=GeneticLearner, config=mutator_config
-            ),
-            MutateAverageOfAllStrategy(GeneticLearner, mutator_config),
-        ]
-    )
-
-    r_learn(epochs, max_steps, models, maps, mutator, cm)
+    r_learn(epochs, max_steps, models, maps, new_gen_function, cm)
 
     cm.close()
 
