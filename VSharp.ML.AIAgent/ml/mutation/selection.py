@@ -18,6 +18,7 @@ def select_all_models(model_results_on_map: GameMapsModelResults) -> list[Mutabl
 
 
 def select_n_best(model_results_on_map: GameMapsModelResults, n: int) -> list[Mutable]:
+    # chooses n models from left to right, top to bottom on the "map leaderbord"
     all_model_results: list[list[Mutable]] = []
 
     for model_result_mapping_list in model_results_on_map.values():
@@ -52,7 +53,7 @@ def invert_mapping(
 def select_k_euclidean_best(
     model_results_on_map: GameMapsModelResults, k: int
 ) -> list[Mutable]:
-    # TODO: check! seems like k euclidean worst
+    # chooses k euclidean closest from unique models
     model_results_on_game_maps = invert_mapping(model_results_on_map)
 
     def sorter_for_mutable(model: Mutable):
@@ -68,4 +69,4 @@ def select_k_euclidean_best(
 
     models = model_results_on_game_maps.keys()
 
-    return sorted(models, key=sorter_for_mutable, reverse=True)[:k]
+    return sorted(models, key=sorter_for_mutable)[:k]
