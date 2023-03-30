@@ -1,23 +1,35 @@
+from abc import ABCMeta, abstractmethod
 from collections import defaultdict
-from typing import Callable, TypeAlias
+import random
+from typing import Any, Callable, TypeAlias, TypeVar
 
 from ml.model_wrappers.protocols import Mutable
+
+from .classes import GameMapsModelResults, MapResultMapping, ModelResultsOnGameMaps
 from .utils import sort_by_reward_asc_steps_desc
 
-from .classes import (
-    GameMapsModelResults,
-    MapResultMapping,
-    ModelResultsOnGameMaps,
-)
+
+class Comparable(metaclass=ABCMeta):
+    @abstractmethod
+    def __lt__(self, other: Any) -> bool:
+        ...
+
+
+ComparableType = TypeVar("ComparableType", bound=Comparable)
 
 SelectorFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
+ScorerFunction: TypeAlias = Callable[
+    [GameMapsModelResults, Mutable], tuple[ComparableType]
+]
 
 
 def select_all_models(model_results_on_map: GameMapsModelResults) -> list[Mutable]:
     return invert_mapping(model_results_on_map).keys()
 
 
-def select_n_best(model_results_on_map: GameMapsModelResults, n: int) -> list[Mutable]:
+def select_n_maps_tops(
+    model_results_on_map: GameMapsModelResults, n: int
+) -> list[Mutable]:
     # chooses n models from left to right, top to bottom on the "map leaderbord"
     all_model_results: list[list[Mutable]] = []
 
@@ -50,23 +62,77 @@ def invert_mapping(
     return inverse_mapping
 
 
-def select_k_euclidean_best(
-    model_results_on_map: GameMapsModelResults, k: int
-) -> list[Mutable]:
-    # chooses k euclidean closest from unique models
+def euclidean_scorer(
+    model_results_on_map: GameMapsModelResults, model: Mutable
+) -> tuple[float, float, float]:
     model_results_on_game_maps = invert_mapping(model_results_on_map)
 
-    def sorter_for_mutable(model: Mutable):
-        results: list[MapResultMapping] = model_results_on_game_maps[model]
-        euc_dist = sum(
-            [(100 - res.mutable_result.coverage_percent) ** 2 for res in results]
-        )
-        visited_instructions_sum = sum(
-            [res.mutable_result.move_reward.ForVisitedInstructions for res in results]
-        )
-        steps_sum = sum([res.mutable_result.steps_count for res in results])
-        return (euc_dist, visited_instructions_sum, -steps_sum)
+    results: list[MapResultMapping] = model_results_on_game_maps[model]
+    euc_dist = sum(
+        [(100 - res.mutable_result.coverage_percent) ** 2 for res in results]
+    )
+    visited_instructions_sum = sum(
+        [res.mutable_result.move_reward.ForVisitedInstructions for res in results]
+    )
+    steps_sum = sum([res.mutable_result.steps_count for res in results])
 
-    models = model_results_on_game_maps.keys()
+    # aim for:
+    # decreasing euc_dist
+    # increasing visited_instructions_sum
+    # decreasing steps_sum
+    return (-euc_dist, visited_instructions_sum, -steps_sum)
 
-    return sorted(models, key=sorter_for_mutable)[:k]
+
+def select_k_best(
+    with_scorer: ScorerFunction, model_results_on_map: GameMapsModelResults, k: int
+) -> list[Mutable]:
+    # chooses from unique models
+    models = invert_mapping(model_results_on_map).keys()
+
+    # reversed -> in decreasing order, [:k] takes k first
+    return sorted(
+        models, key=lambda m: with_scorer(model_results_on_map, m), reverse=True
+    )[:k]
+
+
+def select_p_percent_best(
+    with_scorer: ScorerFunction, model_results_on_map: GameMapsModelResults, p: float
+) -> list[Mutable]:
+    assert p > 0 and p < 1
+    # chooses from unique models
+    models = invert_mapping(model_results_on_map).keys()
+
+    elements_to_return_count = int(len(models) * p)
+    if elements_to_return_count == 0:
+        return []
+
+    # reversed -> in decreasing order, [:k] takes k first
+    return sorted(
+        models, key=lambda m: with_scorer(model_results_on_map, m), reverse=True
+    )[:elements_to_return_count]
+
+
+def tournament_selection(
+    model_results_on_map: GameMapsModelResults,
+    desired_population: int,
+    n_comparisons: int,
+    scorer: ScorerFunction,
+) -> list[Mutable]:
+    selection_pool = []
+
+    model_results_on_game_maps = invert_mapping(model_results_on_map)
+    models = list(model_results_on_game_maps.keys())
+
+    for _ in range(desired_population):
+        current_best = models[0]
+
+        for _ in range(n_comparisons):
+            random_model = models[random.randint(0, len(models) - 1)]
+            if scorer(model_results_on_map, random_model) > scorer(
+                model_results_on_map, current_best
+            ):
+                current_best = random_model
+
+        selection_pool.append(current_best)
+
+    return selection_pool
