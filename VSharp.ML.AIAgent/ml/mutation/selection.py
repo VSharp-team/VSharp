@@ -18,8 +18,11 @@ class Comparable(metaclass=ABCMeta):
 ComparableType = TypeVar("ComparableType", bound=Comparable)
 
 SelectorFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
-ScorerFunction: TypeAlias = Callable[
+MultipleValScorerFunction: TypeAlias = Callable[
     [GameMapsModelResults, Mutable], tuple[ComparableType]
+]
+SingleValScorerFunction: TypeAlias = Callable[
+    [GameMapsModelResults, Mutable], ComparableType
 ]
 
 
@@ -62,29 +65,41 @@ def invert_mapping(
     return inverse_mapping
 
 
-def euclidean_scorer(
-    model_results_on_map: GameMapsModelResults, model: Mutable
+def minkowski_scorer(
+    model_results_on_map: GameMapsModelResults, model: Mutable, k
 ) -> tuple[float, float, float]:
     model_results_on_game_maps = invert_mapping(model_results_on_map)
 
     results: list[MapResultMapping] = model_results_on_game_maps[model]
-    euc_dist = sum(
-        [(100 - res.mutable_result.coverage_percent) ** 2 for res in results]
-    )
+    dist = sum([abs(100 - res.mutable_result.coverage_percent) ** k for res in results])
     visited_instructions_sum = sum(
         [res.mutable_result.move_reward.ForVisitedInstructions for res in results]
     )
     steps_sum = sum([res.mutable_result.steps_count for res in results])
 
     # aim for:
-    # decreasing euc_dist
+    # decreasing dist
     # increasing visited_instructions_sum
     # decreasing steps_sum
-    return (-euc_dist, visited_instructions_sum, -steps_sum)
+    return (-dist, visited_instructions_sum, -steps_sum)
+
+
+def decart_scorer(
+    model_results_on_map: GameMapsModelResults, model: Mutable
+) -> tuple[float, float, float]:
+    return minkowski_scorer(model_results_on_map, model, 1)
+
+
+def euclidean_scorer(
+    model_results_on_map: GameMapsModelResults, model: Mutable
+) -> tuple[float, float, float]:
+    return minkowski_scorer(model_results_on_map, model, 2)
 
 
 def select_k_best(
-    with_scorer: ScorerFunction, model_results_on_map: GameMapsModelResults, k: int
+    with_scorer: MultipleValScorerFunction,
+    model_results_on_map: GameMapsModelResults,
+    k: int,
 ) -> list[Mutable]:
     # chooses from unique models
     models = invert_mapping(model_results_on_map).keys()
@@ -96,7 +111,9 @@ def select_k_best(
 
 
 def select_p_percent_best(
-    with_scorer: ScorerFunction, model_results_on_map: GameMapsModelResults, p: float
+    with_scorer: MultipleValScorerFunction,
+    model_results_on_map: GameMapsModelResults,
+    p: float,
 ) -> list[Mutable]:
     assert p > 0 and p < 1
     # chooses from unique models
@@ -116,7 +133,7 @@ def tournament_selection(
     model_results_on_map: GameMapsModelResults,
     desired_population: int,
     n_comparisons: int,
-    scorer: ScorerFunction,
+    scorer: MultipleValScorerFunction,
 ) -> list[Mutable]:
     selection_pool = []
 

@@ -50,7 +50,7 @@ class GeneticLearner(ModelWrapper):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
-        next_step_id, _ = PredictStateVectorHetGNN.predict_state_weighted(
+        next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
             GeneticLearner._model, self.weights, hetero_input, state_map
         )
         return next_step_id

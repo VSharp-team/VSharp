@@ -6,6 +6,7 @@ from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
 from ml.mutation.classes import GameMapsModelResults
 from ml.mutation.selection import (
+    decart_scorer,
     euclidean_scorer,
     select_all_models,
     select_k_best,
@@ -18,7 +19,7 @@ from r_learn import r_learn
 
 def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
     best_mutables = [
-        *select_k_best(euclidean_scorer, mr, k=3),
+        *select_k_best(decart_scorer, mr, k=3),
         *select_n_maps_tops(mr, n=4),
     ]
 
@@ -52,7 +53,7 @@ def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
     )
 
     return [
-        *select_k_best(euclidean_scorer, mr, k=5),
+        *select_k_best(decart_scorer, mr, k=5),
         average_of_selected(best_mutables),
         mutate_average_of_selected(best_mutables),
         mutated_average_of_all(mr),

@@ -65,6 +65,15 @@ def play_map(
     return model_result
 
 
+cached: dict[tuple[Predictor, GameMap], MutableResultMapping] = {}
+
+
+def invalidate_cache(predictors: list[Predictor]):
+    for cached_predictor, cached_game_map in list(cached.keys()):
+        if cached_predictor not in predictors:
+            cached.pop((cached_predictor, cached_game_map))
+
+
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(
     models: list[Predictor], maps: list[GameMap], steps: int, cm: ConnectionManager
@@ -73,18 +82,24 @@ def r_learn_iteration(
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
-        with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-            mutable_result_mapping = play_map(
-                with_agent=agent, with_model=model, steps=steps
-            )
+        if (model, map) in cached.keys():
+            mutable_result_mapping = cached[(model, map)]
+            from_cache = True
+        else:
+            with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
+                mutable_result_mapping = play_map(
+                    with_agent=agent, with_model=model, steps=steps
+                )
+            from_cache = False
 
         model_results_on_map[map].append(mutable_result_mapping)
 
         logger.info(
-            f"<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
+            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
+        cached[(model, map)] = mutable_result_mapping
 
     return model_results_on_map
 
@@ -104,6 +119,7 @@ def r_learn(
         )
         models = new_gen_provider_function(game_maps_model_results)
         display_pivot_table(game_maps_model_results)
+        invalidate_cache(models)
 
     survived = "\n"
     for model in models:
