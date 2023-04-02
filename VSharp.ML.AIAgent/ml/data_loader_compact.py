@@ -2,7 +2,6 @@ import argparse
 import json
 import os.path
 from os import walk
-from typing import Dict, Tuple
 
 import numpy as np
 import torch
@@ -24,7 +23,7 @@ class ServerDataloaderHeteroVector:
         self.__process_files()
 
     @staticmethod
-    def convert_input_to_tensor(input: GameState) -> Tuple[HeteroData, Dict[int, int]]:
+    def convert_input_to_tensor(input: GameState) -> tuple[HeteroData, dict[int, int]]:
         """
         Converts game env to tensors
         """
@@ -42,28 +41,28 @@ class ServerDataloaderHeteroVector:
         edges_index_v_s_history = []
         edges_attr_v_v = []
 
-        state_map: Dict[int, int] = {}  # Maps real state id to its index
-        vertex_map: Dict[int, int] = {}  # Maps real vertex id to its index
+        state_map: dict[int, int] = {}  # Maps real state id to its index
+        vertex_map: dict[int, int] = {}  # Maps real vertex id to its index
         vertex_index = 0
         state_index = 0
 
         # vertex nodes
-        for v in graphVertices:
-            vertex_id = v.Id
-            if vertex_id not in vertex_map:
-                vertex_map[vertex_id] = vertex_index  # maintain order in tensors
-                vertex_index = vertex_index + 1
-                nodes_vertex.append(
-                    np.array(
-                        [
-                            int(v.InCoverageZone),
-                            v.BasicBlockSize,
-                            int(v.CoveredByTest),
-                            int(v.VisitedByState),
-                            int(v.TouchedByState),
-                        ]
-                    )
+        for vertex in graphVertices:
+            if vertex.Id in vertex_map:
+                continue
+            vertex_map[vertex.Id] = vertex_index  # maintain order in tensors
+            nodes_vertex.append(
+                np.array(
+                    [
+                        int(vertex.InCoverageZone),
+                        vertex.BasicBlockSize,
+                        int(vertex.CoveredByTest),
+                        int(vertex.VisitedByState),
+                        int(vertex.TouchedByState),
+                    ]
                 )
+            )
+            vertex_index += 1
         # vertex -> vertex edges
         for e in game_edges:
             edges_index_v_v.append(
@@ -74,39 +73,45 @@ class ServerDataloaderHeteroVector:
             )  # TODO: consider token in a model
 
         # state nodes
-        for s in game_states:
-            state_id = s.Id
-            if state_id not in state_map:
-                state_map[state_id] = state_index
-                nodes_state.append(
-                    np.array(
-                        [
-                            s.Position,
-                            s.PredictedUsefulness,
-                            s.PathConditionSize,
-                            s.VisitedAgainVertices,
-                            s.VisitedNotCoveredVerticesInZone,
-                            s.VisitedNotCoveredVerticesOutOfZone,
-                        ]
-                    )
+        for state in game_states:
+            if state.Id in state_map:
+                continue
+            state_map[state.Id] = state_index
+            nodes_state.append(
+                np.array(
+                    [
+                        state.Position,
+                        state.PredictedUsefulness,
+                        state.PathConditionSize,
+                        state.VisitedAgainVertices,
+                        state.VisitedNotCoveredVerticesInZone,
+                        state.VisitedNotCoveredVerticesOutOfZone,
+                    ]
                 )
-                # history edges: state -> vertex and back
-                for h in s.History:  # TODO: process NumOfVisits as edge label
-                    v_to = vertex_map[h.GraphVertexId]
-                    edges_index_s_v_history.append(np.array([state_index, v_to]))
-                    edges_index_v_s_history.append(np.array([v_to, state_index]))
-                state_index = state_index + 1
+            )
+            # history edges: state -> vertex and back
+            for h in state.History:  # TODO: process NumOfVisits as edge label
+                v_to = vertex_map[h.GraphVertexId]
+                edges_index_s_v_history.append(np.array([state_index, v_to]))
+                edges_index_v_s_history.append(np.array([v_to, state_index]))
+            state_index += 1
 
         # state and its childen edges: state -> state
-        for s in game_states:
-            for ch in s.Children:
-                edges_index_s_s.append(np.array([state_map[s.Id], state_map[ch]]))
+        for state in game_states:
+            for child_id in state.Children:
+                edges_index_s_s.append(
+                    np.array([state_map[state.Id], state_map[child_id]])
+                )
 
         # state position edges: vertex -> state and back
-        for v in graphVertices:
-            for s in v.States:
-                edges_index_s_v_in.append(np.array([state_map[s], vertex_map[v.Id]]))
-                edges_index_v_s_in.append(np.array([vertex_map[v.Id], state_map[s]]))
+        for vertex in graphVertices:
+            for state in vertex.States:
+                edges_index_s_v_in.append(
+                    np.array([state_map[state], vertex_map[vertex.Id]])
+                )
+                edges_index_v_s_in.append(
+                    np.array([vertex_map[vertex.Id], state_map[state]])
+                )
 
         data["game_vertex"].x = torch.tensor(np.array(nodes_vertex), dtype=torch.float)
         data["state_vertex"].x = torch.tensor(np.array(nodes_state), dtype=torch.float)
@@ -142,7 +147,7 @@ class ServerDataloaderHeteroVector:
         return data, state_map
 
     @staticmethod
-    def get_expected_value(file_path: str, state_map: Dict[int, int]) -> torch.Tensor:
+    def get_expected_value(file_path: str, state_map: dict[int, int]) -> torch.Tensor:
         """Get tensor for states"""
         expected = {}
         with open(file_path) as f:
