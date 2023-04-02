@@ -4,7 +4,7 @@ from typing import Dict
 
 import torch
 import torch.nn.functional as F
-from ml.data_loader import get_data_hetero
+from ml import data_loader_compact
 from ml.models import GNN_Het
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
@@ -13,7 +13,7 @@ from torch_geometric.nn import to_hetero
 StateVectorMapping = namedtuple("StateVectorMapping", ["state", "vector"])
 
 
-class PredictStateHetGNN:
+class PredictStateVectorHetGNN:
     """predicts ExpectedStateNumber using Heterogeneous GNN"""
 
     def __init__(self):
@@ -21,10 +21,8 @@ class PredictStateHetGNN:
         self.start()
 
     def start(self):
-        dataset = get_data_hetero()
+        dataset = data_loader_compact.get_data_hetero_vector()
         torch.manual_seed(12345)
-
-        # shuffle(dataset)
 
         split_at = round(len(dataset) * 0.85)
 
@@ -40,25 +38,23 @@ class PredictStateHetGNN:
         test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
         # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        model = GNN_Het(hidden_channels=64, out_channels=1)
+        model = GNN_Het(hidden_channels=64, out_channels=8)
+        # print(dataset[0].__dict__)
         model = to_hetero(model, dataset[0].metadata(), aggr="sum")
         # model = to_hetero_with_bases(model, dataset[0].metadata(), num_bases=3)
         optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
         # criterion = torch.nn.CrossEntropyLoss()
 
-        for epoch in range(1, 21):
+        for epoch in range(1, 31):
             self.train(model, train_loader, optimizer)
             train_acc = self.tst(model, train_loader)
             test_acc = self.tst(model, test_loader)
+            # print(f'Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}')
             print(
-                f"Epoch: {epoch:03d}, Train Acc: {train_acc:.4f}, Test Acc: {test_acc:.4f}"
+                f"Epoch: {epoch:03d}, Train Loss: {train_acc:.4f}, Test Loss: {test_acc:.4f}"
             )
 
-        path = "./saved_models"
-        if not os.path.exists(path):
-            os.makedirs(path)
-
-        self.save(model, path)
+        self.save(model, "./saved_models")
 
     # loss function from link prediction example
     def weighted_mse_loss(self, pred, target, weight=None):
@@ -69,66 +65,33 @@ class PredictStateHetGNN:
         model.train()
 
         for data in train_loader:  # Iterate in batches over the training dataset.
+            # print(data)
             out = model(data.x_dict, data.edge_index_dict)
             pred = out["state_vertex"]
-            target = torch.zeros(pred.size())
-            state_to_move = data.y.item()
-            # TODO: more intellectual
-            target[state_to_move][
-                0
-            ] = 5000.0  # pred.size()[0]*100 # should be substantially greater than the total number of states!
+            target = data.y
             loss = F.mse_loss(pred, target)
-            loss.backward()  # Derive gradients.
-            optimizer.step()  # Update parameters based on gradients.
-            optimizer.zero_grad()  # Clear gradients.
-
-    def train_single_value(self, model, train_loader, optimizer):
-        # It does not work properly now --- no actual learning!!!'''
-        model.train()
-
-        for data in train_loader:  # Iterate in batches over the training dataset.
-            out = model(data.x_dict, data.edge_index_dict)
-            pred = out["state_vertex"].argmax(dim=0)[0].float()
-            target = torch.tensor(data.y[0][0]).float()
-            # loss = self.weighted_mse_loss(torch.tensor(pred, dtype=float),
-            # torch.tensor(pred, dtype=float)).sqrt()
-            loss = self.weighted_mse_loss(pred, target)
-            # print("loss", loss)
-            # loss = Variable(loss, requires_grad=True) #TODO: dirty hack, fix it later
-            loss.requires_grad = True
-            # print(loss)
-            # loss = criterion(torch.tensor(pred, dtype=float), torch.tensor(data.y[0][0]))  # Compute the loss.
             loss.backward()  # Derive gradients.
             optimizer.step()  # Update parameters based on gradients.
             optimizer.zero_grad()  # Clear gradients.
 
     def tst(self, model, loader):
         model.eval()
-        correct = 0
         for data in loader:
             out = model(data.x_dict, data.edge_index_dict)
-            pred = int(out["state_vertex"].argmax(dim=0)[0])
-            target = data.y.item()
+            pred = out["state_vertex"]
+            target = data.y
+            loss = F.mse_loss(pred, target)
             # print(pred, target)
-            correct += int(pred == target)
-        return correct / len(loader.dataset)
+            # correct += int(pred == target)
+        return loss  # correct / len(loader.dataset)
 
     @staticmethod
     def predict_state(model, data: HeteroData, state_map: Dict[int, int]) -> int:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
-        reversed_state_map = {v: k for k, v in state_map.items()}
+        state_map = {v: k for k, v in state_map.items()}  # inversion for prediction
         out = model(data.x_dict, data.edge_index_dict)
-
-        remapped = []
-
-        for index, vector in enumerate(out["state_vertex"]):
-            state_vector_mapping = StateVectorMapping(
-                state=reversed_state_map[index], vector=vector.tolist()
-            )
-            remapped.append(state_vector_mapping)
-
-        return max(remapped, key=lambda mapping: sum(mapping.vector))
+        return state_map[int(out["state_vertex"].argmax(dim=0)[0])]
 
     @staticmethod
     def predict_state_weighted(
@@ -158,7 +121,3 @@ class PredictStateHetGNN:
         # case 2
         filepath = os.path.join(dir, "GNN_state_pred_het_full")
         torch.save(model, filepath)
-
-
-if __name__ == "__main__":
-    PredictStateHetGNN()

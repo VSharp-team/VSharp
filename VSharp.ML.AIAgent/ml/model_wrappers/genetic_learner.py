@@ -7,8 +7,8 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from common.game import GameState
-from ml.data_loader import ServerDataloaderHetero
-from ml.predict_state_hetero import PredictStateHetGNN
+from ml.data_loader_compact import ServerDataloaderHeteroVector
+from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 from .protocols import ModelWrapper, Mutable
 
@@ -47,8 +47,10 @@ class GeneticLearner(ModelWrapper):
         return f"{self.name()}: {[round(component, 2) for component in self.weights]}"
 
     def predict(self, input: GameState):
-        hetero_input, state_map = ServerDataloaderHetero.convert_input_to_tensor(input)
-        next_step_id, _ = PredictStateHetGNN.predict_state_weighted(
+        hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
+            input
+        )
+        next_step_id, _ = PredictStateVectorHetGNN.predict_state_weighted(
             GeneticLearner._model, self.weights, hetero_input, state_map
         )
         return next_step_id
