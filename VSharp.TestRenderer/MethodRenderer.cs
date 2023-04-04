@@ -672,6 +672,7 @@ internal class MethodRenderer : CodeRenderer
             var resultObject = RenderMemberAccess(allocator, AllocatorObject);
             var mockId = AddDecl(preferredName ?? "mock", mockType, resultObject);
 
+            // TODO: handle recursive mocks! #do
             RenderClausesSetup(typeOfMock, mockId, mockInfo.SetupClauses);
 
             switch (mockInfo)

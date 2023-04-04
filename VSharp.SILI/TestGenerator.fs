@@ -77,7 +77,7 @@ module TestGenerator =
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with
-                    | StateModel(modelState, _) -> modelState.arrays
+                    | StateModel modelState -> modelState.arrays
                     | _ -> __unreachable__()
                 else
                     state.arrays
@@ -148,13 +148,16 @@ module TestGenerator =
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
-            | StateModel(modelState, _) ->
-                let eval address =
-                    address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache implementations test
-                let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache implementations test)
-                let typ = modelState.allocatedTypes[addr]
-                let encodeMock = encodeTypeMock model state indices mockCache implementations test >> test.AllocateMockObject
-                obj2test eval arr2Obj indices encodeMock test addr typ
+            | StateModel modelState ->
+                match PersistentDict.tryFind modelState.allocatedTypes addr with
+                | Some typ ->
+                    let eval address =
+                        address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache implementations test
+                    let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache implementations test)
+                    let encodeMock = encodeTypeMock model state indices mockCache implementations test >> test.AllocateMockObject
+                    obj2test eval arr2Obj indices encodeMock test addr typ
+                // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
+                | None -> null
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let term2Obj = model.Eval >> term2obj model state indices mockCache implementations test
@@ -201,8 +204,8 @@ module TestGenerator =
             then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
 
         match model with
-        | StateModel(modelState, typeModel) ->
-            match SolveGenericMethodParameters typeModel m with
+        | StateModel modelState ->
+            match SolveGenericMethodParameters state.typeStorage m with
             | None -> None
             | Some(classParams, methodParams) ->
                 let implementations = Dictionary<MethodInfo, term[]>()

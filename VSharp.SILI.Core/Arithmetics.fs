@@ -735,6 +735,9 @@ module internal Arithmetics =
     let rem x y =
         simplifyRemainder true (deduceArithmeticTargetType x y) x y id
 
+    let remUn x y =
+        simplifyRemainder false (deduceArithmeticTargetType x y) x y id
+
     let eq x y =
         simplifyEqual x y id
 

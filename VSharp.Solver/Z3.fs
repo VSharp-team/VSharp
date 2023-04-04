@@ -940,14 +940,14 @@ module internal Z3 =
 
             encodingCache.heapAddresses.Clear()
             state.model <- PrimitiveModel subst
-            StateModel(state, typeModel.CreateEmpty())
+            StateModel state
 
 
     let private ctx = new Context()
     let private builder = Z3Builder(ctx)
 
     type internal Z3Solver(timeoutMs : uint option) =
-        let solver = ctx.MkOptimize()
+        let solver = ctx.MkSolver()
 
         do
             match timeoutMs with
@@ -969,13 +969,6 @@ module internal Z3 =
                                 yield! (Seq.cast<_> assumptions)
                                 yield query.expr
                             } |> Array.ofSeq
-
-                        let constants = builder.AddressesConstants
-                        for address1 in constants do
-                            for address2 in constants do
-                                if address1 <> address2 then
-                                    let cond = ctx.MkNot(ctx.MkEq(address1, address2))
-                                    solver.AssertSoft(cond, 1u, "addresses") |> ignore
 
                         let result = solver.Check assumptions
                         match result with

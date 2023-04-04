@@ -26,7 +26,8 @@ module TypeUtils =
 
     let private unsignedTypes =
         HashSet<Type>([typedefof<byte>; typedefof<uint16>;
-                       typedefof<uint32>; typedefof<uint64>;])
+                       typedefof<uint32>; typedefof<uint64>
+                       typeof<UIntPtr>])
 
     let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
 

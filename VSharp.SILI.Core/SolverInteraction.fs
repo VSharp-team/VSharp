@@ -44,17 +44,31 @@ module public SolverInteraction =
         let orderWithNull = Map.add VectorTime.zero 0 order
         { addressOrder = orderWithNull }
 
-    let checkSat state =
+    let private checkSatWithCtx state context =
         let ctx = getEncodingContext state
-        let formula = PC.toSeq state.pc |> conjunction
+        let formula = PC.toSeq state.pc |> Seq.append context |> conjunction
         match solver with
         | Some s ->
             onSolverStarted()
             let result = s.CheckSat ctx formula
             onSolverStopped()
-            match result, state.model with
-            | SmtSat { mdl = StateModel(modelState, _) }, StateModel(_, typeModel) ->
-                // Copying type model to prevent it from mutating in forked state
-                SmtSat { mdl = StateModel(modelState, typeModel.Copy()) }
-            | result, _ -> result
+            result
         | None -> SmtUnknown ""
+
+    let checkSat state =
+        checkSatWithCtx state Seq.empty
+
+    let checkSatWithSubtyping (state : state) =
+        let typeStorage = state.typeStorage
+        let isValid, unequal = typeStorage.Constraints.CheckInequality()
+        if isValid then
+            match checkSatWithCtx state unequal with
+            | SmtSat {mdl = model} as satWithModel ->
+                try
+                    match TypeSolver.solveTypes model state with
+                    | TypeUnsat -> SmtUnsat {core = Array.empty}
+                    | TypeSat -> satWithModel
+                with :? InsufficientInformationException as e ->
+                    SmtUnknown e.Message
+            | result -> result
+        else SmtUnsat {core = Array.empty}

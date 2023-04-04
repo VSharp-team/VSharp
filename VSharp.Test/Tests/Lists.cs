@@ -619,6 +619,60 @@ namespace IntegrationTests
             return l.Contains('a');
         }
 
+        [TestSvm]
+        public static int TypeSolverCheck(int i, object[] l)
+        {
+            if (l[i] is int[] a)
+                return a[0];
+
+            return -12;
+        }
+
+        [TestSvm]
+        public static int TypeSolverCheck2(int i, object a, object b)
+        {
+            var d = new Dictionary<object, int>();
+            d[a] = i;
+            if (a is int[])
+            {
+                if (d[b] == i)
+                    return 1;
+                return 0;
+            }
+
+            return -12;
+        }
+
+        [TestSvm]
+        public static int TypeSolverCheck3(object a, object b)
+        {
+            var d = new Dictionary<object, int>();
+            d[a] = 0;
+            if (a is int[])
+            {
+                if (d[b] != 0)
+                    return 1;
+                return 0;
+            }
+
+            return -12;
+        }
+
+        [Ignore("Support rendering recursive arrays")]
+        public static object[] ConcreteRecursiveArray()
+        {
+            object[] a = new object[1];
+            a[0] = a;
+            return a;
+        }
+
+        [TestSvm]
+        public static object SymbolicRecursiveArray(object[] a)
+        {
+            Array.Fill(a, a);
+            return a[0];
+        }
+
         public static Array RetSystemArray1(Array arr)
         {
             if (arr is int[])
@@ -1603,7 +1657,7 @@ namespace IntegrationTests
             return result;
         }
     }
-    
+
     [TestSvmFixture]
     public sealed class InnerPrivateContentArray
     {
@@ -1614,7 +1668,7 @@ namespace IntegrationTests
 
         private readonly Content[] _arr = new Content[10];
 
-        
+
         [TestSvm]
         public int GetValue(int index)
         {
@@ -1631,7 +1685,7 @@ namespace IntegrationTests
             _arr[index].X = value;
         }
     }
-    
+
     [TestSvmFixture]
     public sealed class InnerPrivateContentArrayMultiDimensional
     {
@@ -1642,7 +1696,7 @@ namespace IntegrationTests
 
         private readonly Content[,] _arr = new Content[1,1];
 
-        
+
         [TestSvm]
         public int GetValue(int index1, int index2)
         {

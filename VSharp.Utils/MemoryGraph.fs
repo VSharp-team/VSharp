@@ -227,6 +227,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         (t.IsPrimitive && not t.IsEnum) || t = typeof<string> || (t.IsArray && (x.IsSerializable <| t.GetElementType()))
 
     member private x.EncodeArray (arr : Array) =
+        // TODO: handle recursive arrays! #do
         let contents =
             seq {
                 for elem in arr do

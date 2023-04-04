@@ -816,11 +816,20 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.FastMod (cilState : cilState) this (args : term list) =
         assert(List.length args = 3 && Option.isNone this)
-        let hashCode, length = args[0], args[1]
+        let left, right = args[0], args[1]
+        let validCase cilState k =
+            let leftType = TypeOf left
+            let rightType = TypeOf right
+            let result =
+                if TypeUtils.isUnsigned leftType || TypeUtils.isUnsigned rightType then
+                    Arithmetics.RemUn left right
+                else Arithmetics.Rem left right
+            push result cilState
+            k [cilState]
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (length === MakeNumber 0, state))
+            (fun state k -> k (right === MakeNumber 0, state))
             (x.Raise x.DivideByZeroException)
-            (fun cilState k -> push (Arithmetics.Rem hashCode length) cilState; k [cilState])
+            validCase
             id
 
     member private x.TrustedIntrinsics =
@@ -935,6 +944,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             |> conjunction
 
         let message = "DisallowNullAttribute violation"
+        // TODO: invoke only if method has attributes
         ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message isError
 
     static member CheckDisallowNullAssumptionsAndReport cilState method =
@@ -960,6 +970,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             parameterAssumptions &&& returnAssumptions
 
         let message = "NotNullAttribute violation"
+        // TODO: invoke only if method has attributes
         ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message true
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
@@ -1162,16 +1173,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> ()
         }
         let invokeMock cilState k =
-            let model = cilState.state.model
-            match List.ofSeq typeMocks, model.Eval this with
-            | [], _ -> List.singleton cilState |> k
-            | [mock : ITypeMock], {term = HeapRef({term = ConcreteHeapAddress thisInModel}, _)} ->
+            match typeMocks with
+            | _ when Seq.isEmpty typeMocks -> List.singleton cilState |> k
+            | _ when Seq.length typeMocks = 1 ->
                 popFrameOf cilState
-                let modelState =
-                    match model with
-                    | StateModel(s, _) -> s
-                    | _ -> __unreachable__()
-                modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
@@ -1466,6 +1471,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let uncheckedLdElem (cilState : cilState) k =
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices typ
@@ -1487,6 +1493,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.LdElema (m : Method) offset (cilState : cilState) =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Ldelema.Size)
         let index, arrayRef = pop2 cilState
+        let index = Types.Cast index typeof<int>
         let referenceLocation (cilState : cilState) k =
             let value = Memory.ReferenceArrayIndex cilState.state arrayRef [index] (Some typ)
             push value cilState
@@ -1505,6 +1512,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.StElemCommon (typ : Type option) (cilState : cilState) arrayRef indices value =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
         let baseType = Types.ElementType arrayType
+        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =

@@ -9,9 +9,6 @@ open VSharp
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
-    let mutable physToVirt = physToVirt
-    let mutable virtToPhys = virtToPhys
-
 // ----------------------------- Helpers -----------------------------
 
     static let nonCopyableTypes = [

@@ -298,8 +298,8 @@ module internal CilStateOperations =
             let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction :: []
-            | Return -> exit m :: []
+            | FallThrough nextInstruction -> instruction m nextInstruction |> List.singleton
+            | Return -> exit m |> List.singleton
             | ExceptionMechanism ->
                 // TODO: use ExceptionMechanism? #do
 //                let toObserve = __notImplemented__()

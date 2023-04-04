@@ -494,6 +494,7 @@ internal class CodeRenderer
     {
         var type = e.GetType();
         var typeExpr = RenderType(type);
+        // TODO: handle masks, for example 'BindingFlags.Public | BindingFlags.NonPublic' (value will be 'null')
         var value = Enum.GetName(type, e);
         Debug.Assert(value != null);
 
