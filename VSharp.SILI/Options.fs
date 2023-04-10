@@ -43,6 +43,7 @@ type SiliOptions = {
     outputDirectory : DirectoryInfo
     recThreshold : uint32
     timeout : int
+    solverTimeout : int
     visualize : bool
     releaseBranches : bool
     maxBufferSize : int

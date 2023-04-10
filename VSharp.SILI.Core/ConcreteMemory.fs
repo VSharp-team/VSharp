@@ -19,7 +19,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         typeof<Thread>
     ]
 
-    let cannotBeCopied typ = List.contains typ nonCopyableTypes
+    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
 
     let indexedArrayElemsCommon (arr : Array) =
         let ubs = Array.init arr.Rank arr.GetUpperBound
@@ -184,6 +184,9 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 
         override x.Allocate address (obj : obj) =
             assert(virtToPhys.ContainsKey address |> not)
+            // Suppressing finalize, because 'obj' may implement 'Dispose()' method, which should not be invoked,
+            // because object may be in incorrect state (statics, for example)
+            GC.SuppressFinalize(obj)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
             if obj = String.Empty then physToVirt[physicalAddress] <- address

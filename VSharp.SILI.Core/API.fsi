@@ -172,6 +172,7 @@ module API =
         val Mul : term -> term -> term
         val Sub : term -> term -> term
         val Add : term -> term -> term
+        val Rem : term -> term -> term
         val IsZero : term -> term
 
         val Acos : term -> term

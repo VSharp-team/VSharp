@@ -15,6 +15,8 @@ namespace VSharp.CSharpUtils
 
         private readonly Dictionary<string, Type> _types = new();
 
+        public event Func<string, string?>? ExtraResolver;
+
         public IEnumerable<string> DependenciesDirs { get; set; } = new List<string>();
 
         private Assembly? OnAssemblyResolve(object sender, ResolveEventArgs args)
@@ -24,6 +26,14 @@ namespace VSharp.CSharpUtils
             {
                 return existingInstance;
             }
+
+            var extraResolverPath = ExtraResolver?.Invoke(args.Name);
+
+            if (extraResolverPath is not null && File.Exists(extraResolverPath))
+            {
+                return LoadFromAssemblyPath(extraResolverPath);
+            }
+
             foreach (var path in DependenciesDirs)
             {
                 var assemblyPath = Path.Combine(path, new AssemblyName(args.Name).Name + ".dll");

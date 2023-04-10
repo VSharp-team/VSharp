@@ -247,7 +247,7 @@ module public Reflection =
         | declaringType ->
             let createHierarchy (t : Type) =
                 // TODO: care about generics (GetGenericTypeDefinition) ?
-                if t <> declaringType then Some (t, t.BaseType)
+                if t <> declaringType && t <> null then Some (t, t.BaseType)
                 else None
             let hierarchy = List.unfold createHierarchy targetType
             let sign = createSignature virtualMethod
@@ -284,6 +284,7 @@ module public Reflection =
                     let resolvedMethod = declaredMethods |> Seq.tryFind (isOverrideOf virtualMethod)
                     match resolvedMethod with
                     | Some resolvedMethod -> resolvedMethod
+                    | None when targetType.BaseType = null -> virtualMethod
                     | None -> resolve targetType.BaseType
             resolve targetType
 
