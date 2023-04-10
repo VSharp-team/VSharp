@@ -1,5 +1,5 @@
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_validation_maps
+from agent.n_agent import get_validation_maps, get_train_maps
 from common.constants import Constant
 from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
@@ -70,7 +70,7 @@ def main():
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
     epochs = 10
-    max_steps = 300
+    max_steps = 1000
     n_models = 10
 
     GeneticLearner.set_model(loaded_model, 8)
@@ -79,7 +79,7 @@ def main():
         for _ in range(n_models)
     ]
 
-    maps = get_validation_maps(cm)
+    maps = get_train_maps(cm)
 
     r_learn(epochs, max_steps, models, maps, new_gen_function, cm)
 
