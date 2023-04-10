@@ -32,7 +32,7 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         let removed = availableStates.Remove state
         assert removed       
         for bb in state._history do bb.Key.AssociatedStates.Remove state |> ignore
-        assert removed
+        
     let pick selector =
         if useDefaultSearcher
         then
