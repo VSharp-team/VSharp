@@ -2,7 +2,7 @@ from collections import defaultdict, namedtuple
 
 import pandas as pd
 from logger.setup import table_logger
-from ml.mutation_gen import GameMapsModelResults, MutableResult
+from ml.mutation.classes import GameMapsModelResults, MutableResult
 
 from config import Config
 
