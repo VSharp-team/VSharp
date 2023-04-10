@@ -9,12 +9,12 @@ class MergeSort {
     // Merges two subarrays of []arr.
     // First subarray is arr[l..m]
     // Second subarray is arr[m+1..r]
-    void merge(int[] arr, int l, int m, int r)
+    void merge(int[] arr, uint l, uint m, uint r)
     {
         // Find sizes of two
         // subarrays to be merged
-        int n1 = m - l + 1;
-        int n2 = r - m;
+        uint n1 = m - l + 1;
+        uint n2 = r - m;
 
         // Create temp arrays
         int[] L = new int[n1];
@@ -36,7 +36,7 @@ class MergeSort {
 
         // Initial index of merged
         // subarray array
-        int k = l;
+        uint k = l;
         while (i < n1 && j < n2) {
             if (L[i] <= R[j]) {
                 arr[k] = L[i];
@@ -70,12 +70,12 @@ class MergeSort {
     // sorts arr[l..r] using
     // merge()
     [TestSvm(100,serialize:"mergeSort"), Category("Dataset")]
-    public void mergeSort(int[] arr, int l, int r)
+    public void mergeSort(int[] arr, uint l, uint r)
     {
         if (l < r) {
             // Find the middle
             // point
-            int m = l + (r - l) / 2;
+            uint m = l + (r - l) / 2;
 
             // Sort first and
             // second halves
@@ -91,7 +91,7 @@ class MergeSort {
     public static int[] MergeSortMain(int[] arr)
     {
         MergeSort ob = new MergeSort();
-        ob.mergeSort(arr, 0, arr.Length - 1);
+        ob.mergeSort(arr, 0, (uint)(arr.Length - 1));
         return arr;
     }
 }
