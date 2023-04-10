@@ -18,7 +18,7 @@ Python 3.10.8
 cd VSharp.ML.AIAgent
 
 # load env from condig file:
-conda env create -f environment.yml
+conda env create -f conda_env.yml
 # optional: specify your path by adding -p <your env path>
 # by default env with name 'agent_env' will be created
 
