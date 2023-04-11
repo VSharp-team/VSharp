@@ -1,4 +1,5 @@
 import json
+import logging
 from dataclasses import dataclass, field
 from enum import Enum
 
@@ -96,11 +97,10 @@ class ServerMessage:
         try:
             return expected.from_json(args[0], **kwargs)
         except Exception as e:
-            raise ServerMessage.DeserializationException(
-                f"{type(e)} - {e}: "
-                f"tried to decode {expected}, "
-                f"got raw data: {json.dumps(json.loads(args[0]), indent=2)}"
-            )
+            err_to_display = f"{type(e)} - {e}: tried to decode {expected}, got unmatched structure, go see error.log"
+            error = f"{type(e)} - {e}: tried to decode {expected}, got raw data: {json.dumps(json.loads(args[0]), indent=2)}"
+            logging.error(error)
+            raise ServerMessage.DeserializationException(err_to_display)
 
 
 @dataclass
