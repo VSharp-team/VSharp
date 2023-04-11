@@ -1,16 +1,13 @@
+import logging
 from collections import defaultdict, namedtuple
 
 import pandas as pd
-from logger.setup import table_logger
-from ml.mutation.classes import GameMapsModelResults, MutableResult
-
 from config import Config
+from ml.mutation.classes import GameMapsModelResults, MutableResult
 
 MutableNameResultMapping: tuple[str, MutableResult] = namedtuple(
     "MutableNameResultMapping", ["name", "result"]
 )
-
-logger = table_logger()
 
 
 def get_sample_val(d: dict):
@@ -46,4 +43,4 @@ def display_pivot_table(input_map_models_mappings: GameMapsModelResults):
         df[col] = df[col].map(
             lambda mutable_name_result_mapping: mutable_name_result_mapping.result
         )
-    logger.info(df.to_markdown(tablefmt="psql"))
+    logging.info(df.to_markdown(tablefmt="psql"))

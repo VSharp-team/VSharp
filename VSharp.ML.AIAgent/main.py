@@ -1,7 +1,8 @@
+import logging
+
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_validation_maps, get_train_maps
+from agent.n_agent import get_train_maps
 from common.constants import Constant
-from logger.setup import setup_loggers
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
 from ml.mutation.classes import GameMapsModelResults
@@ -15,6 +16,13 @@ from ml.mutation.selection import (
 )
 from ml.utils import load_full_model
 from r_learn import r_learn
+
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename="app.log",
+    filemode="w",
+    format="%(asctime)s - %(name)s - [%(levelname)s]: %(message)s",
+)
 
 
 def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
@@ -63,7 +71,6 @@ def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
 
 
 def main():
-    setup_loggers()
     socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
     cm = ConnectionManager(socket_urls)
 

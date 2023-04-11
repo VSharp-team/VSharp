@@ -6,7 +6,6 @@ from typing import Callable, TypeAlias
 
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
-from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import compute_coverage_percent, get_states
 from displayer.tables import display_pivot_table
@@ -18,8 +17,6 @@ from ml.mutation.classes import (
 )
 
 NewGenProviderFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
-
-logger = logging.getLogger(Constant.Loggers.ML_LOGGER)
 
 
 def generate_games(models: list[Predictor], maps: list[GameMap]):
@@ -37,7 +34,7 @@ def play_map(
         for _ in range(steps):
             game_state = with_agent.recv_state_or_throw_gameover()
             predicted_state_id = with_model.predict(game_state)
-            logger.debug(
+            logging.debug(
                 f"<{with_model.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
             )
 
@@ -58,7 +55,7 @@ def play_map(
         MutableResult(
             cumulative_reward,
             steps_count,
-            compute_coverage_percent(game_state, cumulative_reward.ForCoverage),
+            compute_coverage_percent(game_state),
         ),
     )
 
@@ -87,6 +84,7 @@ def r_learn_iteration(
             from_cache = True
         else:
             with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
+                logging.info(f"{model.name()} is playing {map.NameOfObjectToCover}")
                 mutable_result_mapping = play_map(
                     with_agent=agent, with_model=model, steps=steps
                 )
@@ -94,7 +92,7 @@ def r_learn_iteration(
 
         model_results_on_map[map].append(mutable_result_mapping)
 
-        logger.info(
+        logging.info(
             f"{'[cached]' if from_cache else ''}<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
@@ -113,7 +111,7 @@ def r_learn(
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
-        logger.info(f"epoch# {epoch}")
+        logging.info(f"epoch# {epoch}")
         game_maps_model_results = r_learn_iteration(
             models, maps, steps, connection_manager
         )
@@ -124,4 +122,4 @@ def r_learn(
     survived = "\n"
     for model in models:
         survived += str(model) + "\n"
-    logger.info(f"survived models: {survived}")
+    logging.info(f"survived models: {survived}")

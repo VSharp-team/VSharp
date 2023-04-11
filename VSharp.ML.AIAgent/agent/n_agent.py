@@ -21,8 +21,6 @@ from .messages import (
     StepMessageBody,
 )
 
-logger = logging.getLogger(Constant.Loggers.AGENT_LOGGER)
-
 
 def get_validation_maps(cm: ConnectionManager) -> list[GameMap]:
     return get_maps(cm, with_message_body_type=GetValidationMapsMessageBody)
@@ -76,7 +74,7 @@ class NAgent:
         start_message = ClientMessage(
             StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
         )
-        logger.debug(f"--> {start_message}")
+        logging.debug(f"--> StartMessage  : {start_message}")
         self._ws.send(start_message.to_json())
         self._current_step = 0
         self.game_is_over = False
@@ -84,9 +82,14 @@ class NAgent:
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
             raise NAgent.GameOver
-        match ServerMessage.from_json_handle(msg, expected=ServerMessage).MessageType:
+
+        matching_message_type = ServerMessage.from_json_handle(
+            msg, expected=ServerMessage
+        ).MessageType
+        match matching_message_type:
             case ServerMessageType.GAMEOVER:
                 self.game_is_over = True
+                logging.debug(f"--> {matching_message_type}")
                 raise NAgent.GameOver
             case _:
                 return msg
@@ -94,8 +97,10 @@ class NAgent:
     def recv_state_or_throw_gameover(self) -> GameState:
         received = self._ws.recv()
         data = GameStateServerMessage.from_json_handle(
-            self._raise_if_gameover(received), expected=GameStateServerMessage
+            self._raise_if_gameover(received),
+            expected=GameStateServerMessage,
         )
+        logging.debug(f"<-- {data.MessageType}")
         return data.MessageBody
 
     def send_step(self, next_state_id: int, predicted_usefullness: int):
@@ -104,15 +109,16 @@ class NAgent:
                 StateId=next_state_id, PredictedStateUsefulness=predicted_usefullness
             )
         )
-        logger.debug(f"--> {do_step_message}")
+        logging.debug(f"--> ClientMessage : {do_step_message}")
         self._ws.send(do_step_message.to_json())
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
         data = RewardServerMessage.from_json_handle(
-            self._raise_if_gameover(self._ws.recv()), expected=RewardServerMessage
+            self._raise_if_gameover(self._ws.recv()),
+            expected=RewardServerMessage,
         )
-        logger.debug(f"<-- {data.MessageType}")
+        logging.debug(f"<-- MoveReward    : {data.MessageBody}")
 
         return self._process_reward_server_message(data)
 
