@@ -287,6 +287,7 @@ namespace VSharp
                 SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                 SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
+                SearchStrategy.AI => searchMode.AIMode,
                 _ => throw new UnreachableException("Unknown search strategy")
             };
         }
