@@ -55,7 +55,7 @@ def play_map(
         MutableResult(
             cumulative_reward,
             steps_count,
-            compute_coverage_percent(game_state, cumulative_reward.ForCoverage),
+            compute_coverage_percent(game_state),
         ),
     )
 
