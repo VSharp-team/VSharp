@@ -396,7 +396,14 @@ type public SILI(options : SiliOptions) =
                         let _,statistics2,_ = collectGameState s.currentLoc
                         saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
                 with
-                | e -> reportStateInternalFail s e
+                | e ->
+                    match searcher with
+                    | :? BidirectionalSearcher as searcher ->                        
+                        match searcher.ForwardSearcher with
+                        | :? AISearcher as searcher -> searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
+                        | _ -> ()
+                    | _ -> ()
+                    reportStateInternalFail s e
             | GoBack(s, p) ->
                 try
                     x.Backward p s
