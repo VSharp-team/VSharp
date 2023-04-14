@@ -13,11 +13,18 @@ let trainMaps, validationMaps =
             maps.Add(firstFreeMapId, GameMap(firstFreeMapId, maxSteps, coverageToStart, pathToDll, coverageZone, objectToCover))
             firstFreeMapId <- firstFreeMapId + 1u
     
-    let add = add' trainMaps 10000000u<step>    
+    let add = add' trainMaps 10000000u<step>
+    
+    
+    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    //add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"    
+    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
-    add 75u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+    //add 75u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
     // too slow
@@ -53,8 +60,8 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
+    //add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     
     //Moved to verify 
     //add 10u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
@@ -64,9 +71,9 @@ let trainMaps, validationMaps =
     //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
-    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //25
-    add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
