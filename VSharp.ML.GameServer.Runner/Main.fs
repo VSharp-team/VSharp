@@ -95,10 +95,10 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                     match settings.CoverageZone with
                     | CoverageZone.Method ->
                         let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore                        
+                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore                        
                     | CoverageZone.Class ->
                         let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay) |> ignore
+                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
                     | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     Application.reset()
                     API.Reset()

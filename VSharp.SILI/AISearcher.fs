@@ -21,6 +21,12 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         states |> Seq.iter (availableStates.Add >> ignore)
     let reset () =
         defaultSearcher.Reset()
+        lastCollectedStatistics <- Statistics()
+        gameState <- None
+        afterFirstAIPeek <- false
+        incorrectPredictedStateId <- false
+        useDefaultSearcher <- coverageToSwitchToAI > 0u
+        q.Clear()
         availableStates.Clear()
     let update (parent, newSates) =
         if useDefaultSearcher
