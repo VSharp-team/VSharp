@@ -50,7 +50,12 @@ type EdgeLabel =
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) =    
+type StatesComparerByIdOnly () =
+    interface IEqualityComparer<IGraphTrackableState> with
+        member this.GetHashCode (x:IGraphTrackableState) = int x.Id
+        member this.Equals (x,y) = x.Id = y.Id
+            
+and BasicBlock (method: MethodWithBody, startOffset: offset) =    
     //inherit InputGraphVertexBase ()    
     let mutable finalOffset = Some startOffset
     let mutable startOffset = startOffset
@@ -59,7 +64,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let mutable isVisited = false
     let mutable isSink = false
     let mutable visitedInstructions = 0u
-    let associatedStates = HashSet<IGraphTrackableState>()
+    let associatedStates = HashSet<IGraphTrackableState>(StatesComparerByIdOnly())
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
     let outgoingEdges = Dictionary<int<terminalSymbol>,HashSet<BasicBlock>>()
