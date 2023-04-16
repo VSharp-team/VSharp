@@ -226,23 +226,31 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         // TODO: find out which types can be serialized by XMLSerializer
         (t.IsPrimitive && not t.IsEnum) || t = typeof<string> || (t.IsArray && (x.IsSerializable <| t.GetElementType()))
 
-    member private x.EncodeArray (arr : Array) =
-        // TODO: handle recursive arrays! #do
+    member private x.CreateArray (arr : Array) =
+        let lowerBounds =
+            if arr.Rank = 1 && arr.GetLowerBound 0 = 0 then null
+            else Array.init arr.Rank arr.GetLowerBound
+        let repr : arrayRepr =
+            {
+                typ = x.RegisterType (arr.GetType())
+                defaultValue = null
+                indices = null
+                values = Array.empty
+                lengths = Array.init arr.Rank arr.GetLength
+                lowerBounds = lowerBounds
+            }
+        repr :> obj
+
+    member private x.InitArray (arr : Array) index =
         let contents =
             seq {
                 for elem in arr do
                     yield x.Encode elem
             } |> Array.ofSeq
-        let lowerBounds =
-            if arr.Rank = 1 && arr.GetLowerBound 0 = 0 then null
-            else Array.init arr.Rank arr.GetLowerBound
-        let repr : arrayRepr = {typ = x.RegisterType (arr.GetType())
-                                defaultValue = null
-                                indices = null
-                                values = contents
-                                lengths = Array.init arr.Rank arr.GetLength
-                                lowerBounds = lowerBounds }
-        repr :> obj
+        let encoded = objReprs[index]
+        assert(encoded :? arrayRepr)
+        let encodedArray = encoded :?> arrayRepr
+        objReprs[index] <- {encodedArray with values = contents}
 
     member private x.RegisterType (typ : Type) =
         match sourceTypes |> Seq.tryFindIndex ((=) typ) with
@@ -251,11 +259,29 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
             sourceTypes.Add(typ)
             sourceTypes.Count - 1
 
-    member private x.EncodeStructure (obj : obj) =
+    member private x.CreateStructure (obj : obj) =
         let t = obj.GetType()
-        let fields = t |> Reflection.fieldsOf false |> Seq.map (fun (_, field) -> field.GetValue(obj) |> x.Encode) |> Array.ofSeq
-        let repr : structureRepr = {typ = x.RegisterType t; fields = fields}
+        let repr : structureRepr = {typ = x.RegisterType t; fields = Array.empty}
         repr :> obj
+
+    member private x.InitStructure (repr : structureRepr) (obj : obj) =
+        let fields =
+            obj.GetType()
+            |> Reflection.fieldsOf false
+            |> Seq.map (fun (_, field) -> field.GetValue(obj) |> x.Encode)
+            |> Array.ofSeq
+        { repr with fields = fields }
+
+    member private x.InitClass (obj : obj) index =
+        let encoded = objReprs[index]
+        assert(encoded :? structureRepr)
+        let encodedStructure = encoded :?> structureRepr
+        let initialized = x.InitStructure encodedStructure obj
+        objReprs[index] <- initialized
+
+    member private x.EncodeStructure (obj : obj) =
+        let repr = x.CreateStructure obj :?> structureRepr
+        x.InitStructure repr obj
 
     member x.RepresentEnum (obj : obj) =
         let t = obj.GetType()
@@ -291,11 +317,15 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                         match Seq.tryFindIndex (fun obj' -> Object.ReferenceEquals(obj, obj')) sourceObjects with
                         | Some idx -> idx
                         | None ->
-                            let repr =
-                                match t with
-                                | _ when t.IsArray -> x.EncodeArray (obj :?> Array)
-                                | _ -> x.EncodeStructure obj
-                            x.Bind obj repr
+                            match obj with
+                            | :? Array as arr ->
+                                let idx = x.CreateArray arr |> x.Bind obj
+                                x.InitArray arr idx
+                                idx
+                            | _ ->
+                                let idx = x.CreateStructure obj |> x.Bind obj
+                                x.InitClass obj idx
+                                idx
                     let reference : referenceRepr = {index = idx}
                     reference :> obj
 
