@@ -177,6 +177,7 @@ type GameMap =
     val AssemblyFullName: string
     val CoverageZone: CoverageZone
     val NameOfObjectToCover: string
+    val MapName: string
     new (id, maxSteps, coverageToStart, assembly, coverageZone, objectToCover) =
         {
             Id = id
@@ -185,6 +186,7 @@ type GameMap =
             AssemblyFullName = assembly
             CoverageZone = coverageZone
             NameOfObjectToCover = objectToCover
+            MapName = $"{objectToCover}_{coverageZone}_{coverageToStart}"
         }
 
 [<Struct>]
