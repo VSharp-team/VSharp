@@ -5,7 +5,7 @@ from agent.n_agent import get_train_maps, get_validation_maps
 from common.constants import Constant
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
-from ml.mutation.classes import GameMapsModelResults
+from ml.mutation.classes import ModelResultsOnGameMaps
 from ml.mutation.selection import (
     decart_scorer,
     euclidean_scorer,
@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 
 
-def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
+def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     best_mutables = [
         *select_k_best(decart_scorer, mr, k=3),
         *select_n_maps_tops(mr, n=4),
