@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using System.Threading;
+using Microsoft.FSharp.Collections;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -289,7 +290,8 @@ namespace VSharp.Test
                         pathToSerialize:_pathToSerialize
                             );
                     using var explorer = new SILI(_options);
-
+                    Application.reset();
+                    explorer.Reset(FSharpList<Method>.Empty);
                     explorer.Interpret(
                         new [] { exploredMethodInfo },
                         new Tuple<MethodBase, string[]>[] {},
