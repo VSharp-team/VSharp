@@ -71,6 +71,7 @@ class GameMap:
     AssemblyFullName: str
     CoverageZone: bool
     NameOfObjectToCover: str
+    MapName: str
 
     def __hash__(self) -> int:
         return self.Id.__hash__()

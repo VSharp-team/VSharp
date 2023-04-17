@@ -12,9 +12,11 @@ from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Mutable, Predictor
 from ml.mutation.classes import (
     GameMapsModelResults,
+    ModelResultsOnGameMaps,
     MutableResult,
     MutableResultMapping,
 )
+from ml.mutation.utils import invert_mapping
 
 NewGenProviderFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
 
@@ -90,7 +92,7 @@ def r_learn_iteration(
     maps_provider: Callable[[], list[GameMap]],
     steps: int,
     cm: ConnectionManager,
-) -> GameMapsModelResults:
+) -> ModelResultsOnGameMaps:
     maps = maps_provider()
     games = generate_games(models, maps)
     model_results_on_map: GameMapsModelResults = defaultdict(list)
@@ -101,8 +103,8 @@ def r_learn_iteration(
             from_cache = True
         else:
             with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-                logging.info(f"{model} is playing {map.NameOfObjectToCover}")
-                print(f"map: {map.NameOfObjectToCover}, model: {model}")
+                logging.info(f"{model} is playing {map.MapName}")
+                print(f"map: {map.MapName}, model: {model}")
                 mutable_result_mapping = play_map(
                     with_agent=agent, with_model=model, steps=steps
                 )
@@ -111,11 +113,13 @@ def r_learn_iteration(
         model_results_on_map[map].append(mutable_result_mapping)
 
         logging.info(
-            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
+            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.MapName} in {steps} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
         cached[(model, map)] = mutable_result_mapping
+
+    inverted: ModelResultsOnGameMaps = invert_mapping(model_results_on_map)
 
     return model_results_on_map
 

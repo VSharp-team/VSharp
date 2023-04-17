@@ -22,7 +22,7 @@ def display_pivot_table(input_map_models_mappings: GameMapsModelResults):
     formatted_mappings: defaultdict[str, list[tuple[str, float]]] = defaultdict(list)
 
     for map_obj, mutable_result_mapping_list in input_map_models_mappings.items():
-        formatted_mappings[map_obj.NameOfObjectToCover] = list(
+        formatted_mappings[map_obj.MapName] = list(
             map(
                 lambda mutable_result_mapping: MutableNameResultMapping(
                     mutable_result_mapping.mutable.name(),

@@ -1,12 +1,11 @@
 from abc import ABCMeta, abstractmethod
-from collections import defaultdict
 import random
 from typing import Any, Callable, TypeAlias, TypeVar
 
 from ml.model_wrappers.protocols import Mutable
 
-from .classes import GameMapsModelResults, MapResultMapping, ModelResultsOnGameMaps
-from .utils import sort_by_reward_asc_steps_desc
+from .classes import GameMapsModelResults, MapResultMapping
+from .utils import sort_by_reward_asc_steps_desc, invert_mapping
 
 
 class Comparable(metaclass=ABCMeta):
@@ -47,22 +46,6 @@ def select_n_maps_tops(
         result_array.append(all_model_results[i % len(all_model_results)].pop())
 
     return [mapping.mutable for mapping in result_array]
-
-
-def invert_mapping(
-    model_results_on_map: GameMapsModelResults,
-) -> ModelResultsOnGameMaps:
-    inverse_mapping: ModelResultsOnGameMaps = defaultdict(list)
-
-    for map, list_of_mutable_result_mappings in model_results_on_map.items():
-        for mutable_result_mapping in list_of_mutable_result_mappings:
-            mutable, result = (
-                mutable_result_mapping.mutable,
-                mutable_result_mapping.mutable_result,
-            )
-            inverse_mapping[mutable].append(MapResultMapping(map, result))
-
-    return inverse_mapping
 
 
 def minkowski_scorer(
