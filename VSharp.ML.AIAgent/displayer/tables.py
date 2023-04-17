@@ -26,7 +26,7 @@ def display_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps):
     formatted_mappings: defaultdict[str, list[tuple[str, float]]] = defaultdict(list)
 
     for map_obj, mutable_result_mapping_list in map_results_with_models.items():
-        formatted_mappings[map_obj.MapName] = list(
+        formatted_mappings[map_obj.Id] = list(
             map(
                 lambda mutable_result_mapping: MutableNameResultMapping(
                     mutable_result_mapping.mutable.name(),
@@ -43,8 +43,13 @@ def display_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps):
     df = pd.DataFrame(formatted_mappings, index=indices)
     df.sort_index(inplace=True)
 
+    maps_indexes = dict(
+        {(map_obj.Id, map_obj.MapName) for map_obj in map_results_with_models.keys()}
+    )
+
     for col in df:
         df[col] = df[col].map(
             lambda mutable_name_result_mapping: mutable_name_result_mapping.result
         )
+    df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
     logging.info("\n" + df.to_markdown(tablefmt="psql"))
