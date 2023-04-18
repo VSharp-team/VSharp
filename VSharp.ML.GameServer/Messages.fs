@@ -1,6 +1,5 @@
 module VSharp.ML.GameServer.Messages
 
-open System.Collections.Generic
 open System.Text
 open System.Text.Json
 open System.Text.Json.Serialization
