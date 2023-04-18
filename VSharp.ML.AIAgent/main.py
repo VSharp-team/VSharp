@@ -91,7 +91,7 @@ def main():
 
     r_learn(
         epochs=epochs,
-        steps=max_steps,
+        train_steps=max_steps,
         models=models,
         train_maps_provider=train_maps_provider,
         validation_maps_provider=validation_maps_provider,

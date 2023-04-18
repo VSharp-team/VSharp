@@ -88,7 +88,7 @@ def invalidate_cache(predictors: list[Predictor]):
 def r_learn_iteration(
     models: list[Predictor],
     maps_provider: Callable[[], list[GameMap]],
-    steps: int,
+    steps: int | None,
     cm: ConnectionManager,
 ) -> ModelResultsOnGameMaps:
     maps = maps_provider()
@@ -96,6 +96,8 @@ def r_learn_iteration(
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
+        if steps == None:
+            steps = map.MaxSteps
         if (model, map) in cached.keys():
             mutable_result_mapping = cached[(model, map)]
             from_cache = True
@@ -110,7 +112,8 @@ def r_learn_iteration(
         model_results_on_map[map].append(mutable_result_mapping)
 
         logging.info(
-            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.MapName} in {steps} steps, "
+            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.MapName} "
+            f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
@@ -123,7 +126,7 @@ def r_learn_iteration(
 
 def r_learn(
     epochs: int,
-    steps: int,
+    train_steps: int,
     models: list[Predictor],
     train_maps_provider: Callable[[], list[GameMap]],
     validation_maps_provider: Callable[[], list[GameMap]],
@@ -133,12 +136,18 @@ def r_learn(
     for epoch in range(epochs):
         logging.info(f"epoch# {epoch}")
         train_game_maps_model_results = r_learn_iteration(
-            models, train_maps_provider, steps, connection_manager
+            models=models,
+            maps_provider=train_maps_provider,
+            steps=train_steps,
+            cm=connection_manager,
         )
         logging.info("Train maps results:")
         display_pivot_table(train_game_maps_model_results)
         validation_game_maps_model_results = r_learn_iteration(
-            models, validation_maps_provider, steps, connection_manager
+            models=models,
+            maps_provider=validation_maps_provider,
+            steps=None,
+            cm=connection_manager,
         )
         logging.info("Validation maps results:")
         display_pivot_table(validation_game_maps_model_results)
