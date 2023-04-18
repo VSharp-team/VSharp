@@ -488,7 +488,7 @@ public static class TestsRenderer
 
         SimpleNameSyntax? methodId = null;
 
-        foreach (var method in typeMock.Methods)
+        foreach (var method in typeMock.MethodMocks)
         {
             var m = method.BaseMethod;
             if (Reflection.hasNonVoidResult(m))
@@ -508,12 +508,12 @@ public static class TestsRenderer
         if (isDelegate)
         {
             var baseClass = typeMock.BaseClass;
-            Debug.Assert(typeMock.Methods.Count() == 1 && methodId != null && baseClass != null);
-            info = new DelegateMockInfo(mock.TypeId, methodsInfo, methodId, baseClass);
+            Debug.Assert(typeMock.MethodMocks.Count() == 1 && methodId != null && baseClass != null);
+            info = new DelegateMockInfo(mock.TypeId, typeMock, methodsInfo, methodId, baseClass);
         }
         else
         {
-            info = new MockInfo(mock.TypeId, methodsInfo);
+            info = new MockInfo(mock.TypeId, typeMock, methodsInfo);
         }
         AddMockInfo(typeMock.Id, info);
     }
@@ -597,6 +597,7 @@ public static class TestsRenderer
 
                 // Rendering mocked types
                 foreach (var mock in test.TypeMocks)
+                    // TODO: cache mocks among all generated tests
                     RenderMockedType(mocksProgram, mock);
 
                 // Rendering test

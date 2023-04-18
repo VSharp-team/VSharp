@@ -3,8 +3,10 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Diagnostics
-open System.Diagnostics.CodeAnalysis
+open System.Reflection
 open System.Xml.Serialization
+open Microsoft.FSharp.Collections
+
 open VSharp
 
 [<CLIMutable>]
@@ -15,6 +17,73 @@ type typeRepr = {
     name : string
     genericArgs : typeRepr array
 }
+with
+    static member Encode(t : Type) =
+        if t = null then
+            {
+                assemblyName = null
+                moduleFullyQualifiedName = null
+                name = null
+                genericArgs = null
+            }
+        else
+            let name, arguments =
+                if t.IsGenericType then
+                    if not t.IsConstructedGenericType then
+                        internalfail "Encoding not constructed generic types not supported"
+
+                    let arguments =
+                        t.GetGenericArguments()
+                        |> Seq.map typeRepr.Encode
+                        |> Seq.toArray
+                    let name = t.GetGenericTypeDefinition().FullName
+                    name, arguments
+                else
+                    t.FullName, null
+
+            {
+                assemblyName = t.Module.Assembly.FullName
+                moduleFullyQualifiedName = t.Module.FullyQualifiedName
+                name = name
+                genericArgs = arguments
+            }
+
+    member x.Decode() =
+        let rec decodeTypeRec (t : typeRepr) =
+            let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
+            let typ = mdle.GetType t.name
+            Debug.Assert(typ <> null)
+
+            if typ.IsGenericType then
+                Debug.Assert(t.genericArgs <> null && typ.GetGenericArguments().Length = t.genericArgs.Length)
+
+                let args = t.genericArgs |> Seq.map decodeTypeRec |> Seq.toArray
+                typ.MakeGenericType args
+            else
+                typ
+        if x.assemblyName = null then
+            null
+        else
+            let decodedType = decodeTypeRec x
+            AssemblyManager.NormalizeType decodedType
+
+[<CLIMutable>]
+[<Serializable>]
+[<XmlInclude(typeof<typeRepr>)>]
+type methodRepr = {
+    declaringType : typeRepr
+    token : int
+}
+with
+    static member Encode(m : MethodBase) : methodRepr =
+        {
+            declaringType = typeRepr.Encode m.DeclaringType
+            token = m.MetadataToken
+        }
+
+    member x.Decode() =
+        let declaringType = x.declaringType.Decode()
+        declaringType.GetMethods() |> Seq.find (fun m -> m.MetadataToken = x.token)
 
 [<CLIMutable>]
 [<Serializable>]
@@ -72,6 +141,50 @@ type arrayRepr = {
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<arrayRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<methodRepr>)>]
+type typeMockRepr = {
+    name : string
+    baseClass : typeRepr
+    interfaces : typeRepr array
+    baseMethods : methodRepr array
+    methodImplementations : obj array array
+}
+with
+    static member NullRepr =
+        {
+            name = null
+            baseClass = typeRepr.Encode null
+            interfaces = [||]
+            baseMethods = [||]
+            methodImplementations = [||]
+        }
+
+    static member Encode (t : Mocking.Type) (encode : obj -> obj) =
+        {
+            name = t.Id
+            baseClass = typeRepr.Encode t.BaseClass
+            interfaces =
+                t.Interfaces |> Seq.map typeRepr.Encode |> Array.ofSeq
+            baseMethods =
+                t.MethodMocks |> Seq.map (fun m -> methodRepr.Encode m.BaseMethod) |> Array.ofSeq
+            methodImplementations =
+                t.MethodMocks |> Seq.map (fun m -> m.ReturnValues |> Array.map encode) |> Array.ofSeq
+        }
+
+    member x.Decode() =
+        let baseClass = x.baseClass.Decode()
+        let interfaces = x.interfaces |> Array.map (fun i -> i.Decode())
+        let baseMethods = x.baseMethods |> Array.map (fun m -> m.Decode())
+        Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations
+
+[<CLIMutable>]
+[<Serializable>]
+[<XmlInclude(typeof<structureRepr>)>]
+[<XmlInclude(typeof<referenceRepr>)>]
+[<XmlInclude(typeof<pointerRepr>)>]
+[<XmlInclude(typeof<arrayRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<typeMockRepr>)>]
 type memoryRepr = {
     objects : obj array
     types : typeRepr array
@@ -84,73 +197,61 @@ type public CompactArrayRepr = {
     values : obj array
 }
 
-module Serialization =
+type MockStorage() =
+    let mocker = Mocking.Mocker()
+    let mockedTypes = List<Mocking.Type>()
 
-    let rec encodeType ([<MaybeNull>] t : Type) : typeRepr =
-        if t = null then {assemblyName = null; moduleFullyQualifiedName = null; name = null; genericArgs = null}
-        else
-            let name, arguments =
-                if t.IsGenericType then
-                    if not t.IsConstructedGenericType then
-                        internalfail "Encoding not constructed generic types not supported"
+    member x.Deserialize(typeMocks : typeMockRepr array) =
+        typeMocks
+        |> Array.map (fun r -> r.Decode())
+        |> mockedTypes.AddRange
 
-                    let arguments = t.GetGenericArguments() |> Seq.map encodeType |> Seq.toArray
-                    t.GetGenericTypeDefinition().FullName, arguments
-                else
-                    t.FullName, null
+    member x.RegisterMockedType (typ : Mocking.Type) =
+        match mockedTypes |> Seq.tryFindIndex ((=) typ) with
+        | Some idx -> -idx - 1
+        | None ->
+            mockedTypes.Add(typ)
+            -mockedTypes.Count
 
-            {assemblyName = t.Module.Assembly.FullName; moduleFullyQualifiedName = t.Module.FullyQualifiedName; name = name; genericArgs = arguments}
+    member x.Item(index : int) : Mocking.Type * Type =
+        let mockedType = mockedTypes[-index - 1]
+        mockedType, mocker.BuildDynamicType mockedType
 
-    [<MaybeNull>]
-    let decodeType (t : typeRepr) =
-        let rec decodeTypeRec (t : typeRepr) =
-            let mdle = Reflection.resolveModule t.assemblyName t.moduleFullyQualifiedName
-            let typ = mdle.GetType t.name
-            Debug.Assert(typ <> null)
+    member x.TypeMocks
+        with get() = mockedTypes
 
-            if typ.IsGenericType then
-                Debug.Assert(t.genericArgs <> null && typ.GetGenericArguments().Length = t.genericArgs.Length)
+type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr : bool) =
 
-                let args = t.genericArgs |> Seq.map decodeTypeRec |> Seq.toArray
-                typ.MakeGenericType args
-            else
-                typ
-        if t.assemblyName = null then
-            null
-        else
-            let decodedType = decodeTypeRec t
-            AssemblyManager.NormalizeType decodedType
-
-type ITypeMockSerializer =
-    abstract IsMockObject : obj -> bool
-    abstract IsMockRepresentation : obj -> bool
-    abstract Serialize : obj -> obj
-    abstract Deserialize : (obj -> obj) -> obj -> obj
-    abstract UpdateMock : (obj -> obj) -> obj -> obj -> unit
-
-and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRepr : bool) =
-
-    let sourceTypes = List<Type>(repr.types |> Array.map Serialization.decodeType)
+    let sourceTypes = List<Type>(repr.types |> Array.map (fun t -> t.Decode()))
     let compactRepresentations = Dictionary<obj, CompactArrayRepr>()
+
+    let createMockObject decode index =
+        let mockType, t = mockStorage[index]
+        mockType.EnsureInitialized decode t
+        let baseClass = mockType.BaseClass
+        if TypeUtils.isDelegate baseClass then Mocking.Mocker.CreateDelegate baseClass t
+        else Reflection.createObject t
 
     let rec allocateDefault (obj : obj) =
         match obj with
         | null
         | :? referenceRepr -> null
-        | :? structureRepr as repr ->
-            let t = sourceTypes.[repr.typ]
+        | :? structureRepr as repr when repr.typ >= 0 ->
+            // Case for structs or classes of .NET type
+            let t = sourceTypes[repr.typ]
             if t.IsByRefLike then
                 internalfailf "Generating test: unable to create byref-like object (type = %O)" t
             if t.ContainsGenericParameters then
                 internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
             else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+        | :? structureRepr as repr ->
+            // Case for mocked structs or classes
+            createMockObject allocateDefault repr.typ
         | :? arrayRepr as repr ->
-            let t = sourceTypes.[repr.typ]
+            let t = sourceTypes[repr.typ]
             let elementType = t.GetElementType()
             if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
             else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
-        | _ when mocker.IsMockRepresentation obj ->
-            mocker.Deserialize allocateDefault obj
         | _ -> obj
 
     let sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
@@ -159,27 +260,44 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
     let rec decodeValue (obj : obj) =
         match obj with
         | :? referenceRepr as repr ->
-            sourceObjects.[repr.index]
+            sourceObjects[repr.index]
         | :? pointerRepr -> __notImplemented__()
-        | :? structureRepr as repr ->
-            let t = sourceTypes.[repr.typ]
+        | :? structureRepr as repr when repr.typ >= 0 ->
+            // Case for structs or classes of .NET type
+            let t = sourceTypes[repr.typ]
             if not t.IsValueType then
                 internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
             let obj = allocateDefault repr
             decodeStructure repr obj
             obj
+        | :? structureRepr as repr ->
+            // Case for mocked structs or classes
+            let obj = createMockObject decodeValue repr.typ
+            decodeMockedStructure repr obj
+            obj
         | :? arrayRepr -> internalfail "Unexpected array representation inside object!"
         | :? enumRepr as repr ->
-            let t = sourceTypes.[repr.typ]
+            let t = sourceTypes[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
-        | _ when mocker.IsMockRepresentation obj -> mocker.Deserialize decodeValue obj
         | _ -> obj
+
+    and decodeFields (fieldsRepr : obj array) obj t : unit =
+        let fields = Reflection.fieldsOf false t
+        assert(Array.length fields = Array.length fieldsRepr)
+        let decodeField (_, field : FieldInfo) repr =
+            let value = decodeValue repr
+            field.SetValue(obj, value)
+        Array.iter2 decodeField fields fieldsRepr
 
     and decodeStructure (repr : structureRepr) obj : unit =
         let t = obj.GetType()
-        Reflection.fieldsOf false t |> Array.iteri (fun i (_, field) ->
-            let value = decodeValue repr.fields.[i]
-            field.SetValue(obj, value))
+        decodeFields repr.fields obj t
+
+    and decodeMockedStructure (repr : structureRepr) obj : unit =
+        let fieldsRepr = repr.fields
+        if Array.isEmpty fieldsRepr |> not then
+            let t = obj.GetType().BaseType
+            decodeFields repr.fields obj t
 
     and decodeArray (repr : arrayRepr) (obj : obj) : unit =
         assert(repr.lowerBounds = null || repr.lengths.Length = repr.lowerBounds.Length)
@@ -206,14 +324,23 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
                 let compactRepr = {array = arr; defaultValue = defaultValue; indices = repr.indices; values = values}
                 compactRepresentations.Add(arr, compactRepr)
 
-    and decodeObject (repr : obj) obj =
+    and decodeObject (repr : obj) (obj : obj) =
         match repr with
-        | :? structureRepr as repr ->
+        | :? structureRepr as repr when repr.typ >= 0 ->
+            // Case for structs or classes of .NET type
             decodeStructure repr obj
+        | :? structureRepr as repr ->
+            // Case for mocked structs or classes
+            let mockType, t = mockStorage[repr.typ]
+            let mockInstanceType =
+                match obj with
+                | :? Delegate as d -> d.Method.DeclaringType
+                | _ -> obj.GetType()
+            assert(t = mockInstanceType)
+            mockType.Update decodeValue mockInstanceType
+            decodeMockedStructure repr obj
         | :? arrayRepr as repr ->
             decodeArray repr obj
-        | _ when mocker.IsMockRepresentation repr ->
-            mocker.UpdateMock decodeValue repr obj
         | _ -> ()
 
     let () = Seq.iter2 decodeObject objReprs sourceObjects
@@ -302,9 +429,7 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         | :? arrayRepr -> obj
         | :? pointerRepr -> obj
         | :? enumRepr -> obj
-        | _ when mocker.IsMockObject obj -> mocker.Serialize obj
         | _ ->
-            // TODO: delegates?
             let t = obj.GetType()
             if x.IsSerializable t then obj
             else
@@ -333,6 +458,10 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
         repr :> obj
 
+    member x.RepresentMockedStruct (typ : Mocking.Type) (fields : obj array) =
+        let repr : structureRepr = {typ = mockStorage.RegisterMockedType typ; fields = fields}
+        repr :> obj
+
     member x.ReserveRepresentation() = x.Bind null null
 
     member x.AddClass (typ : Type) (fields : obj array) index =
@@ -340,8 +469,9 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         objReprs.[index] <- repr
         { index = index }
 
-    member x.AddMockedClass (mockRepr : obj) index =
-        objReprs.[index] <- mockRepr
+    member x.AddMockedClass (typ : Mocking.Type) (fields : obj array) index =
+        let repr : structureRepr = {typ = mockStorage.RegisterMockedType typ; fields = fields}
+        objReprs.[index] <- repr
         { index = index }
 
     member x.AddArray (typ : Type) (contents : obj array) (lengths : int array) (lowerBounds : int array) index =
@@ -359,4 +489,4 @@ and MemoryGraph(repr : memoryRepr, mocker : ITypeMockSerializer, createCompactRe
         let p = t.GetProperty("objects")
         p.SetValue(target, objReprs.ToArray())
         let p = t.GetProperty("types")
-        p.SetValue(target, sourceTypes |> Seq.map Serialization.encodeType |> Array.ofSeq)
+        p.SetValue(target, sourceTypes |> Seq.map typeRepr.Encode |> Array.ofSeq)

@@ -31,7 +31,6 @@ type TypeMock(supertypes : Type seq) =
     member x.WithSupertypes(supertypes' : Type seq) : unit =
         supertypes <- supertypes'
 
-
 // ------------------------------------------------- Type constraints -------------------------------------------------
 
 module TypeStorage =

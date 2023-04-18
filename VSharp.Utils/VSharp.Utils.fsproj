@@ -38,8 +38,8 @@
         <Compile Include="RegionTree.fs" />
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="FileSystem.fs" />
-        <Compile Include="MemoryGraph.fs" />
         <Compile Include="Mocking.fs" />
+        <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
         <Compile Include="TestResultsChecker.fs" />

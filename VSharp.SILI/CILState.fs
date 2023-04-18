@@ -271,7 +271,7 @@ module internal CilStateOperations =
 
     let addTarget (state : cilState) target =
         match state.targets with
-        | Some targets -> state.targets <- Some <| Set.add target targets
+        | Some targets -> state.targets <- Some (Set.add target targets)
         | None -> state.targets <- Some (Set.add target Set.empty)
 
     let removeTarget (state : cilState) target =
