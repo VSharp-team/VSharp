@@ -52,8 +52,8 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-   
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+       
+    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //25
     //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
