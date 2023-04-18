@@ -1,5 +1,5 @@
 // C# program for Merge Sort
-using System;
+
 using NUnit.Framework;
 using VSharp.Test;
 

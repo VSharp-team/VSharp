@@ -15,17 +15,10 @@ let trainMaps, validationMaps =
     
     let add = add' trainMaps 10000000u<step>
     
-    
-    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"    
-    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
-    //add 75u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
-    
+        
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
     // too slow
     //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
@@ -55,21 +48,11 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
-    add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BellmanFord"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //add 60u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    
-    //Moved to verify 
-    //add 10u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
-    //too slow
-    //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
-    //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
-    //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"
-    
+   
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //25
@@ -78,9 +61,10 @@ let trainMaps, validationMaps =
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    add 50u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    //Moved to validation
+    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
@@ -136,15 +120,13 @@ let trainMaps, validationMaps =
     //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
      
     let add = add' validationMaps
-    
-    add 400u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
+        
     //add 400u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
-    //add 20000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LoanExamBuild"
-    add 1000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
-    add 1000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"    
-    add 1000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    //add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "ApplyMoveAndCheckOtherValidMoves"
-    //add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "CheckMate1"
-    //add 100000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "CheckMoveIsValidAndApply"
+    add 20000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LoanExamBuild"    
+    add 5000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"    
+    add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
+    add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bridge"
+    add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "PrimeFactorCount"
+
           
     trainMaps, validationMaps

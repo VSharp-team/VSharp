@@ -1,5 +1,8 @@
+using VSharp.Test;
+
 namespace VSharp.ML.GameMaps;
 
+//[TestSvmFixture]
 public class KruskalGraph
 {
         class Edge : IComparable<Edge> {
@@ -69,15 +72,15 @@ public class KruskalGraph
  
     // The main function to construct MST
     // using Kruskal's algorithm
-    Tuple<int,List<Tuple<int,int,int>>> KruskalMST()
+    //[TestSvm()]
+    public Tuple<int,List<Tuple<int,int,int>>> KruskalMST()
     {  
         List<Tuple<int, int, int>> resultEdges = new List<Tuple<int, int, int>>(); 
         // This will store the
         // resultant MST
         Edge[] result = new Edge[V];
         int e = 0; // An index variable, used for result[]
-        int i
-            = 0; // An index variable, used for sorted edges
+        int i = 0; // An index variable, used for sorted edges
         for (i = 0; i < V; ++i)
             result[i] = new Edge();
  

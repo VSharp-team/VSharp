@@ -83,6 +83,7 @@ public class BridgesGraph
 
     // DFS based function to find all bridges. It uses recursive 
     // function bridgeUtil() 
+    [TestSvm()]
     public void bridge() 
     { 
         // Mark all the vertices as not visited 
