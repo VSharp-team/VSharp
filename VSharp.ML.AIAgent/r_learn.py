@@ -7,16 +7,18 @@ from typing import Callable, TypeAlias
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
-from common.utils import compute_coverage_percent, get_states
+from common.utils import covered, get_states
 from displayer.tables import display_pivot_table
 from ml.model_wrappers.protocols import Mutable, Predictor
 from ml.mutation.classes import (
     GameMapsModelResults,
+    ModelResultsOnGameMaps,
     MutableResult,
     MutableResultMapping,
 )
+from ml.mutation.utils import invert_mapping_gmmr_mrgm
 
-NewGenProviderFunction: TypeAlias = Callable[[GameMapsModelResults], list[Mutable]]
+NewGenProviderFunction: TypeAlias = Callable[[ModelResultsOnGameMaps], list[Mutable]]
 
 
 def generate_games(models: list[Predictor], maps: list[GameMap]):
@@ -29,6 +31,7 @@ def play_map(
 ) -> MutableResultMapping:
     cumulative_reward = MoveReward(0, 0)
     steps_count = 0
+    last_step_covered = None
 
     with suppress(NAgent.GameOver):
         for _ in range(steps):
@@ -46,16 +49,26 @@ def play_map(
             reward = with_agent.recv_reward_or_throw_gameover()
             cumulative_reward += reward.ForMove
             steps_count += 1
+            last_step_covered = reward.ForMove.ForCoverage
 
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
+
+        assert steps_count == steps  # reachable iff all steps exsausted
+
+    factual_coverage, vertexes_in_zone = covered(game_state)
+    factual_coverage += last_step_covered
+
+    coverage_percent = factual_coverage / vertexes_in_zone * 100
+
+    assert coverage_percent == 100 or (steps_count == steps)
 
     model_result: MutableResultMapping = MutableResultMapping(
         with_model,
         MutableResult(
             cumulative_reward,
             steps_count,
-            compute_coverage_percent(game_state),
+            coverage_percent,
         ),
     )
 
@@ -73,8 +86,12 @@ def invalidate_cache(predictors: list[Predictor]):
 
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(
-    models: list[Predictor], maps: list[GameMap], steps: int, cm: ConnectionManager
-) -> GameMapsModelResults:
+    models: list[Predictor],
+    maps_provider: Callable[[], list[GameMap]],
+    steps: int,
+    cm: ConnectionManager,
+) -> ModelResultsOnGameMaps:
+    maps = maps_provider()
     games = generate_games(models, maps)
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
@@ -84,7 +101,7 @@ def r_learn_iteration(
             from_cache = True
         else:
             with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-                logging.info(f"{model.name()} is playing {map.NameOfObjectToCover}")
+                logging.info(f"{model} is playing {map.MapName}")
                 mutable_result_mapping = play_map(
                     with_agent=agent, with_model=model, steps=steps
                 )
@@ -93,30 +110,40 @@ def r_learn_iteration(
         model_results_on_map[map].append(mutable_result_mapping)
 
         logging.info(
-            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.NameOfObjectToCover} in {steps} steps, "
+            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.MapName} in {steps} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
         cached[(model, map)] = mutable_result_mapping
 
-    return model_results_on_map
+    inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
+
+    return inverted
 
 
 def r_learn(
     epochs: int,
     steps: int,
     models: list[Predictor],
-    maps: list[GameMap],
+    train_maps_provider: Callable[[], list[GameMap]],
+    validation_maps_provider: Callable[[], list[GameMap]],
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
         logging.info(f"epoch# {epoch}")
-        game_maps_model_results = r_learn_iteration(
-            models, maps, steps, connection_manager
+        train_game_maps_model_results = r_learn_iteration(
+            models, train_maps_provider, steps, connection_manager
         )
-        models = new_gen_provider_function(game_maps_model_results)
-        display_pivot_table(game_maps_model_results)
+        logging.info("Train maps results:")
+        display_pivot_table(train_game_maps_model_results)
+        validation_game_maps_model_results = r_learn_iteration(
+            models, validation_maps_provider, steps, connection_manager
+        )
+        logging.info("Validation maps results:")
+        display_pivot_table(validation_game_maps_model_results)
+
+        models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)
 
     survived = "\n"

@@ -1,11 +1,11 @@
 import logging
 
 from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_train_maps
+from agent.n_agent import get_train_maps, get_validation_maps
 from common.constants import Constant
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
-from ml.mutation.classes import GameMapsModelResults
+from ml.mutation.classes import ModelResultsOnGameMaps
 from ml.mutation.selection import (
     decart_scorer,
     euclidean_scorer,
@@ -25,7 +25,7 @@ logging.basicConfig(
 )
 
 
-def new_gen_function(mr: GameMapsModelResults) -> list[Mutable]:
+def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     best_mutables = [
         *select_k_best(decart_scorer, mr, k=3),
         *select_n_maps_tops(mr, n=4),
@@ -81,14 +81,23 @@ def main():
     n_models = 10
 
     GeneticLearner.set_model(loaded_model, 8)
-    models = [
-        GeneticLearner()  # ([-0.12, -0.17, 0.3, 0.16, 0.01, 0.33, 0.24, -0.05])
-        for _ in range(n_models)
-    ]
+    models = [GeneticLearner() for _ in range(n_models)]
 
-    maps = get_train_maps(cm)
+    def train_maps_provider():
+        return get_train_maps(cm)
 
-    r_learn(epochs, max_steps, models, maps, new_gen_function, cm)
+    def validation_maps_provider():
+        return get_validation_maps(cm)
+
+    r_learn(
+        epochs=epochs,
+        steps=max_steps,
+        models=models,
+        train_maps_provider=train_maps_provider,
+        validation_maps_provider=validation_maps_provider,
+        new_gen_provider_function=new_gen_function,
+        connection_manager=cm,
+    )
 
     cm.close()
 
