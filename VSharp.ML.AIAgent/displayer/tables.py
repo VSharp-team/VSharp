@@ -1,4 +1,3 @@
-import logging
 from collections import defaultdict, namedtuple
 
 import pandas as pd
@@ -20,7 +19,7 @@ def get_sample_val(d: dict):
     return d[sample_key]
 
 
-def display_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps):
+def create_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps) -> str:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
 
     formatted_mappings: defaultdict[str, list[tuple[str, float]]] = defaultdict(list)
@@ -52,4 +51,4 @@ def display_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps):
             lambda mutable_name_result_mapping: mutable_name_result_mapping.result
         )
     df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
-    logging.info("\n" + df.to_markdown(tablefmt="psql"))
+    return df.to_markdown(tablefmt="psql")

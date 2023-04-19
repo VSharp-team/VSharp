@@ -8,7 +8,8 @@ from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
-from displayer.tables import display_pivot_table
+from displayer.tables import create_pivot_table
+from displayer.utils import append_to_tables_file
 from ml.model_wrappers.protocols import Mutable, Predictor
 from ml.mutation.classes import (
     GameMapsModelResults,
@@ -54,14 +55,15 @@ def play_map(
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
 
-        assert steps_count == steps  # reachable iff all steps exsausted
-
     factual_coverage, vertexes_in_zone = covered(game_state)
     factual_coverage += last_step_covered
 
     coverage_percent = factual_coverage / vertexes_in_zone * 100
 
-    assert coverage_percent == 100 or (steps_count == steps)
+    if coverage_percent != 100 and steps_count != steps:
+        logging.error(
+            f"<{with_model.name()}>: not all steps exshausted with non-100% coverage. steps: {steps_count}, coverage: {coverage_percent}"
+        )
 
     model_result: MutableResultMapping = MutableResultMapping(
         with_model,
@@ -92,7 +94,7 @@ def r_learn_iteration(
     cm: ConnectionManager,
 ) -> ModelResultsOnGameMaps:
     maps = maps_provider()
-    games = generate_games(models, maps)
+    games = list(generate_games(models, maps))
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
@@ -103,7 +105,7 @@ def r_learn_iteration(
             from_cache = True
         else:
             with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-                logging.info(f"{model} is playing {map.MapName}")
+                logging.info(f"<{model}> is playing {map.MapName}")
                 mutable_result_mapping = play_map(
                     with_agent=agent, with_model=model, steps=steps
                 )
@@ -141,16 +143,22 @@ def r_learn(
             steps=train_steps,
             cm=connection_manager,
         )
-        logging.info("Train maps results:")
-        display_pivot_table(train_game_maps_model_results)
+        append_to_tables_file(f"epoch# {epoch}\n")
+        append_to_tables_file(
+            f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
+        )
+
         validation_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=validation_maps_provider,
             steps=None,
             cm=connection_manager,
         )
-        logging.info("Validation maps results:")
-        display_pivot_table(validation_game_maps_model_results)
+        append_to_tables_file(
+            f"Validation: \n"
+            + create_pivot_table(validation_game_maps_model_results)
+            + "\n"
+        )
 
         models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)
