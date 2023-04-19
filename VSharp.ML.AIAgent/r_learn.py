@@ -8,7 +8,8 @@ from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
-from displayer.tables import display_pivot_table
+from displayer.tables import create_pivot_table
+from displayer.utils import append_to_tables_file
 from ml.model_wrappers.protocols import Mutable, Predictor
 from ml.mutation.classes import (
     GameMapsModelResults,
@@ -142,16 +143,22 @@ def r_learn(
             steps=train_steps,
             cm=connection_manager,
         )
-        logging.info("Train maps results:")
-        display_pivot_table(train_game_maps_model_results)
+        append_to_tables_file(f"epoch# {epoch}\n")
+        append_to_tables_file(
+            f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
+        )
+
         validation_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=validation_maps_provider,
             steps=None,
             cm=connection_manager,
         )
-        logging.info("Validation maps results:")
-        display_pivot_table(validation_game_maps_model_results)
+        append_to_tables_file(
+            f"Validation: \n"
+            + create_pivot_table(validation_game_maps_model_results)
+            + "\n"
+        )
 
         models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)

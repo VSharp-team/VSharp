@@ -16,6 +16,8 @@ from ml.mutation.selection import (
 )
 from ml.utils import load_full_model
 from r_learn import r_learn
+from displayer.utils import clean_tables_file
+
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -89,6 +91,7 @@ def main():
     def validation_maps_provider():
         return get_validation_maps(cm)
 
+    clean_tables_file()
     r_learn(
         epochs=epochs,
         train_steps=max_steps,
