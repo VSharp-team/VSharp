@@ -54,14 +54,15 @@ def play_map(
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
 
-        assert steps_count == steps  # reachable iff all steps exsausted
-
     factual_coverage, vertexes_in_zone = covered(game_state)
     factual_coverage += last_step_covered
 
     coverage_percent = factual_coverage / vertexes_in_zone * 100
 
-    assert coverage_percent == 100 or (steps_count == steps)
+    if coverage_percent != 100 and steps_count != steps:
+        logging.error(
+            f"<{with_model.name()}>: not all steps exshausted with non-100% coverage. steps: {steps_count}, coverage: {coverage_percent}"
+        )
 
     model_result: MutableResultMapping = MutableResultMapping(
         with_model,
@@ -92,7 +93,7 @@ def r_learn_iteration(
     cm: ConnectionManager,
 ) -> ModelResultsOnGameMaps:
     maps = maps_provider()
-    games = generate_games(models, maps)
+    games = list(generate_games(models, maps))
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
     for model, map in games:
@@ -103,7 +104,7 @@ def r_learn_iteration(
             from_cache = True
         else:
             with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-                logging.info(f"{model} is playing {map.MapName}")
+                logging.info(f"<{model}> is playing {map.MapName}")
                 mutable_result_mapping = play_map(
                     with_agent=agent, with_model=model, steps=steps
                 )
