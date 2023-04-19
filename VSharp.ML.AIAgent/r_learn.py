@@ -4,8 +4,11 @@ from contextlib import closing, suppress
 from itertools import product
 from typing import Callable, TypeAlias
 
+import tqdm
+
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import NAgent
+from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
 from displayer.tables import create_pivot_table
@@ -77,49 +80,54 @@ def play_map(
     return model_result
 
 
-cached: dict[tuple[Predictor, GameMap], MutableResultMapping] = {}
+cached: dict[tuple[Predictor, GameMap, int], MutableResultMapping] = {}
 
 
 def invalidate_cache(predictors: list[Predictor]):
-    for cached_predictor, cached_game_map in list(cached.keys()):
+    for cached_predictor, cached_game_map, cached_max_steps in list(cached.keys()):
         if cached_predictor not in predictors:
-            cached.pop((cached_predictor, cached_game_map))
+            cached.pop((cached_predictor, cached_game_map, cached_max_steps))
 
 
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(
     models: list[Predictor],
     maps_provider: Callable[[], list[GameMap]],
-    steps: int | None,
+    max_steps: int | None,
+    tqdm_desc: str,
     cm: ConnectionManager,
 ) -> ModelResultsOnGameMaps:
     maps = maps_provider()
     games = list(generate_games(models, maps))
     model_results_on_map: GameMapsModelResults = defaultdict(list)
 
-    for model, map in games:
-        if steps == None:
-            steps = map.MaxSteps
-        if (model, map) in cached.keys():
-            mutable_result_mapping = cached[(model, map)]
+    for model, game_map in tqdm.tqdm(
+        games, desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT
+    ):
+        if max_steps == None:
+            max_steps = game_map.MaxSteps
+        if (model, game_map, max_steps) in cached.keys():
+            mutable_result_mapping = cached[(model, game_map, max_steps)]
             from_cache = True
         else:
-            with closing(NAgent(cm, map_id_to_play=map.Id, steps=steps)) as agent:
-                logging.info(f"<{model}> is playing {map.MapName}")
+            with closing(
+                NAgent(cm, map_id_to_play=game_map.Id, steps=max_steps)
+            ) as agent:
+                logging.info(f"<{model}> is playing {game_map.MapName}")
                 mutable_result_mapping = play_map(
-                    with_agent=agent, with_model=model, steps=steps
+                    with_agent=agent, with_model=model, steps=max_steps
                 )
             from_cache = False
 
-        model_results_on_map[map].append(mutable_result_mapping)
+        model_results_on_map[game_map].append(mutable_result_mapping)
 
         logging.info(
-            f"{'[cached]' if from_cache else ''}<{model}> finished map {map.MapName} "
+            f"{'[cached]' if from_cache else ''}<{model}> finished map {game_map.MapName} "
             f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
             f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
             f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
         )
-        cached[(model, map)] = mutable_result_mapping
+        cached[(model, game_map, max_steps)] = mutable_result_mapping
 
     inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
 
@@ -136,14 +144,17 @@ def r_learn(
     connection_manager: ConnectionManager,
 ) -> None:
     for epoch in range(epochs):
-        logging.info(f"epoch# {epoch}")
+        epoch_string = f"Epoch {epoch + 1}/{epochs}"
+        logging.info(epoch_string)
+        print(epoch_string)
         train_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=train_maps_provider,
-            steps=train_steps,
+            max_steps=train_steps,
+            tqdm_desc="Train",
             cm=connection_manager,
         )
-        append_to_tables_file(f"epoch# {epoch}\n")
+        append_to_tables_file(epoch_string + "\n")
         append_to_tables_file(
             f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
         )
@@ -151,7 +162,8 @@ def r_learn(
         validation_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=validation_maps_provider,
-            steps=None,
+            max_steps=None,
+            tqdm_desc="Validation",
             cm=connection_manager,
         )
         append_to_tables_file(
