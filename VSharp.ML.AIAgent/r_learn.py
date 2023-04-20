@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from contextlib import closing, suppress
 from itertools import product
-from typing import Callable, TypeAlias
+from typing import Callable, Optional, TypeAlias
 
 import tqdm
 
@@ -89,11 +89,15 @@ def invalidate_cache(predictors: list[Predictor]):
             cached.pop((cached_predictor, cached_game_map, cached_max_steps))
 
 
+def _use_user_steps(provided_steps_field: Optional[int]):
+    return provided_steps_field != None
+
+
 # вот эту функцию можно параллелить (внутренний for, например)
 def r_learn_iteration(
     models: list[Predictor],
     maps_provider: Callable[[], list[GameMap]],
-    max_steps: int | None,
+    user_max_steps: Optional[int],
     tqdm_desc: str,
     cm: ConnectionManager,
 ) -> ModelResultsOnGameMaps:
@@ -104,8 +108,10 @@ def r_learn_iteration(
     for model, game_map in tqdm.tqdm(
         games, desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT
     ):
-        if max_steps == None:
-            max_steps = game_map.MaxSteps
+        max_steps = (
+            user_max_steps if _use_user_steps(user_max_steps) else game_map.MaxSteps
+        )
+
         if (model, game_map, max_steps) in cached.keys():
             mutable_result_mapping = cached[(model, game_map, max_steps)]
             from_cache = True
@@ -136,7 +142,7 @@ def r_learn_iteration(
 
 def r_learn(
     epochs: int,
-    train_steps: int,
+    train_max_steps: int,
     models: list[Predictor],
     train_maps_provider: Callable[[], list[GameMap]],
     validation_maps_provider: Callable[[], list[GameMap]],
@@ -150,7 +156,7 @@ def r_learn(
         train_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=train_maps_provider,
-            max_steps=train_steps,
+            user_max_steps=train_max_steps,
             tqdm_desc="Train",
             cm=connection_manager,
         )
@@ -162,7 +168,7 @@ def r_learn(
         validation_game_maps_model_results = r_learn_iteration(
             models=models,
             maps_provider=validation_maps_provider,
-            max_steps=None,
+            user_max_steps=None,
             tqdm_desc="Validation",
             cm=connection_manager,
         )
