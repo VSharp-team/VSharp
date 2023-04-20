@@ -310,7 +310,7 @@ and CfgInfo internal (method : MethodWithBody) =
 
     let findDistanceFrom node =
         Dict.getValueOrUpdate cfgDistanceFrom node (fun () ->
-        let dist = GraphUtils.incrementalSourcedDijkstraAlgo node cfgDistanceFrom
+        let dist = incrementalSourcedDijkstraAlgo node cfgDistanceFrom
         let distFromNode = Dictionary<ICfgNode, uint>()
         for i in dist do
             if i.Value <> GraphUtils.infinity then
