@@ -94,7 +94,7 @@ def main():
     clean_tables_file()
     r_learn(
         epochs=epochs,
-        train_steps=max_steps,
+        train_max_steps=max_steps,
         models=models,
         train_maps_provider=train_maps_provider,
         validation_maps_provider=validation_maps_provider,
