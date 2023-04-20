@@ -14,7 +14,7 @@ let trainMaps, validationMaps =
             firstFreeMapId <- firstFreeMapId + 1u
     
     let add = add' trainMaps 10000000u<step>
-    
+   
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
@@ -52,11 +52,6 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-       
-    //!!!add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
-    //25
-    //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
@@ -126,11 +121,10 @@ let trainMaps, validationMaps =
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
-     
+    
     let add = add' validationMaps
         
-    //add 400u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
-    
+    add 1000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     add 20000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LoanExamBuild"    
     add 5000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "multiply_matrix"    
     add 5000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
@@ -138,7 +132,6 @@ let trainMaps, validationMaps =
     add 5000u<step> 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "PrimeFactorCount"
     add 10000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindLongestPalindrome"
     add 2000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "bucketSort"
-    add 10000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "GetMaxBiPartiteMatchingMain"
-    
+    add 10000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "GetMaxBiPartiteMatchingMain"    
 
     trainMaps, validationMaps
