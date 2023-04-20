@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net451;netstandard1.0</TargetFrameworks>
     <RootNamespace>Advanced.Algorithms</RootNamespace>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <SignAssembly>True</SignAssembly>
@@ -10,6 +9,7 @@
     <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
     <LangVersion>latest</LangVersion>
     <VersionPrefix>1.0.0.0</VersionPrefix>
+    <TargetFramework>net6.0</TargetFramework>
   </PropertyGroup>
 
   <ItemGroup>
