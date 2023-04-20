@@ -9,4 +9,8 @@
         <Compile Include="Maps.fs" />
     </ItemGroup>
 
+    <ItemGroup>
+      <ProjectReference Include="..\Advanced.Algorithms\Advanced.Algorithms.csproj" />
+    </ItemGroup>
+
 </Project>

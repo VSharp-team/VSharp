@@ -32,6 +32,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.ML.GameMaps", "VShar
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.ML.GameServer", "VSharp.ML.GameServer\VSharp.ML.GameServer.fsproj", "{44586A7C-12E4-4765-ADF0-20DE2ED2EEC7}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advanced.Algorithms", "Advanced.Algorithms\Advanced.Algorithms.csproj", "{D6083B16-23A8-48B8-832C-6D0E097B9ECF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -201,5 +203,15 @@ Global
 		{44586A7C-12E4-4765-ADF0-20DE2ED2EEC7}.ReleaseConcolic|Any CPU.Build.0 = Debug|Any CPU
 		{44586A7C-12E4-4765-ADF0-20DE2ED2EEC7}.DebugConcolic|Any CPU.ActiveCfg = Debug|Any CPU
 		{44586A7C-12E4-4765-ADF0-20DE2ED2EEC7}.DebugConcolic|Any CPU.Build.0 = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.ReleaseConcolic|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.ReleaseConcolic|Any CPU.Build.0 = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugConcolic|Any CPU.ActiveCfg = Debug|Any CPU
+		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugConcolic|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

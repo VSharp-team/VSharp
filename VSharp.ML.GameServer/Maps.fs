@@ -53,18 +53,13 @@ let trainMaps, validationMaps =
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
        
-    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
+    //!!!add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     //25
     //add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
     add 25u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
-    
-    //Moved to validation
-    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
-    //add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "determinant"
@@ -101,8 +96,7 @@ let trainMaps, validationMaps =
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryModifyMatrix"
     
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "RedBlackTreeInsert"
-    
-    
+        
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "AhoCorasickMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "KMPSearchMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinSearchMain"
@@ -117,6 +111,13 @@ let trainMaps, validationMaps =
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "IslandsMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixQueryMain"
     
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindArticulationPoints"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindBridges"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "Compress"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindGCD"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindIntersections"
+    
+    
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
@@ -130,6 +131,8 @@ let trainMaps, validationMaps =
     add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "adjoint"
     add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bridge"
     add 5000u<step> 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "PrimeFactorCount"
+    add 10000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindLongestPalindrome"
+    
 
           
     trainMaps, validationMaps
