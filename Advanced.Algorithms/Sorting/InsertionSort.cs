@@ -11,7 +11,7 @@ public class InsertionSort<T> where T : IComparable
     /// <summary>
     ///     Time complexity: O(n^2).
     /// </summary>
-    public static T[] Sort(T[] array, SortDirection sortDirection = SortDirection.Ascending)
+    public static T[] insertionSort(T[] array, SortDirection sortDirection = SortDirection.Ascending)
     {
         var comparer = new CustomComparer<T>(sortDirection, Comparer<T>.Default);
 

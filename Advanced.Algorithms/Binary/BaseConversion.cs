@@ -16,7 +16,7 @@ public class BaseConversion
     /// <param name="dstBaseChars">Destination base system characters in increasing order. For example 01 for base 2.</param>
     /// <param name="precision">Required precision when dealing with fractions. Defaults to 32 places.</param>
     /// <returns>The result in target base as a string.</returns>
-    public static string Convert(string srcNumber,
+    public static string BaseConvert(string srcNumber,
         string srcBaseChars,
         string dstBaseChars, int precision = 32)
     {

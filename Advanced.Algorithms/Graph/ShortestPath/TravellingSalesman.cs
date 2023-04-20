@@ -13,7 +13,7 @@ public class TravellingSalesman<T, TW> where TW : IComparable
 {
     private IShortestPathOperators<TW> @operator;
 
-    public TW FindMinWeight(IGraph<T> graph, IShortestPathOperators<TW> @operator)
+    public TW FindMinWeightMain(IGraph<T> graph, IShortestPathOperators<TW> @operator)
     {
         this.@operator = @operator;
         if (this.@operator == null)

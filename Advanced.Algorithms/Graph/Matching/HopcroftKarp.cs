@@ -12,7 +12,7 @@ public class HopcroftKarpMatching<T>
     /// <summary>
     ///     Returns a list of Max BiPartite Match Edges.
     /// </summary>
-    public HashSet<MatchEdge<T>> GetMaxBiPartiteMatching(IGraph<T> graph)
+    public HashSet<MatchEdge<T>> GetMaxBiPartiteMatchingMain(IGraph<T> graph)
     {
         //check if the graph is BiPartite by coloring 2 colors
         var mColorer = new MColorer<T, int>();

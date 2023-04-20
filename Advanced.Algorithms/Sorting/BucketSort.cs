@@ -12,7 +12,7 @@ public class BucketSort
     /// <summary>
     ///     Sort given integers using bucket sort with merge sort as sub sort.
     /// </summary>
-    public static int[] Sort(int[] array, int bucketSize, SortDirection sortDirection = SortDirection.Ascending)
+    public static int[] bucketSort(int[] array, int bucketSize, SortDirection sortDirection = SortDirection.Ascending)
     {
         if (bucketSize < 0 || bucketSize > array.Length) throw new Exception("Invalid bucket size.");
 

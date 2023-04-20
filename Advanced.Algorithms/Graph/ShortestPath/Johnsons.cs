@@ -19,7 +19,7 @@ public class JohnsonsShortestPath<T, TW> where TW : IComparable
     }
 
     public List<AllPairShortestPathResult<T, TW>>
-        FindAllPairShortestPaths(IDiGraph<T> graph)
+        FindAllPairShortestPathsJohnsons(IDiGraph<T> graph)
     {
         if (@operator == null)
             throw new ArgumentException("Provide an operator implementation for generic type W during initialization.");
