@@ -3,10 +3,11 @@ namespace VSharp.Interpreter.IL
 open System
 
 open VSharp
+open VSharp.Core
 open VSharp.Interpreter.IL.CilStateOperations
 open VSharp.Interpreter.IL.ipOperations
 
-type ShortestDistanceWeighter(target : codeLocation) =
+type ShortestDistanceWeighter(target : target) =
     let infinity = UInt32.MaxValue
     let handleInfinity n = if n = infinity then None else Some n
     let logarithmicScale weight =
@@ -14,21 +15,24 @@ type ShortestDistanceWeighter(target : codeLocation) =
         elif weight = 1u then 1u
         else double weight |> Math.Log2 |> Math.Ceiling |> uint
 
-    let callGraphDistanceToTarget = target.method.CallGraphDistanceToMe
+    let method = target.location.method
+    let callGraphDistanceToTarget = method.CallGraphDistanceToMe
 
     // Returns the number proportional to distance from the offset in frameOffset of frameMethod to target. Uses both
     // call graph for interprocedural and CFG for intraprocedural distance approximation.
     let frameWeight (frameMethod : Method) frameOffset frameNumber =
         let frameMethodCFG = frameMethod.ForceCFG
         let frameDist = frameMethodCFG.DistancesFrom frameOffset
-        let checkDist() = Dict.tryGetValue frameDist target.ForceBasicBlock infinity <> infinity
+        let checkDist () =
+            let offset = target.location.ForceBasicBlock
+            Dict.tryGetValue frameDist offset infinity <> infinity
         let callWeight callMethod =
             let callGraphDistance = Dict.tryGetValue callGraphDistanceToTarget callMethod infinity
             if callGraphDistance = infinity then infinity
             else 2u * (callGraphDistance + 1u) + frameNumber
 
         match () with
-        | _ when frameMethod = target.method && checkDist () -> frameNumber
+        | _ when frameMethod = target.location.method && checkDist () -> frameNumber
         | _ when Seq.isEmpty frameMethodCFG.Calls -> infinity
         | _ ->
             frameMethodCFG.Calls |> Seq.map (fun kvp ->
@@ -65,7 +69,7 @@ type ShortestDistanceWeighter(target : codeLocation) =
         |> Option.map logarithmicScale
 
     let targetWeight currLoc =
-        localWeight currLoc [target]
+        localWeight currLoc [target.location]
 
     // Returns the number proportional to distance from loc to relevant calls in this method
     let preTargetWeight currLoc =
@@ -81,6 +85,23 @@ type ShortestDistanceWeighter(target : codeLocation) =
         let localCFG = currLoc.method.ForceCFG
         let targets = localCFG.Sinks |> Seq.map (fun basicBlock -> { offset = basicBlock.StartOffset; method = currLoc.method })
         localWeight currLoc targets |> Option.map ((+) 32u)
+        
+    let getUnhandledException state =
+        match state.state.exceptionsRegister with
+        | Unhandled(term, _) -> Some(TypeOf term)
+        | _ -> None
+
+    let targetHypothesisIsMet state =                
+        match target.hypothesis with
+        | NullDereference ->
+            match getUnhandledException state with
+            | Some exceptionType -> exceptionType = typeof<NullReferenceException>
+            | None -> false
+        | IndexOutOfRange ->
+            match getUnhandledException state with
+            | Some exceptionType -> exceptionType = typeof<IndexOutOfRangeException>
+            | None -> false
+        | NoneHypothesis -> true
 
     interface IWeighter with
         override x.Weight(state) =
@@ -93,7 +114,8 @@ type ShortestDistanceWeighter(target : codeLocation) =
                         | 0u, _ -> targetWeight currLoc
                         | _, 0u -> preTargetWeight currLoc
                         | _ -> postTargetWeight currLoc
-                    return weight * logarithmicScale state.stepsNumber
+                    let result = weight * logarithmicScale state.stepsNumber
+                    return if result = 0u && not(targetHypothesisIsMet state) then 1u else result
                 | None -> return 1u
             }
         override x.Next() = 0u

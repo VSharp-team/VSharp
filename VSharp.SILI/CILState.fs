@@ -21,7 +21,7 @@ type cilState =
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable suspended : bool
-      mutable targets : Set<codeLocation> option
+      mutable targets : Set<target> option
       mutable lastPushInfo : term option
       /// <summary>
       /// All basic blocks visited by the state.
@@ -140,7 +140,7 @@ module internal CilStateOperations =
     let violatesLevel (s : cilState) maxBound =
         match tryCurrentLoc s with
         | Some currLoc when PersistentDict.contains currLoc s.level ->
-            s.level.[currLoc] >= maxBound
+            s.level[currLoc] >= maxBound
         | _ -> false
 
     // [NOTE] Obtaining exploring method
@@ -348,7 +348,7 @@ module internal CilStateOperations =
 
     // TODO: print filterResult and IIE ?
     let dump (cilState : cilState) : string =
-        let sb = (StringBuilder())
+        let sb = StringBuilder()
         let sb = dumpSectionValue "Starting ip" (sprintf "%O" cilState.startingIP) sb
         let sb = dumpSectionValue "IP" (dumpIp cilState.ipStack) sb
         let sb = dumpSectionValue "IIE" (sprintf "%O" cilState.iie) sb

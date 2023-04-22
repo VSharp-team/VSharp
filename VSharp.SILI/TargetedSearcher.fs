@@ -28,7 +28,7 @@ type TargetedSearcher(maxBound, target, isPaused) =
                     cfg.IsBasicBlockStart loc.offset
                 | None -> false
 
-            violatesLevel state maxBound || onVertex state
+            violatesLevel state maxBound || onVertex state // todo OR has exception
 
         if needsUpdating parent then
             base.Update (parent, newStates)
@@ -57,7 +57,7 @@ type TargetedSearcher(maxBound, target, isPaused) =
         | _ -> reachedStates) []
 
 type ITargetCalculator =
-    abstract member CalculateTarget : cilState -> codeLocation option
+    abstract member CalculateTarget : cilState -> target option
 
 type StatisticsTargetCalculator(statistics : SILIStatistics) =
     interface ITargetCalculator with
@@ -70,20 +70,17 @@ type StatisticsTargetCalculator(statistics : SILIStatistics) =
                 let localHistory = Seq.filter inCoverageZone state.history
                 match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
                 | None -> k None
-                | Some l -> Some l
+                | Some l -> Some {hypothesis = NoneHypothesis; location = l; isBasicBlock = false}
             | _ -> k reachingLoc) None locStack id
 
 
 type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator) =
-    let targetedSearchers = Dictionary<codeLocation, TargetedSearcher>()
+    let targetedSearchers = Dictionary<target, TargetedSearcher>()
     let getTargets (state : cilState) = state.targets
-    let reachedOrUnreachableTargets = HashSet<codeLocation> ()
+    let reachedOrUnreachableTargets = HashSet<target> ()
     let pausedStates = HashSet<cilState>()
 
     let isPaused cilState = pausedStates.Contains cilState
-
-    let calculateTarget (state : cilState): codeLocation option =
-        targetCalculator.CalculateTarget state
 
     let violatesRecursionLevel s =
         let optCurrLoc = tryCurrentLoc s
@@ -111,7 +108,8 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let cfg = startingMethod.ForceCFG
 
         for retOffset in cfg.Sinks do
-            let target = {offset = retOffset.StartOffset; method = startingMethod}
+            let cl = {offset = retOffset.StartOffset; method = startingMethod}
+            let target = {hypothesis = NoneHypothesis; location = cl; isBasicBlock = true}
 
             match state.targets with
             | Some targets ->
@@ -122,6 +120,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
                 state.targets <-Some (Set.add target Set.empty)
                 insertInTargetedSearcher state target
 
+    // probably delete unfounded searcher
     let deleteTargetedSearcher target =
         let targetedSearcher = getTargetedSearcher target
         for state in targetedSearcher.ToSeq () do
@@ -129,7 +128,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         targetedSearchers.Remove target |> ignore
 
     let updateTargetedSearchers parent (newStates : cilState seq) =
-        let addedCilStates = Dictionary<codeLocation, cilState list>()
+        let addedCilStates = Dictionary<target, cilState list>()
         let updateParentTargets = getTargets parent
 
         match updateParentTargets with
@@ -157,7 +156,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         if not <| List.isEmpty reachedStates then
             reachedOrUnreachableTargets.Add kvpair.Key |> ignore
             for state in reachedStates do
-                deleteTargetedSearcher kvpair.Key
+                deleteTargetedSearcher kvpair.Key // added to set for deletion of searcher, delete 
                 addReturnTarget state)
 
     let insertInTargetedSearchers states =
@@ -178,7 +177,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         pausedStates.Add state |> ignore
 
     let setTargetOrPause state =
-        match calculateTarget state with
+        match targetCalculator.CalculateTarget state with
         | Some target ->
             addTarget state target
             insertInTargetedSearcher state target

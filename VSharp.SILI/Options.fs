@@ -2,6 +2,18 @@
 
 open System.Diagnostics
 open System.IO
+open VSharp
+
+type public hypothesisType =
+    | NullDereference
+    | IndexOutOfRange
+    | NoneHypothesis
+
+type public target = { 
+    hypothesis: hypothesisType
+    location: codeLocation
+    isBasicBlock: bool 
+}
 
 type searchMode =
     | DFSMode
