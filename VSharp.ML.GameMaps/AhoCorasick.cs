@@ -9,11 +9,11 @@ public class AhoCorasick
     // Max number of states in the matching
     // machine. Should be equal to the sum
     // of the length of all keywords.
-    static int MAXS = 500;
+    static int MAXS = 20;
      
     // Maximum number of characters
     // in input alphabet
-    static int MAXC = 26;
+    static int MAXC = 10;
      
     // OUTPUT FUNCTION IS IMPLEMENTED USING out[]
     // Bit i in this mask is one if the word with
