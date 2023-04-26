@@ -27,7 +27,7 @@ public class BiPartiteMatching<T>
 
         //check if the graph is BiPartite by coloring 2 colors
         var mColorer = new MColorer<T, int>();
-        var colorResult = mColorer.Color(graph, new[] { 1, 2 });
+        var colorResult = mColorer.MColor(graph, new[] { 1, 2 });
 
         if (colorResult.CanColor == false) throw new Exception("Graph is not BiPartite.");
 

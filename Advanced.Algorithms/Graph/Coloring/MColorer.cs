@@ -12,7 +12,7 @@ public class MColorer<T, TC>
     ///     Returns true if all vertices can be colored using the given colors
     ///     in such a way so that no neighbours have same color.
     /// </summary>
-    public MColorResult<T, TC> Color(IGraph<T> graph, TC[] colors)
+    public MColorResult<T, TC> MColor(IGraph<T> graph, TC[] colors)
     {
         var progress = new Dictionary<IGraphVertex<T>, TC>();
 
