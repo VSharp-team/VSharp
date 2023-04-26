@@ -97,7 +97,7 @@ class ServerMessage:
         try:
             return expected.from_json(args[0], **kwargs)
         except Exception as e:
-            err_to_display = f"{type(e)} - {e}: tried to decode {expected}, got unmatched structure, go see error.log"
+            err_to_display = f"{type(e)} - {e}: tried to decode {expected}, got unmatched structure, registered to app.log under [ERROR] tag"
             error = f"{type(e)} - {e}: tried to decode {expected}, got raw data: {json.dumps(json.loads(args[0]), indent=2)}"
             logging.error(error)
             raise ServerMessage.DeserializationException(err_to_display)
