@@ -3,24 +3,45 @@ namespace VSharp.CSharpUtils;
 using System.Collections.Generic;
 using System.Reflection.Emit;
 using System;
-using HarmonyLib;
 using System.Runtime.InteropServices;
+using MonoMod.RuntimeDetour;
+using MonoMod.Utils;
+using System.ComponentModel;
 
 public static class ExternMocker
 {
     public static bool ExtMocksSupported = !OperatingSystem.IsMacOS() |
                                           RuntimeInformation.OSArchitecture == Architecture.X86 |
                                           RuntimeInformation.OSArchitecture == Architecture.X64;
-
-    static IEnumerable<CodeInstruction> ProcTranspiler(IEnumerable<CodeInstruction> instructions)
+    public static NativeDetour buildAndApplyDetour(IntPtr from, IntPtr to)
     {
-        yield return new CodeInstruction(OpCodes.Ret);
-    }
+        bool manualApply = PlatformHelper.Is(Platform.MacOS);
+        
+        NativeDetour d = new NativeDetour(
+            from,
+            to,
+            new NativeDetourConfig()
+            {
+                ManualApply = manualApply
+            }
+        );
+        
+        if (manualApply) {
+            try {
+                d.Apply();
+            } catch (Win32Exception) {
+                // Modern macOS doesn't give us permission to mess with this anymore.
+                try {
+                    d.Dispose();
+                } catch (Win32Exception) {
+                    // Of course it might also throw while trying to undo any made changes.
+                }
+            }
+        }
 
-    static IEnumerable<CodeInstruction> FuncTranspiler(IEnumerable<CodeInstruction> instructions)
-    {
-        yield return new CodeInstruction(OpCodes.Newobj,
-            typeof(NullReferenceException).GetConstructor(System.Array.Empty<Type>()));
-        yield return new CodeInstruction(OpCodes.Throw);
+        // if (!d.IsApplied)
+        //     fail    
+
+        return d;
     }
 }

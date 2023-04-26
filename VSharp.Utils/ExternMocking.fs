@@ -7,7 +7,7 @@ open System.Reflection
 open System.Reflection.Emit
 open Microsoft.FSharp.Collections
 open VSharp.CSharpUtils
-open HarmonyLib
+open MonoMod.RuntimeDetour
 
 [<CLIMutable>]
 [<Serializable>]
@@ -31,12 +31,12 @@ module ExtMocking =
 
     type private PatchMethod(baseMethod : MethodInfo, clausesCount : int) =
         let returnValues : obj[] = Array.zeroCreate clausesCount
-        let finalizerName = $"{baseMethod.Name}_<finalizer>"
+        let patchedName = $"{baseMethod.Name}_<patched>"
         let storageFieldName = storageFieldName baseMethod
         let counterFieldName = counterFieldName baseMethod
         let returnType = baseMethod.ReturnType
-        let resultArg = baseMethod.ReturnType.MakeByRefType()
-
+        let callingConvention = baseMethod.CallingConvention
+        let arguments = baseMethod.GetParameters() |> Array.map (fun (p : ParameterInfo) -> p.GetType())
         member x.SetClauses (clauses : obj[]) =
             clauses |> Array.iteri (fun i o -> returnValues.[i] <- o)
         
@@ -52,12 +52,10 @@ module ExtMocking =
         member x.BuildPatch (typeBuilder : TypeBuilder) =
             let methodAttributes = MethodAttributes.Public ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
             let methodBuilder =
-                typeBuilder.DefineMethod(finalizerName, methodAttributes, CallingConventions.Standard)
-            let exType = typeof<Exception>
-            methodBuilder.SetReturnType exType
-            methodBuilder.SetParameters([|exType; resultArg|])
-            methodBuilder.DefineParameter(1, ParameterAttributes.None, "__exception") |> ignore
-            methodBuilder.DefineParameter(2, ParameterAttributes.None, "__result") |> ignore
+                typeBuilder.DefineMethod(patchedName, methodAttributes, callingConvention)
+            
+            methodBuilder.SetReturnType returnType
+            methodBuilder.SetParameters(arguments)
             
             let ilGenerator = methodBuilder.GetILGenerator()
             let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
@@ -70,24 +68,24 @@ module ExtMocking =
             ilGenerator.Emit(OpCodes.Ldc_I4, count)
             ilGenerator.Emit(OpCodes.Blt, normalCase)
             
-            ilGenerator.Emit(OpCodes.Ldstr, finalizerName)
+            ilGenerator.Emit(OpCodes.Ldstr, patchedName)
             ilGenerator.Emit(OpCodes.Newobj, typeof<UnexpectedExternCallException>.GetConstructor([|typeof<string>|]))
             ilGenerator.Emit(OpCodes.Ret)
             
             ilGenerator.MarkLabel(normalCase)
-            ilGenerator.Emit(OpCodes.Ldarg, 1) // ld __result
+
             ilGenerator.Emit(OpCodes.Ldsfld, storageField)
             ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldelem, returnType) // Load storage[counter] on stack
-            ilGenerator.Emit(OpCodes.Stobj, returnType)
+
             ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldc_I4_1)
             ilGenerator.Emit(OpCodes.Add)
             ilGenerator.Emit(OpCodes.Stsfld, counterField)
 
-            ilGenerator.Emit(OpCodes.Ldnull)
             ilGenerator.Emit(OpCodes.Ret)
-            finalizerName // return identifier
+            
+            patchedName // return identifier
         
         member x.Build (typeBuilder : TypeBuilder) =
             x.BuildPatch typeBuilder
@@ -112,24 +110,28 @@ module ExtMocking =
         let assemblyBuilder = AssemblyBuilder.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
         assemblyBuilder.DefineDynamicModule dynamicAssemblyName)
 
-    let harmony = lazy(Harmony("vsharp.externMocking"))
 
     let BuildAndPatch (testId : string) decode (repr : extMockRepr) =
         let mockType = Type(repr)
-        let h = harmony.Force()
         let methodToPatch = repr.baseMethod.Decode()
-        
-        if methodToPatch.ReturnType <> typeof<Void> then
-            let moduleBuilder = mBuilder.Force()
-            let patchType, finName = mockType.Build(moduleBuilder, testId)
-            repr.methodImplementation |> Array.map decode |> mockType.SetClauses
-            let finMethod = AccessTools.Method(patchType, finName)
-            let transpiler = AccessTools.Method(typeof<ExternMocker>, "FuncTranspiler")
-            h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler), HarmonyMethod(finMethod)) |> ignore
-        else
-            let transpiler = AccessTools.Method(typeof<ExternMocker>, "ProcTranspiler")
-            h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler)) |> ignore
+        let ptrFrom = methodToPatch.MethodHandle.GetFunctionPointer()
 
-    let Unpatch () =
-        let h = harmony.Force()
-        h.UnpatchAll()
+        let moduleBuilder = mBuilder.Force()
+        let patchType, patchName = mockType.Build(moduleBuilder, testId)
+        repr.methodImplementation |> Array.map decode |> mockType.SetClauses
+        let methodTo = patchType.GetMethod(patchName, BindingFlags.Static ||| BindingFlags.Public)
+        let ptrTo = methodTo.MethodHandle.GetFunctionPointer()
+        
+        let d = ExternMocker.buildAndApplyDetour(ptrFrom, ptrTo)
+        // d
+        ()   
+        //     let finMethod = AccessTools.Method(patchType, finName)
+        //     let transpiler = AccessTools.Method(typeof<ExternMocker>, "FuncTranspiler")
+        //     h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler), HarmonyMethod(finMethod)) |> ignore
+        // else
+        //     let transpiler = AccessTools.Method(typeof<ExternMocker>, "ProcTranspiler")
+        //     h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler)) |> ignore
+
+    let Unpatch (d : NativeDetour) =
+        ()
+        // d.Undo()

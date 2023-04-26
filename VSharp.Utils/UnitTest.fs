@@ -70,6 +70,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
     let mutable patchId = 0 
     let mutable externMocks = info.externMocks |> ResizeArray
+    let mutable detours = Seq.empty
 
     new(m : MethodBase) =
         UnitTest(m, testInfo.OfMethod m, MockStorage(), false)
@@ -133,7 +134,9 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         Seq.iter (ExtMocking.BuildAndPatch testName memoryGraph.DecodeValue) externMocks
 
     member x.ReverseExternMocks() =
-        if not <| Seq.isEmpty externMocks then ExtMocking.Unpatch()
+        ()
+        // if not <| Seq.isEmpty externMocks then
+        //     Seq.iter ExtMocking.Unpatch detours
 
     // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
     // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa

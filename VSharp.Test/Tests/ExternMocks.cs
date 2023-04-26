@@ -1,7 +1,8 @@
 using System;
-using System.Linq;
 using NUnit.Framework;
 using VSharp.Test;
+using System.Runtime.InteropServices;
+
 
 namespace IntegrationTests
 {
@@ -69,5 +70,16 @@ namespace IntegrationTests
             string upper = str.ToUpperInvariant();
             return upper == str;
         }
+
+        public static bool LibcRand()
+        {
+            var x = libc_rand();
+            var y = libc_rand();
+
+            return x == y;
+        }
+        
+        [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)] 
+        public static extern int libc_rand();
     }
 }
