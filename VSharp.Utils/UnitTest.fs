@@ -134,9 +134,8 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         Seq.iter (ExtMocking.BuildAndPatch testName memoryGraph.DecodeValue) externMocks
 
     member x.ReverseExternMocks() =
-        ()
-        // if not <| Seq.isEmpty externMocks then
-        //     Seq.iter ExtMocking.Unpatch detours
+        if not <| Seq.isEmpty externMocks then
+            ExtMocking.Unpatch()
 
     // @concreteParameters and @mockedParameters should have equal lengths and be complementary:
     // if @concreteParameters[i] is null, then @mockedParameters[i] is non-null and vice versa

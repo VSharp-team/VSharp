@@ -71,14 +71,15 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        public static bool LibcRand()
+        [TestSvm]
+        public static int LibcRand()
         {
             var x = libc_rand();
             var y = libc_rand();
 
-            return x == y;
+            return x;
         }
-        
+
         [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)] 
         public static extern int libc_rand();
     }

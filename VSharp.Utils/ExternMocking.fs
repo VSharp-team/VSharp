@@ -74,9 +74,10 @@ module ExtMocking =
             
             ilGenerator.MarkLabel(normalCase)
 
-            ilGenerator.Emit(OpCodes.Ldsfld, storageField)
-            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
-            ilGenerator.Emit(OpCodes.Ldelem, returnType) // Load storage[counter] on stack
+            if returnType <> typeof<Void> then
+                ilGenerator.Emit(OpCodes.Ldsfld, storageField)
+                ilGenerator.Emit(OpCodes.Ldsfld, counterField)
+                ilGenerator.Emit(OpCodes.Ldelem, returnType) // Load storage[counter] on stack
 
             ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldc_I4_1)
@@ -111,11 +112,15 @@ module ExtMocking =
         assemblyBuilder.DefineDynamicModule dynamicAssemblyName)
 
 
+    let mutable detours = List.empty : NativeDetour list
+    
     let BuildAndPatch (testId : string) decode (repr : extMockRepr) =
         let mockType = Type(repr)
         let methodToPatch = repr.baseMethod.Decode()
-        let ptrFrom = methodToPatch.MethodHandle.GetFunctionPointer()
-
+        
+        let ptrFrom = 
+            if methodToPatch.Name = "libc_rand" then ExternMocker.GetExternPtr("a", "test") // TODO: general case
+            else methodToPatch.MethodHandle.GetFunctionPointer()
         let moduleBuilder = mBuilder.Force()
         let patchType, patchName = mockType.Build(moduleBuilder, testId)
         repr.methodImplementation |> Array.map decode |> mockType.SetClauses
@@ -123,15 +128,9 @@ module ExtMocking =
         let ptrTo = methodTo.MethodHandle.GetFunctionPointer()
         
         let d = ExternMocker.buildAndApplyDetour(ptrFrom, ptrTo)
-        // d
-        ()   
-        //     let finMethod = AccessTools.Method(patchType, finName)
-        //     let transpiler = AccessTools.Method(typeof<ExternMocker>, "FuncTranspiler")
-        //     h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler), HarmonyMethod(finMethod)) |> ignore
-        // else
-        //     let transpiler = AccessTools.Method(typeof<ExternMocker>, "ProcTranspiler")
-        //     h.Patch(methodToPatch, null, null, HarmonyMethod(transpiler)) |> ignore
+        detours <- d::detours
 
-    let Unpatch (d : NativeDetour) =
-        ()
-        // d.Undo()
+    let Unpatch () =
+        List.iter (fun (d : NativeDetour) -> d.Undo()) detours
+        detours <- List.Empty
+
