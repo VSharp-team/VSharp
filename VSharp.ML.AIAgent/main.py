@@ -81,7 +81,7 @@ def main():
     epochs = 10
     max_steps = 300
     n_models = 10
-    # verification every k epochs
+    # verification every k epochs, start from 1
     # every 4th epoch
     epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
     # epochs_to_verify = [4, 8, 10]

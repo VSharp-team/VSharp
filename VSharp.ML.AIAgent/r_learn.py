@@ -151,10 +151,10 @@ def r_learn(
     epochs_to_verify: list[int],
 ) -> None:
     def launch_verification(epoch):
-        return (epoch + 1) in epochs_to_verify
+        return epoch in epochs_to_verify
 
-    for epoch in range(epochs):
-        epoch_string = f"Epoch {epoch + 1}/{epochs}"
+    for epoch in range(1, epochs + 1):
+        epoch_string = f"Epoch {epoch}/{epochs}"
         logging.info(epoch_string)
         print(epoch_string)
         train_game_maps_model_results = r_learn_iteration(
@@ -173,7 +173,7 @@ def r_learn(
             validation_game_maps_model_results = r_learn_iteration(
                 models=models,
                 maps_provider=validation_maps_provider,
-                user_max_steps=1,
+                user_max_steps=None,
                 tqdm_desc="Validation",
                 cm=connection_manager,
             )
