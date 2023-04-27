@@ -34,6 +34,14 @@ tournament_best_models = selectors.tournament_selection(
 ```python
 averaged_k_best_models = GeneticLearner.average(k_best_models)
 
+five_best_averaged_models_mutated = [
+    GeneticLearner.mutate(
+        averaged_k_best_models,
+        mutation_volume=0.25,
+        mutation_freq=0.1,
+    ) for _ in range(5)
+]
+
 tournament_average = GeneticLearner.average(tournament_best_models)
 tournament_average_mutated = GeneticLearner.mutate(
     tournament_average,
@@ -47,8 +55,8 @@ tournament_average_mutated = GeneticLearner.mutate(
 
 ```python
 assembled = [
-    *k_best_models
-    averaged_k_best_models,
+    *k_best_models,
+    *five_best_averaged_models_mutated,
     tournament_average,
     tournament_average_mutated,
     ...
