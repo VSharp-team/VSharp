@@ -82,7 +82,9 @@ def main():
     max_steps = 300
     n_models = 10
     # verification every k epochs
-    k_epoch_to_verify = 4
+    # every 4th epoch
+    epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
+    # epochs_to_verify = [4, 8, 10]
 
     GeneticLearner.set_model(loaded_model, 8)
     models = [GeneticLearner() for _ in range(n_models)]
@@ -102,7 +104,7 @@ def main():
         validation_maps_provider=validation_maps_provider,
         new_gen_provider_function=new_gen_function,
         connection_manager=cm,
-        k_epoch_to_verify=k_epoch_to_verify,
+        epochs_to_verify=epochs_to_verify,
     )
 
     cm.close()

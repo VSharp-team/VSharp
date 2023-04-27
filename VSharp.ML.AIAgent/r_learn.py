@@ -148,10 +148,10 @@ def r_learn(
     validation_maps_provider: Callable[[], list[GameMap]],
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
-    k_epoch_to_verify: int,
+    epochs_to_verify: list[int],
 ) -> None:
     def launch_verification(epoch):
-        return (epoch + 1) % k_epoch_to_verify == 0
+        return (epoch + 1) in epochs_to_verify
 
     for epoch in range(epochs):
         epoch_string = f"Epoch {epoch + 1}/{epochs}"
