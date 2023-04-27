@@ -1,3 +1,6 @@
+using System.Linq;
+using System.Reflection;
+
 namespace VSharp.CSharpUtils;
 
 using System.Collections.Generic;
@@ -14,15 +17,40 @@ public static class ExternMocker
                                           RuntimeInformation.OSArchitecture == Architecture.X86 |
                                           RuntimeInformation.OSArchitecture == Architecture.X64;
 
-    public static IntPtr GetExternPtr(string libName, string methodName)
+    public static IntPtr GetExternPtr(MethodInfo mInfo)
     {
-        
-        // if (!(PlatformHelper.Is(Platform.Linux) && DynDll.TryOpenLibrary("libc.so.6", out IntPtr libc)) &&
-        //     !(PlatformHelper.Is(Platform.MacOS) && DynDll.TryOpenLibrary("/usr/lib/libc.dylib", out libc)) &&
-        //     !DynDll.TryOpenLibrary($"libc.{PlatformHelper.LibrarySuffix}", out libc))
-                // return;
-        DynDll.TryOpenLibrary("libc.so.6", out IntPtr libc);
-        return libc.GetFunction("rand");
+        string libName = "";
+        string methodName = "";
+
+        foreach (var attr in mInfo.CustomAttributes)
+        {
+            if (attr.AttributeType.Name == "DllImportAttribute")
+            {
+                libName = attr.ConstructorArguments.First().ToString();
+                foreach (var arg in attr.NamedArguments)
+                {
+                    if (arg.MemberName == "EntryPoint")
+                        methodName = arg.TypedValue.ToString();
+
+                }
+            }
+        }
+
+        libName = libName.Replace("\"", "");
+        methodName = methodName.Replace("\"", "");
+
+        var linuxName = libName + ".so"; // ".so.6" ????
+        var macName = "/usr/lib/" + libName + ".dylib";
+        var genName = libName + "." + PlatformHelper.LibrarySuffix;
+
+        if (!(PlatformHelper.Is(Platform.Linux) && DynDll.TryOpenLibrary(linuxName, out IntPtr libref)) &&
+            !(PlatformHelper.Is(Platform.MacOS) && DynDll.TryOpenLibrary(macName, out libref)) &&
+            !DynDll.TryOpenLibrary(genName, out libref))
+        {
+            throw new Exception("Could not open extern library");
+        }
+
+        return libref.GetFunction(methodName);
     }
 
     public static NativeDetour buildAndApplyDetour(IntPtr from, IntPtr to)
@@ -51,8 +79,8 @@ public static class ExternMocker
             }
         }
 
-        // if (!d.IsApplied)
-        //     fail    
+        if (!d.IsApplied)
+            throw new Exception("Could not apply detour");
 
         return d;
     }

@@ -23,9 +23,10 @@ with
         let args = x.args |> List.map toString |> join ", "
         $"{x.mock.Method.Name}({args}):{x.callIndex}"
 
-and MethodMock(method : IMethod) =
+and MethodMock(method : IMethod, isExtern : bool) =
     let mutable callIndex = 0
     let callResults = ResizeArray<term>()
+    let isExt = isExtern
 
     member x.Method : IMethod = method
 
@@ -41,6 +42,9 @@ and MethodMock(method : IMethod) =
             | :? MethodInfo as mi -> mi
             | _ -> __notImplemented__()
 
+        override x.IsExtern =
+            isExtern
+
         override x.Call this args =
             let returnType = method.ReturnType
             if returnType = typeof<Void> then
@@ -54,7 +58,7 @@ and MethodMock(method : IMethod) =
         override x.GetImplementationClauses() = callResults.ToArray()
 
         override x.Copy() =
-            let result = MethodMock(method)
+            let result = MethodMock(method, isExt)
             result.SetIndex callIndex
             result.SetClauses callResults
             result
@@ -65,6 +69,7 @@ module internal MethodMocking =
         let empty() = internalfail "method mock is empty"
         interface IMethodMock with
             override x.BaseMethod = empty()
+            override x.IsExtern = empty()
             override x.Call _ _ = empty()
             override x.GetImplementationClauses() = empty()
             override x.Copy() = empty()
@@ -74,6 +79,6 @@ module internal MethodMocking =
         let mock = ref (EmptyMethodMock() :> IMethodMock)
         if methodMocks.TryGetValue(method, mock) then mock.Value
         else
-            let mock = MethodMock(method)
+            let mock = MethodMock(method, false)
             methodMocks.Add(method, mock)
             mock

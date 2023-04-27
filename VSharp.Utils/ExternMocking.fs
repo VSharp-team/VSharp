@@ -19,6 +19,7 @@ open MonoMod.RuntimeDetour
 [<XmlInclude(typeof<methodRepr>)>]
 type extMockRepr = {
     name : string
+    isExtern : bool
     baseMethod : methodRepr
     methodImplementation : obj array
 }
@@ -117,16 +118,16 @@ module ExtMocking =
     let BuildAndPatch (testId : string) decode (repr : extMockRepr) =
         let mockType = Type(repr)
         let methodToPatch = repr.baseMethod.Decode()
-        
+
         let ptrFrom = 
-            if methodToPatch.Name = "libc_rand" then ExternMocker.GetExternPtr("a", "test") // TODO: general case
+            if repr.isExtern then ExternMocker.GetExternPtr(methodToPatch)
             else methodToPatch.MethodHandle.GetFunctionPointer()
         let moduleBuilder = mBuilder.Force()
         let patchType, patchName = mockType.Build(moduleBuilder, testId)
         repr.methodImplementation |> Array.map decode |> mockType.SetClauses
         let methodTo = patchType.GetMethod(patchName, BindingFlags.Static ||| BindingFlags.Public)
         let ptrTo = methodTo.MethodHandle.GetFunctionPointer()
-        
+
         let d = ExternMocker.buildAndApplyDetour(ptrFrom, ptrTo)
         detours <- d::detours
 

@@ -207,7 +207,8 @@ module TestGenerator =
         let eval = model.Eval >> term2obj model state indices mockCache implementations test
         let clauses = methodMock.GetImplementationClauses() |> Array.map eval
         let methodRepr = methodRepr.Encode methodMock.BaseMethod
-        test.AllocateExternMock methodRepr clauses
+        let isExtern = methodMock.IsExtern
+        test.AllocateExternMock methodRepr isExtern clauses
 
     let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
         let state = cilState.state

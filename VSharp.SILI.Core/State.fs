@@ -35,6 +35,7 @@ type IConcreteMemory =
 
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
+    abstract IsExtern : bool
     abstract Call : term -> term list -> term
     abstract GetImplementationClauses : unit -> term array
     abstract Copy : unit -> IMethodMock

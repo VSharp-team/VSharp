@@ -1129,7 +1129,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif ExternMocker.ExtMocksSupported &&
              (method.IsExternalMethod || List.contains fullMethodName shimImplementations) then
             let externMocks = cilState.state.externMocks
-            let mockMethod = Dict.getValueOrUpdate externMocks method.FullName (fun () -> MethodMock(method))
+            let mockMethod = Dict.getValueOrUpdate externMocks method.FullName (fun () -> MethodMock(method, method.IsExternalMethod))
             if method.ReturnType <> typeof<Void> then // extern procedures are ignored
                 let symVal = mockMethod.Call Nop []
                 push symVal cilState

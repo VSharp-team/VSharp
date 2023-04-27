@@ -126,8 +126,9 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         patchId <- patchId + 1
         name
 
-    member x.AllocateExternMock methodRepr results =
-        let extMock = {name = x.GetPatchId; baseMethod = methodRepr; methodImplementation = results}
+    member x.AllocateExternMock methodRepr isExtern results =
+        let extMock = {name = x.GetPatchId; isExtern = isExtern
+                       baseMethod = methodRepr; methodImplementation = results}
         externMocks.Add extMock
 
     member x.ApplyExternMocks(testName: string) =

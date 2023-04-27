@@ -80,7 +80,7 @@ namespace IntegrationTests
             return x;
         }
 
-        [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)] 
+        [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)]
         public static extern int libc_rand();
     }
 }
