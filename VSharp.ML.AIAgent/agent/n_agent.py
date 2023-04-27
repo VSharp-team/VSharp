@@ -3,7 +3,6 @@ import logging.config
 from typing import Type
 
 from common.game import GameMap, GameState
-from common.constants import Constant
 
 from .connection_manager import ConnectionManager
 from .messages import (

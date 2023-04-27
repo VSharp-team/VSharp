@@ -3,8 +3,8 @@ from collections import defaultdict, namedtuple
 import pandas as pd
 
 from config import Config
-from ml.mutation.classes import ModelResultsOnGameMaps, MutableResult
-from ml.mutation.utils import invert_mapping_mrgm_gmmr
+from selection.classes import ModelResultsOnGameMaps, MutableResult
+from selection.utils import invert_mapping_mrgm_gmmr
 
 MutableNameResultMapping: tuple[str, MutableResult] = namedtuple(
     "MutableNameResultMapping", ["name", "result"]
