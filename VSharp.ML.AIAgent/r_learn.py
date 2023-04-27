@@ -148,7 +148,11 @@ def r_learn(
     validation_maps_provider: Callable[[], list[GameMap]],
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
+    k_epoch_to_verify: int,
 ) -> None:
+    def launch_verification(epoch):
+        return (epoch + 1) % k_epoch_to_verify == 0
+
     for epoch in range(epochs):
         epoch_string = f"Epoch {epoch + 1}/{epochs}"
         logging.info(epoch_string)
@@ -165,18 +169,19 @@ def r_learn(
             f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
         )
 
-        validation_game_maps_model_results = r_learn_iteration(
-            models=models,
-            maps_provider=validation_maps_provider,
-            user_max_steps=None,
-            tqdm_desc="Validation",
-            cm=connection_manager,
-        )
-        append_to_tables_file(
-            f"Validation: \n"
-            + create_pivot_table(validation_game_maps_model_results)
-            + "\n"
-        )
+        if launch_verification(epoch):
+            validation_game_maps_model_results = r_learn_iteration(
+                models=models,
+                maps_provider=validation_maps_provider,
+                user_max_steps=1,
+                tqdm_desc="Validation",
+                cm=connection_manager,
+            )
+            append_to_tables_file(
+                f"Validation: \n"
+                + create_pivot_table(validation_game_maps_model_results)
+                + "\n"
+            )
 
         models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)
