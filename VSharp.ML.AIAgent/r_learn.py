@@ -149,6 +149,9 @@ def r_learn(
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
 ) -> None:
+    def _is_last_epoch(epoch):
+        return epoch == epochs - 1
+
     for epoch in range(epochs):
         epoch_string = f"Epoch {epoch + 1}/{epochs}"
         logging.info(epoch_string)
@@ -178,10 +181,11 @@ def r_learn(
             + "\n"
         )
 
-        models = new_gen_provider_function(train_game_maps_model_results)
+        if not _is_last_epoch(epoch):
+            models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)
 
-    survived = "\n"
+    survived = ""
     for model in models:
         survived += str(model) + "\n"
-    logging.info(f"survived models: {survived}")
+    append_to_tables_file(f"survived models: {survived}")

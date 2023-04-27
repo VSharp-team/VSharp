@@ -44,7 +44,7 @@ class GeneticLearner(ModelWrapper):
         )
 
     def __str__(self) -> str:
-        return f"{self.name()}: {[round(component, 2) for component in self.weights]}"
+        return f"{self.name()}: {self.weights.tolist()}"
 
     def predict(self, input: GameState):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
