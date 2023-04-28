@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-
+//Added to maps
 namespace Advanced.Algorithms.Combinatorics;
 
 /// <summary>
@@ -7,16 +7,16 @@ namespace Advanced.Algorithms.Combinatorics;
 /// </summary>
 public class Subset
 {
-    public static List<List<T>> Find<T>(List<T> input)
+    public static List<List<T>> FindSubset<T>(List<T> input)
     {
         var result = new List<List<T>>();
 
-        Recurse(input, 0, new List<T>(), new HashSet<int>(), result);
+        FindSubsetRecurse(input, 0, new List<T>(), new HashSet<int>(), result);
 
         return result;
     }
 
-    private static void Recurse<T>(List<T> input,
+    public static void FindSubsetRecurse<T>(List<T> input,
         int k, List<T> prefix, HashSet<int> prefixIndices,
         List<List<T>> result)
     {
@@ -29,7 +29,7 @@ public class Subset
             prefix.Add(input[j]);
             prefixIndices.Add(j);
 
-            Recurse(input, j + 1, prefix, prefixIndices, result);
+            FindSubsetRecurse(input, j + 1, prefix, prefixIndices, result);
 
             prefix.RemoveAt(prefix.Count - 1);
             prefixIndices.Remove(j);

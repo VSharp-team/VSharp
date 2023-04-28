@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
-
+//Added to maps
 namespace Advanced.Algorithms.DataStructures.Foundation;
 
 internal class SeparateChainingDictionary<TK, TV> : IDictionary<TK, TV>

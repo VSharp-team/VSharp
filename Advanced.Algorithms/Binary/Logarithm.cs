@@ -1,4 +1,5 @@
 ﻿namespace Advanced.Algorithms.Binary;
+//Added to maps
 
 /// <summary>
 ///     Logarithm calculator.

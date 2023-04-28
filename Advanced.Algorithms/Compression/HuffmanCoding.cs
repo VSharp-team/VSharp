@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Advanced.Algorithms.DataStructures;
-
+//Added to maps
 namespace Advanced.Algorithms.Compression;
 
 /// <summary>

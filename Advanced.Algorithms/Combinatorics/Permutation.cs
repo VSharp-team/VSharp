@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-
+//Added to maps
 namespace Advanced.Algorithms.Combinatorics;
 
 /// <summary>
@@ -7,16 +7,16 @@ namespace Advanced.Algorithms.Combinatorics;
 /// </summary>
 public class Permutation
 {
-    public static List<List<T>> Find<T>(List<T> n, int r, bool withRepetition = false)
+    public static List<List<T>> FindPermutation<T>(List<T> n, int r, bool withRepetition = false)
     {
         var result = new List<List<T>>();
 
-        Recurse(n, r, withRepetition, new List<T>(), new HashSet<int>(), result);
+        FindPermutationRecurse(n, r, withRepetition, new List<T>(), new HashSet<int>(), result);
 
         return result;
     }
 
-    private static void Recurse<T>(List<T> n, int r, bool withRepetition,
+    public static void FindPermutationRecurse<T>(List<T> n, int r, bool withRepetition,
         List<T> prefix, HashSet<int> prefixIndices,
         List<List<T>> result)
     {
@@ -33,7 +33,7 @@ public class Permutation
             prefix.Add(n[j]);
             prefixIndices.Add(j);
 
-            Recurse(n, r, withRepetition, prefix, prefixIndices, result);
+            FindPermutationRecurse(n, r, withRepetition, prefix, prefixIndices, result);
 
             prefix.RemoveAt(prefix.Count - 1);
             prefixIndices.Remove(j);
