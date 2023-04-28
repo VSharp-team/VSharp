@@ -14,13 +14,13 @@ from common.utils import covered, get_states
 from displayer.tables import create_pivot_table
 from displayer.utils import append_to_tables_file
 from ml.model_wrappers.protocols import Mutable, Predictor
-from ml.mutation.classes import (
+from selection.classes import (
     GameMapsModelResults,
     ModelResultsOnGameMaps,
     MutableResult,
     MutableResultMapping,
 )
-from ml.mutation.utils import invert_mapping_gmmr_mrgm
+from selection.utils import invert_mapping_gmmr_mrgm
 
 NewGenProviderFunction: TypeAlias = Callable[[ModelResultsOnGameMaps], list[Mutable]]
 
@@ -148,9 +148,24 @@ def r_learn(
     validation_maps_provider: Callable[[], list[GameMap]],
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
+    epochs_to_verify: list[int],
 ) -> None:
+
+    def launch_verification(epoch):
+        return epoch in epochs_to_verify
+
+    def is_last_epoch(epoch):
+        return epoch == epochs - 1
+
+    def dump_survived(models):
+        survived = ""
+        for model in models:
+            survived += str(model) + "\n"
+        append_to_tables_file(f"survived models: {survived}")
+
     for epoch in range(epochs):
         epoch_string = f"Epoch {epoch + 1}/{epochs}"
+
         logging.info(epoch_string)
         print(epoch_string)
         train_game_maps_model_results = r_learn_iteration(
@@ -165,23 +180,21 @@ def r_learn(
             f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
         )
 
-        validation_game_maps_model_results = r_learn_iteration(
-            models=models,
-            maps_provider=validation_maps_provider,
-            user_max_steps=None,
-            tqdm_desc="Validation",
-            cm=connection_manager,
-        )
-        append_to_tables_file(
-            f"Validation: \n"
-            + create_pivot_table(validation_game_maps_model_results)
-            + "\n"
-        )
+        if launch_verification(epoch):
+            validation_game_maps_model_results = r_learn_iteration(
+                models=models,
+                maps_provider=validation_maps_provider,
+                user_max_steps=None,
+                tqdm_desc="Validation",
+                cm=connection_manager,
+            )
+            append_to_tables_file(
+                f"Validation: \n"
+                + create_pivot_table(validation_game_maps_model_results)
+                + "\n"
+            )
 
-        models = new_gen_provider_function(train_game_maps_model_results)
+        dump_survived(models)
+        if not is_last_epoch(epoch):
+            models = new_gen_provider_function(train_game_maps_model_results)
         invalidate_cache(models)
-
-    survived = "\n"
-    for model in models:
-        survived += str(model) + "\n"
-    logging.info(f"survived models: {survived}")
