@@ -29,7 +29,7 @@ logging.basicConfig(
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     best_mutables = [
-        *select_k_best(decart_scorer, mr, k=3),
+        *select_k_best(decart_scorer, mr, k=4),
         *select_n_maps_tops(mr, n=4),
     ]
 
@@ -37,7 +37,7 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     mutate_average_of_selected = lambda mutables: GeneticLearner.mutate(
         GeneticLearner.average(mutables),
         mutation_volume=0.25,
-        mutation_freq=0.1,
+        mutation_freq=0.3,
     )
 
     mutated_average_of_all = lambda mr: GeneticLearner.mutate(
@@ -62,13 +62,26 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
         mutation_freq=0.1,
     )
 
+    best_decart = select_k_best(decart_scorer, mr, k=1)
+    k_best_decart = select_k_best(decart_scorer, mr, k=4)
+
+    best_euclid = select_k_best(euclidean_scorer, mr, k=1)
+    k_best_euclid = select_k_best(euclidean_scorer, mr, k=4)
+
+    avg_best_tops = average_of_selected(select_n_maps_tops(mr, k=1))
+
     return [
-        *select_k_best(decart_scorer, mr, k=5),
-        average_of_selected(best_mutables),
+        *best_decart,
+        *best_euclid,
+        average_of_selected(k_best_euclid),
+        average_of_selected(k_best_decart),
+        avg_best_tops,
         mutate_average_of_selected(best_mutables),
-        mutated_average_of_all(mr),
-        tournament_average(mr),
-        tournament_average_mutated(mr),
+        mutate_average_of_selected(select_k_best(decart_scorer, mr, k=1)),
+        mutate_average_of_selected(select_k_best(decart_scorer, mr, k=2)),
+        mutate_average_of_selected(select_k_best(decart_scorer, mr, k=3)),
+        mutate_average_of_selected(select_k_best(euclidean_scorer, mr, k=2)),
+        mutate_average_of_selected(select_k_best(euclidean_scorer, mr, k=3)),
     ]
 
 
@@ -78,9 +91,9 @@ def main():
 
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
-    epochs = 10
-    max_steps = 300
-    n_models = 10
+    epochs = 20
+    max_steps = 600
+    n_models = 20
 
     GeneticLearner.set_model(loaded_model, 8)
     models = [GeneticLearner() for _ in range(n_models)]
