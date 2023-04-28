@@ -829,11 +829,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
         Array.concat [intPtr; volatile; defaultComparer]
 
-    member private x.IsNotImplementedIntrinsic (method : Method) fullMethodName =
-        let isIntrinsic =
-            let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
-            method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
-        isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
+    member private x.IsNotImplementedIntrinsic (method : Method) fullMethodName = // try to set to false
+        false
+        //let isIntrinsic =
+        //    let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
+        //    method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
+        //isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with

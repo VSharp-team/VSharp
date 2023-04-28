@@ -400,7 +400,9 @@ type public SILI(options : SiliOptions) =
                     match searcher with
                     | :? BidirectionalSearcher as searcher ->                        
                         match searcher.ForwardSearcher with
-                        | :? AISearcher as searcher -> searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
+                        | :? AISearcher as searcher ->
+                            if searcher.InAIMode
+                            then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
                         | _ -> ()
                     | _ -> ()
                     reportStateInternalFail s e
