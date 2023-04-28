@@ -3,21 +3,13 @@ import logging
 from agent.connection_manager import ConnectionManager
 from agent.n_agent import get_train_maps, get_validation_maps
 from common.constants import Constant
+from displayer.utils import clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
-from ml.mutation.classes import ModelResultsOnGameMaps
-from ml.mutation.selection import (
-    decart_scorer,
-    euclidean_scorer,
-    select_all_models,
-    select_k_best,
-    select_n_maps_tops,
-    tournament_selection,
-)
+from selection import scorer, selectors
+from selection.classes import ModelResultsOnGameMaps
 from ml.utils import load_full_model
 from r_learn import r_learn
-from displayer.utils import clean_tables_file
-
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -28,47 +20,56 @@ logging.basicConfig(
 
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
+    """
+    helper methods
+    """
+
+    def mutate(model: Mutable):
+        return GeneticLearner.mutate(
+            model,
+            mutation_volume=0.25,
+            mutation_freq=0.1,
+        )
+
+    def average(models: list[Mutable]):
+        return GeneticLearner.average(models)
+
+    """
+    selection & mutation
+    """
+
     best_mutables = [
-        *select_k_best(decart_scorer, mr, k=3),
-        *select_n_maps_tops(mr, n=4),
+        *selectors.select_k_best(scorer.decart_scorer, mr, k=3),
+        *selectors.select_n_maps_tops(mr, n=4),
     ]
 
-    average_of_selected = lambda mutables: GeneticLearner.average(mutables)
-    mutate_average_of_selected = lambda mutables: GeneticLearner.mutate(
-        GeneticLearner.average(mutables),
-        mutation_volume=0.25,
-        mutation_freq=0.1,
+    average_of_best = average(best_mutables)
+    mutated_average_of_best = mutate(average_of_best)
+    mutated_average_of_all = average(
+        selectors.select_all_models(model_result_with_maps=mr)
     )
 
-    mutated_average_of_all = lambda mr: GeneticLearner.mutate(
-        GeneticLearner.average(select_all_models(mr)),
-        mutation_volume=0.25,
-        mutation_freq=0.1,
-    )
-
-    tournament_average = lambda mr: GeneticLearner.average(
-        tournament_selection(
-            mr, desired_population=3, n_comparisons=4, scorer=euclidean_scorer
+    tournament_average = average(
+        selectors.tournament_selection(
+            model_result_with_maps=mr,
+            desired_population=3,
+            n_comparisons=4,
+            scorer=scorer.decart_scorer,
         )
     )
+    tournament_average_mutated = mutate(tournament_average)
 
-    tournament_average_mutated = lambda mr: GeneticLearner.mutate(
-        GeneticLearner.average(
-            tournament_selection(
-                mr, desired_population=3, n_comparisons=4, scorer=euclidean_scorer
-            )
-        ),
-        mutation_volume=0.25,
-        mutation_freq=0.1,
-    )
+    """
+    assemble generation
+    """
 
     return [
-        *select_k_best(decart_scorer, mr, k=5),
-        average_of_selected(best_mutables),
-        mutate_average_of_selected(best_mutables),
-        mutated_average_of_all(mr),
-        tournament_average(mr),
-        tournament_average_mutated(mr),
+        *selectors.select_k_best(scorer.decart_scorer, mr, k=5),
+        average_of_best,
+        mutated_average_of_best,
+        mutated_average_of_all,
+        tournament_average,
+        tournament_average_mutated,
     ]
 
 

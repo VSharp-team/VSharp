@@ -14,13 +14,13 @@ from common.utils import covered, get_states
 from displayer.tables import create_pivot_table
 from displayer.utils import append_to_tables_file
 from ml.model_wrappers.protocols import Mutable, Predictor
-from ml.mutation.classes import (
+from selection.classes import (
     GameMapsModelResults,
     ModelResultsOnGameMaps,
     MutableResult,
     MutableResultMapping,
 )
-from ml.mutation.utils import invert_mapping_gmmr_mrgm
+from selection.utils import invert_mapping_gmmr_mrgm
 
 NewGenProviderFunction: TypeAlias = Callable[[ModelResultsOnGameMaps], list[Mutable]]
 
