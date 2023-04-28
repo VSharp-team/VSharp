@@ -148,7 +148,12 @@ def r_learn(
     validation_maps_provider: Callable[[], list[GameMap]],
     new_gen_provider_function: NewGenProviderFunction,
     connection_manager: ConnectionManager,
+    epochs_to_verify: list[int],
 ) -> None:
+
+    def launch_verification(epoch):
+        return epoch in epochs_to_verify
+
     def is_last_epoch(epoch):
         return epoch == epochs - 1
 
@@ -160,6 +165,7 @@ def r_learn(
 
     for epoch in range(epochs):
         epoch_string = f"Epoch {epoch + 1}/{epochs}"
+
         logging.info(epoch_string)
         print(epoch_string)
         train_game_maps_model_results = r_learn_iteration(
@@ -174,18 +180,19 @@ def r_learn(
             f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
         )
 
-        validation_game_maps_model_results = r_learn_iteration(
-            models=models,
-            maps_provider=validation_maps_provider,
-            user_max_steps=None,
-            tqdm_desc="Validation",
-            cm=connection_manager,
-        )
-        append_to_tables_file(
-            f"Validation: \n"
-            + create_pivot_table(validation_game_maps_model_results)
-            + "\n"
-        )
+        if launch_verification(epoch):
+            validation_game_maps_model_results = r_learn_iteration(
+                models=models,
+                maps_provider=validation_maps_provider,
+                user_max_steps=None,
+                tqdm_desc="Validation",
+                cm=connection_manager,
+            )
+            append_to_tables_file(
+                f"Validation: \n"
+                + create_pivot_table(validation_game_maps_model_results)
+                + "\n"
+            )
 
         dump_survived(models)
         if not is_last_epoch(epoch):
