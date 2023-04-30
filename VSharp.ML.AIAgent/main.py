@@ -1,22 +1,25 @@
 import logging
+from multiprocessing import Manager
 
-from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_train_maps, get_validation_maps
+import multiprocessing_logging
+
 from common.constants import Constant
-from displayer.utils import clean_tables_file
+from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
+from r_learn import r_learn
 from selection import scorer, selectors
 from selection.classes import ModelResultsOnGameMaps
-from ml.utils import load_full_model
-from r_learn import r_learn
 
 logging.basicConfig(
     level=logging.DEBUG,
     filename="app.log",
-    filemode="w",
-    format="%(asctime)s - %(name)s - [%(levelname)s]: %(message)s",
+    filemode="a",
+    format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
 )
+
+
+multiprocessing_logging.install_mp_handler()
 
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
@@ -63,14 +66,6 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     assemble generation
     """
 
-    best_decart = select_k_best(decart_scorer, mr, k=1)
-    k_best_decart = select_k_best(decart_scorer, mr, k=4)
-
-    best_euclid = select_k_best(euclidean_scorer, mr, k=1)
-    k_best_euclid = select_k_best(euclidean_scorer, mr, k=4)
-
-    avg_best_tops = average_of_selected(select_n_maps_tops(mr, k=1))
-
     return [
         *selectors.select_k_best(scorer.decart_scorer, mr, k=5),
         average_of_best,
@@ -82,11 +77,6 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
 
 
 def main():
-    socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
-    cm = ConnectionManager(socket_urls)
-
-    loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
-
     epochs = 10
     max_steps = 300
     n_models = 10
@@ -95,28 +85,22 @@ def main():
     epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
     # epochs_to_verify = [4, 8, 10]
 
-    GeneticLearner.set_model(loaded_model, 8)
     models = [GeneticLearner() for _ in range(n_models)]
 
-    def train_maps_provider():
-        return get_train_maps(cm)
-
-    def validation_maps_provider():
-        return get_validation_maps(cm)
-
+    manager = Manager()
+    ws_urls = manager.Queue()
+    for ws_url in [url for url in Constant.SOKET_URLS]:
+        ws_urls.put(ws_url)
     clean_tables_file()
+    clean_log_file()
     r_learn(
         epochs=epochs,
         train_max_steps=max_steps,
         models=models,
-        train_maps_provider=train_maps_provider,
-        validation_maps_provider=validation_maps_provider,
         new_gen_provider_function=new_gen_function,
-        connection_manager=cm,
         epochs_to_verify=epochs_to_verify,
+        ws_urls=ws_urls,
     )
-
-    cm.close()
 
 
 if __name__ == "__main__":

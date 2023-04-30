@@ -5,34 +5,26 @@ from math import floor
 
 import numpy as np
 import numpy.typing as npt
-import torch
+
+from common.constants import Constant
 from common.game import GameState
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
+from ml.utils import load_full_model
 
 from .protocols import ModelWrapper, Mutable
 
 MAX_W, MIN_W = 1, -1
 
+loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
+
 
 class GeneticLearner(ModelWrapper):
-    _model: torch.nn.Module
-
-    @staticmethod
-    def get_model():
-        if GeneticLearner._model is None:
-            raise AttributeError("GenericLearner model is not set!")
-        return GeneticLearner._model
-
-    @staticmethod
-    def set_model(torch_model: torch.nn.Module, num_features: int):
-        GeneticLearner._model = torch_model
-        GeneticLearner.NUM_FEATURES = num_features
-
     def name(self) -> str:
         return self._name
 
     def __init__(self, weights: npt.NDArray = None) -> None:
+        GeneticLearner.NUM_FEATURES = 8
         if weights is None:
             # -1 to 1
             self.weights = np.random.rand((GeneticLearner.NUM_FEATURES)) * 2 - 1
@@ -42,6 +34,7 @@ class GeneticLearner(ModelWrapper):
         self._name = "".join(
             random.choices(string.ascii_uppercase + string.digits, k=5)
         )
+        self.model = loaded_model
 
     def __str__(self) -> str:
         return f"{self.name()}: {self.weights.tolist()}"
@@ -51,7 +44,7 @@ class GeneticLearner(ModelWrapper):
             input
         )
         next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
-            GeneticLearner._model, self.weights, hetero_input, state_map
+            self.model, self.weights, hetero_input, state_map
         )
         return next_step_id
 

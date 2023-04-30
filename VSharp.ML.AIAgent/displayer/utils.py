@@ -8,3 +8,7 @@ def append_to_tables_file(s: str):
 
 def clean_tables_file():
     open(Constant.TABLES_LOG_FILE, "w").close()
+
+
+def clean_log_file():
+    open(Constant.APP_LOG_FILE, "w").close()
