@@ -100,7 +100,7 @@ def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
     ws.close()
     proxy_ws_queue.put(ws_url)
 
-    return game_map, mutable_result_mapping
+    return model.name(), game_map, mutable_result_mapping
 
 
 # вот эту функцию можно параллелить (внутренний for, например)
@@ -121,6 +121,13 @@ def r_learn_iteration(
     ) as pbar:
 
         def done_callback(x):
+            model_name, game_map, mutable_result_mapping = x.result()
+            logging.info(
+                f"<{model_name}> finished map {game_map.MapName} "
+                f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
+                f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
+                f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
+            )
             pbar.update(1)
 
         with concurrent.futures.ProcessPoolExecutor(
@@ -138,7 +145,7 @@ def r_learn_iteration(
             executor.shutdown()
 
     while not futures_queue.empty():
-        game_map, mutable_result_mapping = futures_queue.get().result()
+        _, game_map, mutable_result_mapping = futures_queue.get().result()
         model_results_on_map[game_map].append(mutable_result_mapping)
 
     inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
