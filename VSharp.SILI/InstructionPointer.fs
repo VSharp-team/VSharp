@@ -113,12 +113,32 @@ module ipOperations =
         | Exit _ -> None
         | Instruction(offset, _) -> Some offset
         | Leave(ip, _, _, _) -> offsetOf ip
-        | _ -> None
-    let methodOf = function
+        | SearchingForHandler([], []) -> None
+        | SearchingForHandler(codeLocation :: _, []) -> Some codeLocation.offset
+        | SearchingForHandler(_, codeLocations) ->
+            let codeLoc = List.last codeLocations
+            Some codeLoc.offset
+        | InFilterHandler(offset, _, _, _) -> Some offset
+        | SecondBypass(None, _, _) -> None
+        | SecondBypass(Some ip, _, _) -> offsetOf ip
+
+    let rec methodOf = function
         | Exit m
         | Instruction(_, m)
         | Leave(_, _, _, m) -> Some m
-        | _ -> None
+        | SearchingForHandler([], []) -> None
+        | SearchingForHandler(codeLocation :: _, []) -> Some codeLocation.method
+        | SearchingForHandler(_, codeLocations) ->
+            let codeLoc = List.last codeLocations
+            Some codeLoc.method
+        | InFilterHandler(_, method, _, _) -> Some method
+        | SecondBypass(None, _, _) -> None
+        | SecondBypass(Some ip, _, _) -> methodOf ip
+
+    let forceMethodOf ip =
+        match methodOf ip with
+        | Some method -> method
+        | None -> internalfail $"Getting current method: unexpected ip {ip}"
 
     let ip2codeLocation (ip : ip) =
         match offsetOf ip, methodOf ip with

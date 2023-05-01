@@ -1964,15 +1964,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let argumentsLength = List.length arguments
         let argumentsTypes =
             List.map TypeOf arguments
-        let ctors =
-            constructors
-            |> List.ofArray
-            |> List.filter (fun (ci : ConstructorInfo)
-                             -> ci.GetParameters().Length = argumentsLength
-                                && ci.GetParameters()
-                                   |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
-        assert(List.length ctors = 1)
-        let ctor = List.head ctors
+        let suitable (ci : ConstructorInfo) =
+            let parameters = ci.GetParameters()
+            parameters.Length = argumentsLength
+            && parameters |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom p1) argumentsTypes
+        let ctors = constructors |> Array.filter suitable
+        assert(Array.length ctors = 1)
+        let ctor = ctors[0]
         let fullConstructorName = Reflection.getFullMethodName ctor
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName |> Application.getMethod

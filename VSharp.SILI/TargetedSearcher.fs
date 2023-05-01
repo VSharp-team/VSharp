@@ -151,7 +151,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let reachedStates =
             match updateParentTargets with
             | Some targets when targets.Contains kvpair.Key ->
-            targetedSearcher.TargetedUpdate (parent, kvpair.Value)
+                targetedSearcher.TargetedUpdate (parent, kvpair.Value)
             | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
 
         if not <| List.isEmpty reachedStates then

@@ -4,6 +4,7 @@ open System
 
 open VSharp
 open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Interpreter.IL.ipOperations
 
 type ShortestDistanceWeighter(target : codeLocation) =
     let infinity = UInt32.MaxValue
@@ -36,16 +37,18 @@ type ShortestDistanceWeighter(target : codeLocation) =
          |> Seq.min
 
     let calculateCallWeight (state : cilState) =
+        let suitable ip =
+            match offsetOf ip with
+            | Some offset -> Some (forceMethodOf ip, offset)
+            | None -> None
+        let calculateWeight frameNumber (method, offset) =
+            // TODO: do not execute this for frames with frameNumber > current minimum
+            let frameNumber = uint frameNumber
+            frameWeight method offset frameNumber, frameNumber
         let frameWeights =
             state.ipStack
-         |> Seq.choose (fun ip ->
-            let optOffset = offsetOf ip
-            if Option.isSome optOffset
-                then Some (methodOf ip, optOffset |> Option.get)
-                else None)
-         |> Seq.mapi (fun number (method, offset) ->
-            // TODO: do not execute this for frames with frameNumber > current minimum
-            frameWeight method offset (uint number), uint number)
+            |> Seq.choose suitable
+            |> Seq.mapi calculateWeight
 
         if Seq.isEmpty frameWeights then None
         else
