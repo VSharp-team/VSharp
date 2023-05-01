@@ -75,6 +75,18 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
                 instr <- instr.next
         }
 
+    member this.BlockSize =
+        let parsedInstructions = method.ParsedInstructions
+        let mutable instr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.StartOffset)
+        let endInstr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.FinalOffset)
+        let mutable notEnd = true
+        let mutable size = 0
+        while notEnd do
+            notEnd <- not <| LanguagePrimitives.PhysicalEquality instr endInstr
+            size <- size + 1
+            instr <- instr.next
+        size
+
     interface ICfgNode with
         member this.OutgoingEdges
             with get () =
@@ -100,6 +112,7 @@ and CfgInfo internal (method : MethodWithBody) =
     let ilBytes = method.ILBytes
     let exceptionHandlers = method.ExceptionHandlers
     let sortedBasicBlocks = ResizeArray<BasicBlock>()
+    let mutable methodSize = 0
     let sinks = ResizeArray<_>()
     let calls = Dictionary<_,_>()
     let loopEntries = HashSet<offset>()
@@ -239,9 +252,14 @@ and CfgInfo internal (method : MethodWithBody) =
         startVertices
         |> Array.iter (fun v -> dfs' (makeNewBasicBlock v) v id)
 
+        methodSize <- 0
+
         basicBlocks
         |> Seq.sortBy (fun b -> b.StartOffset)
-        |> Seq.iter sortedBasicBlocks.Add
+        |> Seq.iter (fun bb ->
+            methodSize <- methodSize + bb.BlockSize
+            sortedBasicBlocks.Add bb
+        )
 
 
     let cfgDistanceFrom = GraphUtils.distanceCache<ICfgNode>()
@@ -289,10 +307,11 @@ and CfgInfo internal (method : MethodWithBody) =
     member this.SortedBasicBlocks = sortedBasicBlocks
     member this.IlBytes = ilBytes
     member this.EntryPoint = sortedBasicBlocks[0]
+    member this.MethodSize = methodSize
     member this.Sinks = sinks
     member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
-    member internal this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
+    member this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
     member this.ResolveBasicBlock offset = resolveBasicBlock offset
     member this.IsBasicBlockStart offset = (resolveBasicBlock offset).StartOffset = offset
     // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)

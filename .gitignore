@@ -229,3 +229,4 @@ VSharp.ClrInteraction/host/*
 
 # Rendered tests
 VSharp.Test/GeneratedTests/**
+VSharp.CoverageInstrumenter/.vscode/settings.json

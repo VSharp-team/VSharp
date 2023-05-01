@@ -45,6 +45,7 @@
         <Compile Include="TestResultsChecker.fs" />
         <Compile Include="PhysicalAddress.fs" />
         <Compile Include="NumericUtils.fs" />
+        <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>
 
     <ItemGroup>
