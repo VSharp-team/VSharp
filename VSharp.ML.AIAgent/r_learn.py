@@ -2,6 +2,7 @@ import concurrent.futures
 import logging
 import queue
 from collections import defaultdict
+from contextlib import closing
 from itertools import product
 from typing import Callable, Optional, TypeAlias
 
@@ -62,7 +63,9 @@ def play_map(
         steps_count += 1
     except NAgent.GameOver:
         if game_state is None:
-            raise RuntimeError("server sent gameover immediately!")
+            raise RuntimeError(
+                f"server sent gameover immediately while playing map with id={with_agent.map_id}"
+            )
 
     factual_coverage, vertexes_in_zone = covered(game_state)
     factual_coverage += last_step_covered
@@ -71,7 +74,8 @@ def play_map(
 
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
-            f"<{with_model.name()}>: not all steps exshausted with non-100% coverage. steps: {steps_count}, coverage: {coverage_percent}"
+            f"<{with_model.name()}>: not all steps exshausted with non-100% coverage. "
+            f"steps: {steps_count}, coverage: {coverage_percent}"
         )
 
     model_result: MutableResultMapping = MutableResultMapping(
@@ -92,13 +96,12 @@ def _use_user_steps(provided_steps_field: Optional[int]):
 
 def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
     ws_url = proxy_ws_queue.get()
-    ws = websocket.create_connection(ws_url)
-    agent = NAgent(ws, map_id_to_play=game_map.Id, steps=max_steps)
-    logging.info(f"<{model}> is playing {game_map.MapName}")
-    mutable_result_mapping = play_map(
-        with_agent=agent, with_model=model, steps=max_steps
-    )
-    ws.close()
+    with closing(websocket.create_connection(ws_url)) as ws:
+        agent = NAgent(ws, map_id_to_play=game_map.Id, steps=max_steps)
+        logging.info(f"<{model}> is playing {game_map.MapName}")
+        mutable_result_mapping = play_map(
+            with_agent=agent, with_model=model, steps=max_steps
+        )
     proxy_ws_queue.put(ws_url)
 
     return model.name(), game_map, mutable_result_mapping
@@ -110,7 +113,8 @@ def r_learn_iteration(
     maps: list[GameMap],
     user_max_steps: Optional[int],
     tqdm_desc: str,
-    ws_urls: queue.Queue(),
+    ws_urls: queue.Queue,
+    proc_num: int,
 ) -> ModelResultsOnGameMaps:
     games = list(generate_games(models, maps))
 
@@ -132,7 +136,7 @@ def r_learn_iteration(
             pbar.update(1)
 
         with concurrent.futures.ProcessPoolExecutor(
-            max_workers=3, initializer=GeneticLearner.set_static_model
+            max_workers=proc_num, initializer=GeneticLearner.set_static_model
         ) as executor:
             try:
                 for model, game_map in games:
@@ -159,18 +163,19 @@ def r_learn_iteration(
 
 
 def r_learn(
-    epochs: int,
+    epochs_num: int,
     train_max_steps: int,
     models: list[Predictor],
     new_gen_provider_function: NewGenProviderFunction,
     epochs_to_verify: list[int],
     ws_urls: queue.Queue,
+    proc_num: int,
 ) -> None:
     def launch_verification(epoch):
         return epoch in epochs_to_verify
 
     def is_last_epoch(epoch):
-        return epoch == epochs - 1
+        return epoch == epochs_num
 
     def dump_survived(models):
         survived = ""
@@ -178,22 +183,19 @@ def r_learn(
             survived += str(model) + "\n"
         append_to_tables_file(f"survived models: {survived}")
 
-    for epoch in range(epochs):
-        epoch_string = f"Epoch {epoch + 1}/{epochs}"
+    for epoch in range(1, epochs_num + 1):
+        epoch_string = f"Epoch {epoch}/{epochs_num}"
 
         logging.info(epoch_string)
         print(epoch_string)
-        map_socket_url = ws_urls.get()
-        map_socket = websocket.create_connection(map_socket_url)
-        train_maps = get_train_maps(map_socket)
-        map_socket.close()
-        ws_urls.put(map_socket_url)
+        train_maps = get_train_maps(ws_urls)
         train_game_maps_model_results = r_learn_iteration(
             models=models,
             maps=train_maps,
             user_max_steps=train_max_steps,
             tqdm_desc="Train",
             ws_urls=ws_urls,
+            proc_num=proc_num,
         )
         append_to_tables_file(epoch_string + "\n")
         append_to_tables_file(
@@ -201,17 +203,14 @@ def r_learn(
         )
 
         if launch_verification(epoch):
-            map_socket_url = ws_urls.get()
-            map_socket = websocket.create_connection(map_socket_url)
-            validation_maps = get_validation_maps(map_socket)
-            map_socket.close()
-            ws_urls.put(map_socket_url)
+            validation_maps = get_validation_maps(ws_urls)
             validation_game_maps_model_results = r_learn_iteration(
                 models=models,
                 maps=validation_maps,
                 user_max_steps=None,
                 tqdm_desc="Validation",
                 ws_urls=ws_urls,
+                proc_num=proc_num,
             )
             append_to_tables_file(
                 f"Validation: \n"

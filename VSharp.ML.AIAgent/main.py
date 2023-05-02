@@ -3,11 +3,9 @@ from multiprocessing import Manager
 
 import multiprocessing_logging
 
-from common.constants import Constant
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
-from ml.utils import load_full_model
 from r_learn import r_learn
 from selection import scorer, selectors
 from selection.classes import ModelResultsOnGameMaps
@@ -77,10 +75,19 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     ]
 
 
+# len(SOCKET_URLS) == proc_num
+SOCKET_URLS = [
+    "ws://0.0.0.0:8080/gameServer",
+    "ws://0.0.0.0:8090/gameServer",
+    "ws://0.0.0.0:8100/gameServer",
+]
+
+
 def main():
     epochs = 10
     max_steps = 300
     n_models = 10
+    proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
     # every 4th epoch
     epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
@@ -91,17 +98,18 @@ def main():
 
     manager = Manager()
     ws_urls = manager.Queue()
-    for ws_url in [url for url in Constant.SOKET_URLS]:
+    for ws_url in SOCKET_URLS:
         ws_urls.put(ws_url)
     clean_tables_file()
     clean_log_file()
     r_learn(
-        epochs=epochs,
+        epochs_num=epochs,
         train_max_steps=max_steps,
         models=models,
         new_gen_provider_function=new_gen_function,
         epochs_to_verify=epochs_to_verify,
         ws_urls=ws_urls,
+        proc_num=proc_num,
     )
 
 

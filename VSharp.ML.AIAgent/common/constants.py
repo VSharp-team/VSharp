@@ -1,5 +1,4 @@
 from pathlib import Path
-import websocket
 
 
 def _build_bar_format() -> str:
@@ -20,8 +19,3 @@ class Constant:
         "bar_format": _build_bar_format(),
         "dynamic_ncols": True,
     }
-    SOKET_URLS = [
-        "ws://0.0.0.0:8080/gameServer",
-        "ws://0.0.0.0:8090/gameServer",
-        "ws://0.0.0.0:8100/gameServer",
-    ]
