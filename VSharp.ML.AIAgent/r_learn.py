@@ -2,11 +2,9 @@ import concurrent.futures
 import logging
 import queue
 from collections import defaultdict
-from contextlib import suppress
 from itertools import product
 from typing import Callable, Optional, TypeAlias
 
-import multiprocessing_logging
 import tqdm
 import websocket
 
@@ -16,6 +14,7 @@ from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
 from displayer.tables import create_pivot_table
 from displayer.utils import append_to_tables_file
+from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable, Predictor
 from selection.classes import (
     GameMapsModelResults,
@@ -39,6 +38,7 @@ def play_map(
     cumulative_reward = MoveReward(0, 0)
     steps_count = 0
     last_step_covered = None
+    game_state = None
 
     try:
         for _ in range(steps):
@@ -61,7 +61,8 @@ def play_map(
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
     except NAgent.GameOver:
-        pass
+        if game_state is None:
+            raise RuntimeError("server sent gameover immediately!")
 
     factual_coverage, vertexes_in_zone = covered(game_state)
     factual_coverage += last_step_covered
@@ -86,7 +87,7 @@ def play_map(
 
 
 def _use_user_steps(provided_steps_field: Optional[int]):
-    return provided_steps_field != None
+    return provided_steps_field is not None
 
 
 def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
@@ -131,18 +132,22 @@ def r_learn_iteration(
             pbar.update(1)
 
         with concurrent.futures.ProcessPoolExecutor(
-            max_workers=3, initializer=multiprocessing_logging.install_mp_handler
+            max_workers=3, initializer=GeneticLearner.set_static_model
         ) as executor:
-            for model, game_map in games:
-                max_steps = (
-                    user_max_steps
-                    if _use_user_steps(user_max_steps)
-                    else game_map.MaxSteps
-                )
-                future = executor.submit(play_game, model, game_map, max_steps, ws_urls)
-                future.add_done_callback(done_callback)
-                futures_queue.put(future)
-            executor.shutdown()
+            try:
+                for model, game_map in games:
+                    max_steps = (
+                        user_max_steps
+                        if _use_user_steps(user_max_steps)
+                        else game_map.MaxSteps
+                    )
+                    future = executor.submit(
+                        play_game, model, game_map, max_steps, ws_urls
+                    )
+                    future.add_done_callback(done_callback)
+                    futures_queue.put(future)
+            finally:
+                executor.shutdown()
 
     while not futures_queue.empty():
         _, game_map, mutable_result_mapping = futures_queue.get().result()

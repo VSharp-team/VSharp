@@ -7,6 +7,7 @@ from common.constants import Constant
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
+from ml.utils import load_full_model
 from r_learn import r_learn
 from selection import scorer, selectors
 from selection.classes import ModelResultsOnGameMaps
@@ -85,6 +86,7 @@ def main():
     epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
     # epochs_to_verify = [4, 8, 10]
 
+    GeneticLearner.set_static_model()
     models = [GeneticLearner() for _ in range(n_models)]
 
     manager = Manager()
