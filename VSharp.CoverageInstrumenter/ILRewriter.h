@@ -7,7 +7,6 @@
 #include <cassert>
 #include <stdexcept>
 
-// TODO: add probes here!
 #include "probes.h"
 
 #undef IfFailRet

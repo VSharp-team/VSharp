@@ -19,7 +19,7 @@
     </Target>
 
     <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;        cd ../VSharp.CoverageInstrumenter&#xA;        mkdir build&#xA;        msbuild VSharp.CoverageInstrumenter.vcxproj /p:Configuration='Debug' /p:BuildOS='Windows_NT' /p:BuildType='Debug' /p:BuildArch='x64' /p:Platform='x64'" />
+        <Exec Command="&#xA;        cd ../VSharp.CoverageInstrumenter&#xA;        mkdir build&#xA;        msbuild VSharp.CoverageInstrumenter.vcxproj /p:Configuration=Debug /p:BuildOS=Windows_NT /p:BuildType=Debug /p:BuildArch=x64 /p:Platform=x64" />
     </Target>
 
     <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Linux')) ">

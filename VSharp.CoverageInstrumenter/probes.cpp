@@ -60,11 +60,11 @@ void CoverageRecord::serialize(char *&buffer) const {
 
 static CoverageProbes vsharp::coverageProbes;
 
-static bool vsharp::areProbesEnabled = false;
+bool vsharp::areProbesEnabled = false;
 
-static std::vector<CoverageHistory*> vsharp::coverageHistory = std::vector<CoverageHistory*>(0);
+std::vector<CoverageHistory*> vsharp::coverageHistory = std::vector<CoverageHistory*>(0);
 
-static CoverageHistory *vsharp::currentCoverage = nullptr;
+CoverageHistory *vsharp::currentCoverage = nullptr;
 
 void vsharp::enableProbes() {
     getLock();
@@ -181,7 +181,7 @@ void MethodInfo::serialize(char *&buffer) const {
     buffer += moduleBytesSize;
 }
 
-static std::vector<MethodInfo> vsharp::collectedMethods;
+std::vector<MethodInfo> vsharp::collectedMethods;
 
 /// ------------------------------ Probes declarations ---------------------------
 

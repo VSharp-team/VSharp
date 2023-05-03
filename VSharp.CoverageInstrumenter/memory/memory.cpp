@@ -1,6 +1,6 @@
 #include "memory.h"
 #include "stack.h"
-#include "logging.h"
+#include "..\logging.h"
 #include <mutex>
 
 using namespace vsharp;

@@ -2,6 +2,7 @@
 #include "logging.h"
 #include "cComPtr.h"
 #include <vector>
+#include <assert.h>
 #include "memory/memory.h"
 
 using namespace vsharp;
@@ -54,7 +55,7 @@ void GetHistory(UINT_PTR size, UINT_PTR bytes) {
     clearCoverageCollection(); // freeing up the history
 }
 
-static std::set<std::pair<FunctionID, ModuleID>> vsharp::instrumentedMethods;
+std::set<std::pair<FunctionID, ModuleID>> vsharp::instrumentedMethods;
 
 HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSignature> &tokens) {
     auto covProb = getProbes();

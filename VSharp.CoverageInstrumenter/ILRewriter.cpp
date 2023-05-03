@@ -402,11 +402,11 @@ static int k_rgnStackPushes[] = {
         0   // CEE_SWITCH_ARG
 };
 
-static WCHAR *mainAssemblyName = nullptr;
-static int mainAssemblyNameLength = 0;
-static WCHAR *mainModuleName = nullptr;
-static int mainModuleNameLength = 0;
-static mdMethodDef mainToken = 0;
+WCHAR *mainAssemblyName = nullptr;
+int mainAssemblyNameLength = 0;
+WCHAR *mainModuleName = nullptr;
+int mainModuleNameLength = 0;
+mdMethodDef mainToken = 0;
 
 ILRewriter::ILRewriter(
     ICorProfilerInfo * pICorProfilerInfo,

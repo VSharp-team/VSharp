@@ -120,7 +120,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 
         std::ofstream fout;
 
-        fout.open(passiveResultPath);
+        fout.open(passiveResultPath, std::ios::out|std::ios::binary);
         fout.write(bytes, size);
         fout.close();
     }

@@ -1,5 +1,5 @@
 #include "stack.h"
-#include "logging.h"
+#include "..\logging.h"
 #include <cstring>
 #include <cassert>
 #include <algorithm>
