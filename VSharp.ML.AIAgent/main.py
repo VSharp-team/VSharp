@@ -1,22 +1,24 @@
 import logging
+from multiprocessing import Manager
 
-from agent.connection_manager import ConnectionManager
-from agent.n_agent import get_train_maps, get_validation_maps
-from common.constants import Constant
-from displayer.utils import clean_tables_file
+import multiprocessing_logging
+
+from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable
+from r_learn import r_learn
 from selection import scorer, selectors
 from selection.classes import ModelResultsOnGameMaps
-from ml.utils import load_full_model
-from r_learn import r_learn
 
 logging.basicConfig(
     level=logging.DEBUG,
     filename="app.log",
-    filemode="w",
-    format="%(asctime)s - %(name)s - [%(levelname)s]: %(message)s",
+    filemode="a",
+    format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
 )
+
+
+multiprocessing_logging.install_mp_handler()
 
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
@@ -89,42 +91,45 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     ]
 
 
+# len(SOCKET_URLS) == proc_num
+SOCKET_URLS = [
+    "ws://0.0.0.0:8080/gameServer",
+    "ws://0.0.0.0:8090/gameServer",
+    "ws://0.0.0.0:8100/gameServer",
+]
+
+
 def main():
-    socket_urls = [Constant.DEFAULT_GAMESERVER_URL]
-    cm = ConnectionManager(socket_urls)
 
     loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
     epochs = 20
     max_steps = 600
     n_models = 20
+    proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
     # every 4th epoch
     epochs_to_verify = [i for i in range(4, epochs + 1) if i % 4 == 0]
     # epochs_to_verify = [4, 8, 10]
 
-    GeneticLearner.set_model(loaded_model, 8)
+    GeneticLearner.set_static_model()
     models = [GeneticLearner() for _ in range(n_models)]
 
-    def train_maps_provider():
-        return get_train_maps(cm)
-
-    def validation_maps_provider():
-        return get_validation_maps(cm)
-
+    manager = Manager()
+    ws_urls = manager.Queue()
+    for ws_url in SOCKET_URLS:
+        ws_urls.put(ws_url)
     clean_tables_file()
+    clean_log_file()
     r_learn(
-        epochs=epochs,
+        epochs_num=epochs,
         train_max_steps=max_steps,
         models=models,
-        train_maps_provider=train_maps_provider,
-        validation_maps_provider=validation_maps_provider,
         new_gen_provider_function=new_gen_function,
-        connection_manager=cm,
         epochs_to_verify=epochs_to_verify,
+        ws_urls=ws_urls,
+        proc_num=proc_num,
     )
-
-    cm.close()
 
 
 if __name__ == "__main__":
