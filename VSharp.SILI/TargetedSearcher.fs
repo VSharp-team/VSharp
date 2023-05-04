@@ -88,7 +88,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let violatesRecursionLevel s =
         let optCurrLoc = tryCurrentLoc s
         match optCurrLoc with
-        | Some currLoc ->
+        | Some currLoc when currLoc.method.CFG.IsSome ->
             let cfg = currLoc.method.ForceCFG
             let onVertex = cfg.IsBasicBlockStart currLoc.offset
             let level = if PersistentDict.contains currLoc s.level then s.level.[currLoc] else 0u
@@ -111,7 +111,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let cfg = startingMethod.ForceCFG
 
         for retOffset in cfg.Sinks do
-            let target = {offset = retOffset; method = startingMethod}
+            let target = {offset = retOffset.StartOffset; method = startingMethod}
 
             match state.targets with
             | Some targets ->
@@ -151,7 +151,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
         let reachedStates =
             match updateParentTargets with
             | Some targets when targets.Contains kvpair.Key ->
-            targetedSearcher.TargetedUpdate (parent, kvpair.Value)
+                targetedSearcher.TargetedUpdate (parent, kvpair.Value)
             | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
 
         if not <| List.isEmpty reachedStates then

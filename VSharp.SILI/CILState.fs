@@ -81,7 +81,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
-          history = Set.singleton currentLoc
+          history = Set.empty
           entryMethod = Some entryMethod
           id = getNextStateId()
         }
@@ -143,21 +143,8 @@ module internal CilStateOperations =
             s.level.[currLoc] >= maxBound
         | _ -> false
 
-    let methodOf = function
-        | Exit m
-        | Instruction(_, m)
-        | Leave(_, _, _, m) -> m
-        | _ -> __notImplemented__()
-
-    let offsetOf = function
-        | Instruction(offset, _) -> Some offset
-        | Exit _
-        | Leave _
-        | SearchingForHandler _ -> None
-        | ip -> internalfailf "offsetOf: unexpected ip %O" ip
-
     // [NOTE] Obtaining exploring method
-    let currentMethod = currentIp >> methodOf
+    let currentMethod = currentIp >> forceMethodOf
 
     let currentOffset = currentIp >> offsetOf
 
@@ -224,7 +211,7 @@ module internal CilStateOperations =
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
 
-    let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+    let addLocationToHistory (cilState : cilState) (loc : codeLocation) =
         cilState.history <- Set.add loc cilState.history
 
     // ------------------------------- Helper functions for cilState and state interaction -------------------------------
