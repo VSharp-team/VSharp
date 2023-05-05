@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System
+open System.Collections.Generic
 open System.Diagnostics
 open System.IO
 open System.Reflection
@@ -11,7 +12,7 @@ open System.Xml
 // NOTE: if 'expectedCoverage' is null 'TestResultsChecker' runs all tests and checks results equality
 //       otherwise, it compares expected coverage to computed coverage of tests
 type TestResultsChecker(testDir : DirectoryInfo, runnerDir : DirectoryInfo, expectedCoverage : Nullable<int>) =
-    let expectedCoverage = Option.ofNullable expectedCoverage
+    let expectedCoverage = None
     // NOTE: if 'TestResultsChecker' succeeds, 'resultMessage' is empty, otherwise, it contains failure message
     let mutable resultMessage = ""
     let runDotnet args =
@@ -34,13 +35,15 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : DirectoryInfo, expe
 
     let runDotCover globalArg runTests =
         let filters = ["-:module=Microsoft.*"; "-:module=FSharp.*"; "-:class=VSharp.*"; "-:module=VSharp.Utils"]
-        let code, _, error = runDotnet <| sprintf "dotcover --dcFilters=\"%s\" %s --dcReportType=DetailedXML %s" (filters |> join ";") runTests globalArg
+        let command = sprintf "dotcover --dcFilters=\"%s\" %s --dcReportType=DetailedXML %s" (filters |> join ";") runTests globalArg
+        let code, _, error = runDotnet command
+        if code <> 0 then Logger.error $"Non zero dotcover return code: {code}"
         code = 0, error
 
     let runnerWithArgs (directory : DirectoryInfo) =
         $"%s{runnerDir.FullName}%c{Path.DirectorySeparatorChar}VSharp.TestRunner.dll {directory.FullName}"
 
-    let run =
+    let run (methodInfo : MethodInfo) testDir =
         match expectedCoverage with
         | Some _ ->
             let _, localTools, _ = runDotnet "tool list"
@@ -51,12 +54,13 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : DirectoryInfo, expe
                     if globalTools.Contains "dotcover" then "-g"
                     else raise (InvalidOperationException "JetBrains.DotCover tool not found! Either install it locally by running 'dotnet tool restore' in build directory, or globally by running 'dotnet tool install JetBrains.dotCover.GlobalTool -g'")
             // TODO: try to run DotCover from IntegrationTests in same process
-            runnerWithArgs >> runDotCover globalArg
+            runDotCover globalArg (runnerWithArgs testDir)
         | None ->
-            fun (directory : DirectoryInfo) ->
-                // TODO: run TestRunner from IntegrationTests in same process
-                let code, _, error = runDotnet (runnerWithArgs directory)
-                code = 0, error
+            let exitCode, error = __notImplemented__()
+            exitCode = 0, error
+            // TODO: run TestRunner from IntegrationTests in same process
+            // let code, _, error = runDotnet (runnerWithArgs testDir)
+            // code = 0, error
 
     let rec typeNameForDotCover (typ : Type) =
         if typ.IsGenericType then
@@ -118,7 +122,8 @@ type TestResultsChecker(testDir : DirectoryInfo, runnerDir : DirectoryInfo, expe
         | _ -> raise (InvalidOperationException <| sprintf "Invalid query of coverage results for %O!" m)
 
     member x.Check(methodInfo : MethodInfo, [<Out>] actualCoverage : Nullable<uint> byref) : bool =
-        let success, error = run testDir
+        let success, error = run methodInfo testDir
+        Logger.error "error output %O" error
         if not success then
             raise <| InvalidOperationException ("Running test results checker failed: " + error)
         match expectedCoverage with
