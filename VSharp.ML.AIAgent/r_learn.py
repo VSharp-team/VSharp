@@ -1,9 +1,12 @@
 import concurrent.futures
 import logging
+import os
 import queue
+import random
 from collections import defaultdict
 from contextlib import closing
 from itertools import product
+from time import time
 from typing import Callable, Optional, TypeAlias
 
 import tqdm
@@ -107,7 +110,11 @@ def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
     return model.name(), game_map, mutable_result_mapping
 
 
-# вот эту функцию можно параллелить (внутренний for, например)
+def initialize_processes():
+    GeneticLearner.set_static_model()
+    random.seed(os.getpid() + time())
+
+
 def r_learn_iteration(
     models: list[Predictor],
     maps: list[GameMap],
@@ -136,7 +143,7 @@ def r_learn_iteration(
             pbar.update(1)
 
         with concurrent.futures.ProcessPoolExecutor(
-            max_workers=proc_num, initializer=GeneticLearner.set_static_model
+            max_workers=proc_num, initializer=initialize_processes
         ) as executor:
             try:
                 for model, game_map in games:
@@ -179,9 +186,10 @@ def r_learn(
 
     def dump_survived(models):
         survived = ""
+        longest_name_len = max(map(lambda x: len(x.name()), models))
         for model in models:
-            survived += str(model) + "\n"
-        append_to_tables_file(f"survived models: {survived}")
+            survived += f"{model.name(): <{longest_name_len}} {model.info()}\n"
+        append_to_tables_file(f"survived models:\n{survived}")
 
     for epoch in range(1, epochs_num + 1):
         epoch_string = f"Epoch {epoch}/{epochs_num}"
