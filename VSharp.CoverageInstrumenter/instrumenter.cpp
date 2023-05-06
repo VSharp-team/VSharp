@@ -62,9 +62,9 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     mdSignature signatureToken;
     SIG_DEF(0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET)
     covProb->Finalize_Call_Sig.setSig(signatureToken);
-    covProb->Track_Call_Sig.setSig(signatureToken);
     SIG_DEF(0x02, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET, ELEMENT_TYPE_I4)
     covProb->Branch_Sig.setSig(signatureToken);
+    covProb->Track_Call_Sig.setSig(signatureToken);
     covProb->Track_Leave_Sig.setSig(signatureToken);
     covProb->Track_Coverage_Sig.setSig(signatureToken);
     covProb->Track_Tailcall_Sig.setSig(signatureToken);
@@ -130,9 +130,8 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, int methodId, cons
     IfFailRet(m_profilerInfo.GetModuleMetaData(m_moduleId, ofRead | ofWrite, IID_IMetaDataImport, reinterpret_cast<IUnknown **>(&metadataImport)));
     IfFailRet(metadataImport->QueryInterface(IID_IMetaDataEmit, reinterpret_cast<void **>(&metadataEmit)));
 
-    bool firstTime = false;
-    if (oldModuleId != m_moduleId || firstTime) {
-        if (!firstTime) delete[] m_signatureTokens;
+    if (oldModuleId != m_moduleId) {
+        delete[] m_signatureTokens;
         std::vector<mdSignature> tokens;
         initTokens(metadataEmit, tokens);
         m_signatureTokensLength = tokens.size() * sizeof(mdSignature);
@@ -164,6 +163,12 @@ HRESULT Instrumenter::instrument(FunctionID functionId, bool reJIT) {
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, 0, &assemblyNameLength, nullptr, &appDomainId, &startModuleId));
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
+
+    // checking if this method was rewritten before
+    if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
+        LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);
+        return S_OK;
+    }
 
     getLock();
     int currentMethodId = collectedMethods.size();

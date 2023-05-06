@@ -85,7 +85,7 @@ void Track_Coverage(OFFSET offset, int methodId);
 
 void Branch(OFFSET offset, int methodId);
 
-void Track_Call(OFFSET offset);
+void Track_Call(OFFSET offset, int methodId);
 
 void Track_Tailcall(OFFSET offset, int methodId);
 

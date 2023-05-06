@@ -1330,31 +1330,47 @@ HRESULT RewriteIL(
             case CEE_CALLVIRT:
             case CEE_NEWOBJ:
             {
-                // TODO: why Track_Call is not working
-                if (!isTailCall)
-                    break;
                 INT_PTR trackCallAddr;
                 ULONG32 trackCallSig;
                 ILInstr *instr;
-                if (isTailCall) {
+                bool isPrefixCall = IsPrefix(pInstr->m_pPrev);
+                if (isPrefixCall) {
                     // instructions:
                     //
-                    // .tailcall
+                    // prefix.
                     // call
                     //
                     // need to add the probe before the prefix
                     instr = pInstr->m_pPrev;
-                    // instr = pInstr;
+                }
+                else {
+                    instr = pInstr;
+                }
+
+                if (isTailCall) {
                     trackCallAddr = covProb->Track_Tailcall_Addr;
                     trackCallSig = covProb->Track_Tailcall_Sig.getSig();
                 }
                 else {
-                    instr = pInstr;
                     trackCallAddr = covProb->Track_Call_Addr;
                     trackCallSig = covProb->Track_Call_Sig.getSig();
                 }
+
                 coveredInstructions.insert(instr->m_offset);
                 AddCoverageProbeWithNop(pilr, instr, trackCallAddr, trackCallSig, methodId);
+
+                // moving the instruction pointer to the call to not break the loop
+                if (isPrefixCall) {
+                    pInstr = instr->m_pNext; 
+                }
+                else {
+                    pInstr = instr;
+                }
+
+                // another basic block is generated after the call; unless it's tail., adding target after the call finalizes
+                if (!isTailCall) {
+                    branchTargets.insert({ pInstr->m_pNext, pInstr });
+                }
                 break;
             }
             case CEE_RET:

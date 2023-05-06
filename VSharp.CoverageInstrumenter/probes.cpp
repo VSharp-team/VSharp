@@ -195,11 +195,11 @@ void vsharp::Branch(OFFSET offset, int methodId) {
     addCoverage(offset, BranchHit, methodId);
 }
 
-void vsharp::Track_Call(OFFSET offset) {
+void vsharp::Track_Call(OFFSET offset, int methodId) {
     if (!areProbesEnabled) {
         return;
     }
-    // addCoverage(offset, Call);
+    addCoverage(offset, Call, methodId);
 }
 
 void vsharp::Track_Tailcall(OFFSET offset, int methodId) {
