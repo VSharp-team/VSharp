@@ -66,6 +66,7 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     covProb->Branch_Sig.setSig(signatureToken);
     covProb->Track_Call_Sig.setSig(signatureToken);
     covProb->Track_Leave_Sig.setSig(signatureToken);
+    covProb->Track_Stsfld_Sig.setSig(signatureToken);
     covProb->Track_Coverage_Sig.setSig(signatureToken);
     covProb->Track_Tailcall_Sig.setSig(signatureToken);
     covProb->Track_LeaveMain_Sig.setSig(signatureToken);

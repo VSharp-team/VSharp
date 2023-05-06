@@ -35,6 +35,7 @@ void vsharp::InitializeProbes() {
     covProbes->Finalize_Call_Addr = (INT_PTR) &Finalize_Call;
     covProbes->Track_Call_Addr = (INT_PTR) &Track_Call;
     covProbes->Track_Tailcall_Addr = (INT_PTR) &Track_Tailcall;
+    covProbes->Track_Stsfld_Addr = (INT_PTR) &Track_Stsfld;
     LOG(tout << "probes initialized" << std::endl);
 }
 
@@ -189,6 +190,11 @@ std::vector<MethodInfo> vsharp::collectedMethods;
 void vsharp::Track_Coverage(OFFSET offset, int methodId) {
     if (!areProbesEnabled) return;
     addCoverage(offset, TrackCoverage, methodId);
+}
+
+void vsharp::Track_Stsfld(OFFSET offset, int methodId) {
+    if (!areProbesEnabled) return;
+    addCoverage(offset, StsfldHit, methodId);
 }
 
 void vsharp::Branch(OFFSET offset, int methodId) {

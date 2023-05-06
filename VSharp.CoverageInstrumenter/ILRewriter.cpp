@@ -1220,30 +1220,30 @@ HRESULT AddCoverageProbeWithNop(
         int methodId)
 {
     // adding the new instruction
-    ILInstr * pNewRet = pilr->NewILInstr();
-    pNewRet->m_opcode = pInstr->m_opcode;
-    pNewRet->m_Arg64 = pInstr->m_Arg64; // using the widest argument of the union to copy it
-    pilr->InsertAfter(pInstr, pNewRet);
+    ILInstr * pNewInstr = pilr->NewILInstr();
+    pNewInstr->m_opcode = pInstr->m_opcode;
+    pNewInstr->m_Arg64 = pInstr->m_Arg64; // using the widest argument of the union to copy it
+    pilr->InsertAfter(pInstr, pNewInstr);
 
     pInstr->m_opcode = CEE_NOP;
 
-    AddLDCInstrBefore(pilr, pNewRet, (INT32)pInstr->m_offset);
+    AddLDCInstrBefore(pilr, pNewInstr, (INT32)pInstr->m_offset);
 
-    AddLDCInstrBefore(pilr, pNewRet, methodId);
+    AddLDCInstrBefore(pilr, pNewInstr, methodId);
 
     // adding the probe
-    IfFailRet(AddProbe(pilr, methodAddress, methodSignature, pNewRet));
+    IfFailRet(AddProbe(pilr, methodAddress, methodSignature, pNewInstr));
 
     // changing exception handlers bounds if we were on the end of handler block
     if (pilr->m_pEH != nullptr) {
         for (int i = 0; i < pilr->m_nEH; i++) {
             if (pilr->m_pEH[i].m_pHandlerEnd == pInstr) {
-                pilr->m_pEH[i].m_pHandlerEnd = pNewRet;
+                pilr->m_pEH[i].m_pHandlerEnd = pNewInstr;
             }
         }
     }
 
-    pInstr = pNewRet;
+    pInstr = pNewInstr;
     return S_OK;
 }
 
@@ -1325,6 +1325,27 @@ HRESULT RewriteIL(
         // ret & call coverage
         switch (pInstr->m_opcode)
         {
+            case CEE_STSFLD:
+            {
+                ILInstr* instr;
+                if (IsPrefix(pInstr->m_pPrev)) {
+                    instr = pInstr->m_pPrev;
+                }
+                else {
+                    instr = pInstr;
+                }
+                coveredInstructions.insert(instr->m_offset);
+                AddCoverageProbeWithNop(pilr, instr, covProb->Track_Stsfld_Addr, covProb->Track_Stsfld_Sig.getSig(), methodId);
+
+                // advancing original instr to avoid loops
+                if (IsPrefix(pInstr->m_pPrev)) {
+                    pInstr = instr->m_pNext;
+                }
+                else {
+                    pInstr = instr;
+                }
+                break;
+            }
             case CEE_TAILCALL:
             {
                 isTailCall = TRUE;

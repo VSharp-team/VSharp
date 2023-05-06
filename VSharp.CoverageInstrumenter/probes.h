@@ -26,7 +26,8 @@ enum CoverageEvents {
     BranchHit,
     Call,
     Tailcall,
-    TrackCoverage
+    TrackCoverage,
+    StsfldHit
 };
 
 struct CoverageRecord {
@@ -83,6 +84,8 @@ void clearCoverageCollection();
 
 void Track_Coverage(OFFSET offset, int methodId);
 
+void Track_Stsfld(OFFSET offset, int methodId);
+
 void Branch(OFFSET offset, int methodId);
 
 void Track_Call(OFFSET offset, int methodId);
@@ -101,6 +104,7 @@ void Finalize_Call(OFFSET offset);
 
 struct CoverageProbes {
     INT_PTR Track_Coverage_Addr;
+    INT_PTR Track_Stsfld_Addr;
     INT_PTR Branch_Addr;
     INT_PTR Track_Enter_Addr;
     INT_PTR Track_EnterMain_Addr;
@@ -111,6 +115,7 @@ struct CoverageProbes {
     INT_PTR Track_Tailcall_Addr;
 
     ThreadSignature Track_Coverage_Sig;
+    ThreadSignature Track_Stsfld_Sig;
     ThreadSignature Branch_Sig;
     ThreadSignature Track_Enter_Sig;
     ThreadSignature Track_EnterMain_Sig;
