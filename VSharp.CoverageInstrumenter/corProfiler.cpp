@@ -94,6 +94,10 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         memcpy(mainModuleName, moduleNameU16.data(), mainModuleNameLength * sizeof(WCHAR));
 
         passiveResultPath = std::getenv("COVERAGE_RESULT_NAME");
+
+        if (std::getenv("COVERAGE_INSTRUMENT_MAIN_ONLY")) {
+            rewriteMainOnly = true;
+        }
     }
 
     auto currentThreadGetter = [=]() {
@@ -758,7 +762,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::DynamicMethodJITCompilationStarted(Functi
     ModuleID moduleId;
     mdToken token;
     HRESULT hr = corProfilerInfo->GetFunctionInfo(functionId, &classId, &moduleId, &token);
-    tout << "function info: success= " << SUCCEEDED(hr) << ", classId=" << classId << ", moduleId=" << moduleId << ", token=" << token << std::endl;
+    LOG(tout << "function info: success= " << SUCCEEDED(hr) << ", classId=" << classId << ", moduleId=" << moduleId << ", token=" << token << std::endl);
     return S_OK;
 }
 

@@ -5,32 +5,44 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
     </PropertyGroup>
+    <Choose>
+        <When Condition="$(Configuration) == 'Release'">
+            <PropertyGroup>
+                <CoverageBuildType>Release</CoverageBuildType>
+            </PropertyGroup>
+        </When>
+        <Otherwise>
+            <PropertyGroup>
+                <CoverageBuildType>Debug</CoverageBuildType>
+            </PropertyGroup>
+        </Otherwise>
+    </Choose>
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
     </ItemGroup>
 
-    <Target Name="CloneDotnetRuntime" BeforeTargets="UnixBuildConcolic;WinBuildConcolic" Condition=" !Exists('../runtime') ">
+    <Target Name="CloneDotnetRuntime" BeforeTargets="UnixBuildCoverage;WinBuildConcolic" Condition=" !Exists('../runtime') ">
         <Exec Command="&#xA;            cd ../&#xA;            git clone https://github.com/dotnet/runtime.git&#xA;            cd runtime&#xA;            git checkout 3a25a7f1cc446b60678ed25c9d829420d6321eba" />
     </Target>
 
-    <Target Name="UnixBuildConcolic" AfterTargets="BeforeBuild" Condition=" !$([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;            cd ../VSharp.CoverageInstrumenter&#xA;            mkdir cmake-build-debug&#xA;            cd cmake-build-debug&#xA;            cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=Debug ../&#xA;            cmake --build . --target vsharpCoverage -j 6" />
+    <Target Name="UnixBuildCoverage" AfterTargets="BeforeBuild" Condition=" !$([MSBuild]::IsOSPlatform('Windows')) ">
+        <Exec Command="&#xA;            cd ../VSharp.CoverageInstrumenter&#xA;            mkdir cmake-build-$(CoverageBuildType)&#xA;            cd cmake-build-$(CoverageBuildType)&#xA;            cmake -G 'Unix Makefiles' -DCMAKE_BUILD_TYPE=$(CoverageBuildType) ../&#xA;            cmake --build . --target vsharpCoverage -j 6" />
     </Target>
 
-    <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;        cd ../VSharp.CoverageInstrumenter&#xA;        mkdir build&#xA;        msbuild VSharp.CoverageInstrumenter.vcxproj /p:Configuration=Debug /p:BuildOS=Windows_NT /p:BuildType=Debug /p:BuildArch=x64 /p:Platform=x64" />
+    <Target Name="WinBuildCoverage" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
+        <Exec Command="&#xA;        cd ../VSharp.CoverageInstrumenter&#xA;        mkdir build&#xA;        msbuild VSharp.CoverageInstrumenter.vcxproj /p:Configuration=$(CoverageBuildType) /p:BuildOS=Windows_NT /p:BuildType=$(CoverageBuildType) /p:BuildArch=x64 /p:Platform=x64" />
     </Target>
 
     <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Linux')) ">
-        <Content Include="..\VSharp.CoverageInstrumenter\cmake-build-debug\libvsharpCoverage.so">
+        <Content Include="..\VSharp.CoverageInstrumenter\cmake-build-$(CoverageBuildType)\libvsharpCoverage.so">
             <Link>libvsharpCoverage.so</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>
     </ItemGroup>
 
     <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) ">
-        <Content Include="..\VSharp.CoverageInstrumenter\cmake-build-debug\libvsharpCoverage.dylib">
+        <Content Include="..\VSharp.CoverageInstrumenter\cmake-build-$(CoverageBuildType)\libvsharpCoverage.dylib">
             <Link>libvsharpCoverage.dylib</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>

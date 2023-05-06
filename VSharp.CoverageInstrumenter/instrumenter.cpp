@@ -164,6 +164,11 @@ HRESULT Instrumenter::instrument(FunctionID functionId, bool reJIT) {
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
+    // skipping non-main methods
+    if (rewriteMainOnly && !currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken)) {
+        return S_OK;
+    }
+
     // checking if this method was rewritten before
     if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
         LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);

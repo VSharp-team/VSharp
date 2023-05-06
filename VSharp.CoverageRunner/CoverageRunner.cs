@@ -41,7 +41,8 @@ namespace VSharp.CoverageRunner
                     ["COVERAGE_RESULT_NAME"] = ResultName,
                     ["COVERAGE_METHOD_ASSEMBLY_NAME"] = method.Module.Assembly.FullName,
                     ["COVERAGE_METHOD_MODULE_NAME"] = method.Module.FullyQualifiedName,
-                    ["COVERAGE_METHOD_TOKEN"] = method.MetadataToken.ToString()
+                    ["COVERAGE_METHOD_TOKEN"] = method.MetadataToken.ToString(),
+                    ["COVERAGE_INSTRUMENT_MAIN_ONLY"] = "1"
                 },
                 WorkingDirectory = workingDirectory,
                 FileName = "dotnet",

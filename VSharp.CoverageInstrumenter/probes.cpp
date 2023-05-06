@@ -89,12 +89,13 @@ void vsharp::clearCoverageCollection() {
 
 CoverageHistory::CoverageHistory(OFFSET offset, int methodId) {
     head = new CoverageRecord({offset, EnterMain, nullptr, currentThread(), methodId});
+    visitedMethods.insert(methodId);
     current = head;
 }
 
 void CoverageHistory::AddCoverage(OFFSET offset, CoverageEvents event, int methodId) {
     getLock();
-    if (methodId != -1 && visitedMethods.find(methodId) == visitedMethods.end()) {
+    if (visitedMethods.find(methodId) == visitedMethods.end()) {
         visitedMethods.insert(methodId);
     }
     auto nextCoverage = new CoverageRecord({offset, event, nullptr, currentThread(), methodId});

@@ -407,6 +407,7 @@ int mainAssemblyNameLength = 0;
 WCHAR *mainModuleName = nullptr;
 int mainModuleNameLength = 0;
 mdMethodDef mainToken = 0;
+bool rewriteMainOnly = false;
 
 ILRewriter::ILRewriter(
     ICorProfilerInfo * pICorProfilerInfo,
@@ -656,13 +657,15 @@ ILInstr* ILRewriter::GetInstrFromOffset(unsigned offset)
 
 void ILRewriter::PrintEhs()
 {
-    if (m_pEH != nullptr) {
-        for (int i = 0; i < m_nEH; i++) {
-            tout << "handler: " << m_pEH[i].m_pHandlerBegin << " " << m_pEH[i].m_pHandlerEnd << "\n";
-            tout << "    try: " << m_pEH[i].m_pTryBegin << " " << m_pEH[i].m_pTryEnd << "\n";
-            tout << "\n";
+    LOG(
+        if (m_pEH != nullptr) {
+            for (int i = 0; i < m_nEH; i++) {
+                tout << "handler: " << m_pEH[i].m_pHandlerBegin << " " << m_pEH[i].m_pHandlerEnd << "\n";
+                tout << "    try: " << m_pEH[i].m_pTryBegin << " " << m_pEH[i].m_pTryEnd << "\n";
+                tout << "\n";
+            }
         }
-    }
+    );
 }
 
 void ILRewriter::InsertBefore(ILInstr * pWhere, ILInstr * pWhat)
@@ -1190,20 +1193,22 @@ bool IsPrefix(ILInstr *pInstr) {
 }
 
 void PrintILInstructions(ILRewriter *pilr) {
-    for (ILInstr *pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext) {
-        tout << pInstr << "   " << pInstr->m_offset << " " << opcodetostr(pInstr->m_opcode);
-        if (pInstr->m_opcode >= CEE_BR_S && CEE_BLT_UN >= pInstr->m_opcode)
-            tout << "tg: " << pInstr->m_pTarget->m_offset;
-        if (pInstr->m_opcode == 295)
-            tout << "tg: " << pInstr->m_pTarget->m_offset;
-        tout << "\n";
-    }
+    LOG(
+        for (ILInstr* pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext) {
+            tout << pInstr << "   " << pInstr->m_offset << " " << opcodetostr(pInstr->m_opcode);
+            if (pInstr->m_opcode >= CEE_BR_S && CEE_BLT_UN >= pInstr->m_opcode)
+                tout << "tg: " << pInstr->m_pTarget->m_offset;
+            if (pInstr->m_opcode == 295)
+                tout << "tg: " << pInstr->m_pTarget->m_offset;
+            tout << "\n";
+        }
 
-    tout << "\n" << "exception handlers" << std::endl;
+        tout << "\n" << "exception handlers" << std::endl;
 
-    pilr->PrintEhs();
+        pilr->PrintEhs();
 
-    tout << std::endl;
+        tout << std::endl;
+    );
 }
 
 // advances the instruction pointer to the copied version of the original one

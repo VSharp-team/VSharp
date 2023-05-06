@@ -52,6 +52,7 @@ extern int mainAssemblyNameLength;
 extern WCHAR *mainModuleName;
 extern int mainModuleNameLength;
 extern mdMethodDef mainToken;
+extern bool rewriteMainOnly;
 
 class ILRewriter {
 private:
