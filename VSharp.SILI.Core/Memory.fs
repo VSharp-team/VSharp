@@ -21,6 +21,7 @@ module internal Memory =
 
     let makeEmpty complete = {
         pc = PC.empty
+        typeStorage = typeStorage()
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException
         stack = CallStack.empty
@@ -195,19 +196,23 @@ module internal Memory =
     [<StructuralEquality;NoComparison>]
     type private hashCodeSource =
         {object : term}
-        interface IStatedSymbolicConstantSource with
+        interface INonComposableSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<int32>
 
+    let (|GetHashCodeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? hashCodeSource as { object = object } -> Some(object)
+        | _ -> None
+
     let hashConcreteAddress (address : concreteHeapAddress) =
-        let hashValue =
-            if address = VectorTime.zero then RuntimeHelpers.GetHashCode null
-            else address.GetHashCode()
+        let hashValue = VectorTime.hash address
         hashValue |> makeNumber
 
     let getHashCode object =
         // TODO: implement GetHashCode() for value type (it's boxed)
+        // TODO: use 'termToObj' for valid hash
         match object.term with
         | ConcreteHeapAddress address
         | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
@@ -1398,8 +1403,14 @@ module internal Memory =
         | Constant(_, source, _) ->
             match source with
             | :? IStatedSymbolicConstantSource as source -> source.Compose state
-            | :? INonComposableSymbolicConstantSource -> term
-            | _ -> __notImplemented__()
+            | :? INonComposableSymbolicConstantSource ->
+                match state.model with
+                | PrimitiveModel dict ->
+                    // Case for model state, so using eval from substitution dict for non composable constants
+                    let typ = typeOf term
+                    model.EvalDict dict source term typ true
+                | _ -> term
+            | _ -> internalfail $"fillHole: unexpected term {term}"
         | _ -> term
 
     and fillHoles state term =
@@ -1610,6 +1621,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     pc = if isTrue g then pc else PC.add pc g
+                    typeStorage = state.typeStorage
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack
@@ -1639,12 +1651,6 @@ module internal Memory =
                 let typ = substituteTypeVariables state x.typ
                 let newTypes = composeInitializedTypes state x.matchingTypes
                 isTypeInitialized {state with initializedTypes = newTypes} typ
-
-    type hashCodeSource with
-        interface IStatedSymbolicConstantSource with
-            override x.Compose state =
-                let object' = fillHoles state x.object
-                getHashCode object'
 
 // ------------------------------- Pretty-printing -------------------------------
 

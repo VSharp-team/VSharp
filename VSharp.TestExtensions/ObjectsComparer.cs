@@ -67,15 +67,15 @@ public static class ObjectsComparer
                 return got.Equals(expected);
             }
 
-            if (expected is global::System.Array array)
-                return ContentwiseEqual(array, got as global::System.Array);
-
             if (_comparedObjects.Contains((expected, got)))
             {
                 return true;
             }
 
             _comparedObjects.Add((expected, got));
+
+            if (expected is global::System.Array array)
+                return ContentwiseEqual(array, got as global::System.Array);
 
             return StructurallyEqual(expected, got);
         }

@@ -102,7 +102,7 @@ module internal CilStateOperations =
     let isExecutable (s : cilState) =
         match s.ipStack with
         | [] -> __unreachable__()
-        | Exit _ :: [] -> false
+        | [ Exit _ ] -> false
         | _ -> true
 
     let isError (s : cilState) =
@@ -271,7 +271,7 @@ module internal CilStateOperations =
 
     let addTarget (state : cilState) target =
         match state.targets with
-        | Some targets -> state.targets <- Some <| Set.add target targets
+        | Some targets -> state.targets <- Some (Set.add target targets)
         | None -> state.targets <- Some (Set.add target Set.empty)
 
     let removeTarget (state : cilState) target =
@@ -298,8 +298,8 @@ module internal CilStateOperations =
             let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction :: []
-            | Return -> exit m :: []
+            | FallThrough nextInstruction -> instruction m nextInstruction |> List.singleton
+            | Return -> exit m |> List.singleton
             | ExceptionMechanism ->
                 // TODO: use ExceptionMechanism? #do
 //                let toObserve = __notImplemented__()

@@ -99,11 +99,11 @@ type arrayCopyInfo =
 
 type model =
     | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
-    | StateModel of state * typeModel
+    | StateModel of state
 with
     member x.Complete value =
         match x with
-        | StateModel(state, _) when state.complete ->
+        | StateModel state when state.complete ->
             // TODO: ideally, here should go the full-fledged substitution, but we try to improve the performance a bit...
             match value.term with
             | Constant(_, _, typ) -> makeDefaultValue typ
@@ -111,7 +111,7 @@ with
             | _ -> value
         | _ -> value
 
-    static member private EvalDict (subst : IDictionary<ISymbolicConstantSource, term>) source term typ complete =
+    static member EvalDict (subst : IDictionary<ISymbolicConstantSource, term>) source term typ complete =
         let value = ref Nop
         if subst.TryGetValue(source, value) then value.Value
         elif complete then makeDefaultValue typ
@@ -121,13 +121,13 @@ with
         Substitution.substitute (function
             | { term = Constant(_, (:? IStatedSymbolicConstantSource as source), typ) } as term ->
                 match x with
-                | StateModel(state, _) -> source.Compose state
+                | StateModel state -> source.Compose state
                 | PrimitiveModel subst -> model.EvalDict subst source term typ true
             | { term = Constant(_, source, typ) } as term ->
                 let subst, complete =
                     match x with
                     | PrimitiveModel dict -> dict, true
-                    | StateModel(state, _) ->
+                    | StateModel state ->
                         match state.model with
                         | PrimitiveModel dict -> dict, state.complete
                         | _ -> __unreachable__()
@@ -137,57 +137,166 @@ with
 // TODO: use set instead of list? #type
 and typeConstraints =
     {
-        supertypes : Type list
-        subtypes : Type list
-        notSubtypes : Type list
-        notSupertypes : Type list
+        mutable supertypes : Type list
+        mutable subtypes : Type list
+        mutable notSubtypes : Type list
+        mutable notSupertypes : Type list
     }
 with
-    static member Empty =
+    static member Empty() =
         let empty = List.empty
         { subtypes = empty; supertypes = empty; notSubtypes = empty; notSupertypes = empty }
 
-    member x.Merge(other : typeConstraints) =
-        if x = typeConstraints.Empty then other
-        else
-            {
-                supertypes = x.supertypes @ other.supertypes |> List.distinct
-                subtypes = x.subtypes @ other.subtypes |> List.distinct
-                notSubtypes = x.notSubtypes @ other.notSubtypes |> List.distinct
-                notSupertypes = x.notSupertypes @ other.notSupertypes |> List.distinct
-            }
+    static member FromSuperTypes (superTypes : Type list) =
+        let empty = List.empty
+        let superTypes = List.filter (fun t -> t <> typeof<obj>) superTypes |> List.distinct
+        { subtypes = empty; supertypes = superTypes; notSubtypes = empty; notSupertypes = empty }
 
-and typeModel =
-    {
-        constraints : Dictionary<term, typeConstraints>
-        addressesTypes : Dictionary<term, symbolicType seq>
-        mutable classesParams : symbolicType[]
-        mutable methodsParams : symbolicType[]
-        typeMocks : IDictionary<Type list, ITypeMock>
-    }
-with
-    static member CreateEmpty() =
-        {
-            constraints = Dictionary()
-            addressesTypes = Dictionary()
-            classesParams = Array.empty
-            methodsParams = Array.empty
-            typeMocks = Dictionary()
-        }
+    static member Create supertypes subtypes notSupertypes notSubtypes =
+        let supertypes = List.filter (fun t -> t <> typeof<obj>) supertypes |> List.distinct
+        let subtypes = List.distinct subtypes
+        let notSupertypes = List.distinct notSupertypes
+        let notSubtypes = List.distinct notSubtypes
+        { subtypes = subtypes; supertypes = supertypes; notSubtypes = notSubtypes; notSupertypes = notSupertypes }
 
-    member x.AddConstraint address typeConstraint =
-        let constraints = x.constraints
-        let current = ref typeConstraints.Empty
-        if constraints.TryGetValue(address, current) then
-            if current.Value <> typeConstraint then
-                constraints[address] <- current.Value.Merge typeConstraint
-        else constraints.Add(address, typeConstraint)
+    member x.Merge(other : typeConstraints) : bool =
+        let mutable changed = false
+        if x.supertypes <> other.supertypes then
+            changed <- true
+            x.supertypes <- x.supertypes @ other.supertypes |> List.distinct
+        if x.subtypes <> other.subtypes then
+            changed <- true
+            x.subtypes <- x.subtypes @ other.subtypes |> List.distinct
+        if x.notSubtypes <> other.notSubtypes then
+            changed <- true
+            x.notSubtypes <- x.notSubtypes @ other.notSubtypes |> List.distinct
+        if x.notSupertypes <> other.notSupertypes then
+            changed <- true
+            x.notSupertypes <- x.notSupertypes @ other.notSupertypes |> List.distinct
+        changed
+
+    member x.IsContradicting() =
+        let nonComparable (t : Type) (u : Type) =
+            u.IsClass && t.IsClass && (not <| u.IsAssignableTo t) && (not <| u.IsAssignableFrom t)
+            || t.IsSealed && u.IsInterface && not (t.IsAssignableTo u)
+        // X <: u and u <: t and X </: t
+        x.supertypes |> List.exists (fun u -> x.notSupertypes |> List.exists u.IsAssignableTo)
+        || // u <: X and t <: u and t </: X
+        x.subtypes |> List.exists (fun u -> x.notSubtypes |> List.exists u.IsAssignableFrom)
+        || // u <: X and X <: t and u </: t
+        x.subtypes |> List.exists (fun u -> x.supertypes |> List.exists (u.IsAssignableTo >> not))
+        || // No multiple inheritance -- X <: u and X <: t and u </: t and t </: u and t, u are classes
+        x.supertypes |> List.exists (fun u -> x.supertypes |> List.exists (nonComparable u))
+        || // u </: X and X <: u when u is sealed
+        x.supertypes |> List.exists (fun u -> u.IsSealed && x.notSubtypes |> List.contains u)
+
+    member x.AddSuperType(superType : Type) =
+        if superType <> typeof<obj> then
+            x.supertypes <- superType :: x.supertypes |> List.distinct
 
     member x.Copy() =
-        let newConstraints = Dictionary(x.constraints)
+        {
+            supertypes = x.supertypes
+            subtypes = x.subtypes
+            notSubtypes = x.notSubtypes
+            notSupertypes = x.notSupertypes
+        }
+
+and typesConstraints private (newAddresses, constraints) =
+
+    new () =
+        let newAddresses = HashSet<term>()
+        let allConstraints = Dictionary<term, typeConstraints>()
+        typesConstraints(newAddresses, allConstraints)
+
+    member x.Copy() =
+        let copiedNewAddresses = HashSet<term>(newAddresses)
+        let copiedConstraints = Dictionary<term, typeConstraints>()
+        for entry in constraints do
+            copiedConstraints.Add(entry.Key, entry.Value.Copy())
+        typesConstraints(copiedNewAddresses, copiedConstraints)
+
+    member private x.AddNewAddress address =
+        newAddresses.Add address |> ignore
+
+    member x.ClearNewAddresses() =
+        newAddresses.Clear()
+
+    member x.NewAddresses with get() = newAddresses
+
+    member x.Add (address : term) (typeConstraint : typeConstraints) =
+        let current = ref (typeConstraints.Empty())
+        if constraints.TryGetValue(address, current) then
+            let changed = current.Value.Merge typeConstraint
+            if changed then x.AddNewAddress address
+        else
+            constraints.Add(address, typeConstraint)
+            x.AddNewAddress address
+
+    member x.AddSuperType address superType =
+        let typeConstraint = List.singleton superType |> typeConstraints.FromSuperTypes
+        x.Add address typeConstraint
+
+    member x.CheckInequality() =
+        let mutable isValid = true
+        let unequal = HashSet<term * term>()
+        for entry1 in constraints do
+            let address1 = entry1.Key
+            let typeConstraints1 = entry1.Value
+            for entry2 in constraints do
+                let address2 = entry2.Key
+                let typeConstraints2 = entry2.Value
+                let typeConstraints = typeConstraints1.Copy()
+                let different = address1 <> address2
+                if different then
+                    typeConstraints.Merge typeConstraints2 |> ignore
+                if typeConstraints.IsContradicting() then
+                    if different then unequal.Add(address1, address2) |> ignore
+                    else isValid <- false
+        isValid, Seq.map (fun (a1, a2) -> !!(a1 === a2)) unequal
+
+    interface System.Collections.IEnumerable with
+        member this.GetEnumerator() =
+          upcast constraints.GetEnumerator()
+
+    interface IEnumerable<KeyValuePair<term, typeConstraints>> with
+        override this.GetEnumerator() =
+          constraints.GetEnumerator()
+
+    member x.Item(address : term) =
+        constraints[address].Copy()
+
+    member x.Count with get() = constraints.Count
+
+and typeStorage private (constraints, addressesTypes, typeMocks, classesParams, methodsParams) =
+    let mutable classesParams = classesParams
+    let mutable methodsParams = methodsParams
+
+    new() =
+        let constraints = typesConstraints()
+        let addressesTypes = Dictionary<term, symbolicType seq>()
+        let typeMocks = Dictionary<Type list, ITypeMock>()
+        let classesParams : symbolicType[] = Array.empty
+        let methodsParams : symbolicType[] = Array.empty
+        typeStorage(constraints, addressesTypes, typeMocks, classesParams, methodsParams)
+
+    member x.Constraints with get() = constraints
+    member x.AddressesTypes with get() = addressesTypes
+    member x.TypeMocks with get() = typeMocks
+    member x.ClassesParams
+        with get() = classesParams
+        and set newClassesParams =
+            classesParams <- newClassesParams
+    member x.MethodsParams
+        with get() = methodsParams
+        and set newMethodsParams =
+            methodsParams <- newMethodsParams
+
+    member x.Copy() =
+        let newConstraints = constraints.Copy()
         let newTypeMocks = Dictionary<Type list, ITypeMock>()
         let newAddressesTypes = Dictionary()
-        for entry in x.addressesTypes do
+        for entry in addressesTypes do
             let address = entry.Key
             let types = entry.Value
             let changeType = function
@@ -202,23 +311,23 @@ with
                         MockType newMock
             let newTypes = Seq.map changeType types
             newAddressesTypes.Add(address, newTypes)
-        {
-            constraints = newConstraints
-            addressesTypes = newAddressesTypes
-            classesParams = x.classesParams
-            methodsParams = x.methodsParams
-            typeMocks = newTypeMocks
-        }
+        typeStorage(newConstraints, newAddressesTypes, newTypeMocks, classesParams, methodsParams)
+
+    member x.AddConstraint address typeConstraint =
+        constraints.Add address typeConstraint
 
     member x.Item(address : term) =
         let types = ref null
-        if x.addressesTypes.TryGetValue(address, types) then Some types.Value
+        if addressesTypes.TryGetValue(address, types) then Some types.Value
         else None
+
+    member x.IsValid with get() = addressesTypes.Count = constraints.Count
 
 and
     [<ReferenceEquality>]
     state = {
         mutable pc : pathCondition
+        mutable typeStorage : typeStorage
         mutable evaluationStack : evaluationStack
         mutable stack : callStack                                          // Arguments and local variables
         mutable stackBuffers : pdict<stackKey, stackBufferRegion>          // Buffers allocated via stackAlloc

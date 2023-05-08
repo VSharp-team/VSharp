@@ -5,44 +5,7 @@ open System.Collections.Generic
 open System.Diagnostics.CodeAnalysis
 open System.Reflection
 open System.Reflection.Emit
-open System.Xml.Serialization
 open Microsoft.FSharp.Collections
-open VSharp
-
-[<CLIMutable>]
-[<Serializable>]
-[<XmlInclude(typeof<typeRepr>)>]
-type methodRepr = {
-    declaringType : typeRepr
-    token : int
-}
-with
-    member x.Decode() =
-        let declaringType = Serialization.decodeType x.declaringType
-        declaringType.GetMethods() |> Seq.find (fun m -> m.MetadataToken = x.token)
-
-    static member Encode(m : MethodBase) : methodRepr = {
-        declaringType = Serialization.encodeType m.DeclaringType
-        token = m.MetadataToken
-    }
-
-[<CLIMutable>]
-[<Serializable>]
-[<XmlInclude(typeof<structureRepr>)>]
-[<XmlInclude(typeof<referenceRepr>)>]
-[<XmlInclude(typeof<pointerRepr>)>]
-[<XmlInclude(typeof<arrayRepr>)>]
-[<XmlInclude(typeof<enumRepr>)>]
-[<XmlInclude(typeof<methodRepr>)>]
-type typeMockRepr = {
-    name : string
-    baseClass : typeRepr
-    interfaces : typeRepr array
-    baseMethods : methodRepr array
-    methodImplementations : obj array array
-}
-with
-    static member NullRepr = {name = null; baseClass = Serialization.encodeType null; interfaces = [||]; baseMethods = [||]; methodImplementations = [||]}
 
 module Mocking =
 
@@ -70,7 +33,7 @@ module Mocking =
         member x.ReturnValues = returnValues
 
         member x.SetClauses (clauses : obj[]) =
-            clauses |> Array.iteri (fun i o -> returnValues.[i] <- o)
+            clauses |> Array.iteri (fun i o -> returnValues[i] <- o)
 
         member x.InitializeType (typ : Type) =
             if returnType <> typeof<Void> then
@@ -98,7 +61,7 @@ module Mocking =
                 let genericsBuilder = methodBuilder.DefineGenericParameters(baseGenericArgs |> Array.map (fun p -> p.Name))
                 baseGenericArgs |> Array.iteri (fun i p ->
                     let constraints = p.GetGenericParameterConstraints()
-                    let builder = genericsBuilder.[i]
+                    let builder = genericsBuilder[i]
                     let interfaceConstraints = constraints |> Array.filter (fun c -> if c.IsInterface then true else builder.SetBaseTypeConstraint c; false)
                     if interfaceConstraints.Length > 0 then
                         builder.SetInterfaceConstraints interfaceConstraints)
@@ -157,55 +120,105 @@ module Mocking =
             ilGenerator.Emit(OpCodes.Ret)
 
     // TODO: properties!
-    type Type(repr : typeMockRepr) = // Constructor for deserialization
-        let deserializeMethod (m : methodRepr) (c : obj[]) = Method(m.Decode(), c.Length)
-        let methods = ResizeArray<Method>(Array.map2 deserializeMethod repr.baseMethods repr.methodImplementations)
-        let methodsInfo = ResizeArray<MethodInfo>()
-        let initializedTypes = HashSet<System.Type>()
+    type Type(name : string) =
+        let methodMocksCache = Dictionary<MethodInfo, Method>()
+        let calledMethods = ResizeArray<MethodInfo>()
+        let mutable initialized = false
 
-        let mutable baseClass : System.Type = Serialization.decodeType repr.baseClass
-        let interfaces = ResizeArray<System.Type>(Array.map Serialization.decodeType repr.interfaces)
+        let mutable baseClass : System.Type = null
+        let interfaces = ResizeArray<System.Type>()
 
-        // Constructor for serialization
-        new(name : string) =
-            let repr = {
-                name = name
-                baseClass = Serialization.encodeType null
-                interfaces = [||]
-                baseMethods = [||]
-                methodImplementations = [||]
-            }
-            Type(repr)
+        let mutable rawClauses = null
 
         static member Empty = Type(String.Empty)
+
+        static member Deserialize name baseClass interfaces baseMethods methodImplementations =
+            let mockedType = Type(name)
+            mockedType.BaseClass <- baseClass
+            mockedType.Interfaces <- interfaces
+            let deserializeMethod (m : MethodInfo) (c : obj[]) = Method(m, c.Length)
+            mockedType.MethodMocks <- Array.map2 deserializeMethod baseMethods methodImplementations
+            mockedType.MethodMocksClauses <- methodImplementations
+            mockedType
+
+        member private x.AddInterfaceMethods (t : System.Type) =
+            assert t.IsInterface
+            let interfaceMethods =
+                TypeUtils.getBaseInterfaces t
+                |> Seq.cons t
+                |> Seq.distinct
+                |> Seq.collect (fun i -> i.GetMethods())
+            for m in interfaceMethods do
+                methodMocksCache.TryAdd(m, Method(m, 0)) |> ignore
+
+        member private x.AddClassMethods (t : System.Type) =
+            assert(not (t.IsInterface || t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef))
+            let bindingFlags =
+                BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.FlattenHierarchy ||| BindingFlags.Instance
+            let superClassMethods = baseClass.GetMethods(bindingFlags)
+            let isDelegate = TypeUtils.isDelegate baseClass
+            let needToMock (m : MethodInfo) =
+                // If base class abstract methods, need to mock them
+                // If base class is delegate, need to mock 'Invoke' method to create delegate
+                m.IsAbstract || isDelegate && m.Name = "Invoke"
+            let methodsToImplement = superClassMethods |> Array.filter needToMock
+            for m in methodsToImplement do
+                methodMocksCache.TryAdd(m, Method(m, 0)) |> ignore
 
         member x.AddSuperType(t : System.Type) =
             if t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef then
                 raise (ArgumentException("Mock supertype should be class or interface!"))
             if t.IsInterface then
+                x.AddInterfaceMethods t
                 interfaces.RemoveAll(fun u -> t.IsAssignableTo u) |> ignore
                 interfaces.Add t
-            elif baseClass = null then baseClass <- t
+            elif baseClass = null then
+                baseClass <- t
+                x.AddClassMethods t
             elif baseClass.IsAssignableTo t then ()
-            elif t.IsAssignableTo baseClass then baseClass <- t
-            else raise (ArgumentException($"Attempt to assign another base class {t.FullName} for mock with base class {baseClass.FullName}! Note that multiple inheritance is prohibited."))
+            elif t.IsAssignableTo baseClass then
+                baseClass <- t
+                x.AddClassMethods t
+            else
+                let message =
+                    $"Attempt to assign another base class {t.FullName} for mock
+                      with base class {baseClass.FullName}! Note that multiple inheritance is prohibited."
+                raise (ArgumentException(message))
 
         member x.AddMethod(m : MethodInfo, returnValues : obj[]) =
-            let methodMock = Method(m, returnValues.Length)
-            methodMock.SetClauses returnValues
-            methodsInfo.Add(m)
-            methods.Add(methodMock)
+            if calledMethods.Contains m |> not then
+                let methodMock = Method(m, returnValues.Length)
+                methodMock.SetClauses returnValues
+                calledMethods.Add m
+                methodMocksCache[m] <- methodMock
 
-        member x.Id = repr.name
+        member x.Id = name
 
         [<MaybeNull>]
-        member x.BaseClass with get() = baseClass
-        member x.Interfaces with get() = interfaces :> seq<_>
-        member x.Methods with get() = methods :> seq<_>
-        member x.MethodsInfo with get() = methodsInfo :> seq<_>
+        member x.BaseClass
+            with get() = baseClass
+            and private set typ =
+                baseClass <- typ
+
+        member x.Interfaces
+            with get() = interfaces :> seq<_>
+            and private set (types : System.Type seq) =
+                assert(ResizeArray.isEmpty interfaces)
+                interfaces.AddRange types
+
+        member x.MethodMocks
+            with get() = methodMocksCache.Values :> seq<_>
+            and private set (methods : Method seq) =
+                assert(methodMocksCache.Count = 0)
+                for m in methods do
+                    methodMocksCache[m.BaseMethod] <- m
+
+        member x.MethodMocksClauses
+            with private get() = rawClauses
+            and private set clauses = rawClauses <- clauses
 
         member x.Build(moduleBuilder : ModuleBuilder) =
-            let typeBuilder = moduleBuilder.DefineType(repr.name, TypeAttributes.Public)
+            let typeBuilder = moduleBuilder.DefineType(name, TypeAttributes.Public)
 
             if baseClass <> null && not (TypeUtils.isDelegate baseClass) then
                 typeBuilder.SetParent baseClass
@@ -218,129 +231,41 @@ module Mocking =
 
             interfaces |> ResizeArray.iter typeBuilder.AddInterfaceImplementation
 
-            methods |> ResizeArray.iter (fun methodMock -> methodMock.Build typeBuilder)
+            methodMocksCache.Values |> Seq.iter (fun methodMock -> methodMock.Build typeBuilder)
             typeBuilder.CreateType()
-
-        member x.Serialize(encode : obj -> obj) =
-            let allInterfaces =
-                Seq.collect TypeUtils.getBaseInterfaces interfaces
-                |> Seq.append interfaces
-                |> Seq.distinct
-                |> Seq.toArray
-            let interfaces = ResizeArray.toArray interfaces
-            let interfaceMethods = allInterfaces |> Array.collect (fun i -> i.GetMethods())
-            let methodsToImplement =
-                match baseClass with
-                | null -> interfaceMethods
-                | _ ->
-                    let bindingFlags =
-                        BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.FlattenHierarchy ||| BindingFlags.Instance
-                    let superClassMethods = baseClass.GetMethods(bindingFlags)
-                    let isDelegate = TypeUtils.isDelegate baseClass
-                    let needToMock (m : MethodInfo) =
-                        // If base class abstract methods, need to mock them
-                        // If base class is delegate, need to mock 'Invoke' method to create delegate
-                        m.IsAbstract || isDelegate && m.Name = "Invoke"
-                    let neededMethods = superClassMethods |> Array.filter needToMock
-                    Array.append neededMethods interfaceMethods
-
-            let getMock m = Method(m, 0)
-            let implementedMethods = ResizeArray.toArray methods
-            let abstractMethods = methodsToImplement |> Array.except methodsInfo |> Array.map getMock
-            let methods = Array.append abstractMethods implementedMethods
-
-            { name = repr.name
-              baseClass = Serialization.encodeType baseClass
-              interfaces = interfaces |> Array.map Serialization.encodeType
-              baseMethods = methods |> Array.map (fun m -> methodRepr.Encode m.BaseMethod)
-              methodImplementations = methods |> Array.map (fun m -> m.ReturnValues |> Array.map encode) }
 
         // Is used to initialize mock clauses if it was not initialized
         member x.EnsureInitialized (decode : obj -> obj) (t : System.Type) =
-            if initializedTypes.Add t then
-                Seq.iter2 (fun (m : Method) (clauses : obj array) ->
-                    let decodedClauses = Array.map decode clauses
-                    m.SetClauses decodedClauses
-                    m.InitializeType t) methods repr.methodImplementations
+            if not initialized then
+                initialized <- true
+                x.Update decode t
 
         // Is used to update already initialized mock type
         // In memory graph, firstly, it is allocated with default values via 'EnsureInitialized'
         // Secondly, it is mutated with deserialized values via 'Update'
         member x.Update (decode : obj -> obj) (t : System.Type) =
-            Seq.iter2 (fun (m : Method) (clauses : obj array) ->
+            let updateOne (kvp : KeyValuePair<MethodInfo, Method>) (clauses : obj array) =
                 let decodedClauses = Array.map decode clauses
+                let m = kvp.Value
                 m.SetClauses decodedClauses
-                m.InitializeType t) methods repr.methodImplementations
+                m.InitializeType t
+            Seq.iter2 updateOne methodMocksCache x.MethodMocksClauses
 
-    [<CLIMutable>]
-    [<Serializable>]
-    type mockObject = {typeMockIndex : int}
-
-    type Mocker(mockTypeReprs : typeMockRepr array) =
-        let mockTypes : (Type * System.Type) option array = Array.zeroCreate mockTypeReprs.Length
+    type Mocker() =
+        let builtMocksCache = Dictionary<Type, System.Type>()
         let moduleBuilder = lazy(
             let dynamicAssemblyName = $"VSharpTypeMocks.{Guid.NewGuid()}"
             let assemblyBuilder = AssemblyManager.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
             assemblyBuilder.DefineDynamicModule dynamicAssemblyName)
 
-        member x.MakeMockObject (mockTypeIndex : int) =
-            {typeMockIndex = mockTypeIndex}
+        member x.BuildDynamicType (typeMock : Type) =
+            let res = ref null
+            if builtMocksCache.TryGetValue(typeMock, res) then res.Value
+            else
+                let built = typeMock.Build(moduleBuilder.Value)
+                builtMocksCache.Add(typeMock, built)
+                built
 
-        interface ITypeMockSerializer with
-            override x.IsMockObject obj =
-                match obj with
-                | :? mockObject -> true
-                | _ -> false
-            override x.IsMockRepresentation obj =
-                match obj with
-                | :? mockObject -> true
-                | _ -> false
-
-            override x.Serialize obj = obj
-
-            // In memory graph, 'Deserialize' used to allocate mock object with default values
-            override x.Deserialize (decode : obj -> obj) repr =
-                match repr with
-                | :? mockObject as mock ->
-                    let index = mock.typeMockIndex
-                    match mockTypes.[index] with
-                    | Some(mockType, t) when TypeUtils.isDelegate mockType.BaseClass ->
-                        x.CreateDelegateFromWrapperType(mockType.BaseClass, t)
-                    | Some(_, t) -> Reflection.createObject t
-                    | None ->
-                        let mockTypeRepr = mockTypeReprs.[index]
-                        let mockType, typ = x.BuildDynamicType(mockTypeRepr)
-                        mockType.EnsureInitialized decode typ
-                        let baseClass = mockType.BaseClass
-                        let builtObj =
-                            if TypeUtils.isDelegate baseClass then x.CreateDelegateFromWrapperType(baseClass, typ)
-                            else Reflection.createObject typ
-                        mockTypes.[index] <- Some (mockType, typ)
-                        builtObj
-                | _ -> __unreachable__()
-
-            // In memory graph, 'UpdateMock' used to fill mock object with deserialized values
-            override x.UpdateMock (decode : obj -> obj) repr mockInstance =
-                match repr with
-                | :? mockObject as mock ->
-                    let index = mock.typeMockIndex
-                    let mockType, t =
-                        match mockTypes.[index] with
-                        | Some types -> types
-                        | None -> __unreachable__()
-                    let mockInstanceType =
-                        match mockInstance with
-                        | :? Delegate as d -> d.Method.DeclaringType
-                        | _ -> mockInstance.GetType()
-                    assert(t = mockInstanceType)
-                    mockType.Update decode mockInstanceType
-                | _ -> __unreachable__()
-
-        member x.BuildDynamicType (repr : typeMockRepr) =
-            let mockType = Type(repr)
-            let moduleBuilder = moduleBuilder.Value
-            mockType, mockType.Build(moduleBuilder)
-
-        member x.CreateDelegateFromWrapperType (t : System.Type, builtMock : System.Type) =
+        static member CreateDelegate (t : System.Type) (builtMock : System.Type) =
             let invokeMethodInfo = builtMock.GetMethod("Invoke")
             Delegate.CreateDelegate(t, null, invokeMethodInfo) :> obj

@@ -200,12 +200,16 @@ public class Allocator<T>
         set
         {
             var allBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            // Basic field case
             var field = _objectType.GetField(fieldName, allBindingFlags);
-            var property = _objectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
-            Debug.Assert(field != null || property != null);
-            field ??= property;
-            if (field != null)
-                field.SetValue(_toAllocate, value);
+            // Property case
+            field ??= _objectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            // Mock field case
+            field ??= _objectType.BaseType?.GetField(fieldName, allBindingFlags);
+            // Mock property case
+            field ??= _objectType.BaseType?.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            Debug.Assert(field != null);
+            field.SetValue(_toAllocate, value);
         }
     }
 

@@ -188,19 +188,21 @@ type public SILI(options : SiliOptions) =
             if pi.ParameterType.IsByRef then
                 if Memory.CallStackSize initialState = 0 then
                     Memory.NewStackFrame initialState None []
-                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name (pi.Position + 1) (pi.ParameterType.GetElementType())
+                let typ = pi.ParameterType.GetElementType()
+                let position = pi.Position + 1
+                let stackRef = Memory.AllocateTemporaryLocalVariableOfType initialState pi.Name position typ
                 Some stackRef
             else
                 None
         method.Parameters |> Array.map allocateIfByRef |> Array.toList
 
-    member private x.TrySubstituteTypeParameters model (methodBase : MethodBase) =
+    member private x.TrySubstituteTypeParameters (state : state) (methodBase : MethodBase) =
         let method = Application.getMethod methodBase
         let getConcreteType = function
         | ConcreteType t -> Some t
         | _ -> None
         try
-            match SolveGenericMethodParameters model method with
+            match SolveGenericMethodParameters state.typeStorage method with
             | Some(classParams, methodParams) ->
                 let classParams = classParams |> Array.choose getConcreteType
                 let methodParams = methodParams |> Array.choose getConcreteType
@@ -217,10 +219,9 @@ type public SILI(options : SiliOptions) =
             reportInternalFail method e
             None
 
-    member private x.FormIsolatedInitialStates (method : Method, typModel : typeModel) =
+    member private x.FormIsolatedInitialStates (method : Method, initialState : state) =
         try
-            let initialState = Memory.EmptyState()
-            initialState.model <- Memory.EmptyModel method typModel
+            initialState.model <- Memory.EmptyModel method
             let cilState = makeInitialState method initialState
             let this(*, isMethodOfStruct*) =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
@@ -246,12 +247,12 @@ type public SILI(options : SiliOptions) =
             reportInternalFail method e
             []
 
-    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], typModel : typeModel) : cilState list =
+    member private x.FormEntryPointInitialStates (method : Method, mainArguments : string[], initialState : state) : cilState list =
         try
             assert method.IsStatic
             let optionArgs = if mainArguments = null then None else Some mainArguments
-            let state = { Memory.EmptyState() with complete = mainArguments <> null }
-            state.model <- Memory.EmptyModel method typModel
+            let state = { initialState with complete = mainArguments <> null }
+            state.model <- Memory.EmptyModel method
             let argsToState args =
                 let stringType = typeof<string>
                 let argsNumber = MakeNumber mainArguments.Length
@@ -268,7 +269,7 @@ type public SILI(options : SiliOptions) =
                 // Filling model with default args to match PC
                 let modelState =
                     match state.model with
-                    | StateModel(modelState, _) -> modelState
+                    | StateModel modelState -> modelState
                     | _ -> __unreachable__()
                 let argsForModel = Memory.AllocateVectorArray modelState (MakeNumber 0) typeof<String>
                 Memory.WriteLocalVariable modelState (ParameterKey argsParameter) argsForModel
@@ -373,12 +374,9 @@ type public SILI(options : SiliOptions) =
                 concolicMachines.Add(initialState, machine))
             let machine =
                 if concolicMachines.Count = 1 then Seq.head concolicMachines.Values
-                else __notImplemented'__ "Forking in concolic mode"
-            while machine.State.suspended && machine.ExecCommand() do // TODO: make better interaction between concolic and SILI #do
+                else __notImplemented__()
+            while machine.State.suspended && machine.ExecCommand() do
                 x.BidirectionalSymbolicExecution()
-            // TODO: need to report? #do
-//            Logger.error "result state = %O" machine.State
-//            reportFinished.Invoke machine.State
         | SymbolicMode ->
             x.BidirectionalSymbolicExecution()
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
@@ -422,18 +420,18 @@ type public SILI(options : SiliOptions) =
             try
                 let initializeAndStart () =
                     let trySubstituteTypeParameters method =
-                        let typeModel = typeModel.CreateEmpty()
-                        (Option.defaultValue method (x.TrySubstituteTypeParameters typeModel method), typeModel)
+                        let emptyState = Memory.EmptyState()
+                        (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
                     interpreter.ConfigureErrorReporter reportError
                     let isolated =
                         isolated
                         |> Seq.map trySubstituteTypeParameters
-                        |> Seq.map (fun (m, tm) -> Application.getMethod m, tm) |> Seq.toList
+                        |> Seq.map (fun (m, s) -> Application.getMethod m, s) |> Seq.toList
                     let entryPoints =
                         entryPoints
                         |> Seq.map (fun (m, a) ->
-                            let m, tm = trySubstituteTypeParameters m
-                            (Application.getMethod m, a, tm))
+                            let m, s = trySubstituteTypeParameters m
+                            (Application.getMethod m, a, s))
                         |> Seq.toList
                     x.Reset ((isolated |> List.map fst) @ (entryPoints |> List.map (fun (m, _, _) -> m)))
                     let isolatedInitialStates = isolated |> List.collect x.FormIsolatedInitialStates

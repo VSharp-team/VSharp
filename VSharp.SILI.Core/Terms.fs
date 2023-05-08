@@ -721,66 +721,73 @@ module internal Terms =
         | _, Concrete(:? IComparable, _) -> 1
         | _ -> compare (toString t1) (toString t2)
 
-    let rec private foldChildren folder state term =
+    let rec private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
-            foldSeq folder source.SubTerms state
+            foldSeq folder source.SubTerms state k
         | Expression(_, args, _) ->
-            foldSeq folder args state
+            foldSeq folder args state k
         | Struct(fields, _) ->
-            foldSeq folder (PersistentDict.values fields) state
+            foldSeq folder (PersistentDict.values fields) state k
         | Ref address ->
-            foldAddress folder state address
+            foldAddress folder state address k
         | Ptr(address, _, indent) ->
-            let state = foldPointerBase folder state address
-            doFold folder state indent
+            foldPointerBase folder state address (fun state ->
+            doFold folder state indent k)
         | GuardedValues(gs, vs) ->
-            foldSeq folder gs state |> foldSeq folder vs
+            foldSeq folder gs state (fun state ->
+            foldSeq folder vs state k)
         | Slice(t, s, e, pos) ->
-            let state = folder state t
-            let state = folder state s
-            let state = folder state e
-            folder state pos
-        | _ -> state
+            doFold folder state t (fun state ->
+            doFold folder state s (fun state ->
+            doFold folder state e (fun state ->
+            doFold folder state pos k)))
+        | _ -> k state
 
-    and doFold folder state term =
-        let state = foldChildren folder state term
-        folder state term
+    and doFold folder state term k =
+        folder state term k (fun state ->
+        foldChildren folder state term k)
 
-    and foldAddress folder state = function
+    and foldAddress folder state address k =
+        match address with
         | PrimitiveStackLocation _
         | StaticField _
-        | BoxedLocation _ -> state
-        | ClassField(addr, _) -> doFold folder state addr
+        | BoxedLocation _ -> k state
+        | ClassField(addr, _) -> doFold folder state addr k
         | ArrayIndex(addr, idcs, _) ->
-            let state = doFold folder state addr
-            foldSeq folder idcs state
-        | StructField(addr, _) -> foldAddress folder state addr
+            doFold folder state addr (fun state ->
+            foldSeq folder idcs state k)
+        | StructField(addr, _) -> foldAddress folder state addr k
         | ArrayLength(addr, idx, _)
         | ArrayLowerBound(addr, idx, _) ->
-            let state = doFold folder state addr
-            doFold folder state idx
-        | StackBufferIndex(_, idx) -> doFold folder state idx
+            doFold folder state addr (fun state ->
+            doFold folder state idx k)
+        | StackBufferIndex(_, idx) -> doFold folder state idx k
 
-    and foldPointerBase folder state = function
-        | HeapLocation(heapAddress, _) -> doFold folder state heapAddress
+    and foldPointerBase folder state pointerBase k =
+        match pointerBase with
+        | HeapLocation(heapAddress, _) -> doFold folder state heapAddress k
         | StackLocation _
-        | StaticLocation _ -> state
+        | StaticLocation _ -> k state
 
-    and private foldSeq folder terms state =
-        Seq.fold (doFold folder) state terms
+    and private foldSeq folder terms state k =
+        Cps.Seq.foldlk (doFold folder) state terms k
 
     let fold folder state terms =
-        foldSeq folder terms state
+        foldSeq folder terms state id
 
     let iter action term =
-        doFold (fun () -> action) () term
+        doFold action () term id
+
+    let iterSeq action terms =
+        Cps.Seq.foldlk (doFold action) () terms id
 
     let discoverConstants terms =
         let result = HashSet<term>()
-        let addConstant = function
-            | {term = Constant _} as constant -> result.Add constant |> ignore
-            | _ -> ()
+        let addConstant _ t _ into =
+            match t.term with
+            | Constant _ -> result.Add t |> ignore |> into
+            | _ -> into ()
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
 

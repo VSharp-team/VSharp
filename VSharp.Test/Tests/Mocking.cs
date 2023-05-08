@@ -129,6 +129,19 @@ public class Mocking
     }
 
     [TestSvm(100)]
+    public int ComputeWithDependence3()
+    {
+        if (!ReferenceEquals(this, _dependence))
+            return 3;
+
+        var x = _dependence.F();
+        var y = _dependence.F();
+        if (x > y)
+            return 1;
+        return 2;
+    }
+
+    [TestSvm(100)]
     public int ReadAllFromNetwork([DisallowNull] byte[] buffer, [DisallowNull] INetwork network)
     {
         int next;
@@ -145,6 +158,15 @@ public class Mocking
     public bool Enumerable(IEnumerable<int> enumerable)
     {
         var enumerator = enumerable.GetEnumerator();
+        return enumerator.MoveNext();
+    }
+
+    [TestSvm(100)]
+    public bool? Enumerable2(IEnumerable<int> enumerable)
+    {
+        var enumerator = enumerable.GetEnumerator();
+        if (ReferenceEquals(enumerable, enumerator))
+            return null;
         return enumerator.MoveNext();
     }
 
@@ -185,6 +207,11 @@ public class Mocking
         {
             n += 12;
             return n;
+        }
+
+        if (n == 199)
+        {
+            n += 11;
         }
 
         return n;

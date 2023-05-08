@@ -13,29 +13,36 @@ module TestGenerator =
     let mutable private maxBufferSize = 128
     let internal setMaxBufferSize size = maxBufferSize <- size
 
-    let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) (encodeMock : ITypeMock -> obj) (test : UnitTest) addr mock =
+    let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) encodeMock evalField (test : UnitTest) addr (mock : ITypeMock) =
         let index = test.MemoryGraph.ReserveRepresentation()
-        // TODO: can mock be already added? #type
         indices.Add(addr, index)
-        let repr = test.MemoryGraph.AddMockedClass (encodeMock mock) index
-        repr :> obj
+        let mock : Mocking.Type = encodeMock mock
+        let baseClass = mock.BaseClass
+        let fields =
+            match evalField with
+            | Some evalField when baseClass <> null && not (TypeUtils.isDelegate baseClass) ->
+                Reflection.fieldsOf false baseClass
+                |> Array.map (fst >> evalField)
+            | _ -> Array.empty
+        test.MemoryGraph.AddMockedClass mock fields index :> obj
 
-    let private obj2test eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) (encodeMock : ITypeMock -> obj) (test : UnitTest) addr typ =
+    let private obj2test eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) encodeMock (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
             let referenceRepr : referenceRepr = {index = index.Value}
             referenceRepr :> obj
         else
+            let memoryGraph = test.MemoryGraph
+            let cha = ConcreteHeapAddress addr
             match typ with
             | ConcreteType typ when TypeUtils.isDelegate typ ->
                 // Obj is a delegate which mock hasn't been created yet
                 let mock = TypeMock(Seq.singleton typ)
-                addMockToMemoryGraph indices encodeMock test addr mock
+                addMockToMemoryGraph indices encodeMock None test addr mock
             | ConcreteType typ ->
-                let cha = ConcreteHeapAddress addr
                 match typ with
                 | TypeUtils.ArrayType(elemType, dim) ->
-                    let index = test.MemoryGraph.ReserveRepresentation()
+                    let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
                     let arrayType, (lengths : int array), (lowerBounds : int array) =
                         match dim with
@@ -60,24 +67,29 @@ module TestGenerator =
                     let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
                     String(contents) :> obj
                 | _ ->
-                    let index = test.MemoryGraph.ReserveRepresentation()
+                    let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
                     let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
                         ClassField(cha, field) |> eval)
-                    let repr = test.MemoryGraph.AddClass typ fields index
+                    let repr = memoryGraph.AddClass typ fields index
                     repr :> obj
-            | MockType mock when mock.IsValueType -> encodeMock mock
-            | MockType mock -> addMockToMemoryGraph indices encodeMock test addr mock
+            | MockType mock when mock.IsValueType -> memoryGraph.RepresentMockedStruct (encodeMock mock) Array.empty
+            | MockType mock ->
+                let evalField field = ClassField(cha, field) |> eval
+                addMockToMemoryGraph indices encodeMock (Some evalField) test addr mock
 
     let private encodeArrayCompactly (state : state) (model : model) (encode : term -> obj) (test : UnitTest) arrayType cha typ lengths lowerBounds index =
         if state.concreteMemory.Contains cha then
             // TODO: Use compact representation for big arrays
-            test.MemoryGraph.AddArray typ (state.concreteMemory.VirtToPhys cha :?> Array |> Array.mapToOneDArray test.MemoryGraph.Encode) lengths lowerBounds index
+            let contents =
+                state.concreteMemory.VirtToPhys cha :?> Array
+                |> Array.mapToOneDArray test.MemoryGraph.Encode
+            test.MemoryGraph.AddArray typ contents lengths lowerBounds index
         else
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with
-                    | StateModel(modelState, _) -> modelState.arrays
+                    | StateModel modelState -> modelState.arrays
                     | _ -> __unreachable__()
                 else
                     state.arrays
@@ -148,13 +160,16 @@ module TestGenerator =
         | NullPtr -> null
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
-            | StateModel(modelState, _) ->
-                let eval address =
-                    address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache implementations test
-                let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache implementations test)
-                let typ = modelState.allocatedTypes[addr]
-                let encodeMock = encodeTypeMock model state indices mockCache implementations test >> test.AllocateMockObject
-                obj2test eval arr2Obj indices encodeMock test addr typ
+            | StateModel modelState ->
+                match PersistentDict.tryFind modelState.allocatedTypes addr with
+                | Some typ ->
+                    let eval address =
+                        address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache implementations test
+                    let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache implementations test)
+                    let encodeMock = encodeTypeMock model state indices mockCache implementations test
+                    obj2test eval arr2Obj indices encodeMock test addr typ
+                // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
+                | None -> null
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             let term2Obj = model.Eval >> term2obj model state indices mockCache implementations test
@@ -162,19 +177,19 @@ module TestGenerator =
                 address |> Ref |> Memory.Read state |> term2Obj
             let arr2Obj = encodeArrayCompactly state model term2Obj
             let typ = state.allocatedTypes[addr]
-            let encodeMock = encodeTypeMock model state indices mockCache implementations test >> test.AllocateMockObject
+            let encodeMock = encodeTypeMock model state indices mockCache implementations test
             obj2test eval arr2Obj indices encodeMock test addr typ
         | Combined(terms, t) ->
             let slices = List.map model.Eval terms
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term
 
-    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock =
+    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock : Mocking.Type =
         let mockedType = ref Mocking.Type.Empty
         if mockCache.TryGetValue(mock, mockedType) then mockedType.Value
         else
             let eval = model.Eval >> term2obj model state indices mockCache implementations test
-            let freshMock = test.DefineTypeMock(mock.Name)
+            let freshMock = Mocking.Type(mock.Name)
             mockCache.Add(mock, freshMock)
             for t in mock.SuperTypes do
                 freshMock.AddSuperType t
@@ -182,10 +197,9 @@ module TestGenerator =
                     let method = methodMock.Key
                     let values = methodMock.Value
                     let methodType = method.ReflectedType
-                    let alreadyMocked = Seq.contains method freshMock.MethodsInfo
                     let mockedBaseInterface() =
                         t.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
-                    if not alreadyMocked && (methodType = t || mockedBaseInterface()) then
+                    if methodType = t || mockedBaseInterface() then
                         freshMock.AddMethod(method, Array.map eval values)
             freshMock
 
@@ -201,8 +215,8 @@ module TestGenerator =
             then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
 
         match model with
-        | StateModel(modelState, typeModel) ->
-            match SolveGenericMethodParameters typeModel m with
+        | StateModel modelState ->
+            match SolveGenericMethodParameters state.typeStorage m with
             | None -> None
             | Some(classParams, methodParams) ->
                 let implementations = Dictionary<MethodInfo, term[]>()

@@ -345,6 +345,12 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public int NonStaticClassTest()
+        {
+            return 1;
+        }
+
+        [TestSvm]
         public void TestProperty1()
         {
             var st = new ClassesSimplePropertyAccess();
