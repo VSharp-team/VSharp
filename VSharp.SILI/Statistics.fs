@@ -40,6 +40,12 @@ type statisticsDump =
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
 
+type public exceptionInfo = 
+    {
+        exceptionType : Type
+        stackTrace : codeLocation list
+    }
+
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics() =
     let totalVisited = Dictionary<codeLocation, uint>()
@@ -70,6 +76,7 @@ type public SILIStatistics() =
 
     let mutable testsCount = 0u
     let mutable branchesReleased = false
+    let mutable exceptions : exceptionInfo list = []
 
     let formatTimeSpan (span : TimeSpan) =
         String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
@@ -237,9 +244,19 @@ type public SILIStatistics() =
     member x.OnBranchesReleased() =
         branchesReleased <- true
 
+    member x.GetExceptionsInfo () = exceptions
+
     member x.TrackFinished (s : cilState) =
         testsCount <- testsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
+
+        match s.state.exceptionsRegister with
+        | Unhandled(term, _) -> 
+            let t = TypeOf term
+            let ei = { exceptionType = t;  stackTrace = s.exceptionStackTrace}
+            exceptions <- ei :: exceptions
+        | _ -> ()
+
         let mutable coveredBlocks = ref null
         for block in s.history do
             if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then

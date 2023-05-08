@@ -475,7 +475,7 @@ module internal InstructionsSet =
     let rethrow (cilState : cilState) =
         let state = cilState.state
         assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
-        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
+        setException (state.exceptionsRegister.TransformToUnhandled()) cilState cilState.exceptionStackTrace
     let endfilter (cilState : cilState) =
         let value, restStack = EvaluationStack.Pop cilState.state.evaluationStack
         if restStack = EvaluationStack.EmptyStack then
@@ -1056,7 +1056,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         popFrameOf cilState
         let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
         setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-        setException (Unhandled(ref, true)) cilState
+        setException (Unhandled(ref, true)) cilState codeLocations
 
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
@@ -1660,7 +1660,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (fun cilState k ->
                 let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
                 setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-                setException (Unhandled(error, isRuntime)) cilState
+                setException (Unhandled(error, isRuntime)) cilState codeLocations
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id

@@ -3,6 +3,7 @@
 open System.Diagnostics
 open System.IO
 open VSharp
+open System.Collections.Generic
 
 type public hypothesisType =
     | NullDereference
@@ -25,6 +26,7 @@ type searchMode =
     | InterleavedMode of searchMode * int * searchMode * int
     | ConcolicMode of searchMode
     | GuidedMode of searchMode
+    | HypothesisProveMode of IEnumerable<target>
 
 type coverageZone =
     | MethodZone

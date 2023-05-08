@@ -90,6 +90,11 @@ type public SILI(options : SiliOptions) =
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
+        | HypothesisProveMode(targets) ->
+            let baseSearcher = mkForwardSearcher BFSMode
+            let targetsList = targets |> Seq.cast |> Seq.toList
+            let calculator = ConstantTargetCalculator(targetsList)
+            GuidedSearcher(infty, options.recThreshold, baseSearcher, calculator) :> IForwardSearcher
         | searchMode.ConcolicMode baseMode -> ConcolicSearcher(mkForwardSearcher baseMode) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =

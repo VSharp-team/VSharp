@@ -115,7 +115,8 @@ type ShortestDistanceWeighter(target : target) =
                         | _, 0u -> preTargetWeight currLoc
                         | _ -> postTargetWeight currLoc
                     let result = weight * logarithmicScale state.stepsNumber
-                    return if result = 0u && not(targetHypothesisIsMet state) then 1u else result
+                    let hypothesisIsMet = targetHypothesisIsMet state
+                    return if result = 0u && not(hypothesisIsMet) then 1u else result
                 | None -> return 1u
             }
         override x.Next() = 0u

@@ -39,39 +39,53 @@ type TargetedSearcher(maxBound, target, isPaused) =
             match x.TryGetWeight state with
             | None when not <| isPaused state ->
                 removeTarget state target
-
             | _ -> ()
+
+    member x.addStateIfReached reachedStates state = 
+        match x.TryGetWeight state with
+        | Some 0u -> state::reachedStates
+        | _ -> reachedStates
 
     member x.TargetedInsert states : cilState list =
         x.Insert states
-        states |> Seq.fold (fun reachedStates state ->
-        match x.TryGetWeight state with
-        | Some 0u -> state::reachedStates
-        | _ -> reachedStates) []
+        states |> Seq.fold (x.addStateIfReached) []
 
     member x.TargetedUpdate (parent, newStates) =
         x.Update (parent, newStates)
-        Seq.append [parent] newStates |> Seq.fold (fun reachedStates state ->
-        match x.TryGetWeight state with
-        | Some 0u -> state::reachedStates
-        | _ -> reachedStates) []
+        Seq.append [parent] newStates |> Seq.fold (x.addStateIfReached) []
 
 type ITargetCalculator =
-    abstract member CalculateTarget : cilState -> target option
+    abstract member CalculateTargets : cilState -> target list
+    abstract member BanTarget : target -> unit
 
 type StatisticsTargetCalculator(statistics : SILIStatistics) =
     interface ITargetCalculator with
-        override x.CalculateTarget state =
+        override x.CalculateTargets state =
             let locStack = state.ipStack |> Seq.choose ipOperations.ip2codeLocation
             let inCoverageZone loc = loc.method.InCoverageZone
-            Cps.Seq.foldlk (fun reachingLoc loc k ->
-            match reachingLoc with
-            | None when inCoverageZone loc ->
-                let localHistory = Seq.filter inCoverageZone state.history
-                match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
-                | None -> k None
-                | Some l -> Some {hypothesis = NoneHypothesis; location = l; isBasicBlock = false}
-            | _ -> k reachingLoc) None locStack id
+            let targetOption = 
+                Cps.Seq.foldlk (fun reachingLoc loc k ->
+                match reachingLoc with
+                | None when inCoverageZone loc ->
+                    let localHistory = Seq.filter inCoverageZone state.history
+                    match statistics.PickUnvisitedWithHistoryInCFG(loc, localHistory) with
+                    | None -> k None
+                    | Some l -> Some {hypothesis = NoneHypothesis; location = l; isBasicBlock = false}
+                | _ -> k reachingLoc) None locStack id
+            match targetOption with
+            | Some t -> [t]
+            | None -> []
+
+        override x.BanTarget _ = ()
+
+type ConstantTargetCalculator(targets : target list) =
+    let targetsSet = HashSet(targets)
+
+    interface ITargetCalculator with
+        override x.CalculateTargets _ = targetsSet |> Seq.toList
+
+        override x.BanTarget target = 
+            targetsSet.Remove(target) |> ignore
 
 
 type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator) =
@@ -122,6 +136,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
 
     // probably delete unfounded searcher
     let deleteTargetedSearcher target =
+        targetCalculator.BanTarget target
         let targetedSearcher = getTargetedSearcher target
         for state in targetedSearcher.ToSeq () do
             removeTarget state target
@@ -146,18 +161,20 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             } |> ignore
 
         addedCilStates |> Seq.iter (fun kvpair ->
-        let targetedSearcher = getTargetedSearcher kvpair.Key
-        let reachedStates =
-            match updateParentTargets with
-            | Some targets when targets.Contains kvpair.Key ->
-                targetedSearcher.TargetedUpdate (parent, kvpair.Value)
-            | _ -> targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
+            let targetedSearcher = getTargetedSearcher kvpair.Key
+            let reachedStates =
+                match updateParentTargets with
+                | Some targets when targets.Contains kvpair.Key ->
+                    targetedSearcher.TargetedUpdate (parent, kvpair.Value)
+                | _ -> 
+                    targetedSearcher.TargetedInsert addedCilStates.[kvpair.Key]
 
-        if not <| List.isEmpty reachedStates then
-            reachedOrUnreachableTargets.Add kvpair.Key |> ignore
-            for state in reachedStates do
-                deleteTargetedSearcher kvpair.Key // added to set for deletion of searcher, delete 
-                addReturnTarget state)
+            if not <| List.isEmpty reachedStates then
+                reachedOrUnreachableTargets.Add kvpair.Key |> ignore
+                for state in reachedStates do
+                    deleteTargetedSearcher kvpair.Key // added to set for deletion of searcher, delete 
+                    addReturnTarget state
+        )
 
     let insertInTargetedSearchers states =
         states
@@ -176,12 +193,13 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
     let pause (state : cilState) : unit =
         pausedStates.Add state |> ignore
 
-    let setTargetOrPause state =
-        match targetCalculator.CalculateTarget state with
-        | Some target ->
+    let setTargetsOrPause state =
+        let targets = targetCalculator.CalculateTargets state
+        targets |> Seq.iter (fun target -> 
             addTarget state target
             insertInTargetedSearcher state target
-        | None ->
+        )
+        if targets.IsEmpty then
             state.targets <- None
             pause state
 
@@ -196,7 +214,7 @@ type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher,
             | Some state ->
                 match state.targets with
                 | None when violatesRecursionLevel state ->
-                    setTargetOrPause state
+                    setTargetsOrPause state
                     pick' selector
                 | _ -> Some state
             | None -> None

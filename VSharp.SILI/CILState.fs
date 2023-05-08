@@ -13,6 +13,7 @@ type cilState =
       // TODO: get rid of currentLoc!
       mutable currentLoc : codeLocation // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
       state : state
+      mutable exceptionStackTrace : codeLocation list
       mutable filterResult : term option
       //TODO: #mb frames list #mb transfer to Core.State
       mutable iie : InsufficientInformationException option
@@ -71,6 +72,7 @@ module internal CilStateOperations =
         let currentLoc = ip2codeLocation curV |> Option.get
         { ipStack = [curV]
           currentLoc = currentLoc
+          exceptionStackTrace = []
           state = state
           filterResult = None
           iie = None
@@ -236,7 +238,9 @@ module internal CilStateOperations =
         if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
         else {cilState with state = state; id = getNextStateId()}
 
-    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
+    let setException exc (cilState : cilState) (stackTrace : codeLocation list) = 
+        cilState.state.exceptionsRegister <- exc
+        cilState.exceptionStackTrace <- stackTrace
 
     let push v (cilState : cilState) =
         cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack

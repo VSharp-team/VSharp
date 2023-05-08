@@ -6,9 +6,9 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using VSharp.Core;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
-using VSharp.Solver;
 
 namespace VSharp
 {
@@ -75,13 +75,14 @@ namespace VSharp
     /// </summary>
     public sealed class Statistics
     {
-        internal Statistics(TimeSpan time, DirectoryInfo outputDir, uint tests, uint errors, IEnumerable<string> iies)
+        internal Statistics(TimeSpan time, DirectoryInfo outputDir, uint tests, uint errors, IEnumerable<string> iies, IEnumerable<exceptionInfo> exceptions)
         {
             TestGenerationTime = time;
             OutputDir = outputDir;
             TestsCount = tests;
             ErrorsCount = errors;
             IncompleteBranches = iies;
+            Exceptions = exceptions;
         }
 
         /// <summary>
@@ -108,6 +109,8 @@ namespace VSharp
         /// Some program branches might be failed to investigate. This enumerates the reasons of such failures.
         /// </summary>
         public IEnumerable<string> IncompleteBranches { get; }
+
+        public IEnumerable<exceptionInfo> Exceptions { get; }
 
         /// <summary>
         /// Writes textual summary of test generation process.
@@ -157,11 +160,27 @@ namespace VSharp
             int timeout = -1,
             int solverTimeout = -1)
         {
+            var baseSearchMode = searchStrategy.ToSiliMode();
+            return StartExploration(
+                methods, resultsFolder, coverageZone, baseSearchMode,
+                verbosity, mainArguments, timeout, solverTimeout
+            );
+        }
+
+        private static Statistics StartExploration(
+            IEnumerable<MethodBase> methods,
+            string resultsFolder,
+            coverageZone coverageZone,
+            searchMode baseSearchMode,
+            Verbosity verbosity,
+            string[]? mainArguments = null,
+            int timeout = -1,
+            int solverTimeout = -1)
+        {
             Logger.currentLogLevel = verbosity.ToLoggerLevel();
 
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
-            var baseSearchMode = searchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
@@ -247,9 +266,13 @@ namespace VSharp
             explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                 HandleInternalFail, HandleCrash);
 
-            var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
+            var statistics = new Statistics(
+                explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
                 unitTests.UnitTestsCount, unitTests.ErrorsCount,
-                explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct());
+                explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
+                explorer.Statistics.GetExceptionsInfo()
+            );
+
             unitTests.WriteReport(explorer.Statistics.PrintStatistics);
 
             return statistics;
@@ -702,6 +725,54 @@ namespace VSharp
         {
             var stats = Cover(assembly, args, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
             return Reproduce(stats.OutputDir);
+        }
+
+        public static Statistics ProveHypotheses(
+            IEnumerable<target> targets,
+            int timeout = -1,
+            int solverTimeout = -1,
+            string outputDirectory = "",
+            bool renderTests = false,
+            Verbosity verbosity = DefaultVerbosity)
+        {
+            var methodArray = targets.Select(t => (t.location.method as IMethod).MethodBase);
+            var types = new HashSet<Type>();
+            var assemblies = new HashSet<Assembly>();
+
+            foreach (var method in methodArray)
+            {
+                assemblies.Add(method.Module.Assembly);
+
+                if (method.DeclaringType is not null)
+                {
+                    types.Add(method.DeclaringType);
+                }
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                AssemblyManager.LoadCopy(assembly);
+            }
+
+            var zone = coverageZone.ModuleZone;
+
+            if (methodArray.Count() == 1)
+            {
+                zone = coverageZone.MethodZone;
+            }
+            else if (types.Count == 1)
+            {
+                zone = coverageZone.ClassZone;
+            }
+
+            var sm = searchMode.NewHypothesisProveMode(targets);
+            var statistics = StartExploration(
+                methodArray, outputDirectory, zone, sm, verbosity, null, timeout, solverTimeout);
+
+            if (renderTests)
+                Render(statistics, types.SingleOrDefault());
+
+            return statistics;
         }
     }
 }
