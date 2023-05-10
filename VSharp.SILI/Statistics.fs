@@ -40,11 +40,14 @@ type statisticsDump =
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
 
-type public exceptionInfo = 
-    {
-        exceptionType : Type
-        stackTrace : codeLocation list
-    }
+[<CustomEquality; NoComparison>]
+type public exceptionInfo = { exceptionType : Type; stackTrace : codeLocation list }
+    with
+    override x.Equals y =
+        match y with
+        | :? exceptionInfo as y -> x.exceptionType.Equals(y.exceptionType) && x.stackTrace = y.stackTrace
+        | _ -> false
+    override x.GetHashCode() = (x.exceptionType, x.stackTrace).GetHashCode()
 
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics() =
