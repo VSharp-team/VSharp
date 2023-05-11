@@ -9,13 +9,15 @@
 
 namespace vsharp {
 
-class ThreadSignature {
+class ProbeCall {
     std::map<ThreadID, mdSignature> threadMapping;
     std::mutex mutex;
 
 public:
+    INT_PTR addr;
     mdSignature getSig();
     void setSig(mdSignature sig);
+    ProbeCall(INT_PTR addr);
 };
 
 enum CoverageEvents {
@@ -108,29 +110,17 @@ void Track_Throw(OFFSET offset, int methodId);
 void Finalize_Call(OFFSET offset);
 
 struct CoverageProbes {
-    INT_PTR Track_Coverage_Addr;
-    INT_PTR Track_Stsfld_Addr;
-    INT_PTR Branch_Addr;
-    INT_PTR Track_Enter_Addr;
-    INT_PTR Track_EnterMain_Addr;
-    INT_PTR Track_Leave_Addr;
-    INT_PTR Track_LeaveMain_Addr;
-    INT_PTR Finalize_Call_Addr;
-    INT_PTR Track_Call_Addr;
-    INT_PTR Track_Tailcall_Addr;
-    INT_PTR Track_Throw_Addr;
-
-    ThreadSignature Track_Coverage_Sig;
-    ThreadSignature Track_Stsfld_Sig;
-    ThreadSignature Branch_Sig;
-    ThreadSignature Track_Enter_Sig;
-    ThreadSignature Track_EnterMain_Sig;
-    ThreadSignature Track_Leave_Sig;
-    ThreadSignature Track_LeaveMain_Sig;
-    ThreadSignature Finalize_Call_Sig;
-    ThreadSignature Track_Call_Sig;
-    ThreadSignature Track_Tailcall_Sig;
-    ThreadSignature Track_Throw_Sig;
+    ProbeCall* Coverage;
+    ProbeCall* Stsfld;
+    ProbeCall* Branch;
+    ProbeCall* Enter;
+    ProbeCall* EnterMain;
+    ProbeCall* Leave;
+    ProbeCall* LeaveMain;
+    ProbeCall* Finalize_Call;
+    ProbeCall* Call;
+    ProbeCall* Tailcall;
+    ProbeCall* Throw;
 };
 
 extern CoverageProbes coverageProbes;

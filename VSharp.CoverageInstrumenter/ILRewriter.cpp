@@ -1132,8 +1132,7 @@ void PrintILInstructions(ILRewriter *pilr) {
 HRESULT AddCoverageProbeAfter(
     ILRewriter* pilr,
     ILInstr*& pInstr,
-    UINT_PTR methodAddress,
-    ULONG32 methodSignature,
+    vsharp::ProbeCall* probe,
     int methodId)
 {
     // new instruction for easier exception handling
@@ -1146,7 +1145,7 @@ HRESULT AddCoverageProbeAfter(
     AddLDCInstrBefore(pilr, pNewInstr, methodId);
 
     // adding the probe
-    IfFailRet(AddProbe(pilr, methodAddress, methodSignature, pNewInstr));
+    IfFailRet(AddProbe(pilr, probe->addr, probe->getSig(), pNewInstr));
 
     // changing exception handlers bounds if we were on the end of handler block
     if (pilr->m_pEH != nullptr) {
@@ -1165,8 +1164,7 @@ HRESULT AddCoverageProbeAfter(
 HRESULT AddCoverageProbeBefore(
         ILRewriter *pilr,
         ILInstr *&pInstr,
-        UINT_PTR methodAddress,
-        ULONG32 methodSignature,
+        vsharp::ProbeCall* probe,
         int methodId)
 {
     // adding the new instruction
@@ -1182,7 +1180,7 @@ HRESULT AddCoverageProbeBefore(
     AddLDCInstrBefore(pilr, pNewInstr, methodId);
 
     // adding the probe
-    IfFailRet(AddProbe(pilr, methodAddress, methodSignature, pNewInstr));
+    IfFailRet(AddProbe(pilr, probe->addr, probe->getSig(), pNewInstr));
 
     // changing exception handlers bounds if we were on the end of handler block
     if (pilr->m_pEH != nullptr) {
@@ -1213,7 +1211,7 @@ HRESULT AddExitProbe(
         case CEE_TAILCALL:
         {
             isTailCall = TRUE;
-            AddCoverageProbeBefore(pilr, pInstr, covProb->Track_Tailcall_Addr, covProb->Track_Tailcall_Sig.getSig(), methodId);
+            AddCoverageProbeBefore(pilr, pInstr, covProb->Tailcall, methodId);
             break;
         }
         case CEE_RET:
@@ -1222,7 +1220,7 @@ HRESULT AddExitProbe(
                 isTailCall = FALSE;
                 break;
             }
-            AddCoverageProbeBefore(pilr, pInstr, covProb->Track_Leave_Addr, covProb->Track_LeaveMain_Sig.getSig(), methodId);
+            AddCoverageProbeBefore(pilr, pInstr, covProb->Leave, methodId);
             break;
         }
 
@@ -1236,10 +1234,10 @@ HRESULT AddExitProbe(
 
 HRESULT MakeProbeInsertion(ILRewriter *pilr, ProbeInsertion toInsert, int methodId) {
     if (toInsert.isBeforeInstr) {
-        IfFailRet(AddCoverageProbeBefore(pilr, toInsert.target, toInsert.methodAddress, toInsert.methodSignature, methodId));
+        IfFailRet(AddCoverageProbeBefore(pilr, toInsert.target, toInsert.probe, methodId));
     }
     else {
-        IfFailRet(AddCoverageProbeAfter(pilr, toInsert.target, toInsert.methodAddress, toInsert.methodSignature, methodId));
+        IfFailRet(AddCoverageProbeAfter(pilr, toInsert.target, toInsert.probe, methodId));
     }
     return S_OK;
 }
@@ -1260,21 +1258,15 @@ HRESULT RewriteIL(
 
     auto covProb = vsharp::getProbes();
 
-    INT_PTR enterMethodAddress;
-    ULONG32 enterMethodSignature;
-    INT_PTR leaveMethodAddress;
-    ULONG32 leaveMethodSignature;
+    vsharp::ProbeCall* enterMethod;
+    vsharp::ProbeCall* leaveMethod;
     if (isMain) {
-        enterMethodAddress = covProb->Track_EnterMain_Addr;
-        enterMethodSignature = covProb->Track_EnterMain_Sig.getSig();
-        leaveMethodAddress = covProb->Track_LeaveMain_Addr;
-        leaveMethodSignature = covProb->Track_LeaveMain_Sig.getSig();
+        enterMethod = covProb->EnterMain;
+        leaveMethod = covProb->LeaveMain;
     }
     else {
-        enterMethodAddress = covProb->Track_Enter_Addr;
-        enterMethodSignature = covProb->Track_Enter_Sig.getSig();
-        leaveMethodAddress = covProb->Track_Leave_Addr;
-        leaveMethodSignature = covProb->Track_Leave_Sig.getSig();
+        enterMethod = covProb->Enter;
+        leaveMethod = covProb->Leave;
     }
 
     IfFailRet(rewriter.Import());
@@ -1283,7 +1275,7 @@ HRESULT RewriteIL(
     // if main-only requested, keeping enter/leave probes for stack balances, cutting everything else
     if (rewriteMainOnly && !isMain) {
         IfFailRet(AddExitProbe(pilr, methodId));
-        IfFailRet(AddEnterProbe(pilr, enterMethodAddress, enterMethodSignature, methodId));
+        IfFailRet(AddEnterProbe(pilr, enterMethod->addr, enterMethod->getSig(), methodId));
         IfFailRet(rewriter.Export());
         return S_OK;
     }
@@ -1308,20 +1300,20 @@ HRESULT RewriteIL(
         // branch coverage
         if ((CEE_BR_S <= pInstr->m_opcode && pInstr->m_opcode <= CEE_SWITCH)
             || pInstr->m_opcode == CEE_LEAVE || pInstr->m_opcode == CEE_LEAVE_S) {
-            addPriorityProbe.push_back({ pInstr, nullptr, covProb->Branch_Addr, covProb->Branch_Sig.getSig(), PIBeforeInstr });
+            addPriorityProbe.push_back({ pInstr, nullptr, covProb->Branch, PIBeforeInstr });
 
             // inserting all switch cases as possible target points
             if (pInstr->m_opcode == CEE_SWITCH) {
                 ILInstr *curSwitchArg = pInstr->m_pNext;
                 for (int i = 0; i < pInstr->m_Arg32; i++) {
                     assert(curSwitchArg->m_opcode == 295); // checking switch arg constant
-                    addTargetProbe.push_back({ curSwitchArg->m_pTarget->m_pPrev, pInstr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIAfterInstr });
+                    addTargetProbe.push_back({ curSwitchArg->m_pTarget->m_pPrev, pInstr, covProb->Coverage, PIAfterInstr });
                     curSwitchArg = curSwitchArg->m_pNext;
                 }
             }
             else {
                 // inserting instruction before target as it's the end of the block
-                addTargetProbe.push_back({ pInstr->m_pTarget->m_pPrev, pInstr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIAfterInstr });
+                addTargetProbe.push_back({ pInstr->m_pTarget->m_pPrev, pInstr, covProb->Coverage, PIAfterInstr });
             }
 
             continue;
@@ -1339,7 +1331,7 @@ HRESULT RewriteIL(
                 else {
                     instr = pInstr;
                 }
-                addPriorityProbe.push_back({ instr, nullptr, covProb->Track_Stsfld_Addr, covProb->Track_Stsfld_Sig.getSig(), PIBeforeInstr });
+                addPriorityProbe.push_back({ instr, nullptr, covProb->Stsfld, PIBeforeInstr });
                 break;
             }
             case CEE_TAILCALL:
@@ -1357,9 +1349,9 @@ HRESULT RewriteIL(
                 newTailcall->m_offset = newTailcall->m_pNext->m_offset;
                 pInstr->m_offset = newTailcall->m_pNext->m_pNext->m_offset; // taking ret's offset
 
-                addPriorityProbe.push_back({ newTailcall, nullptr, covProb->Track_Tailcall_Addr, covProb->Track_Tailcall_Sig.getSig(), PIBeforeInstr });
+                addPriorityProbe.push_back({ newTailcall, nullptr, covProb->Tailcall, PIBeforeInstr });
                 // covering with usual coverage probe as tailcall already takes care of stack changes
-                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIBeforeInstr });
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Coverage, PIBeforeInstr });
                 
                 // advancing pInstr to avoid loops
                 pInstr = newTailcall;
@@ -1374,7 +1366,7 @@ HRESULT RewriteIL(
                     continue;
                 }
 
-                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Call_Addr, covProb->Track_Call_Sig.getSig(), PIAfterInstr });
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Call, PIAfterInstr });
                 break;
             }
             case CEE_RET:
@@ -1387,7 +1379,7 @@ HRESULT RewriteIL(
                     isTailCall = FALSE;
                     break;
                 }
-                addPriorityProbe.push_back({ pInstr, nullptr, leaveMethodAddress, leaveMethodSignature, PIBeforeInstr });
+                addPriorityProbe.push_back({ pInstr, nullptr, leaveMethod, PIBeforeInstr });
                 break;
             }
 
@@ -1395,13 +1387,13 @@ HRESULT RewriteIL(
             case CEE_ENDFINALLY:
             case CEE_ENDFILTER:
             {
-                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIBeforeInstr });
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Coverage, PIBeforeInstr });
                 break;
             }
             case CEE_THROW:
             case CEE_RETHROW:
             {
-                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Throw_Addr, covProb->Track_Throw_Sig.getSig(), PIBeforeInstr });
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Throw, PIBeforeInstr });
                 break;
             }
 
@@ -1427,7 +1419,7 @@ HRESULT RewriteIL(
 
         // targets on returns under tailcall require special treatment
         if (!IsTailcallRet(target->m_pNext)) {
-            IfFailRet(AddCoverageProbeAfter(pilr, target, insertion.methodAddress, insertion.methodSignature, methodId));
+            IfFailRet(AddCoverageProbeAfter(pilr, target, insertion.probe, methodId));
             continue;
         }
         // target is a ret after a tailcall:
@@ -1458,7 +1450,7 @@ HRESULT RewriteIL(
         AddLDCInstrBefore(pilr, pNewRet, methodId);
 
         // adding leave probe as it's a normal return without tailcall
-        IfFailRet(AddProbe(pilr, leaveMethodAddress, leaveMethodSignature, pNewRet));
+        IfFailRet(AddProbe(pilr, leaveMethod->addr, leaveMethod->getSig(), pNewRet));
 
         // rerouting the original branch target to our probe
         branch->m_pTarget = probeStart;
@@ -1473,7 +1465,7 @@ HRESULT RewriteIL(
         pilr->InsertAfter(branch, skipBranch);
     }
 
-    IfFailRet(AddEnterProbe(&rewriter, enterMethodAddress, enterMethodSignature, methodId));
+    IfFailRet(AddEnterProbe(&rewriter, enterMethod->addr, enterMethod->getSig(), methodId));
 
     if (isMain) {
         LOG(tout << "rewritten main method: ");

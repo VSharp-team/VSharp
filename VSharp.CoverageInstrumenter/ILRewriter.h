@@ -50,8 +50,7 @@ struct EHClause
 struct ProbeInsertion {
     ILInstr* target;
     ILInstr* parent;
-    INT_PTR methodAddress;
-    mdSignature methodSignature;
+    vsharp::ProbeCall* probe;
     bool isBeforeInstr;
 };
 

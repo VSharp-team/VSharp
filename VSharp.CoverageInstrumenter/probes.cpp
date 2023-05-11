@@ -2,18 +2,23 @@
 
 using namespace vsharp;
 
-mdSignature ThreadSignature::getSig() {
+ProbeCall::ProbeCall(INT_PTR methodAddr) {
+    addr = methodAddr;
+}
+
+mdSignature ProbeCall::getSig() {
     ThreadID thread = currentThread();
     mutex.lock();
     auto pos = threadMapping.find(thread);
     if (pos == threadMapping.end()) {
+        mutex.unlock();
         return 0;
     }
     mutex.unlock();
     return pos->second;
 }
 
-void ThreadSignature::setSig(mdSignature sig) {
+void ProbeCall::setSig(mdSignature sig) {
     ThreadID thread = currentThread();
     mutex.lock();
     threadMapping[thread] = sig;
@@ -26,17 +31,17 @@ CoverageProbes* vsharp::getProbes() {
 
 void vsharp::InitializeProbes() {
     auto covProbes = vsharp::getProbes();
-    covProbes->Track_Coverage_Addr = (INT_PTR) &Track_Coverage;
-    covProbes->Branch_Addr = (INT_PTR) &Branch;
-    covProbes->Track_Enter_Addr = (INT_PTR) &Track_Enter;
-    covProbes->Track_EnterMain_Addr = (INT_PTR) &Track_EnterMain;
-    covProbes->Track_Leave_Addr = (INT_PTR) &Track_Leave;
-    covProbes->Track_LeaveMain_Addr = (INT_PTR) &Track_LeaveMain;
-    covProbes->Finalize_Call_Addr = (INT_PTR) &Finalize_Call;
-    covProbes->Track_Call_Addr = (INT_PTR) &Track_Call;
-    covProbes->Track_Tailcall_Addr = (INT_PTR) &Track_Tailcall;
-    covProbes->Track_Stsfld_Addr = (INT_PTR) &Track_Stsfld;
-    covProbes->Track_Throw_Addr = (INT_PTR) &Track_Throw;
+    covProbes->Coverage = new ProbeCall((INT_PTR) &Track_Coverage);
+    covProbes->Branch = new ProbeCall((INT_PTR) &Branch);
+    covProbes->Enter = new ProbeCall((INT_PTR) &Track_Enter);
+    covProbes->EnterMain = new ProbeCall((INT_PTR) &Track_EnterMain);
+    covProbes->Leave = new ProbeCall((INT_PTR) &Track_Leave);
+    covProbes->LeaveMain = new ProbeCall((INT_PTR) &Track_LeaveMain);
+    covProbes->Finalize_Call = new ProbeCall((INT_PTR) &Finalize_Call);
+    covProbes->Call = new ProbeCall((INT_PTR) &Track_Call);
+    covProbes->Tailcall = new ProbeCall((INT_PTR) &Track_Tailcall);
+    covProbes->Stsfld = new ProbeCall((INT_PTR) &Track_Stsfld);
+    covProbes->Throw = new ProbeCall((INT_PTR) &Track_Throw);
     LOG(tout << "probes initialized" << std::endl);
 }
 

@@ -68,19 +68,19 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     auto covProb = getProbes();
     mdSignature signatureToken;
     SIG_DEF(0x01, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET)
-    covProb->Finalize_Call_Sig.setSig(signatureToken);
+    covProb->Finalize_Call->setSig(signatureToken);
     SIG_DEF(0x02, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET, ELEMENT_TYPE_I4)
-    covProb->Branch_Sig.setSig(signatureToken);
-    covProb->Track_Call_Sig.setSig(signatureToken);
-    covProb->Track_Leave_Sig.setSig(signatureToken);
-    covProb->Track_Throw_Sig.setSig(signatureToken);
-    covProb->Track_Stsfld_Sig.setSig(signatureToken);
-    covProb->Track_Coverage_Sig.setSig(signatureToken);
-    covProb->Track_Tailcall_Sig.setSig(signatureToken);
-    covProb->Track_LeaveMain_Sig.setSig(signatureToken);
+    covProb->Branch->setSig(signatureToken);
+    covProb->Call->setSig(signatureToken);
+    covProb->Leave->setSig(signatureToken);
+    covProb->Throw->setSig(signatureToken);
+    covProb->Stsfld->setSig(signatureToken);
+    covProb->Coverage->setSig(signatureToken);
+    covProb->Tailcall->setSig(signatureToken);
+    covProb->LeaveMain->setSig(signatureToken);
     SIG_DEF(0x03, ELEMENT_TYPE_VOID, ELEMENT_TYPE_OFFSET, ELEMENT_TYPE_I4, ELEMENT_TYPE_I4)
-    covProb->Track_EnterMain_Sig.setSig(signatureToken);
-    covProb->Track_Enter_Sig.setSig(signatureToken);
+    covProb->EnterMain->setSig(signatureToken);
+    covProb->Enter->setSig(signatureToken);
     return S_OK;
 }
 
