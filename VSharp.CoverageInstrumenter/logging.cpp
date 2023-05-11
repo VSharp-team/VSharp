@@ -2,12 +2,10 @@
 
 #ifdef _LOGGING
 
-#define LOG_FILE_NAME "lastrun.log"
-
 std::ofstream tout;
 
-void open_log() {
-    tout.open(LOG_FILE_NAME);
+void open_log(const char *&logName) {
+    tout.open(logName);
 }
 
 void close_log() {

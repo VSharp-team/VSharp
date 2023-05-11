@@ -13,7 +13,7 @@
 extern std::ofstream tout; 
 #define LOG_CODE(CODE) { CODE } ((void) 0)
 
-void open_log();
+void open_log(const char*& logName);
 void close_log();
 
 #else

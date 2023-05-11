@@ -402,13 +402,6 @@ static int k_rgnStackPushes[] = {
         0   // CEE_SWITCH_ARG
 };
 
-WCHAR *mainAssemblyName = nullptr;
-int mainAssemblyNameLength = 0;
-WCHAR *mainModuleName = nullptr;
-int mainModuleNameLength = 0;
-mdMethodDef mainToken = 0;
-bool rewriteMainOnly = false;
-
 ILRewriter::ILRewriter(
     ICorProfilerInfo * pICorProfilerInfo,
     ICorProfilerFunctionControl * pICorProfilerFunctionControl,
@@ -1047,82 +1040,6 @@ HRESULT AddEnterProbe(
     return AddProbe(pilr, methodAddress, methodSignature, pFirstOriginalInstr);
 }
 
-
-HRESULT AddExitProbe(
-        ILRewriter * pilr,
-        mdMethodDef functionId,
-        UINT_PTR methodAddress,
-        ULONG32 methodSignature)
-{
-    HRESULT hr;
-    BOOL fAtLeastOneProbeAdded = FALSE;
-    BOOL isTailCall = FALSE;
-
-    // Find all RETs, and insert a call to the exit probe before each one.
-    for (ILInstr * pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext)
-    {
-        switch (pInstr->m_opcode)
-        {
-            case CEE_TAILCALL:
-            {
-                isTailCall = TRUE;
-                break;
-            }
-            case CEE_RET:
-            {
-                // TODO: support instrumenting of tailcalls
-                if (isTailCall) {
-                    isTailCall = FALSE;
-                    break;
-                }
-                // We want any branches or leaves that targeted the RET instruction to
-                // actually target the epilog instructions we're adding. So turn the "RET"
-                // into ["NOP", "RET"], and THEN add the epilog between the NOP & RET. That
-                // ensures that any branches that went to the RET will now go to the NOP and
-                // then execute our epilog.
-
-                // NOTE: The NOP is not strictly required, but is a simplification of the implementation.
-                // RET->NOP
-                pInstr->m_opcode = CEE_NOP;
-
-                // Add the new RET after
-                ILInstr * pNewRet = pilr->NewILInstr();
-                pNewRet->m_opcode = CEE_RET;
-                pilr->InsertAfter(pInstr, pNewRet);
-
-                auto pNewInstr = pilr->NewILInstr();
-                pNewInstr->m_opcode = CEE_LDC_I4;
-                pNewInstr->m_Arg32 = (INT32)pInstr->m_offset;
-                pilr->InsertBefore(pNewRet, pNewInstr);
-
-                ILInstr * offsetInstr;
-                offsetInstr = pilr->NewILInstr();
-                offsetInstr->m_opcode = CEE_LDC_I4;
-                offsetInstr->m_Arg32 = (INT32)functionId;
-                pilr->InsertBefore(pNewRet, offsetInstr);
-
-                // Add now insert the epilog before the new RET
-                hr = AddProbe(pilr, methodAddress, methodSignature, pNewRet);
-                if (FAILED(hr))
-                    return hr;
-                fAtLeastOneProbeAdded = TRUE;
-
-                // Advance pInstr after all this gunk so the for loop continues properly
-                pInstr = pNewRet;
-                break;
-            }
-
-            default:
-                break;
-        }
-    }
-
-    if (!fAtLeastOneProbeAdded)
-        return E_FAIL;
-
-    return S_OK;
-}
-
 void countOffsets(ILRewriter *pilr) {
     unsigned offset = 0;
 
@@ -1211,8 +1128,41 @@ void PrintILInstructions(ILRewriter *pilr) {
     );
 }
 
+// advances the instruction pointer to the instruction after the probe
+HRESULT AddCoverageProbeAfter(
+    ILRewriter* pilr,
+    ILInstr*& pInstr,
+    UINT_PTR methodAddress,
+    ULONG32 methodSignature,
+    int methodId)
+{
+    // new instruction for easier exception handling
+    ILInstr* pNewInstr = pilr->NewILInstr();
+    pNewInstr->m_opcode = CEE_NOP;
+    pilr->InsertAfter(pInstr, pNewInstr);
+
+    AddLDCInstrBefore(pilr, pNewInstr, (INT32)pInstr->m_offset);
+
+    AddLDCInstrBefore(pilr, pNewInstr, methodId);
+
+    // adding the probe
+    IfFailRet(AddProbe(pilr, methodAddress, methodSignature, pNewInstr));
+
+    // changing exception handlers bounds if we were on the end of handler block
+    if (pilr->m_pEH != nullptr) {
+        for (int i = 0; i < pilr->m_nEH; i++) {
+            if (pilr->m_pEH[i].m_pHandlerEnd == pInstr) {
+                pilr->m_pEH[i].m_pHandlerEnd = pNewInstr;
+            }
+        }
+    }
+
+    pInstr = pNewInstr;
+    return S_OK;
+}
+
 // advances the instruction pointer to the copied version of the original one
-HRESULT AddCoverageProbeWithNop(
+HRESULT AddCoverageProbeBefore(
         ILRewriter *pilr,
         ILInstr *&pInstr,
         UINT_PTR methodAddress,
@@ -1247,6 +1197,53 @@ HRESULT AddCoverageProbeWithNop(
     return S_OK;
 }
 
+HRESULT AddExitProbe(
+    ILRewriter* pilr,
+    int methodId)
+{
+    HRESULT hr;
+    BOOL isTailCall = FALSE;
+    auto covProb = vsharp::getProbes();
+
+    // Find all RETs, and insert a call to the exit probe before each one.
+    for (ILInstr* pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext)
+    {
+        switch (pInstr->m_opcode)
+        {
+        case CEE_TAILCALL:
+        {
+            isTailCall = TRUE;
+            AddCoverageProbeBefore(pilr, pInstr, covProb->Track_Tailcall_Addr, covProb->Track_Tailcall_Sig.getSig(), methodId);
+            break;
+        }
+        case CEE_RET:
+        {
+            if (isTailCall) {
+                isTailCall = FALSE;
+                break;
+            }
+            AddCoverageProbeBefore(pilr, pInstr, covProb->Track_Leave_Addr, covProb->Track_LeaveMain_Sig.getSig(), methodId);
+            break;
+        }
+
+        default:
+            break;
+        }
+    }
+
+    return S_OK;
+}
+
+HRESULT MakeProbeInsertion(ILRewriter *pilr, ProbeInsertion toInsert, int methodId) {
+    if (toInsert.isBeforeInstr) {
+        IfFailRet(AddCoverageProbeBefore(pilr, toInsert.target, toInsert.methodAddress, toInsert.methodSignature, methodId));
+    }
+    else {
+        IfFailRet(AddCoverageProbeAfter(pilr, toInsert.target, toInsert.methodAddress, toInsert.methodSignature, methodId));
+    }
+    return S_OK;
+}
+
 // Uses the general-purpose ILRewriter class to import original
 // IL, rewrite it, and send the result to the CLR
 HRESULT RewriteIL(
@@ -1255,7 +1252,8 @@ HRESULT RewriteIL(
         ModuleID moduleID,
         mdMethodDef methodDef,
         int methodId,
-        bool isMain)
+        bool isMain,
+        bool rewriteMainOnly)
 {
     ILRewriter rewriter(pICorProfilerInfo, pICorProfilerFunctionControl, moduleID, methodDef);
     auto pilr = &rewriter;
@@ -1281,6 +1279,14 @@ HRESULT RewriteIL(
 
     IfFailRet(rewriter.Import());
     countOffsets(&rewriter);
+
+    // if main-only requested, keeping enter/leave probes for stack balances, cutting everything else
+    if (rewriteMainOnly && !isMain) {
+        IfFailRet(AddExitProbe(pilr, methodId));
+        IfFailRet(AddEnterProbe(pilr, enterMethodAddress, enterMethodSignature, methodId));
+        IfFailRet(rewriter.Export());
+        return S_OK;
+    }
     
     if (isMain) {
         LOG(tout << "original main method: ");
@@ -1289,40 +1295,39 @@ HRESULT RewriteIL(
 
     BOOL isTailCall = FALSE;
 
-    // keeping <target, branch> in case we need it for extra br insertion
-    std::set<std::pair<ILInstr*, ILInstr*>> branchTargets;
+    std::vector<ProbeInsertion> addPriorityProbe;
+    std::vector<ProbeInsertion> addTargetProbe;
     std::set<unsigned> coveredInstructions;
 
-    // adding probes for coverage tracking
+    bool PIBeforeInstr = true;
+    bool PIAfterInstr = false;
+
+    // adding probes for coverage tracking, looking for the last instructions of basic blocks
     for (ILInstr * pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext)
     {
         // branch coverage
         if ((CEE_BR_S <= pInstr->m_opcode && pInstr->m_opcode <= CEE_SWITCH)
             || pInstr->m_opcode == CEE_LEAVE || pInstr->m_opcode == CEE_LEAVE_S) {
-            coveredInstructions.insert(pInstr->m_offset);
-            AddCoverageProbeWithNop(pilr, pInstr, covProb->Branch_Addr, covProb->Branch_Sig.getSig(), methodId);
+            addPriorityProbe.push_back({ pInstr, nullptr, covProb->Branch_Addr, covProb->Branch_Sig.getSig(), PIBeforeInstr });
 
             // inserting all switch cases as possible target points
             if (pInstr->m_opcode == CEE_SWITCH) {
                 ILInstr *curSwitchArg = pInstr->m_pNext;
                 for (int i = 0; i < pInstr->m_Arg32; i++) {
                     assert(curSwitchArg->m_opcode == 295); // checking switch arg constant
-                    branchTargets.insert({ curSwitchArg->m_pTarget, pInstr });
+                    addTargetProbe.push_back({ curSwitchArg->m_pTarget->m_pPrev, pInstr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIAfterInstr });
                     curSwitchArg = curSwitchArg->m_pNext;
                 }
-                // inserting first instruction after switch
-                branchTargets.insert({ curSwitchArg, pInstr });
             }
             else {
-                // inserting true and false branchings
-                branchTargets.insert({ pInstr->m_pTarget, pInstr });
-                branchTargets.insert({ pInstr->m_pNext, pInstr });
+                // inserting instruction before target as it's the end of the block
+                addTargetProbe.push_back({ pInstr->m_pTarget->m_pPrev, pInstr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIAfterInstr });
             }
 
             continue;
         }
 
-        // ret & call coverage
+        // rest of the coverage
         switch (pInstr->m_opcode)
         {
             case CEE_STSFLD:
@@ -1334,21 +1339,30 @@ HRESULT RewriteIL(
                 else {
                     instr = pInstr;
                 }
-                coveredInstructions.insert(instr->m_offset);
-                AddCoverageProbeWithNop(pilr, instr, covProb->Track_Stsfld_Addr, covProb->Track_Stsfld_Sig.getSig(), methodId);
-
-                // advancing original instr to avoid loops
-                if (IsPrefix(pInstr->m_pPrev)) {
-                    pInstr = instr->m_pNext;
-                }
-                else {
-                    pInstr = instr;
-                }
+                addPriorityProbe.push_back({ instr, nullptr, covProb->Track_Stsfld_Addr, covProb->Track_Stsfld_Sig.getSig(), PIBeforeInstr });
                 break;
             }
             case CEE_TAILCALL:
             {
                 isTailCall = TRUE;
+
+                // adding new instruction to redirect return probe as call and ret create their own basic blocks
+                // and need different probes calls
+                ILInstr* newTailcall = pilr->NewILInstr();
+                newTailcall->m_opcode = CEE_TAILCALL;
+                pInstr->m_opcode = CEE_NOP;
+                pilr->InsertAfter(pInstr, newTailcall);
+
+                // taking call's offset for the branch insertion as it is the end of the block not tailcall
+                newTailcall->m_offset = newTailcall->m_pNext->m_offset;
+                pInstr->m_offset = newTailcall->m_pNext->m_pNext->m_offset; // taking ret's offset
+
+                addPriorityProbe.push_back({ newTailcall, nullptr, covProb->Track_Tailcall_Addr, covProb->Track_Tailcall_Sig.getSig(), PIBeforeInstr });
+                // covering with usual coverage probe as tailcall already takes care of stack changes
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIBeforeInstr });
+                
+                // advancing pInstr to avoid loops
+                pInstr = newTailcall;
                 break;
             }
             case CEE_CALL:
@@ -1356,47 +1370,11 @@ HRESULT RewriteIL(
             case CEE_CALLVIRT:
             case CEE_NEWOBJ:
             {
-                INT_PTR trackCallAddr;
-                ULONG32 trackCallSig;
-                ILInstr *instr;
-                bool isPrefixCall = IsPrefix(pInstr->m_pPrev);
-                if (isPrefixCall) {
-                    // instructions:
-                    //
-                    // prefix.
-                    // call
-                    //
-                    // need to add the probe before the prefix
-                    instr = pInstr->m_pPrev;
-                }
-                else {
-                    instr = pInstr;
-                }
-
                 if (isTailCall) {
-                    trackCallAddr = covProb->Track_Tailcall_Addr;
-                    trackCallSig = covProb->Track_Tailcall_Sig.getSig();
-                }
-                else {
-                    trackCallAddr = covProb->Track_Call_Addr;
-                    trackCallSig = covProb->Track_Call_Sig.getSig();
+                    continue;
                 }
 
-                coveredInstructions.insert(instr->m_offset);
-                AddCoverageProbeWithNop(pilr, instr, trackCallAddr, trackCallSig, methodId);
-
-                // moving the instruction pointer to the call to not break the loop
-                if (isPrefixCall) {
-                    pInstr = instr->m_pNext; 
-                }
-                else {
-                    pInstr = instr;
-                }
-
-                // another basic block is generated after the call; unless it's tail., adding target after the call finalizes
-                if (!isTailCall) {
-                    branchTargets.insert({ pInstr->m_pNext, pInstr });
-                }
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Call_Addr, covProb->Track_Call_Sig.getSig(), PIAfterInstr });
                 break;
             }
             case CEE_RET:
@@ -1409,27 +1387,21 @@ HRESULT RewriteIL(
                     isTailCall = FALSE;
                     break;
                 }
-                // We want any branches or leaves that targeted the RET instruction to
-                // actually target the epilog instructions we're adding. So turn the "RET"
-                // into ["NOP", "RET"], and THEN add the epilog between the NOP & RET. That
-                // ensures that any branches that went to the RET will now go to the NOP and
-                // then execute our epilog.
-
-                // NOTE: The NOP is not strictly required, but is a simplification of the implementation.
-                // RET->NOP
-                coveredInstructions.insert(pInstr->m_offset);
-                AddCoverageProbeWithNop(pilr, pInstr, leaveMethodAddress, leaveMethodSignature, methodId);
+                addPriorityProbe.push_back({ pInstr, nullptr, leaveMethodAddress, leaveMethodSignature, PIBeforeInstr });
                 break;
             }
 
             // handling exception blocks
             case CEE_ENDFINALLY:
             case CEE_ENDFILTER:
-            // case CEE_THROW:
-            // case CEE_RETHROW:
             {
-                coveredInstructions.insert(pInstr->m_offset);
-                AddCoverageProbeWithNop(pilr, pInstr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), methodId);
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), PIBeforeInstr });
+                break;
+            }
+            case CEE_THROW:
+            case CEE_RETHROW:
+            {
+                addPriorityProbe.push_back({ pInstr, nullptr, covProb->Track_Throw_Addr, covProb->Track_Throw_Sig.getSig(), PIBeforeInstr });
                 break;
             }
 
@@ -1438,20 +1410,26 @@ HRESULT RewriteIL(
         }
     }
 
+    for (auto &insertion : addPriorityProbe) {
+        // TODO: tailcall + ret can be broken into two basic blocks; but adding two probes is impossible
+        IfFailRet(MakeProbeInsertion(pilr, insertion, methodId));
+        coveredInstructions.insert(insertion.target->m_offset);
+    }
+
     // adding probes for branch targets now as they can point anywhere in the code
-    for (auto targetAndBranch : branchTargets) {
-        ILInstr *target = targetAndBranch.first;
-        ILInstr *branch = targetAndBranch.second;
+    for (auto &insertion : addTargetProbe) {
+        ILInstr *target = insertion.target;
+        ILInstr *branch = insertion.parent;
 
         if (target == pilr->GetILList() || coveredInstructions.find(target->m_offset) != coveredInstructions.end())
             continue;
         coveredInstructions.insert(target->m_offset);
 
-        if (!IsTailcallRet(target)) {
-            AddCoverageProbeWithNop(pilr, target, covProb->Track_Coverage_Addr, covProb->Track_Coverage_Sig.getSig(), methodId);
+        // targets on returns under tailcall require special treatment
+        if (!IsTailcallRet(target->m_pNext)) {
+            IfFailRet(AddCoverageProbeAfter(pilr, target, insertion.methodAddress, insertion.methodSignature, methodId));
             continue;
         }
-
         // target is a ret after a tailcall:
         //
         // tail.
@@ -1470,12 +1448,12 @@ HRESULT RewriteIL(
         // 5: <normal control flow after the original branch>
 
         // inserting new ret after the branch
-        ILInstr *pNewRet = pilr->NewILInstr();
+        ILInstr* pNewRet = pilr->NewILInstr();
         pNewRet->m_opcode = CEE_RET;
         pilr->InsertAfter(branch, pNewRet);
 
         // remembering the original ret's offset
-        ILInstr *probeStart = AddLDCInstrBefore(pilr, pNewRet, (INT32)target->m_offset);
+        ILInstr* probeStart = AddLDCInstrBefore(pilr, pNewRet, (INT32)target->m_offset);
 
         AddLDCInstrBefore(pilr, pNewRet, methodId);
 
@@ -1489,7 +1467,7 @@ HRESULT RewriteIL(
             continue; // the branch is unconditional so we will always go to the target; no need for the skipping branch
 
         // adding unconditional branch to skip the inserted instructions in case the branch fails
-        ILInstr *skipBranch = pilr->NewILInstr();
+        ILInstr* skipBranch = pilr->NewILInstr();
         skipBranch->m_opcode = CEE_BR;
         skipBranch->m_pTarget = pNewRet->m_pNext;
         pilr->InsertAfter(branch, skipBranch);

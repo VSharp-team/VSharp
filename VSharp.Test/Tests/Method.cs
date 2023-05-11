@@ -135,7 +135,7 @@ namespace IntegrationTests
             return p;
         }
 
-        [TestSvm(100)]
+        [TestSvm(25)]
         public static IMovable MakeVirtualMove1(Pawn p, Coord c)
         {
             if (p is not Pawn)

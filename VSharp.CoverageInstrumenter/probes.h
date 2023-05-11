@@ -72,6 +72,7 @@ extern std::vector<MethodInfo> collectedMethods;
 extern std::vector<CoverageHistory*> coverageHistory;
 extern CoverageHistory *currentCoverage;
 extern bool areProbesEnabled;
+extern bool collectMainOnly;
 
 void enableProbes();
 void disableProbes();
@@ -79,6 +80,8 @@ void disableProbes();
 void addCoverage(OFFSET offset, CoverageEvents event, int methodId);
 
 void clearCoverageCollection();
+
+void mainLeft();
 
 /// ------------------------------ Probes declarations ---------------------------
 
@@ -100,6 +103,8 @@ void Track_Leave(OFFSET offset, int methodId);
 
 void Track_LeaveMain(OFFSET offset, int methodId);
 
+void Track_Throw(OFFSET offset, int methodId);
+
 void Finalize_Call(OFFSET offset);
 
 struct CoverageProbes {
@@ -113,6 +118,7 @@ struct CoverageProbes {
     INT_PTR Finalize_Call_Addr;
     INT_PTR Track_Call_Addr;
     INT_PTR Track_Tailcall_Addr;
+    INT_PTR Track_Throw_Addr;
 
     ThreadSignature Track_Coverage_Sig;
     ThreadSignature Track_Stsfld_Sig;
@@ -124,6 +130,7 @@ struct CoverageProbes {
     ThreadSignature Finalize_Call_Sig;
     ThreadSignature Track_Call_Sig;
     ThreadSignature Track_Tailcall_Sig;
+    ThreadSignature Track_Throw_Sig;
 };
 
 extern CoverageProbes coverageProbes;

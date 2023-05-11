@@ -64,18 +64,21 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     // TODO: place IfFailRet here, log fails!
     auto hr = this->corProfilerInfo->SetEventMask(eventMask);
 
+    const char* isPassive = std::getenv("COVERAGE_ENABLE_PASSIVE");
+
 #ifdef _LOGGING
-    open_log();
+    const char* name = isPassive == nullptr ? "lastrun.log" : "lastcoverage.log";
+    open_log(name);
 #endif
 
     InitializeProbes();
 
     // reading environment variables to determine the running mode
-    const char *isPassive = std::getenv("COVERAGE_ENABLE_PASSIVE");
     if (isPassive != nullptr) {
         LOG(tout << "WORKING IN PASSIVE MODE" << std::endl);
 
         isPassiveRun = true;
+        collectMainOnly = true;
 
         std::u16string assemblyNameU16;
         std::u16string moduleNameU16;
@@ -546,8 +549,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
     if (areProbesEnabled) {
         if (!stackBalanceDown() && isMainThread()) {
             // stack is empty; main left
-            disableProbes();
-            ::currentCoverage = nullptr;
+            mainLeft();
         }
     }
     return S_OK;

@@ -47,12 +47,13 @@ struct EHClause
     };
 };
 
-extern WCHAR *mainAssemblyName;
-extern int mainAssemblyNameLength;
-extern WCHAR *mainModuleName;
-extern int mainModuleNameLength;
-extern mdMethodDef mainToken;
-extern bool rewriteMainOnly;
+struct ProbeInsertion {
+    ILInstr* target;
+    ILInstr* parent;
+    INT_PTR methodAddress;
+    mdSignature methodSignature;
+    bool isBeforeInstr;
+};
 
 class ILRewriter {
 private:
@@ -117,6 +118,7 @@ HRESULT RewriteIL(
     ModuleID moduleID,
     mdMethodDef methodDef,
     int methodId,
-    bool isMain);
+    bool isMain,
+    bool rewriteMainOnly);
 
 #endif // ILREWRITER_H_

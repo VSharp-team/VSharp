@@ -796,7 +796,7 @@ namespace IntegrationTests
             return Math.Pow(x, y);
         }
 
-        [TestSvm(75)]
+        [TestSvm(77)]
         public static double PowMethod5(double x)
         {
             double y;
@@ -807,7 +807,7 @@ namespace IntegrationTests
             return Math.Pow(y, 2);
         }
 
-        [TestSvm(71)]
+        [TestSvm(72)]
         public static double PowMethod6(double x)
         {
             double y;
@@ -1055,7 +1055,7 @@ namespace IntegrationTests
             return 42;
         }
 
-        [TestSvm(86)]
+        [TestSvm(85)]
         public static int ImpossibleBug(int n) {
             try {
                 if (n <= 0 && checked(-n) < 0) {

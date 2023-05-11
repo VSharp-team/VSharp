@@ -20,6 +20,13 @@ using namespace vsharp;
 #define ELEMENT_TYPE_OFFSET ELEMENT_TYPE_I4
 #define ELEMENT_TYPE_SIZE ELEMENT_TYPE_U
 
+WCHAR* vsharp::mainAssemblyName = nullptr;
+int vsharp::mainAssemblyNameLength = 0;
+WCHAR* vsharp::mainModuleName = nullptr;
+int vsharp::mainModuleNameLength = 0;
+mdMethodDef vsharp::mainToken = 0;
+bool vsharp::rewriteMainOnly = false;
+
 void SetEntryMain(char* assemblyName, int assemblyNameLength, char* moduleName, int moduleNameLength, int methodToken) {
     mainAssemblyNameLength = assemblyNameLength;
     mainAssemblyName = new WCHAR[assemblyNameLength];
@@ -66,6 +73,7 @@ HRESULT initTokens(const CComPtr<IMetaDataEmit> &metadataEmit, std::vector<mdSig
     covProb->Branch_Sig.setSig(signatureToken);
     covProb->Track_Call_Sig.setSig(signatureToken);
     covProb->Track_Leave_Sig.setSig(signatureToken);
+    covProb->Track_Throw_Sig.setSig(signatureToken);
     covProb->Track_Stsfld_Sig.setSig(signatureToken);
     covProb->Track_Coverage_Sig.setSig(signatureToken);
     covProb->Track_Tailcall_Sig.setSig(signatureToken);
@@ -140,7 +148,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, int methodId, cons
         memcpy(m_signatureTokens, (char *)&tokens[0], m_signatureTokensLength);
     }
 
-    RewriteIL(&m_profilerInfo, nullptr, m_moduleId, m_jittedToken, methodId, currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken));
+    RewriteIL(&m_profilerInfo, nullptr, m_moduleId, m_jittedToken, methodId, currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken), rewriteMainOnly);
 
     return S_OK;
 }
@@ -164,11 +172,6 @@ HRESULT Instrumenter::instrument(FunctionID functionId, bool reJIT) {
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, 0, &assemblyNameLength, nullptr, &appDomainId, &startModuleId));
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
-
-    // skipping non-main methods
-    if (rewriteMainOnly && !currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken)) {
-        return S_OK;
-    }
 
     // checking if this method was rewritten before
     if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {

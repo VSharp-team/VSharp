@@ -60,6 +60,9 @@ namespace VSharp.CoverageRunner
                 return -3;
             }
             proc.WaitForExit();
+            
+            Logger.printLogString(Logger.Info, proc.StandardOutput.ReadToEnd());
+            Logger.printLogString(Logger.Error, proc.StandardError.ReadToEnd());
 
             var md = Application.getMethod(method);
             if (!md.HasBody)
@@ -95,7 +98,10 @@ namespace VSharp.CoverageRunner
             var uniqueBlocks = new HashSet<int>();
             foreach (var loc in visitedInMethod)
             {
-                uniqueBlocks.Add(cfg.ResolveBasicBlockIndex(loc.offset));
+                var bbId = cfg.ResolveBasicBlockIndex(loc.offset);
+                // counting only those blocks that were fully executed
+                if (cfg.SortedBasicBlocks[bbId].FinalOffset == loc.offset)
+                    uniqueBlocks.Add(bbId);
             }
 
             int coveredSize = 0;

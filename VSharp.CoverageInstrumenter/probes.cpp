@@ -36,6 +36,7 @@ void vsharp::InitializeProbes() {
     covProbes->Track_Call_Addr = (INT_PTR) &Track_Call;
     covProbes->Track_Tailcall_Addr = (INT_PTR) &Track_Tailcall;
     covProbes->Track_Stsfld_Addr = (INT_PTR) &Track_Stsfld;
+    covProbes->Track_Throw_Addr = (INT_PTR) &Track_Throw;
     LOG(tout << "probes initialized" << std::endl);
 }
 
@@ -184,6 +185,7 @@ void MethodInfo::serialize(char *&buffer) const {
 }
 
 std::vector<MethodInfo> vsharp::collectedMethods;
+bool vsharp::collectMainOnly = false;
 
 /// ------------------------------ Probes declarations ---------------------------
 
@@ -222,11 +224,16 @@ void vsharp::Track_Enter(OFFSET offset, int methodId, int isSpontaneous) {
     if (!areProbesEnabled) {
         return;
     }
+    if (!collectMainOnly) addCoverage(offset, Enter, methodId);
     stackBalanceUp();
-    addCoverage(offset, Enter, methodId);
 }
 
 void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
+    if (areProbesEnabled) {
+        // recursive enter
+        stackBalanceUp();
+        return;
+    }
     currentCoverage = new CoverageHistory(offset, methodId);
     enableProbes();
     emptyStacks();
@@ -237,17 +244,28 @@ void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
 
 void vsharp::Track_Leave(OFFSET offset, int methodId) {
     if (!areProbesEnabled) return;
-    addCoverage(offset, Leave, methodId);
+    if (!collectMainOnly) addCoverage(offset, Leave, methodId);
     stackBalanceDown();
 }
 
-void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
-    disableProbes();
+void vsharp::mainLeft() {
     unsetMainThread();
-    addCoverage(offset, LeaveMain, methodId);
-    // coverage collection ended; waiting for the next EnterMain call
+    disableProbes();
     ::currentCoverage = nullptr;
-    if (stackBalanceDown()) FAIL_LOUD("main left but stack is non-empty!")
+}
+
+void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
+    addCoverage(offset, LeaveMain, methodId);
+    if (stackBalanceDown() || !isMainThread()) {
+        // first main frame is not yet reached
+        return;
+    }
+    mainLeft();
+}
+
+void vsharp::Track_Throw(OFFSET offset, int methodId) {
+    if (!areProbesEnabled) return;
+    addCoverage(offset, Leave, methodId);
 }
 
 void vsharp::Finalize_Call(OFFSET offset) {

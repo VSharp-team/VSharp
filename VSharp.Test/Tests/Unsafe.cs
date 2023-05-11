@@ -138,7 +138,7 @@ namespace IntegrationTests
         }
 
         // Expected true
-        [TestSvm(83)]
+        [TestSvm(90)]
         public static bool ArrayConcreteSafeRead1()
         {
             var array = new int[] {1, 2, 3};
@@ -155,7 +155,7 @@ namespace IntegrationTests
         }
 
         // Expected 2
-        [TestSvm(83)]
+        [TestSvm(91)]
         public static bool ArrayConcreteSafeRead2()
         {
             var array = new int[] {1, 2, 3};
@@ -171,7 +171,7 @@ namespace IntegrationTests
 
         }
 
-        [TestSvm(86)]
+        [TestSvm(92)]
         public static bool ArrayConcreteUnsafeRead()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -188,7 +188,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(83)]
+        [TestSvm(93)]
         public static bool ArraySymbolicSafeRead(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -205,7 +205,7 @@ namespace IntegrationTests
 
         }
 
-        [TestSvm(86)]
+        [TestSvm(94)]
         public static bool ArraySymbolicUnsafeRead(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -222,7 +222,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(94)]
         public static bool ArraySymbolicUnsafeRead2(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -240,7 +240,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(83)]
+        [TestSvm(92)]
         public static bool ArrayConcreteSafeWrite()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -255,7 +255,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(86)]
+        [TestSvm(93)]
         public static bool ArrayConcreteUnsafeWrite()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -271,7 +271,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(88)]
+        [TestSvm(95)]
         public static bool ArraySymbolicUnsafeWrite(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -288,7 +288,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(98)]
         public static bool ArraySymbolicUnsafeWrite2(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -377,7 +377,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(88)]
+        [TestSvm(96)]
         public static bool StructInsideArraySymbolicUnsafeRead(int i)
         {
             var array = new [] {new SequentialStruct(1, 2), new SequentialStruct(3, 4), new SequentialStruct(5, 6)};
@@ -395,7 +395,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(96)]
         public static bool StructInsideArraySymbolicUnsafeRead2(int i)
         {
             var array = new [] {new ExplicitStruct(1, 2), new ExplicitStruct(3, 4), new ExplicitStruct(5, 6)};
@@ -413,7 +413,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(90)]
+        [TestSvm(95)]
         public static bool ClassSymbolicUnsafeRead(int i)
         {
             var x = new ExplicitStruct(1, 2);
@@ -433,7 +433,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(91)]
+        [TestSvm(95)]
         public static bool ClassSymbolicUnsafeRead2(int i)
         {
             var x = new SequentialStruct(1, 2);
@@ -454,7 +454,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(92)]
         public static bool ClassSymbolicReadZeroBetweenFields(int i)
         {
             var c = new ExplicitClass(1, 2);
@@ -471,7 +471,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(83)]
+        [TestSvm(88)]
         // TODO: minimize combine term #do
         public static bool ClassWriteSafeOverlappingFields(int i, int j)
         {
@@ -483,7 +483,7 @@ namespace IntegrationTests
             return false;
         }
 
-        [TestSvm(89)]
+        [TestSvm(97)]
         public static bool StructInsideArraySymbolicUnsafeWrite(int i, SequentialStruct v)
         {
             var array = new [] {new SequentialStruct(i, i), new SequentialStruct(i, i), new SequentialStruct(i, i)};
@@ -520,7 +520,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(94)]
         public static bool StringSymbolicRead(int i)
         {
             var s = "best string";
@@ -539,7 +539,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(83)]
         public static bool StringSymbolicRead2(int i)
         {
             var s = "best string";
@@ -618,7 +618,7 @@ namespace IntegrationTests
             return a[0].y;
         }
 
-        [TestSvm(75)]
+        [TestSvm(87)]
         public static int UnsafeAs3()
         {
             var b = new ClassA[]{ new ClassA(), new ClassA(), new ClassA() };

@@ -230,7 +230,7 @@ namespace IntegrationTests
             new ClassWithOneField();
         }
 
-        [TestSvm(89)]
+        [TestSvm(91)]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -330,7 +330,7 @@ namespace IntegrationTests
         }
 
         // expecting System.ArrayTypeMismatchException
-        [TestSvm(100)]
+        [TestSvm(77)]
         public static void LdelemaTest2(bool f)
         {
             var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
@@ -461,7 +461,7 @@ namespace IntegrationTests
 
 
         // expecting 1
-        [TestSvm(80)]
+        [TestSvm(75)]
         public static int TestAllocatedType_1()
         {
             VirtualC c = new VirtualC();
@@ -475,7 +475,7 @@ namespace IntegrationTests
         }
 
         // expecting 1
-        [TestSvm(75)]
+        [TestSvm(67)]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();
@@ -878,7 +878,7 @@ namespace IntegrationTests
             return classWithLotsOfFields._next;
         }
 
-        [TestSvm(89)]
+        [TestSvm(92)]
         public static int CheckInvalidCfaConstruction(bool f)
         {
             ClassWithLotsOFFields c = new ClassWithLotsOFFields();

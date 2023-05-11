@@ -63,7 +63,7 @@ namespace IntegrationTests
             return result;
         }
 
-        [TestSvm(85)]
+        [TestSvm(90)]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             int[] scores = { x, y, z, 60 };

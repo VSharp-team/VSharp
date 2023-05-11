@@ -98,7 +98,7 @@ namespace IntegrationTests
             var game = new ChessGame();
             var e2e4 = new Move("E2", "E4", Player.White);
             MoveType type = game.ApplyMove(e2e4, true);
-            return game.HasAnyValidMoves(Player.Black) || type == MoveType.Invalid;
+            return game.HasAnyValidMoves(Player.Black) | type == MoveType.Invalid;
         }
 
         [TestSvm]
@@ -117,7 +117,7 @@ namespace IntegrationTests
             Piece pawn = game.GetPieceAt(new Position("E2"));
             MoveType type = game.ApplyMove(e2e4, true);
             bool isValid = pawn.IsValidMove(e2e4, game);
-            return isValid && type == MoveType.Invalid;
+            return isValid & type == MoveType.Invalid;
         }
 
         [Ignore("Not ready")]

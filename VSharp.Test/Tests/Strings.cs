@@ -42,7 +42,7 @@ namespace IntegrationTests
             return str;
         }
 
-        [TestSvm(75)]
+        [TestSvm(82)]
         public static bool StringOfReplicatedChar()
         {
             string str = new string('s', 20);
