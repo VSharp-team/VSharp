@@ -11,7 +11,7 @@ if (APPLE)
     set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
 endif()
 
-set(CORECLR_PATH ../runtime/src/coreclr)
+set(CORECLR_PATH ./coreclr)
 
 include_directories(.
     ${CORECLR_PATH}/pal/inc/rt
