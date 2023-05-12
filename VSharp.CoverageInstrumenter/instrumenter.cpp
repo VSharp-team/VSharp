@@ -3,7 +3,6 @@
 #include "cComPtr.h"
 #include <vector>
 #include <assert.h>
-#include "memory/memory.h"
 
 using namespace vsharp;
 
@@ -88,18 +87,12 @@ Instrumenter::Instrumenter(ICorProfilerInfo8 &profilerInfo)
     : m_profilerInfo(profilerInfo)
     , m_moduleId(0)
     , m_signatureTokens(nullptr)
-    , m_reJitInstrumentedStarted(false)
-    , m_mainModuleName(nullptr)
-    , m_mainModuleSize(0)
-    , m_mainMethod(0)
-    , m_mainReached(false)
 {
 }
 
 Instrumenter::~Instrumenter()
 {
     delete[] m_signatureTokens;
-    delete[] m_mainModuleName;
 }
 
 

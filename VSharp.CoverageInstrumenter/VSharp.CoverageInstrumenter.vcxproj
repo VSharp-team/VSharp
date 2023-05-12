@@ -137,8 +137,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="logging.h" />
-    <ClInclude Include="memory/memory.h" />
-    <ClInclude Include="memory/stack.h" />
+    <ClInclude Include="memory.h" />
     <ClInclude Include="profiler_pal.h" />
     <ClInclude Include="probes.h" />
     <ClInclude Include="ILRewriter.h" />
@@ -147,8 +146,7 @@
     <ClInclude Include="instrumenter.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="memory/memory.cpp" />
-    <ClCompile Include="memory/stack.cpp" />
+    <ClCompile Include="memory.cpp" />
     <ClCompile Include="probes.cpp" />
     <ClCompile Include="ILRewriter.cpp" />
     <ClCompile Include="classFactory.cpp" />

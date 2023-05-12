@@ -92,7 +92,7 @@ private:
 public:
     unsigned m_nEH;
     EHClause *m_pEH;
-    
+
     explicit ILRewriter(
         ICorProfilerInfo *pICorProfilerInfo,
         ICorProfilerFunctionControl *pICorProfilerFunctionControl,

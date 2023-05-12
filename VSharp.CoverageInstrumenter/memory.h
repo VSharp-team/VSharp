@@ -3,15 +3,12 @@
 
 #include "cor.h"
 
-#include "stack.h"
-
 #include <map>
 #include <set>
 #include <vector>
 #include <unordered_set>
 #include <functional>
 
-#define staticSizeOfCoverageNode (2 * sizeof(int) + sizeof(mdMethodDef) + sizeof(OFFSET))
 #define READ_BYTES(src, type) *(type*)(src); (src) += sizeof(type)
 #define WRITE_BYTES(type, dest, src) *(type*)(dest) = (src); (dest) += sizeof(type)
 
@@ -19,8 +16,8 @@ typedef UINT_PTR ThreadID;
 
 namespace vsharp {
 
+#define OFFSET UINT32
 extern std::function<ThreadID()> currentThread;
-extern std::map<ThreadID, Stack *> stacks;
 extern std::map<ThreadID, int> stackBalances;
 extern ThreadID mainThread;
 

@@ -39,8 +39,7 @@ set(sources
     instrumenter.cpp
     ILRewriter.cpp
     logging.cpp
-    memory/memory.cpp
-    memory/stack.cpp
+    memory.cpp
     ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp probes.cpp)
 
 add_library(vsharpCoverage SHARED ${sources})

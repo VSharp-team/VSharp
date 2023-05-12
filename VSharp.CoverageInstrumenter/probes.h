@@ -2,7 +2,7 @@
 #define PROBES_H_
 
 #include "logging.h"
-#include "memory/memory.h"
+#include "memory.h"
 #include <vector>
 #include <algorithm>
 #include <mutex>

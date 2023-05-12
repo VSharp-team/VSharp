@@ -30,20 +30,11 @@ class Instrumenter {
 private:
     ICorProfilerInfo8 &m_profilerInfo;  // Does not have ownership
 
-    WCHAR *m_mainModuleName;
-    int m_mainModuleSize;
-    mdMethodDef m_mainMethod;
-    bool m_mainReached;
-
     mdMethodDef m_jittedToken;
     ModuleID m_moduleId;
 
     char *m_signatureTokens;
     unsigned m_signatureTokensLength;
-
-    std::set<std::pair<ModuleID, mdMethodDef>> skippedBeforeMain;
-
-    bool m_reJitInstrumentedStarted;
 
     HRESULT doInstrumentation(ModuleID oldModuleId, int methodId, const WCHAR *moduleName, ULONG moduleNameLength);
 
@@ -52,9 +43,6 @@ private:
 public:
     explicit Instrumenter(ICorProfilerInfo8 &profilerInfo);
     ~Instrumenter();
-
-    const char *signatureTokens() const { return m_signatureTokens; }
-    unsigned signatureTokensLength() const { return m_signatureTokensLength; }
 
     HRESULT instrument(FunctionID functionId);
 };

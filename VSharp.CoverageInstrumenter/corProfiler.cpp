@@ -6,7 +6,7 @@
 #include "profiler_win.h"
 #endif
 #include "logging.h"
-#include "memory/memory.h"
+#include "memory.h"
 #include <locale>
 #include <string>
 #include <cstring>

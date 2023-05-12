@@ -1,6 +1,5 @@
 #include "memory.h"
-#include "stack.h"
-#include "..\logging.h"
+#include "logging.h"
 #include <mutex>
 
 using namespace vsharp;
@@ -10,7 +9,6 @@ ThreadID currentThreadNotConfigured() {
 }
 
 std::function<ThreadID()> vsharp::currentThread(&currentThreadNotConfigured);
-static std::map<ThreadID, Stack *> vsharp::stacks;
 static std::map<ThreadID, int> vsharp::stackBalances;
 static ThreadID vsharp::mainThread = 0;
 

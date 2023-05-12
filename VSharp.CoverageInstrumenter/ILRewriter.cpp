@@ -1279,7 +1279,7 @@ HRESULT RewriteIL(
         IfFailRet(rewriter.Export());
         return S_OK;
     }
-    
+
     if (isMain) {
         LOG(tout << "original main method: ");
         PrintILInstructions(pilr);
@@ -1352,7 +1352,7 @@ HRESULT RewriteIL(
                 addPriorityProbe.push_back({ newTailcall, nullptr, covProb->Tailcall, PIBeforeInstr });
                 // covering with usual coverage probe as tailcall already takes care of stack changes
                 addPriorityProbe.push_back({ pInstr, nullptr, covProb->Coverage, PIBeforeInstr });
-                
+
                 // advancing pInstr to avoid loops
                 pInstr = newTailcall;
                 break;
