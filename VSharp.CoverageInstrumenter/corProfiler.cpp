@@ -22,7 +22,7 @@ void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
 }
 
-CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr)
+CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr), requestsResolving(0)
 {
 }
 
@@ -109,6 +109,11 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
 
 HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
 {
+    isFinished = true;
+
+    // waiting until all current requests are resolved
+    while (std::atomic_load(&requestsResolving) > 0) {}
+
     if (isPassiveRun) {
         ULONG size;
         char *bytes;
@@ -264,10 +269,17 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
+    // the process was finished, ignoring all firther requests
+    if (isFinished) return S_OK;
+
+    std::atomic_fetch_add(&requestsResolving, 1);
+
     UNUSED(fIsSafeToBlock);
     auto instrument = new Instrumenter(*corProfilerInfo);
     HRESULT hr = instrument->instrument(functionId);
     delete instrument;
+
+    std::atomic_fetch_sub(&requestsResolving, 1);
     return hr;
 }
 
@@ -524,6 +536,9 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionEnter(FunctionID f
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
 {
+    // the process was finished, ignoring all firther requests
+    if (isFinished) return S_OK;
+
     LOG(tout << "EXCEPTION UNWIND FUNCTION LEAVE!" << std::endl);
     if (areProbesEnabled) {
         if (!stackBalanceDown() && isMainThread()) {

@@ -12,9 +12,11 @@ class CorProfiler : public ICorProfilerCallback8
 {
 private:
     std::atomic<int> refCount;
+    std::atomic<int> requestsResolving;
     ICorProfilerInfo8 *corProfilerInfo;
     char *passiveResultPath = nullptr;
     bool isPassiveRun = false;
+    bool isFinished = false;
 
 public:
     CorProfiler();
