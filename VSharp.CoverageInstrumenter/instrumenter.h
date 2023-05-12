@@ -45,7 +45,6 @@ private:
 
     bool m_reJitInstrumentedStarted;
 
-    HRESULT startReJitSkipped();
     HRESULT doInstrumentation(ModuleID oldModuleId, int methodId, const WCHAR *moduleName, ULONG moduleNameLength);
 
     bool currentMethodIsMain(const WCHAR *moduleName, int moduleSize, mdMethodDef method) const;
@@ -57,8 +56,7 @@ public:
     const char *signatureTokens() const { return m_signatureTokens; }
     unsigned signatureTokensLength() const { return m_signatureTokensLength; }
 
-    HRESULT instrument(FunctionID functionId, bool reJIT);
-    HRESULT reInstrument(FunctionID functionId);
+    HRESULT instrument(FunctionID functionId);
 };
 
 }

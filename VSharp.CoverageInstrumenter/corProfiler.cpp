@@ -7,7 +7,6 @@
 #endif
 #include "logging.h"
 #include "memory/memory.h"
-#include <wchar.h>
 #include <locale>
 #include <string>
 #include <cstring>
@@ -23,7 +22,7 @@ void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
 }
 
-CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr), instrumenter(nullptr)
+CorProfiler::CorProfiler() : refCount(0), corProfilerInfo(nullptr)
 {
 }
 
@@ -33,7 +32,6 @@ CorProfiler::~CorProfiler()
     {
         this->corProfilerInfo->Release();
         this->corProfilerInfo = nullptr;
-        delete instrumenter;
     }
 }
 
@@ -50,19 +48,12 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
         COR_PRF_MONITOR_JIT_COMPILATION |
         COR_PRF_DISABLE_ALL_NGEN_IMAGES |
         COR_PRF_DISABLE_OPTIMIZATIONS |
-//        COR_PRF_MONITOR_CACHE_SEARCHES |
         COR_PRF_MONITOR_EXCEPTIONS |
         COR_PRF_MONITOR_CLR_EXCEPTIONS |
         COR_PRF_DISABLE_TRANSPARENCY_CHECKS_UNDER_FULL_TRUST | /* helps the case where this profiler is used on Full CLR */
-        COR_PRF_DISABLE_INLINING
-//        COR_PRF_MONITOR_GC |
-//        COR_PRF_ENABLE_OBJECT_ALLOCATED |
-//        COR_PRF_MONITOR_OBJECT_ALLOCATED |
-        // COR_PRF_ENABLE_REJIT
-        ;
+        COR_PRF_DISABLE_INLINING;
 
-    // TODO: place IfFailRet here, log fails!
-    auto hr = this->corProfilerInfo->SetEventMask(eventMask);
+    IfFailRet(this->corProfilerInfo->SetEventMask(eventMask));
 
     const char* isPassive = std::getenv("COVERAGE_ENABLE_PASSIVE");
 
@@ -113,8 +104,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown *pICorProfilerInfoUnk
     };
     currentThread = currentThreadGetter;
 
-    instrumenter = new Instrumenter(*corProfilerInfo);
-
     return S_OK;
 }
 
@@ -130,6 +119,8 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Shutdown()
         fout.open(passiveResultPath, std::ios::out|std::ios::binary);
         fout.write(bytes, size);
         fout.close();
+
+        delete[] bytes;
     }
 
     clearCoverageCollection();
@@ -271,24 +262,17 @@ HRESULT STDMETHODCALLTYPE CorProfiler::FunctionUnloadStarted(FunctionID function
     return S_OK;
 }
 
-#include<iostream>
-#include <vector>
-
-bool jitInProcess = false;
-
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock)
 {
-    // LOG(tout << "JITCompilationStarted, threadID = " << currentThread() << " funcId = " << functionId << std::endl);
     UNUSED(fIsSafeToBlock);
     auto instrument = new Instrumenter(*corProfilerInfo);
-    HRESULT hr = instrument->instrument(functionId, false);
+    HRESULT hr = instrument->instrument(functionId);
     delete instrument;
     return hr;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock)
 {
-//    std::cout << __FUNCTION__ << std::endl;
     UNUSED(functionId);
     UNUSED(hrStatus);
     UNUSED(fIsSafeToBlock);
@@ -297,7 +281,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCompilationFinished(FunctionID functio
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchStarted(FunctionID functionId, BOOL *pbUseCachedFunction)
 {
-    LOG(tout << __FUNCTION__ << std::endl);
     UNUSED(functionId);
     UNUSED(pbUseCachedFunction);
     return S_OK;
@@ -305,7 +288,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchStarted(FunctionID
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchFinished(FunctionID functionId, COR_PRF_JIT_CACHE result)
 {
-    LOG(tout << __FUNCTION__ << std::endl);
     UNUSED(functionId);
     UNUSED(result);
     return S_OK;
@@ -313,14 +295,12 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITCachedFunctionSearchFinished(FunctionI
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITFunctionPitched(FunctionID functionId)
 {
-    LOG(tout << __FUNCTION__ << std::endl);
     UNUSED(functionId);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL *pfShouldInline)
 {
-    LOG(tout << __FUNCTION__ << std::endl);
     UNUSED(callerId);
     UNUSED(calleeId);
     UNUSED(pfShouldInline);
@@ -497,7 +477,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionEnter(FunctionID f
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 {
     LOG(tout << "EXCEPTION Search function leave" << std::endl);
-    // TODO: use for filter support
     return S_OK;
 }
 
@@ -688,8 +667,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ReJITCompilationStarted(FunctionID functi
     UNUSED(functionId);
     UNUSED(rejitId);
     UNUSED(fIsSafeToBlock);
-    HRESULT hr = instrumenter->reInstrument(functionId);
-    return hr;
+    return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::GetReJITParameters(ModuleID moduleId, mdMethodDef methodId, ICorProfilerFunctionControl *pFunctionControl)
@@ -759,17 +737,10 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ModuleInMemorySymbolsUpdated(ModuleID mod
 
 HRESULT STDMETHODCALLTYPE CorProfiler::DynamicMethodJITCompilationStarted(FunctionID functionId, BOOL fIsSafeToBlock, LPCBYTE ilHeader, ULONG cbILHeader)
 {
-    // TODO: this should be instrumented as well!!
-    ClassID classId;
-    ModuleID moduleId;
-    mdToken token;
-    HRESULT hr = corProfilerInfo->GetFunctionInfo(functionId, &classId, &moduleId, &token);
-    LOG(tout << "function info: success= " << SUCCEEDED(hr) << ", classId=" << classId << ", moduleId=" << moduleId << ", token=" << token << std::endl);
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::DynamicMethodJITCompilationFinished(FunctionID functionId, HRESULT hrStatus, BOOL fIsSafeToBlock)
 {
-//    printf("Dynamic Function JIT Compilation Finished. %" UINT_PTR_FORMAT "\r\n", (UINT64)functionId);
     return S_OK;
 }

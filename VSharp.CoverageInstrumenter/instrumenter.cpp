@@ -114,24 +114,6 @@ bool Instrumenter::currentMethodIsMain(const WCHAR *moduleName, int moduleSize, 
     return true;
 }
 
-HRESULT Instrumenter::startReJitSkipped() {
-    LOG(tout << "ReJIT of skipped methods is started" << std::endl);
-    ULONG count = skippedBeforeMain.size();
-    auto *modules = new ModuleID[count];
-    auto *methods = new mdMethodDef[count];
-    int i = 0;
-    for (const auto &it : skippedBeforeMain) {
-        modules[i] = it.first;
-        methods[i] = it.second;
-        i++;
-    }
-    HRESULT hr = m_profilerInfo.RequestReJIT(count, modules, methods);
-    skippedBeforeMain.clear();
-    delete[] modules;
-    delete[] methods;
-    return hr;
-}
-
 HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, int methodId, const WCHAR *moduleName, ULONG moduleNameLength) {
     HRESULT hr;
     CComPtr<IMetaDataImport> metadataImport;
@@ -153,7 +135,7 @@ HRESULT Instrumenter::doInstrumentation(ModuleID oldModuleId, int methodId, cons
     return S_OK;
 }
 
-HRESULT Instrumenter::instrument(FunctionID functionId, bool reJIT) {
+HRESULT Instrumenter::instrument(FunctionID functionId) {
     HRESULT hr = S_OK;
     ModuleID newModuleId;
     ClassID classId;
@@ -189,8 +171,4 @@ HRESULT Instrumenter::instrument(FunctionID functionId, bool reJIT) {
     hr = doInstrumentation(oldModuleId, currentMethodId, moduleName, moduleNameLength);
 
     return hr;
-}
-
-HRESULT Instrumenter::reInstrument(FunctionID functionId) {
-    return S_OK; // instrument(functionId, true);
 }

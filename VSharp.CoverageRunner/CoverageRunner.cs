@@ -1,16 +1,14 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using VSharp;
-using System.Text;
 
 namespace VSharp.CoverageRunner
 {
     public static class CoverageRunner
     {
-        private static readonly string ResultName = "coverage.cov";
+        private const string ResultName = "coverage.cov";
 
-        public static int RunAndGetCoverage(string args, string workingDirectory, MethodInfo method)
+        private static string? GetProfilerPath()
         {
             string extension;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -22,29 +20,33 @@ namespace VSharp.CoverageRunner
             else
             {
                 Logger.printLogString(Logger.Error, "CoverageRunner started on unknown platform");
-                return -1;
+                return null;
             }
 
-            var pathToClient = $"libvsharpCoverage{extension}";
+            var clientName = $"libvsharpCoverage{extension}";
+            return $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}{clientName}";
+        }
 
-            var profiler =
-                $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}{pathToClient}";
+        private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodInfo method)
+        {
+            var profilerPath = GetProfilerPath();
+            if (profilerPath == null) return false;
 
             var info = new ProcessStartInfo
             {
                 EnvironmentVariables =
-                {
-                    ["CORECLR_PROFILER"] = "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}",
-                    ["CORECLR_ENABLE_PROFILING"] = "1",
-                    ["CORECLR_PROFILER_PATH"] = profiler,
-                    ["COVERAGE_ENABLE_PASSIVE"] = "1",
-                    ["COVERAGE_RESULT_NAME"] = ResultName,
-                    ["COVERAGE_METHOD_ASSEMBLY_NAME"] = method.Module.Assembly.FullName,
-                    ["COVERAGE_METHOD_MODULE_NAME"] = method.Module.FullyQualifiedName,
-                    ["COVERAGE_METHOD_TOKEN"] = method.MetadataToken.ToString(),
-                    ["COVERAGE_INSTRUMENT_MAIN_ONLY"] = "1"
-                },
-                WorkingDirectory = workingDirectory,
+                    {
+                        ["CORECLR_PROFILER"] = "{2800fea6-9667-4b42-a2b6-45dc98e77e9e}",
+                        ["CORECLR_ENABLE_PROFILING"] = "1",
+                        ["CORECLR_PROFILER_PATH"] = profilerPath,
+                        ["COVERAGE_ENABLE_PASSIVE"] = "1",
+                        ["COVERAGE_RESULT_NAME"] = ResultName,
+                        ["COVERAGE_METHOD_ASSEMBLY_NAME"] = method.Module.Assembly.FullName,
+                        ["COVERAGE_METHOD_MODULE_NAME"] = method.Module.FullyQualifiedName,
+                        ["COVERAGE_METHOD_TOKEN"] = method.MetadataToken.ToString(),
+                        ["COVERAGE_INSTRUMENT_MAIN_ONLY"] = "1"
+                    },
+                WorkingDirectory = workingDirectory.FullName,
                 FileName = "dotnet",
                 Arguments = args,
                 UseShellExecute = false,
@@ -57,44 +59,46 @@ namespace VSharp.CoverageRunner
             if (proc == null)
             {
                 Logger.printLogString(Logger.Error, "CoverageRunner could not start dotnet process");
-                return -3;
+                return false;
             }
+
             proc.WaitForExit();
-            
-            Logger.printLogString(Logger.Info, proc.StandardOutput.ReadToEnd());
-            Logger.printLogString(Logger.Error, proc.StandardError.ReadToEnd());
 
-            var md = Application.getMethod(method);
-            if (!md.HasBody)
-            {
-                Logger.printLogString(Logger.Error,
-                    "CoverageRunner was given a method without body; 100% coverage assumed");
-                return 100;
-            }
-            var cfg = md.ForceCFG;
+            var outputString = proc.StandardOutput.ReadToEnd();
+            if (!String.IsNullOrEmpty(outputString))
+                Logger.printLogString(Logger.Info, outputString);
 
+            var errorString = proc.StandardError.ReadToEnd();
+            if (!String.IsNullOrEmpty(errorString))
+                Logger.printLogString(Logger.Error, errorString);
+
+            return true;
+        }
+
+        private static CoverageLocation[][]? GetHistory(DirectoryInfo workingDirectory)
+        {
             byte[] covHistory;
             try
             {
-                covHistory = File.ReadAllBytes(workingDirectory + Path.DirectorySeparatorChar + ResultName);
+                var coverageFile = workingDirectory.EnumerateFiles(ResultName).Single();
+                covHistory = File.ReadAllBytes(coverageFile.FullName);
             }
             catch
             {
                 Logger.printLogString(Logger.Error, "CoverageRunner could not read/access coverage history file");
-                return 0;
-            }
-            var visited = CoverageDeserializer.getHistory(covHistory);
-            if (visited is null)
-            {
-                Logger.printLogString(Logger.Error, "CoverageRunner could not deserialize coverage history");
-                return 0;
+                return null;
             }
 
+            return CoverageDeserializer.getHistory(covHistory);
+        }
+
+        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodInfo methodInfo)
+        {
             // filtering coverage records that are only relevant to this method
             var visitedInMethod =
                 visited.SelectMany(x => x)
-                    .Where(x => x.methodToken == method.MetadataToken &&
-                                x.moduleName == method.Module.FullyQualifiedName);
+                    .Where(x => x.methodToken == methodInfo.MetadataToken &&
+                                x.moduleName == methodInfo.Module.FullyQualifiedName);
             var uniqueBlocks = new HashSet<int>();
             foreach (var loc in visitedInMethod)
             {
@@ -104,15 +108,35 @@ namespace VSharp.CoverageRunner
                     uniqueBlocks.Add(bbId);
             }
 
-            int coveredSize = 0;
-            foreach (var blockOffset in uniqueBlocks)
+            var coveredSize =
+                uniqueBlocks.Sum(blockOffset =>
+                    cfg.SortedBasicBlocks[blockOffset].BlockSize);
+
+            return (int)Math.Ceiling(100 * ((double)coveredSize / cfg.MethodSize));
+        }
+
+        public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodInfo methodInfo)
+        {
+            var success = StartCoverageTool(args, workingDirectory, methodInfo);
+            if (!success) return -1;
+
+            var method = Application.getMethod(methodInfo);
+            if (!method.HasBody)
             {
-                coveredSize += cfg.SortedBasicBlocks[blockOffset].BlockSize;
+                Logger.printLogString(Logger.Error,
+                    "CoverageRunner was given a method without body; 100% coverage assumed");
+                return 100;
+            }
+            var cfg = method.ForceCFG;
+
+            var visited = GetHistory(workingDirectory);
+            if (visited is null)
+            {
+                Logger.printLogString(Logger.Error, "CoverageRunner could not deserialize coverage history");
+                return -1;
             }
 
-            var coverage = (int)Math.Ceiling(100 * ((double)coveredSize / cfg.MethodSize));
-
-            return coverage;
+            return ComputeCoverage(cfg, visited, methodInfo);
         }
     }
 }

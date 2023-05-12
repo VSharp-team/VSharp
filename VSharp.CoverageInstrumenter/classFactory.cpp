@@ -49,10 +49,6 @@ HRESULT STDMETHODCALLTYPE ClassFactory::CreateInstance(IUnknown *pUnkOuter, REFI
     }
 
     CorProfiler* profiler = new CorProfiler();
-    if (profiler == nullptr)
-    {
-        return E_FAIL;
-    }
 
     return profiler->QueryInterface(riid, ppvObject);
 }

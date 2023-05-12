@@ -22,10 +22,6 @@ extern "C" HRESULT STDMETHODCALLTYPE DllGetClassObject(REFCLSID rclsid, REFIID r
     }
 
     auto factory = new ClassFactory;
-    if (factory == nullptr)
-    {
-        return E_FAIL;
-    }
 
     return factory->QueryInterface(riid, ppv);
 }
