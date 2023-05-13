@@ -573,6 +573,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
             "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
             "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)", this.RunStaticCtor
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)", this.RunStaticCtor
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -831,6 +833,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (x.Raise x.DivideByZeroException)
             validCase
             id
+
+    member private x.RunStaticCtor (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        // TODO: initialize statics of argument
+        List.singleton cilState
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName

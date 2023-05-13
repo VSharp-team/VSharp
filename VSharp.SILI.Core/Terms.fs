@@ -612,6 +612,23 @@ module internal Terms =
         | ConcreteHeapAddress(addr) -> addr
         | _ -> __unreachable__()
 
+    let tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
+        match offset.term with
+        | Concrete(:? int as offset, _) ->
+            let checkType() =
+                typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
+                || typeOfBase = typeof<string> && sightType = typeof<char>
+            let mutable elemSize = 0
+            let checkOffset() =
+                elemSize <- internalSizeOf sightType
+                (offset % elemSize) = 0
+            if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
+                let arrayType = (sightType, 1, true)
+                let index = int (offset / elemSize)
+                Some ([makeNumber index], arrayType)
+            else None
+        | _ -> None
+
     let tryIntListFromTermList (termList : term list) =
         let addElement term concreteList k =
             match term.term with
