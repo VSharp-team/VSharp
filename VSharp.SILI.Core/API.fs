@@ -96,6 +96,7 @@ module API =
             let getType ref =
                 match ref.term with
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
+                | Ref address -> typeOfAddress address
                 | Ptr(_, t, _) -> t
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
@@ -304,6 +305,13 @@ module API =
                 | Some valueType when not (safeContext valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
+            | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType))) ->
+                assert(List.length indices = List.length innerIndices)
+                match valueType with
+                | Some typ when typ <> elemType -> internalfail "ReferenceArrayIndex: unsupported case"
+                | _ -> ()
+                let indices = List.map2 add indices innerIndices
+                ArrayIndex(address, indices, arrayType) |> Ref
             | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->
                 assert(TypeUtils.isArrayType t)
                 let elemType, _, _ as arrayType = symbolicTypeToArrayType t
@@ -358,7 +366,7 @@ module API =
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 
-        let rec ReadArrayIndex state reference indices valueType =
+        let ReadArrayIndex state reference indices valueType =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value = Read state ref
             match valueType with

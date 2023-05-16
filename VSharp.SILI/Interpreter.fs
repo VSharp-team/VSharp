@@ -488,20 +488,25 @@ module internal InstructionsSet =
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
-    // TODO: implement fully (using information about calling method):
-    // TODO: - if thisType is a value type and thisType implements method then ptr is passed unmodified
-    // TODO: - if thisType is a value type and thisType does not implement method then ptr is dereferenced and boxed
+    // '.constrained' is prefix, which is used before 'callvirt' instruction
     let constrained (m : Method) offset (cilState : cilState) =
         match findNextInstructionOffsetAndEdges OpCodes.Constrained m.ILBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Callvirt.Size)
+            // Method can not be constructor, because it's called via 'callvirt'
+            assert(method :? MethodInfo)
+            let method = method :?> MethodInfo
             let n = method.GetParameters().Length
             let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
             setEvaluationStack evaluationStack cilState
             let thisForCallVirt = pop cilState
+            let thisType = TypeOfLocation thisForCallVirt
+            let isValueType = Types.IsValueType thisType
             match thisForCallVirt.term with
-            | HeapRef _ -> ()
-            | Ref _ when TypeOfLocation thisForCallVirt |> Types.IsValueType ->
+            | Ref _ when isValueType && Reflection.typeImplementsMethod thisType method ->
+                push thisForCallVirt cilState
+                pushMany args cilState
+            | Ref _ when isValueType ->
                 let thisStruct = Memory.Read cilState.state thisForCallVirt
                 let heapRef = Memory.BoxValueType cilState.state thisStruct
                 push heapRef cilState
@@ -510,7 +515,7 @@ module internal InstructionsSet =
                 let this = Memory.Read cilState.state thisForCallVirt
                 push this cilState
                 pushMany args cilState
-            | _ -> __unreachable__()
+            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
         | _ -> __unreachable__()
     let localloc (cilState : cilState) =
         // [NOTE] localloc usually is used for Span

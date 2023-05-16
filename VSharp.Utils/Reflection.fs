@@ -288,6 +288,10 @@ module public Reflection =
                     | None -> resolve targetType.BaseType
             resolve targetType
 
+    let typeImplementsMethod targetType (virtualMethod : MethodInfo) =
+        let method = resolveOverridingMethod targetType virtualMethod
+        not targetType.IsAbstract && method.ReflectedType = targetType
+
     let hasByRefLikes (method : MethodInfo) =
         method.DeclaringType <> null && method.DeclaringType.IsByRefLike ||
             method.GetParameters() |> Seq.exists (fun pi -> pi.ParameterType.IsByRefLike) ||
