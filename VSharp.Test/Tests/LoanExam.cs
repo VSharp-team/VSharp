@@ -194,7 +194,7 @@ public class LoanExam
         }
     }
 
-    [TestSvm(93, 0, 10, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class, guidedMode: false, releaseBranches: false)]
+    [TestSvm(92, 0, 10, strat: SearchStrategy.Interleaved, coverageZone: CoverageZone.Class, guidedMode: false, releaseBranches: false)]
     public CreditResult Build(Request request)
     {
         var SumPoints = 0;

@@ -1,10 +1,4 @@
 #include "corProfiler.h"
-#ifdef UNIX
-#include "profiler_unix.h"
-#endif
-#ifdef WIN32
-#include "profiler_win.h"
-#endif
 #include "logging.h"
 #include "memory.h"
 #include <locale>

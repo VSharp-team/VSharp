@@ -19,11 +19,7 @@ public static class TestResultChecker
         {
             WorkingDirectory = testDir.FullName,
             FileName = "dotnet",
-            Arguments = $"{testRunnerPath} {testDir.FullName}",
-            UseShellExecute = false,
-            RedirectStandardInput = false,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true
+            Arguments = $"{testRunnerPath} {testDir.FullName}"
         };
 
         var success = RunDotNetWithLogging(info);

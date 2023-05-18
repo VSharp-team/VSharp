@@ -230,7 +230,7 @@ namespace IntegrationTests
             new ClassWithOneField();
         }
 
-        [TestSvm(91)]
+        [TestSvm(90)]
         public static void NewObjInLoop1()
         {
             object c = new ClassWithOneField();
@@ -330,7 +330,7 @@ namespace IntegrationTests
         }
 
         // expecting System.ArrayTypeMismatchException
-        [TestSvm(77)]
+        [TestSvm(76)]
         public static void LdelemaTest2(bool f)
         {
             var array = new ClassWithOneField[] {new ClassWithOneField(){x = 56}, new ClassWithOneField(){x = 42}};
@@ -475,7 +475,7 @@ namespace IntegrationTests
         }
 
         // expecting 1
-        [TestSvm(67)]
+        [TestSvm(66)]
         public static int TestAllocatedType_2()
         {
             VirtualC c = new VirtualC();

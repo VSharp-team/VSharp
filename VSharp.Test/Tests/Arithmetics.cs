@@ -796,7 +796,7 @@ namespace IntegrationTests
             return Math.Pow(x, y);
         }
 
-        [TestSvm(77)]
+        [TestSvm(76)]
         public static double PowMethod5(double x)
         {
             double y;
@@ -807,7 +807,7 @@ namespace IntegrationTests
             return Math.Pow(y, 2);
         }
 
-        [TestSvm(72)]
+        [TestSvm(71)]
         public static double PowMethod6(double x)
         {
             double y;

@@ -1,6 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.Loader;
+using Microsoft.FSharp.Core;
 
 namespace VSharp.CoverageRunner
 {
@@ -8,7 +10,7 @@ namespace VSharp.CoverageRunner
     {
         private const string ResultName = "coverage.cov";
 
-        private static string? GetProfilerPath()
+        private static string GetProfilerPath()
         {
             string extension;
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -19,38 +21,44 @@ namespace VSharp.CoverageRunner
                 extension = ".dylib";
             else
             {
-                Logger.printLogString(Logger.Error, "CoverageRunner started on unknown platform");
-                return null;
+                throw new PlatformNotSupportedException("CoverageRunner started on unknown platform");
             }
 
             var clientName = $"libvsharpCoverage{extension}";
-            return $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}{clientName}";
+            return Path.Combine(Directory.GetCurrentDirectory(), clientName);
         }
 
         public static bool RunDotNetWithLogging(ProcessStartInfo procInfo)
         {
-            var proc = Process.Start(procInfo);
-            if (proc == null)
-            {
-                Logger.printLogString(Logger.Error, "could not start dotnet process");
-                return false;
-            }
+            procInfo.RedirectStandardError = true;
+            procInfo.RedirectStandardOutput = true;
+            procInfo.UseShellExecute = false;
 
+            var proc = new Process();
+            proc.StartInfo = procInfo;
+
+            proc.OutputDataReceived +=
+                (object sender, DataReceivedEventArgs e) =>
+                {
+                    var data = e.Data;
+                    if (String.IsNullOrEmpty(data))
+                        return;
+                    Logger.printLogString(Logger.Info, data);
+                };
+
+            proc.ErrorDataReceived +=
+                (object sender, DataReceivedEventArgs e) =>
+                {
+                    var data = e.Data;
+                    if (String.IsNullOrEmpty(data))
+                        return;
+                    Logger.printLogString(Logger.Error, data);
+                };
+
+            proc.Start();
+            proc.BeginOutputReadLine();
+            proc.BeginErrorReadLine();
             proc.WaitForExit();
-
-            if (procInfo.RedirectStandardOutput)
-            {
-                var outputString = proc.StandardOutput.ReadToEnd();
-                if (!String.IsNullOrEmpty(outputString))
-                    Logger.printLogString(Logger.Info, outputString);
-            }
-
-            if (procInfo.RedirectStandardError)
-            {
-                var errorString = proc.StandardError.ReadToEnd();
-                if (!String.IsNullOrEmpty(errorString))
-                    Logger.printLogString(Logger.Error, errorString);
-            }
 
             return proc.ExitCode == 0;
         }
@@ -58,7 +66,6 @@ namespace VSharp.CoverageRunner
         private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodInfo method)
         {
             var profilerPath = GetProfilerPath();
-            if (profilerPath == null) return false;
 
             var info = new ProcessStartInfo
             {
@@ -76,11 +83,7 @@ namespace VSharp.CoverageRunner
                     },
                 WorkingDirectory = workingDirectory.FullName,
                 FileName = "dotnet",
-                Arguments = args,
-                UseShellExecute = false,
-                RedirectStandardInput = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                Arguments = args
             };
 
             return RunDotNetWithLogging(info);
@@ -123,7 +126,7 @@ namespace VSharp.CoverageRunner
                 uniqueBlocks.Sum(blockOffset =>
                     cfg.SortedBasicBlocks[blockOffset].BlockSize);
 
-            return (int)Math.Ceiling(100 * ((double)coveredSize / cfg.MethodSize));
+            return (int)Math.Floor(100 * ((double)coveredSize / cfg.MethodSize));
         }
 
         public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodInfo methodInfo)
@@ -131,18 +134,18 @@ namespace VSharp.CoverageRunner
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
             if (!success)
             {
-                Logger.printLogString(Logger.Error, "CoverageRunner failed to run!");
+                Logger.printLogString(Logger.Error, "TestRunner with Coverage failed to run!");
                 return -1;
             }
 
             var method = Application.getMethod(methodInfo);
-            if (!method.HasBody)
+            var cfg = method.CFG;
+            if (FSharpOption<CfgInfo>.get_IsNone(cfg))
             {
-                Logger.printLogString(Logger.Error,
+                Logger.printLogString(Logger.Warning,
                     "CoverageRunner was given a method without body; 100% coverage assumed");
                 return 100;
             }
-            var cfg = method.ForceCFG;
 
             var visited = GetHistory(workingDirectory);
             if (visited is null)
@@ -151,7 +154,7 @@ namespace VSharp.CoverageRunner
                 return -1;
             }
 
-            return ComputeCoverage(cfg, visited, methodInfo);
+            return ComputeCoverage(cfg.Value, visited, methodInfo);
         }
     }
 }

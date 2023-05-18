@@ -263,7 +263,7 @@ namespace IntegrationTests
         }
 
 
-        [TestSvm(58)]
+        [TestSvm(57)]
         public static int ArrayRank_IIE_1(Array array)
         {
             if (array == null) return 42;
