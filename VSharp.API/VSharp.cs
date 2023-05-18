@@ -735,7 +735,7 @@ namespace VSharp
             bool renderTests = false,
             Verbosity verbosity = DefaultVerbosity)
         {
-            var methodArray = targets.Select(t => (t.location.method as IMethod).MethodBase);
+            var methodArray = targets.Select(t => (t.location.method as IMethod).MethodBase).Distinct();
             var types = new HashSet<Type>();
             var assemblies = new HashSet<Assembly>();
 
@@ -766,6 +766,7 @@ namespace VSharp
             }
 
             var sm = searchMode.NewHypothesisProveMode(targets);
+            //var sm = searchMode.NewGuidedMode(searchMode.BFSMode);
             var statistics = StartExploration(
                 methodArray, outputDirectory, zone, sm, verbosity, null, timeout, solverTimeout);
 
