@@ -26,14 +26,12 @@ public static class TestResultChecker
             RedirectStandardError = true
         };
 
-        var proc = Process.Start(info);
-        if (proc == null)
-            throw new NullReferenceException("couldn't start dotnet process!");
-        proc.WaitForExit();
-        Logger.printLogString(Logger.Info, proc.StandardOutput.ReadToEnd());
-        Logger.printLogString(Logger.Error, proc.StandardError.ReadToEnd());
+        var success = RunDotNetWithLogging(info);
 
-        return proc.ExitCode == 0;
+        if (!success)
+            Logger.printLogString(Logger.Error, "TestRunner Check failed!");
+
+        return success;
     }
 
     public static bool Check(

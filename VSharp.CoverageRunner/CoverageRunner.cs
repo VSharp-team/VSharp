@@ -27,6 +27,34 @@ namespace VSharp.CoverageRunner
             return $"{Directory.GetCurrentDirectory()}{Path.DirectorySeparatorChar}{clientName}";
         }
 
+        public static bool RunDotNetWithLogging(ProcessStartInfo procInfo)
+        {
+            var proc = Process.Start(procInfo);
+            if (proc == null)
+            {
+                Logger.printLogString(Logger.Error, "could not start dotnet process");
+                return false;
+            }
+
+            proc.WaitForExit();
+
+            if (procInfo.RedirectStandardOutput)
+            {
+                var outputString = proc.StandardOutput.ReadToEnd();
+                if (!String.IsNullOrEmpty(outputString))
+                    Logger.printLogString(Logger.Info, outputString);
+            }
+
+            if (procInfo.RedirectStandardError)
+            {
+                var errorString = proc.StandardError.ReadToEnd();
+                if (!String.IsNullOrEmpty(errorString))
+                    Logger.printLogString(Logger.Error, errorString);
+            }
+
+            return proc.ExitCode == 0;
+        }
+
         private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodInfo method)
         {
             var profilerPath = GetProfilerPath();
@@ -55,24 +83,7 @@ namespace VSharp.CoverageRunner
                 RedirectStandardError = true
             };
 
-            var proc = Process.Start(info);
-            if (proc == null)
-            {
-                Logger.printLogString(Logger.Error, "CoverageRunner could not start dotnet process");
-                return false;
-            }
-
-            proc.WaitForExit();
-
-            var outputString = proc.StandardOutput.ReadToEnd();
-            if (!String.IsNullOrEmpty(outputString))
-                Logger.printLogString(Logger.Info, outputString);
-
-            var errorString = proc.StandardError.ReadToEnd();
-            if (!String.IsNullOrEmpty(errorString))
-                Logger.printLogString(Logger.Error, errorString);
-
-            return true;
+            return RunDotNetWithLogging(info);
         }
 
         private static CoverageLocation[][]? GetHistory(DirectoryInfo workingDirectory)
@@ -118,7 +129,11 @@ namespace VSharp.CoverageRunner
         public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodInfo methodInfo)
         {
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
-            if (!success) return -1;
+            if (!success)
+            {
+                Logger.printLogString(Logger.Error, "CoverageRunner failed to run!");
+                return -1;
+            }
 
             var method = Application.getMethod(methodInfo);
             if (!method.HasBody)
