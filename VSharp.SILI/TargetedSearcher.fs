@@ -6,6 +6,7 @@ open VSharp
 open VSharp.Interpreter.IL
 open VSharp.Utils
 open CilStateOperations
+open System.Runtime.CompilerServices
 
 type TargetedSearcher(maxBound, target, isPaused) =
     inherit WeightedSearcher(maxBound, ShortestDistanceWeighter(target), BidictionaryPriorityQueue())
@@ -77,16 +78,6 @@ type StatisticsTargetCalculator(statistics : SILIStatistics) =
             | None -> []
 
         override x.BanTarget _ = ()
-
-type ConstantTargetCalculator(targets : target list) =
-    let targetsSet = HashSet(targets)
-
-    interface ITargetCalculator with
-        override x.CalculateTargets _ = targetsSet |> Seq.toList
-
-        override x.BanTarget target = 
-            targetsSet.Remove(target) |> ignore
-
 
 type GuidedSearcher(maxBound, threshold : uint, baseSearcher : IForwardSearcher, targetCalculator : ITargetCalculator) =
     let targetedSearchers = Dictionary<target, TargetedSearcher>()

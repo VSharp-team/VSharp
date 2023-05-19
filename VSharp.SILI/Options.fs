@@ -26,7 +26,7 @@ type searchMode =
     | InterleavedMode of searchMode * int * searchMode * int
     | ConcolicMode of searchMode
     | GuidedMode of searchMode
-    | HypothesisProveMode of IEnumerable<target>
+    | HypothesisProveMode
 
 type coverageZone =
     | MethodZone
@@ -53,4 +53,5 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     stopOnCoverageAchieved : int
+    targetsByMethod : Dictionary<Method, List<target>>
 }

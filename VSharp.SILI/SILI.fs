@@ -90,10 +90,9 @@ type public SILI(options : SiliOptions) =
         | GuidedMode baseMode ->
             let baseSearcher = mkForwardSearcher baseMode
             GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
-        | HypothesisProveMode(targets) ->
+        | HypothesisProveMode ->
             let baseSearcher = mkForwardSearcher BFSMode
-            let targetsList = targets |> Seq.cast |> Seq.toList
-            let calculator = ConstantTargetCalculator(targetsList)
+            let calculator = StatisticsTargetCalculator(statistics)
             GuidedSearcher(infty, options.recThreshold, baseSearcher, calculator) :> IForwardSearcher
         | searchMode.ConcolicMode baseMode -> ConcolicSearcher(mkForwardSearcher baseMode) :> IForwardSearcher
 
@@ -244,6 +243,10 @@ type public SILI(options : SiliOptions) =
             let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
             assert (List.length cilStates = 1)
             let [cilState] = cilStates
+
+            let targets = options.targetsByMethod[method]
+            targets |> Seq.iter (fun t -> addTarget cilState t)
+
             match options.executionMode with
             | ConcolicMode -> List.singleton cilState
             | SymbolicMode -> interpreter.InitializeStatics cilState method.DeclaringType List.singleton

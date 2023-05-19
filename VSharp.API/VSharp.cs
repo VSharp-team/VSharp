@@ -158,12 +158,13 @@ namespace VSharp
             Verbosity verbosity,
             string[]? mainArguments = null,
             int timeout = -1,
-            int solverTimeout = -1)
+            int solverTimeout = -1,
+            IEnumerable<target>? targets = null)
         {
             var baseSearchMode = searchStrategy.ToSiliMode();
             return StartExploration(
                 methods, resultsFolder, coverageZone, baseSearchMode,
-                verbosity, mainArguments, timeout, solverTimeout
+                verbosity, mainArguments, timeout, solverTimeout, targets
             );
         }
 
@@ -175,12 +176,22 @@ namespace VSharp
             Verbosity verbosity,
             string[]? mainArguments = null,
             int timeout = -1,
-            int solverTimeout = -1)
+            int solverTimeout = -1,
+            IEnumerable<target>? targets = null
+            )
         {
             Logger.currentLogLevel = verbosity.ToLoggerLevel();
 
             var recThreshold = 0u;
             var unitTests = new UnitTests(resultsFolder);
+            var targetsByMethod = new Dictionary<Method, List<target>>();
+            if (targets != null) 
+            {
+                 targetsByMethod = targets
+                 .GroupBy(t => t.location.method)
+                 .ToDictionary(g => g.Key, g => g.ToList());
+            }
+
             // TODO: customize search strategies via console options
             var options =
                 new SiliOptions(
@@ -197,7 +208,8 @@ namespace VSharp
                     releaseBranches: true,
                     maxBufferSize: 128,
                     checkAttributes: true,
-                    stopOnCoverageAchieved: 100
+                    stopOnCoverageAchieved: 100,
+                    targetsByMethod: targetsByMethod
                 );
 
             using var explorer = new SILI(options);
@@ -765,10 +777,10 @@ namespace VSharp
                 zone = coverageZone.ClassZone;
             }
 
-            var sm = searchMode.NewHypothesisProveMode(targets);
+            var sm = searchMode.HypothesisProveMode;
             //var sm = searchMode.NewGuidedMode(searchMode.BFSMode);
             var statistics = StartExploration(
-                methodArray, outputDirectory, zone, sm, verbosity, null, timeout, solverTimeout);
+                methodArray, outputDirectory, zone, sm, verbosity, null, timeout, solverTimeout, targets);
 
             if (renderTests)
                 Render(statistics, types.SingleOrDefault());
