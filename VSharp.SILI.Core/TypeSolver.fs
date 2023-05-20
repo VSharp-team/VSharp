@@ -391,7 +391,7 @@ module TypeSolver =
         | {term = ConcreteHeapAddress address} -> address
         | _ -> internalfail $"[Type solver] evaluating address in model: unexpected address {address}"
 
-    let mergeConstraints (constraints : typesConstraints) (addresses : term seq) =
+    let private mergeConstraints (constraints : typesConstraints) (addresses : term seq) =
         let resultConstraints = typeConstraints.Empty()
         for address in addresses do
             let constraints = constraints[address]

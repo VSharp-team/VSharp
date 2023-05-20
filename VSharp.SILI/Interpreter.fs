@@ -1310,6 +1310,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         | false ->
             let this = Memory.ReadThis cilState.state calledMethod
             x.NpeOrInvokeStatementCIL cilState this call k
+
     member x.RetrieveCalledMethodAndArgs (opCode : OpCode) (calledMethod : Method) (cilState : cilState) =
         let args = retrieveActualParameters calledMethod cilState
         let hasThis = calledMethod.HasThis && opCode <> OpCodes.Newobj

@@ -764,7 +764,9 @@ module internal Memory =
     let private checkBlockBounds state reportError blockSize startByte endByte =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        let noOvf = makeExpressionNoOvf failCondition
+        // TODO: move noOvf to failCondition (failCondition = failCondition || !noOvf) ?
+        state.pc <- PC.add state.pc noOvf
         reportError state failCondition
 
     let private readAddressUnsafe address startByte endByte =
@@ -1337,7 +1339,7 @@ module internal Memory =
             allocateString state string
         | _ ->
             let address = commonAllocateString state (makeNumber 1) " "
-            writeArrayIndexSymbolic state address [Concrete 0 indexType] (typeof<char>, 1, true) char
+            writeArrayIndex state address [Concrete 0 indexType] (typeof<char>, 1, true) char
             HeapRef address typeof<string>
 
     let allocateDelegate state delegateTerm =
