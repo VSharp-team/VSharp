@@ -1484,7 +1484,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
-        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let uncheckedLdElem (cilState : cilState) k =
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices typ
@@ -1525,7 +1524,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.StElemCommon (typ : Type option) (cilState : cilState) arrayRef indices value =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
         let baseType = Types.ElementType arrayType
-        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =

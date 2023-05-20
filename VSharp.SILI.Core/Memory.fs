@@ -641,21 +641,26 @@ module internal Memory =
         readArrayRegion state arrayType extractor (extractor state) key
 
     let private readArrayIndexSymbolic state address indices arrayType =
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayKeySymbolic state key arrayType
 
     let private readArrayRangeSymbolic state address fromIndices toIndices arrayType =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayKeySymbolic state key arrayType
 
     let private regionFromData state address data regionType =
         let prepareData (index, value) =
-            let key = OneArrayIndexKey(address, List.map makeNumber index)
+            let key = OneArrayIndexKey(address, List.map (int >> makeNumber) index)
             let value = objToTerm state regionType value
             key, value
         Seq.map prepareData data |> MemoryRegion.memset (MemoryRegion.empty regionType)
 
     let private readRangeFromConcreteArray state address arrayData fromIndices toIndices arrayType =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let region = regionFromData state address arrayData (fst3 arrayType)
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayRegion state arrayType (always region) region key
@@ -670,6 +675,7 @@ module internal Memory =
 
     let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
         let region = regionFromData state address arrayData (fst3 arrayType)
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayRegion state arrayType (always region) region key
 
@@ -966,10 +972,13 @@ module internal Memory =
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
     let private writeArrayIndexSymbolic state address indices arrayType value =
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         writeArrayKeySymbolic state key arrayType value
 
     let private writeArrayRangeSymbolic state address fromIndices toIndices arrayType value =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         writeArrayKeySymbolic state key arrayType value
 
