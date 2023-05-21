@@ -79,12 +79,16 @@ namespace VSharp.TestRunner
                     if (exceptionExpected || test.IsError && suiteType == SuiteType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
                         Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, e.InnerException.GetType().FullName);
+                        Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.WriteLine($"Stack trace:\n{e.InnerException.Message}\n{e.InnerException.StackTrace}");
                         Console.ResetColor();
                     }
                     else if (e.InnerException != null && ex != null)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
                         Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fileInfo.Name, e.InnerException, ex);
+                        Console.ForegroundColor = ConsoleColor.DarkYellow;
+                        Console.WriteLine($"Stack trace:\n{e.InnerException.Message}\n{e.InnerException.StackTrace}");
                         Console.ResetColor();
                         throw e.InnerException;
                     }
