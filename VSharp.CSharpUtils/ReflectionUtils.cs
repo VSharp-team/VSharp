@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 
@@ -39,12 +40,18 @@ namespace VSharp.CSharpUtils
                     }
                 }
             }
-            return types.Where(t => t.IsPublic || t.IsNestedPublic);
+            return types.Where(IsPublic);
+        }
+
+        private static bool IsPublic(Type t)
+        {
+            Debug.Assert(t != null && t != t.DeclaringType);
+            return t.IsPublic || t.IsNestedPublic && IsPublic(t.DeclaringType);
         }
 
         public static IEnumerable<Type> GetExportedTypesChecked(this Assembly assembly)
         {
-            return assembly.GetTypesChecked().Where(t => t.IsPublic || t.IsNestedPublic);
+            return assembly.GetTypesChecked().Where(IsPublic);
         }
 
         public static IEnumerable<Type> GetTypesChecked(this Assembly assembly)
