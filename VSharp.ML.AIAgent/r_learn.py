@@ -132,12 +132,13 @@ def r_learn_iteration(
 
     with tqdm.tqdm(
         total=len(games), desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT
-    ) as pbar, concurrent.futures.ProcessPoolExecutor(
-        max_workers=proc_num, initializer=initialize_processes, mp_context=mp
+    ) as pbar, mp.Pool(
+        processes=proc_num, initializer=initialize_processes
     ) as executor:
 
         def done_callback(x):
-            model_name, game_map, mutable_result_mapping = x.result()
+            model_name, game_map, mutable_result_mapping = x
+
             logging.info(
                 f"<{model_name}> finished map {game_map.MapName} "
                 f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
@@ -150,12 +151,17 @@ def r_learn_iteration(
             max_steps = (
                 user_max_steps if _use_user_steps(user_max_steps) else game_map.MaxSteps
             )
-            future = executor.submit(play_game, model, game_map, max_steps, ws_urls)
-            future.add_done_callback(done_callback)
+
+            future = executor.apply_async(
+                play_game,
+                args=[model, game_map, max_steps, ws_urls],
+                callback=done_callback,
+            )
             futures_queue.put(future)
 
         while not futures_queue.empty():
-            _, game_map, mutable_result_mapping = futures_queue.get().result()
+            done = futures_queue.get()
+            _, game_map, mutable_result_mapping = done.get()
             model_results_on_map[game_map].append(mutable_result_mapping)
 
     inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
