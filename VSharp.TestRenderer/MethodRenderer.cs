@@ -644,6 +644,12 @@ internal class MethodRenderer : CodeRenderer
                 RenderObjectCreation(AllocatorType(typeExpr), args, fieldsWithValues);
             var resultObject = RenderMemberAccess(allocator, AllocatorObject);
 
+            if (wasRendered && rendered is IdentifierNameSyntax renderedId)
+            {
+                AddAssignment(RenderAssignment(renderedId, resultObject));
+                return renderedId;
+            }
+
             return AddDecl(preferredName ?? "obj", typeExpr, resultObject);
         }
 

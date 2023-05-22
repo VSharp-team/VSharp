@@ -7,8 +7,6 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-
-
 public static class Renderer
 {
     private static readonly string NewLine = Environment.NewLine;
