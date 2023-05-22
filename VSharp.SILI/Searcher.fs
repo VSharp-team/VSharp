@@ -129,7 +129,7 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
             s.iie <- Some e
             None
         | :? InternalException as e ->
-            Logger.error "WeightedSearcher: failed to get weight of state %O" e
+            Logger.error "WeightedSearcher: failed to get weight of state. EntryMethod: %O; Error: %O" s.entryMethod e
             None
     let add (s : cilState) =
         let weight = optionWeight s

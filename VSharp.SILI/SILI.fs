@@ -118,7 +118,7 @@ type public SILI(options : SiliOptions) =
     let reportState reporter isError cilState message =
         try
             searcher.Remove cilState
-            if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest)
+            if true
             then
                 let hasException =
                     match cilState.state.exceptionsRegister with
@@ -132,7 +132,7 @@ type public SILI(options : SiliOptions) =
                         if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod
                         then Memory.ForcePopFrames (callStackSize - 2) cilState.state
                         else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                if not isError || statistics.EmitError cilState message
+                if true
                 then
                     match TestGenerator.state2test isError entryMethod cilState message with
                     | Some test ->

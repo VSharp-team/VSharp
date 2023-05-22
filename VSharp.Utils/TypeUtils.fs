@@ -45,8 +45,8 @@ module TypeUtils =
 
     // ---------------------------------- Basic type predicates ----------------------------------
 
-    let isPublic (x : Type) =
-        x.IsPublic || x.IsNestedPublic
+    let rec isPublic (x : Type) =
+        x.IsPublic || x.IsNestedPublic && isPublic x.DeclaringType
 
     let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType

@@ -1164,7 +1164,7 @@ type ILRewriter(body : rawMethodBody) =
                         instr.arg <- Target <| x.InstrFromOffset offset
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
-        EvaluationStackTyper.createBodyStackState m il.next
+        // EvaluationStackTyper.createBodyStackState m il.next
 
         if concolicMode then
             x.TraverseProgram (fun instr ->
@@ -1247,7 +1247,7 @@ type ILRewriter(body : rawMethodBody) =
             tryEnd = (x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)).prev
             handlerBegin =
                 let start = x.InstrFromOffset <| int raw.handlerOffset
-                EvaluationStackTyper.createEHStackState m raw.flags start
+                // EvaluationStackTyper.createEHStackState m raw.flags start
                 start
             handlerEnd = (x.InstrFromOffset <| int (raw.handlerOffset + raw.handlerLength)).prev
             matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else Filter (x.InstrFromOffset <| int raw.matcher)
