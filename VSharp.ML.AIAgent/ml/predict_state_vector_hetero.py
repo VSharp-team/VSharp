@@ -86,13 +86,17 @@ class PredictStateVectorHetGNN:
 
     @staticmethod
     def predict_state_weighted(
-        model, weights, data: HeteroData, state_map: dict[int, int]
+        model: torch.nn.Module, weights, data: HeteroData, state_map: dict[int, int]
     ) -> int:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
+        device = torch.device("cuda:0")
+        # data.to(device)
         reversed_state_map = {v: k for k, v in state_map.items()}
-        out = model(data.x_dict, data.edge_index_dict)
+
+        # concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
+        out = model.forward(data.x_dict, data.edge_index_dict)
 
         remapped = []
 

@@ -1,5 +1,6 @@
 import logging
-from multiprocessing import Manager
+import torch.multiprocessing as mp
+import torch
 
 import multiprocessing_logging
 
@@ -18,7 +19,7 @@ logging.basicConfig(
 )
 
 
-multiprocessing_logging.install_mp_handler()
+# multiprocessing_logging.install_mp_handler()
 
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
@@ -78,8 +79,8 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
 # len(SOCKET_URLS) == proc_num
 SOCKET_URLS = [
     "ws://0.0.0.0:8080/gameServer",
-    "ws://0.0.0.0:8090/gameServer",
-    "ws://0.0.0.0:8100/gameServer",
+    # "ws://0.0.0.0:8090/gameServer",
+    # "ws://0.0.0.0:8100/gameServer",
 ]
 
 
@@ -96,7 +97,7 @@ def main():
     GeneticLearner.set_static_model()
     models = [GeneticLearner() for _ in range(n_models)]
 
-    manager = Manager()
+    manager = mp.Manager()
     ws_urls = manager.Queue()
     for ws_url in SOCKET_URLS:
         ws_urls.put(ws_url)
@@ -114,4 +115,5 @@ def main():
 
 
 if __name__ == "__main__":
+    mp.set_start_method("spawn")
     main()

@@ -28,8 +28,6 @@ class GeneticLearner(ModelWrapper):
     @staticmethod
     def set_static_model():
         GeneticLearner.MODEL = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
-        if torch.cuda.is_available():
-            GeneticLearner.MODEL.to("cuda")
 
     def __init__(
         self, weights: npt.NDArray = None, successor_name_closure=lambda x: x
@@ -61,9 +59,12 @@ class GeneticLearner(ModelWrapper):
         )
         assert GeneticLearner.MODEL is not None
 
+        # problem
         next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
             GeneticLearner.MODEL, self.weights, hetero_input, state_map
         )
+        del hetero_input
+        # /problem
         return next_step_id
 
     @staticmethod

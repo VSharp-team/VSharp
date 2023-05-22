@@ -8,6 +8,8 @@ from contextlib import closing
 from itertools import product
 from time import time
 from typing import Callable, Optional, TypeAlias
+import torch
+import torch.multiprocessing as mp
 
 import tqdm
 import websocket
@@ -130,7 +132,9 @@ def r_learn_iteration(
 
     with tqdm.tqdm(
         total=len(games), desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT
-    ) as pbar:
+    ) as pbar, concurrent.futures.ProcessPoolExecutor(
+        max_workers=proc_num, initializer=initialize_processes, mp_context=mp
+    ) as executor:
 
         def done_callback(x):
             model_name, game_map, mutable_result_mapping = x.result()
@@ -142,27 +146,17 @@ def r_learn_iteration(
             )
             pbar.update(1)
 
-        with concurrent.futures.ProcessPoolExecutor(
-            max_workers=proc_num, initializer=initialize_processes
-        ) as executor:
-            try:
-                for model, game_map in games:
-                    max_steps = (
-                        user_max_steps
-                        if _use_user_steps(user_max_steps)
-                        else game_map.MaxSteps
-                    )
-                    future = executor.submit(
-                        play_game, model, game_map, max_steps, ws_urls
-                    )
-                    future.add_done_callback(done_callback)
-                    futures_queue.put(future)
-            finally:
-                executor.shutdown()
+        for model, game_map in games:
+            max_steps = (
+                user_max_steps if _use_user_steps(user_max_steps) else game_map.MaxSteps
+            )
+            future = executor.submit(play_game, model, game_map, max_steps, ws_urls)
+            future.add_done_callback(done_callback)
+            futures_queue.put(future)
 
-    while not futures_queue.empty():
-        _, game_map, mutable_result_mapping = futures_queue.get().result()
-        model_results_on_map[game_map].append(mutable_result_mapping)
+        while not futures_queue.empty():
+            _, game_map, mutable_result_mapping = futures_queue.get().result()
+            model_results_on_map[game_map].append(mutable_result_mapping)
 
     inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
 
