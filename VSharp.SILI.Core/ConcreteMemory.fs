@@ -200,7 +200,12 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.ReadArrayIndex address (indices : int list) =
             match x.ReadObject address with
             | :? Array as array -> array.GetValue(Array.ofList indices)
-            | :? String as string when List.length indices = 1 -> string.[List.head indices] :> obj
+            | :? String as string when List.length indices = 1 ->
+                let index = List.head indices
+                // Case 'index = string.Length' is needed for unsafe string reading: string contents end with null terminator
+                // In safe context this case will be filtered out in 'Interpreter', which checks indices before memory access
+                if index = string.Length then Char.MinValue :> obj
+                else string[index] :> obj
             | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
 
         override x.GetAllArrayData address =
