@@ -7,7 +7,8 @@ module Substitution =
     let rec substituteAddress termSubst typeSubst timeSubst = function
         | PrimitiveStackLocation _ as sl -> sl
         | ClassField(addr, field) -> ClassField(termSubst addr, field)
-        | ArrayIndex(addr, index, (elementType, dim, isVector)) -> ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
+        | ArrayIndex(addr, index, (elementType, dim, isVector)) ->
+            ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
         | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst timeSubst addr, field)
         | StaticField(typ, field) -> StaticField(typeSubst typ, field)
         | ArrayLength(addr, dim, (typ, d, isVector)) -> ArrayLength(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))

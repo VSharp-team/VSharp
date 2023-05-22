@@ -25,7 +25,7 @@ internal interface IBlock
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax iterator, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddForEach(TypeSyntax? type, IdentifierNameSyntax[] iterators, IdentifierNameSyntax where, BlockSyntax foreachBody);
     void AddReturn(ExpressionSyntax? whatToReturn);
-    ExpressionSyntax RenderObject(object? obj, string? preferredName, bool explicitType = false);
+    ExpressionSyntax RenderObject(object? obj, string? preferredName, Type? explicitType = null);
     int StatementsCount();
     BlockSyntax Render();
 }
@@ -223,7 +223,6 @@ internal class MethodRenderer : CodeRenderer
         private readonly Dictionary<physicalAddress, ExpressionSyntax> _renderedObjects;
         private readonly Dictionary<physicalAddress, ExpressionSyntax> _renderedMocks;
         private readonly HashSet<physicalAddress> _startToRender;
-        private readonly HashSet<physicalAddress> _startToRenderMock;
 
         private readonly List<StatementSyntax> _statements = new();
 
@@ -238,7 +237,6 @@ internal class MethodRenderer : CodeRenderer
             _renderedObjects = renderedObjects;
             _renderedMocks = renderedMocks;
             _startToRender = new HashSet<physicalAddress>();
-            _startToRenderMock = new HashSet<physicalAddress>();
         }
 
         public IdentifierNameSyntax NewIdentifier(string idName)
@@ -296,7 +294,7 @@ internal class MethodRenderer : CodeRenderer
         {
             var catchClause = CatchClause(declaration, null, catchBlock);
             var clauses = SingletonList(catchClause);
-            var tryCatchBlock = TryStatement(tryBlock, clauses, null);
+            var tryCatchBlock = TryStatement(tryBlock, clauses, null!);
             _statements.Add(tryCatchBlock);
         }
 
@@ -419,6 +417,7 @@ internal class MethodRenderer : CodeRenderer
             var objType = obj.GetType();
             var arrayType = objType.AssemblyQualifiedName;
             var elemType = objType.GetElementType();
+            Debug.Assert(elemType != null);
 
             var defaultElemValue = defaultValue ?? (elemType.IsValueType ? Activator.CreateInstance(elemType) : null);
             var arrayLengths = lengths.Select(length => RenderObject(length));
@@ -452,8 +451,8 @@ internal class MethodRenderer : CodeRenderer
             {
                 var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
                 var value = obj.GetValue(i);
-                var needExplicitType = NeedExplicitType(value, elemType);
-                initializer.Add(RenderObject(value, elementPreferredName, needExplicitType));
+                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                initializer.Add(RenderObject(value, elementPreferredName, explicitType));
             }
 
             // TODO: handle recursive array case
@@ -497,8 +496,8 @@ internal class MethodRenderer : CodeRenderer
             {
                 var elementPreferredName = arrayPreferredName + "_Elem" + i;
                 var value = values[i];
-                var needExplicitType = NeedExplicitType(value, elemType);
-                renderedValues[i] = RenderObject(value, elementPreferredName, needExplicitType);
+                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                renderedValues[i] = RenderObject(value, elementPreferredName, explicitType);
             }
 
             if (TypeUtils.isPublic(elemType))
@@ -507,9 +506,9 @@ internal class MethodRenderer : CodeRenderer
                 var arrayId = AddDecl(arrayPreferredName, type, createArray);
                 if (defaultValue != null)
                 {
-                    var needExplicitType = NeedExplicitType(defaultValue, typeof(object));
+                    var explicitType = NeedExplicitType(defaultValue, typeof(object)) ? typeof(object) : null;
                     var defaultValueName = preferredName + "Default";
-                    var defaultId = RenderObject(defaultValue, defaultValueName, needExplicitType);
+                    var defaultId = RenderObject(defaultValue, defaultValueName, explicitType);
                     var call =
                         RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
                     AddExpression(call);
@@ -589,9 +588,9 @@ internal class MethodRenderer : CodeRenderer
                 var fieldName = RenderObject(name);
                 // TODO: do not render default values?
                 var value = fieldInfo.GetValue(obj);
-                var needExplicitType = NeedExplicitType(value, typeof(object));
+                var explicitType = NeedExplicitType(value, typeof(object)) ? typeof(object) : null;
                 var validName = CorrectNameGenerator.GetVariableName(name);
-                var fieldValue = RenderObject(value, validName, needExplicitType);
+                var fieldValue = RenderObject(value, validName, explicitType);
                 fieldsWithValues[i] = (fieldName, fieldValue);
                 i++;
             }
@@ -655,6 +654,15 @@ internal class MethodRenderer : CodeRenderer
             var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
             return RenderFields(obj, type, isPublicType, typeExpr, preferredName);
+        }
+
+        private ExpressionSyntax RenderNull(Type? explicitType, string? preferredName)
+        {
+            var value = RenderNull();
+            if (explicitType == null) return value;
+
+            var name = preferredName ?? "nullValue";
+            return AddDecl(name, RenderType(explicitType), value);
         }
 
         private List<(SimpleNameSyntax, ExpressionSyntax)> RenderClausesSetup(
@@ -778,18 +786,18 @@ internal class MethodRenderer : CodeRenderer
         public ExpressionSyntax RenderObject(
             object? obj,
             string? preferredName = null,
-            bool explicitType = false) =>
+            Type? explicitType = null) =>
             obj switch
         {
-            null => RenderNull(),
+            null => RenderNull(explicitType, preferredName),
             true => True,
             false => False,
             // byte, sbyte, char, short, ushort don't have data type suffix, so rendering cast (if needed)
-            byte n => RenderByte(n, explicitType),
-            sbyte n => RenderSByte(n, explicitType),
-            char n => RenderChar(n, explicitType),
-            short n => RenderShort(n, explicitType),
-            ushort n => RenderUShort(n, explicitType),
+            byte n => RenderByte(n, explicitType != null),
+            sbyte n => RenderSByte(n, explicitType != null),
+            char n => RenderChar(n, explicitType != null),
+            short n => RenderShort(n, explicitType != null),
+            ushort n => RenderUShort(n, explicitType != null),
             int n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             uint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             long n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
@@ -808,7 +816,7 @@ internal class MethodRenderer : CodeRenderer
             nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
-            _ => RenderComplexObject(obj, preferredName, explicitType)
+            _ => RenderComplexObject(obj, preferredName, explicitType != null)
         };
 
         public int StatementsCount()

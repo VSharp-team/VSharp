@@ -16,6 +16,10 @@ module Buffer =
             | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
                 let stringArrayType = (typeof<char>, 1, true)
                 address, [MakeNumber 0], stringArrayType
+            | Ptr(HeapLocation(address, t), sightType, offset) ->
+                match TryPtrToArrayInfo t sightType offset with
+                | Some(index, arrayType) -> address, index, arrayType
+                | None -> internalfail $"Memmove: unexpected pointer {ref}"
             | _ -> internalfail $"Memmove: unexpected reference {ref}"
         let addr1, indices1, arrayType1 = getArrayInfo dst
         let addr2, indices2, arrayType2 = getArrayInfo src

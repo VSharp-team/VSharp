@@ -612,11 +612,33 @@ module internal Terms =
         | ConcreteHeapAddress(addr) -> addr
         | _ -> __unreachable__()
 
+    let tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
+        match offset.term with
+        | Concrete(:? int as offset, _) ->
+            let checkType() =
+                typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
+                || typeOfBase = typeof<string> && sightType = typeof<char>
+            let mutable elemSize = 0
+            let checkOffset() =
+                elemSize <- internalSizeOf sightType
+                (offset % elemSize) = 0
+            if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
+                let arrayType = (sightType, 1, true)
+                let index = int (offset / elemSize)
+                Some ([makeNumber index], arrayType)
+            else None
+        | _ -> None
+
     let tryIntListFromTermList (termList : term list) =
         let addElement term concreteList k =
             match term.term with
+            | Concrete(:? int16 as i, _) -> int i :: concreteList |> k
+            | Concrete(:? uint16 as i, _) -> int i :: concreteList |> k
+            | Concrete(:? char as i, _) -> int i :: concreteList |> k
             | Concrete(:? int as i, _) -> i :: concreteList |> k
             | Concrete(:? uint as i, _) -> int i :: concreteList |> k
+            | Concrete(:? int64 as i, _) -> int i :: concreteList |> k
+            | Concrete(:? uint64 as i, _) -> int i :: concreteList |> k
             | _ -> None
         Cps.List.foldrk addElement List.empty termList Some
 
@@ -669,7 +691,10 @@ module internal Terms =
         let bytes : byte array = internalSizeOf t |> Array.zeroCreate
         let folder bytes slice =
             match slice.term with
-            | Slice(term, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, {term = Concrete(:? int as pos, _)}) ->
+            | Slice(term, {term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}) ->
+                let s = convert s typeof<int> :?> int
+                let e = convert e typeof<int> :?> int
+                let pos = convert pos typeof<int> :?> int
                 let o = slicingTerm term
                 let sliceBytes = concreteToBytes o
                 let sliceStart = max s 0

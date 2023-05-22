@@ -14,6 +14,7 @@ open VSharp
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<stringRepr>)>]
 type testInfo = {
     assemblyName : string
     moduleFullyQualifiedName : string

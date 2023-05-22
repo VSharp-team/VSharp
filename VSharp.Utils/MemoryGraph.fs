@@ -100,6 +100,18 @@ type enumRepr = {
 
 [<CLIMutable>]
 [<Serializable>]
+type stringRepr = {
+    content : string
+}
+with
+    static member Encode(str : string) : stringRepr =
+        { content = Text.Encoding.UTF8.GetBytes str |> Convert.ToBase64String }
+
+    member x.Decode() =
+        Convert.FromBase64String x.content |> Text.Encoding.UTF8.GetString
+
+[<CLIMutable>]
+[<Serializable>]
 type pointerRepr = {
     index : int
     shift : int
@@ -111,6 +123,7 @@ type pointerRepr = {
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<stringRepr>)>]
 type structureRepr = {
     typ : int
     fields : obj array
@@ -122,6 +135,7 @@ type structureRepr = {
 [<XmlInclude(typeof<referenceRepr>)>]
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<stringRepr>)>]
 // If indices = null, then values is just the whole content of an array.
 // Otherwise, indices.Length = values.Length is guaranteed, and the array can be decoded by filling
 //    the whole array with defaultValue and then synchronously writing values into indices
@@ -142,6 +156,7 @@ type arrayRepr = {
 [<XmlInclude(typeof<arrayRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
 [<XmlInclude(typeof<methodRepr>)>]
+[<XmlInclude(typeof<stringRepr>)>]
 type typeMockRepr = {
     name : string
     baseClass : typeRepr
@@ -185,6 +200,7 @@ with
 [<XmlInclude(typeof<arrayRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
 [<XmlInclude(typeof<typeMockRepr>)>]
+[<XmlInclude(typeof<stringRepr>)>]
 type memoryRepr = {
     objects : obj array
     types : typeRepr array
@@ -252,6 +268,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let elementType = t.GetElementType()
             if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
             else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
+        | :? stringRepr as repr -> repr.Decode()
         | _ -> obj
 
     let sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
@@ -279,6 +296,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? enumRepr as repr ->
             let t = sourceTypes[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
+        | :? stringRepr as str -> str.Decode()
         | _ -> obj
 
     and decodeFields (fieldsRepr : obj array) obj t : unit =
@@ -429,6 +447,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? arrayRepr -> obj
         | :? pointerRepr -> obj
         | :? enumRepr -> obj
+        | :? stringRepr -> obj
         | _ ->
             let t = obj.GetType()
             if x.IsSerializable t then obj
@@ -461,6 +480,9 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
     member x.RepresentMockedStruct (typ : Mocking.Type) (fields : obj array) =
         let repr : structureRepr = {typ = mockStorage.RegisterMockedType typ; fields = fields}
         repr :> obj
+
+    member x.RepresentString (str : string) =
+        stringRepr.Encode str :> obj
 
     member x.ReserveRepresentation() = x.Bind null null
 

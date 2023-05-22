@@ -17,8 +17,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="String.fsi" />
-        <Compile Include="String.fs" />
         <Compile Include="SystemArray.fsi" />
         <Compile Include="SystemArray.fs" />
         <Compile Include="Math.fsi" />
@@ -41,6 +39,8 @@
         <Compile Include="ByReference.fs" />
         <Compile Include="Span.fsi" />
         <Compile Include="Span.fs" />
+        <Compile Include="String.fsi" />
+        <Compile Include="String.fs" />
         <Compile Include="Buffer.fsi" />
         <Compile Include="Buffer.fs" />
         <Compile Include="EqualityComparer.fsi" />

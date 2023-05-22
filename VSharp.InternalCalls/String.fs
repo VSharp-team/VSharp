@@ -10,26 +10,24 @@ open VSharp.Core
 module internal String =
 
     let CtorOfCharArray state args =
-        assert (List.length args = 2)
+        assert(List.length args = 2)
         let this, arrayRef = List.item 0 args, List.item 1 args
-        let ctor state arrayRef k =
-            let states = Memory.StringCtorOfCharArray state arrayRef this
-            match states with
-            | [state] -> k (Nop, state)
-            | _ -> __notImplemented__()
-        BranchStatementsOnNull state arrayRef
-            // TODO: if array is 'null', constructor should return String.Empty, which is interned #bug
-            (fun state k ->
-                let arrayRef = TypeOf arrayRef |> NullRef
-                ctor state arrayRef k)
-            (fun state k -> ctor state arrayRef k)
-            id
+        let states = Memory.StringCtorOfCharArray state arrayRef this
+        List.map (fun state -> (Nop, state)) states
 
     let CtorFromReplicatedChar state args =
-        assert (List.length args = 3)
+        assert(List.length args = 3)
         let this, char, length = args.[0], args.[1], args.[2]
         Memory.StringFromReplicatedChar state this char length
         Nop
+
+    let CtorFromSpan (state : state) (args : term list) : term =
+        assert(List.length args = 2)
+        let this, span = args[0], args[1]
+        let ref = ReadOnlySpan.GetContentsRef state span
+        match Memory.StringCtorOfCharArray state ref this with
+        | [ _ ] -> Nop
+        | _ -> internalfail "CtorFromSpan: need to branch execution"
 
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)

@@ -65,7 +65,7 @@ module TestGenerator =
                 | _ when typ = typeof<string> ->
                     let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
                     let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
-                    String(contents) :> obj
+                    String(contents) |> memoryGraph.RepresentString
                 | _ ->
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
@@ -274,7 +274,8 @@ module TestGenerator =
                         let message =
                             if isError && String.IsNullOrEmpty message then
                                 let messageReference = Memory.ReadField state e Reflection.exceptionMessageField |> model.Eval
-                                term2obj model state indices mockCache implementations test messageReference :?> string
+                                let encoded = term2obj model state indices mockCache implementations test messageReference :?> stringRepr
+                                encoded.Decode()
                             else message
                         true, message
                     | _ -> false, message

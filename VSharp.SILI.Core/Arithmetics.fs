@@ -693,7 +693,7 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
-            assert(t1 = t2)
+            assert(isNumeric t1 && isNumeric t2)
             try
                 Calculator1.AddOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
@@ -705,7 +705,7 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
-            assert(t1 = t2)
+            assert(isNumeric t1 && isNumeric t2)
             try
                 Calculator1.MulOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
@@ -815,13 +815,14 @@ module internal Arithmetics =
 
     // TODO: implement without using of expression AddNoOvf or MultiplyNoOvf:
     // TODO: - if signed, then it should keep the sign
-    let rec makeExpressionNoOvf expr k =
-        match expr with
-        | Add(x, y, _) -> simplifyAddNoOvf x y |> k
-        | Mul(x, y, _) -> simplifyMultiplyNoOvf x y |> k
-        | {term = Expression(_, args, _) } ->
-            Cps.List.foldlk (fun acc x k -> makeExpressionNoOvf x (fun x' -> k (acc &&& x'))) True args k
-        | _ -> k True
+    let makeExpressionNoOvf expr =
+        let collectConditions acc expr next into =
+            match expr with
+            | Add(x, y, _) -> acc &&& simplifyAddNoOvf x y |> next
+            | Mul(x, y, _) -> acc &&& simplifyMultiplyNoOvf x y |> next
+            | {term = Expression _ } -> into acc
+            | _ -> next acc
+        Seq.singleton expr |> fold collectConditions True
 
 // ------------------------------- Standard functions -------------------------------
 

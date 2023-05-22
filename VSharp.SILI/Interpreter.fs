@@ -488,20 +488,25 @@ module internal InstructionsSet =
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
-    // TODO: implement fully (using information about calling method):
-    // TODO: - if thisType is a value type and thisType implements method then ptr is passed unmodified
-    // TODO: - if thisType is a value type and thisType does not implement method then ptr is dereferenced and boxed
+    // '.constrained' is prefix, which is used before 'callvirt' instruction
     let constrained (m : Method) offset (cilState : cilState) =
         match findNextInstructionOffsetAndEdges OpCodes.Constrained m.ILBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Callvirt.Size)
+            // Method can not be constructor, because it's called via 'callvirt'
+            assert(method :? MethodInfo)
+            let method = method :?> MethodInfo
             let n = method.GetParameters().Length
             let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
             setEvaluationStack evaluationStack cilState
             let thisForCallVirt = pop cilState
+            let thisType = TypeOfLocation thisForCallVirt
+            let isValueType = Types.IsValueType thisType
             match thisForCallVirt.term with
-            | HeapRef _ -> ()
-            | Ref _ when TypeOfLocation thisForCallVirt |> Types.IsValueType ->
+            | Ref _ when isValueType && Reflection.typeImplementsMethod thisType method ->
+                push thisForCallVirt cilState
+                pushMany args cilState
+            | Ref _ when isValueType ->
                 let thisStruct = Memory.Read cilState.state thisForCallVirt
                 let heapRef = Memory.BoxValueType cilState.state thisStruct
                 push heapRef cilState
@@ -510,7 +515,7 @@ module internal InstructionsSet =
                 let this = Memory.Read cilState.state thisForCallVirt
                 push this cilState
                 pushMany args cilState
-            | _ -> __unreachable__()
+            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
         | _ -> __unreachable__()
     let localloc (cilState : cilState) =
         // [NOTE] localloc usually is used for Span
@@ -573,6 +578,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
             "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
             "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)", this.RunStaticCtor
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)", this.RunStaticCtor
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -831,6 +838,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             (x.Raise x.DivideByZeroException)
             validCase
             id
+
+    member private x.RunStaticCtor (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        // TODO: initialize statics of argument
+        List.singleton cilState
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
@@ -1298,6 +1310,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         | false ->
             let this = Memory.ReadThis cilState.state calledMethod
             x.NpeOrInvokeStatementCIL cilState this call k
+
     member x.RetrieveCalledMethodAndArgs (opCode : OpCode) (calledMethod : Method) (cilState : cilState) =
         let args = retrieveActualParameters calledMethod cilState
         let hasThis = calledMethod.HasThis && opCode <> OpCodes.Newobj
@@ -1471,7 +1484,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
-        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let uncheckedLdElem (cilState : cilState) k =
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices typ
@@ -1512,7 +1524,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.StElemCommon (typ : Type option) (cilState : cilState) arrayRef indices value =
         let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
         let baseType = Types.ElementType arrayType
-        let indices = List.map (fun i -> Types.Cast i typeof<int>) indices
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =

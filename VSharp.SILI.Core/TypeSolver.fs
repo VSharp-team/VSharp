@@ -391,7 +391,7 @@ module TypeSolver =
         | {term = ConcreteHeapAddress address} -> address
         | _ -> internalfail $"[Type solver] evaluating address in model: unexpected address {address}"
 
-    let mergeConstraints (constraints : typesConstraints) (addresses : term seq) =
+    let private mergeConstraints (constraints : typesConstraints) (addresses : term seq) =
         let resultConstraints = typeConstraints.Empty()
         for address in addresses do
             let constraints = constraints[address]
@@ -482,4 +482,7 @@ module TypeSolver =
             match result with
             | TypeSat -> typeStorage[thisAddress].Value |> Seq.filter checkOverrides
             | TypeUnsat -> Seq.empty
+        | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
+            assert(thisType = typeOfAddress address)
+            ConcreteType thisType |> Seq.singleton
         | _ -> internalfail $"Getting callvirt candidates: unexpected this {thisRef}"
