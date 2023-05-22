@@ -3,6 +3,8 @@ from math import floor
 
 import numpy as np
 import numpy.typing as npt
+import torch
+from torch_geometric.loader import DataLoader
 
 from common.constants import Constant
 from common.game import GameState
@@ -10,7 +12,7 @@ from config import Config
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
-from ml.utils import load_full_model
+from ml.utils import load_model
 
 from .protocols import ModelWrapper, Mutable
 
@@ -25,7 +27,9 @@ class GeneticLearner(ModelWrapper):
 
     @staticmethod
     def set_static_model():
-        GeneticLearner.MODEL = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
+        GeneticLearner.MODEL = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
+        if torch.cuda.is_available():
+            GeneticLearner.MODEL.to("cuda")
 
     def __init__(
         self, weights: npt.NDArray = None, successor_name_closure=lambda x: x
@@ -56,8 +60,15 @@ class GeneticLearner(ModelWrapper):
             input
         )
         assert GeneticLearner.MODEL is not None
+
+        wrapped_input = (
+            DataLoader([hetero_input], batch_size=1, shuffle=False)
+            .__iter__()
+            ._next_data()
+        )
+
         next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
-            GeneticLearner.MODEL, self.weights, hetero_input, state_map
+            GeneticLearner.MODEL, self.weights, wrapped_input, state_map
         )
         return next_step_id
 
