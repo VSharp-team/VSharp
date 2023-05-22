@@ -65,3 +65,8 @@ module Unsafe =
         assert(List.length args = 1)
         let typ = getTypeFromTerm args.[0]
         Types.SizeOf typ |> MakeNumber
+
+    let internal AreSame (_ : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let ptr1, ptr2 = args[1], args[2]
+        ptr1 === ptr2

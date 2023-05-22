@@ -35,3 +35,6 @@ module internal Unsafe =
 
     [<Implements("System.Int32 Internal.Runtime.CompilerServices.Unsafe.SizeOf()")>]
     val internal SizeOf : state -> term list -> term
+
+    [<Implements("System.Boolean Internal.Runtime.CompilerServices.Unsafe.AreSame(T&, T&)")>]
+    val internal AreSame : state -> term list -> term

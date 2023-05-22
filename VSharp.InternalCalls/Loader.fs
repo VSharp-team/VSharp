@@ -132,6 +132,7 @@ module Loader =
 
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
+            "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
