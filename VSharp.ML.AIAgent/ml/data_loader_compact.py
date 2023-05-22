@@ -117,34 +117,56 @@ class ServerDataloaderHeteroVector:
                 edges_index_s_v_in.append(np.array([state_map[s], vertex_map[v.Id]]))
                 edges_index_v_s_in.append(np.array([vertex_map[v.Id], state_map[s]]))
 
-        data["game_vertex"].x = torch.tensor(np.array(nodes_vertex), dtype=torch.float)
-        data["state_vertex"].x = torch.tensor(np.array(nodes_state), dtype=torch.float)
-        data["game_vertex", "to", "game_vertex"].edge_index = (
+        gv2gv = (
             torch.tensor(np.array(edges_index_v_v), dtype=torch.long).t().contiguous()
         )
+        sv_parent_sv = (
+            torch.tensor(np.array(edges_index_s_s), dtype=torch.long).t().contiguous()
+        )
+
+        gv_his_sv = (
+            torch.tensor(np.array(edges_index_v_s_history), dtype=torch.long)
+            .t()
+            .contiguous()
+        )
+
+        gv_in_sv = (
+            torch.tensor(np.array(edges_index_v_s_in), dtype=torch.long)
+            .t()
+            .contiguous()
+        )
+
+        def tensor_not_empty(tensor):
+            return tensor.numel() != 0
+
+        # dumb fix
+        def null_if_empty(tensor):
+            return (
+                tensor
+                if tensor_not_empty(tensor)
+                else torch.empty((2, 0), dtype=torch.int64)
+            )
+
+        data["game_vertex"].x = torch.tensor(np.array(nodes_vertex), dtype=torch.float)
+        data["state_vertex"].x = torch.tensor(np.array(nodes_state), dtype=torch.float)
+        data["game_vertex", "to", "game_vertex"].edge_index = null_if_empty(gv2gv)
         data["state_vertex", "in", "game_vertex"].edge_index = (
             torch.tensor(np.array(edges_index_s_v_in), dtype=torch.long)
             .t()
             .contiguous()
         )
-        data["game_vertex", "in", "state_vertex"].edge_index = (
-            torch.tensor(np.array(edges_index_v_s_in), dtype=torch.long)
-            .t()
-            .contiguous()
-        )
+        data["game_vertex", "in", "state_vertex"].edge_index = null_if_empty(gv_in_sv)
         data["state_vertex", "history", "game_vertex"].edge_index = (
             torch.tensor(np.array(edges_index_s_v_history), dtype=torch.long)
             .t()
             .contiguous()
         )
-        data["game_vertex", "history", "state_vertex"].edge_index = (
-            torch.tensor(np.array(edges_index_v_s_history), dtype=torch.long)
-            .t()
-            .contiguous()
+        data["game_vertex", "history", "state_vertex"].edge_index = null_if_empty(
+            gv_his_sv
         )
         # if (edges_index_s_s): #TODO: empty?
-        data["state_vertex", "parent_of", "state_vertex"].edge_index = (
-            torch.tensor(np.array(edges_index_s_s), dtype=torch.long).t().contiguous()
+        data["state_vertex", "parent_of", "state_vertex"].edge_index = null_if_empty(
+            sv_parent_sv
         )
         # print(data['state', 'parent_of', 'state'].edge_index)
         # data['game_vertex', 'to', 'game_vertex'].edge_attr = torch.tensor(np.array(edges_attr_v_v), dtype=torch.long)
@@ -235,7 +257,3 @@ def get_data_hetero_vector():
     dl = ServerDataloaderHeteroVector("../../GNN_V#/all")
     # dl = ServerDataloaderHetero("../../GNN_V#/Serialized_test")
     return dl.dataset
-
-
-if __name__ == "__main__":
-    get_data_hetero_vector()

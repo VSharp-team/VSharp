@@ -61,14 +61,8 @@ class GeneticLearner(ModelWrapper):
         )
         assert GeneticLearner.MODEL is not None
 
-        wrapped_input = (
-            DataLoader([hetero_input], batch_size=1, shuffle=False)
-            .__iter__()
-            ._next_data()
-        )
-
         next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
-            GeneticLearner.MODEL, self.weights, wrapped_input, state_map
+            GeneticLearner.MODEL, self.weights, hetero_input, state_map
         )
         return next_step_id
 
