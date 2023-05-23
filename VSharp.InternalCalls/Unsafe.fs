@@ -70,3 +70,14 @@ module Unsafe =
         assert(List.length args = 3)
         let ptr1, ptr2 = args[1], args[2]
         ptr1 === ptr2
+
+    let internal GetRawData (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        let ref = args[0]
+        match ref.term with
+        | HeapRef(address, _) ->
+            let t = MostConcreteTypeOfHeapRef state ref
+            Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
+        | Ref(BoxedLocation(address, t)) ->
+            Ptr (HeapLocation(ConcreteHeapAddress address, t)) typeof<byte> (MakeNumber 0)
+        | _ -> internalfail $"GetRawData: unexpected ref {ref}"

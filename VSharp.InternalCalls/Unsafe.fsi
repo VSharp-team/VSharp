@@ -38,3 +38,6 @@ module internal Unsafe =
 
     [<Implements("System.Boolean Internal.Runtime.CompilerServices.Unsafe.AreSame(T&, T&)")>]
     val internal AreSame : state -> term list -> term
+
+    [<Implements("System.Byte& System.Runtime.CompilerServices.RuntimeHelpers.GetRawData(System.Object)")>]
+    val internal GetRawData : state -> term list -> term
