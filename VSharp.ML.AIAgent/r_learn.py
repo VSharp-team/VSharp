@@ -128,7 +128,7 @@ def r_learn_iteration(
     games = list(generate_games(models, maps))
 
     model_results_on_map: GameMapsModelResults = defaultdict(list)
-    futures_queue = queue.Queue()
+    futures_queue = queue.SimpleQueue()
 
     with tqdm.tqdm(
         total=len(games), desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT

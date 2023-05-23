@@ -92,11 +92,11 @@ class PredictStateVectorHetGNN:
         data.state_map - maps real state id to state index"""
 
         device = torch.device("cuda:0")
-        # data.to(device)
+        data.to(device)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
-        # concurrent.futures.process.BrokenProcessPool: A process in the process pool was terminated abruptly while the future was running or pending.
-        out = model.forward(data.x_dict, data.edge_index_dict)
+        with torch.cuda.device(0):
+            out = model.forward(data.x_dict, data.edge_index_dict)
 
         remapped = []
 
