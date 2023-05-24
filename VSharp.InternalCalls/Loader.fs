@@ -107,6 +107,7 @@ module Loader =
             "System.RuntimeType System.RuntimeTypeHandle.GetBaseType(System.RuntimeType)"
             "System.TypeCode System.Type.GetTypeCode(System.Type)"
             "System.Reflection.CorElementType System.RuntimeTypeHandle.GetCorElementType(System.RuntimeType)"
+            "System.Reflection.CorElementType System.Enum.InternalGetCorElementType(this)"
             "System.String System.RuntimeType.ToString(this)"
 
             // EqualityComparer
@@ -132,7 +133,8 @@ module Loader =
 
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
-
+            "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
+            
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
         ]

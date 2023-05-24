@@ -34,7 +34,7 @@ module ReadOnlySpan =
                 ArrayIndex(address, index, arrayType) |> Ref
             | None when t.IsSZArray || t = typeof<string> -> ptrToArray
             | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptrToArray}"
-        | _ -> internalfail $"GetContentsRef: unexpected pointer to contents {ptrToArray}"
+        | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptrToArray}"
 
     let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
         assert(List.length args = 3)

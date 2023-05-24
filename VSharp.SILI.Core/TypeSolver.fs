@@ -149,14 +149,15 @@ module TypeSolver =
 
     let private satisfiesTypeParameterConstraints (parameter : Type) subst (t : Type) =
         let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let isReferenceType = parameter.GenericParameterAttributes &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
-        let isNotNullableValueType = parameter.GenericParameterAttributes &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
-        let hasDefaultConstructor = parameter.GenericParameterAttributes &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
+        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
+        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
+        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
+        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
         // TODO: check 'managed' constraint
         (not t.ContainsGenericParameters) &&
         (not isReferenceType || not t.IsValueType) &&
         (not isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null)) &&
-        (not hasDefaultConstructor || t.GetConstructor(Type.EmptyTypes) <> null) &&
+        (not hasDefaultConstructor || t.IsValueType || not t.IsAbstract && t.GetConstructor(Type.EmptyTypes) <> null) &&
         (parameter.GetGenericParameterConstraints() |> Array.forall (substitute subst >> t.IsAssignableTo))
 
     let private satisfiesConstraints (constraints : typeConstraints) subst (candidate : Type) =

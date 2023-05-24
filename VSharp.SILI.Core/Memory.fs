@@ -754,10 +754,12 @@ module internal Memory =
     let readBoxedLocation state (address : concreteHeapAddress) =
         let cm = state.concreteMemory
         let typ = typeOfConcreteHeapAddress state address
-        match cm.TryVirtToPhys address, PersistentDict.tryFind state.boxedLocations address with
-        | Some value, _ -> objToTerm state typ value
-        | None, Some value -> value
-        | _ -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+        match cm.TryVirtToPhys address with
+        | Some value -> objToTerm state typ value
+        | None ->
+            match PersistentDict.tryFind state.boxedLocations address with
+            | Some value -> value
+            | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
 
     let rec readDelegate state reference =
         match reference.term with
@@ -916,17 +918,16 @@ module internal Memory =
         checkBlockBounds state reportError locSize offset endByte
         readTermUnsafe term offset endByte
 
-    let private readBoxedStructUnsafe state loc typ offset viewSize =
+    let private readBoxedUnsafe state loc typ offset viewSize =
         let address =
             match loc.term with
             | ConcreteHeapAddress address -> BoxedLocation(address, typ)
-            | _ -> internalfail "readUnsafe: struct case is not fully implemented"
-        let fields =
-            match readSafe state address with
-            | {term = Struct(fields, _)} -> fields
-            | term -> internalfailf "readUnsafe: reading struct resulted in term %O" term
+            | _ -> internalfail "readUnsafe: boxed value type case is not fully implemented"
         let endByte = makeNumber viewSize |> add offset
-        readStructUnsafe fields typ offset endByte
+        match readSafe state address with
+        | {term = Struct(fields, _)} -> readStructUnsafe fields typ offset endByte
+        | term when isPrimitive typ || typ.IsEnum -> readTermUnsafe term offset endByte
+        | term -> internalfail $"readUnsafe: reading struct resulted in term {term}"
 
     let private readUnsafe state reportError baseAddress offset sightType =
         let viewSize = internalSizeOf sightType
@@ -938,7 +939,9 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
-                | StructType _ -> readBoxedStructUnsafe state loc typ offset viewSize
+                | StructType _ -> readBoxedUnsafe state loc typ offset viewSize
+                | _ when isPrimitive typ || typ.IsEnum ->
+                    readBoxedUnsafe state loc typ offset viewSize
                 | _ -> internalfailf "expected complex type, but got %O" typ
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
@@ -1051,8 +1054,8 @@ module internal Memory =
 
     let writeBoxedLocation state (address : concreteHeapAddress) value =
         let cm = state.concreteMemory
-        match tryTermToObj state value with
-        | Some value when cm.Contains(address) ->
+        match memoryMode, tryTermToObj state value with
+        | ConcreteMemory, Some value when cm.Contains(address) ->
             cm.Remove address
             cm.Allocate address value
         | _ -> writeBoxedLocationSymbolic state address value
@@ -1383,7 +1386,9 @@ module internal Memory =
         let typ = typeOf value
         let concreteAddress = allocateType state typ
         let address = ConcreteHeapAddress concreteAddress
-        writeBoxedLocationSymbolic state concreteAddress value
+        match memoryMode, tryTermToObj state value with
+        | ConcreteMemory, Some value -> state.concreteMemory.Allocate concreteAddress value
+        | _ -> writeBoxedLocationSymbolic state concreteAddress value
         HeapRef address typeof<obj>
 
     let allocateConcreteObject state obj (typ : Type) =

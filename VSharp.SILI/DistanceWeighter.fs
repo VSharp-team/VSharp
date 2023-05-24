@@ -21,8 +21,8 @@ type ShortestDistanceWeighter(target : target) =
     // Returns the number proportional to distance from the offset in frameOffset of frameMethod to target. Uses both
     // call graph for interprocedural and CFG for intraprocedural distance approximation.
     let frameWeight (frameMethod : Method) frameOffset frameNumber =
-        let frameMethodCFG = frameMethod.ForceCFG
-        let frameDist = frameMethodCFG.DistancesFrom frameOffset
+        let cfg = frameMethod.ForceCFG
+        let frameDist = cfg.DistancesFrom frameOffset
         let checkDist () =
             let offset = target.location.ForceBasicBlock
             Dict.tryGetValue frameDist offset infinity <> infinity
@@ -33,17 +33,20 @@ type ShortestDistanceWeighter(target : target) =
 
         match () with
         | _ when frameMethod = target.location.method && checkDist () -> frameNumber
-        | _ when Seq.isEmpty frameMethodCFG.Calls -> infinity
+        | _ when Seq.isEmpty cfg.Calls -> infinity
         | _ ->
-            frameMethodCFG.Calls |> Seq.map (fun kvp ->
+            cfg.Calls |> Seq.map (fun kvp ->
             if Dict.tryGetValue frameDist kvp.Key infinity = infinity then infinity
-            else callWeight kvp.Value.Callee)
-         |> Seq.min
+            else callWeight kvp.Value.Callee) |> Seq.min
 
     let calculateCallWeight (state : cilState) =
         let suitable ip =
             match offsetOf ip with
-            | Some offset -> Some (forceMethodOf ip, offset)
+            | Some offset -> 
+                let method = forceMethodOf ip
+                match method.CFG with
+                | None -> None
+                | Some _ -> Some (method, offset)
             | None -> None
         let calculateWeight frameNumber (method, offset) =
             // TODO: do not execute this for frames with frameNumber > current minimum
