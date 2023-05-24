@@ -12,8 +12,13 @@ std::function<ThreadID()> vsharp::currentThread(&currentThreadNotConfigured);
 static std::map<ThreadID, int> vsharp::stackBalances;
 static ThreadID vsharp::mainThread = 0;
 
+bool vsharp::isMainThread() {
+    return currentThread() == ::mainThread;
+}
+
 void vsharp::stackBalanceUp() {
     ThreadID thread = currentThread();
+    if (!isMainThread()) return;
     getLock();
     auto pos = stackBalances.find(thread);
     if (pos == ::stackBalances.end())
@@ -25,6 +30,7 @@ void vsharp::stackBalanceUp() {
 
 bool vsharp::stackBalanceDown() {
     ThreadID thread = currentThread();
+    if (!isMainThread()) return true;
     getLock();
     auto pos = stackBalances.find(thread);
     if (pos == ::stackBalances.end()) FAIL_LOUD("stack balance down on thread without stack!")
@@ -44,10 +50,6 @@ void vsharp::setMainThread() {
     ::mainThread = currentThread();
 }
 
-bool vsharp::isMainThread() {
-    return currentThread() == ::mainThread;
-}
-
 void vsharp::unsetMainThread() {
     ::mainThread = 0;
 }
@@ -61,4 +63,3 @@ void vsharp::getLock() {
 void vsharp::freeLock() {
     mutex.unlock();
 }
-

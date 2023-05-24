@@ -242,8 +242,8 @@ void vsharp::Track_EnterMain(OFFSET offset, int methodId, int isSpontaneous) {
     currentCoverage = new CoverageHistory(offset, methodId);
     enableProbes();
     emptyStacks();
-    stackBalanceUp();
     setMainThread();
+    stackBalanceUp();
     coverageHistory.push_back(currentCoverage);
 }
 
