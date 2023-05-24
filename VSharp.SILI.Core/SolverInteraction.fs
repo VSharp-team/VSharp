@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 
@@ -58,11 +59,17 @@ module public SolverInteraction =
     let checkSat state =
         checkSatWithCtx state Seq.empty
 
+    let rec private createContext (unequal : HashSet<term * term>) =
+        let createCondition (a1, a2) =
+            ((a1 === zeroAddress) &&& (a2 === zeroAddress)) ||| (!!(a1 === a2))
+        Seq.map createCondition unequal
+
     let checkSatWithSubtyping (state : state) =
         let typeStorage = state.typeStorage
         let isValid, unequal = typeStorage.Constraints.CheckInequality()
+        let context = createContext unequal
         if isValid then
-            match checkSatWithCtx state unequal with
+            match checkSatWithCtx state context with
             | SmtSat {mdl = model} as satWithModel ->
                 try
                     match TypeSolver.solveTypes model state with

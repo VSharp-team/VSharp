@@ -253,7 +253,7 @@ and typesConstraints private (newAddresses, constraints) =
                 if typeConstraints.IsContradicting() then
                     if different then unequal.Add(address1, address2) |> ignore
                     else isValid <- false
-        isValid, Seq.map (fun (a1, a2) -> !!(a1 === a2)) unequal
+        isValid, unequal
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() =
