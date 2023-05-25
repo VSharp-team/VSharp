@@ -204,6 +204,15 @@ namespace IntegrationTests
             return newList.Select(i => i.Length);
         }
 
+        [TestSvm(100)]
+        public static int OrderByTest(int value)
+        {
+            var list = new List<Order>();
+            var order = new Order { Id = value, Cost = value };
+            list.Add(order);
+            return list.OrderBy(o => o.Id).First().Id;
+        }
+
         [Ignore("takes too much time")]
         public static int SequenceLinqTest()
         {
