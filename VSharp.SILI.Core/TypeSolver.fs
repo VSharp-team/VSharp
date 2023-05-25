@@ -103,7 +103,14 @@ type typeSolvingResult =
     | TypeUnsat
 
 module TypeSolver =
+
     type private substitution = pdict<Type, symbolicType>
+
+    let getAssemblies() =
+        seq {
+            yield! AssemblyManager.GetAssemblies()
+            yield typeof<int>.Assembly
+        }
 
     let rec private enumerateNonAbstractSupertypes predicate (typ : Type) =
         if typ = null || typ.IsAbstract then List.empty
@@ -132,6 +139,7 @@ module TypeSolver =
                         assemblies |> Seq.filter (fun a -> not a.IsDynamic)
                 for assembly in assemblies do
                     let types = assembly.GetExportedTypesChecked()
+                    // TODO: in any assembly, there is no array types, so need to generate it manually
                     yield! types |> Seq.filter (fun t -> not t.ContainsGenericParameters && validate t) |> Seq.map ConcreteType
             if List.forall canBeMocked supertypes then
                 yield mock supertypes |> MockType
@@ -180,14 +188,14 @@ module TypeSolver =
             let validate = satisfiesConstraints constraints subst
             match constraints.subtypes with
             | [] ->
-                let assemblies = AssemblyManager.GetAssemblies()
+                let assemblies = getAssemblies()
                 enumerateNonAbstractTypes constraints.supertypes (getMock None) validate assemblies
             | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
 
     let private typeParameterCandidates getMock subst (parameter : Type, constraints : typeConstraints) =
         let validate typ = satisfiesTypeParameterConstraints parameter subst typ
         let supertypes = constraints.supertypes |> List.map (substitute subst)
-        enumerateTypes supertypes getMock validate (AssemblyManager.GetAssemblies())
+        enumerateTypes supertypes getMock validate (getAssemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
         if typ.IsGenericParameter then
