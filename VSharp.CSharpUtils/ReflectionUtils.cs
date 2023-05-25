@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -8,11 +9,18 @@ namespace VSharp.CSharpUtils
 {
     public static class ReflectionUtils
     {
+        /// <summary>
+        /// Checks that method is implemented in the given type. Used to filter "uninteresting" methods
+        /// like default implementations of ToString, GetHashCode etc. However, it is possible that
+        /// not all cases are checked with this condition. TODO: check that nothing else is needed
+        /// </summary>
+        private static bool DeclaredInType(this MethodBase method, Type type) => method.DeclaringType == type;
+
         public static IEnumerable<MethodBase> EnumerateExplorableMethods(this Type type)
         {
-            var flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly;
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public;
 
-            foreach (var m in type.GetMethods(flags).Where(m => m.GetMethodBody() != null))
+            foreach (var m in type.GetMethods(flags).Where(m => m.GetMethodBody() != null && m.DeclaredInType(type)))
             {
                 yield return m;
             }
@@ -32,13 +40,7 @@ namespace VSharp.CSharpUtils
             }
             catch (ReflectionTypeLoadException e)
             {
-                foreach (var type in e.Types)
-                {
-                    if (type is not null)
-                    {
-                        types.Add(type);
-                    }
-                }
+                types.AddRange(e.Types.Where(type => type is not null)!);
             }
             return types.Where(IsPublic);
         }
@@ -63,8 +65,57 @@ namespace VSharp.CSharpUtils
             catch (ReflectionTypeLoadException e)
             {
                 // TODO: pass logger here and show warnings
-                return e.Types.Where(t => t is not null);
+                return e.Types.Where(t => t is not null)!;
             }
+        }
+
+        public static MethodBase? ResolveMethod(this Assembly assembly, int methodToken)
+        {
+            foreach (var module in assembly.GetModules())
+            {
+                try
+                {
+                    var method = module.ResolveMethod(methodToken);
+                    if (method != null) return method;
+                }
+                catch
+                {
+                    // ignored
+                }
+            }
+
+            return null;
+        }
+
+        public static MethodBase? ResolveMethod(this Assembly assembly, string methodName)
+        {
+            const BindingFlags flags = BindingFlags.IgnoreCase | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic |
+                                       BindingFlags.Public;
+
+            var methods = assembly.GetTypes()
+                .SelectMany(t => t.GetMethods(flags).Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t)))
+                .ToArray();
+
+            return methods.Length != 0 ? methods.MinBy(m => m.Name.Length) : null;
+        }
+
+        public static IEnumerable<Type> ResolveNamespace(this Assembly assembly, string namespaceName)
+        {
+            var types =
+                assembly.EnumerateExplorableTypes()
+                    .Where(t => t.Namespace?.StartsWith(namespaceName) == true);
+            return types;
+        }
+
+        public static Type? ResolveType(this Assembly assembly, string name)
+        {
+            var specificClass =
+                assembly.GetType(name) ??
+                assembly.GetTypes()
+                    .Where(t => (t.FullName ?? t.Name).Contains(name))
+                    .MinBy(t => t.FullName?.Length ?? t.Name.Length);
+
+            return specificClass;
         }
     }
 }
