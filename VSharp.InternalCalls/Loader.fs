@@ -117,6 +117,7 @@ module Loader =
 
             // Thread
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
+            "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
 
             // Interop
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"

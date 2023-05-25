@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
@@ -191,6 +192,7 @@ namespace IntegrationTests
             a[2] = 42;
             return a;
         }
+
         [TestSvm(100)]
         public static int CopyAndBranch(int[] a, int i)
         {
@@ -656,6 +658,25 @@ namespace IntegrationTests
             }
 
             return -12;
+        }
+
+        [Ignore("Fix core")]
+        public static int HashtableTest(int a)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            dataHashtable[2] = a;
+            dataHashtable[a] = 0;
+            int data = (int) dataHashtable[2];
+            int[] array = null;
+            if (data > 0)
+            {
+                array = new int[data];
+            }
+
+            array[0] = 5;
+            return array[0];
         }
 
         [Ignore("Support rendering recursive arrays")]
