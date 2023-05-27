@@ -22,7 +22,7 @@ public static class TestResultChecker
             Arguments = $"{testRunnerPath} {testDir.FullName}"
         };
 
-        var success = RunDotNetWithLogging(info);
+        var success = RunWithLogging(info);
 
         if (!success)
             Logger.printLogString(Logger.Error, "TestRunner Check failed!");

@@ -28,7 +28,7 @@ namespace VSharp.CoverageRunner
             return Path.Combine(Directory.GetCurrentDirectory(), clientName);
         }
 
-        public static bool RunDotNetWithLogging(ProcessStartInfo procInfo)
+        public static bool RunWithLogging(ProcessStartInfo procInfo)
         {
             procInfo.RedirectStandardError = true;
             procInfo.RedirectStandardOutput = true;
@@ -86,7 +86,7 @@ namespace VSharp.CoverageRunner
                 Arguments = args
             };
 
-            return RunDotNetWithLogging(info);
+            return RunWithLogging(info);
         }
 
         private static CoverageLocation[][]? GetHistory(DirectoryInfo workingDirectory)
