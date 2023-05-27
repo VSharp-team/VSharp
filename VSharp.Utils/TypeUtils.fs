@@ -45,8 +45,9 @@ module TypeUtils =
 
     // ---------------------------------- Basic type predicates ----------------------------------
 
-    let isPublic (x : Type) =
-        x.IsPublic || x.IsNestedPublic
+    let rec isPublic (x : Type) =
+        assert(x <> null)
+        x.IsPublic || x.IsNestedPublic && isPublic x.DeclaringType
 
     let isGround (x : Type) =
         (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType
@@ -188,11 +189,13 @@ module TypeUtils =
         else [||]
 
     let (|StructType|_|) = function
-        | (t : Type) when t.IsValueType && not (isPrimitive t) && not t.IsGenericParameter -> Some(getGenericDefinition t, getGenericArguments t)
+        | (t : Type) when t.IsValueType && not (isPrimitive t) && not t.IsEnum && not t.IsGenericParameter ->
+            Some(getGenericDefinition t, getGenericArguments t)
         | _ -> None
 
     let (|ClassType|_|) = function
-        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsArray && t <> typeof<Array> -> Some(getGenericDefinition t, getGenericArguments t)
+        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsArray && t <> typeof<Array> ->
+            Some(getGenericDefinition t, getGenericArguments t)
         | _ -> None
 
     let (|InterfaceType|_|) = function

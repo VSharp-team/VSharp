@@ -7,16 +7,14 @@ open System.Runtime.CompilerServices
 open System.Threading
 open VSharp
 
+type private Box(v : ValueType) =
+    member internal x.Value = v
+
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
 // ----------------------------- Helpers -----------------------------
 
-    static let nonCopyableTypes = [
-        typeof<Type>
-        typeof<Thread>
-    ]
-
-    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
+    let boxValue (v : ValueType) = Box(v)
 
     let indexedArrayElemsCommon (arr : Array) =
         let ubs = Array.init arr.Rank arr.GetUpperBound
@@ -61,6 +59,15 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | _ when array.GetType().IsSZArray -> indexedArrayElemsLin array
         | _ -> indexedArrayElemsCommon array
+
+// -------------------------------- Copying --------------------------------
+
+    static let nonCopyableTypes = [
+        typeof<Type>
+        typeof<Thread>
+    ]
+
+    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
@@ -142,11 +149,19 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.Copy() =
             let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
             let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
+            // Need to copy all addresses from physToVirt, because:
+            // 1. let complex object (A) contains another object (B),
+            // if object (B) was unmarshalled, physToVirt will contain mapping
+            // between old object (B) and virtual address of it (addr);
+            // symbolic memory will contain info of symbolic object (B) by it's address (addr)
+            // So, reading from object (A) object (B) will result in HeapRef (addr),
+            // which will be read from symbolic memory
             copiedObjects.Clear()
             for kvp in physToVirt do
                 let phys, virt = kvp.Key, kvp.Value
                 let phys' = deepCopyObject phys
-                if virtToPhys.ContainsKey virt then
+                let exists, oldPhys = virtToPhys.TryGetValue(virt)
+                if exists && oldPhys = phys then
                     virtToPhys'.Add(virt, phys')
                 physToVirt'.Add(phys', virt)
             ConcreteMemory(physToVirt', virtToPhys')
@@ -160,9 +175,11 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.VirtToPhys virtAddress = x.ReadObject virtAddress
 
         override x.TryVirtToPhys virtAddress =
-            let result = ref {object = null}
-            if virtToPhys.TryGetValue(virtAddress, result) then
-                Some result.Value.object
+            let exists, result = virtToPhys.TryGetValue(virtAddress)
+            if exists then
+                match result.object with
+                | :? Box as b -> Some b.Value
+                | obj -> Some obj
             else None
 
         override x.PhysToVirt physAddress =
@@ -180,13 +197,20 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 // ----------------------------- Allocation -----------------------------
 
         override x.Allocate address (obj : obj) =
+            assert(obj <> null)
             assert(virtToPhys.ContainsKey address |> not)
+            let obj =
+                match obj with
+                // Creating object of type 'Box' to avoid interning of boxed value types
+                | :? ValueType as v -> boxValue v :> obj
+                | _ -> obj
             // Suppressing finalize, because 'obj' may implement 'Dispose()' method, which should not be invoked,
             // because object may be in incorrect state (statics, for example)
             GC.SuppressFinalize(obj)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
-            if obj = String.Empty then physToVirt[physicalAddress] <- address
+            if obj = String.Empty then
+                physToVirt[physicalAddress] <- address
             else physToVirt.Add(physicalAddress, address)
 
 // ------------------------------- Reading -------------------------------
@@ -200,7 +224,12 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.ReadArrayIndex address (indices : int list) =
             match x.ReadObject address with
             | :? Array as array -> array.GetValue(Array.ofList indices)
-            | :? String as string when List.length indices = 1 -> string.[List.head indices] :> obj
+            | :? String as string when List.length indices = 1 ->
+                let index = List.head indices
+                // Case 'index = string.Length' is needed for unsafe string reading: string contents end with null terminator
+                // In safe context this case will be filtered out in 'Interpreter', which checks indices before memory access
+                if index = string.Length then Char.MinValue :> obj
+                else string[index] :> obj
             | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
 
         override x.GetAllArrayData address =
@@ -295,5 +324,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     // ------------------------------- Remove -------------------------------
 
         override x.Remove address =
+            // No need to remove physical addresses from physToVirt, because
+            // all objects must contain virtual address, even if they were unmarshalled
             let removed = virtToPhys.Remove address
             assert removed

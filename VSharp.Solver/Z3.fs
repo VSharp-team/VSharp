@@ -929,6 +929,19 @@ module internal Z3 =
                         let states = Memory.Write state (Ref address) value
                         assert(states.Length = 1 && states.[0] = state)
                     elif arr.IsConst then ()
+                    elif arr.IsQuantifier then
+                        let quantifier = arr :?> Quantifier
+                        let body = quantifier.Body
+                        // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
+                        if body.IsApp && body.IsEq && body.Args.Length = 2 then
+                            // Firstly, setting all values to 'false'
+                            x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation (MakeBool false)
+                            let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
+                            let address = fields |> List.fold (fun address field -> StructField(address, field)) address
+                            // Secondly, setting 'true' value for concrete address from predicate
+                            let states = Memory.Write state (Ref address) (MakeBool true)
+                            assert(states.Length = 1 && states[0] = state)
+                        else internalfailf "Unexpected quantifier expression in model: %O" arr
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->

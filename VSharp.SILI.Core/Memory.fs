@@ -516,13 +516,14 @@ module internal Memory =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
-            match tryTermToObj state value with
             // field was not found in the structure, skipping it
-            | _ when fieldInfo = null -> k ()
-            // field can be converted to obj, so continue
-            | Some v -> fieldInfo.SetValue(structObj, v) |> k
-            // field can not be converted to obj, so break and return None
-            | None -> None
+            if fieldInfo = null then k ()
+            else
+                match tryTermToObj state value with
+                // field can be converted to obj, so continue
+                | Some v -> fieldInfo.SetValue(structObj, v) |> k
+                // field can not be converted to obj, so break and return None
+                | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
 
     and tryNullableTermToObj (state : state) fields typ =
@@ -754,10 +755,12 @@ module internal Memory =
     let readBoxedLocation state (address : concreteHeapAddress) =
         let cm = state.concreteMemory
         let typ = typeOfConcreteHeapAddress state address
-        match cm.TryVirtToPhys address, PersistentDict.tryFind state.boxedLocations address with
-        | Some value, _ -> objToTerm state typ value
-        | None, Some value -> value
-        | _ -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+        match memoryMode, cm.TryVirtToPhys address with
+        | ConcreteMemory, Some value -> objToTerm state typ value
+        | _ ->
+            match PersistentDict.tryFind state.boxedLocations address with
+            | Some value -> value
+            | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
 
     let rec readDelegate state reference =
         match reference.term with
@@ -916,17 +919,16 @@ module internal Memory =
         checkBlockBounds state reportError locSize offset endByte
         readTermUnsafe term offset endByte
 
-    let private readBoxedStructUnsafe state loc typ offset viewSize =
+    let private readBoxedUnsafe state loc typ offset viewSize =
         let address =
             match loc.term with
             | ConcreteHeapAddress address -> BoxedLocation(address, typ)
-            | _ -> internalfail "readUnsafe: struct case is not fully implemented"
-        let fields =
-            match readSafe state address with
-            | {term = Struct(fields, _)} -> fields
-            | term -> internalfailf "readUnsafe: reading struct resulted in term %O" term
+            | _ -> internalfail "readUnsafe: boxed value type case is not fully implemented"
         let endByte = makeNumber viewSize |> add offset
-        readStructUnsafe fields typ offset endByte
+        match readSafe state address with
+        | {term = Struct(fields, _)} -> readStructUnsafe fields typ offset endByte
+        | term when isPrimitive typ || typ.IsEnum -> readTermUnsafe term offset endByte
+        | term -> internalfail $"readUnsafe: reading struct resulted in term {term}"
 
     let private readUnsafe state reportError baseAddress offset sightType =
         let viewSize = internalSizeOf sightType
@@ -938,7 +940,9 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
-                | StructType _ -> readBoxedStructUnsafe state loc typ offset viewSize
+                | StructType _ -> readBoxedUnsafe state loc typ offset viewSize
+                | _ when isPrimitive typ || typ.IsEnum ->
+                    readBoxedUnsafe state loc typ offset viewSize
                 | _ -> internalfailf "expected complex type, but got %O" typ
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
@@ -1051,10 +1055,15 @@ module internal Memory =
 
     let writeBoxedLocation state (address : concreteHeapAddress) value =
         let cm = state.concreteMemory
-        match tryTermToObj state value with
-        | Some value when cm.Contains(address) ->
+        match memoryMode, tryTermToObj state value with
+        | ConcreteMemory, Some value when cm.Contains(address) ->
             cm.Remove address
             cm.Allocate address value
+        | ConcreteMemory, Some value ->
+            cm.Allocate address value
+        | ConcreteMemory, None when cm.Contains(address) ->
+            cm.Remove address
+            writeBoxedLocationSymbolic state address value
         | _ -> writeBoxedLocationSymbolic state address value
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
@@ -1383,7 +1392,11 @@ module internal Memory =
         let typ = typeOf value
         let concreteAddress = allocateType state typ
         let address = ConcreteHeapAddress concreteAddress
-        writeBoxedLocationSymbolic state concreteAddress value
+        match memoryMode, tryTermToObj state value with
+        // 'value' may be null, if it's nullable value type
+        | ConcreteMemory, Some value when value <> null ->
+            state.concreteMemory.Allocate concreteAddress value
+        | _ -> writeBoxedLocationSymbolic state concreteAddress value
         HeapRef address typeof<obj>
 
     let allocateConcreteObject state obj (typ : Type) =

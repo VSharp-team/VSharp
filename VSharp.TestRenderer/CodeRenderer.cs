@@ -801,8 +801,8 @@ internal class CodeRenderer
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
-        if (!method.IsPublic || thisType is { IsPublic: false, IsNestedPublic: false } ||
-            thisArg == null && method.DeclaringType is { IsPublic: false, IsNestedPublic: false })
+        if (!method.IsPublic || thisType != null && !TypeUtils.isPublic(thisType) ||
+            thisArg == null && method.DeclaringType != null && !TypeUtils.isPublic(method.DeclaringType))
             return RenderPrivateCall(thisArg, method, functionArgs);
 
         if (IsGetItem(method))

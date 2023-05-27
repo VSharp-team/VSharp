@@ -165,23 +165,21 @@ and CfgInfo internal (method : MethodWithBody) =
             let added = dst.IncomingCFGEdges.Add src
             assert added
             let exists, edges = src.OutgoingEdges.TryGetValue CfgInfo.TerminalForCFGEdge
-            if exists
-            then
+            if exists then
                 let added = edges.Add dst
                 assert added
             else
                 src.OutgoingEdges.Add(CfgInfo.TerminalForCFGEdge, HashSet [|dst|])
 
-        let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) =
-            if used.Contains currentVertex
-            then
+        let rec dfs' (currentBasicBlock : BasicBlock) (currentVertex : offset) k =
+            if used.Contains currentVertex then
                 let existingBasicBlock = vertexToBasicBlock[int currentVertex]
-                if currentBasicBlock <> existingBasicBlock.Value
-                then
+                if currentBasicBlock <> existingBasicBlock.Value then
                     currentBasicBlock.FinalOffset <- findFinalVertex currentVertex currentBasicBlock
                     addEdge currentBasicBlock existingBasicBlock.Value
-                if greyVertices.Contains currentVertex
-                then loopEntries.Add currentVertex |> ignore
+                if greyVertices.Contains currentVertex then
+                    loopEntries.Add currentVertex |> ignore
+                k ()
             else
                 vertexToBasicBlock[int currentVertex] <- Some currentBasicBlock
                 let added = greyVertices.Add currentVertex
@@ -190,50 +188,56 @@ and CfgInfo internal (method : MethodWithBody) =
                 assert added
                 let opCode = MethodBody.parseInstruction method currentVertex
 
-                let dealWithJump srcBasicBlock dst =
+                let dealWithJump srcBasicBlock dst k =
                     let newBasicBlock = makeNewBasicBlock dst
                     addEdge srcBasicBlock newBasicBlock
-                    dfs' newBasicBlock  dst
+                    dfs' newBasicBlock dst k
 
-                let processCall (callee: MethodWithBody) callFrom returnTo =
+                let processCall (callee: MethodWithBody) callFrom returnTo k =
                     calls.Add(currentBasicBlock, CallInfo(callee :?> Method, callFrom, returnTo))
                     currentBasicBlock.FinalOffset <- callFrom
                     let newBasicBlock = makeNewBasicBlock returnTo
                     addEdge currentBasicBlock newBasicBlock
-                    dfs' newBasicBlock returnTo
+                    dfs' newBasicBlock returnTo k
 
                 let ipTransition = MethodBody.findNextInstructionOffsetAndEdges opCode ilBytes currentVertex
+
+                let k _ =
+                    let removed = greyVertices.Remove currentVertex
+                    assert removed
+                    k ()
 
                 match ipTransition with
                 | FallThrough offset when MethodBody.isDemandingCallOpCode opCode ->
                     let opCode', calleeBase = method.ParseCallSite currentVertex
                     assert (opCode' = opCode)
                     let callee = MethodWithBody.InstantiateNew calleeBase
-                    if callee.HasBody
-                    then processCall callee currentVertex offset
+                    if callee.HasBody then processCall callee currentVertex offset k
                     else
                         currentBasicBlock.FinalOffset <- offset
-                        dfs' currentBasicBlock offset
+                        dfs' currentBasicBlock offset k
                 | FallThrough offset ->
                     currentBasicBlock.FinalOffset <- offset
-                    dfs' currentBasicBlock offset
+                    dfs' currentBasicBlock offset k
                 | ExceptionMechanism ->
                     currentBasicBlock.FinalOffset <- currentVertex
+                    k ()
                 | Return ->
                     sinks.Add currentBasicBlock
                     currentBasicBlock.FinalOffset <- currentVertex
+                    k ()
                 | UnconditionalBranch target ->
                     currentBasicBlock.FinalOffset <- currentVertex
-                    dealWithJump currentBasicBlock target
+                    dealWithJump currentBasicBlock target k
                 | ConditionalBranch (fallThrough, offsets) ->
                     currentBasicBlock.FinalOffset <- currentVertex
-                    HashSet(fallThrough :: offsets) |> Seq.iter (dealWithJump currentBasicBlock)
-
-                let removed = greyVertices.Remove currentVertex
-                assert removed
+                    let iterator _ dst k =
+                        dealWithJump currentBasicBlock dst k
+                    let destinations = HashSet(fallThrough :: offsets)
+                    Cps.Seq.foldlk iterator () destinations k
 
         startVertices
-        |> Array.iter (fun v -> dfs' (makeNewBasicBlock v) v)
+        |> Array.iter (fun v -> dfs' (makeNewBasicBlock v) v id)
 
         basicBlocks
         |> Seq.sortBy (fun b -> b.StartOffset)

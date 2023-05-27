@@ -185,11 +185,15 @@ public class Allocator<T>
 
     public Allocator(object allocated)
     {
+        Debug.Assert(allocated != null);
+        _objectType = allocated.GetType();
         _toAllocate = allocated;
     }
 
     public Allocator(object allocated, object defaultValue)
     {
+        Debug.Assert(allocated != null);
+        _objectType = allocated.GetType();
         Debug.Assert(_objectType.IsArray);
         _toAllocate = allocated;
         Allocator.Fill(_toAllocate as Array, defaultValue);
