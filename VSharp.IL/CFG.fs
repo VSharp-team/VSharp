@@ -28,7 +28,7 @@ type ICfgNode =
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) =
+type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
     let mutable finalOffset = startOffset
     let mutable startOffset = startOffset
     let mutable isGoal = false
@@ -37,9 +37,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let incomingCFGEdges = HashSet<BasicBlock>()
     let incomingCallEdges = HashSet<BasicBlock>()
     let outgoingEdges = Dictionary<int<terminalSymbol>, HashSet<BasicBlock>>()
+
     member this.StartOffset
         with get () = startOffset
-        and set v = startOffset <- v
+        and internal set v = startOffset <- v
     member this.Method = method
     member this.OutgoingEdges = outgoingEdges
     member this.IncomingCFGEdges = incomingCFGEdges
@@ -61,9 +62,9 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
 
     member this.FinalOffset
         with get () = finalOffset
-        and set (v : offset) = finalOffset <- v
+        and internal set (v : offset) = finalOffset <- v
 
-    member this.ToString() =
+    member private this.GetInstructions() =
         let parsedInstructions = method.ParsedInstructions
         let mutable instr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.StartOffset)
         let endInstr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.FinalOffset)
@@ -71,9 +72,16 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) =
         seq {
             while notEnd do
                 notEnd <- not <| LanguagePrimitives.PhysicalEquality instr endInstr
-                yield ILRewriter.PrintILInstr None None (method :> Core.IMethod).MethodBase instr
+                yield instr
                 instr <- instr.next
         }
+
+    member this.ToString() =
+        let methodBase = (method :> Core.IMethod).MethodBase
+        this.GetInstructions() |> Seq.map (ILRewriter.PrintILInstr None None methodBase)
+
+    member this.BlockSize with get() =
+        this.GetInstructions() |> Seq.length
 
     interface ICfgNode with
         member this.OutgoingEdges
@@ -100,6 +108,7 @@ and CfgInfo internal (method : MethodWithBody) =
     let ilBytes = method.ILBytes
     let exceptionHandlers = method.ExceptionHandlers
     let sortedBasicBlocks = ResizeArray<BasicBlock>()
+    let mutable methodSize = 0
     let sinks = ResizeArray<_>()
     let calls = Dictionary<_,_>()
     let loopEntries = HashSet<offset>()
@@ -239,9 +248,14 @@ and CfgInfo internal (method : MethodWithBody) =
         startVertices
         |> Array.iter (fun v -> dfs' (makeNewBasicBlock v) v id)
 
+        methodSize <- 0
+
         basicBlocks
         |> Seq.sortBy (fun b -> b.StartOffset)
-        |> Seq.iter sortedBasicBlocks.Add
+        |> Seq.iter (fun bb ->
+            methodSize <- methodSize + bb.BlockSize
+            sortedBasicBlocks.Add bb
+        )
 
 
     let cfgDistanceFrom = GraphUtils.distanceCache<ICfgNode>()
@@ -289,10 +303,11 @@ and CfgInfo internal (method : MethodWithBody) =
     member this.SortedBasicBlocks = sortedBasicBlocks
     member this.IlBytes = ilBytes
     member this.EntryPoint = sortedBasicBlocks[0]
+    member this.MethodSize = methodSize
     member this.Sinks = sinks
     member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
-    member internal this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
+    member this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
     member this.ResolveBasicBlock offset = resolveBasicBlock offset
     member this.IsBasicBlockStart offset = (resolveBasicBlock offset).StartOffset = offset
     // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)

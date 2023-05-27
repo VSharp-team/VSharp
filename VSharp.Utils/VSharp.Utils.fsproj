@@ -42,9 +42,9 @@
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="TestResultsChecker.fs" />
         <Compile Include="PhysicalAddress.fs" />
         <Compile Include="NumericUtils.fs" />
+        <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>
 
     <ItemGroup>

@@ -235,9 +235,9 @@ namespace VSharp.Test
                     );
                 }
 
-                var normalizedMethod = AssemblyManager.NormalizeMethod(innerCommand.Test.Method.MethodInfo);
-                Debug.Assert(normalizedMethod is MethodInfo);
-                var exploredMethodInfo = normalizedMethod as MethodInfo;
+                Core.API.ConfigureSolver(SolverPool.mkSolver(_timeout / 2 * 1000));
+                var originMethodInfo = innerCommand.Test.Method.MethodInfo;
+                var exploredMethodInfo = (MethodInfo) AssemblyManager.NormalizeMethod(originMethodInfo);
                 var stats = new TestStatistics(
                     exploredMethodInfo,
                     _searchStrat.IsGuidedMode,
@@ -313,16 +313,31 @@ namespace VSharp.Test
 
                         // NOTE: to disable coverage check TestResultsChecker's expected coverage should be null
                         //       to enable coverage check use _expectedCoverage
-                        TestContext.Out.WriteLine(
-                            _expectedCoverage != null
-                            ? "Starting coverage tool..."
-                            : "Starting tests checker...");
-                        var runnerDir = new DirectoryInfo(Directory.GetCurrentDirectory());
-                        var testChecker = new TestResultsChecker(testsDir, runnerDir, _expectedCoverage);
-                        if (testChecker.Check(exploredMethodInfo, out var actualCoverage))
+                        bool success;
+                        var resultMessage = string.Empty;
+                        uint? actualCoverage;
+                        if (_expectedCoverage is {} expectedCoverage)
+                        {
+                            TestContext.Out.WriteLine("Starting coverage tool...");
+                            success =
+                                TestResultChecker.Check(
+                                    testsDir,
+                                    exploredMethodInfo,
+                                    expectedCoverage,
+                                    out var coverage,
+                                    out resultMessage);
+                            actualCoverage = (uint?)coverage;
+                        }
+                        else
+                        {
+                            TestContext.Out.WriteLine("Starting tests checker...");
+                            success = TestResultChecker.Check(testsDir);
+                            actualCoverage = null;
+                        }
+                        if (success)
                             context.CurrentResult.SetResult(ResultState.Success);
                         else
-                            context.CurrentResult.SetResult(ResultState.Failure, testChecker.ResultMessage);
+                            context.CurrentResult.SetResult(ResultState.Failure, resultMessage);
                         reporter?.Report(stats with { Coverage = actualCoverage });
                     }
                     else
