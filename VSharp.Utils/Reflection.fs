@@ -215,12 +215,14 @@ module public Reflection =
         if interfaceType = targetType then interfaceMethod
         else
             let sign = createSignature interfaceMethod
-            let methods =
-                match targetType with
-                | _ when targetType.IsArray -> getArrayMethods targetType
-                | _ when targetType.IsInterface -> getAllMethods targetType
-                | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-            methods |> Seq.find (fun mi -> createSignature mi = sign)
+            let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
+            match targetType with
+            | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
+            | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
+            | _ ->
+                let interfaceMap = targetType.GetInterfaceMap(interfaceType)
+                let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
+                interfaceMap.TargetMethods[targetMethodIndex]
 
     let private virtualBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
