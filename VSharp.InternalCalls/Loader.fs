@@ -138,6 +138,17 @@ module Loader =
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateNullReferenceException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateInvalidCastException(System.String)"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateOverflowException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateIndexOutOfRangeException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArgumentOutOfRangeException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArgumentException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.DivideByZeroException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArithmeticException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateArrayTypeMismatchException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateArgumentNullException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateOutOfMemoryException()"
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =

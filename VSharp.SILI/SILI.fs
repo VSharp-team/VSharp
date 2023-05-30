@@ -114,29 +114,25 @@ type public SILI(options : SiliOptions) =
     let reportState reporter isError cilState message =
         try
             searcher.Remove cilState
-            if cilState.history |> Seq.exists (not << statistics.IsBasicBlockCoveredByTest)
-            then
-                let hasException =
-                    match cilState.state.exceptionsRegister with
-                    | Unhandled _ -> true
-                    | _ -> false
+            let isNewHistory() = cilState.history |> Set.exists (not << statistics.IsBasicBlockCoveredByTest)
+            let suitableHistory = Set.isEmpty cilState.history || isNewHistory()
+            if suitableHistory && not isError || isError && statistics.IsNewError cilState message then
                 let callStackSize = Memory.CallStackSize cilState.state
-                let methodHasByRefParameter (m : Method) = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
+                let methodHasByRefParameter (m : Method) =
+                    m.Parameters |> Array.exists (fun pi -> pi.ParameterType.IsByRef)
                 let entryMethod = entryMethodOf cilState
-                if isError && not hasException
-                    then
-                        if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod
-                        then Memory.ForcePopFrames (callStackSize - 2) cilState.state
-                        else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                if not isError || statistics.EmitError cilState message
-                then
-                    match TestGenerator.state2test isError entryMethod cilState message with
-                    | Some test ->
-                        statistics.TrackFinished cilState
-                        reporter test
-                        if isCoverageAchieved() then
-                            isStopped <- true
-                    | None -> ()
+                let hasException = isUnhandledError cilState
+                if isError && not hasException then
+                    if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod then
+                        Memory.ForcePopFrames (callStackSize - 2) cilState.state
+                    else Memory.ForcePopFrames (callStackSize - 1) cilState.state
+                match TestGenerator.state2test isError entryMethod cilState message with
+                | Some test ->
+                    statistics.TrackFinished cilState
+                    reporter test
+                    if isCoverageAchieved() then
+                        isStopped <- true
+                | None -> ()
         with :? InsufficientInformationException as e ->
             cilState.iie <- Some e
             reportStateIncomplete cilState
@@ -283,9 +279,12 @@ type public SILI(options : SiliOptions) =
 
     member private x.Forward (s : cilState) =
         let loc = s.currentLoc
+        let ip = currentIp s
         // TODO: update pobs when visiting new methods; use coverageZone
-        statistics.TrackStepForward s
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
+        for s in goodStates @ iieStates @ errors do
+            if hasRuntimeException s |> not then
+                statistics.TrackStepForward s ip
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || isIsolated s)
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)

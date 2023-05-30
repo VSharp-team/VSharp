@@ -93,7 +93,6 @@ type operation =
         | Cast _ -> Operations.maxPriority - 1
         | Combine -> Operations.maxPriority
 
-// TODO: symbolic type -> primitive type
 // TODO: get rid of Nop!
 [<StructuralEquality;NoComparison>]
 type termNode =

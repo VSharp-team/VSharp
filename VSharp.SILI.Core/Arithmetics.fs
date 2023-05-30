@@ -383,9 +383,9 @@ module internal Arithmetics =
             let sorted = if isConcrete y then (y, x) else (x, y)
             makeAddition t (fst sorted) (snd sorted) k
         simplifyGenericBinary "addition" x y k
-                              (simplifyConcreteBinary simplifyConcreteAddition t)
-                              (fun x y k -> simplifyAdditionExt t x y k defaultCase)
-                              (fun x y k -> simplifyAddition t x y k)
+            (simplifyConcreteBinary simplifyConcreteAddition t)
+            (fun x y k -> simplifyAdditionExt t x y k defaultCase)
+            (fun x y k -> simplifyAddition t x y k)
 
     and private simplifySubtraction t x y k =
         simplifyUnaryMinus t y (fun minusY ->
