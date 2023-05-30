@@ -280,9 +280,6 @@ module internal Terms =
     let Expression op args typ = HashMap.addTerm (Expression(op, args, typ))
     let Struct fields typ = HashMap.addTerm (Struct(fields, typ))
     let HeapRef address baseType =
-        match address.term with
-        | Constant(name, _, _) when name.v = "this.head" -> ()
-        | _ -> ()
         HashMap.addTerm (HeapRef(address, baseType))
     let Ref address =
         match address with

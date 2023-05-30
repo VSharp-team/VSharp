@@ -406,10 +406,11 @@ module internal Memory =
             let name = picker.mkName key
             makeSymbolicValue source name typ
 
+    // This function is used only for creating 'this' of reference types
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
-        if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
+        assert(isValueType declaringType |> not)
+        HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
