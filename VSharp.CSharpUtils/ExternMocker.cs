@@ -31,18 +31,16 @@ public static class ExternMocker
                 {
                     if (arg.MemberName == "EntryPoint")
                         methodName = arg.TypedValue.ToString();
-
                 }
             }
         }
 
-        libName = libName.Replace("\"", "");
-        methodName = methodName.Replace("\"", "");
+        libName = libName.Trim('"');
+        methodName = methodName.Trim('"');
 
-        var linuxName = libName + ".so"; // ".so.6" ????
+        var linuxName = libName + ".so.6"; // ".so.6" ????
         var macName = "/usr/lib/" + libName + ".dylib";
         var genName = libName + "." + PlatformHelper.LibrarySuffix;
-
         if (!(PlatformHelper.Is(Platform.Linux) && DynDll.TryOpenLibrary(linuxName, out IntPtr libref)) &&
             !(PlatformHelper.Is(Platform.MacOS) && DynDll.TryOpenLibrary(macName, out libref)) &&
             !DynDll.TryOpenLibrary(genName, out libref))
