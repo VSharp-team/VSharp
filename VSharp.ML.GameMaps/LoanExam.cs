@@ -1,3 +1,5 @@
+namespace Maps.LoanExam;
+
 public enum CreditPurpose
 {
     ConsumerCredit,

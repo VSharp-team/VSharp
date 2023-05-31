@@ -1,7 +1,7 @@
 ﻿using NUnit.Framework;
 using VSharp.Test;
 
-namespace VSharp.ML.GameMaps;
+namespace ML.GameMaps.Simple;
 
 [TestSvmFixture, Category("Dataset")]
 public class ControlFlow
