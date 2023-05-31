@@ -10,12 +10,12 @@ namespace VSharp.Test.Utils
         /* Filter for exploring all possible methods */
         public bool IsMatch(Type type)
         {
-            return true;
+            return Attribute.IsDefined(type, typeof(TestSvmFixtureAttribute), false);
         }
 
         public bool IsMatch(Type type, MethodInfo method)
         {
-            return true;
+            return IsMatch(type);
         }
     }
 

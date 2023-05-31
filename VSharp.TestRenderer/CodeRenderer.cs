@@ -20,12 +20,17 @@ internal class CodeRenderer
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
+        public readonly Mocking.Type TypeMock;
         // TODO: need to save type of clauses from mock definition?
         public readonly List<(MethodInfo, Type, SimpleNameSyntax)> SetupClauses;
 
-        public MockInfo(SimpleNameSyntax mockName, List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses)
+        public MockInfo(
+            SimpleNameSyntax mockName,
+            Mocking.Type typeMock,
+            List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses)
         {
             MockName = mockName;
+            TypeMock = typeMock;
             SetupClauses = setupClauses;
         }
 
@@ -57,9 +62,10 @@ internal class CodeRenderer
 
         public DelegateMockInfo(
             SimpleNameSyntax mockName,
+            Mocking.Type typeMock,
             List<(MethodInfo, Type, SimpleNameSyntax)> setupClauses,
             SimpleNameSyntax delegateMethod,
-            Type delegateType) : base(mockName, setupClauses)
+            Type delegateType) : base(mockName, typeMock, setupClauses)
         {
             DelegateMethod = delegateMethod;
             DelegateType = delegateType;
@@ -494,6 +500,7 @@ internal class CodeRenderer
     {
         var type = e.GetType();
         var typeExpr = RenderType(type);
+        // TODO: handle masks, for example 'BindingFlags.Public | BindingFlags.NonPublic' (value will be 'null')
         var value = Enum.GetName(type, e);
         Debug.Assert(value != null);
 
@@ -794,8 +801,8 @@ internal class CodeRenderer
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
-        if (!method.IsPublic || thisType is { IsPublic: false, IsNestedPublic: false } ||
-            thisArg == null && method.DeclaringType is { IsPublic: false, IsNestedPublic: false })
+        if (!method.IsPublic || thisType != null && !TypeUtils.isPublic(thisType) ||
+            thisArg == null && method.DeclaringType != null && !TypeUtils.isPublic(method.DeclaringType))
             return RenderPrivateCall(thisArg, method, functionArgs);
 
         if (IsGetItem(method))

@@ -51,24 +51,23 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
         $"{id fromLoc} -> {id toLoc} [color=\"{colorOfEdge fromLoc toLoc}\"]"
 
     let methodToDot (m : Method) =
-        let basicBlocks = if m.HasBody then m.ForceCFG.SortedBasicBlocks else ResizeArray()
+        let basicBlocks = m.BasicBlocks
         let edges = ResizeArray<_>()
-        seq{
+        seq {
             let name = m.FullName
             let id = abs m.Id
             yield $"subgraph cluster_{id} {{"
             yield $"label=%A{name}"
             for basicBlock in basicBlocks do
                 yield node basicBlock
-                if drawInterproceduralEdges
-                then 
-                    for kvp in basicBlock.OutgoingEdges do
-                        for _to in kvp.Value do            
-                            edges.Add (edge basicBlock _to)
-                elif basicBlock.OutgoingEdges.ContainsKey CfgInfo.TerminalForCFGEdge
-                then
-                    for _to in basicBlock.OutgoingEdges.[CfgInfo.TerminalForCFGEdge] do            
-                        edges.Add (edge basicBlock _to)
+                let outgoingEdges = basicBlock.OutgoingEdges
+                if drawInterproceduralEdges then
+                    for kvp in outgoingEdges do
+                        for dst in kvp.Value do
+                            edges.Add (edge basicBlock dst)
+                elif outgoingEdges.ContainsKey CfgInfo.TerminalForCFGEdge then
+                    for src in outgoingEdges[CfgInfo.TerminalForCFGEdge] do
+                        edges.Add (edge basicBlock src)
             yield "}"
             yield! edges
         }
@@ -94,11 +93,11 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
     interface IVisualizer with
         override x.DrawInterproceduralEdges = drawInterproceduralEdges
         override x.AddState state =
-            visit state.CodeLocation.BasicBlock
+            Option.iter visit state.CodeLocation.BasicBlock
             states.Add state
 
         override x.TerminateState state =
-            leave state.CodeLocation.BasicBlock
+            Option.iter leave state.CodeLocation.BasicBlock
             states.Remove state |> ignore
 
         override x.VisualizeGraph () =
@@ -113,14 +112,15 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
             x.Compile()
 
         override x.VisualizeStep fromLoc toState newStates =
-            let fromLoc = fromLoc.BasicBlock
-            let toLoc = toState.CodeLocation.BasicBlock
-            let transited = fromLoc <> toLoc
-            if transited then
-                leave fromLoc
-                move fromLoc toLoc
-            newStates |> Seq.iter (fun state ->
-                move fromLoc state.CodeLocation.BasicBlock
-                states.Add state)
-            if transited || not <| Seq.isEmpty newStates then
-                (x :> IVisualizer).VisualizeGraph()
+            match fromLoc.BasicBlock, toState.CodeLocation.BasicBlock with
+            | Some fromLoc, Some toLoc ->
+                let transited = fromLoc <> toLoc
+                if transited then
+                    leave fromLoc
+                    move fromLoc toLoc
+                for state in newStates do
+                    Option.iter (move fromLoc) state.CodeLocation.BasicBlock
+                    states.Add state
+                if transited || not <| Seq.isEmpty newStates then
+                    (x :> IVisualizer).VisualizeGraph()
+            | _ -> ()

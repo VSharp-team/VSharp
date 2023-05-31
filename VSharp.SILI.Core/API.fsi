@@ -30,7 +30,7 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
-    val SolveGenericMethodParameters : typeModel -> IMethod -> (symbolicType[] * symbolicType[]) option
+    val SolveGenericMethodParameters : typeStorage -> IMethod -> (symbolicType[] * symbolicType[]) option
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
@@ -72,6 +72,8 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
+        val TryPtrToArrayInfo : Type -> Type -> term -> option<term list * arrayType>
+
         val TryTermToObj : state -> term -> obj option
 
         val IsStruct : term -> bool
@@ -108,6 +110,7 @@ module API =
         val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
+        val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
 
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
@@ -173,6 +176,7 @@ module API =
         val Sub : term -> term -> term
         val Add : term -> term -> term
         val Rem : term -> term -> term
+        val RemUn : term -> term -> term
         val IsZero : term -> term
 
         val Acos : term -> term
@@ -212,7 +216,7 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyModel : IMethod -> typeModel -> model
+        val EmptyModel : IMethod -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit

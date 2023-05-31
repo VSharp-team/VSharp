@@ -29,18 +29,14 @@ and public weakdict<'key, 'value when 'key : not struct and 'key : equality and 
     let dict = Dictionary<autoref<'key,'value>, 'value WeakReference>()
     member private this.dict = dict
 
-    member private this.Free key =
-        //assert (this.dict.Remove key)
+    member private this.Free _ =
         ()
 
     member internal this.InvokeOrFree<'a> (key : autoref<'key,'value>) (alive : 'key -> 'a) (dead : 'a) : 'a =
         let target = ref defaultKey
         if key.TryGetTarget(target) then
-            !target |> alive
-        else
-//            Logger.printLog Logger.Trace "FREE"
-//            this.Free key
-            dead
+            target.Value |> alive
+        else dead
 
     member internal x.Remove key =
         x.dict.Remove key
@@ -50,15 +46,13 @@ and public weakdict<'key, 'value when 'key : not struct and 'key : equality and 
         let valWeakRef = WeakReference<'value> value
         let valRef = ref valWeakRef
         if this.dict.TryGetValue(keyRef, valRef) then
-            (!valRef).SetTarget(value)
+            valRef.Value.SetTarget(value)
         else
             this.dict.Add(keyRef, valWeakRef)
 
     member public this.TryGetValue (key : 'key, result : 'value ref) : bool =
         let keyRef = autoref<'key,'value>(key, this, defaultKey)
-        let valRef = ref <| WeakReference<'value>(!result)
+        let valRef = ref <| WeakReference<'value>(result.Value)
         let contains = this.dict.TryGetValue(keyRef, valRef)
-        if contains then
-            let fin = (!valRef).TryGetTarget(result)
-            fin
+        if contains then valRef.Value.TryGetTarget(result)
         else false

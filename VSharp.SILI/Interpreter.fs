@@ -247,6 +247,7 @@ module internal InstructionsSet =
     let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
+            | _ when IsReference term -> !!(IsNullReference term)
             | Types.Bool -> term
             | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero
             | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero
@@ -257,9 +258,7 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
-            | t when t.IsEnum ->
-                term !== MakeNumber (Activator.CreateInstance t)
-            | _ when IsReference term -> !!(IsNullReference term)
+            | t when t.IsEnum -> term !== MakeNumber (Activator.CreateInstance t)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
 
@@ -488,20 +487,25 @@ module internal InstructionsSet =
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
-    // TODO: implement fully (using information about calling method):
-    // TODO: - if thisType is a value type and thisType implements method then ptr is passed unmodified
-    // TODO: - if thisType is a value type and thisType does not implement method then ptr is dereferenced and boxed
+    // '.constrained' is prefix, which is used before 'callvirt' instruction
     let constrained (m : Method) offset (cilState : cilState) =
         match findNextInstructionOffsetAndEdges OpCodes.Constrained m.ILBytes offset with
         | FallThrough offset ->
             let method = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Callvirt.Size)
+            // Method can not be constructor, because it's called via 'callvirt'
+            assert(method :? MethodInfo)
+            let method = method :?> MethodInfo
             let n = method.GetParameters().Length
             let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
             setEvaluationStack evaluationStack cilState
             let thisForCallVirt = pop cilState
+            let thisType = TypeOfLocation thisForCallVirt
+            let isValueType = Types.IsValueType thisType
             match thisForCallVirt.term with
-            | HeapRef _ -> ()
-            | Ref _ when TypeOfLocation thisForCallVirt |> Types.IsValueType ->
+            | Ref _ when isValueType && Reflection.typeImplementsMethod thisType method ->
+                push thisForCallVirt cilState
+                pushMany args cilState
+            | Ref _ when isValueType ->
                 let thisStruct = Memory.Read cilState.state thisForCallVirt
                 let heapRef = Memory.BoxValueType cilState.state thisStruct
                 push heapRef cilState
@@ -510,7 +514,7 @@ module internal InstructionsSet =
                 let this = Memory.Read cilState.state thisForCallVirt
                 push this cilState
                 pushMany args cilState
-            | _ -> __unreachable__()
+            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
         | _ -> __unreachable__()
     let localloc (cilState : cilState) =
         // [NOTE] localloc usually is used for Span
@@ -573,6 +577,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
             "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
             "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)", this.RunStaticCtor
+            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)", this.RunStaticCtor
         ]
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
@@ -645,7 +651,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
         let state = cilState.state
-        let dest, destPos, src = args.[0], args.[1], args.[2]
+        let dest, destPos, src = args[0], args[1], args[2]
         let srcPos = MakeNumber 0
         let srcLength = Memory.StringLength state src
         let destLength = Memory.StringLength state dest
@@ -662,7 +668,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.ClearArray (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
-        let array, index, length = args.[0], args.[1], args.[2]
+        let array, index, length = args[0], args[1], args[2]
         let (>>) = API.Arithmetics.(>>)
         let (<<) = API.Arithmetics.(<<)
         let clearCase (cilState : cilState) k =
@@ -748,12 +754,12 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.CopyArrayExtendedForm2 (cilState : cilState) _ (args : term list) =
         assert(List.length args = 5)
-        let src, srcIndex, dst, dstIndex, length = args.[0], args.[1], args.[2], args.[3], args.[4]
+        let src, srcIndex, dst, dstIndex, length = args[0], args[1], args[2], args[3], args[4]
         x.CommonCopyArray cilState src srcIndex dst dstIndex length
 
     member private x.CopyArrayShortForm (cilState : cilState) _ (args : term list) =
         assert(List.length args = 3)
-        let src, dst, length = args.[0], args.[1], args.[2]
+        let src, dst, length = args[0], args[1], args[2]
         let state = cilState.state
         let zero = TypeUtils.Int32.Zero
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
@@ -816,12 +822,26 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.FastMod (cilState : cilState) this (args : term list) =
         assert(List.length args = 3 && Option.isNone this)
-        let hashCode, length = args.[0], args.[1]
+        let left, right = args[0], args[1]
+        let validCase cilState k =
+            let leftType = TypeOf left
+            let rightType = TypeOf right
+            let result =
+                if TypeUtils.isUnsigned leftType || TypeUtils.isUnsigned rightType then
+                    Arithmetics.RemUn left right
+                else Arithmetics.Rem left right
+            push result cilState
+            k [cilState]
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (length === MakeNumber 0, state))
+            (fun state k -> k (right === MakeNumber 0, state))
             (x.Raise x.DivideByZeroException)
-            (fun cilState k -> push (Arithmetics.Rem hashCode length) cilState; k [cilState])
+            validCase
             id
+
+    member private x.RunStaticCtor (cilState : cilState) this (args : term list) =
+        assert(List.length args = 1 && Option.isNone this)
+        // TODO: initialize statics of argument
+        List.singleton cilState
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
@@ -936,6 +956,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             |> conjunction
 
         let message = "DisallowNullAttribute violation"
+        // TODO: invoke only if method has attributes
         ILInterpreter.CheckAttributeAssumptions cilState method disallowNullAssumptions message isError
 
     static member CheckDisallowNullAssumptionsAndReport cilState method =
@@ -961,6 +982,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             parameterAssumptions &&& returnAssumptions
 
         let message = "NotNullAttribute violation"
+        // TODO: invoke only if method has attributes
         ILInterpreter.CheckAttributeAssumptions cilState method notNullAssumptions message true
 
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
@@ -1163,16 +1185,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | _ -> ()
         }
         let invokeMock cilState k =
-            let model = cilState.state.model
-            match List.ofSeq typeMocks, model.Eval this with
-            | [], _ -> List.singleton cilState |> k
-            | [mock : ITypeMock], {term = HeapRef({term = ConcreteHeapAddress thisInModel}, _)} ->
+            match typeMocks with
+            | _ when Seq.isEmpty typeMocks -> List.singleton cilState |> k
+            | _ when Seq.length typeMocks = 1 ->
                 popFrameOf cilState
-                let modelState =
-                    match model with
-                    | StateModel(s, _) -> s
-                    | _ -> __unreachable__()
-                modelState.allocatedTypes <- PersistentDict.add thisInModel (MockType mock) modelState.allocatedTypes
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
@@ -1294,6 +1310,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         | false ->
             let this = Memory.ReadThis cilState.state calledMethod
             x.NpeOrInvokeStatementCIL cilState this call k
+
     member x.RetrieveCalledMethodAndArgs (opCode : OpCode) (calledMethod : Method) (cilState : cilState) =
         let args = retrieveActualParameters calledMethod cilState
         let hasThis = calledMethod.HasThis && opCode <> OpCodes.Newobj
@@ -1488,6 +1505,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
     member private x.LdElema (m : Method) offset (cilState : cilState) =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Ldelema.Size)
         let index, arrayRef = pop2 cilState
+        let index = Types.Cast index typeof<int>
         let referenceLocation (cilState : cilState) k =
             let value = Memory.ReferenceArrayIndex cilState.state arrayRef [index] (Some typ)
             push value cilState
@@ -1965,15 +1983,13 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         let argumentsLength = List.length arguments
         let argumentsTypes =
             List.map TypeOf arguments
-        let ctors =
-            constructors
-            |> List.ofArray
-            |> List.filter (fun (ci : ConstructorInfo)
-                             -> ci.GetParameters().Length = argumentsLength
-                                && ci.GetParameters()
-                                   |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom(p1)) argumentsTypes)
-        assert(List.length ctors = 1)
-        let ctor = List.head ctors
+        let suitable (ci : ConstructorInfo) =
+            let parameters = ci.GetParameters()
+            parameters.Length = argumentsLength
+            && parameters |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom p1) argumentsTypes
+        let ctors = constructors |> Array.filter suitable
+        assert(Array.length ctors = 1)
+        let ctor = ctors[0]
         let fullConstructorName = Reflection.getFullMethodName ctor
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName |> Application.getMethod

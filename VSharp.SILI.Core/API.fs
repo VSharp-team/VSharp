@@ -42,8 +42,8 @@ module API =
     let PerformBinaryOperation op left right k = simplifyBinaryOperation op left right k
     let PerformUnaryOperation op arg k = simplifyUnaryOperation op arg k
 
-    let SolveGenericMethodParameters (typeModel : typeModel) (method : IMethod) =
-        TypeSolver.solveMethodParameters typeModel method
+    let SolveGenericMethodParameters (typeStorage : typeStorage) (method : IMethod) =
+        TypeSolver.solveMethodParameters typeStorage method
     let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
 
     let mutable private reportError = fun _ _ -> ()
@@ -96,6 +96,7 @@ module API =
             let getType ref =
                 match ref.term with
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
+                | Ref address -> typeOfAddress address
                 | Ptr(_, t, _) -> t
                 | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
             commonTypeOf getType ref
@@ -115,6 +116,8 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
+        let TryPtrToArrayInfo pointerBase sightType offset = tryPtrToArrayInfo pointerBase sightType offset
+
         let TryTermToObj state term = Memory.tryTermToObj state term
 
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
@@ -123,9 +126,9 @@ module API =
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
-        let (|Negation|_|) t = Terms.(|NegationT|_|) t
-        let (|Conjunction|_|) term = Terms.(|Conjunction|_|) term.term
-        let (|Disjunction|_|) term = Terms.(|Disjunction|_|) term.term
+        let (|Negation|_|) t = (|NegationT|_|) t
+        let (|Conjunction|_|) term = (|Conjunction|_|) term.term
+        let (|Disjunction|_|) term = (|Disjunction|_|) term.term
         let (|NullRef|_|) = function
             | {term = HeapRef(addr, t)} when addr = zeroAddress -> Some(t)
             | _ -> None
@@ -161,6 +164,7 @@ module API =
         let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
+        let (|GetHashCodeSource|_|) s = Memory.(|GetHashCodeSource|_|) s
 
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
@@ -173,7 +177,11 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
-        let AddConstraint conditionState condition = Memory.addConstraint conditionState condition
+        let AddConstraint conditionState condition =
+            Memory.addConstraint conditionState condition
+            let constraints = conditionState.typeStorage.Constraints
+            TypeStorage.addTypeConstraint constraints condition
+
         let IsFalsePathCondition conditionState = PC.isFalse conditionState.pc
         let Contradicts state condition = PC.add state.pc condition |> PC.isFalse
         let PathConditionToSeq (pc : pathCondition) = PC.toSeq pc
@@ -230,6 +238,7 @@ module API =
         let Sub x y = sub x y
         let Add x y = add x y
         let Rem x y = rem x y
+        let RemUn x y = remUn x y
         let IsZero term = checkEqualZero term id
 
         let Acos x = acos x
@@ -272,10 +281,10 @@ module API =
 
     module public Memory =
         let EmptyState() = Memory.makeEmpty false
-        let EmptyModel method typeModel =
+        let EmptyModel method =
             let modelState = Memory.makeEmpty true
             Memory.fillModelWithParametersAndThis modelState method
-            StateModel(modelState, typeModel)
+            StateModel modelState
 
         let PopFrame state = Memory.popFrame state
         let ForcePopFrames count state = Memory.forcePopFrames count state
@@ -296,6 +305,13 @@ module API =
                 | Some valueType when not (safeContext valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
+            | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType))) ->
+                assert(List.length indices = List.length innerIndices)
+                match valueType with
+                | Some typ when typ <> elemType -> internalfail "ReferenceArrayIndex: unsupported case"
+                | _ -> ()
+                let indices = List.map2 add indices innerIndices
+                ArrayIndex(address, indices, arrayType) |> Ref
             | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->
                 assert(TypeUtils.isArrayType t)
                 let elemType, _, _ as arrayType = symbolicTypeToArrayType t
@@ -350,7 +366,7 @@ module API =
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 
-        let rec ReadArrayIndex state reference indices valueType =
+        let ReadArrayIndex state reference indices valueType =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value = Read state ref
             match valueType with
@@ -541,32 +557,30 @@ module API =
             | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
+
         let StringCtorOfCharArray state arrayRef stringRef =
             match stringRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = typeof<string>)
-                Branching.guardedStatedMap (fun state arrayRef ->
+                let copy arrayRef state k =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
                         Copying.copyCharArrayToString state arrayAddr dstAddr
-                    | _ -> internalfailf "constructing string from char array: expected array reference, but got %O" arrayRef
-                    state)
-                    state arrayRef
-            | HeapRef _
-            | Union _ -> __notImplemented__()
-            | _ -> internalfailf "constructing string from char array: expected string reference, but got %O" stringRef
+                        k (Nop, state)
+                    | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
+                let nullCase state k =
+                    let arrayRef = TypeOf arrayRef |> NullRef
+                    copy arrayRef state k
+                let results = BranchStatementsOnNull state arrayRef nullCase (copy arrayRef) id
+                List.map snd results
+            | _ -> internalfail $"StringCtorOfCharArray: unexpected string reference {stringRef}"
 
         let ComposeStates state state' = Memory.composeStates state state'
         let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc
 
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
-//            let pc1 = PC.squashPC state1.pc
-//            let pc2 = PC.squashPC state2.pc
-//            if pc1 = Terms.True && pc2 = Terms.True then __unreachable__()
-//            __notImplemented__() : state
-            //Merging.merge2States pc1 pc2 {state1 with pc = []} {state2 with pc = []}
 
         let FillRegion state value = function
             | HeapFieldSort field ->

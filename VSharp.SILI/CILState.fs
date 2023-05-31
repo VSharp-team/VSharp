@@ -98,7 +98,7 @@ module internal CilStateOperations =
           suspended = false
           targets = None
           lastPushInfo = None
-          history = Set.singleton currentLoc
+          history = Set.empty
           entryMethod = Some entryMethod
           id = getNextStateId()
           predictedUsefulness = 0.0
@@ -125,7 +125,7 @@ module internal CilStateOperations =
     let isExecutable (s : cilState) =
         match s.ipStack with
         | [] -> __unreachable__()
-        | Exit _ :: [] -> false
+        | [ Exit _ ] -> false
         | _ -> true
 
     let isError (s : cilState) =
@@ -166,21 +166,8 @@ module internal CilStateOperations =
             s.level.[currLoc] >= maxBound
         | _ -> false
 
-    let methodOf = function
-        | Exit m
-        | Instruction(_, m)
-        | Leave(_, _, _, m) -> m
-        | _ -> __notImplemented__()
-
-    let offsetOf = function
-        | Instruction(offset, _) -> Some offset
-        | Exit _
-        | Leave _
-        | SearchingForHandler _ -> None
-        | ip -> internalfailf "offsetOf: unexpected ip %O" ip
-
     // [NOTE] Obtaining exploring method
-    let currentMethod = currentIp >> methodOf
+    let currentMethod = currentIp >> forceMethodOf
 
     let currentOffset = currentIp >> offsetOf
 
@@ -247,12 +234,12 @@ module internal CilStateOperations =
         | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
         | _ -> ()
 
-    let setBasicBlockIsVisited (cilState : cilState) (loc : codeLocation) =
+    let addLocationToHistory (cilState : cilState) (loc : codeLocation) =
         if cilState.history.Contains loc
         then cilState.visitedAgainVertices <- cilState.visitedAgainVertices + 1u
-        elif loc.BasicBlock.IsGoal
-        then if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
-        else if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
+        elif loc.ForceBasicBlock.IsGoal
+        then if not loc.ForceBasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
+        else if not loc.ForceBasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
              
         cilState.history <- Set.add loc cilState.history
 
@@ -314,7 +301,7 @@ module internal CilStateOperations =
 
     let addTarget (state : cilState) target =
         match state.targets with
-        | Some targets -> state.targets <- Some <| Set.add target targets
+        | Some targets -> state.targets <- Some (Set.add target targets)
         | None -> state.targets <- Some (Set.add target Set.empty)
 
     let removeTarget (state : cilState) target =
@@ -341,8 +328,8 @@ module internal CilStateOperations =
             let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
             match nextTargets with
             | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction :: []
-            | Return -> exit m :: []
+            | FallThrough nextInstruction -> instruction m nextInstruction |> List.singleton
+            | Return -> exit m |> List.singleton
             | ExceptionMechanism ->
                 // TODO: use ExceptionMechanism? #do
 //                let toObserve = __notImplemented__()

@@ -1,4 +1,4 @@
-﻿
+
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CSharpUtils", "VSharp.CSharpUtils\VSharp.CSharpUtils.csproj", "{C3AC6243-43EB-4312-AF41-03D36CED52DE}"
 EndProject
@@ -33,6 +33,8 @@ EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.ML.GameServer", "VSharp.ML.GameServer\VSharp.ML.GameServer.fsproj", "{44586A7C-12E4-4765-ADF0-20DE2ED2EEC7}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advanced.Algorithms", "Advanced.Algorithms\Advanced.Algorithms.csproj", "{D6083B16-23A8-48B8-832C-6D0E097B9ECF}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CoverageRunner", "VSharp.CoverageRunner\VSharp.CoverageRunner.csproj", "{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -213,5 +215,15 @@ Global
 		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.ReleaseConcolic|Any CPU.Build.0 = Debug|Any CPU
 		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugConcolic|Any CPU.ActiveCfg = Debug|Any CPU
 		{D6083B16-23A8-48B8-832C-6D0E097B9ECF}.DebugConcolic|Any CPU.Build.0 = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.ReleaseConcolic|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.ReleaseConcolic|Any CPU.Build.0 = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.DebugConcolic|Any CPU.ActiveCfg = Debug|Any CPU
+		{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}.DebugConcolic|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal

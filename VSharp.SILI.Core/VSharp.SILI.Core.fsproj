@@ -32,12 +32,12 @@
         <Compile Include="CallStack.fs" />
         <Compile Include="State.fs" />
         <Compile Include="ConcreteMemory.fs" />
-        <Compile Include="SolverInteraction.fs" />
         <Compile Include="Memory.fs" />
         <Compile Include="MethodMock.fs" />
         <Compile Include="ArrayInitialization.fs" />
         <Compile Include="TypeCasting.fs" />
         <Compile Include="TypeSolver.fs" />
+        <Compile Include="SolverInteraction.fs" />
         <Compile Include="Copying.fs" />
         <Compile Include="Branching.fs" />
         <Compile Include="API.fsi" />
