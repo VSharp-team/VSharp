@@ -140,8 +140,13 @@ module TestGenerator =
             let indices = Array.map Array.ofList indices
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
-    let rec private term2obj (model : model) state indices mockCache (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) = function
+    let rec private term2obj (model : model) state indices mockCache implementations (test : UnitTest) term : obj =
+        match term with
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
+        | {term = Concrete(v, t)} when t = typeof<IntPtr> ->
+            test.MemoryGraph.RepresentIntPtr (int (v :?> IntPtr))
+        | {term = Concrete(v, t)} when t = typeof<UIntPtr> ->
+            test.MemoryGraph.RepresentUIntPtr (int (v :?> UIntPtr))
         | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
@@ -158,6 +163,7 @@ module TestGenerator =
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef _
         | NullPtr -> null
+        | DetachedPtr offset -> internalfail $"term2obj: got detached pointer with offset {offset}"
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
             | StateModel modelState ->

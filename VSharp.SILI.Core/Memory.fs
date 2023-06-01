@@ -382,6 +382,7 @@ module internal Memory =
             HeapRef address typ
         | ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
         | ByRef _ -> __insufficientInformation__ "Can't instantiate symbolic value of ByRef type %O" typ
+        | Pointer _ -> __insufficientInformation__ "Can't instantiate symbolic value of pointer type %O" typ
         | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
 
     let private makeSymbolicStackRead key typ time =

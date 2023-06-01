@@ -61,6 +61,8 @@ module API =
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
         val MakeIntPtr : term -> term
+        val MakeUIntPtr : term -> term
+        val NativeToPtr : term -> term
         val AddressToBaseAndOffset : address -> pointerBase * term
 
         val TypeOf : term -> Type
@@ -94,6 +96,7 @@ module API =
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
         val (|NullPtr|_|) : term -> unit option
+        val (|DetachedPtr|_|) : term -> term option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>

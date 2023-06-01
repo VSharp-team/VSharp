@@ -397,7 +397,7 @@ module internal Terms =
 
     let bitSizeOf term resultingType = bitSizeOfType (typeOf term) resultingType
 
-    let isBool t =    typeOf t = typeof<bool>
+    let isBool t = typeOf t = typeof<bool>
     let isNumeric t = typeOf t |> isNumeric
 
     let rec isStruct term =
@@ -408,7 +408,7 @@ module internal Terms =
 
     let rec isReference term =
         match term.term with
-        | HeapRef _ -> true
+        | HeapRef _
         | Ref _ -> true
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
@@ -416,6 +416,23 @@ module internal Terms =
     let isPtr = term >> function
         | Ptr _ -> true
         | _ -> false
+
+    let rec isRefOrPtr term =
+        match term.term with
+        | HeapRef _
+        | Ref _
+        | Ptr _ -> true
+        | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
+        | _ -> false
+
+    let zeroAddress =
+        Concrete VectorTime.zero addressType
+
+    let makeNumber n =
+        Concrete n (n.GetType())
+
+    let makeNullPtr typ =
+        Ptr (HeapLocation(zeroAddress, typ)) typ (makeNumber 0)
 
     // Only for concretes: there will never be null type
     let canCastConcrete (concrete : obj) targetType =
@@ -448,7 +465,10 @@ module internal Terms =
             Concrete concrete t
         elif functionIsCastedToMethodPointer() then
             Concrete concrete actualType
-        else raise(InvalidCastException(sprintf "Cannot cast %s to %s!" (Reflection.getFullTypeName actualType) (Reflection.getFullTypeName t)))
+        else
+            let tName = Reflection.getFullTypeName t
+            let actualTypeName = Reflection.getFullTypeName actualType
+            raise (InvalidCastException $"Cannot cast {actualTypeName} to {tName}!")
 
     let True =
         Concrete (box true) typeof<bool>
@@ -462,17 +482,8 @@ module internal Terms =
     let makeIndex (i : int) =
         Concrete i indexType
 
-    let zeroAddress =
-        Concrete VectorTime.zero addressType
-
     let nullRef t =
         HeapRef zeroAddress t
-
-    let makeNumber n =
-        Concrete n (n.GetType())
-
-    let makeNullPtr typ =
-        Ptr (HeapLocation(zeroAddress, typ)) typ (makeNumber 0)
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
@@ -507,15 +518,54 @@ module internal Terms =
     let rec primitiveCast term targetType =
         match term.term, targetType with
         | _ when typeOf term = targetType -> term
-        // NOTE: Lazy: not casting numbers to ref or ptr until dereference
-        | _, Pointer _
-        | _, ByRef _ -> term
+        | _, Pointer t
+        | _, ByRef t ->
+            makeDetachedPtr term t
         | Concrete(value, _), _ -> castConcrete value targetType
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
         | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, primitiveCast v targetType)) |> Union
         | _ -> __unreachable__()
+
+    // Detached pointer is pointer, which is not fixed to any object
+    // It contains only offset
+    and makeDetachedPtr value t =
+        match value.term with
+        | _ when isRefOrPtr value -> value
+        | _ ->
+            let offset = primitiveCast value typeof<int>
+            Ptr (HeapLocation(zeroAddress, typeof<Void>)) t offset
+
+    let (|DetachedPtr|_|) = function
+        | Ptr(HeapLocation(address, _), _, offset) when address = zeroAddress ->
+            Some(DetachedPtr offset)
+        | _ -> None
+
+    // This function is used only for creating IntPtr structure
+    let makeIntPtr value =
+        match value.term with
+        | DetachedPtr offset -> primitiveCast offset typeof<IntPtr>
+        | _ when isRefOrPtr value -> value
+        | _ -> primitiveCast value typeof<IntPtr>
+
+    // This function is used only for creating UIntPtr structure
+    let makeUIntPtr value =
+        match value.term with
+        | DetachedPtr offset -> primitiveCast offset typeof<UIntPtr>
+        | _ when isRefOrPtr value -> value
+        | _ -> primitiveCast value typeof<UIntPtr>
+
+    // Transforms IntPtr or UIntPtr to detached pointer
+    let rec nativeToPointer ptr =
+        match ptr.term with
+        | _ when isRefOrPtr ptr -> ptr
+        | Concrete _
+        | Constant _
+        | Expression _ ->
+            makeDetachedPtr ptr typeof<Void>
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, nativeToPointer v)) |> Union
+        | _ -> internalfail $"nativeToPointer: unexpected pointer {ptr}"
 
     let negate term =
         assert(isBool term)
@@ -836,8 +886,8 @@ module internal Terms =
         // TODO: change serializer
         | Numeric t when t = typeof<char> -> makeNumber (char 33)
         | Numeric t -> castConcrete 0 t
-        | _ when typ = typeof<IntPtr> -> castConcrete 0 typ
-        | _ when typ = typeof<UIntPtr> -> castConcrete 0u typ
+        | _ when typ = typeof<IntPtr> -> makeIntPtr (makeNumber 0)
+        | _ when typ = typeof<UIntPtr> -> makeUIntPtr (makeNumber 0)
         | ByRef _
         | ArrayType _
         | ClassType _

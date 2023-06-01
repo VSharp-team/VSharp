@@ -115,6 +115,7 @@ with
 type pointerRepr = {
     index : int
     shift : int
+    sightType : int
 }
 
 [<CLIMutable>]
@@ -241,6 +242,9 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
     let sourceTypes = List<Type>(repr.types |> Array.map (fun t -> t.Decode()))
     let compactRepresentations = Dictionary<obj, CompactArrayRepr>()
 
+    let intPtrIndex = Int32.MaxValue
+    let uintPtrIndex = Int32.MinValue
+
     let createMockObject decode index =
         let mockType, t = mockStorage[index]
         mockType.EnsureInitialized decode t
@@ -271,6 +275,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? stringRepr as repr -> repr.Decode()
         | _ -> obj
 
+    let nullSourceIndex = -1
     let sourceObjects = List<obj>(repr.objects |> Array.map allocateDefault)
     let objReprs = List<obj>(repr.objects)
 
@@ -278,7 +283,14 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         match obj with
         | :? referenceRepr as repr ->
             sourceObjects[repr.index]
-        | :? pointerRepr -> __notImplemented__()
+        | :? pointerRepr as repr when repr.sightType = intPtrIndex ->
+            let shift = decodeValue repr.shift :?> int
+            IntPtr(shift) :> obj
+        | :? pointerRepr as repr when repr.sightType = uintPtrIndex ->
+            let shift = decodeValue repr.shift :?> int |> uint
+            UIntPtr(shift) :> obj
+        | :? pointerRepr as repr ->
+            internalfail $"decoding pointer is not implemented {repr}"
         | :? structureRepr as repr when repr.typ >= 0 ->
             // Case for structs or classes of .NET type
             let t = sourceTypes[repr.typ]
@@ -472,6 +484,14 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
                                 idx
                     let reference : referenceRepr = {index = idx}
                     reference :> obj
+
+    member x.RepresentIntPtr (shift : int) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = intPtrIndex}
+        repr :> obj
+
+    member x.RepresentUIntPtr (shift : int) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = uintPtrIndex}
+        repr :> obj
 
     member x.RepresentStruct (typ : Type) (fields : obj array) =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}

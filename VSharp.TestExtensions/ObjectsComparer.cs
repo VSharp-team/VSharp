@@ -99,4 +99,9 @@ public static class ObjectsComparer
         var comparer = new Comparer();
         return comparer.CompareObjects(expected, got);
     }
+
+    public static unsafe bool CompareObjects(void* expected, void* got)
+    {
+        return expected == got;
+    }
 }

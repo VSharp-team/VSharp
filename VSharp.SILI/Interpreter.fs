@@ -353,9 +353,11 @@ module internal InstructionsSet =
         push address cilState
     let ldnull (cilState : cilState) = push (NullRef typeof<obj>) cilState
     let convu (cilState : cilState) =
+        let ptr = pop cilState |> MakeUIntPtr
+        push ptr cilState
+    let convi (cilState : cilState) =
         let ptr = pop cilState |> MakeIntPtr
         push ptr cilState
-    let convi = convu
     let castTopOfOperationalStack targetType (cilState : cilState) =
         let t = pop cilState
         let termForStack = Types.Cast t targetType
@@ -1429,9 +1431,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
         let declaringTermType = fieldInfo.DeclaringType
         let fieldId = Reflection.wrapField fieldInfo
-        let value = if addressNeeded
-                    then StaticField(declaringTermType, fieldId) |> Ref
-                    else Memory.ReadStaticField cilState.state declaringTermType fieldId
+        let value =
+            if addressNeeded then
+                StaticField(declaringTermType, fieldId) |> Ref
+            else Memory.ReadStaticField cilState.state declaringTermType fieldId
         push value cilState
         setCurrentIp newIp cilState
         [cilState])
@@ -1457,7 +1460,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 k [cilState]
             let fieldId = Reflection.wrapField fieldInfo
             ConfigureErrorReporter (changeState cilState >> reportError)
-            if TypeUtils.isPointer fieldInfo.DeclaringType then
+            let t = fieldInfo.DeclaringType
+            if t = typeof<IntPtr> || t = typeof<UIntPtr> then
+                // This case is used for IntPtr structure -- ignoring field and returning IntPtr pointer
                 if addressNeeded then createCilState target
                 else Memory.Read cilState.state target |> createCilState
             else

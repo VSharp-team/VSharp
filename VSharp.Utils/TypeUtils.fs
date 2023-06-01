@@ -15,19 +15,23 @@ type arrayDimensionType =
 
 module TypeUtils =
 
+    let private nativeSize = IntPtr.Size
+
     // ---------------------------------- Basic type groups ----------------------------------
 
     let private integralTypes =
-        HashSet<Type>([typedefof<byte>; typedefof<sbyte>;
-                       typedefof<int16>; typedefof<uint16>;
-                       typedefof<int32>; typedefof<uint32>;
-                       typedefof<int64>; typedefof<uint64>;
-                       typedefof<char>])
+        HashSet<Type>(
+            [
+                typedefof<byte>; typedefof<sbyte>; typedefof<int16>; typedefof<uint16>
+                typedefof<int32>; typedefof<uint32>; typedefof<int64>; typedefof<uint64>;
+                typedefof<char>; typeof<IntPtr>; typeof<UIntPtr>
+            ]
+        )
 
     let private unsignedTypes =
-        HashSet<Type>([typedefof<byte>; typedefof<uint16>;
-                       typedefof<uint32>; typedefof<uint64>
-                       typeof<UIntPtr>])
+        HashSet<Type>(
+            [typedefof<byte>; typedefof<uint16>; typedefof<uint32>; typedefof<uint64>; typeof<UIntPtr>]
+        )
 
     let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
 
@@ -81,10 +85,26 @@ module TypeUtils =
     let private isULong = (=) typeof<uint64>
 
     let private isWiderForNumericTypesMap =
-        let widerThan8  = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>; typeof<int16>; typeof<uint16>; typeof<char>; typeof<float32>; typeof<float>|]
-        let widerThan16 = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<float32>; typeof<uint64>; typeof<float>|]
-        let widerThan32 = [|typeof<int64>; typeof<uint64>; typeof<float>|]
+        let widerThan8 =
+            [|
+                typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>
+                typeof<int16>; typeof<uint16>; typeof<char>; typeof<float32>; typeof<float>
+                typeof<IntPtr>; typeof<UIntPtr>
+            |]
+        let widerThan16 =
+            [|
+                typeof<int32>; typeof<uint32>; typeof<int64>
+                typeof<float32>; typeof<uint64>; typeof<float>
+                typeof<IntPtr>; typeof<UIntPtr>
+            |]
+        let widerThan32 =
+            if nativeSize > sizeof<int> then
+                [|typeof<int64>; typeof<uint64>; typeof<float>; typeof<IntPtr>; typeof<UIntPtr>|]
+            else [|typeof<int64>; typeof<uint64>; typeof<float>|]
         let widerThan64 = [||]
+        let widerThanNative =
+            if nativeSize > sizeof<int> then widerThan64
+            else widerThan32
         PersistentDict.ofSeq [
             (typeof<int8>,    widerThan8)
             (typeof<uint8>,   widerThan8)
@@ -96,7 +116,10 @@ module TypeUtils =
             (typeof<float32>, widerThan32)
             (typeof<int64>,   widerThan64)
             (typeof<uint64>,  widerThan64)
-            (typeof<float>,   widerThan64) ]
+            (typeof<float>,   widerThan64)
+            (typeof<IntPtr>,  widerThanNative)
+            (typeof<UIntPtr>, widerThanNative)
+        ]
 
     let isLessForNumericTypes (t1 : Type) (t2 : Type) =
         let t1 = if t1.IsEnum then getEnumUnderlyingTypeChecked t1 else t1
@@ -115,12 +138,15 @@ module TypeUtils =
     // TODO: wrap Type, cache size there
     let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
         assert(not typ.ContainsGenericParameters)
-        let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
-        let gen = meth.GetILGenerator()
-        gen.Emit(OpCodes.Sizeof, typ)
-        gen.Emit(OpCodes.Ret)
-        let size : uint32 = meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
-        int size
+        if typ = typeof<IntPtr> || typ = typeof<UIntPtr> then
+            nativeSize
+        else
+            let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+            let gen = meth.GetILGenerator()
+            gen.Emit(OpCodes.Sizeof, typ)
+            gen.Emit(OpCodes.Ret)
+            let size : uint32 = meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
+            int size
 
     let numericSizeOf (typ: Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
@@ -137,10 +163,12 @@ module TypeUtils =
         | _ when typ = typeof<int64> -> 64u
         | _ when typ = typeof<uint64> -> 64u
         | _ when typ = typeof<float> -> 64u
+        | _ when typ = typeof<IntPtr> -> uint (nativeSize * 8)
+        | _ when typ = typeof<UIntPtr> -> uint (nativeSize * 8)
         | _ -> __unreachable__()
 
     let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t2.IsAssignableFrom(t1)
-    let isPointer (t : Type) = t.IsPointer || t = typeof<IntPtr> || t = typeof<UIntPtr>
+    let isPointer (t : Type) = t.IsPointer
 
     let isValueType = function
         | (t : Type) when t.IsGenericParameter ->
@@ -221,9 +249,9 @@ module TypeUtils =
         | TypeVariable t when isValueTypeParameter t -> Some(ValueType)
         | _ -> None
 
-    let (|Pointer|_|) = function
-        | t when t = typeof<IntPtr> || t = typeof<UIntPtr> -> Some(typeof<Void>)
-        | p when p.IsPointer -> Some(p.GetElementType())
+    let (|Pointer|_|) (t : Type) =
+        match t with
+        | _ when t.IsPointer -> Some(t.GetElementType())
         | _ -> None
 
 
@@ -328,9 +356,9 @@ module TypeUtils =
         | _ when t = typeof<UInt64>     -> OpCodes.Conv_U8
         | _ when t = typeof<float32>    -> OpCodes.Conv_R4
         | _ when t = typeof<float>      -> OpCodes.Conv_R8
+        | _ when t = typeof<nativeint>  -> OpCodes.Conv_I
+        | _ when t = typeof<unativeint> -> OpCodes.Conv_U
         | _ when t = typeof<Boolean>    -> __unreachable__()
-        | _ when t = typeof<nativeint>  -> __unreachable__()
-        | _ when t = typeof<unativeint> -> __unreachable__()
         | _                             -> __unreachable__()
 
     let private createNumericConv (fromType : Type) (toType : Type) =
