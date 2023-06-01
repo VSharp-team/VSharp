@@ -505,9 +505,7 @@ and IGraphTrackableState =
     abstract member VisitedNotCoveredVerticesOutOfZone: uint with get
     abstract member VisitedAgainVertices: uint with get
     abstract member History:  Dictionary<BasicBlock,uint>
-    abstract member Children: array<IGraphTrackableState>
-    
-    
+    abstract member Children: array<IGraphTrackableState>  
 
 module public CodeLocation =
 
@@ -515,22 +513,6 @@ module public CodeLocation =
         match blockStart.method.CFG with
         | Some cfg -> cfg.HasSiblings blockStart.offset
         | None -> false
-
-type private ApplicationGraphMessage =
-    | ResetQueryEngine
-    | AddGoals of array<codeLocation>
-    | RemoveGoal of codeLocation
-    | SpawnStates of seq<IGraphTrackableState>
-    | AddForkedStates of parentState:IGraphTrackableState * forkedStates:seq<IGraphTrackableState>
-    | MoveState of positionForm:codeLocation * positionTo: IGraphTrackableState
-    | AddCFG of Option<AsyncReplyChannel<CfgInfo>> *  Method
-    | AddCallEdge of callForm:codeLocation * callTo: codeLocation
-    | GetShortestDistancesToGoals
-        of AsyncReplyChannel<ResizeArray<codeLocation * codeLocation * int>> * array<codeLocation>
-    | GetReachableGoals
-        of AsyncReplyChannel<Dictionary<codeLocation,HashSet<codeLocation>>> * array<codeLocation>
-    | GetDistanceToNearestGoal
-        of AsyncReplyChannel<seq<IGraphTrackableState * int>> * seq<IGraphTrackableState>
 
 type ApplicationGraph() =
     
@@ -635,117 +617,34 @@ type ApplicationGraph() =
             Some cfg
         else None
         
-    (*let messagesProcessor = MailboxProcessor.Start(fun inbox ->
-        let tryGetCfgInfo (method : Method) =
-            if method.HasBody then
-                // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
-                // TODO: fix it
-                let cfg = method.CFG
-                Some cfg
-            else None
 
-        async{
-            while true do
-                let! message = inbox.Receive()
-                try
-                    match message with
-                    | ResetQueryEngine ->
-                        __notImplemented__()
-                    | AddCFG (replyChannel, method) ->
-                        let reply cfgInfo =
-                            match replyChannel with
-                            | Some ch -> ch.Reply cfgInfo
-                            | None -> ()
-                        assert method.HasBody
-                        let cfg = method.CFG |> Option.get
-                        reply cfg
-                    | AddCallEdge (src, dst) ->
-                        match src.method.CFG, dst.method.CFG with
-                        | Some _, Some _ ->  addCallEdge src dst
-                        | _ -> ()
-                    | AddGoals positions ->
-                        Logger.trace "Add goals."
-                    | RemoveGoal pos ->
-                        Logger.trace "Remove goal."
-                    | SpawnStates states -> Array.ofSeq states |> addStates None
-                    | AddForkedStates (parentState, forkedStates) ->
-                        addStates (Some parentState) (Array.ofSeq forkedStates)
-                    | MoveState (src, dst) ->
-                        moveState src dst
-                    | GetShortestDistancesToGoals (replyChannel, states) ->
-                        Logger.trace "Get shortest distances."
-                        __notImplemented__()
-                    | GetDistanceToNearestGoal (replyChannel, states) ->
-                        replyChannel.Reply []
-                    | GetReachableGoals (replyChannel, states) -> __notImplemented__()
-                with
-                | e ->
-                    Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
-                    match message with
-                    | AddCFG (Some ch, _) -> ch.Reply Unchecked.defaultof<CfgInfo>
-                    | _ -> ()
-        }
-    )
-
-    do
-        messagesProcessor.Error.Add(fun e ->
-            Logger.error $"Something wrong in application graph messages processor: \n %A{e} \n %s{e.Message} \n %s{e.StackTrace}"
-            raise e
-            )
-*)
     member this.RegisterMethod (method: Method) =
         assert method.HasBody
-        //let cfg = tryGetCfgInfo method |> Option.get
-        //cfg
-        //messagesProcessor.Post (AddCFG (None, method))
 
     member this.AddCallEdge (sourceLocation : codeLocation) (targetLocation : codeLocation) =
         addCallEdge sourceLocation targetLocation
 
     member this.SpawnState (state:IGraphTrackableState) =
         [|state|] |> addStates None
-        //messagesProcessor.Post <| SpawnStates [|state|]
 
     member this.SpawnStates (states:seq<IGraphTrackableState>) =
         Array.ofSeq states |> addStates None
-        //messagesProcessor.Post <| SpawnStates states
 
     member this.AddForkedStates (parentState:IGraphTrackableState) (forkedStates:seq<IGraphTrackableState>) =
         addStates (Some parentState) (Array.ofSeq forkedStates)
-        //messagesProcessor.Post <| AddForkedStates (parentState,states)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
         tryGetCfgInfo toLocation.CodeLocation.method |> ignore
         moveState fromLocation toLocation
-        //messagesProcessor.Post <| MoveState (fromLocation, toLocation)
 
     member x.AddGoal (location:codeLocation) =
         ()
-        //messagesProcessor.Post <| AddGoals [|location|]
 
     member x.AddGoals (locations:array<codeLocation>) =
         ()
-        //messagesProcessor.Post <| AddGoals locations
 
     member x.RemoveGoal (location:codeLocation) =
         ()
-        //messagesProcessor.Post <| RemoveGoal location
-
-    member this.GetShortestDistancesToAllGoalsFromStates (states: array<codeLocation>) =
-        ()
-        //messagesProcessor.PostAndReply (fun ch -> GetShortestDistancesToGoals(ch, states))
-
-    member this.GetDistanceToNearestGoal (states: seq<IGraphTrackableState>) =
-        ()
-        //messagesProcessor.PostAndReply (fun ch -> GetDistanceToNearestGoal(ch, states))
-
-    member this.GetGoalsReachableFromStates (states: array<codeLocation>) =
-        ()
-        //messagesProcessor.PostAndReply (fun ch -> GetReachableGoals(ch, states))
-
-    member this.ResetQueryEngine() =
-        ()
-        //messagesProcessor.Post ResetQueryEngine
 
 type IVisualizer =
     abstract DrawInterproceduralEdges: bool
