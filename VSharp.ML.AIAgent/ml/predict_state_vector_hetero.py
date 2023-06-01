@@ -103,7 +103,7 @@ class PredictStateVectorHetGNN:
         for index, vector in enumerate(out["state_vertex"]):
             state_vector_mapping = StateVectorMapping(
                 state=reversed_state_map[index],
-                vector=(vector.detach().numpy() * weights).tolist(),
+                vector=(vector.detach().cpu().numpy() * weights).tolist(),
             )
             remapped.append(state_vector_mapping)
 

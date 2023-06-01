@@ -11,5 +11,6 @@ def load_model(path: str) -> torch.nn.Module:
     model.load_state_dict(
         torch.load(path, map_location=torch.device("cuda:0")), strict=False
     )
+    model.to(torch.device("cuda:0"))
     model.eval()
     return model
