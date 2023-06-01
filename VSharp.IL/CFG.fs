@@ -32,8 +32,7 @@ type ICfgNode =
         abstract Offset : offset 
 
 type IInterproceduralCfgNode =
-        inherit IGraphNode<IInterproceduralCfgNode>
-        //abstract OutgoingEdges : seq<IInterproceduralCfgNode> with get
+        inherit IGraphNode<IInterproceduralCfgNode>        
         abstract IsCovered : bool with get
         abstract IsVisited : bool with get
         abstract IsTouched : bool with get
@@ -326,9 +325,9 @@ and CfgInfo internal (method : MethodWithBody) =
             if l >= r then l
             else
                 let mid = (l + r) / 2
-                let midValue = sortedOffsets.[mid].StartOffset
+                let midValue = sortedOffsets[mid].StartOffset
                 let leftIsLefter = midValue <= offset
-                let rightIsRighter = mid + 1 >= sortedOffsets.Count || sortedOffsets.[mid + 1].StartOffset > offset
+                let rightIsRighter = mid + 1 >= sortedOffsets.Count || sortedOffsets[mid + 1].StartOffset > offset
                 if leftIsLefter && rightIsRighter then mid
                 elif not rightIsRighter
                     then binSearch sortedOffsets offset (mid + 1) r
@@ -336,7 +335,7 @@ and CfgInfo internal (method : MethodWithBody) =
 
         binSearch sortedBasicBlocks offset 0 (sortedBasicBlocks.Count - 1)
 
-    let resolveBasicBlock offset = sortedBasicBlocks.[resolveBasicBlockIndex offset]
+    let resolveBasicBlock offset = sortedBasicBlocks[resolveBasicBlockIndex offset]
         
     do
         let startVertices =
