@@ -2,7 +2,7 @@ import logging
 import torch.multiprocessing as mp
 import torch
 
-import multiprocessing_logging
+# import multiprocessing_logging
 
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
@@ -79,8 +79,9 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
 # len(SOCKET_URLS) == proc_num
 SOCKET_URLS = [
     "ws://0.0.0.0:8080/gameServer",
-    # "ws://0.0.0.0:8090/gameServer",
-    # "ws://0.0.0.0:8100/gameServer",
+    "ws://0.0.0.0:8090/gameServer",
+    "ws://0.0.0.0:8100/gameServer",
+    "ws://0.0.0.0:8110/gameServer",
 ]
 
 
