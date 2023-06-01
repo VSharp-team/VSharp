@@ -66,13 +66,29 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     assemble generation
     """
 
+    best_decart = selectors.select_k_best(scorer.decart_scorer, mr, k=1)
+    k_best_decart = selectors.select_k_best(scorer.decart_scorer, mr, k=4)
+
+    best_euclid = selectors.select_k_best(scorer.euclidean_scorer, mr, k=1)
+    k_best_euclid = selectors.select_k_best(scorer.euclidean_scorer, mr, k=4)
+
+    avg_best_tops = average(selectors.select_n_maps_tops(mr, n=1))
+
+    avg_best_decart = average(k_best_decart)
+    avg_best_euclid = average(k_best_euclid)
+
     return [
-        *selectors.select_k_best(scorer.decart_scorer, mr, k=5),
-        average_of_best,
-        mutated_average_of_best,
-        mutated_average_of_all,
-        tournament_average,
-        tournament_average_mutated,
+        *best_decart,
+        *best_euclid,
+        avg_best_decart,
+        avg_best_euclid,
+        avg_best_tops,
+
+        *[GeneticLearner.mutate(avg_best_decart, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
+        *[GeneticLearner.mutate(avg_best_euclid, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
+        *[GeneticLearner.mutate(avg_best_tops, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
+        *[GeneticLearner.mutate(best_decart[0], mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
+        *[GeneticLearner.mutate(best_euclid[0], mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)]
     ]
 
 
@@ -86,13 +102,16 @@ SOCKET_URLS = [
 
 
 def main():
-    epochs = 10
-    max_steps = 300
-    n_models = 10
+
+    loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
+
+    epochs = 20
+    max_steps = 600
+    n_models = 20
     proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
     # every 4th epoch
-    epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
+    epochs_to_verify = [i for i in range(4, epochs + 1) if i % 4 == 0]
     # epochs_to_verify = [4, 8, 10]
 
     GeneticLearner.set_static_model()
