@@ -1,4 +1,3 @@
-import concurrent.futures
 import logging
 import os
 import queue
@@ -8,9 +7,8 @@ from contextlib import closing
 from itertools import product
 from time import time
 from typing import Callable, Optional, TypeAlias
-import torch
-import torch.multiprocessing as mp
 
+import torch.multiprocessing as mp
 import tqdm
 import websocket
 
@@ -68,9 +66,10 @@ def play_map(
         steps_count += 1
     except NAgent.GameOver:
         if game_state is None:
-            raise RuntimeError(
-                f"server sent gameover immediately while playing map with id={with_agent.map_id}"
+            logging.error(
+                f"immediate GameOver for {with_model.name()} on map_id={with_agent.map_id}"
             )
+            return MutableResultMapping(with_model, MutableResult(0, 0, 0))
 
     factual_coverage, vertexes_in_zone = covered(game_state)
     factual_coverage += last_step_covered
@@ -83,7 +82,7 @@ def play_map(
             f"steps: {steps_count}, coverage: {coverage_percent}"
         )
 
-    model_result: MutableResultMapping = MutableResultMapping(
+    model_result = MutableResultMapping(
         with_model,
         MutableResult(
             cumulative_reward,

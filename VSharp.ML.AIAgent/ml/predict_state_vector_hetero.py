@@ -3,6 +3,7 @@ from collections import namedtuple
 
 import torch
 import torch.nn.functional as F
+from common.constants import DEVICE
 from ml import data_loader_compact
 from ml.models import GNN_Het
 from torch_geometric.data import HeteroData
@@ -91,11 +92,10 @@ class PredictStateVectorHetGNN:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
-        device = torch.device("cuda:0")
-        data.to(device)
+        data.to(DEVICE)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
-        with torch.cuda.device(0):
+        with torch.no_grad():
             out = model.forward(data.x_dict, data.edge_index_dict)
 
         remapped = []

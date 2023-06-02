@@ -1,5 +1,6 @@
 import torch
 import ml.models
+from common.constants import DEVICE
 
 
 def load_full_model(path: str):
@@ -8,9 +9,7 @@ def load_full_model(path: str):
 
 def load_model(path: str) -> torch.nn.Module:
     model = ml.models.StateModelEncoder(hidden_channels=64, out_channels=8)
-    model.load_state_dict(
-        torch.load(path, map_location=torch.device("cuda:0")), strict=False
-    )
-    model.to(torch.device("cuda:0"))
+    model.load_state_dict(torch.load(path), strict=False)
+    model.to(DEVICE)
     model.eval()
     return model

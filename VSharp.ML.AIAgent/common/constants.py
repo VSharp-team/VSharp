@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import torch
+
 
 def _build_bar_format() -> str:
     custom_left = "{desc}: {n_fmt}/{total_fmt}"
@@ -20,3 +22,6 @@ class Constant:
         "bar_format": _build_bar_format(),
         "dynamic_ncols": True,
     }
+
+
+DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

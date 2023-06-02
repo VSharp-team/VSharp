@@ -1,8 +1,6 @@
 import logging
-import torch.multiprocessing as mp
-import torch
 
-# import multiprocessing_logging
+import torch.multiprocessing as mp
 
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
@@ -12,14 +10,11 @@ from selection import scorer, selectors
 from selection.classes import ModelResultsOnGameMaps
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     filename="app.log",
     filemode="a",
     format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
 )
-
-
-# multiprocessing_logging.install_mp_handler()
 
 
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
@@ -31,36 +26,11 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
         return GeneticLearner.mutate(
             model,
             mutation_volume=0.25,
-            mutation_freq=0.1,
+            mutation_freq=0.2,
         )
 
     def average(models: list[Mutable]):
         return GeneticLearner.average(models)
-
-    """
-    selection & mutation
-    """
-
-    best_mutables = [
-        *selectors.select_k_best(scorer.decart_scorer, mr, k=3),
-        *selectors.select_n_maps_tops(mr, n=4),
-    ]
-
-    average_of_best = average(best_mutables)
-    mutated_average_of_best = mutate(average_of_best)
-    mutated_average_of_all = average(
-        selectors.select_all_models(model_result_with_maps=mr)
-    )
-
-    tournament_average = average(
-        selectors.tournament_selection(
-            model_result_with_maps=mr,
-            desired_population=3,
-            n_comparisons=4,
-            scorer=scorer.decart_scorer,
-        )
-    )
-    tournament_average_mutated = mutate(tournament_average)
 
     """
     assemble generation
@@ -83,36 +53,28 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
         avg_best_decart,
         avg_best_euclid,
         avg_best_tops,
-
-        *[GeneticLearner.mutate(avg_best_decart, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
-        *[GeneticLearner.mutate(avg_best_euclid, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
-        *[GeneticLearner.mutate(avg_best_tops, mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
-        *[GeneticLearner.mutate(best_decart[0], mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)],
-        *[GeneticLearner.mutate(best_euclid[0], mutation_volume=0.25, mutation_freq=0.2,) for _ in range(4)]
+        *[mutate(avg_best_decart) for _ in range(4)],
+        *[mutate(avg_best_euclid) for _ in range(4)],
+        *[mutate(avg_best_tops) for _ in range(4)],
+        *[mutate(best_decart[0]) for _ in range(4)],
+        *[mutate(best_euclid[0]) for _ in range(4)],
     ]
 
 
+START_PORT = 8100
+SERVER_COUNT = 8
+
 # len(SOCKET_URLS) == proc_num
-SOCKET_URLS = [
-    "ws://0.0.0.0:8080/gameServer",
-    "ws://0.0.0.0:8090/gameServer",
-    "ws://0.0.0.0:8100/gameServer",
-    "ws://0.0.0.0:8110/gameServer",
-]
+SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER_COUNT)]
 
 
 def main():
-
-    loaded_model = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
-
     epochs = 20
     max_steps = 600
-    n_models = 20
+    n_models = 25
     proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
-    # every 4th epoch
-    epochs_to_verify = [i for i in range(4, epochs + 1) if i % 4 == 0]
-    # epochs_to_verify = [4, 8, 10]
+    epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
 
     GeneticLearner.set_static_model()
     models = [GeneticLearner() for _ in range(n_models)]
