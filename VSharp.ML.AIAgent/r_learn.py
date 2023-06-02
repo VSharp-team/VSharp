@@ -78,7 +78,7 @@ def play_map(
 
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
-            f"<{with_model.name()}>: not all steps exshausted with non-100% coverage. "
+            f"<{with_model.name()}>: not all steps exshausted on map_id={with_agent.map_id} with non-100% coverage"
             f"steps: {steps_count}, coverage: {coverage_percent}"
         )
 

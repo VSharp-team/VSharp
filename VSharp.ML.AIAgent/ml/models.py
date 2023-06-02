@@ -267,6 +267,7 @@ class GNN_Het(torch.nn.Module):
         super().__init__()
         self.conv1 = SAGEConv((-1, -1), hidden_channels)
         self.conv2 = SAGEConv((-1, -1), out_channels)
+        # GATConv
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
@@ -393,10 +394,14 @@ class StateGNNEncoderConv(torch.nn.Module):
         # self.conv1 = GravNetConv(-1, hidden_channels, 2, 2, 2)
         # self.conv2 = GravNetConv(-1, hidden_channels, 2, 2, 2)
         # GatedGraphConv
-        self.conv1 = TAGConv(5, hidden_channels)
-        self.conv2 = TAGConv(6, hidden_channels)
+        self.conv1 = TAGConv(5, hidden_channels, 10)
+        self.conv12 = TAGConv(hidden_channels, hidden_channels, 10)  # TAGConv
+        self.conv22 = TAGConv(hidden_channels, hidden_channels, 10)  # TAGConv
+        self.conv2 = TAGConv(6, hidden_channels, 10)  # TAGConv
         self.conv3 = SAGEConv((-1, -1), hidden_channels)  # SAGEConv
+        self.conv32 = SAGEConv((-1, -1), hidden_channels)
         self.conv4 = SAGEConv((-1, -1), hidden_channels)
+        self.conv42 = SAGEConv((-1, -1), hidden_channels)
         self.lin = Linear(hidden_channels, out_channels)
 
     def forward(self, x_dict, edge_index_dict):
@@ -405,8 +410,18 @@ class StateGNNEncoderConv(torch.nn.Module):
             edge_index_dict[("game_vertex", "to", "game_vertex")],
         ).relu()
 
+        game_x = self.conv12(
+            game_x,
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+
         state_x = self.conv2(
             x_dict["state_vertex"],
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv22(
+            state_x,
             edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
         ).relu()
 
@@ -415,7 +430,17 @@ class StateGNNEncoderConv(torch.nn.Module):
             edge_index_dict[("game_vertex", "history", "state_vertex")],
         ).relu()
 
+        state_x = self.conv32(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
+        ).relu()
+
         state_x = self.conv4(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "in", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv42(
             (game_x, state_x),
             edge_index_dict[("game_vertex", "in", "state_vertex")],
         ).relu()

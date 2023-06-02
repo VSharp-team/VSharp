@@ -12,8 +12,12 @@ def _build_bar_format() -> str:
 
 
 class Constant:
-    IMPORTED_FULL_MODEL_PATH = Path("ml/imported/GNN_state_pred_het_full")
-    IMPORTED_DICT_MODEL_PATH = Path("ml/imported/GNN_state_pred_het_dict")
+    IMPORTED_FULL_MODEL_PATH = Path(
+        "ml/imported/GNN_state_pred_het_full_TAGConv_20e_2xAll_10h"
+    )
+    IMPORTED_DICT_MODEL_PATH = Path(
+        "ml/imported/GNN_state_pred_het_dict_TAGConv_20e_2xAll_10h"
+    )
     NUM_FEATURES = 8
     TABLES_LOG_FILE = Path("./tables.log")
     APP_LOG_FILE = Path("./app.log")
