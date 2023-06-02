@@ -13,7 +13,10 @@ module Runtime_CompilerServices_RuntimeHelpers =
     val IsReferenceOrContainsReferences : state -> term list -> term
 
     [<Implements("System.Int32 System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(System.Object)")>]
-    val GetHashCode : state -> term list -> term
+    val CommonGetHashCode : state -> term list -> term
+
+    [<Implements("System.Int32 System.ValueType.GetHashCode(this)")>]
+    val ValueTypeGetHashCode : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.Equals(System.Object, System.Object)")>]
     val Equals : state -> term list -> term

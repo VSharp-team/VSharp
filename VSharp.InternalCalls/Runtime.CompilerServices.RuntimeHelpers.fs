@@ -24,10 +24,16 @@ module Runtime_CompilerServices_RuntimeHelpers =
         | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ)
         | _ -> __unreachable__()
 
-    let GetHashCode (state : state) (args : term list) : term =
+    let CommonGetHashCode (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let object = List.head args
         GetHashCode object
+
+    let ValueTypeGetHashCode (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        let boxedThis = List.head args
+        let structValue = Memory.Read state boxedThis
+        GetHashCode structValue
 
     let Equals (state : state) (args : term list) : term =
         assert(List.length args = 2)

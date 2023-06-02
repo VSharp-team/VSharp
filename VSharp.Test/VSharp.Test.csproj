@@ -3,24 +3,9 @@
     <PropertyGroup>
         <TargetFramework>netcoreapp6.0</TargetFramework>
         <IsPackable>false</IsPackable>
-        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Configurations>Release</Configurations>
         <Platforms>AnyCPU</Platforms>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-      <Optimize>true</Optimize>
-      <DebugSymbols>false</DebugSymbols>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
-      <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-      <DebugSymbols>true</DebugSymbols>
-      <DefineConstants>TRACE;DEBUG</DefineConstants>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     </PropertyGroup>
 
     <ItemGroup>
@@ -32,6 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\VSharp.CoverageRunner\VSharp.CoverageRunner.csproj" />
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
       <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />

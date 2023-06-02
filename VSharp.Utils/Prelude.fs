@@ -19,7 +19,6 @@ module public Prelude =
     let undefinedBehaviour reason = internalfailf "Undefined behaviour: %s" reason
 
     let inline public __notImplemented__() = raise (NotImplementedException())
-    let inline public __notImplemented'__ message = raise (NotImplementedException (message + " is not implemented yet"))
     let inline public __unreachable__() = raise (UnreachableException "unreachable branch hit!")
     let public __insufficientInformation__ format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason) |> raise) format
     let public createInsufficientInformation format = Printf.ksprintf (fun reason -> InsufficientInformationException ("Insufficient information! " + reason)) format

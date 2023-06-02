@@ -29,7 +29,7 @@ namespace IntegrationTests
             return t.Depth == 3 && t.Size == 7;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, timeout:2)]
         public static bool CheckGeneratedDepthSymbolic(int d, int s)
         {
             if (d < 0 | d > 10)

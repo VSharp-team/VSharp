@@ -42,7 +42,7 @@ namespace IntegrationTests
             return str;
         }
 
-        [TestSvm(75)]
+        [TestSvm(81)]
         public static bool StringOfReplicatedChar()
         {
             string str = new string('s', 20);
@@ -74,6 +74,34 @@ namespace IntegrationTests
         }
 
         [TestSvm]
+        public static bool ConcatStrings(string s)
+        {
+            string str = "Some string";
+            string newStr = s + str;
+            return s == newStr[.. s.Length];
+        }
+
+        [TestSvm]
+        public static int ConcatStrings1(string s)
+        {
+            string str = "Some string";
+            string newStr = s + str;
+            if (s.Length < 5 && s != newStr[.. s.Length])
+                return -1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static int ConcatStrings2(char c)
+        {
+            string str = "Some string";
+            string newStr = c + str;
+            if (newStr[0] != c)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm]
         public static bool ConcreteStringToUpper()
         {
             string str = "C7";
@@ -86,6 +114,34 @@ namespace IntegrationTests
         {
             string s = c + "c";
             return s.ToUpperInvariant()[1] == 'C';
+        }
+
+        public enum Kind
+        {
+            First,
+            Second,
+            Third
+        }
+
+        public class ClassToString
+        {
+            public int X;
+            public int Y;
+            public Kind Kind;
+        }
+
+        [Ignore("need to fix StringBuilder.AppendLine")]
+        public static string StringFormat(ClassToString c)
+        {
+            return string.Format("{0}: {1}, {2}: {3}, {4}: {5}", "Kind", c.Kind, "X", c.X, "Y", c.Y);
+        }
+
+        [Ignore("need to fix StringBuilder.AppendLine")]
+        public static string StringFormat1(ClassToString c)
+        {
+            if (c.Kind == Kind.First)
+                return $"Kind: {c.Kind}, X: {c.X}, Y: {c.Y}";
+            return $"{"Kind"}: {c.Kind}, {"X"}: {c.X + 20}, {"Y"}: {c.Y + 10}";
         }
     }
 }

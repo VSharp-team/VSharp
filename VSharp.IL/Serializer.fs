@@ -103,7 +103,7 @@ type StateInfoToDump =
 let mutable firstFreeEpisodeNumber = 0
 
 let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackableState) =
-    let currentBasicBlock = state.CodeLocation.BasicBlock
+    let currentBasicBlock = state.CodeLocation.ForceBasicBlock
     let distances = 
         let assembly = currentBasicBlock.Method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate interproceduralGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
@@ -216,9 +216,9 @@ let collectGameState (location:codeLocation) =
                          |> Seq.iter (fun kvp -> collectFullGraph (kvp.Key.Method :?> Method))
                     basicBlock.IncomingCallEdges
                     |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))                     
-            (method :> ICallGraphNode).OutgoingEdges
+            (method :> VSharp.ICallGraphNode).OutgoingEdges
             |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
-            (method :> IReversedCallGraphNode).OutgoingEdges
+            (method :> VSharp.IReversedCallGraphNode).OutgoingEdges
             |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
     collectFullGraph location.method
     
@@ -265,7 +265,7 @@ let collectGameState (location:codeLocation) =
     
         if currentBasicBlock.IsVisited
         then
-            visitedInstructionsInZone <- visitedInstructionsInZone + uint currentBasicBlock.Instructions.Length
+            visitedInstructionsInZone <- visitedInstructionsInZone + uint (currentBasicBlock.BlockSize)
         elif currentBasicBlock.IsTouched
         then
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions

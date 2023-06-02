@@ -15,7 +15,7 @@ type functionResultConstantSource =
         args : term list
     }
 with
-    interface ISymbolicConstantSource with
+    interface INonComposableSymbolicConstantSource with
         override x.TypeOfLocation = x.mock.Method.ReturnType
         override x.SubTerms = []
         override x.Time = VectorTime.zero

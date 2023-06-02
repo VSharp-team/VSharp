@@ -1,5 +1,6 @@
 namespace VSharp.System
 
+open System
 open global.System
 open VSharp
 open VSharp.Core
@@ -8,31 +9,38 @@ open VSharp.Core
 
 module ReadOnlySpan =
 
-    let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
-        assert(List.length args = 3)
-        let this, index = List.item 0 args, List.item 2 args
-        let span = Memory.Read state this
-        let spanFields = Terms.TypeOf span |> Reflection.fieldsOf false
+    let internal GetContentsRef (state : state) (spanStruct : term) =
+        let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_pointer") |> fst
         // TODO: throw ThrowIndexOutOfRangeException if len is less or equal to index
-        // let lenField = fst spanFields.[1]
+        // let lenField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
         // let len = Memory.ReadField state span lenField
-        let byRefStruct = Memory.ReadField state span ptrField
+        let byRefStruct = Memory.ReadField state spanStruct ptrField
         let byRefFields = Terms.TypeOf byRefStruct |> Reflection.fieldsOf false
         assert(Array.length byRefFields = 1)
         let byRefField = byRefFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_value") |> fst
         let ptrToArray = Memory.ReadField state byRefStruct byRefField
-        let ref =
-            match ptrToArray.term with
-            // Case for char span made from string
-            | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
-                HeapRef address typeof<char[]>
-            | Ref(ArrayIndex(addr, indices, (eType, dim, isVector))) when indices = [MakeNumber 0] ->
-                let t = if isVector then eType.MakeArrayType() else eType.MakeArrayType dim
-                HeapRef addr t
-            | Ptr _ -> internalfail "reading from ReadOnlySpan by ptr is not implemented"
-            | _ -> __unreachable__()
+        match ptrToArray.term with
+        // Case for char span made from string
+        | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
+            HeapRef address typeof<char[]>
+        | Ref(ArrayIndex(addr, indices, (eType, dim, isVector))) when indices = [MakeNumber 0] ->
+            let t = if isVector then eType.MakeArrayType() else eType.MakeArrayType dim
+            HeapRef addr t
+        | Ptr(HeapLocation(address, t), sightType, offset) ->
+            match TryPtrToArrayInfo t sightType offset with
+            | Some(index, arrayType) ->
+                ArrayIndex(address, index, arrayType) |> Ref
+            | None when t.IsSZArray || t = typeof<string> -> ptrToArray
+            | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptrToArray}"
+        | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptrToArray}"
+
+    let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let this, index = List.item 0 args, List.item 2 args
+        let span = Memory.Read state this
+        let ref = GetContentsRef state span
         Memory.ReferenceArrayIndex state ref [index] None
 
     let internal GetItemFromSpan (state : state) (args : term list) : term =
