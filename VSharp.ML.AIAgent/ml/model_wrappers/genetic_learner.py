@@ -1,14 +1,14 @@
 import random
-import string
-from common.constants import Constant
-from copy import deepcopy
 from math import floor
 
 import numpy as np
 import numpy.typing as npt
 
+from common.constants import Constant
 from common.game import GameState
+from config import Config
 from ml.data_loader_compact import ServerDataloaderHeteroVector
+from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_full_model
 
@@ -27,19 +27,26 @@ class GeneticLearner(ModelWrapper):
     def set_static_model():
         GeneticLearner.MODEL = load_full_model(Constant.IMPORTED_FULL_MODEL_PATH)
 
-    def __init__(self, weights: npt.NDArray = None) -> None:
+    def __init__(
+        self, weights: npt.NDArray = None, successor_name_closure=lambda x: x
+    ) -> None:
         if weights is None:
             # -1 to 1
-            self.weights = np.random.rand(Constant.NUM_FEATURES) * 2 - 1
+            self.weights = np.array(
+                [random.random() * 2 - 1 for _ in range(Constant.NUM_FEATURES)]
+            )
         else:
             self.weights = weights
 
-        self._name = "".join(
-            random.choices(string.ascii_uppercase + string.digits, k=7)
-        )
+        self._name = gen_name()
+        if Config.SHOW_SUCCESSORS:
+            self._name = successor_name_closure(self._name)
 
     def __str__(self) -> str:
         return f"{self.name()}: {self.weights.tolist()}"
+
+    def info(self) -> str:
+        return f"{self.weights.tolist()}"
 
     def __hash__(self) -> int:
         return self.__str__().__hash__()
@@ -59,6 +66,7 @@ class GeneticLearner(ModelWrapper):
         mutables_weights = [model.weights for model in ms]
         return GeneticLearner(
             weights=np.mean(mutables_weights, axis=0),
+            successor_name_closure=lambda x: f"{x}(av)",
         )
 
     @staticmethod
@@ -70,18 +78,22 @@ class GeneticLearner(ModelWrapper):
         mutation_freq - 0..1, variation of weights, within (MAX_W, MIN_W)
         """
         assert mutation_freq < MAX_W and mutation_freq > MIN_W
-        new_mutable = deepcopy(mutable)
+        assert type(mutable) is GeneticLearner
+        new_weights = mutable.weights.copy()
         to_mutate = floor(Constant.NUM_FEATURES * mutation_volume)
 
         for _ in range(to_mutate):
             index_to_mutate = random.randint(0, Constant.NUM_FEATURES - 1)
-            new_mutable.weights[index_to_mutate] = variate(
+            new_weights[index_to_mutate] = variate(
                 val=mutable.weights[index_to_mutate],
                 range_percent=mutation_freq,
                 borders=(MIN_W, MAX_W),
             )
 
-        return new_mutable
+        return GeneticLearner(
+            weights=new_weights,
+            successor_name_closure=lambda x: f"{x}(<-{mutable.name()})",
+        )
 
     def train_single_val(self):
         return super().train_single_val()
