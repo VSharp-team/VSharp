@@ -43,6 +43,7 @@ def play_map(
     steps_count = 0
     last_step_covered = None
     game_state = None
+    actual_coverage = None
 
     try:
         for _ in range(steps):
@@ -64,17 +65,24 @@ def play_map(
 
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
-    except NAgent.GameOver:
+    except NAgent.GameOver as gameover:
         if game_state is None:
             logging.error(
                 f"immediate GameOver for {with_model.name()} on map_id={with_agent.map_id}"
             )
-            return MutableResultMapping(with_model, MutableResult(0, 0, 0))
+            return MutableResultMapping(
+                with_model, MutableResult(MoveReward(0, 0), 0, 0)
+            )
+        if gameover.actual_coverage is not None:
+            actual_coverage = gameover.actual_coverage
 
-    factual_coverage, vertexes_in_zone = covered(game_state)
-    factual_coverage += last_step_covered
+    if actual_coverage is not None:
+        coverage_percent = actual_coverage
+    else:
+        computed_coverage, vertexes_in_zone = covered(game_state)
+        computed_coverage += last_step_covered
 
-    coverage_percent = factual_coverage / vertexes_in_zone * 100
+        coverage_percent = computed_coverage / vertexes_in_zone * 100
 
     if coverage_percent != 100 and steps_count != steps:
         logging.error(

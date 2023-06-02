@@ -2,6 +2,7 @@ import json
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import Optional
 
 from common.game import GameMap, GameState, Reward
 from dataclasses_json import config, dataclass_json
@@ -121,3 +122,4 @@ class MapsServerMessage(ServerMessage):
 @dataclass
 class GameOverServerMessage(ServerMessage):
     MessageBody: None
+    ActualCoverage: Optional[int] = None

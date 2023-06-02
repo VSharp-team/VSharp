@@ -1,8 +1,8 @@
 import logging
 import logging.config
 import queue
-from contextlib import closing
-from typing import Type
+from contextlib import closing, suppress
+from typing import Type, Optional
 
 import websocket
 
@@ -66,7 +66,9 @@ class NAgent:
         pass
 
     class GameOver(Exception):
-        pass
+        def __init__(self, actual_coverage: Optional[int], *args) -> None:
+            self.actual_coverage = actual_coverage
+            super().__init__(*args)
 
     def __init__(
         self,
@@ -94,9 +96,15 @@ class NAgent:
         ).MessageType
         match matching_message_type:
             case ServerMessageType.GAMEOVER:
+                deser_msg = GameOverServerMessage.from_json_handle(
+                    msg, expected=GameOverServerMessage
+                )
+                # TODO: remove if
+                if deser_msg.ActualCoverage is not None:
+                    print(f"{deser_msg.ActualCoverage=}")
                 self.game_is_over = True
                 logging.debug(f"--> {matching_message_type}")
-                raise NAgent.GameOver
+                raise NAgent.GameOver(deser_msg.ActualCoverage)
             case _:
                 return msg
 

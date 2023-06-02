@@ -15,7 +15,12 @@ def main():
 
     # assuming we start from ~/gsv/VSharp/VSharp.ML.AIAgent
     working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
-    launch_server = ["dotnet", "VSharp.ML.GameServer.Runner.dll", "--port"]
+    launch_server = [
+        "dotnet",
+        "VSharp.ML.GameServer.Runner.dll",
+        "--checkactualcoverage",
+        "--port",
+    ]
 
     procs = []
     for i in range(args.num_inst):
