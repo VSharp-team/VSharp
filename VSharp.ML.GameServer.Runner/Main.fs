@@ -83,6 +83,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
         | (Text, data, true) ->
                 let message = deserializeInputMessage data
                 match message with
+                | Stop -> loop <- false
                 | GetTrainMaps ->
                     inTrainMode <- true
                     do! sendResponse (Maps trainMaps.Values)
@@ -110,11 +111,11 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                                     let exploredMethodInfo = AssemblyManager.NormalizeMethod method
                                     let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
                                     printfn $"Actual coverage: {actualCoverage}"
-                                    System.Nullable (uint actualCoverage)
+                                    System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
                                 with
                                 e ->
                                     printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
-                                    System.Nullable()
+                                    System.Nullable(0u)
                             else System.Nullable()
                             
                         | CoverageZone.Class ->
