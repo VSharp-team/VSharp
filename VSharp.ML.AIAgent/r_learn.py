@@ -76,18 +76,21 @@ def play_map(
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
 
-    if actual_coverage is not None:
-        coverage_percent = actual_coverage
-    else:
-        computed_coverage, vertexes_in_zone = covered(game_state)
-        computed_coverage += last_step_covered
+    computed_coverage, vertexes_in_zone = covered(game_state)
+    computed_coverage += last_step_covered
 
-        coverage_percent = computed_coverage / vertexes_in_zone * 100
+    coverage_percent = computed_coverage / vertexes_in_zone * 100
 
+    actual_report = (
+        f", actual coverage: {actual_coverage:.2f}"
+        if actual_coverage is not None
+        else ""
+    )
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on map_id={with_agent.map_id} with non-100% coverage"
-            f"steps: {steps_count}, coverage: {coverage_percent}"
+            f"steps: {steps_count}, coverage: {coverage_percent:.2f}"
+            f"{actual_report}"
         )
 
     model_result = MutableResultMapping(
@@ -96,6 +99,7 @@ def play_map(
             cumulative_reward,
             steps_count,
             coverage_percent,
+            actual_coverage,
         ),
     )
 
@@ -146,10 +150,17 @@ def r_learn_iteration(
         def done_callback(x):
             model_name, game_map, mutable_result_mapping = x
 
+            actual_report = (
+                f"actual coverage: {mutable_result_mapping.mutable_result.actual_coverage_percent:.2f}, "
+                if mutable_result_mapping.mutable_result.actual_coverage_percent
+                is not None
+                else ""
+            )
             logging.info(
                 f"<{model_name}> finished map {game_map.MapName} "
                 f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
                 f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
+                f"{actual_report}"
                 f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
             )
             pbar.update(1)

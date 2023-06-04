@@ -26,8 +26,14 @@ def minkowski_scorer(
     Uses `<minkowski_dist(k), sum(visited instructions rewards), steps>` tuple
     for model scoring
     """
+
+    def actual_percent_if_present(res):
+        if res.mutable_result.actual_coverage_percent is not None:
+            return res.mutable_result.actual_coverage_percent
+        return res.mutable_result.coverage_percent
+
     dist = sum(
-        [abs(100 - res.mutable_result.coverage_percent) ** k for res in model_results]
+        [abs(100 - actual_percent_if_present(res)) ** k for res in model_results]
     )
     visited_instructions_sum = sum(
         [res.mutable_result.move_reward.ForVisitedInstructions for res in model_results]
