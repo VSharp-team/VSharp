@@ -25,7 +25,7 @@ type CliArguments =
             | Port _ -> "Port to communicate with game client."
             | CheckActualCoverage -> "Check actual coverage using external coverage tool."
             
-let ws checkActualCoverage (webSocket : WebSocket) (context: HttpContext)  =
+let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: HttpContext) =
   
   socket {
     let mutable loop = true
@@ -76,8 +76,6 @@ let ws checkActualCoverage (webSocket : WebSocket) (context: HttpContext)  =
         Oracle(predict,feedback)
         
     let mutable inTrainMode = true
-    let runnerDir = DirectoryInfo(Directory.GetCurrentDirectory())
-                    
     
     while loop do
         let! msg = webSocket.read()
@@ -97,20 +95,26 @@ let ws checkActualCoverage (webSocket : WebSocket) (context: HttpContext)  =
                         then trainMaps.[gameStartParams.MapId]
                         else validationMaps.[gameStartParams.MapId]
                     let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
+                    
                     let actualCoverage = 
                         match settings.CoverageZone with
                         | CoverageZone.Method ->
                             let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                            let statistics = TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                            let statistics = TestGenerator.Cover(method, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
 
                             if checkActualCoverage
-                            then 
-                                let testsDir = statistics.OutputDir 
-                                let _expectedCoverage = 100
-                                let exploredMethodInfo = AssemblyManager.NormalizeMethod method
-                                let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                printfn $"Actual coverage: {actualCoverage}"
-                                System.Nullable (uint actualCoverage)
+                            then
+                                try 
+                                    let testsDir = statistics.OutputDir
+                                    let _expectedCoverage = 100
+                                    let exploredMethodInfo = AssemblyManager.NormalizeMethod method
+                                    let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
+                                    printfn $"Actual coverage: {actualCoverage}"
+                                    System.Nullable (uint actualCoverage)
+                                with
+                                e ->
+                                    printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
+                                    System.Nullable()
                             else System.Nullable()
                             
                         | CoverageZone.Class ->
@@ -131,9 +135,9 @@ let ws checkActualCoverage (webSocket : WebSocket) (context: HttpContext)  =
         | _ -> ()
     }
   
-let app checkActualCoverage : WebPart =
+let app checkActualCoverage port : WebPart =
     choose [
-        path "/gameServer" >=> handShake (ws checkActualCoverage)
+        path "/gameServer" >=> handShake (ws checkActualCoverage port)
     ]
     
 [<EntryPoint>]
@@ -149,7 +153,15 @@ let main args =
         | Some port -> port
         | None -> 8080
     
+    let outputDirectory =
+        Path.Combine(Directory.GetCurrentDirectory(), string port)
+    if Directory.Exists outputDirectory
+    then Directory.Delete(outputDirectory,true)
+    let testsDirInfo = Directory.CreateDirectory outputDirectory
+    printfn $"outputDir: {outputDirectory}"                
+  
+    
     startWebServer {defaultConfig with
                         logger = Targets.create Verbose [||]
-                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app checkActualCoverage)
+                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app checkActualCoverage outputDirectory)
     0
