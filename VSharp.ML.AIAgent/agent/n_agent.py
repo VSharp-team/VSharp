@@ -99,12 +99,9 @@ class NAgent:
                 deser_msg = GameOverServerMessage.from_json_handle(
                     msg, expected=GameOverServerMessage
                 )
-                # TODO: remove if
-                if deser_msg.ActualCoverage is not None:
-                    print(f"{deser_msg.ActualCoverage=}")
                 self.game_is_over = True
                 logging.debug(f"--> {matching_message_type}")
-                raise NAgent.GameOver(deser_msg.ActualCoverage)
+                raise NAgent.GameOver(deser_msg.MessageBody.ActualCoverage)
             case _:
                 return msg
 
