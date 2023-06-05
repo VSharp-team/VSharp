@@ -44,7 +44,7 @@ type GameStep =
     new (stateId, predictedStateUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedStateUsefulness}
         
 type InputMessage =
-    | Stop
+    | ServerStop
     | GetTrainMaps
     | GetValidationMaps 
     | Start of GameStartParams
@@ -240,7 +240,7 @@ let deserializeInputMessage (messageData:byte[]) =
         let str = Encoding.UTF8.GetString messageData
         str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
-    | MsgStop -> Stop
+    | MsgStop -> ServerStop
     | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
     | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep>(rawInputMessage.MessageBody))
     | MsgGetTrainMaps -> GetTrainMaps

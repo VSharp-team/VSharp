@@ -83,7 +83,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
         | (Text, data, true) ->
                 let message = deserializeInputMessage data
                 match message with
-                | Stop -> loop <- false
+                | ServerStop -> loop <- false
                 | GetTrainMaps ->
                     inTrainMode <- true
                     do! sendResponse (Maps trainMaps.Values)
