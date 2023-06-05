@@ -24,9 +24,9 @@ class MutableResult:
         )
         if self.actual_coverage_percent is not None:
             actual_coverage_percent_format = (
-                f"actual %: {self.actual_coverage_percent_format:.2f},"
+                f"actual %: {self.actual_coverage_percent:.2f},"
                 if verbose
-                else f"%ac={self.actual_coverage_percent_format:.2f}"
+                else f"%ac={self.actual_coverage_percent:.2f}"
             )
             return f"{coverage_percent_format} {actual_coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
         return f"{coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
