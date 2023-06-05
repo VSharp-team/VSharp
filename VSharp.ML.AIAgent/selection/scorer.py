@@ -4,7 +4,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Callable, TypeAlias, TypeVar
 
-from .classes import MapResultMapping
+from .classes import Map2Result
 
 
 class Comparable(metaclass=ABCMeta):
@@ -15,12 +15,10 @@ class Comparable(metaclass=ABCMeta):
 
 ComparableType = TypeVar("ComparableType", bound=Comparable)
 
-ScorerFunction: TypeAlias = Callable[[list[MapResultMapping]], ComparableType]
+ScorerFunction: TypeAlias = Callable[[list[Map2Result]], ComparableType]
 
 
-def minkowski_scorer(
-    model_results: list[MapResultMapping], k
-) -> tuple[float, float, float]:
+def minkowski_scorer(model_results: list[Map2Result], k) -> tuple[float, float, float]:
     """Scores Mutable
 
     Uses `<minkowski_dist(k), sum(visited instructions rewards), steps>` tuple
@@ -36,9 +34,9 @@ def minkowski_scorer(
         [abs(100 - actual_percent_if_present(res)) ** k for res in model_results]
     )
     visited_instructions_sum = sum(
-        [res.mutable_result.move_reward.ForVisitedInstructions for res in model_results]
+        [res.game_result.move_reward.ForVisitedInstructions for res in model_results]
     )
-    steps_sum = sum([res.mutable_result.steps_count for res in model_results])
+    steps_sum = sum([res.game_result.steps_count for res in model_results])
 
     # aim for:
     # decreasing dist
@@ -48,12 +46,12 @@ def minkowski_scorer(
 
 
 def decart_scorer(
-    model_results: list[MapResultMapping],
+    model_results: list[Map2Result],
 ) -> tuple[float, float, float]:
     return minkowski_scorer(model_results, 1)
 
 
 def euclidean_scorer(
-    model_results: list[MapResultMapping],
+    model_results: list[Map2Result],
 ) -> tuple[float, float, float]:
     return minkowski_scorer(model_results, 2)

@@ -53,6 +53,11 @@ class GeneticLearner(ModelWrapper):
     def __hash__(self) -> int:
         return self.__str__().__hash__()
 
+    def __eq__(self, __value: object) -> bool:
+        if type(__value) != GeneticLearner:
+            raise AttributeError(f"Can't compare {type(__value)} with GeneticLearner")
+        return self.__hash__() == __value.__hash__()
+
     def predict(self, input: GameState):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input

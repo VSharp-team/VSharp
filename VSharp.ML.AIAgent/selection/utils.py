@@ -2,17 +2,17 @@ from collections import defaultdict
 
 from .classes import (
     GameMapsModelResults,
-    MapResultMapping,
+    Map2Result,
     ModelResultsOnGameMaps,
-    MutableResultMapping,
+    Mutable2Result,
 )
 
 
 def sort_by_reward_asc_steps_desc(
-    mutable_mapping: MutableResultMapping,
+    mutable_mapping: Mutable2Result,
 ):
     # sort by <MoveRewardReward, -StepsCount (less is better)>
-    result = mutable_mapping.mutable_result
+    result = mutable_mapping.game_result
     return (
         result.move_reward.ForCoverage,
         result.move_reward.ForVisitedInstructions,
@@ -29,9 +29,9 @@ def invert_mapping_gmmr_mrgm(
         for mutable_result_mapping in list_of_mutable_result_mappings:
             mutable, result = (
                 mutable_result_mapping.mutable,
-                mutable_result_mapping.mutable_result,
+                mutable_result_mapping.game_result,
             )
-            inverse_mapping[mutable].append(MapResultMapping(map, result))
+            inverse_mapping[mutable].append(Map2Result(map, result))
 
     return inverse_mapping
 
@@ -43,8 +43,8 @@ def invert_mapping_mrgm_gmmr(
 
     for mutable, list_of_map_result_mappings in model_results_on_map.items():
         for map_result_mapping in list_of_map_result_mappings:
-            map, result = (map_result_mapping.map, map_result_mapping.mutable_result)
+            map, result = (map_result_mapping.map, map_result_mapping.game_result)
 
-            inverse_mapping[map].append(MutableResultMapping(mutable, result))
+            inverse_mapping[map].append(Mutable2Result(mutable, result))
 
     return inverse_mapping

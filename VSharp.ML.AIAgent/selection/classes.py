@@ -7,7 +7,7 @@ from ml.model_wrappers.protocols import Mutable
 
 
 @dataclass
-class MutableResult:
+class GameResult:
     move_reward: MoveReward
     steps_count: int
     coverage_percent: float
@@ -33,16 +33,16 @@ class MutableResult:
 
 
 @dataclass
-class MutableResultMapping:
+class Mutable2Result:
     mutable: Mutable
-    mutable_result: MutableResult
+    game_result: GameResult
 
 
 @dataclass
-class MapResultMapping:
+class Map2Result:
     map: GameMap
-    mutable_result: MutableResult
+    game_result: GameResult
 
 
-GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[MutableResultMapping]]
-ModelResultsOnGameMaps: TypeAlias = defaultdict[Mutable, list[MapResultMapping]]
+GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[Mutable2Result]]
+ModelResultsOnGameMaps: TypeAlias = defaultdict[Mutable, list[Map2Result]]
