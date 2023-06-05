@@ -44,6 +44,7 @@ type GameStep =
     new (stateId, predictedStateUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedStateUsefulness}
         
 type InputMessage =
+    | ServerStop
     | GetTrainMaps
     | GetValidationMaps 
     | Start of GameStartParams
@@ -220,7 +221,7 @@ type OutgoingMessage =
     | ReadyForNextStep of GameState
     | ServerError of string
     
-let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|) (str:string) =
+let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|MsgStop|) (str:string) =
     let normalized = str.ToLowerInvariant().Trim()
     if normalized = "start"
     then MsgTypeStart
@@ -230,6 +231,8 @@ let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|) (str:strin
     then MsgGetTrainMaps
     elif normalized = "getvalidationmaps"
     then MsgGetValidationMaps
+    elif normalized = "stop"
+    then MsgStop
     else failwithf $"Unexpected message type %s{str}"
     
 let deserializeInputMessage (messageData:byte[]) =    
@@ -237,6 +240,7 @@ let deserializeInputMessage (messageData:byte[]) =
         let str = Encoding.UTF8.GetString messageData
         str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
+    | MsgStop -> ServerStop
     | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
     | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep>(rawInputMessage.MessageBody))
     | MsgGetTrainMaps -> GetTrainMaps

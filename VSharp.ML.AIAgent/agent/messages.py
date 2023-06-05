@@ -120,6 +120,10 @@ class MapsServerMessage(ServerMessage):
 
 
 @dataclass
+class GameOverServerMessageBody:
+    ActualCoverage: Optional[float]
+
+
+@dataclass
 class GameOverServerMessage(ServerMessage):
-    MessageBody: None
-    ActualCoverage: Optional[int] = None
+    MessageBody: GameOverServerMessageBody
