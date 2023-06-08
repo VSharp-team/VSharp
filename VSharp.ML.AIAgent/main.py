@@ -25,7 +25,7 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     def mutate(model: Mutable):
         return GeneticLearner.mutate(
             model,
-            mutation_volume=0.25,
+            mutation_volume=0.15,
             mutation_freq=0.2,
         )
 
@@ -69,12 +69,12 @@ SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER
 
 
 def main():
-    epochs = 20
+    epochs = 26
     max_steps = 600
     n_models = 25
     proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
-    epochs_to_verify = [i for i in range(1, epochs + 1) if i % 4 == 0]
+    epochs_to_verify = [i for i in range(1, epochs + 1) if (i - 1) % 5 == 0]
 
     GeneticLearner.set_static_model()
     models = [GeneticLearner() for _ in range(n_models)]
