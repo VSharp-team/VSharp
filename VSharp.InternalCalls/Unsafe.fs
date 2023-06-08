@@ -47,12 +47,20 @@ module Unsafe =
         let ref, offset = args.[1], args.[2]
         PerformBinaryOperation OperationType.Add ref offset id
 
-    let internal Add (_ : state) (args : term list) : term =
-        assert(List.length args = 3)
-        let typ, ref, offset = args.[0], args.[1], args.[2]
+    let private CommonAdd typ ref offset =
         let size = getTypeFromTerm typ |> Types.SizeOf |> MakeNumber
         let byteOffset = Arithmetics.Mul offset size
         PerformBinaryOperation OperationType.Add ref byteOffset id
+
+    let internal AddIntPtr (_ : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let typ, ref, offset = args.[0], args.[1], args.[2]
+        CommonAdd typ ref offset
+
+    let internal AddInt (_ : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let typ, ref, offset = args.[0], args.[1], args.[2]
+        CommonAdd typ ref offset
 
     let internal ReadUnaligned (state : state) (args : term list) : term =
         assert(List.length args = 2)

@@ -506,11 +506,11 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(xval, _), _ when ILCalculator.isZero(xval) -> castConcrete 0 t |> matched
         | _, Concrete(yval, _) when ILCalculator.isZero(yval) -> castConcrete 0 t |> matched
-        | Concrete(x, _), _ when Calculator.FuzzyEqual(x, System.Convert.ChangeType(1, t)) -> matched y
-        | _, Concrete(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> matched x
-        | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, System.Convert.ChangeType(-1, t)) ->
+        | Concrete(x, _), _ when Calculator.FuzzyEqual(x, convert 1 t) -> matched y
+        | _, Concrete(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> matched x
+        | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, convert -1 t) ->
             simplifyUnaryMinus t y matched
-        | _, Concrete(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, System.Convert.ChangeType(-1, t)) ->
+        | _, Concrete(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
             simplifyUnaryMinus t x matched
         | Expression _, Expression _ ->
             simplifyMultiplicationOfExpression t x y matched (fun () ->
@@ -542,7 +542,7 @@ module internal Arithmetics =
                 // 0 / y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x / 1 = x
-                | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, System.Convert.ChangeType(1, typeOf x)) -> x |> k
+                | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, convert 1 (typeOf y)) -> x |> k
                 // x / -1 = -x
                 | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, convert -1 (typeOf y)) ->
                     simplifyUnaryMinus t x k
@@ -591,9 +591,9 @@ module internal Arithmetics =
                 // 0 % y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x % 1 = 0
-                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> castConcrete 0 t |> k
+                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> castConcrete 0 t |> k
                 // x % -1 = 0
-                | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, System.Convert.ChangeType(-1, t)) ->
+                | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
                     castConcrete 0 t |> k
                 // x % x = 0
                 | x, y when x = y -> castConcrete 0 t |> k

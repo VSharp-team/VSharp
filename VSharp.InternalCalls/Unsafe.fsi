@@ -28,7 +28,10 @@ module internal Unsafe =
     val internal AddByteOffset : state -> term list -> term
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]
-    val internal Add : state -> term list -> term
+    val internal AddIntPtr : state -> term list -> term
+
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.Int32)")>]
+    val internal AddInt : state -> term list -> term
 
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     val internal ReadUnaligned : state -> term list -> term
