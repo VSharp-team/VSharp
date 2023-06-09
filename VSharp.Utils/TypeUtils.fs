@@ -400,15 +400,14 @@ module TypeUtils =
         match leftType, rightType with
         | _ when leftType = rightType -> certainK true
         | ArrayType _, ClassType(obj, _) -> obj = typedefof<obj> |> certainK
-        | Numeric t, Numeric enum
-        | Numeric enum, Numeric t when enum.IsEnum && numericSizeOf enum = numericSizeOf t -> certainK true
+        | Numeric t1, Numeric t2 -> canCast t1 t2 |> certainK
         // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
         // NOTE: Numeric zero may may be treated as ref or ptr
-        | Numeric _, Pointer _
-        | Pointer _, Numeric _
-        | Pointer _, Pointer _
-        | Numeric _, ByRef _
-        | ByRef _, Numeric _ -> certainK true
+        | Numeric t, Pointer _
+        | Pointer _, Numeric t
+        | Numeric t, ByRef _
+        | ByRef _, Numeric t when t = typeof<IntPtr> || t = typeof<UIntPtr> -> certainK true
+        | Pointer _, Pointer _ -> certainK true
         | ByRef t1, ByRef t2 -> commonConcreteCanCast canCast t1 t2 certainK uncertainK
         // NOTE: *void cannot be used for read, so we can store refs there
         | ByRef _, Pointer Void -> certainK true
