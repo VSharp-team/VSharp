@@ -4,7 +4,7 @@ from typing import Optional
 
 import websocket
 
-from common.game import GameState
+from common.game import GameMap, GameState
 
 from .messages import (
     ClientMessage,
@@ -40,19 +40,17 @@ class NAgent:
     def __init__(
         self,
         ws: websocket.WebSocket,
-        map_id_to_play: int,
+        map: GameMap,
         steps: int,
     ) -> None:
         self.ws = ws
 
-        start_message = ClientMessage(
-            StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
-        )
+        start_message = ClientMessage(StartMessageBody(MapId=map.Id, StepsToPlay=steps))
         logging.debug(f"--> StartMessage  : {start_message}")
         self.ws.send(start_message.to_json())
         self._current_step = 0
         self.game_is_over = False
-        self.map_id = map_id_to_play
+        self.map = map
 
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
