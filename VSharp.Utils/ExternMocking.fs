@@ -122,6 +122,7 @@ module ExtMocking =
         let ptrFrom = 
             if repr.isExtern then ExternMocker.GetExternPtr(methodToPatch)
             else methodToPatch.MethodHandle.GetFunctionPointer()
+
         let moduleBuilder = mBuilder.Force()
         let patchType, patchName = mockType.Build(moduleBuilder, testId)
         repr.methodImplementation |> Array.map decode |> mockType.SetClauses

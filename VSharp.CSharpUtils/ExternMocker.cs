@@ -39,13 +39,7 @@ public static class ExternMocker
         libName = libName.Replace("\"", "");
         methodName = methodName.Replace("\"", "");
 
-        var linuxName = libName + ".so"; // ".so.6" ????
-        var macName = "/usr/lib/" + libName + ".dylib";
-        var genName = libName + "." + PlatformHelper.LibrarySuffix;
-
-        if (!(PlatformHelper.Is(Platform.Linux) && DynDll.TryOpenLibrary(linuxName, out IntPtr libref)) &&
-            !(PlatformHelper.Is(Platform.MacOS) && DynDll.TryOpenLibrary(macName, out libref)) &&
-            !DynDll.TryOpenLibrary(genName, out libref))
+        if (!NativeLibrary.TryLoad(libName, Assembly.GetCallingAssembly(), null, out IntPtr libref))
         {
             throw new Exception("Could not open extern library");
         }
