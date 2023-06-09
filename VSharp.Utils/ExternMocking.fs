@@ -98,13 +98,16 @@ module ExtMocking =
             let methodBuilder =
                 typeBuilder.DefineMethod(ptrGetName, methodAttributes, callingConvention)
 
-            methodBuilder.SetReturnType typeof<nativeint>
+            let ptrField = typeBuilder.DefineField(pointerFieldName, typeof<nativeint>, FieldAttributes.Public ||| FieldAttributes.Static)
+
+            methodBuilder.SetReturnType typeof<Void>
             methodBuilder.SetParameters([|  |])
 
             let ilGenerator = methodBuilder.GetILGenerator()
             ilGenerator.Emit(OpCodes.Ldftn, mi)
+            ilGenerator.Emit(OpCodes.Stsfld, ptrField)
             ilGenerator.Emit(OpCodes.Ret)
-            ptrGetName
+            ptrGetName, pointerFieldName
 
         member x.Build (typeBuilder : TypeBuilder) =
             x.BuildPatch typeBuilder
@@ -116,9 +119,11 @@ module ExtMocking =
         member x.Build(moduleBuilder : ModuleBuilder, testId, mi : MethodInfo) =
             let typeBuilder = moduleBuilder.DefineType($"test_{testId}_{repr.name}", TypeAttributes.Public)
             let finalizerName = method.Build typeBuilder
-            let ptrGetName = method.BuildGetBasePtr typeBuilder mi
+            let ptrGetName, pointerFieldName = method.BuildGetBasePtr typeBuilder mi
             patchType <- typeBuilder.CreateType()
-            patchType, finalizerName, ptrGetName
+            let ptrGetMethod = patchType.GetMethod(ptrGetName, BindingFlags.Static ||| BindingFlags.Public)
+            ptrGetMethod.Invoke(null, [|  |]) |> ignore
+            patchType, finalizerName, pointerFieldName
         
         // decode beforehand
         member x.SetClauses clauses =
@@ -137,7 +142,7 @@ module ExtMocking =
         let mockType = Type(repr)
         let methodToPatch = repr.baseMethod.Decode()
         let moduleBuilder = mBuilder.Force()
-        let patchType, patchName, ptrGetName = mockType.Build(moduleBuilder, testId, methodToPatch)
+        let patchType, patchName, ptrFieldName = mockType.Build(moduleBuilder, testId, methodToPatch)
         repr.methodImplementation |> Array.map decode |> mockType.SetClauses
 
         let methodTo = patchType.GetMethod(patchName, BindingFlags.Static ||| BindingFlags.Public)
@@ -146,14 +151,10 @@ module ExtMocking =
         let ptrFrom =
             if not <| repr.isExtern then methodToPatch.MethodHandle.GetFunctionPointer()
             else
-                let ptrGetMethod = patchType.GetMethod(ptrGetName, BindingFlags.Static ||| BindingFlags.Public)
-                match ptrGetMethod.Invoke(null, [|  |]) with
+                let fi = patchType.GetField(ptrFieldName)
+                match fi.GetValue() with
                 | :? nativeint as v -> v
                 | _ -> __unreachable__()
-
-        let ptrFrom1 =
-            if repr.isExtern then ExternMocker.GetExternPtr(methodToPatch)
-            else methodToPatch.MethodHandle.GetFunctionPointer()
 
         let d = ExternMocker.buildAndApplyDetour(ptrFrom, ptrTo)
         detours <- d::detours
