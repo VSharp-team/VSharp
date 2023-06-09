@@ -19,10 +19,6 @@ let trainMaps, validationMaps =
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
         
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
-    // too slow
-    //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
-    // too slow
-    //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     //debug me//add 15u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
@@ -31,6 +27,9 @@ let trainMaps, validationMaps =
     // too slow
     //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     
+    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches3"
+    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches4"
+    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches5"
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"    
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
