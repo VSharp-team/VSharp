@@ -62,7 +62,7 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
 
 
 START_PORT = 8100
-SERVER_COUNT = 8
+SERVER_COUNT = 7
 
 # len(SOCKET_URLS) == proc_num
 SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER_COUNT)]
@@ -70,7 +70,7 @@ SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER
 
 def main():
     epochs = 26
-    max_steps = 600
+    max_steps = 500
     n_models = 25
     proc_num = len(SOCKET_URLS)
     # verification every k epochs, start from 1
