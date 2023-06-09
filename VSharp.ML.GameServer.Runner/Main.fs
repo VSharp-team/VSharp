@@ -25,10 +25,12 @@ type CliArguments =
             | Port _ -> "Port to communicate with game client."
             | CheckActualCoverage -> "Check actual coverage using external coverage tool."
             
+let mutable inTrainMode = true
+
 let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: HttpContext) =
+  let mutable loop = true
   
   socket {
-    let mutable loop = true
     
     let sendResponse (message:OutgoingMessage) =
         let byteResponse =
@@ -74,8 +76,6 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                 | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
         Oracle(predict,feedback)
-        
-    let mutable inTrainMode = true
     
     while loop do
         let! msg = webSocket.read()

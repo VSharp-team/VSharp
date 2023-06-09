@@ -15,6 +15,7 @@ let trainMaps, validationMaps =
     
     let add = add' trainMaps 10000000u<step>
    
+ 
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"    
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
         
@@ -60,7 +61,7 @@ let trainMaps, validationMaps =
     add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"   
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
-    add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
+    //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     //add 80u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "waysToIncreaseLCSBy1"
@@ -114,7 +115,7 @@ let trainMaps, validationMaps =
     (*add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "insertionSort"*)
     
     
-    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BaseConvert"
+    //add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BaseConvert"
     //!!!DEBUG ME!!!////add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindAllPairShortestPathsJohnsons"
     //!!!DEBUG ME!!!////add 20u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindAllPairShortestPathsJohnsons"
     //1!!!DEBUG ME!!!//add 60u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "FindAllPairShortestPathsJohnsons"
@@ -148,7 +149,6 @@ let trainMaps, validationMaps =
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.HasItem"
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.Insert"
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.Delete"    
-    
     
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"

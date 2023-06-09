@@ -12,7 +12,8 @@ import torch.multiprocessing as mp
 import tqdm
 import websocket
 
-from agent.n_agent import NAgent, get_train_maps, get_validation_maps
+from agent.n_agent import NAgent
+from agent.utils import MapsType, get_maps, switch_maps_type
 from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
@@ -68,7 +69,7 @@ def play_map(
     except NAgent.GameOver as gameover:
         if game_state is None:
             logging.error(
-                f"immediate GameOver for {with_model.name()} on map_id={with_agent.map_id}"
+                f"<{with_model.name()}>: immediate GameOver on {with_agent.map.MapName}"
             )
             return MutableResultMapping(
                 with_model, MutableResult(MoveReward(0, 0), 0, 0)
@@ -88,7 +89,7 @@ def play_map(
     )
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
-            f"<{with_model.name()}>: not all steps exshausted on map_id={with_agent.map_id} with non-100% coverage"
+            f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
             f"steps: {steps_count}, coverage: {coverage_percent:.2f}"
             f"{actual_report}"
         )
@@ -113,7 +114,7 @@ def _use_user_steps(provided_steps_field: Optional[int]):
 def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
     ws_url = proxy_ws_queue.get()
     with closing(websocket.create_connection(ws_url)) as ws:
-        agent = NAgent(ws, map_id_to_play=game_map.Id, steps=max_steps)
+        agent = NAgent(ws, map=game_map, steps=max_steps)
         logging.info(f"<{model}> is playing {game_map.MapName}")
         mutable_result_mapping = play_map(
             with_agent=agent, with_model=model, steps=max_steps
@@ -128,21 +129,27 @@ def initialize_processes():
     random.seed(os.getpid() + time())
 
 
+def gen_tqdm_desc(play_type: MapsType):
+    return play_type.value
+
+
 def r_learn_iteration(
     models: list[Predictor],
-    maps: list[GameMap],
     user_max_steps: Optional[int],
-    tqdm_desc: str,
+    play_type: MapsType,
     ws_urls: queue.Queue,
     proc_num: int,
 ) -> ModelResultsOnGameMaps:
+    switch_maps_type(ws_strings_queue=ws_urls, type=play_type)
+    maps = get_maps(ws_strings_queue=ws_urls, type=play_type)
+
     games = list(generate_games(models, maps))
 
     model_results_on_map: GameMapsModelResults = defaultdict(list)
     futures_queue = queue.SimpleQueue()
 
     with tqdm.tqdm(
-        total=len(games), desc=tqdm_desc, **Constant.TQDM_FORMAT_DICT
+        total=len(games), desc=gen_tqdm_desc(play_type), **Constant.TQDM_FORMAT_DICT
     ) as pbar, mp.Pool(
         processes=proc_num, initializer=initialize_processes
     ) as executor:
@@ -214,12 +221,10 @@ def r_learn(
 
         logging.info(epoch_string)
         print(epoch_string)
-        train_maps = get_train_maps(ws_urls)
         train_game_maps_model_results = r_learn_iteration(
             models=models,
-            maps=train_maps,
             user_max_steps=train_max_steps,
-            tqdm_desc="Train",
+            play_type=MapsType.TRAIN,
             ws_urls=ws_urls,
             proc_num=proc_num,
         )
@@ -229,12 +234,10 @@ def r_learn(
         )
 
         if launch_verification(epoch):
-            validation_maps = get_validation_maps(ws_urls)
             validation_game_maps_model_results = r_learn_iteration(
                 models=models,
-                maps=validation_maps,
                 user_max_steps=None,
-                tqdm_desc="Validation",
+                play_type=MapsType.VALIDATION,
                 ws_urls=ws_urls,
                 proc_num=proc_num,
             )

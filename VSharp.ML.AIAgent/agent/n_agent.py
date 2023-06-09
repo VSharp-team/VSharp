@@ -1,8 +1,6 @@
 import logging
 import logging.config
-import queue
-from contextlib import closing, suppress
-from typing import Type, Optional
+from typing import Optional
 
 import websocket
 
@@ -12,9 +10,6 @@ from .messages import (
     ClientMessage,
     GameOverServerMessage,
     GameStateServerMessage,
-    GetTrainMapsMessageBody,
-    GetValidationMapsMessageBody,
-    MapsServerMessage,
     Reward,
     RewardServerMessage,
     ServerMessage,
@@ -22,34 +17,6 @@ from .messages import (
     StartMessageBody,
     StepMessageBody,
 )
-
-
-def get_validation_maps(ws_strings_queue: queue.Queue) -> list[GameMap]:
-    return get_maps(
-        ws_strings_queue, with_message_body_type=GetValidationMapsMessageBody
-    )
-
-
-def get_train_maps(ws_strings_queue: queue.Queue) -> list[GameMap]:
-    return get_maps(ws_strings_queue, with_message_body_type=GetTrainMapsMessageBody)
-
-
-def get_maps(
-    ws_strings_queue: queue.Queue,
-    with_message_body_type: Type[GetTrainMapsMessageBody]
-    | Type[GetValidationMapsMessageBody],
-) -> list[GameMap]:
-    request_all_maps_message = ClientMessage(with_message_body_type())
-
-    map_socket_url = ws_strings_queue.get()
-    with closing(websocket.create_connection(map_socket_url)) as ws:
-        ws.send(request_all_maps_message.to_json())
-        maps_message = ws.recv()
-    ws_strings_queue.put(map_socket_url)
-
-    return MapsServerMessage.from_json_handle(
-        maps_message, expected=MapsServerMessage
-    ).MessageBody.Maps
 
 
 class NAgent:
@@ -73,19 +40,17 @@ class NAgent:
     def __init__(
         self,
         ws: websocket.WebSocket,
-        map_id_to_play: int,
+        map: GameMap,
         steps: int,
     ) -> None:
         self.ws = ws
 
-        start_message = ClientMessage(
-            StartMessageBody(MapId=map_id_to_play, StepsToPlay=steps)
-        )
+        start_message = ClientMessage(StartMessageBody(MapId=map.Id, StepsToPlay=steps))
         logging.debug(f"--> StartMessage  : {start_message}")
         self.ws.send(start_message.to_json())
         self._current_step = 0
         self.game_is_over = False
-        self.map_id = map_id_to_play
+        self.map = map
 
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
