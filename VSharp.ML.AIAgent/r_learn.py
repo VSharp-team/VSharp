@@ -17,7 +17,7 @@ from agent.utils import MapsType, get_maps, switch_maps_type
 from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
-from displayer.tables import create_pivot_table
+from displayer.tables import create_pivot_table, table_to_string
 from displayer.utils import append_to_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable, Predictor
@@ -69,7 +69,15 @@ def play_map(with_agent: NAgent, with_model: Predictor, steps: int) -> Mutable2R
             logging.error(
                 f"<{with_model.name()}>: immediate GameOver on {with_agent.map.MapName}"
             )
-            return Mutable2Result(with_model, GameResult(MoveReward(0, 0), 0, 0))
+            steps_count = steps
+            return Mutable2Result(
+                with_model,
+                GameResult(
+                    move_reward=MoveReward(ForCoverage=0, ForVisitedInstructions=0),
+                    steps_count=steps,
+                    coverage_percent=0,
+                ),
+            )
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
 
@@ -86,9 +94,10 @@ def play_map(with_agent: NAgent, with_model: Predictor, steps: int) -> Mutable2R
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
-            f"steps: {steps_count}, coverage: {coverage_percent:.2f}"
+            f"steps taken: {steps_count}, coverage: {coverage_percent:.2f}"
             f"{actual_report}"
         )
+        steps_count = steps
 
     model_result = Mutable2Result(
         with_model,
@@ -224,9 +233,9 @@ def r_learn(
             proc_num=proc_num,
         )
         append_to_tables_file(epoch_string + "\n")
-        append_to_tables_file(
-            f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
-        )
+        pivot, stats = create_pivot_table(train_game_maps_model_results)
+        append_to_tables_file(f"Train: \n" + table_to_string(pivot) + "\n")
+        append_to_tables_file(f"Stats: \n" + table_to_string(stats) + "\n")
 
         if launch_verification(epoch):
             validation_game_maps_model_results = r_learn_iteration(
@@ -236,11 +245,9 @@ def r_learn(
                 ws_urls=ws_urls,
                 proc_num=proc_num,
             )
-            append_to_tables_file(
-                f"Validation: \n"
-                + create_pivot_table(validation_game_maps_model_results)
-                + "\n"
-            )
+            pivot, stats = create_pivot_table(validation_game_maps_model_results)
+            append_to_tables_file(f"Validation: \n" + table_to_string(pivot) + "\n")
+            append_to_tables_file(f"Stats: \n" + table_to_string(stats) + "\n")
 
         dump_survived(models)
         if not is_last_epoch(epoch):

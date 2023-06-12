@@ -17,16 +17,23 @@ def get_sample_val(d: dict):
     return d[sample_key]
 
 
-def create_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps) -> str:
+def create_stats(model_map_results_mapping: ModelResultsOnGameMaps):
     av_coverages = []
     intervals = []
 
-    for map_obj, map2result_mapping_list in model_map_results_mapping.items():
+    for _, map2result_mapping_list in model_map_results_mapping.items():
         stats = get_av_coverage(map2result_mapping_list)
         av_coverages.append(float(stats.av_coverage))
         intervals.append(stats.interval.pretty())
 
+    return av_coverages, intervals
+
+
+def create_pivot_table(
+    model_map_results_mapping: ModelResultsOnGameMaps,
+) -> pd.DataFrame:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
+    av_coverages, intervals = create_stats(model_map_results_mapping)
 
     name_results_dict: defaultdict[int, list[Name2ResultViewModel]] = defaultdict(list)
 
@@ -44,12 +51,18 @@ def create_pivot_table(model_map_results_mapping: ModelResultsOnGameMaps) -> str
     )
 
     df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
-    df["av. coverage %"] = av_coverages
+    df["cov"] = av_coverages
+    df["diff"] = intervals
+    df.sort_values(by=["cov"], inplace=True)
 
-    df.sort_values(by=["av. coverage %"], inplace=True)
-    df.drop(["av. coverage %"], axis=1)
+    stats_df = df[["cov", "diff"]].copy()
+    df.drop(["cov"], axis=1, inplace=True)
+    df.drop(["diff"], axis=1, inplace=True)
+    return df, stats_df
 
-    return df.to_markdown(tablefmt="psql")
+
+def table_to_string(table: pd.DataFrame):
+    return table.to_markdown(tablefmt="psql")
 
 
 def convert_to_view_model(

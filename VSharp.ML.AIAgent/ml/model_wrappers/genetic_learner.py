@@ -25,9 +25,15 @@ class GeneticLearner(ModelWrapper):
     def name(self) -> str:
         return self._name
 
+    def rename(self, new_name: str):
+        self._name = new_name
+
     @staticmethod
     def set_static_model():
         GeneticLearner.MODEL = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
+
+    def info(self) -> str:
+        return f"{self.weights.tolist()}"
 
     def __init__(
         self, weights: npt.NDArray = None, successor_name_closure=lambda x: x
@@ -44,32 +50,16 @@ class GeneticLearner(ModelWrapper):
         if Config.SHOW_SUCCESSORS:
             self._name = successor_name_closure(self._name)
 
-    def __str__(self) -> str:
-        return f"{self.name()}: {self.weights.tolist()}"
-
-    def info(self) -> str:
-        return f"{self.weights.tolist()}"
-
-    def __hash__(self) -> int:
-        return self.__str__().__hash__()
-
-    def __eq__(self, __value: object) -> bool:
-        if type(__value) != GeneticLearner:
-            raise AttributeError(f"Can't compare {type(__value)} with GeneticLearner")
-        return self.__hash__() == __value.__hash__()
-
     def predict(self, input: GameState):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
         assert GeneticLearner.MODEL is not None
 
-        # problem
         next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
             GeneticLearner.MODEL, self.weights, hetero_input, state_map
         )
         del hetero_input
-        # /problem
         return next_step_id
 
     @staticmethod
@@ -108,6 +98,23 @@ class GeneticLearner(ModelWrapper):
 
     def train_single_val(self):
         return super().train_single_val()
+
+    def copy(self, new_name: str) -> "GeneticLearner":
+        assert new_name != self.name()
+        copy = GeneticLearner(self.weights.copy())
+        copy.rename(new_name)
+        return copy
+
+    def __str__(self) -> str:
+        return f"{self.name()}: {self.weights.tolist()}"
+
+    def __hash__(self) -> int:
+        return self.__str__().__hash__()
+
+    def __eq__(self, __value: object) -> bool:
+        if type(__value) != GeneticLearner:
+            raise AttributeError(f"Can't compare {type(__value)} with GeneticLearner")
+        return self.__hash__() == __value.__hash__()
 
 
 def variate(val: float, range_percent: float, borders: tuple[float, float]):
