@@ -36,7 +36,7 @@ def keeps_duplicates(new_gen_func) -> Callable[[ModelResultsOnGameMaps], list[Mu
         for model, copy_count in to_copy:
             last_copied = model
             for _ in range(copy_count):
-                new_model = last_copied.copy(last_copied.name() + "_cp")
+                new_model = last_copied.copy(last_copied.name() + "*")
                 res.append(new_model)
                 last_copied = new_model
 
