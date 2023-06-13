@@ -2,18 +2,20 @@ from .game import GameState
 
 
 def covered(state: GameState) -> tuple[int, int]:
-    in_coverage_zone_vertexes_ids: set[int] = set()
-    covered_by_test_vertexes_ids: set[int] = set()
+    in_coverage_zone_blocks = 0
+    covered_by_test_blocks = 0
 
     for vertex in state.GraphVertices:
         if vertex.InCoverageZone:
-            in_coverage_zone_vertexes_ids.add(vertex.Id)
+            in_coverage_zone_blocks += vertex.BasicBlockSize
             if vertex.CoveredByTest:
-                covered_by_test_vertexes_ids.add(vertex.Id)
+                covered_by_test_blocks += vertex.BasicBlockSize
 
+    if in_coverage_zone_blocks == 0:
+        raise RuntimeError("Zero blocks in coverage zone!")
     return (
-        len(covered_by_test_vertexes_ids),
-        len(in_coverage_zone_vertexes_ids),
+        covered_by_test_blocks,
+        in_coverage_zone_blocks,
     )
 
 

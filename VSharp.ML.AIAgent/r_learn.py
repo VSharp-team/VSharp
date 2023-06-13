@@ -17,15 +17,15 @@ from agent.utils import MapsType, get_maps, switch_maps_type
 from common.constants import Constant
 from common.game import GameMap, MoveReward
 from common.utils import covered, get_states
-from displayer.tables import create_pivot_table
+from displayer.tables import create_pivot_table, table_to_string
 from displayer.utils import append_to_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from ml.model_wrappers.protocols import Mutable, Predictor
 from selection.classes import (
     GameMapsModelResults,
+    GameResult,
     ModelResultsOnGameMaps,
-    MutableResult,
-    MutableResultMapping,
+    Mutable2Result,
 )
 from selection.utils import invert_mapping_gmmr_mrgm
 
@@ -37,9 +37,7 @@ def generate_games(models: list[Predictor], maps: list[GameMap]):
     return product(models, maps)
 
 
-def play_map(
-    with_agent: NAgent, with_model: Predictor, steps: int
-) -> MutableResultMapping:
+def play_map(with_agent: NAgent, with_model: Predictor, steps: int) -> Mutable2Result:
     cumulative_reward = MoveReward(0, 0)
     steps_count = 0
     last_step_covered = None
@@ -62,7 +60,7 @@ def play_map(
             reward = with_agent.recv_reward_or_throw_gameover()
             cumulative_reward += reward.ForMove
             steps_count += 1
-            last_step_covered = reward.ForMove.ForCoverage
+            last_step_covered = reward.ForMove.ForVisitedInstructions
 
         _ = with_agent.recv_state_or_throw_gameover()  # wait for gameover
         steps_count += 1
@@ -71,8 +69,14 @@ def play_map(
             logging.error(
                 f"<{with_model.name()}>: immediate GameOver on {with_agent.map.MapName}"
             )
-            return MutableResultMapping(
-                with_model, MutableResult(MoveReward(0, 0), 0, 0)
+            steps_count = steps
+            return Mutable2Result(
+                with_model,
+                GameResult(
+                    move_reward=MoveReward(ForCoverage=0, ForVisitedInstructions=0),
+                    steps_count=steps,
+                    coverage_percent=0,
+                ),
             )
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
@@ -90,13 +94,14 @@ def play_map(
     if coverage_percent != 100 and steps_count != steps:
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
-            f"steps: {steps_count}, coverage: {coverage_percent:.2f}"
+            f"steps taken: {steps_count}, coverage: {coverage_percent:.2f}"
             f"{actual_report}"
         )
+        steps_count = steps
 
-    model_result = MutableResultMapping(
+    model_result = Mutable2Result(
         with_model,
-        MutableResult(
+        GameResult(
             cumulative_reward,
             steps_count,
             coverage_percent,
@@ -111,17 +116,17 @@ def _use_user_steps(provided_steps_field: Optional[int]):
     return provided_steps_field is not None
 
 
-def play_game(model, game_map, max_steps, proxy_ws_queue: queue.Queue):
+def play_game(
+    model, game_map, max_steps, proxy_ws_queue: queue.Queue
+) -> tuple[str, GameMap, Mutable2Result]:
     ws_url = proxy_ws_queue.get()
     with closing(websocket.create_connection(ws_url)) as ws:
         agent = NAgent(ws, map=game_map, steps=max_steps)
         logging.info(f"<{model}> is playing {game_map.MapName}")
-        mutable_result_mapping = play_map(
-            with_agent=agent, with_model=model, steps=max_steps
-        )
+        mutable2result = play_map(with_agent=agent, with_model=model, steps=max_steps)
     proxy_ws_queue.put(ws_url)
 
-    return model.name(), game_map, mutable_result_mapping
+    return model.name(), game_map, mutable2result
 
 
 def initialize_processes():
@@ -155,20 +160,19 @@ def r_learn_iteration(
     ) as executor:
 
         def done_callback(x):
-            model_name, game_map, mutable_result_mapping = x
+            model_name, game_map, mutable2result = x
 
             actual_report = (
-                f"actual coverage: {mutable_result_mapping.mutable_result.actual_coverage_percent:.2f}, "
-                if mutable_result_mapping.mutable_result.actual_coverage_percent
-                is not None
+                f"actual coverage: {mutable2result.game_result.actual_coverage_percent:.2f}, "
+                if mutable2result.game_result.actual_coverage_percent is not None
                 else ""
             )
             logging.info(
                 f"<{model_name}> finished map {game_map.MapName} "
-                f"in {mutable_result_mapping.mutable_result.steps_count} steps, "
-                f"coverage: {mutable_result_mapping.mutable_result.coverage_percent:.2f}%, "
+                f"in {mutable2result.game_result.steps_count} steps, "
+                f"coverage: {mutable2result.game_result.coverage_percent:.2f}%, "
                 f"{actual_report}"
-                f"reward.ForVisitedInstructions: {mutable_result_mapping.mutable_result.move_reward.ForVisitedInstructions}"
+                f"reward.ForVisitedInstructions: {mutable2result.game_result.move_reward.ForVisitedInstructions}"
             )
             pbar.update(1)
 
@@ -229,9 +233,9 @@ def r_learn(
             proc_num=proc_num,
         )
         append_to_tables_file(epoch_string + "\n")
-        append_to_tables_file(
-            f"Train: \n" + create_pivot_table(train_game_maps_model_results) + "\n"
-        )
+        pivot, stats = create_pivot_table(train_game_maps_model_results)
+        append_to_tables_file(f"Train: \n" + table_to_string(pivot) + "\n")
+        append_to_tables_file(f"Stats: \n" + table_to_string(stats) + "\n")
 
         if launch_verification(epoch):
             validation_game_maps_model_results = r_learn_iteration(
@@ -241,11 +245,9 @@ def r_learn(
                 ws_urls=ws_urls,
                 proc_num=proc_num,
             )
-            append_to_tables_file(
-                f"Validation: \n"
-                + create_pivot_table(validation_game_maps_model_results)
-                + "\n"
-            )
+            pivot, stats = create_pivot_table(validation_game_maps_model_results)
+            append_to_tables_file(f"Validation: \n" + table_to_string(pivot) + "\n")
+            append_to_tables_file(f"Stats: \n" + table_to_string(stats) + "\n")
 
         dump_survived(models)
         if not is_last_epoch(epoch):
