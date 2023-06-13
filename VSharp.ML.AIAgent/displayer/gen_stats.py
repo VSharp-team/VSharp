@@ -21,7 +21,7 @@ def compute_average_coverage(data: list[Map2Result]) -> float:
     return mean(get_map_coverages(data))
 
 
-def compute_mean_coverage(data: list[Map2Result]):
+def compute_median_coverage(data: list[Map2Result]):
     return median(get_map_coverages(data))
 
 
@@ -29,7 +29,7 @@ def compute_euc_dist_to_full_coverage(results: list[Map2Result]) -> CoverageStat
     mutable_map_coverages = get_map_coverages(results)
     euc_dist = euc_dist2full_coverage(mutable_map_coverages)
     av = compute_average_coverage(results)
-    med = compute_average_coverage(results)
+    med = compute_median_coverage(results)
     interval = Interval(min(mutable_map_coverages), max(mutable_map_coverages))
 
     return CoverageStats(euc_dist, av, med, interval)
