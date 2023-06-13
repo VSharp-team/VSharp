@@ -6,7 +6,7 @@ from common.strings import (
     AV_COVERAGE_COL_NAME,
     COV_DEVIATION_COL_NAME,
     EUC_DIST2FULL_COV_COL_NAME,
-    MEAN_COVERAGE_COL_NAME,
+    MEDIAN_COVERAGE_COL_NAME,
 )
 from config import Config
 from displayer.common import Interval, Name2ResultViewModel
@@ -67,7 +67,7 @@ def create_pivot_table(
     df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
     df[EUC_DIST2FULL_COV_COL_NAME] = euc_dists2full_cov
     df[AV_COVERAGE_COL_NAME] = avs
-    df[MEAN_COVERAGE_COL_NAME] = medians
+    df[MEDIAN_COVERAGE_COL_NAME] = medians
     df[COV_DEVIATION_COL_NAME] = intervals
     df.sort_values(by=[EUC_DIST2FULL_COV_COL_NAME], inplace=True)
 
@@ -75,13 +75,13 @@ def create_pivot_table(
         [
             EUC_DIST2FULL_COV_COL_NAME,
             AV_COVERAGE_COL_NAME,
-            MEAN_COVERAGE_COL_NAME,
+            MEDIAN_COVERAGE_COL_NAME,
             COV_DEVIATION_COL_NAME,
         ]
     ].copy()
     df.drop([EUC_DIST2FULL_COV_COL_NAME], axis=1, inplace=True)
     df.drop([AV_COVERAGE_COL_NAME], axis=1, inplace=True)
-    df.drop([MEAN_COVERAGE_COL_NAME], axis=1, inplace=True)
+    df.drop([MEDIAN_COVERAGE_COL_NAME], axis=1, inplace=True)
     df.drop([COV_DEVIATION_COL_NAME], axis=1, inplace=True)
     return df, stats_df
 
