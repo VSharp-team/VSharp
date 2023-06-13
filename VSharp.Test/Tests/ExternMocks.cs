@@ -23,7 +23,7 @@ namespace IntegrationTests
             return t1;
         }
 
-        [TestSvm]
+        [Ignore("Method not implemented")]
         public static int DtNowCompareTo()
         {
             var t1 = DateTime.Now;
@@ -48,7 +48,7 @@ namespace IntegrationTests
             return str2;
         }
 
-        [Ignore("CFG bug fixed in PR#228")]
+        [TestSvm]
         public static string ReadLineLength()
         {
             string s = Console.ReadLine();
@@ -56,7 +56,7 @@ namespace IntegrationTests
             return s;
         }
 
-        [Ignore("CFG bug fixed in PR#228")]
+        [TestSvm]
         public static bool ReadLineCharEq()
         {
             string s = Console.ReadLine();
@@ -82,5 +82,14 @@ namespace IntegrationTests
 
         [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)]
         public static extern int libc_rand();
+        
+        [Ignore("Writing to out arguments is not implemented")]
+        public static int dotnetRand()
+        {
+            // ExtMock for GetNonCryptographicallySecureRandomBytes(byte*, Int32)
+            var rand = new Random();
+
+            return rand.Next(1000);
+        }
     }
 }

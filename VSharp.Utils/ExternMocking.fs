@@ -59,9 +59,13 @@ module ExtMocking =
             methodBuilder.SetParameters(arguments)
             
             let ilGenerator = methodBuilder.GetILGenerator()
+            
+            if returnType = typeof<Void> then
+                ilGenerator.Emit(OpCodes.Ret)
+                patchedName
+            else
             let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
             let counterField = typeBuilder.DefineField(counterFieldName, typeof<int>, FieldAttributes.Private ||| FieldAttributes.Static)
-            
             let normalCase = ilGenerator.DefineLabel()
             let count = returnValues.Length
 
@@ -74,11 +78,9 @@ module ExtMocking =
             ilGenerator.Emit(OpCodes.Ret)
             
             ilGenerator.MarkLabel(normalCase)
-
-            if returnType <> typeof<Void> then
-                ilGenerator.Emit(OpCodes.Ldsfld, storageField)
-                ilGenerator.Emit(OpCodes.Ldsfld, counterField)
-                ilGenerator.Emit(OpCodes.Ldelem, returnType) // Load storage[counter] on stack
+            ilGenerator.Emit(OpCodes.Ldsfld, storageField)
+            ilGenerator.Emit(OpCodes.Ldsfld, counterField)
+            ilGenerator.Emit(OpCodes.Ldelem, returnType) // Load storage[counter] on stack
 
             ilGenerator.Emit(OpCodes.Ldsfld, counterField)
             ilGenerator.Emit(OpCodes.Ldc_I4_1)
