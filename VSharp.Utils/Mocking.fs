@@ -203,7 +203,7 @@ module Mocking =
         member x.Interfaces
             with get() = interfaces :> seq<_>
             and private set (types : System.Type seq) =
-                assert(ResizeArray.isEmpty interfaces)
+                assert(interfaces.Count = 0)
                 interfaces.AddRange types
 
         member x.MethodMocks
@@ -229,7 +229,7 @@ module Mocking =
                     let body = nonDefaultCtor.GetILGenerator()
                     body.Emit(OpCodes.Ret)
 
-            interfaces |> ResizeArray.iter typeBuilder.AddInterfaceImplementation
+            interfaces |> Seq.iter typeBuilder.AddInterfaceImplementation
 
             methodMocksCache.Values |> Seq.iter (fun methodMock -> methodMock.Build typeBuilder)
             typeBuilder.CreateType()

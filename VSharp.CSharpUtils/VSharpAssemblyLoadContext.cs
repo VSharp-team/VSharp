@@ -118,6 +118,7 @@ namespace VSharp.CSharpUtils
         {
             const BindingFlags bindingFlags =
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
+            // Moving this loading into 'if (reflectedType is null)' causes KeyNotFoundException (on integration tests)
             var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
             var reflectedType = originMethod.ReflectedType;
             if (reflectedType is null)

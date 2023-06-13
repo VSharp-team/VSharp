@@ -262,7 +262,7 @@ and CfgInfo internal (method : MethodWithBody) =
 
     let findDistanceFrom node =
         Dict.getValueOrUpdate cfgDistanceFrom node (fun () ->
-        let dist = incrementalSourcedDijkstraAlgo node cfgDistanceFrom
+        let dist = incrementalSourcedShortestDistanceBfs node cfgDistanceFrom
         let distFromNode = Dictionary<ICfgNode, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -385,7 +385,7 @@ and Method internal (m : MethodBase) as this =
 
         let exists, value = callGraphDist.TryGetValue x
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> ICallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> ICallGraphNode) callGraphDist
             let distFromNode = Dictionary<ICallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then
@@ -408,7 +408,7 @@ and Method internal (m : MethodBase) as this =
         let exists, value = callGraphDist.TryGetValue x
         let mutable res = null
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> IReversedCallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> IReversedCallGraphNode) callGraphDist
             let distToNode = Dictionary<IReversedCallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then
