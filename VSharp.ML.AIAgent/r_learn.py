@@ -69,7 +69,6 @@ def play_map(with_agent: NAgent, with_model: Predictor, steps: int) -> Mutable2R
             logging.error(
                 f"<{with_model.name()}>: immediate GameOver on {with_agent.map.MapName}"
             )
-            steps_count = steps
             return Mutable2Result(
                 with_model,
                 GameResult(
@@ -91,7 +90,10 @@ def play_map(with_agent: NAgent, with_model: Predictor, steps: int) -> Mutable2R
         if actual_coverage is not None
         else ""
     )
-    if coverage_percent != 100 and steps_count != steps:
+    if (
+        actual_if_exists(actual_coverage, coverage_percent) != 100
+        and steps_count != steps
+    ):
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
             f"steps taken: {steps_count}, coverage: {coverage_percent:.2f}"
@@ -190,8 +192,8 @@ def r_learn_iteration(
 
         while not futures_queue.empty():
             done = futures_queue.get()
-            _, game_map, mutable_result_mapping = done.get()
-            model_results_on_map[game_map].append(mutable_result_mapping)
+            _, game_map, mutable2result = done.get()
+            model_results_on_map[game_map].append(mutable2result)
 
     inverted: ModelResultsOnGameMaps = invert_mapping_gmmr_mrgm(model_results_on_map)
 
@@ -252,3 +254,9 @@ def r_learn(
         dump_survived(models)
         if not is_last_epoch(epoch):
             models = new_gen_provider_function(train_game_maps_model_results)
+
+
+def actual_if_exists(actual_coverage, manual_coverage):
+    if actual_coverage is not None:
+        return actual_coverage
+    return manual_coverage
