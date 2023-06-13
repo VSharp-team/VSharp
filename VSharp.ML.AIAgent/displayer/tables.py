@@ -2,9 +2,15 @@ from collections import defaultdict
 
 import pandas as pd
 
+from common.strings import (
+    AV_COVERAGE_COL_NAME,
+    COV_DEVIATION_COL_NAME,
+    EUC_DIST2FULL_COV_COL_NAME,
+    MEAN_COVERAGE_COL_NAME,
+)
 from config import Config
-from displayer.common import Name2ResultViewModel
-from displayer.gen_stats import get_av_coverage
+from displayer.common import Interval, Name2ResultViewModel
+from displayer.gen_stats import compute_euc_dist_to_full_coverage
 from selection.classes import ModelResultsOnGameMaps, Mutable2Result
 from selection.utils import invert_mapping_mrgm_gmmr
 
@@ -17,23 +23,31 @@ def get_sample_val(d: dict):
     return d[sample_key]
 
 
-def create_stats(model_map_results_mapping: ModelResultsOnGameMaps):
-    av_coverages = []
+def create_stats(
+    model_map_results_mapping: ModelResultsOnGameMaps,
+) -> tuple[list[float], list[float], list[float], list[Interval]]:
+    euc_dists2full_cov = []
+    avs = []
+    medians = []
     intervals = []
 
     for _, map2result_mapping_list in model_map_results_mapping.items():
-        stats = get_av_coverage(map2result_mapping_list)
-        av_coverages.append(float(stats.av_coverage))
+        stats = compute_euc_dist_to_full_coverage(map2result_mapping_list)
+        euc_dists2full_cov.append(float(stats.euc_dist2_full_cov))
+        avs.append(float(stats.average_cov))
+        medians.append(float(stats.median_cov))
         intervals.append(stats.interval.pretty())
 
-    return av_coverages, intervals
+    return euc_dists2full_cov, avs, medians, intervals
 
 
 def create_pivot_table(
     model_map_results_mapping: ModelResultsOnGameMaps,
 ) -> pd.DataFrame:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
-    av_coverages, intervals = create_stats(model_map_results_mapping)
+    euc_dists2full_cov, avs, medians, intervals = create_stats(
+        model_map_results_mapping
+    )
 
     name_results_dict: defaultdict[int, list[Name2ResultViewModel]] = defaultdict(list)
 
@@ -51,13 +65,24 @@ def create_pivot_table(
     )
 
     df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
-    df["cov"] = av_coverages
-    df["diff"] = intervals
-    df.sort_values(by=["cov"], inplace=True)
+    df[EUC_DIST2FULL_COV_COL_NAME] = euc_dists2full_cov
+    df[AV_COVERAGE_COL_NAME] = avs
+    df[MEAN_COVERAGE_COL_NAME] = medians
+    df[COV_DEVIATION_COL_NAME] = intervals
+    df.sort_values(by=[EUC_DIST2FULL_COV_COL_NAME], inplace=True)
 
-    stats_df = df[["cov", "diff"]].copy()
-    df.drop(["cov"], axis=1, inplace=True)
-    df.drop(["diff"], axis=1, inplace=True)
+    stats_df = df[
+        [
+            EUC_DIST2FULL_COV_COL_NAME,
+            AV_COVERAGE_COL_NAME,
+            MEAN_COVERAGE_COL_NAME,
+            COV_DEVIATION_COL_NAME,
+        ]
+    ].copy()
+    df.drop([EUC_DIST2FULL_COV_COL_NAME], axis=1, inplace=True)
+    df.drop([AV_COVERAGE_COL_NAME], axis=1, inplace=True)
+    df.drop([MEAN_COVERAGE_COL_NAME], axis=1, inplace=True)
+    df.drop([COV_DEVIATION_COL_NAME], axis=1, inplace=True)
     return df, stats_df
 
 

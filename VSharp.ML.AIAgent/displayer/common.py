@@ -25,5 +25,7 @@ class Name2Stats:
 
 @dataclass
 class CoverageStats:
-    av_coverage: float
+    euc_dist2_full_cov: float
+    average_cov: float
+    median_cov: float
     interval: Interval
