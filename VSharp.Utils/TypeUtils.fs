@@ -350,7 +350,13 @@ module TypeUtils =
 
     // --------------------------------------- Conversions ---------------------------------------
 
-    let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType
+    let canConvert leftType rightType =
+        let lPrimitive = isPrimitive leftType
+        let rPrimitive = isPrimitive rightType
+        let enumCase() =
+            (rPrimitive && leftType.IsEnum || lPrimitive && rightType.IsEnum)
+            && internalSizeOf leftType = internalSizeOf rightType
+        lPrimitive && rPrimitive || enumCase()
 
     type private convType = delegate of obj -> obj
 
@@ -394,17 +400,21 @@ module TypeUtils =
             convs.Add((fromType, toType), conv)
             conv
 
-    let private convNumeric value toType =
-        let fromType = getTypeOfConcrete value
-        let conv = getConv fromType toType
+    let private convNumeric value actualType toType =
+        let conv = getConv actualType toType
         conv.Invoke(value)
 
     let convert (value : obj) t =
-        match t with
-        // TODO: throws an exception when value = char, implement using Emit
-        | _ when t = typeof<Boolean> || value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t)
-        | _ when t.IsEnum -> Enum.ToObject(t, value)
-        | _ -> convNumeric value t
+        if value = null then value
+        else
+            let actualType = value.GetType()
+            match t with
+            // TODO: throws an exception when value = char, implement using Emit
+            | _ when actualType = t -> value
+            | _ when t = typeof<Boolean> || actualType = typeof<Boolean> -> Convert.ChangeType(value, t)
+            | _ when t.IsEnum -> Enum.ToObject(t, value)
+            | _ when actualType.IsEnum -> Convert.ChangeType(value, t)
+            | _ -> convNumeric value actualType t
 
     // --------------------------------------- Subtyping ---------------------------------------
 
