@@ -45,8 +45,10 @@ type MethodWithBody internal (m : MethodBase) =
     let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
     let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
-    let isInternalCall =
+    let isImplementedInternalCall =
         lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
+    let isInternalCall =
+        lazy (int (m.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0)
 
     let actualMethod =
         if not isCSharpInternalCall.Value then m
@@ -217,6 +219,7 @@ type MethodWithBody internal (m : MethodBase) =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)
 
     member x.IsInternalCall with get() = isInternalCall.Value
+    member x.IsImplementedInternalCall with get () = isImplementedInternalCall.Value
 
     member x.IsExternalMethod with get() = Reflection.isExternalMethod m
 
