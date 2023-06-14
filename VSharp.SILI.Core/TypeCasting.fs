@@ -200,9 +200,9 @@ module internal TypeCasting =
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress typ' offset
         | Ref address, _ when typeOfAddress address = targetType -> term
-        | Ref _, _ ->
-            // TODO: can this happen? Ref points to primitive type!
-            internalfailf "casting ref %O to type %O" term targetType
+        | Ref address, _ ->
+            let baseAddress, offset = Pointers.addressToBaseAndOffset address
+            Ptr baseAddress targetType offset
         | HeapRef(addr, sightType), _ when isAssignable sightType targetType || isAssignable targetType sightType ->
             HeapRef addr targetType
         | HeapRef _, _ ->

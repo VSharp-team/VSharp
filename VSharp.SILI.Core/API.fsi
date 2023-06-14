@@ -86,7 +86,8 @@ module API =
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
-        val (|Combined|_|) : term -> (term list * Type) option
+        val (|Combined|_|) : termNode -> (term list * Type) option
+        val (|CombinedTerm|_|) : term -> (term list * Type) option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option

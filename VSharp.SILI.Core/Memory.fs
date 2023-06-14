@@ -815,6 +815,7 @@ module internal Memory =
         | Ptr _ -> readAddressUnsafe term startByte endByte
         | Concrete _
         | Constant _
+        // TODO: make simplification for 'Combine' term
         | Expression _ -> Slice term startByte endByte startByte |> List.singleton
         | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
@@ -949,6 +950,14 @@ module internal Memory =
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
         combine slices sightType
+
+    let readFieldUnsafe block (field : fieldId) =
+        assert(typeOf block = field.declaringType)
+        let fieldType = field.typ
+        let startByte = Reflection.getFieldOffset field
+        let endByte = startByte + internalSizeOf fieldType
+        let slices = readTermUnsafe block (makeNumber startByte) (makeNumber endByte)
+        combine slices fieldType
 
 // --------------------------- General reading ---------------------------
 

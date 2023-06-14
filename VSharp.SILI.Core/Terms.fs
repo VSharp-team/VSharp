@@ -413,8 +413,10 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isReference) gvs
         | _ -> false
 
-    let isPtr = term >> function
+    let rec isPtr term =
+        match term.term with
         | Ptr _ -> true
+        | Union gvs -> List.forall (snd >> isPtr) gvs
         | _ -> false
 
     let rec isRefOrPtr term =
@@ -646,9 +648,11 @@ module internal Terms =
             Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
-    let (|Combined|_|) = term >> function
+    let (|Combined|_|) = function
         | Expression(Combine, args, t) -> Some(Combined(args, t))
         | _ -> None
+
+    let (|CombinedTerm|_|) = term >> (|Combined|_|)
 
     let (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
@@ -711,6 +715,19 @@ module internal Terms =
         | _ when obj.GetType().IsEnum ->
             let i = Convert.ChangeType(obj, getEnumUnderlyingTypeChecked (obj.GetType()))
             concreteToBytes i
+        | :? ValueType as o ->
+            let t = o.GetType()
+            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let size = internalSizeOf t
+            let array : byte array = Array.zeroCreate size
+            let mutable ptr = IntPtr.Zero
+            try
+                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
+                System.Runtime.InteropServices.Marshal.StructureToPtr(o, ptr, true)
+                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+            finally
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+            array
         | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
     let rec private bytesToObj (bytes : byte[]) t =
@@ -731,6 +748,16 @@ module internal Terms =
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
+        | StructType _ ->
+            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let size = internalSizeOf t
+            let mutable ptr = IntPtr.Zero
+            try
+                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
+                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
+                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
+            finally
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
         | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
 
     let rec reinterpretConcretes (sliceTerms : term list) t =
@@ -757,24 +784,32 @@ module internal Terms =
     and private slicingTerm term =
         match term with
         | {term = Concrete(o, _)} -> o
-        | Combined(slices, t) -> reinterpretConcretes slices t
+        | CombinedTerm(slices, t) -> reinterpretConcretes slices t
         | _ -> internalfail "getting slicing term: unexpected term %O" term
 
     let rec private allSlicesAreConcrete slices =
         let rec sliceIsConcrete = function
             | {term = Slice({term = Concrete _}, {term = Concrete _}, {term = Concrete _}, {term = Concrete _})} -> true
-            | Combined(slices, _) -> allSlicesAreConcrete slices
+            | CombinedTerm(slices, _) -> allSlicesAreConcrete slices
             | _ -> false
         List.forall sliceIsConcrete slices
 
     let combine terms t =
         let defaultCase() = Expression Combine terms t
+        let isSolid term =
+            typeOf term = t || isRefOrPtr term
         assert(List.isEmpty terms |> not)
         match terms with
         | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
-        | [{term = Slice(t, {term = Concrete(:? int as s, _)}, {term = Concrete(:? int as e, _)}, _)}] when s = 0 && e = sizeOf t -> t
-        | [{term = Slice _ }] -> defaultCase()
-        | [nonSliceTerm] -> nonSliceTerm
+        | [{term = Slice(p, s, e, _)}] ->
+            match s.term, e.term with
+            | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && isSolid p ->
+                assert(e = sizeOf p)
+                p
+            | _ -> defaultCase()
+        | [nonSliceTerm] when isSolid nonSliceTerm ->
+            assert(internalSizeOf t = sizeOf nonSliceTerm)
+            nonSliceTerm
         | _ -> defaultCase()
 
     let rec timeOf (address : heapAddress) =

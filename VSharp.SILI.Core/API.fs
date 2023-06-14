@@ -130,6 +130,7 @@ module API =
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|Combined|_|) t = (|Combined|_|) t
+        let (|CombinedTerm|_|) t = (|CombinedTerm|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -372,6 +373,7 @@ module API =
                 | HeapRef _
                 | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
                 | Struct _ -> Memory.readStruct target field
+                | Combined _ -> Memory.readFieldUnsafe target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 

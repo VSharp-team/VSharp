@@ -185,7 +185,7 @@ module TestGenerator =
             let typ = state.allocatedTypes[addr]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
             obj2test eval arr2Obj indices encodeMock test addr typ
-        | Combined(terms, t) ->
+        | CombinedTerm(terms, t) ->
             let slices = List.map model.Eval terms
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term
