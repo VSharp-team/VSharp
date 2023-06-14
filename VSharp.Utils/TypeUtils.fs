@@ -135,18 +135,32 @@ module TypeUtils =
         if box value = null then null
         else value.GetType()
 
-    // TODO: wrap Type, cache size there
-    let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+    type private sizeOfType = Func<uint32>
+
+    let private sizeOfs = Dictionary<Type, sizeOfType>()
+
+    let private createSizeOf (typ : Type) =
         assert(not typ.ContainsGenericParameters)
+        let m = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+        let gen = m.GetILGenerator()
+        gen.Emit(OpCodes.Sizeof, typ)
+        gen.Emit(OpCodes.Ret)
+        m.CreateDelegate(typeof<sizeOfType>) :?> sizeOfType
+
+    let getSizeOf typ =
+        let result : sizeOfType ref = ref null
+        if sizeOfs.TryGetValue(typ, result) then result.Value
+        else
+            let sizeOf = createSizeOf typ
+            sizeOfs.Add(typ, sizeOf)
+            sizeOf
+
+    let internalSizeOf (typ: Type) : int32 =
         if typ = typeof<IntPtr> || typ = typeof<UIntPtr> then
             nativeSize
         else
-            let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
-            let gen = meth.GetILGenerator()
-            gen.Emit(OpCodes.Sizeof, typ)
-            gen.Emit(OpCodes.Ret)
-            let size : uint32 = meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
-            int size
+            let sizeOf = getSizeOf(typ)
+            sizeOf.Invoke() |> int
 
     let numericSizeOf (typ: Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
@@ -253,7 +267,6 @@ module TypeUtils =
         match t with
         | _ when t.IsPointer -> Some(t.GetElementType())
         | _ -> None
-
 
     let (|ByRef|_|) = function
         | (t : Type) when t.IsByRef -> Some(t.GetElementType())
