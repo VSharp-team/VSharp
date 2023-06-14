@@ -18,7 +18,7 @@ module Unsafe =
 //        Types.Cast (List.item 1 args) (Pointer Void)
         List.item 1 args
 
-    let internal ObjectAsT (_ : state) (args : term list) : term = // TODO: reinterpret data (use pointers) #do
+    let internal ObjectAsT (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let typ, ref = args.[0], args.[1]
         let typ = getTypeFromTerm typ
@@ -30,7 +30,10 @@ module Unsafe =
 
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
-        args.[2]
+        let toType = getTypeFromTerm args[1]
+        let ref = args[2]
+        assert(IsReference ref || IsPtr ref)
+        Types.Cast ref toType
 
     let internal NullRef (_ : state) (args : term list) : term =
         match args with
