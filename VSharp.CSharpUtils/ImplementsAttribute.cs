@@ -2,7 +2,7 @@
 
 namespace VSharp
 {
-    [AttributeUsage(AttributeTargets.All)]
+    [AttributeUsage(AttributeTargets.All, AllowMultiple = true)]
     public class ImplementsAttribute : Attribute
     {
         public readonly string Name;
