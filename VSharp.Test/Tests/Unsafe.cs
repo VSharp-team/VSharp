@@ -696,6 +696,25 @@ namespace IntegrationTests
             return b[0];
         }
 
+        public struct IntStruct
+        {
+            public int X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs6(int a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<int, IntStruct>(ref a);
+            return structValue.X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs7(long a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<long, IntStruct>(ref a);
+            return structValue.X;
+        }
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
