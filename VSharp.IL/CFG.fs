@@ -328,22 +328,15 @@ and Method internal (m : MethodBase) as this =
     let cfg = lazy(
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
-            let cfg = this |> CfgInfo |> Some
+            let cfg = CfgInfo this
             Method.ReportCFGLoaded this
             cfg
-        else None)
+        else internalfailf $"Getting CFG of method {this} without body (extern or abstract)")
 
     member x.CFG with get() = cfg.Force()
 
-    member x.ForceCFG with get() =
-        match x.CFG with
-        | Some cfg -> cfg
-        | None -> internalfailf $"Getting CFG of method {x} without body (extern or abstract)"
-
     member x.BasicBlocks with get() =
-        match x.CFG with
-        | Some cfg -> cfg.SortedBasicBlocks
-        | None -> ResizeArray()
+        x.CFG.SortedBasicBlocks
 
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private cfgReporter : Method -> unit
@@ -355,7 +348,7 @@ and Method internal (m : MethodBase) as this =
     interface ICallGraphNode with
         member this.OutgoingEdges with get () =
             let edges = HashSet<_>()
-            for bb in this.ForceCFG.Sinks do
+            for bb in this.CFG.Sinks do
                 for kvp in bb.OutgoingEdges do
                     if kvp.Key <> CfgInfo.TerminalForCFGEdge
                     then
@@ -367,7 +360,7 @@ and Method internal (m : MethodBase) as this =
     interface IReversedCallGraphNode with
         member this.OutgoingEdges with get () =
             let edges = HashSet<_>()
-            for bb in this.ForceCFG.EntryPoint.IncomingCallEdges do
+            for bb in this.CFG.EntryPoint.IncomingCallEdges do
                 edges.Add bb.Method |> ignore
             edges |> Seq.cast<IReversedCallGraphNode>
 
@@ -427,9 +420,7 @@ and
     [<CustomEquality; CustomComparison>]
     public codeLocation = {offset : offset; method : Method}
         with
-        member x.BasicBlock =
-            Option.map (fun (cfg : CfgInfo) -> cfg.ResolveBasicBlock x.offset) x.method.CFG
-        member x.ForceBasicBlock with get() = x.method.ForceCFG.ResolveBasicBlock x.offset
+        member x.BasicBlock = x.method.CFG.ResolveBasicBlock x.offset
         override x.Equals y =
             match y with
             | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
@@ -451,9 +442,7 @@ and IGraphTrackableState =
 module public CodeLocation =
 
     let hasSiblings (blockStart : codeLocation) =
-        match blockStart.method.CFG with
-        | Some cfg -> cfg.HasSiblings blockStart.offset
-        | None -> false
+        blockStart.method.CFG.HasSiblings blockStart.offset
 
 type ApplicationGraph() =
 
@@ -461,11 +450,11 @@ type ApplicationGraph() =
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
 
     let addCallEdge (callSource : codeLocation) (callTarget : codeLocation) =
-        let callerMethodCfgInfo = callSource.method.ForceCFG
-        let calledMethodCfgInfo = callTarget.method.ForceCFG
-        let callFrom = callSource.ForceBasicBlock
+        let callerMethodCfgInfo = callSource.method.CFG
+        let calledMethodCfgInfo = callTarget.method.CFG
+        let callFrom = callSource.BasicBlock
         let callTo = calledMethodCfgInfo.EntryPoint
-        let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.ForceBasicBlock
+        let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.BasicBlock
         if not <| callTo.IncomingCallEdges.Contains callFrom then
             let mutable returnTo = callFrom
             // if not exists then it should be from exception mechanism

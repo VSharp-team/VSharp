@@ -2,7 +2,6 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
-using Microsoft.FSharp.Core;
 
 namespace VSharp.CoverageRunner
 {
@@ -162,8 +161,8 @@ namespace VSharp.CoverageRunner
             }
 
             var method = Application.getMethod(methodInfo);
-            var cfg = method.CFG;
-            if (FSharpOption<CfgInfo>.get_IsNone(cfg))
+
+            if (!method.HasBody)
             {
                 Logger.printLogString(Logger.Warning,
                     "CoverageRunner was given a method without body; 100% coverage assumed");
@@ -177,7 +176,7 @@ namespace VSharp.CoverageRunner
                 return -1;
             }
 
-            return ComputeCoverage(cfg.Value, visited, methodInfo);
+            return ComputeCoverage(method.CFG, visited, methodInfo);
         }
     }
 }

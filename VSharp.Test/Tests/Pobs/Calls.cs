@@ -75,7 +75,7 @@ public class Calls
             throw null;
         }
 
-        [TestSvm(88)]
+        [TestSvm(88, strat: SearchStrategy.BFS)]
         public static int TrickyCycle(int x, int y)
         {
             int sum = 0;

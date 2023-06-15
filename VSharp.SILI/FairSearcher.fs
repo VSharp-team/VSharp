@@ -95,11 +95,7 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
 
     let rec getCallsCount (m : Method) =
         try
-            match m.CFG with
-            | Some cfg -> cfg.Calls.Count
-            | None ->
-                Logger.warning $"Fair searcher: cannot get CFG while getting calls count in {m.FullName}"
-                Int32.MaxValue
+            m.CFG.Calls.Count
         with :? InsufficientInformationException as e ->
             Logger.warning $"Fair searcher: IIE ({e.Message}) on getting calls count in {m.FullName}"
             Int32.MaxValue

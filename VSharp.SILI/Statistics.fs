@@ -77,9 +77,7 @@ type public SILIStatistics() =
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
-        match method.CFG with
-        | Some cfg -> cfg.IsBasicBlockStart codeLocation.offset
-        | None -> false
+        method.CFG.IsBasicBlockStart codeLocation.offset
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
         let sb = PrettyPrinting.appendLine sb $"%s{placeHolder}Method = %s{m.FullName}: ["
@@ -105,14 +103,11 @@ type public SILIStatistics() =
             let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
             distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
-        match method.CFG with
-        | Some cfg ->
-            cfg.DistancesFrom currentLoc.offset
-            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
-            |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
-        | None -> None
+        method.CFG.DistancesFrom currentLoc.offset
+        |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+        |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
+        |> Seq.tryHead
+        |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
         let infinity = UInt32.MaxValue
@@ -126,14 +121,11 @@ type public SILIStatistics() =
             let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
-        match method.CFG with
-        | Some cfg ->
-            cfg.DistancesFrom currentLoc.offset
-            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
-            |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
-        | None -> None
+        method.CFG.DistancesFrom currentLoc.offset
+        |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+        |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
+        |> Seq.tryHead
+        |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
@@ -162,10 +154,8 @@ type public SILIStatistics() =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
         let setCoveredIfNeed (currentLoc : codeLocation) =
-            match currentLoc.BasicBlock with
-            | Some bb when currentLoc.offset = bb.FinalOffset ->
+            if currentLoc.offset = currentLoc.BasicBlock.FinalOffset then
                 addLocationToHistory s currentLoc
-            | _ -> ()
         let currentLoc = ip2codeLocation ip
         match currentLoc with
         | Some currentLoc when isHeadOfBasicBlock currentLoc ->
@@ -223,11 +213,11 @@ type public SILIStatistics() =
         let getCoveredInstructionsCount (m : Method) =
             let mutable coveredBlocksOffsets = ref null
             if blocksCoveredByTests.TryGetValue(m, coveredBlocksOffsets) then
-                let cfg = m.ForceCFG
+                let cfg = m.CFG
                 coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o).BlockSize)
             else 0
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
-        let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.ForceCFG.MethodSize)
+        let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.CFG.MethodSize)
         let coveredInstructionsCount = methodsInZone |> Seq.sumBy getCoveredInstructionsCount
         if totalInstructionsCount <> 0 then
             uint <| floor (double coveredInstructionsCount / double totalInstructionsCount * 100.0)

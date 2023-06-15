@@ -249,7 +249,7 @@ module ILCalculator =
     let shiftRightUn(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
-        let shrUn = DynamicMethod("ShiftRight", typeof<obj>, args)
+        let shrUn = DynamicMethod("ShiftRight_Un", typeof<obj>, args)
         let il = shrUn.GetILGenerator(256)
         il.Emit(OpCodes.Ldarg_0)
         il.Emit(OpCodes.Unbox_Any, x.GetType())

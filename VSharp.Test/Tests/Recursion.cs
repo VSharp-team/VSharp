@@ -45,7 +45,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int FibUnbound(int n)
         {
             _c = 42;
@@ -83,13 +83,13 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class McCarthy91
     {
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int McCarthy(int n)
         {
             return n > 100 ? n - 10 : McCarthy(McCarthy(n + 11));
         }
-        
-        [TestSvm(83)]
+
+        [TestSvm(83, strat: SearchStrategy.BFS)]
         public static void CheckMc91Safe(int x)
         {
             if (x <= 96 && McCarthy(x + 5) != 91)
@@ -98,7 +98,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static void CheckMc91Unsafe(int x)
         {
             if (x <= 97 && McCarthy(x + 5) != 91)
@@ -136,7 +136,7 @@ namespace IntegrationTests
             return s;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static SmallClass MutationAfterRecursionTest(int n)
         {
             var s1 = new BigClass {Small = new SmallClass()};

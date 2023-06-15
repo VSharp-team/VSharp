@@ -764,7 +764,7 @@ module internal Terms =
                 System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
             finally
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
-        | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
+        | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
         let bytes : byte array = internalSizeOf t |> Array.zeroCreate
