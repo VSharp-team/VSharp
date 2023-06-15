@@ -38,6 +38,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CoverageRunner", "VS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lifetimes", "Lifetimes\Lifetimes.csproj", "{3B9AB609-30E6-4DCF-A0D3-8DC731C268CE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DataStructures", "C-Sharp-Algorithms\DataStructures\DataStructures.csproj", "{8AA39B9E-E167-4E79-8D69-CC33B20BB4AC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Algorithms", "C-Sharp-Algorithms\Algorithms\Algorithms.csproj", "{446BECCF-1CC3-48AF-810B-BCF6E6E84DE0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

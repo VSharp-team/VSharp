@@ -212,6 +212,46 @@ let trainMaps, validationMaps =
     
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
     
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinaryTreeRecursiveWalker.ForEach"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinaryTreeRecursiveWalker.BinarySearch"
+    
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "CyclesDetector.IsCyclic"
+    
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "Permutations.IsAnargram"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "HeapSorter.HeapSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "OddEvenSorter.OddEvenSortAscending"
+    
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinarySearchTreeSorter.UnbalancedBSTSort"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "BubbleSorter.BubbleSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "BucketSorter.BucketSortAscending"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "CombSorter.CombSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "CountingSorter.CountingSort"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "CycleSorter.CycleSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "GnomeSorter.GnomeSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "InsertionSorter.InsertionSort"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "PigeonHoleSorter.PigeonHoleSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "SelectionSorter.SelectionSortAscending"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "ShellSorter.ShellSortAscending"
+    
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "GreatestCommonDivisor.FindGCDEuclidean"
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "GreatestCommonDivisor.FindGCDStein"
+    
+    add 0u<percent> "Algorithms.dll" CoverageZone.Method "SieveOfEratosthenes.GeneratePrimesUpTo"
+    
+    
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "TopologicalSorter.Sort"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraShortestPaths.ShortestPathTo"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraAllPairsShortestPaths.ShortestPath"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DepthFirstSearcher.FindFirstMatch"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "ConnectedComponents.Compute"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BreadthFirstShortestPaths.ShortestPathTo"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BreadthFirstSearcher.FindFirstMatch"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BellmanFordShortestPaths.ShortestPathTo"
+    
+    
+    
+    
+    
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"

@@ -11,6 +11,8 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Advanced.Algorithms\Advanced.Algorithms.csproj" />
+      <ProjectReference Include="..\C-Sharp-Algorithms\Algorithms\Algorithms.csproj" />
+      <ProjectReference Include="..\C-Sharp-Algorithms\DataStructures\DataStructures.csproj" />
       <ProjectReference Include="..\Lifetimes\Lifetimes.csproj" />
     </ItemGroup>
 
