@@ -141,6 +141,7 @@ let trainMaps, validationMaps =
     
     //add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "QuadTree.Delete"
     
+    
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "SuffixTree.Insert"
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "SuffixTree.Delete"
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "SuffixTree.Contains"
@@ -148,7 +149,68 @@ let trainMaps, validationMaps =
     
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.HasItem"
     add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.Insert"
-    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.Delete"    
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BpTree.Delete"
+    
+    
+    (*
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "OpenAddressHashSet.Contains"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "OpenAddressHashSet.Add"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "OpenAddressHashSet.Remove"
+    
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BloomFilter.AddKey"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "BloomFilter.KeyExists"
+    
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "DisJointSet.Union"
+    add 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "DisJointSet.FindSet"
+    *)
+    
+    //+add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "CPU.EstimateCPUSpeedFromName"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "CPU.GetMemoryMap"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "CPU.GetLargestMemoryBlock"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "CPU.GetCPUBrandString"
+    
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "GCImplementation.AllocNewObject"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "GCImplementation.Free"
+    //+add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "GCImplementation.GetAvailableRAM"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "GCImplementation.Init"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "GCImplementation.IncRootCountsInStruct"
+    
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.Realloc"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.Alloc"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.Free"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.Collect"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.MarkAndSweepObject"
+    //add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Heap.SweepTypedObject"
+    (*
+    add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "Multiboot2.Init"
+    
+    add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "VTablesImpl.IsInstance"
+    add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "VTablesImpl.SetTypeInfo"
+    add 0u<percent> "Cosmos.Core.dll" CoverageZone.Method "VTablesImpl.GetMethodAddressForType"
+    *)
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.LastIndexOf"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.Add"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.ToArray"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CompactList.RemoveAt"
+   
+    
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Add"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Clear"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Remove"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.RemoveAt"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "CopyOnWriteList.Insert"
+    
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.Add"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.Clear"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryExtract"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryPeek"
+    
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
+    //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.FlowInto"
+    //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseAddRemove"
+    
+    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
     
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"

@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Advanced.Algorithms", "Adva
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CoverageRunner", "VSharp.CoverageRunner\VSharp.CoverageRunner.csproj", "{AEB2ABD0-5045-4A28-BBEB-2F353BD543FE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lifetimes", "Lifetimes\Lifetimes.csproj", "{3B9AB609-30E6-4DCF-A0D3-8DC731C268CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
