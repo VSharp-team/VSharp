@@ -91,13 +91,13 @@ namespace VSharp.TestRunner
                     if (exceptionExpected || test.IsError && suiteType == SuiteType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
                         var exceptionType = e.InnerException?.GetType().FullName;
-                        Console.WriteLine("Test {0} throws the expected exception {1}!", fileInfo.Name, exceptionType);
+                        Console.WriteLine($"Test {fileInfo.Name} throws the expected exception {exceptionType}!");
                         Console.ResetColor();
                     }
                     else if (e.InnerException != null && ex != null)
                     {
                         Console.ForegroundColor = ConsoleColor.Red;
-                        Console.Error.WriteLine("Test {0} throws {1} when the expected exception was {2}!", fileInfo.Name, e.InnerException, ex);
+                        Console.Error.WriteLine($"Test {fileInfo.Name} throws {e.InnerException} when the expected exception was {ex}!");
                         Console.ResetColor();
                         throw e.InnerException;
                     }
@@ -107,7 +107,7 @@ namespace VSharp.TestRunner
             catch (Exception e)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine("Error ({0}): {1}", fileInfo.Name, e);
+                Console.Error.WriteLine($"Error ({fileInfo.Name}): {e}");
                 Console.ResetColor();
                 return false;
             }
