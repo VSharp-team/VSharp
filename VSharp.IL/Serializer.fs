@@ -215,9 +215,14 @@ let collectGameState (location:codeLocation) =
                          state.History
                          |> Seq.iter (fun kvp -> collectFullGraph (kvp.Key.Method :?> Method))
                     basicBlock.IncomingCallEdges
-                    |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))                     
-            (method :> VSharp.ICallGraphNode).OutgoingEdges
-            |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
+                    |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))
+                    for edge in basicBlock.OutgoingEdges do
+                        for bb in edge.Value do
+                            if bb.Method <> basicBlock.Method
+                            then collectFullGraph (bb.Method :?> Method)
+                    
+            //(method :> VSharp.ICallGraphNode).OutgoingEdges
+            //|> Seq.iter (fun x -> collectFullGraph (x:?> Method))
             (method :> VSharp.IReversedCallGraphNode).OutgoingEdges
             |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
     collectFullGraph location.method
