@@ -144,9 +144,9 @@ module TestGenerator =
         match term with
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
         | {term = Concrete(v, t)} when t = typeof<IntPtr> ->
-            test.MemoryGraph.RepresentIntPtr (int (v :?> IntPtr))
+            test.MemoryGraph.RepresentIntPtr (int64 (v :?> IntPtr))
         | {term = Concrete(v, t)} when t = typeof<UIntPtr> ->
-            test.MemoryGraph.RepresentUIntPtr (int (v :?> UIntPtr))
+            test.MemoryGraph.RepresentUIntPtr (int64 (v :?> UIntPtr))
         | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null

@@ -182,9 +182,7 @@ module internal Pointers =
     let isPointerOperation op t1 t2 =
         let isRefOrPtr = function
             | ReferenceType _ -> true
-            | t when t.IsByRef -> true
-            | t when isPointer t -> true
-            | _ -> false
+            | t -> t.IsByRef || isPointer t
         match op with
         | OperationType.Equal
         | OperationType.NotEqual -> isRefOrPtr t1 || isRefOrPtr t2

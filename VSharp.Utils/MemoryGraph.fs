@@ -114,7 +114,7 @@ with
 [<Serializable>]
 type pointerRepr = {
     index : int
-    shift : int
+    shift : int64
     sightType : int
 }
 
@@ -284,10 +284,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? referenceRepr as repr ->
             sourceObjects[repr.index]
         | :? pointerRepr as repr when repr.sightType = intPtrIndex ->
-            let shift = decodeValue repr.shift :?> int
+            let shift = decodeValue repr.shift :?> int64
             IntPtr(shift) :> obj
         | :? pointerRepr as repr when repr.sightType = uintPtrIndex ->
-            let shift = decodeValue repr.shift :?> int |> uint
+            let shift = decodeValue repr.shift :?> int64 |> uint64
             UIntPtr(shift) :> obj
         | :? pointerRepr as repr ->
             internalfail $"decoding pointer is not implemented {repr}"
@@ -485,11 +485,11 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
                     let reference : referenceRepr = {index = idx}
                     reference :> obj
 
-    member x.RepresentIntPtr (shift : int) =
+    member x.RepresentIntPtr (shift : int64) =
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = intPtrIndex}
         repr :> obj
 
-    member x.RepresentUIntPtr (shift : int) =
+    member x.RepresentUIntPtr (shift : int64) =
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = uintPtrIndex}
         repr :> obj
 

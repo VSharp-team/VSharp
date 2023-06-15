@@ -6,8 +6,6 @@ open VSharp.Core
 
 module internal IntPtr =
 
-    val private intPtrCtor : state -> term -> term -> (term * state) list
-
     [<Implements("System.Void System.IntPtr..ctor(this, System.Int32)")>]
     val internal intPtrCtorFromInt : state -> term list -> (term * state) list
 
@@ -21,8 +19,6 @@ module internal IntPtr =
     val internal intPtrToPointer : state -> term list -> term
 
 module internal UIntPtr =
-
-    val private uintPtrCtor : state -> term -> term -> (term * state) list
 
     [<Implements("System.Void System.UIntPtr..ctor(this, System.UInt32)")>]
     val internal uintPtrCtorFromUInt : state -> term list -> (term * state) list
