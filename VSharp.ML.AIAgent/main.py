@@ -1,4 +1,5 @@
 import logging
+from typing import Callable
 
 import torch.multiprocessing as mp
 
@@ -17,6 +18,37 @@ logging.basicConfig(
 )
 
 
+def keeps_duplicates(new_gen_func) -> Callable[[ModelResultsOnGameMaps], list[Mutable]]:
+    """
+    allows to create multiple instances of the same model
+    """
+
+    def wrapper(mr: ModelResultsOnGameMaps) -> list[Mutable]:
+        selected_models = new_gen_func(mr)
+        to_copy: tuple[Mutable, int] = []
+
+        for unique_model in set(selected_models):
+            if selected_models.count(unique_model) > 1:
+                to_copy.append((unique_model, selected_models.count(unique_model) - 1))
+
+        res: list[Mutable] = []
+
+        for model, copy_count in to_copy:
+            last_copied = model
+            for _ in range(copy_count):
+                new_model = last_copied.copy(last_copied.name() + "*")
+                res.append(new_model)
+                last_copied = new_model
+
+        res += list(set(selected_models))
+
+        assert len(res) == len(selected_models)
+        return res
+
+    return wrapper
+
+
+@keeps_duplicates
 def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     """
     helper methods
