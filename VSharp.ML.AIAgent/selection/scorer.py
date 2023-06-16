@@ -18,8 +18,8 @@ ComparableType = TypeVar("ComparableType", bound=Comparable)
 ScorerFunction: TypeAlias = Callable[[list[Map2Result]], ComparableType]
 
 
-def minkowski_scorer(model_results: list[Map2Result], k) -> float:
-    """Scores Mutable
+def minkowski_distance(model_results: list[Map2Result], k) -> float:
+    """Counts Mutable dist to full coverage vector
 
     Uses `<minkowski_dist[k](vec(100, size=N), coverages)>`
     for model scoring
@@ -39,13 +39,34 @@ def minkowski_scorer(model_results: list[Map2Result], k) -> float:
     return -dist
 
 
-def decart_scorer(
+def decart_distance(
     model_results: list[Map2Result],
 ) -> float:
-    return minkowski_scorer(model_results, 1)
+    return minkowski_distance(model_results, 1)
 
 
-def euclidean_scorer(
+def euclidean_distance(
     model_results: list[Map2Result],
 ) -> float:
-    return minkowski_scorer(model_results, 2)
+    return minkowski_distance(model_results, 2)
+
+
+def minkowski_score(model_results: list[Map2Result], k) -> float:
+    """Scores Mutable
+
+    Counts difference between full coverage vector and model results to maximize score
+    """
+
+    def actual_percent_if_present(res):
+        if res.game_result.actual_coverage_percent is not None:
+            return res.game_result.actual_coverage_percent
+        return res.game_result.coverage_percent
+
+    full_coverage_vector = sum([100**k for res in model_results])
+
+    # aim for maximal diff between max_value and dist
+    score = full_coverage_vector - sum(
+        [abs(100 - actual_percent_if_present(res)) ** k for res in model_results]
+    )
+
+    return score

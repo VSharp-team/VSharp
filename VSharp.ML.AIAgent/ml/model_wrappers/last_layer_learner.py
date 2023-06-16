@@ -1,5 +1,6 @@
 import random
 from math import floor
+from typing import Iterable
 
 import numpy as np
 
@@ -9,7 +10,7 @@ from config import Config
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
-from ml.utils import load_model_with_last_layer
+from ml.utils import load_model_with_last_layer, load_model
 
 from .protocols import ModelWrapper, Mutable
 
@@ -37,9 +38,11 @@ class LastLayerLearner(ModelWrapper):
         else:
             self.weights = weights
 
-        self.nn = load_model_with_last_layer(
-            Constant.IMPORTED_DICT_MODEL_PATH, self.weights
-        )
+        # self.nn = load_model_with_last_layer(
+        #     Constant.IMPORTED_DICT_MODEL_PATH, self.weights
+        # )
+
+        self.nn = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
 
         self._name = gen_name()
         if Config.SHOW_SUCCESSORS:
