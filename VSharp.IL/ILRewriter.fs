@@ -1,5 +1,6 @@
 namespace VSharp
 
+open System.Collections.Generic
 open global.System
 open System.Reflection.Emit
 open VSharp
@@ -997,12 +998,10 @@ type ILRewriter(body : rawMethodBody) =
         instrCount <- instrCount + 1u
         {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; stackState = instr.stackState; arg = instr.arg}
 
-    member x.CopyInstructions() =
-        let result = Array.zeroCreate<ilInstr> <| int instrCount
-        let mutable index = 0
+    member x.Instructions with get() =
+        let result = Dictionary<offset, ilInstr>()
         x.TraverseProgram (fun instr ->
-            result.[index] <- instr
-            index <- index + 1)
+            result.Add(Offset.from (int instr.offset), instr))
         result
 
     member x.InstrFromOffset offset =

@@ -66,8 +66,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
 
     member private this.GetInstructions() =
         let parsedInstructions = method.ParsedInstructions
-        let mutable instr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.StartOffset)
-        let endInstr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.FinalOffset)
+        let mutable instr = parsedInstructions[this.StartOffset]
+        assert(Offset.from (int instr.offset) = this.StartOffset)
+        let endInstr = parsedInstructions[this.FinalOffset]
+        assert(Offset.from (int endInstr.offset) = this.FinalOffset)
         let mutable notEnd = true
         seq {
             while notEnd do
@@ -250,13 +252,10 @@ and CfgInfo internal (method : MethodWithBody) =
 
         methodSize <- 0
 
-        basicBlocks
-        |> Seq.sortBy (fun b -> b.StartOffset)
-        |> Seq.iter (fun bb ->
+        let sorted = basicBlocks |> Seq.sortBy (fun b -> b.StartOffset)
+        for bb in sorted do
             methodSize <- methodSize + bb.BlockSize
             sortedBasicBlocks.Add bb
-        )
-
 
     let cfgDistanceFrom = GraphUtils.distanceCache<ICfgNode>()
 

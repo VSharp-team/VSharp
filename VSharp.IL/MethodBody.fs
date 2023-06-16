@@ -87,7 +87,7 @@ type MethodWithBody internal (m : MethodBase) =
                  handlerOffset = eh.handlerOffset |> int |> Offset.from
                  handlerLength = eh.handlerLength |> int |> Offset.from
                  ehcType = ehcType }
-            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some (rewriter.CopyInstructions()))
+            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
 
     member x.Name = name
     member x.FullName = fullName
