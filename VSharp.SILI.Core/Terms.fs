@@ -206,7 +206,7 @@ and address =
     | PrimitiveStackLocation of stackKey
     | StructField of address * fieldId
     | StackBufferIndex of stackKey * term
-    | BoxedLocation of concreteHeapAddress * Type // TODO: delete type from boxed location?
+    | BoxedLocation of term * Type // TODO: delete type from boxed location?
     | ClassField of heapAddress * fieldId
     | ArrayIndex of heapAddress * term list * arrayType
     | ArrayLowerBound of heapAddress * term * arrayType
@@ -220,7 +220,7 @@ and address =
         | StaticField(typ, field) -> sprintf "%O.%O" typ field
         | StructField(addr, field) -> sprintf "%O.%O" addr field
         | ArrayLength(addr, dim, _) -> sprintf "Length(%O, %O)" addr dim
-        | BoxedLocation(addr, typ) -> sprintf "%O^%s" typ (addr |> List.map toString |> join ".")
+        | BoxedLocation(addr, typ) -> $"{typ}^{addr}"
         | StackBufferIndex(key, idx) -> sprintf "%O[%O]" key idx
         | ArrayLowerBound(addr, dim, _) -> sprintf "LowerBound(%O, %O)" addr dim
     member x.Zone() =

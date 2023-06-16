@@ -450,11 +450,6 @@ module TypeSolver =
             for entry in evalInModel model typeStorage do
                 let address = entry.Key
                 let typeForModel = entry.Value
-                match typeForModel with
-                | ConcreteType t when t.IsValueType ->
-                    let value = makeDefaultValue t
-                    modelState.boxedLocations <- PersistentDict.add address value modelState.boxedLocations
-                | _ -> ()
                 modelState.allocatedTypes <- PersistentDict.add address typeForModel modelState.allocatedTypes
         | PrimitiveModel _ -> internalfail "Refining types in model: got primitive model"
 

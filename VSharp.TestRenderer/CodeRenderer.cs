@@ -77,6 +77,9 @@ internal class CodeRenderer
     // TODO: make non-static
     public static Dictionary<object, CompactArrayRepr> CompactRepresentations = new ();
 
+    // TODO: make non-static
+    public static HashSet<physicalAddress> BoxedLocations = new ();
+
     public static void PrepareCache()
     {
         MocksInfo.Clear();

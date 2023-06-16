@@ -123,17 +123,66 @@ namespace IntegrationTests.Typecast
             return a | b ? 5 : 6;
         }
 
-        [Ignore("Implement symbolic boxed locations")]
+        [TestSvm(92)]
         public static int DownCastObject3(object obj)
         {
-            if (obj is decimal d)
+            if (obj is int d)
             {
-                return (int)(d + 10);
+                if (obj is long)
+                {
+                    return -42;
+                }
+                return d + 10;
             }
 
             if (obj is string s)
             {
                 return s.Length;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static object DownCastObject4(object obj)
+        {
+            if (obj is int d)
+            {
+                if (d > 10)
+                    return obj;
+            }
+
+            if (obj is string s)
+            {
+                return s.Length;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(86)]
+        public static object DownCastObject5(object obj1, object obj2)
+        {
+            if (ReferenceEquals(obj1, obj2))
+            {
+                switch (obj1, obj2)
+                {
+                    case (int i, int j) when i == 10:
+                        return j;
+                    case (12, int j):
+                        return j;
+                    case (long i, long j) when (i + 1).GetHashCode() == 3000:
+                        return j.GetHashCode();
+                    case (Coord c1, Coord c2) when c1.Norm() != c2.Norm():
+                        return -1;
+                    case (Coord c1, Coord c2):
+                        return c1.X + c2.X;
+                    case (Coord, int):
+                        return -42;
+                    case (int, long):
+                        // Unreachable case
+                        return -3;
+                }
             }
 
             return 0;

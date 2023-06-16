@@ -886,6 +886,9 @@ module internal Z3 =
                 assert(exprs.Length = 1)
                 let index = x.Decode typeof<int8> exprs.[0]
                 StackBufferIndex(key, index)
+            | BoxedSort typ ->
+                let address = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                BoxedLocation(address, typ)
 
         member private x.DecodeBv t (bv : BitVecNum) =
             match bv.SortSize with
