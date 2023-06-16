@@ -86,7 +86,6 @@ namespace VSharp.Test
         private readonly uint _recThresholdForTest;
         private readonly int _timeout;
         private readonly int _solverTimeout;
-        private readonly bool _concolicMode;
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
         private readonly TestsCheckerMode _testsCheckerMode;
@@ -99,7 +98,6 @@ namespace VSharp.Test
             uint recThresholdForTest = 0u,
             int timeout = -1,
             int solverTimeout = -1,
-            bool concolicMode = false,
             bool guidedMode = true,
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
@@ -115,7 +113,6 @@ namespace VSharp.Test
             _recThresholdForTest = recThresholdForTest;
             _timeout = timeout;
             _solverTimeout = solverTimeout;
-            _concolicMode = concolicMode;
             _guidedMode = guidedMode;
             _releaseBranches = releaseBranches;
             _strat = strat;
@@ -126,7 +123,6 @@ namespace VSharp.Test
 
         public virtual TestCommand Wrap(TestCommand command)
         {
-            var execMode = _concolicMode ? executionMode.ConcolicMode : executionMode.SymbolicMode;
             return new TestSvmCommand(
                 command,
                 _expectedCoverage,
@@ -135,7 +131,6 @@ namespace VSharp.Test
                 _solverTimeout,
                 _guidedMode,
                 _releaseBranches,
-                execMode,
                 _strat,
                 _coverageZone,
                 _testsCheckerMode,
@@ -150,7 +145,6 @@ namespace VSharp.Test
             private readonly int _timeout;
             private readonly int _solverTimeout;
             private readonly bool _releaseBranches;
-            private readonly executionMode _executionMode;
             private readonly searchMode _searchStrat;
             private readonly coverageZone _coverageZone;
 
@@ -167,7 +161,6 @@ namespace VSharp.Test
                 int solverTimeout,
                 bool guidedMode,
                 bool releaseBranches,
-                executionMode execMode,
                 SearchStrategy strat,
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
@@ -181,7 +174,6 @@ namespace VSharp.Test
                     expectedCoverage : int.Parse(TestContext.Parameters[ExpectedCoverageParameterName]);
 
                 _recThresholdForTest = recThresholdForTest;
-                _executionMode = execMode;
 
                 _timeout = TestContext.Parameters[TimeoutParameterName] == null ?
                     timeout : int.Parse(TestContext.Parameters[TimeoutParameterName]);
@@ -252,7 +244,6 @@ namespace VSharp.Test
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                        executionMode: _executionMode,
                         outputDirectory: unitTests.TestDirectory,
                         recThreshold: _recThresholdForTest,
                         timeout: _timeout,

@@ -561,7 +561,7 @@ type UnknownMethodException(message : string, methodInfo : Method, interpreterSt
     member x.InterpreterStackTrace with get() = interpreterStackTrace
 
 
-type internal ILInterpreter(isConcolicMode : bool) as this =
+type internal ILInterpreter() as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
         Map.ofList [
@@ -1324,8 +1324,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
             let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState calledMethod
             Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
-        if isConcolicMode then getArgsAndCall cilState
-        else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
+        x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let call (cilState : cilState) k =
