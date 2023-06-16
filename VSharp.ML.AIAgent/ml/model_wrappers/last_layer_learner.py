@@ -50,8 +50,8 @@ class LastLayerLearner(ModelWrapper):
             input
         )
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_sum_outputs(
-            self.nn, hetero_input, state_map
+        next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
+            self.nn, self.weights, hetero_input, state_map
         )
         del hetero_input
         return next_step_id

@@ -109,30 +109,6 @@ class PredictStateVectorHetGNN:
 
         return max(remapped, key=lambda mapping: sum(mapping.vector)).state
 
-    @staticmethod
-    def predict_state_sum_outputs(
-        model: torch.nn.Module, data: HeteroData, state_map: dict[int, int]
-    ) -> int:
-        """Gets state id from model and heterogeneous graph
-        data.state_map - maps real state id to state index"""
-
-        data.to(DEVICE)
-        reversed_state_map = {v: k for k, v in state_map.items()}
-
-        with torch.no_grad():
-            out = model.forward(data.x_dict, data.edge_index_dict)
-
-        remapped = []
-
-        for index, vector in enumerate(out["state_vertex"]):
-            state_vector_mapping = StateVectorMapping(
-                state=reversed_state_map[index],
-                vector=(vector.detach().cpu().numpy()).tolist(),
-            )
-            remapped.append(state_vector_mapping)
-
-        return max(remapped, key=lambda mapping: sum(mapping.vector)).state
-
     def save(self, model, dir):
         filepath = os.path.join(dir, "GNN_state_pred_het_dict")
         # case 1
