@@ -2,9 +2,6 @@ import random
 from math import floor
 
 import numpy as np
-import numpy.typing as npt
-import torch
-from torch_geometric.loader import DataLoader
 
 from common.constants import Constant
 from common.game import GameState
@@ -12,39 +9,37 @@ from config import Config
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
-from ml.utils import load_model
+from ml.utils import load_model_with_last_layer
 
 from .protocols import ModelWrapper, Mutable
 
 MAX_W, MIN_W = 1, -1
 
 
-class GeneticLearner(ModelWrapper):
-    MODEL = None
-
+class LastLayerLearner(ModelWrapper):
     def name(self) -> str:
         return self._name
 
     def rename(self, new_name: str):
         self._name = new_name
 
-    @staticmethod
-    def set_static_model():
-        GeneticLearner.MODEL = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
-
     def info(self) -> str:
-        return f"{self.weights.tolist()}"
+        return f"{self.weights}"
 
     def __init__(
         self, weights: list[float] = None, successor_name_closure=lambda x: x
     ) -> None:
         if weights is None:
             # -1 to 1
-            self.weights = np.array(
-                [random.random() * 2 - 1 for _ in range(Constant.NUM_FEATURES)]
-            )
+            self.weights = [
+                random.random() * 2 - 1 for _ in range(Constant.NUM_FEATURES)
+            ]
         else:
-            self.weights = np.array(weights)
+            self.weights = weights
+
+        self.nn = load_model_with_last_layer(
+            Constant.IMPORTED_DICT_MODEL_PATH, self.weights
+        )
 
         self._name = gen_name()
         if Config.SHOW_SUCCESSORS:
@@ -54,10 +49,9 @@ class GeneticLearner(ModelWrapper):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
-        assert GeneticLearner.MODEL is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_weighted(
-            GeneticLearner.MODEL, self.weights, hetero_input, state_map
+        next_step_id = PredictStateVectorHetGNN.predict_state_sum_outputs(
+            self.nn, hetero_input, state_map
         )
         del hetero_input
         return next_step_id
@@ -65,7 +59,7 @@ class GeneticLearner(ModelWrapper):
     @staticmethod
     def average(ms: list[Mutable]) -> Mutable:
         mutables_weights = [model.weights for model in ms]
-        return GeneticLearner(
+        return LastLayerLearner(
             weights=np.mean(mutables_weights, axis=0),
             successor_name_closure=lambda x: f"{x}(av)",
         )
@@ -79,7 +73,7 @@ class GeneticLearner(ModelWrapper):
         mutation_freq - 0..1, variation of weights, within (MAX_W, MIN_W)
         """
         assert mutation_freq < MAX_W and mutation_freq > MIN_W
-        assert type(mutable) is GeneticLearner
+        assert type(mutable) is LastLayerLearner
         new_weights = mutable.weights.copy()
         to_mutate = floor(Constant.NUM_FEATURES * mutation_volume)
 
@@ -91,7 +85,7 @@ class GeneticLearner(ModelWrapper):
                 borders=(MIN_W, MAX_W),
             )
 
-        return GeneticLearner(
+        return LastLayerLearner(
             weights=new_weights,
             successor_name_closure=lambda x: f"{x}(<-{mutable.name()})",
         )
@@ -99,21 +93,21 @@ class GeneticLearner(ModelWrapper):
     def train_single_val(self):
         return super().train_single_val()
 
-    def copy(self, new_name: str) -> "GeneticLearner":
+    def copy(self, new_name: str) -> "LastLayerLearner":
         assert new_name != self.name()
-        copy = GeneticLearner(self.weights.copy())
+        copy = LastLayerLearner(self.weights.copy())
         copy.rename(new_name)
         return copy
 
     def __str__(self) -> str:
-        return f"{self.name()}: {self.weights.tolist()}"
+        return f"{self.name()}: {self.weights}"
 
     def __hash__(self) -> int:
         return self.__str__().__hash__()
 
     def __eq__(self, __value: object) -> bool:
-        if type(__value) != GeneticLearner:
-            raise AttributeError(f"Can't compare {type(__value)} with GeneticLearner")
+        if type(__value) != LastLayerLearner:
+            raise AttributeError(f"Can't compare {type(__value)} with LastLayerLearner")
         return self.__hash__() == __value.__hash__()
 
 

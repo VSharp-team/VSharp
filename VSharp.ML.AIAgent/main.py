@@ -4,7 +4,7 @@ from typing import Callable
 import torch.multiprocessing as mp
 
 from displayer.utils import clean_log_file, clean_tables_file
-from ml.model_wrappers.genetic_learner import GeneticLearner
+from ml.model_wrappers.last_layer_learner import LastLayerLearner
 from ml.model_wrappers.protocols import Mutable
 from r_learn import r_learn
 from selection import scorer, selectors
@@ -55,14 +55,14 @@ def new_gen_function(mr: ModelResultsOnGameMaps) -> list[Mutable]:
     """
 
     def mutate(model: Mutable):
-        return GeneticLearner.mutate(
+        return LastLayerLearner.mutate(
             model,
             mutation_volume=0.15,
             mutation_freq=0.2,
         )
 
     def average(models: list[Mutable]):
-        return GeneticLearner.average(models)
+        return LastLayerLearner.average(models)
 
     """
     assemble generation
@@ -108,8 +108,7 @@ def main():
     # verification every k epochs, start from 1
     epochs_to_verify = [i for i in range(1, epochs + 1) if (i - 1) % 5 == 0]
 
-    GeneticLearner.set_static_model()
-    models = [GeneticLearner() for _ in range(n_models)]
+    models = [LastLayerLearner() for _ in range(n_models)]
 
     manager = mp.Manager()
     ws_urls = manager.Queue()
