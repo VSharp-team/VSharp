@@ -85,8 +85,15 @@ module API =
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        // NOTE: Ref, Ptr, and nonzero numbers
-        let MakeIntPtr (value : term) = value
+
+        // This function is used only for creating IntPtr structure
+        let MakeIntPtr (value : term) = makeIntPtr value
+
+        // This function is used only for creating UIntPtr structure
+        let MakeUIntPtr (value : term) = makeUIntPtr value
+
+        let NativeToPtr (value : term) = nativeToPointer value
+
         let AddressToBaseAndOffset address = Pointers.addressToBaseAndOffset address
         // NOTE: returns type of value
         let TypeOf term = typeOf term
@@ -123,6 +130,7 @@ module API =
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|Combined|_|) t = (|Combined|_|) t
+        let (|CombinedTerm|_|) t = (|CombinedTerm|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -138,6 +146,8 @@ module API =
         let (|NullPtr|_|) = function
             | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
             | _ -> None
+
+        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term.term
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
@@ -361,8 +371,10 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
+                | Ptr _
                 | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
                 | Struct _ -> Memory.readStruct target field
+                | Combined _ -> Memory.readFieldUnsafe target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 

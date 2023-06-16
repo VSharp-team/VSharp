@@ -90,12 +90,53 @@ namespace IntegrationTests.Typecast
             return x is Double;
         }
 
+        public enum MyEnum
+        {
+            A,
+            B
+        }
+
+        public enum MyEnum1
+        {
+            C,
+            D
+        }
+
+        private static bool Check(object o)
+        {
+            return o is MyEnum1;
+        }
+
+        [TestSvm(75)]
+        public static int CheckIs1(MyEnum d)
+        {
+            if (Check(d))
+                return 1;
+            return 2;
+        }
+
         [TestSvm(100)]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
             bool b = obj1 is Piece & obj1 is Pawn;
             return a | b ? 5 : 6;
+        }
+
+        [Ignore("Implement symbolic boxed locations")]
+        public static int DownCastObject3(object obj)
+        {
+            if (obj is decimal d)
+            {
+                return (int)(d + 10);
+            }
+
+            if (obj is string s)
+            {
+                return s.Length;
+            }
+
+            return 0;
         }
 
         [TestSvm]

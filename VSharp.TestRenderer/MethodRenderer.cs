@@ -671,6 +671,24 @@ internal class MethodRenderer : CodeRenderer
             return AddDecl(name, RenderType(explicitType), value);
         }
 
+        private ExpressionSyntax RenderIntPtr(nint ptr, string? preferredName)
+        {
+            var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(ptr));
+            var intPtrType = RenderType(typeof(IntPtr));
+            var intPtr =
+                RenderObjectCreation(intPtrType, new[] { Argument(literal) }, null);
+            return AddDecl(preferredName ?? "obj", null, intPtr);
+        }
+
+        private ExpressionSyntax RenderUIntPtr(nuint ptr, string? preferredName)
+        {
+            var literal = LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(ptr));
+            var uintPtrType = RenderType(typeof(UIntPtr));
+            var intPtr =
+                RenderObjectCreation(uintPtrType, new[] { Argument(literal) }, null);
+            return AddDecl(preferredName ?? "obj", null, intPtr);
+        }
+
         private List<(SimpleNameSyntax, ExpressionSyntax)> RenderClausesSetup(
             Type typeOfMock,
             List<(MethodInfo, Type, SimpleNameSyntax)> clauses)
@@ -819,8 +837,8 @@ internal class MethodRenderer : CodeRenderer
             // Using 'Literal($"{n}D", n)' to get data type suffix for double (for default it has not)
             double n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal($"{n}D", n)),
             decimal n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-            nuint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
-            nint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            nuint n => RenderUIntPtr(n, preferredName),
+            nint n => RenderIntPtr(n, preferredName),
             string s => LiteralExpression(SyntaxKind.StringLiteralExpression, Literal(s)),
             _ => RenderComplexObject(obj, preferredName, explicitType != null)
         };

@@ -229,7 +229,8 @@ module Mocking =
                     let body = nonDefaultCtor.GetILGenerator()
                     body.Emit(OpCodes.Ret)
 
-            interfaces |> Seq.iter typeBuilder.AddInterfaceImplementation
+            for i in interfaces do
+                typeBuilder.AddInterfaceImplementation i
 
             methodMocksCache.Values |> Seq.iter (fun methodMock -> methodMock.Build typeBuilder)
             typeBuilder.CreateType()

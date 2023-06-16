@@ -221,6 +221,13 @@ internal class CodeRenderer
             return RenderArrayType(RenderType(elemType), type.GetArrayRank());
         }
 
+        if (type.IsPointer)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return PointerType(RenderType(elemType));
+        }
+
         if (PredefinedTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
 

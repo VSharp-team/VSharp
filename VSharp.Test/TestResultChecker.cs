@@ -11,7 +11,7 @@ namespace VSharp.Test;
 
 public static class TestResultChecker
 {
-    private static string testRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
+    private static readonly string TestRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
 
     public static bool Check(DirectoryInfo testDir)
     {
@@ -19,7 +19,7 @@ public static class TestResultChecker
         {
             WorkingDirectory = testDir.FullName,
             FileName = "dotnet",
-            Arguments = $"{testRunnerPath} {testDir.FullName}"
+            Arguments = $"{TestRunnerPath} {testDir.FullName}"
         };
 
         var success = RunWithLogging(info);
@@ -37,7 +37,7 @@ public static class TestResultChecker
         out int actualCoverage,
         out string resultMessage)
     {
-        var runnerWithArgs = $"{testRunnerPath} {testDir.FullName}";
+        var runnerWithArgs = $"{TestRunnerPath} {testDir.FullName}";
         var coverage = RunAndGetCoverage(runnerWithArgs, testDir, methodInfo);
         actualCoverage = coverage;
         resultMessage = string.Empty;

@@ -38,7 +38,7 @@ namespace VSharp.CoverageRunner
             proc.StartInfo = procInfo;
 
             proc.OutputDataReceived +=
-                (object sender, DataReceivedEventArgs e) =>
+                (_, e) =>
                 {
                     var data = e.Data;
                     if (String.IsNullOrEmpty(data))
@@ -47,7 +47,7 @@ namespace VSharp.CoverageRunner
                 };
 
             proc.ErrorDataReceived +=
-                (object sender, DataReceivedEventArgs e) =>
+                (_, e) =>
                 {
                     var data = e.Data;
                     if (String.IsNullOrEmpty(data))

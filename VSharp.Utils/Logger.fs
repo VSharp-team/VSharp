@@ -42,7 +42,8 @@ module Logger =
         currentTextWriter.Flush()
 
     let public printLogString vLevel (message : string) =
-        writeLineString vLevel "" message
+        if currentLogLevel >= vLevel then
+            writeLineString vLevel "" message
 
     let public printLogWithTag tag vLevel format =
         Printf.ksprintf (fun message -> if currentLogLevel >= vLevel && tagFilter tag then writeLineString vLevel tag message) format

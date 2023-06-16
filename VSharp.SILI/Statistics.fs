@@ -44,7 +44,7 @@ type statisticsDump =
 type public SILIStatistics() =
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
-    let emittedErrors = HashSet<codeLocation * string>()
+    let emittedErrors = HashSet<ipStack * string>()
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
@@ -157,7 +157,7 @@ type public SILIStatistics() =
             writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
             statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
-    member x.TrackStepForward (s : cilState) =
+    member x.TrackStepForward (s : cilState) ip =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
         let setCoveredIfNeed (currentLoc : codeLocation) =
@@ -165,7 +165,7 @@ type public SILIStatistics() =
             | Some bb when currentLoc.offset = bb.FinalOffset ->
                 addLocationToHistory s currentLoc
             | _ -> ()
-        let currentLoc = ip2codeLocation (currentIp s)
+        let currentLoc = ip2codeLocation ip
         match currentLoc with
         | Some currentLoc when isHeadOfBasicBlock currentLoc ->
             let mutable totalRef = ref 0u
@@ -253,8 +253,8 @@ type public SILIStatistics() =
 
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
-    member x.EmitError (s : cilState) (errorMessage : string) =
-        emittedErrors.Add(s.currentLoc, errorMessage)
+    member x.IsNewError (s : cilState) (errorMessage : string) =
+        emittedErrors.Add(s.ipStack, errorMessage)
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO

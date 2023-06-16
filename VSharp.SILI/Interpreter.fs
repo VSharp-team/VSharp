@@ -353,9 +353,11 @@ module internal InstructionsSet =
         push address cilState
     let ldnull (cilState : cilState) = push (NullRef typeof<obj>) cilState
     let convu (cilState : cilState) =
+        let ptr = pop cilState |> MakeUIntPtr
+        push ptr cilState
+    let convi (cilState : cilState) =
         let ptr = pop cilState |> MakeIntPtr
         push ptr cilState
-    let convi = convu
     let castTopOfOperationalStack targetType (cilState : cilState) =
         let t = pop cilState
         let termForStack = Types.Cast t targetType
@@ -1049,13 +1051,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
-    member private x.ConcreteInvokeCatch (e : Exception) cilState =
+    member private x.ConcreteInvokeCatch (e : Exception) cilState isRuntime =
         let state = cilState.state
-        let ref = Memory.AllocateConcreteObject state e (e.GetType())
+        let error = Memory.AllocateConcreteObject state e (e.GetType())
         popFrameOf cilState
-        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
-        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-        setException (Unhandled(ref, true)) cilState
+        x.CommonThrow cilState error isRuntime
 
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
@@ -1086,7 +1086,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                         push resultTerm cilState
                     | _ -> ()
                     setCurrentIp (Exit method) cilState
-                with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
+                with :? TargetInvocationException as e ->
+                    let isRuntime = Loader.isRuntimeExceptionsImplementation fullMethodName
+                    x.ConcreteInvokeCatch e.InnerException cilState isRuntime
                 true
         else false
 
@@ -1095,8 +1097,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         assert(currentMethod cilState = method && currentOffset cilState = Some 0<offsets>)
         let fullMethodName, args, thisOption = x.GetFullMethodNameArgsAndThis cilState.state method
         let moveIpToExit (cilState : cilState) =
-            // [NOTE] else current method non method
-            if currentMethod cilState = method then
+            if isUnhandledError cilState |> not then
                 setCurrentIp (Exit method) cilState
             cilState
         if x.TryConcreteInvoke method fullMethodName args thisOption cilState then
@@ -1430,9 +1431,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
         let declaringTermType = fieldInfo.DeclaringType
         let fieldId = Reflection.wrapField fieldInfo
-        let value = if addressNeeded
-                    then StaticField(declaringTermType, fieldId) |> Ref
-                    else Memory.ReadStaticField cilState.state declaringTermType fieldId
+        let value =
+            if addressNeeded then
+                StaticField(declaringTermType, fieldId) |> Ref
+            else Memory.ReadStaticField cilState.state declaringTermType fieldId
         push value cilState
         setCurrentIp newIp cilState
         [cilState])
@@ -1458,7 +1460,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 k [cilState]
             let fieldId = Reflection.wrapField fieldInfo
             ConfigureErrorReporter (changeState cilState >> reportError)
-            if TypeUtils.isPointer fieldInfo.DeclaringType then
+            let t = fieldInfo.DeclaringType
+            if t = typeof<IntPtr> || t = typeof<UIntPtr> then
+                // This case is used for IntPtr structure -- ignoring field and returning IntPtr pointer
                 if addressNeeded then createCilState target
                 else Memory.Read cilState.state target |> createCilState
             else
@@ -1651,15 +1655,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             nonNullCase
             k
 
+    member private x.CommonThrow cilState error isRuntime =
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setException (Unhandled(error, isRuntime)) cilState
+
     member private x.Throw (cilState : cilState) =
         let error = peek cilState
         let isRuntime = Loader.isRuntimeExceptionsImplementation (currentMethod cilState).FullName
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
             (fun cilState k ->
-                let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
-                setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-                setException (Unhandled(error, isRuntime)) cilState
+                x.CommonThrow cilState error isRuntime
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
@@ -1956,6 +1963,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                             (this.Raise this.OverflowException))
                     id
         this.SignedCheckOverflow checkOverflowForSigned cilState
+
     member private x.Newarr (m : Method) offset (cilState : cilState) =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
@@ -1972,7 +1980,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             allocate
             (this.Raise this.OverflowException)
             id
-
 
     member x.CreateException (exceptionType : Type) arguments cilState =
         assert (not <| exceptionType.IsValueType)
@@ -1993,6 +2000,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName |> Application.getMethod
         x.InitFunctionFrameCIL cilState proxyCtor None (Some arguments)
+        let success = x.TryConcreteInvoke proxyCtor proxyCtor.FullName arguments None cilState
+        assert success
 
     member x.InvalidProgramException cilState =
         x.CreateException typeof<InvalidProgramException> [] cilState

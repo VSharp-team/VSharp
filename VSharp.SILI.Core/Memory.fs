@@ -382,6 +382,7 @@ module internal Memory =
             HeapRef address typ
         | ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
         | ByRef _ -> __insufficientInformation__ "Can't instantiate symbolic value of ByRef type %O" typ
+        | Pointer _ -> __insufficientInformation__ "Can't instantiate symbolic value of pointer type %O" typ
         | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
 
     let private makeSymbolicStackRead key typ time =
@@ -406,10 +407,11 @@ module internal Memory =
             let name = picker.mkName key
             makeSymbolicValue source name typ
 
+    // This function is used only for creating 'this' of reference types
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
-        if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
+        assert(isValueType declaringType |> not)
+        HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
@@ -813,6 +815,7 @@ module internal Memory =
         | Ptr _ -> readAddressUnsafe term startByte endByte
         | Concrete _
         | Constant _
+        // TODO: make simplification for 'Combine' term
         | Expression _ -> Slice term startByte endByte startByte |> List.singleton
         | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
@@ -947,6 +950,14 @@ module internal Memory =
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
         combine slices sightType
+
+    let readFieldUnsafe block (field : fieldId) =
+        assert(typeOf block = field.declaringType)
+        let fieldType = field.typ
+        let startByte = Reflection.getFieldOffset field
+        let endByte = startByte + internalSizeOf fieldType
+        let slices = readTermUnsafe block (makeNumber startByte) (makeNumber endByte)
+        combine slices fieldType
 
 // --------------------------- General reading ---------------------------
 
