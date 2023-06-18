@@ -14,12 +14,12 @@ from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_model
 
-from .protocols import ModelWrapper, Mutable
+from .protocols import Predictor
 
 MAX_W, MIN_W = 1, -1
 
 
-class GeneticLearner(ModelWrapper):
+class GeneticLearner(Predictor):
     MODEL = None
 
     def name(self) -> str:
@@ -31,9 +31,6 @@ class GeneticLearner(ModelWrapper):
     @staticmethod
     def set_static_model():
         GeneticLearner.MODEL = load_model(Constant.IMPORTED_DICT_MODEL_PATH)
-
-    def info(self) -> str:
-        return f"{self.weights.tolist()}"
 
     def __init__(
         self, weights: list[float] = None, successor_name_closure=lambda x: x
@@ -62,40 +59,6 @@ class GeneticLearner(ModelWrapper):
         del hetero_input
         return next_step_id
 
-    @staticmethod
-    def average(ms: list[Mutable]) -> Mutable:
-        mutables_weights = [model.weights for model in ms]
-        return GeneticLearner(
-            weights=np.mean(mutables_weights, axis=0),
-            successor_name_closure=lambda x: f"{x}(av)",
-        )
-
-    @staticmethod
-    def mutate(
-        mutable: Mutable, mutation_volume: float, mutation_freq: float
-    ) -> Mutable:
-        """
-        mutation_volume - 0..1, percentage of components of the weights vector to mutate
-        mutation_freq - 0..1, variation of weights, within (MAX_W, MIN_W)
-        """
-        assert mutation_freq < MAX_W and mutation_freq > MIN_W
-        assert type(mutable) is GeneticLearner
-        new_weights = mutable.weights.copy()
-        to_mutate = floor(Constant.NUM_FEATURES * mutation_volume)
-
-        for _ in range(to_mutate):
-            index_to_mutate = random.randint(0, Constant.NUM_FEATURES - 1)
-            new_weights[index_to_mutate] = variate(
-                val=mutable.weights[index_to_mutate],
-                range_percent=mutation_freq,
-                borders=(MIN_W, MAX_W),
-            )
-
-        return GeneticLearner(
-            weights=new_weights,
-            successor_name_closure=lambda x: f"{x}(<-{mutable.name()})",
-        )
-
     def train_single_val(self):
         return super().train_single_val()
 
@@ -115,14 +78,3 @@ class GeneticLearner(ModelWrapper):
         if type(__value) != GeneticLearner:
             raise AttributeError(f"Can't compare {type(__value)} with GeneticLearner")
         return self.__hash__() == __value.__hash__()
-
-
-def variate(val: float, range_percent: float, borders: tuple[float, float]):
-    sign = 1 if random.random() - 0.5 > 0 else -1
-    border_range = borders[1] - borders[0]
-    variated = val + sign * range_percent * border_range
-    if variated > borders[1]:
-        return borders[1]
-    if variated < borders[0]:
-        return borders[0]
-    return variated

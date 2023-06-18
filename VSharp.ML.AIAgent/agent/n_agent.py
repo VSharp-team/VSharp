@@ -51,6 +51,7 @@ class NAgent:
         self._current_step = 0
         self.game_is_over = False
         self.map = map
+        self.steps = steps
 
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:

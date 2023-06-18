@@ -29,3 +29,11 @@ class Constant:
 
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+START_PORT = 8100
+SERVER_COUNT = 4
+
+# len(SOCKET_URLS) == proc_num
+SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER_COUNT)]
+
+MAX_STEPS = 300

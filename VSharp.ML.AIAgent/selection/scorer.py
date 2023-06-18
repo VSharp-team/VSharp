@@ -4,7 +4,7 @@
 from abc import ABCMeta, abstractmethod
 from typing import Any, Callable, TypeAlias, TypeVar
 
-from .classes import Map2Result
+from .classes import GameResult, Map2Result
 
 
 class Comparable(metaclass=ABCMeta):
@@ -63,6 +63,27 @@ def minkowski_score(model_results: list[Map2Result], k) -> float:
         return res.game_result.coverage_percent
 
     full_coverage_vector = sum([100**k for res in model_results])
+
+    # aim for maximal diff between max_value and dist
+    score = full_coverage_vector - sum(
+        [abs(100 - actual_percent_if_present(res)) ** k for res in model_results]
+    )
+
+    return score
+
+
+def minkowski_superscorer(model_results: list[GameResult], k) -> float:
+    """Scores Mutable
+
+    Counts difference between full coverage vector and model results to maximize score
+    """
+
+    def actual_percent_if_present(game_result):
+        if game_result.actual_coverage_percent is not None:
+            return game_result.actual_coverage_percent
+        return game_result.coverage_percent
+
+    full_coverage_vector = sum([100**k for _ in model_results])
 
     # aim for maximal diff between max_value and dist
     score = full_coverage_vector - sum(
