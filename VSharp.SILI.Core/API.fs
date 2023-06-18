@@ -342,7 +342,8 @@ module API =
             | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
-                ReferenceField state (HeapReferenceToBoxReference reference) fieldId
+                let ref = HeapReferenceToBoxReference reference
+                ReferenceField state ref fieldId
             | HeapRef(address, typ) ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)

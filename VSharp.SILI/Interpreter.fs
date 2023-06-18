@@ -1619,7 +1619,8 @@ type internal ILInterpreter() as this =
             if Types.IsNullable t then
                 let nullableTerm = Memory.DefaultOf t
                 let address = Memory.BoxValueType cilState.state nullableTerm
-                let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                let ref = HeapReferenceToBoxReference address
+                let res = handleRestResults cilState ref
                 nonExceptionCont cilState res k
             else
                 x.Raise x.NullReferenceException cilState k
@@ -1635,7 +1636,8 @@ type internal ILInterpreter() as this =
                     let nullableTerm = Memory.WriteStructField nullableTerm valueField value
                     let nullableTerm = Memory.WriteStructField nullableTerm hasValueField (MakeBool true)
                     let address = Memory.BoxValueType cilState.state nullableTerm
-                    let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                    let ref = HeapReferenceToBoxReference address
+                    let res = handleRestResults cilState ref
                     nonExceptionCont cilState res k)
                 (x.Raise x.InvalidCastException)
         let nonNullCase (cilState : cilState) =
@@ -1645,7 +1647,8 @@ type internal ILInterpreter() as this =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.IsCast state obj t, state))
                     (fun cilState k ->
-                        let res = handleRestResults cilState (Types.Cast obj t |> HeapReferenceToBoxReference)
+                        let ref = Types.Cast obj t |> HeapReferenceToBoxReference
+                        let res = handleRestResults cilState ref
                         push res cilState
                         k [cilState])
                     (x.Raise x.InvalidCastException)
