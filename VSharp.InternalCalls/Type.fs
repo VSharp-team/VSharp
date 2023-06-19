@@ -63,26 +63,15 @@ module internal Type =
         let actualType = getActualType state runtimeType
         allocateType state (actualType.GetElementType())
 
-    let private equality transform (state : state) (args : term list) =
+    let opInequality (_ : state) (args : term list) =
         assert(List.length args = 2)
-        let runtimeType1 = List.head args
-        let runtimeType2 = args |> List.tail |> List.head
-        let eq =
-            match runtimeType1, runtimeType2 with
-            | NullRef _, NullRef _ -> True
-            | NullRef _, _
-            | _, NullRef _ -> False
-            | _ ->
-                let actualType1 = getActualType state runtimeType1
-                let actualType2 = getActualType state runtimeType2
-                MakeBool (actualType1 = actualType2)
-        transform eq
+        let typ1, typ2 = args[0], args[1]
+        !!(typ1 === typ2)
 
-    let opInequality (state : state) (args : term list) =
-        equality (!!) state args
-
-    let opEquality (state : state) (args : term list) =
-        equality id state args
+    let opEquality (_ : state) (args : term list) =
+        assert(List.length args = 2)
+        let typ1, typ2 = args[0], args[1]
+        typ1 === typ2
 
     let isGenericTypeDefinition (_ : state) (_ : term list) =
         MakeBool false
