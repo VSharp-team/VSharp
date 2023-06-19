@@ -3,7 +3,7 @@ import logging
 import pygad
 import pygad.torchga
 
-from common.constants import SERVER_COUNT, Constant
+from common.constants import DEVICE, SERVER_COUNT, Constant
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.utils import load_model_with_last_layer
 from selection.crossover_type import CrossoverType
@@ -45,6 +45,8 @@ def main():
     model = load_model_with_last_layer(
         Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
     )
+    model.to(DEVICE)
+    model.eval()
     tga = pygad.torchga.TorchGA(model=model, num_solutions=num_agents)
 
     initial_population = tga.population_weights

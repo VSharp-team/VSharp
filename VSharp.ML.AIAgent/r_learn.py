@@ -11,7 +11,7 @@ import websocket
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import SOCKET_URLS, Constant
+from common.constants import SOCKET_URLS, DEVICE, Constant
 from common.game import MoveReward
 from common.utils import covered, get_states
 from displayer.tables import create_pivot_table, table_to_string
@@ -123,6 +123,7 @@ def on_generation(ga_instance):
     }
 
     pivot, stats = create_pivot_table(info_for_tables_filtered)
+    append_to_tables_file(f"Generation = {ga_instance.generations_completed}" + "\n")
     append_to_tables_file(table_to_string(pivot) + "\n")
     append_to_tables_file(table_to_string(stats) + "\n")
 
@@ -144,6 +145,8 @@ def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> f
     )
 
     model.load_state_dict(model_weights_dict)
+    model.to(DEVICE)
+    model.eval()
     predictor = NNWrapper(model, weights_flat=solution)
 
     ###############################################
@@ -152,7 +155,7 @@ def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> f
         return minkowski_superscorer(rst, k=2)
 
     ws_url = socket_queue.get()
-    maps = get_maps(ws_string=ws_url, type=maps_type)
+    maps = get_maps(ws_string=ws_url, type=maps_type)[:4]
 
     rst: list[GameResult] = []
     with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
