@@ -2,8 +2,10 @@ import logging
 import random
 
 import pygad
+import pygad.torchga
 
-from common.constants import SERVER_COUNT
+from common.constants import SERVER_COUNT, Constant
+from ml.utils import load_model_with_last_layer
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.model_wrappers.genetic_learner import GeneticLearner
 from selection.crossover_type import CrossoverType
@@ -21,18 +23,25 @@ logging.basicConfig(
 from r_learn import fitness_function
 
 
-def on_generation(ga_instance):
-    print("on_generation()")
+def callback_generation(ga_instance):
+    print(
+        "Generation = {generation}".format(generation=ga_instance.generations_completed)
+    )
+    print("Fitness    = {fitness}".format(fitness=ga_instance.best_solution()[1]))
 
 
 def main():
     clean_tables_file()
     clean_log_file()
 
-    GeneticLearner.set_static_model()
+    model = load_model_with_last_layer(
+        Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
+    )
+    tga = pygad.torchga.TorchGA(model=model, num_solutions=12)
 
-    num_generations = 5
-    num_parents_mating = 3
+    num_generations = 10
+    num_parents_mating = 4
+    initial_population = tga.population_weights
 
     parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
     keep_parents = 1
@@ -40,46 +49,45 @@ def main():
     crossover_type = CrossoverType.SINGLE_POINT
 
     mutation_type = MutationType.RANDOM
-    mutation_percent_genes = 30
-
-    num_genes = 8
-    num_agents = 8
-
-    initial_population = [
-        [random.random() * 2 - 1 for _ in range(num_genes)] for _ in range(num_agents)
-    ]
+    mutation_percent_genes = 10
 
     ga_instance = pygad.GA(
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
-        fitness_func=fitness_function,
-        num_genes=num_genes,
         initial_population=initial_population,
+        fitness_func=fitness_function,
+        on_generation=callback_generation,
+        save_solutions=True,
+        parallel_processing=SERVER_COUNT,
         parent_selection_type=parent_selection_type,
         keep_parents=keep_parents,
         crossover_type=crossover_type,
         mutation_type=mutation_type,
         mutation_percent_genes=mutation_percent_genes,
-        gene_space={"low": -1.0, "high": 1.0},
-        parallel_processing=SERVER_COUNT,
-        on_generation=on_generation,
-        save_solutions=True,
     )
 
     ga_instance.run()
 
     ga_instance.plot_fitness(save_dir="./ga_plots/1.png")
-    ga_instance.plot_genes(save_dir="./ga_plots/2.png")
-    ga_instance.plot_new_solution_rate(save_dir="./ga_plots/3.png")
+    ga_instance.plot_new_solution_rate(save_dir="./ga_plots/2.png")
 
-    print(ga_instance.population)
-
+    # Returning the details of the best solution.
     solution, solution_fitness, solution_idx = ga_instance.best_solution()
+    print(
+        "Fitness value of the best solution = {solution_fitness}".format(
+            solution_fitness=solution_fitness
+        )
+    )
+    print(
+        "Index of the best solution : {solution_idx}".format(solution_idx=solution_idx)
+    )
 
-    print(f"Parameters of the best solution : {solution}, {sum(solution)=}")
-    print(f"Fitness value of the best solution = {solution_fitness}")
-
-    ga_instance.save("./last_ga_instance.pkt")
+    # Fetch the parameters of the best solution.
+    best_solution_weights = pygad.torchga.model_weights_as_dict(
+        model=model, weights_vector=solution
+    )
+    print(best_solution_weights)
+    ga_instance.save("./last_ga_instance")
 
 
 if __name__ == "__main__":

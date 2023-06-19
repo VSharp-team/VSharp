@@ -4,6 +4,9 @@ from contextlib import closing
 from typing import Callable, TypeAlias
 
 import numpy as np
+from torch import nn
+
+import pygad.torchga
 import torch
 import tqdm
 import websocket
@@ -15,6 +18,7 @@ from common.game import GameState, MoveReward
 from common.utils import covered, get_states
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Mutable, Predictor
+from ml.models import StateModelEncoder
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_model_with_last_layer
 from selection.classes import GameResult, ModelResultsOnGameMaps
@@ -126,20 +130,37 @@ class NNWrapper(Predictor):
         return next_step_id
 
 
-def fitness_function(ga_instance, solution: list[float], solution_idx) -> float:
+loss_function = torch.nn.L1Loss()
+
+
+def fitness_function(ga_inst, solution, solution_idx) -> float:
     global socket_queue
     maps_type = MapsType.TRAIN
 
-    ws_url = socket_queue.get()
+    #################### MODEL ####################
+    # model = nn.Sequential(
+    #     StateModelEncoder(hidden_channels=64, out_channels=8),
+    #     nn.Linear(in_features=8, out_features=1),
+    # )
     model = load_model_with_last_layer(
-        Constant.IMPORTED_DICT_MODEL_PATH, np.array(solution)
+        Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
     )
+    model_weights_dict = pygad.torchga.model_weights_as_dict(
+        model=model, weights_vector=solution
+    )
+
+    model.load_state_dict(model_weights_dict)
+
+    ###############################################
+
+    ws_url = socket_queue.get()
     predictor = NNWrapper(model)
     maps = get_maps(ws_string=ws_url, type=maps_type)[:8]
 
     model_id = sum(solution)
 
-    rst = []
+    rst: list[GameResult] = []
+    covs: list[float] = []
     with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
         total=len(maps),
         desc=f"{model_id: 20}: {maps_type.value}",
@@ -164,11 +185,24 @@ def fitness_function(ga_instance, solution: list[float], solution_idx) -> float:
                 f"{actual_report}"
                 f"reward.ForVisitedInstructions: {game_result.move_reward.ForVisitedInstructions}"
             )
+            covs.append(
+                actual_if_exists(
+                    game_result.actual_coverage_percent, game_result.coverage_percent
+                )
+            )
 
             pbar.update(1)
     socket_queue.put(ws_url)
 
-    return minkowski_superscorer(rst, k=2)
+    solution_fitness = 1.0 / (
+        loss_function(torch.Tensor(covs), torch.Tensor([100 for _ in range(len(maps))]))
+        .detach()
+        .numpy()
+        + 0.00000001
+    )
+
+    # return minkowski_superscorer(rst, k=2)
+    return solution_fitness
 
 
 def actual_if_exists(actual_coverage, manual_coverage):
