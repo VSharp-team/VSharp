@@ -1,10 +1,8 @@
 import logging
 import queue
+from collections import defaultdict
 from contextlib import closing
 from typing import Callable, TypeAlias
-
-import numpy as np
-from torch import nn
 
 import pygad.torchga
 import torch
@@ -13,18 +11,18 @@ import websocket
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import MAX_STEPS, SOCKET_URLS, Constant
-from common.game import GameState, MoveReward
+from common.constants import SOCKET_URLS, Constant
+from common.game import MoveReward
 from common.utils import covered, get_states
-from ml.data_loader_compact import ServerDataloaderHeteroVector
+from displayer.tables import create_pivot_table, table_to_string
+from displayer.utils import append_to_tables_file
+from ml.model_wrappers.nnwrapper import NNWrapper
 from ml.model_wrappers.protocols import Mutable, Predictor
-from ml.models import StateModelEncoder
-from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_model_with_last_layer
-from selection.classes import GameResult, ModelResultsOnGameMaps
+from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import minkowski_superscorer
 
-NewGenProviderFunction: TypeAlias = Callable[[ModelResultsOnGameMaps], list[Mutable]]
+NewGenProviderFunction: TypeAlias = Callable[[AgentResultsOnGameMaps], list[Mutable]]
 
 
 def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
@@ -110,31 +108,27 @@ def create_socket_queue():
 socket_queue = create_socket_queue()
 
 
-class NNWrapper(Predictor):
-    def __init__(self, model: torch.nn.modules) -> None:
-        self.model = model
-
-    def name(self) -> str:
-        return ""
-
-    def predict(self, input: GameState):
-        hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
-            input
-        )
-        assert self.model is not None
-
-        next_step_id = PredictStateVectorHetGNN.predict_state_single_out(
-            self.model, hetero_input, state_map
-        )
-        del hetero_input
-        return next_step_id
-
-
 loss_function = torch.nn.L1Loss()
+info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
 
 
-def fitness_function(ga_inst, solution, solution_idx) -> float:
-    global socket_queue
+def on_generation(ga_instance):
+    global info_for_tables
+    print(f"Generation = {ga_instance.generations_completed};")
+    print(f"Fitness    = {ga_instance.best_solution()[1]};")
+
+    ga_pop_inner_hashes = [tuple(item).__hash__() for item in ga_instance.population]
+    info_for_tables_filtered = {
+        k: v for k, v in info_for_tables.items() if k._hash in ga_pop_inner_hashes
+    }
+
+    pivot, stats = create_pivot_table(info_for_tables_filtered)
+    append_to_tables_file(table_to_string(pivot) + "\n")
+    append_to_tables_file(table_to_string(stats) + "\n")
+
+
+def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> float:
+    global socket_queue, info_for_tables
     maps_type = MapsType.TRAIN
 
     #################### MODEL ####################
@@ -150,26 +144,26 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     )
 
     model.load_state_dict(model_weights_dict)
+    predictor = NNWrapper(model, weights_flat=solution)
 
     ###############################################
+    if info_for_tables[predictor] != []:
+        rst = [map2result.game_result for map2result in info_for_tables[predictor]]
+        return minkowski_superscorer(rst, k=2)
 
     ws_url = socket_queue.get()
-    predictor = NNWrapper(model)
-    maps = get_maps(ws_string=ws_url, type=maps_type)[:8]
-
-    model_id = sum(solution)
+    maps = get_maps(ws_string=ws_url, type=maps_type)
 
     rst: list[GameResult] = []
-    covs: list[float] = []
     with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
         total=len(maps),
-        desc=f"{model_id: 20}: {maps_type.value}",
+        desc=f"{predictor.name():20}: {maps_type.value}",
         **Constant.TQDM_FORMAT_DICT,
     ) as pbar:
         for game_map in maps:
-            logging.info(f"<{model_id}> is playing {game_map.MapName}")
+            logging.info(f"<{predictor.name()}> is playing {game_map.MapName}")
 
-            agent = NAgent(ws, game_map, MAX_STEPS)
+            agent = NAgent(ws, game_map, max_steps)
             game_result = play_map(with_agent=agent, with_model=predictor)
             rst.append(game_result)
 
@@ -179,30 +173,17 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
                 else ""
             )
             logging.info(
-                f"<{model_id}> finished map {game_map.MapName} "
+                f"<{predictor.name()}> finished map {game_map.MapName} "
                 f"in {game_result.steps_count} steps, "
                 f"coverage: {game_result.coverage_percent:.2f}%, "
                 f"{actual_report}"
                 f"reward.ForVisitedInstructions: {game_result.move_reward.ForVisitedInstructions}"
             )
-            covs.append(
-                actual_if_exists(
-                    game_result.actual_coverage_percent, game_result.coverage_percent
-                )
-            )
-
             pbar.update(1)
+            info_for_tables[predictor].append(Map2Result(game_map, game_result))
     socket_queue.put(ws_url)
 
-    solution_fitness = 1.0 / (
-        loss_function(torch.Tensor(covs), torch.Tensor([100 for _ in range(len(maps))]))
-        .detach()
-        .numpy()
-        + 0.00000001
-    )
-
-    # return minkowski_superscorer(rst, k=2)
-    return solution_fitness
+    return minkowski_superscorer(rst, k=2)
 
 
 def actual_if_exists(actual_coverage, manual_coverage):

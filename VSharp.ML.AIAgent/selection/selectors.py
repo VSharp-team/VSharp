@@ -6,19 +6,19 @@ from typing import Callable, TypeAlias
 
 from ml.model_wrappers.protocols import Mutable
 
-from .classes import ModelResultsOnGameMaps
+from .classes import AgentResultsOnGameMaps
 from .scorer import ScorerFunction
 from .utils import invert_mapping_mrgm_gmmr, sort_by_reward_asc_steps_desc
 
-SelectorFunction: TypeAlias = Callable[[ModelResultsOnGameMaps], list[Mutable]]
+SelectorFunction: TypeAlias = Callable[[AgentResultsOnGameMaps], list[Mutable]]
 
 
-def select_all_models(model_result_with_maps: ModelResultsOnGameMaps) -> list[Mutable]:
+def select_all_models(model_result_with_maps: AgentResultsOnGameMaps) -> list[Mutable]:
     return model_result_with_maps.keys()
 
 
 def select_n_maps_tops(
-    model_result_with_maps: ModelResultsOnGameMaps, n: int
+    model_result_with_maps: AgentResultsOnGameMaps, n: int
 ) -> list[Mutable]:
     """Chooses n models from left to right, top to bottom on the "map leaderbord"""
     map_results_with_models = invert_mapping_mrgm_gmmr(model_result_with_maps)
@@ -40,7 +40,7 @@ def select_n_maps_tops(
 
 def select_k_best(
     with_scorer: ScorerFunction,
-    model_result_with_maps: ModelResultsOnGameMaps,
+    model_result_with_maps: AgentResultsOnGameMaps,
     k: int,
 ) -> list[Mutable]:
     """Return k unique best models"""
@@ -54,7 +54,7 @@ def select_k_best(
 
 def select_p_percent_best(
     with_scorer: ScorerFunction,
-    model_result_with_maps: ModelResultsOnGameMaps,
+    model_result_with_maps: AgentResultsOnGameMaps,
     p: float,
 ) -> list[Mutable]:
     assert p > 0 and p < 1
@@ -72,7 +72,7 @@ def select_p_percent_best(
 
 
 def tournament_selection(
-    model_result_with_maps: ModelResultsOnGameMaps,
+    model_result_with_maps: AgentResultsOnGameMaps,
     desired_population: int,
     n_comparisons: int,
     scorer: ScorerFunction,

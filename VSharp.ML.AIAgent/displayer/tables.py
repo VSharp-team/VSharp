@@ -11,7 +11,7 @@ from common.strings import (
 from config import Config
 from displayer.common import Interval, Name2ResultViewModel
 from displayer.gen_stats import compute_euc_dist_to_full_coverage
-from selection.classes import ModelResultsOnGameMaps, Mutable2Result
+from selection.classes import AgentResultsOnGameMaps, Agent2Result
 from selection.utils import invert_mapping_mrgm_gmmr
 
 
@@ -24,7 +24,7 @@ def get_sample_val(d: dict):
 
 
 def create_stats(
-    model_map_results_mapping: ModelResultsOnGameMaps,
+    model_map_results_mapping: AgentResultsOnGameMaps,
 ) -> tuple[list[float], list[float], list[float], list[Interval]]:
     euc_dists2full_cov = []
     avs = []
@@ -42,7 +42,7 @@ def create_stats(
 
 
 def create_pivot_table(
-    model_map_results_mapping: ModelResultsOnGameMaps,
+    model_map_results_mapping: AgentResultsOnGameMaps,
 ) -> pd.DataFrame:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
     euc_dists2full_cov, avs, medians, intervals = create_stats(
@@ -91,10 +91,10 @@ def table_to_string(table: pd.DataFrame):
 
 
 def convert_to_view_model(
-    m2r_mapping: Mutable2Result,
+    m2r_mapping: Agent2Result,
 ) -> Name2ResultViewModel:
     return Name2ResultViewModel(
-        model_name=m2r_mapping.mutable.name(),
+        model_name=m2r_mapping.agent.name(),
         pretty_result=m2r_mapping.game_result.printable(Config.VERBOSE_TABLES),
     )
 

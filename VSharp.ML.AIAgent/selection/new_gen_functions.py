@@ -8,18 +8,18 @@ from common.constants import Constant
 from ml.model_wrappers.last_layer_learner import LastLayerLearner
 from ml.model_wrappers.protocols import Mutable
 from selection import scorer, selectors
-from selection.classes import ModelResultsOnGameMaps
+from selection.classes import AgentResultsOnGameMaps
 from selection.crossover_type import CrossoverType
 from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
 
 
-def keeps_duplicates(new_gen_func) -> Callable[[ModelResultsOnGameMaps], list[Mutable]]:
+def keeps_duplicates(new_gen_func) -> Callable[[AgentResultsOnGameMaps], list[Mutable]]:
     """
     allows to create multiple instances of the same model
     """
 
-    def wrapper(mr: ModelResultsOnGameMaps) -> list[Mutable]:
+    def wrapper(mr: AgentResultsOnGameMaps) -> list[Mutable]:
         selected_models = new_gen_func(mr)
         to_copy: tuple[Mutable, int] = []
 
@@ -44,7 +44,7 @@ def keeps_duplicates(new_gen_func) -> Callable[[ModelResultsOnGameMaps], list[Mu
     return wrapper
 
 
-def pyGAD_new_gen(mr: ModelResultsOnGameMaps) -> list[Mutable]:
+def pyGAD_new_gen(mr: AgentResultsOnGameMaps) -> list[Mutable]:
     scores_for_mutables = dict()
 
     for mutable, results in mr.items():
@@ -110,7 +110,7 @@ def pyGAD_new_gen(mr: ModelResultsOnGameMaps) -> list[Mutable]:
 
 
 @keeps_duplicates
-def manual_new_gen(mr: ModelResultsOnGameMaps) -> list[Mutable]:
+def manual_new_gen(mr: AgentResultsOnGameMaps) -> list[Mutable]:
     """
     helper methods
     """

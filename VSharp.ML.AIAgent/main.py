@@ -1,13 +1,11 @@
 import logging
-import random
 
 import pygad
 import pygad.torchga
 
 from common.constants import SERVER_COUNT, Constant
-from ml.utils import load_model_with_last_layer
 from displayer.utils import clean_log_file, clean_tables_file
-from ml.model_wrappers.genetic_learner import GeneticLearner
+from ml.utils import load_model_with_last_layer
 from selection.crossover_type import CrossoverType
 from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
@@ -20,43 +18,43 @@ logging.basicConfig(
 )
 
 
-from r_learn import fitness_function
+from r_learn import fitness_function_with_steps, on_generation
 
 
-def callback_generation(ga_instance):
-    print(
-        "Generation = {generation}".format(generation=ga_instance.generations_completed)
-    )
-    print("Fitness    = {fitness}".format(fitness=ga_instance.best_solution()[1]))
+def with_concrete_steps(steps: int):
+    def fitness(ga_inst, solution, solution_idx):
+        return fitness_function_with_steps(ga_inst, solution, solution_idx, steps)
+
+    return fitness
 
 
 def main():
     clean_tables_file()
     clean_log_file()
 
+    max_steps = 100
+    num_agents = 14
+    num_generations = 4
+    num_parents_mating = 5
+    keep_parents = 2
+    parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
+    crossover_type = CrossoverType.SINGLE_POINT
+    mutation_type = MutationType.RANDOM
+    mutation_percent_genes = 10
+
     model = load_model_with_last_layer(
         Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
     )
-    tga = pygad.torchga.TorchGA(model=model, num_solutions=12)
+    tga = pygad.torchga.TorchGA(model=model, num_solutions=num_agents)
 
-    num_generations = 10
-    num_parents_mating = 4
     initial_population = tga.population_weights
-
-    parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
-    keep_parents = 1
-
-    crossover_type = CrossoverType.SINGLE_POINT
-
-    mutation_type = MutationType.RANDOM
-    mutation_percent_genes = 10
 
     ga_instance = pygad.GA(
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
         initial_population=initial_population,
-        fitness_func=fitness_function,
-        on_generation=callback_generation,
+        fitness_func=with_concrete_steps(max_steps),
+        on_generation=on_generation,
         save_solutions=True,
         parallel_processing=SERVER_COUNT,
         parent_selection_type=parent_selection_type,
@@ -81,12 +79,6 @@ def main():
     print(
         "Index of the best solution : {solution_idx}".format(solution_idx=solution_idx)
     )
-
-    # Fetch the parameters of the best solution.
-    best_solution_weights = pygad.torchga.model_weights_as_dict(
-        model=model, weights_vector=solution
-    )
-    print(best_solution_weights)
     ga_instance.save("./last_ga_instance")
 
 

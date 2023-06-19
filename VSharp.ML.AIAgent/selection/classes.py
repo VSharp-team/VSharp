@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Optional, TypeAlias
 
 from common.game import GameMap, MoveReward
-from ml.model_wrappers.protocols import Mutable
+from ml.model_wrappers.protocols import Named
 
 
 @dataclass
@@ -33,8 +33,8 @@ class GameResult:
 
 
 @dataclass
-class Mutable2Result:
-    mutable: Mutable
+class Agent2Result:
+    agent: Named
     game_result: GameResult
 
 
@@ -44,5 +44,5 @@ class Map2Result:
     game_result: GameResult
 
 
-GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[Mutable2Result]]
-ModelResultsOnGameMaps: TypeAlias = defaultdict[Mutable, list[Map2Result]]
+GameMapsModelResults: TypeAlias = defaultdict[GameMap, list[Agent2Result]]
+AgentResultsOnGameMaps: TypeAlias = defaultdict[Named, list[Map2Result]]
