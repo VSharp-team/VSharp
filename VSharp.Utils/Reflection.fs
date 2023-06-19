@@ -302,6 +302,7 @@ module public Reflection =
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
+        assert(not t.IsByRefLike)
         match t with
         | _ when t = typeof<String> -> String.Empty :> obj
         | _ when TypeUtils.isNullable t -> null
@@ -310,6 +311,7 @@ module public Reflection =
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
+        assert(not t.IsByRefLike)
         if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
             then Activator.CreateInstance t
             else null
