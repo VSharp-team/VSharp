@@ -28,7 +28,7 @@
         <Compile Include="ContributedCoverageSearcher.fs" />
         <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
         <Compile Include="InterleavedSearcher.fs" />
-        <Compile Include="TargetedSearcher.fs" />
+        <Compile Include="GuidedSearcher.fs" />
         <Compile Include="FairSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
         <Compile Include="TestGenerator.fs" />

@@ -1,4 +1,4 @@
-﻿namespace VSharp.Interpreter.IL
+namespace VSharp.Interpreter.IL
 
 open System.Diagnostics
 open System.IO
@@ -11,7 +11,6 @@ type searchMode =
     | ContributedCoverageMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
-    | GuidedMode of searchMode
 
 type coverageZone =
     | MethodZone

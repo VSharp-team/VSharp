@@ -490,7 +490,8 @@ module TypeSolver =
             let getMock = getMock typeStorage.TypeMocks
             let result = refineStorage getMock typeStorage Array.empty Array.empty
             match result with
-            | TypeSat -> typeStorage[thisAddress].Value |> Seq.filter checkOverrides |> Seq.truncate 5
+            // TODO: truncate types sequence
+            | TypeSat -> typeStorage[thisAddress].Value |> Seq.filter checkOverrides
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
             assert(thisType = typeOfAddress address)

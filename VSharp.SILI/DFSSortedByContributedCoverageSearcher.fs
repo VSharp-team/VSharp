@@ -5,16 +5,14 @@ open Microsoft.FSharp.Core
 open VSharp
 open VSharp.Interpreter.IL
 open System.Linq
-open CilStateOperations
 
 /// <summary>
 /// Works like DFS searcher, but on each update sorts its state storage by the number
 /// of visited basic blocks not covered yet by tests. Stable sorting is used to maintain the
 /// DFS-like logic.
 /// </summary>
-type DFSSortedByContributedCoverageSearcher(maxBound, statistics) =
-    inherit SimpleForwardSearcher(maxBound)
-
+type DFSSortedByContributedCoverageSearcher(statistics) =
+    let mutable states = List<cilState>()
     let contributedCoverageWeighter = ContributedCoverageWeighter(statistics) :> IWeighter
 
     let compareWeightOpts (one : uint option) (another : uint option) =
@@ -26,20 +24,18 @@ type DFSSortedByContributedCoverageSearcher(maxBound, statistics) =
 
     let comparer = Comparer.Create(compareWeightOpts)
     let getWeight = contributedCoverageWeighter.Weight
-
-    let add (states : List<cilState>) newState =
-        if not <| isStopped newState then
-            assert(states.Contains newState |> not)
-            states.Add(newState)
-
-    override x.Init states initStates =
-        initStates.OrderBy(getWeight, comparer) |> Seq.iter (add states)
-
-    override x.Insert states (parent, newStates) =
-        // TODO: sort effectively
-        if violatesLevel parent maxBound then
-            states.Remove(parent) |> ignore
-        newStates |> Seq.iter (add states)
-        let sorted = states.OrderBy(getWeight, comparer).ToList()
-        states.Clear()
-        states.AddRange(sorted)
+    
+    let update newStates =
+        states.AddRange newStates
+        // Stable sorting
+        states <- states.OrderBy(getWeight, comparer).ToList()
+        
+    interface IForwardSearcher with
+        override x.Init initialStates = initialStates.OrderBy(getWeight, comparer) |> states.AddRange
+        override x.Pick selector = Seq.tryFindBack selector states
+        override x.Pick() = Seq.tryLast states
+        override x.Update(_, newStates) = update newStates
+        override x.States() = states
+        override x.Reset() = states.Clear()
+        override x.Remove cilState = states.Remove cilState |> ignore
+        override x.StatesCount with get() = states.Count

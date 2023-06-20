@@ -218,21 +218,22 @@ type public SILIStatistics() =
             coveredBlocks.Value.Contains blockStart.offset
         else false
 
-    member x.GetApproximateCoverage (methods : Method seq) =
-        let getCoveredBlocksCount (m : Method) =
-            let mutable coveredBlocks = ref null
-            if blocksCoveredByTests.TryGetValue(m, coveredBlocks) then
-                coveredBlocks.Value.Count
+    member x.GetCurrentCoverage (methods : Method seq) =
+        let getCoveredInstructionsCount (m : Method) =
+            let mutable coveredBlocksOffsets = ref null
+            if blocksCoveredByTests.TryGetValue(m, coveredBlocksOffsets) then
+                let cfg = m.ForceCFG
+                coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o).BlockSize)
             else 0
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
-        let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
-        let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount
-        if totalBlocksCount <> 0 then
-            uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
+        let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.ForceCFG.MethodSize)
+        let coveredInstructionsCount = methodsInZone |> Seq.sumBy getCoveredInstructionsCount
+        if totalInstructionsCount <> 0 then
+            uint <| floor (double coveredInstructionsCount / double totalInstructionsCount * 100.0)
         else 0u
 
-    member x.GetApproximateCoverage (method : Method) =
-        x.GetApproximateCoverage(Seq.singleton method)
+    member x.GetCurrentCoverage (method : Method) =
+        x.GetCurrentCoverage(Seq.singleton method)
 
     member x.OnBranchesReleased() =
         branchesReleased <- true

@@ -5,7 +5,6 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Interpreter.IL
 open VSharp.Utils
-open CilStateOperations
 
 type action =
     | GoFront of cilState
@@ -61,75 +60,55 @@ type IpStackComparer() =
             let res = (List.length x.ipStack).CompareTo(List.length y.ipStack)
             res
 
-[<AbstractClass>]
-type SimpleForwardSearcher(maxBound) =
-//    let maxBound = 10u // 10u is caused by number of iterations for tests: Always18, FirstEvenGreaterThen7
-//    let mutable mainMethod = null
-//    let mutable startedFromMain = false
-    let forPropagation = List<cilState>()
+type DFSSearcher() =
+    let states = List<cilState>()
 
-    let add (states : List<cilState>) (s : cilState) =
-        if not <| isStopped s then
-            assert(states.Contains s |> not)
-            states.Add(s)
+    let update newStates =
+        for newState in newStates do
+            assert(states.Contains newState |> not)
+            states.Add newState
 
     interface IForwardSearcher with
-        override x.Init states = x.Init forPropagation states
-        override x.Pick selector = x.Choose forPropagation selector
-        override x.Pick() = x.Choose forPropagation (Prelude.always true)
-        override x.Update (parent, newStates) =
-            x.Insert forPropagation (parent, newStates)
-        override x.States() = forPropagation
-        override x.Reset() = forPropagation.Clear()
-        override x.Remove cilState = forPropagation.Remove cilState |> ignore
-        override x.StatesCount with get() = forPropagation.Count
+        override x.Init initialStates = states.AddRange initialStates
+        override x.Pick selector = Seq.tryFindBack selector states
+        override x.Pick() = Seq.tryLast states
+        override x.Update(_, newStates) = update newStates
+        override x.States() = states
+        override x.Reset() = states.Clear()
+        override x.Remove cilState = states.Remove cilState |> ignore
+        override x.StatesCount with get() = states.Count
 
-    abstract member Choose : seq<cilState> -> (cilState -> bool) -> cilState option
-    default x.Choose states selector = Seq.tryFindBack selector states
-
-    abstract member Insert : List<cilState> -> cilState * seq<cilState> -> unit
-    default x.Insert states (parent, newStates) =
-        if violatesLevel parent maxBound then
-            states.Remove(parent) |> ignore
-        Seq.iter (add states) newStates
-
-    abstract member Init : List<cilState> -> seq<cilState> -> unit
-    default x.Init states initStates = states.AddRange(initStates)
-
-type BFSSearcher(maxBound) =
-    inherit SimpleForwardSearcher(maxBound) with
-        let add (states : List<cilState>) (s : cilState) =
-            if not <| isStopped s then
-                assert(states.Contains s |> not)
-                states.Add(s)
-        override x.Choose states selector = Seq.tryFind selector states
-        override x.Insert states (parent, newStates) =
-            if violatesLevel parent maxBound then
-                states.Remove(parent) |> ignore
-            else if not <| Seq.isEmpty newStates then
-                states.Remove(parent) |> ignore
-                states.Add(parent)
-            Seq.iter (add states) newStates
-
-type DFSSearcher(maxBound) =
-    inherit SimpleForwardSearcher(maxBound)
+type BFSSearcher() =
+    let states = List<cilState>()
+    
+    let update parent newStates =
+        if states.Remove(parent) then
+            states.Add(parent)
+            Seq.iter states.Add newStates
+            
+    interface IForwardSearcher with
+        override x.Init initialStates = states.AddRange initialStates
+        override x.Pick selector = Seq.tryFind selector states
+        override x.Pick() = Seq.tryHead states
+        override x.Update(parent, newStates) = update parent newStates
+        override x.States() = states
+        override x.Reset() = states.Clear()
+        override x.Remove cilState = states.Remove cilState |> ignore
+        override x.StatesCount with get() = states.Count
 
 type IWeighter =
     abstract member Weight : cilState -> uint option
-    abstract member Next : unit -> uint
 
-type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollection<cilState>) =
+type WeightedSearcher(weighter : IWeighter, storage : IPriorityCollection<cilState>) =
     let optionWeight s =
         try
-            option {
-                if not <| violatesLevel s maxBound then return! weighter.Weight s
-            }
+            weighter.Weight s
         with
         | :? InsufficientInformationException as e ->
             s.iie <- Some e
             None
         | :? InternalException as e ->
-            Logger.error "WeightedSearcher: failed to get weight of state %O" e
+            Logger.error $"WeightedSearcher: failed to get weight of state {e}"
             None
     let add (s : cilState) =
         let weight = optionWeight s
@@ -137,37 +116,42 @@ type WeightedSearcher(maxBound, weighter : IWeighter, storage : IPriorityCollect
         | Some w ->
             assert(not <| storage.Contains s)
             storage.Insert s w
-        | None -> ()
+            true
+        | None -> false
     let update s =
-        if storage.Contains s then
+        if not <| storage.Contains s then
+            false
+        else
             let weight = optionWeight s
             match weight with
-            | Some w -> storage.Update s w
-            | None -> storage.Remove s
+            | Some w ->
+                storage.Update s w
+                true
+            | None ->
+                storage.Remove s
+                false
 
-    abstract member Insert : cilState seq -> unit
-    default x.Insert states =
-        Seq.iter add states
+    abstract member Insert : cilState -> bool
+    default x.Insert states = add states
 
     member x.Pick() = storage.Choose()
 
     member x.Pick selector = storage.Choose(selector)
 
-    abstract member Update : cilState * cilState seq -> unit
+    abstract member Update : cilState * cilState seq -> bool
     default x.Update (parent, newStates) =
-        update parent
-        x.Insert newStates
+        let wasParentUpdated = update parent
+        Seq.fold (fun r s -> x.Insert s || r) wasParentUpdated newStates
 
     interface IForwardSearcher with
-        override x.Init states = x.Insert states
+        override x.Init states = Seq.iter (x.Insert >> ignore) states
         override x.Pick() = x.Pick()
         override x.Pick selector = x.Pick selector
-        override x.Update (parent, newStates) = x.Update (parent, newStates)
+        override x.Update (parent, newStates) = x.Update (parent, newStates) |> ignore
         override x.States() = storage.ToSeq
         override x.Reset() = storage.Clear()
         override x.Remove cilState = if storage.Contains cilState then storage.Remove cilState
         override x.StatesCount with get() = int x.Count
-
 
     member x.Weighter = weighter
     member x.Count = storage.Count

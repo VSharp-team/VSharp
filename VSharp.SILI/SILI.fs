@@ -2,7 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Reflection
-open System.Collections.Generic
 open System.Threading.Tasks
 open FSharpx.Collections
 
@@ -71,23 +70,24 @@ type public SILI(options : SiliOptions) =
         | _ -> false
 
     let rec mkForwardSearcher = function
-        | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
-        | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
-        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
-        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+        | BFSMode -> BFSSearcher() :> IForwardSearcher
+        | DFSMode -> DFSSearcher() :> IForwardSearcher
+        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher statistics :> IForwardSearcher
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
             InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2]) :> IForwardSearcher
-        | GuidedMode baseMode ->
-            let baseSearcher = mkForwardSearcher baseMode
-            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(_, searchMode) ->
-            let baseSearcher = mkForwardSearcher searchMode
+            let baseSearcher =
+                if options.recThreshold > 0u then
+                    GuidedSearcher(mkForwardSearcher searchMode, RecursionBasedTargetManager(statistics, options.recThreshold)) :> IForwardSearcher
+                else
+                    mkForwardSearcher searchMode
             BidirectionalSearcher(baseSearcher, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
@@ -96,7 +96,7 @@ type public SILI(options : SiliOptions) =
             branchesReleased <- true
             statistics.OnBranchesReleased()
             ReleaseBranches()
-            let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+            let dfsSearcher = DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
@@ -128,13 +128,13 @@ type public SILI(options : SiliOptions) =
             reportStateIncomplete cilState
 
     let wrapOnTest (action : Action<UnitTest>) (state : cilState) =
-        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName state.Result
+        Logger.info $"Result of method {(entryMethodOf state).FullName} is {state.Result}"
         Application.terminateState state
         reportState action.Invoke false state null
 
     let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage =
         if not <| String.IsNullOrWhiteSpace errorMessage then
-            Logger.info "Error in %s: %s" (entryMethodOf state).FullName errorMessage
+            Logger.info $"Error in {(entryMethodOf state).FullName}: {errorMessage}"
         Application.terminateState state
         reportState action.Invoke true state errorMessage
 
@@ -368,7 +368,7 @@ type public SILI(options : SiliOptions) =
             Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
             if options.stopOnCoverageAchieved > 0 then
                 let checkCoverage() =
-                    let cov = statistics.GetApproximateCoverage entryMethods
+                    let cov = statistics.GetCurrentCoverage entryMethods
                     cov >= uint options.stopOnCoverageAchieved
                 isCoverageAchieved <- checkCoverage
         | StackTraceReproductionMode _ -> __notImplemented__()
