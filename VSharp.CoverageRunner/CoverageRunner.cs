@@ -2,6 +2,7 @@
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Runtime.Loader;
+using System.Text;
 using Microsoft.FSharp.Core;
 
 namespace VSharp.CoverageRunner
@@ -106,6 +107,33 @@ namespace VSharp.CoverageRunner
             return CoverageDeserializer.getHistory(covHistory);
         }
 
+        private static void PrintCoverage(
+            IEnumerable<BasicBlock> allBlocks,
+            IReadOnlySet<BasicBlock> visited,
+            MethodInfo methodInfo)
+        {
+            string ToString()
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"Coverage for method {methodInfo}:");
+                var allCovered = true;
+                foreach (var block in allBlocks)
+                {
+                    if (!visited.Contains(block))
+                    {
+                        allCovered = false;
+                        sb.AppendLine($"Block [0x{block.StartOffset:X} .. 0x{block.FinalOffset:X}] not covered");
+                    }
+                }
+                if (allCovered)
+                    sb.AppendLine("All blocks are covered");
+
+                return sb.ToString();
+            }
+
+            Logger.printLogLazyString(Logger.Trace, ToString);
+        }
+
         private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodInfo methodInfo)
         {
             // filtering coverage records that are only relevant to this method
@@ -113,18 +141,19 @@ namespace VSharp.CoverageRunner
                 visited.SelectMany(x => x)
                     .Where(x => x.methodToken == methodInfo.MetadataToken &&
                                 x.moduleName == methodInfo.Module.FullyQualifiedName);
-            var uniqueBlocks = new HashSet<int>();
+            var visitedBlocks = new HashSet<BasicBlock>();
             foreach (var loc in visitedInMethod)
             {
-                var bbId = cfg.ResolveBasicBlockIndex(loc.offset);
+                var offset = loc.offset;
+                var block = cfg.ResolveBasicBlock(offset);
                 // counting only those blocks that were fully executed
-                if (cfg.SortedBasicBlocks[bbId].FinalOffset == loc.offset)
-                    uniqueBlocks.Add(bbId);
+                if (block.FinalOffset == offset)
+                    visitedBlocks.Add(block);
             }
 
-            var coveredSize =
-                uniqueBlocks.Sum(blockOffset =>
-                    cfg.SortedBasicBlocks[blockOffset].BlockSize);
+            var coveredSize = visitedBlocks.Sum(block => block.BlockSize);
+
+            PrintCoverage(cfg.SortedBasicBlocks, visitedBlocks, methodInfo);
 
             return (int)Math.Floor(100 * ((double)coveredSize / cfg.MethodSize));
         }

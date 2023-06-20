@@ -45,6 +45,10 @@ module Logger =
         if currentLogLevel >= vLevel then
             writeLineString vLevel "" message
 
+    let public printLogLazyString vLevel (computeMessage : Func<string>) =
+        if currentLogLevel >= vLevel then
+            computeMessage.Invoke() |> writeLineString vLevel ""
+
     let public printLogWithTag tag vLevel format =
         Printf.ksprintf (fun message -> if currentLogLevel >= vLevel && tagFilter tag then writeLineString vLevel tag message) format
 
