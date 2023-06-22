@@ -1196,7 +1196,8 @@ type internal ILInterpreter() as this =
         }
         let invokeMock cilState k =
             match typeMocks with
-            | _ when Seq.isEmpty typeMocks -> List.singleton cilState |> k
+            | _ when Seq.isEmpty typeMocks ->
+                __insufficientInformation__ $"Trying to CallVirt method {ancestorMethod} without mocks"
             | _ when Seq.length typeMocks = 1 ->
                 popFrameOf cilState
                 let overriden =

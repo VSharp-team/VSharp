@@ -169,9 +169,10 @@ module Mocking =
             if t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef then
                 raise (ArgumentException("Mock supertype should be class or interface!"))
             if t.IsInterface then
-                x.AddInterfaceMethods t
-                interfaces.RemoveAll(fun u -> t.IsAssignableTo u) |> ignore
-                interfaces.Add t
+                if not (interfaces.Exists (fun u -> u.IsAssignableTo t)) then
+                    x.AddInterfaceMethods t
+                    interfaces.RemoveAll(fun u -> t.IsAssignableTo u) |> ignore
+                    interfaces.Add t
             elif baseClass = null then
                 baseClass <- t
                 x.AddClassMethods t
@@ -190,6 +191,9 @@ module Mocking =
                 let methodMock = Method(m, returnValues.Length)
                 methodMock.SetClauses returnValues
                 calledMethods.Add m
+                let methodType = m.ReflectedType
+                if methodType.IsInterface && not (interfaces.Contains methodType) then
+                    x.AddSuperType methodType
                 methodMocksCache[m] <- methodMock
 
         member x.Id = name
