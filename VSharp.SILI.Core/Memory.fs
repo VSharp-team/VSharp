@@ -188,7 +188,7 @@ module internal Memory =
 
     let baseTypeOfAddress state address =
         match address with
-        | BoxedLocation(addr, _) -> typeOfConcreteHeapAddress state addr
+        | BoxedLocation(addr, _) -> typeOfHeapLocation state addr
         | _ -> typeOfAddress address
 
 // -------------------------------- GetHashCode --------------------------------
@@ -754,15 +754,28 @@ module internal Memory =
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
         MemoryRegion.read (extractor state) key (isDefault state) inst
 
-    let readBoxedLocation state (address : concreteHeapAddress) =
+    let private readBoxedSymbolic state address typ =
+        let extractor state = accessRegion state.boxedLocations typ typ
+        let region = extractor state
+        let mkname = fun (key : heapAddressKey) -> $"boxed {key.address} of {typ}"
+        let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+        let key = {address = address}
+        let instantiate typ memory =
+            let sort = BoxedSort typ
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            let time = state.startingTime
+            makeSymbolicHeapRead state picker key time typ memory
+        MemoryRegion.read region key (isDefault state) instantiate
+
+    let readBoxedLocation state (address : term) sightType =
         let cm = state.concreteMemory
-        let typ = typeOfConcreteHeapAddress state address
-        match memoryMode, cm.TryVirtToPhys address with
-        | ConcreteMemory, Some value -> objToTerm state typ value
-        | _ ->
-            match PersistentDict.tryFind state.boxedLocations address with
-            | Some value -> value
-            | None -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+        let typeFromMemory = typeOfHeapLocation state address
+        let typ = mostConcreteType typeFromMemory sightType
+        match memoryMode, address.term with
+        | ConcreteMemory, ConcreteHeapAddress address when cm.Contains address ->
+            let value = cm.VirtToPhys address
+            objToTerm state typ value
+        | _ -> readBoxedSymbolic state address typ
 
     let rec readDelegate state reference =
         match reference.term with
@@ -786,7 +799,7 @@ module internal Memory =
             let structTerm = readSafe state address
             readStruct structTerm field
         | ArrayLength(address, dimension, typ) -> readLength state address dimension typ
-        | BoxedLocation(address, _) -> readBoxedLocation state address
+        | BoxedLocation(address, typ) -> readBoxedLocation state address typ
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
@@ -923,10 +936,7 @@ module internal Memory =
         readTermUnsafe term offset endByte
 
     let private readBoxedUnsafe state loc typ offset viewSize =
-        let address =
-            match loc.term with
-            | ConcreteHeapAddress address -> BoxedLocation(address, typ)
-            | _ -> internalfail "readUnsafe: boxed value type case is not fully implemented"
+        let address = BoxedLocation(loc, typ)
         let endByte = makeNumber viewSize |> add offset
         match readSafe state address with
         | {term = Struct(fields, _)} -> readStructUnsafe fields typ offset endByte
@@ -1061,21 +1071,25 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
-    let writeBoxedLocationSymbolic state (address : concreteHeapAddress) value =
-        state.boxedLocations <- PersistentDict.add address value state.boxedLocations
+    let writeBoxedLocationSymbolic state (address : term) value typ =
+        ensureConcreteType typ
+        let mr = accessRegion state.boxedLocations typ typ
+        let key = {address = address}
+        let mr' = MemoryRegion.write mr key value
+        state.boxedLocations <- PersistentDict.add typ mr' state.boxedLocations
 
-    let writeBoxedLocation state (address : concreteHeapAddress) value =
+    let writeBoxedLocation state (address : term) value =
         let cm = state.concreteMemory
-        match memoryMode, tryTermToObj state value with
-        | ConcreteMemory, Some value when cm.Contains(address) ->
-            cm.Remove address
-            cm.Allocate address value
-        | ConcreteMemory, Some value ->
-            cm.Allocate address value
-        | ConcreteMemory, None when cm.Contains(address) ->
-            cm.Remove address
-            writeBoxedLocationSymbolic state address value
-        | _ -> writeBoxedLocationSymbolic state address value
+        match memoryMode, address.term, tryTermToObj state value with
+        | ConcreteMemory, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
+            cm.Remove a
+            cm.Allocate a value
+        | ConcreteMemory, ConcreteHeapAddress a, Some value ->
+            cm.Allocate a value
+        | ConcreteMemory, ConcreteHeapAddress a, None when cm.Contains(a) ->
+            cm.Remove a
+            typeOf value |> writeBoxedLocationSymbolic state address value
+        | _ -> typeOf value |> writeBoxedLocationSymbolic state address value
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
@@ -1407,7 +1421,7 @@ module internal Memory =
         // 'value' may be null, if it's nullable value type
         | ConcreteMemory, Some value when value <> null ->
             state.concreteMemory.Allocate concreteAddress value
-        | _ -> writeBoxedLocationSymbolic state concreteAddress value
+        | _ -> writeBoxedLocationSymbolic state address value typ
         HeapRef address typeof<obj>
 
     let allocateConcreteObject state obj (typ : Type) =
@@ -1596,9 +1610,6 @@ module internal Memory =
             |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
             |> PersistentDict.fold composeOneRegion [(True, dict)]
 
-    let private composeBoxedLocations state state' =
-        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime state k) (fillHoles state v) acc) state.boxedLocations
-
     let private composeTypeVariablesOf state state' =
         let ms, s = state.typeVariables
         let ms', s' = state'.typeVariables
@@ -1668,7 +1679,6 @@ module internal Memory =
             let! g4, lengths = composeMemoryRegions state state.lengths state'.lengths
             let! g5, lowerBounds = composeMemoryRegions state state.lowerBounds state'.lowerBounds
             let! g6, staticFields = composeMemoryRegions state state.staticFields state'.staticFields
-            let boxedLocations = composeBoxedLocations state state'
             let initializedTypes = composeInitializedTypes state state'.initializedTypes
             composeConcreteMemory (composeTime state) state.concreteMemory state'.concreteMemory
             let allocatedTypes = composeConcreteDictionaries (composeTime state) (substituteTypeVariablesToSymbolicType state) state.allocatedTypes state'.allocatedTypes
@@ -1689,9 +1699,9 @@ module internal Memory =
                     lengths = lengths
                     lowerBounds = lowerBounds
                     staticFields = staticFields
-                    boxedLocations = boxedLocations
+                    boxedLocations = state.boxedLocations // TODO: compose boxed locations
                     initializedTypes = initializedTypes
-                    concreteMemory = state.concreteMemory
+                    concreteMemory = state.concreteMemory // TODO: compose concrete memory
                     allocatedTypes = allocatedTypes
                     typeVariables = typeVariables
                     delegates = delegates
@@ -1748,7 +1758,6 @@ module internal Memory =
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
         let sb = dumpDict "Array lengths" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
-        let sb = dumpDict "Boxed items" sortVectorTime VectorTime.print toString sb s.boxedLocations
         let sb = dumpDict "Types tokens" sortVectorTime VectorTime.print toString sb s.allocatedTypes
         let sb = dumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.staticFields
         let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb s.delegates

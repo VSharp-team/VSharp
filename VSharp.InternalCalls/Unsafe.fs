@@ -90,5 +90,5 @@ module Unsafe =
             let t = MostConcreteTypeOfHeapRef state ref
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | Ref(BoxedLocation(address, t)) ->
-            Ptr (HeapLocation(ConcreteHeapAddress address, t)) typeof<byte> (MakeNumber 0)
+            Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"

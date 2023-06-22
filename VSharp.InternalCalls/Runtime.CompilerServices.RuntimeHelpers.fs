@@ -35,6 +35,12 @@ module Runtime_CompilerServices_RuntimeHelpers =
         let structValue = Memory.Read state boxedThis
         GetHashCode structValue
 
+    let EnumGetHashCode (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        let boxedThis = List.head args
+        let enumValue = Memory.Read state boxedThis
+        GetHashCode enumValue
+
     let Equals (state : state) (args : term list) : term =
         assert(List.length args = 2)
         let x, y = args.[0], args.[1]

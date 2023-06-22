@@ -39,10 +39,10 @@
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="Mocking.fs" />
+        <Compile Include="PhysicalAddress.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="PhysicalAddress.fs" />
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>

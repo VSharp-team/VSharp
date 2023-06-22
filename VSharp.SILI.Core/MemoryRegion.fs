@@ -21,6 +21,7 @@ type regionSort =
     | ArrayLengthSort of arrayType
     | ArrayLowerBoundSort of arrayType
     | StackBufferSort of stackKey
+    | BoxedSort of Type
     member x.TypeOfLocation =
         match x with
         | HeapFieldSort field
@@ -29,6 +30,7 @@ type regionSort =
         | ArrayLengthSort _
         | ArrayLowerBoundSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
+        | BoxedSort t -> t
 
 module private MemoryKeyUtils =
 

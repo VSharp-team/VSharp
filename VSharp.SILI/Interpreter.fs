@@ -561,7 +561,7 @@ type UnknownMethodException(message : string, methodInfo : Method, interpreterSt
     member x.InterpreterStackTrace with get() = interpreterStackTrace
 
 
-type internal ILInterpreter(isConcolicMode : bool) as this =
+type internal ILInterpreter() as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
         Map.ofList [
@@ -1324,8 +1324,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
             let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState calledMethod
             Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
-        if isConcolicMode then getArgsAndCall cilState
-        else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
+        x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let call (cilState : cilState) k =
@@ -1620,7 +1619,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             if Types.IsNullable t then
                 let nullableTerm = Memory.DefaultOf t
                 let address = Memory.BoxValueType cilState.state nullableTerm
-                let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                let ref = HeapReferenceToBoxReference address
+                let res = handleRestResults cilState ref
                 nonExceptionCont cilState res k
             else
                 x.Raise x.NullReferenceException cilState k
@@ -1636,7 +1636,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let nullableTerm = Memory.WriteStructField nullableTerm valueField value
                     let nullableTerm = Memory.WriteStructField nullableTerm hasValueField (MakeBool true)
                     let address = Memory.BoxValueType cilState.state nullableTerm
-                    let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                    let ref = HeapReferenceToBoxReference address
+                    let res = handleRestResults cilState ref
                     nonExceptionCont cilState res k)
                 (x.Raise x.InvalidCastException)
         let nonNullCase (cilState : cilState) =
@@ -1646,7 +1647,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.IsCast state obj t, state))
                     (fun cilState k ->
-                        let res = handleRestResults cilState (Types.Cast obj t |> HeapReferenceToBoxReference)
+                        let ref = Types.Cast obj t |> HeapReferenceToBoxReference
+                        let res = handleRestResults cilState ref
                         push res cilState
                         k [cilState])
                     (x.Raise x.InvalidCastException)

@@ -444,6 +444,8 @@ module TypeUtils =
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             // TODO: check 'is' for int[] and long[] (it must be false) #do
             if d1 = d2 then commonConcreteCanCast canCast t1 t2 certainK uncertainK else certainK false
+        | _ when leftType.IsByRefLike -> certainK false
+        | _ when rightType.IsByRefLike -> certainK false
         | ComplexType, ComplexType ->
             if canCast leftType rightType then certainK true
             elif isGround leftType && isGround rightType then certainK false
