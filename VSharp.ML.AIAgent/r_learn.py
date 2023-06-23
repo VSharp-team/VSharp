@@ -17,12 +17,10 @@ from common.utils import covered, get_states
 from displayer.tables import create_pivot_table, table_to_string
 from displayer.utils import append_to_tables_file
 from ml.model_wrappers.nnwrapper import NNWrapper
-from ml.model_wrappers.protocols import Mutable, Predictor
+from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import minkowski_superscorer
-
-NewGenProviderFunction: TypeAlias = Callable[[AgentResultsOnGameMaps], list[Mutable]]
 
 
 def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
