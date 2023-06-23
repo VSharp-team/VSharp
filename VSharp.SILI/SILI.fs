@@ -35,7 +35,6 @@ type public SILI(options : SiliOptions) =
 
     let statistics = new SILIStatistics()
 
-    let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
 
@@ -103,7 +102,6 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError cilState message =
         try
-            searcher.Remove cilState
             let isNewHistory() = cilState.history |> Set.exists (not << statistics.IsBasicBlockCoveredByTest)
             let suitableHistory = Set.isEmpty cilState.history || isNewHistory()
             if suitableHistory && not isError || isError && statistics.IsNewError cilState message then
@@ -141,7 +139,6 @@ type public SILI(options : SiliOptions) =
     let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         statistics.IncompleteStates.Add(state)
         Application.terminateState state
-        searcher.Remove state
         action.Invoke state.iie.Value
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (iie: InsufficientInformationException) =
@@ -156,7 +153,6 @@ type public SILI(options : SiliOptions) =
         | _ ->
             statistics.InternalFails.Add(e)
             Application.terminateState state
-            searcher.Remove state
             action.Invoke(entryMethodOf state, e)
 
     let wrapOnInternalFail (action : Action<Method, Exception>) (method : Method) (e : Exception) =
@@ -281,19 +277,21 @@ type public SILI(options : SiliOptions) =
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
         toReportIIE |> List.iter reportStateIncomplete
-        let newStates =
+        let sIsStopped, newStates =
             match goodStates with
-            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
             | _ ->
                 match iieStates with
-                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
                 | _ ->
                     match errors with
-                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
-                    | _ -> goodStates @ iieStates @ errors
+                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
+                    | _ -> true, goodStates @ iieStates @ errors
         Application.moveState loc s (Seq.cast<_> newStates)
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
+        if sIsStopped then
+            searcher.Remove s
 
     member private x.Backward p' s' =
         assert(currentLoc s' = p'.loc)
@@ -306,7 +304,7 @@ type public SILI(options : SiliOptions) =
             | true ->
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
-                Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
+                Logger.trace $"Backward:\nWas: {p'}\nNow: {p}\n\n"
                 Application.addGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->

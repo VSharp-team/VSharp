@@ -213,7 +213,7 @@ namespace IntegrationTests
             return list.OrderBy(o => o.Id).First().Id;
         }
 
-        [Ignore("takes too much time")]
+        [Ignore("Invalid test generated")]
         public static int SequenceLinqTest()
         {
             var startingDeck = (from s in Suits()

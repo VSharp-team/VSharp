@@ -129,12 +129,12 @@ module internal InstructionsSet =
                 methodInfo.Invoke(null, parameters)
             with
             | :? TargetInvocationException as targetException ->
-                Logger.trace "InternalCall got TargetInvocationException %s" targetException.Message
+                Logger.trace $"InternalCall got TargetInvocationException {targetException.Message}"
                 let actualException = targetException.GetBaseException()
-                Logger.trace "TargetInvocationException.GetBaseException %s" actualException.Message
+                Logger.trace $"TargetInvocationException.GetBaseException {actualException.Message}"
                 raise actualException
             | e ->
-                Logger.trace "InternalCall got exception %s" e.Message
+                Logger.trace $"InternalCall got exception {e.Message}"
                 reraise()
 
         let pushOnEvaluationStack (term : term, cilState : cilState) =

@@ -82,9 +82,12 @@ type BFSSearcher() =
     let states = List<cilState>()
     
     let update parent newStates =
-        if states.Remove(parent) then
-            states.Add(parent)
-            Seq.iter states.Add newStates
+        let wasParentRemoved = states.Remove(parent)
+        assert wasParentRemoved
+        states.Add(parent)
+        for newState in newStates do
+            assert(states.Contains newState |> not)
+            states.Add newState
             
     interface IForwardSearcher with
         override x.Init initialStates = states.AddRange initialStates
