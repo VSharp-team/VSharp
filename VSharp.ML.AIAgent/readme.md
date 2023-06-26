@@ -38,9 +38,12 @@ to dump current env info into config file
 ### 2. Launch training
 
 (you are in ```/VSharp/VSharp.ML.AIAgent/```, conda env is activated)
-```sh
-python3 main.py
-```
+
+1. configure MAX_STEPS in [common.constants](./common/constants.py)
+2. set up `server_count` in [main.py](./main.py)
+3. `python3 launch_servers.py -n <server_count>`
+4. `python3 main.py`
+
 ## Evaluation
 
 | Map                      | V# default settings (steps,coverage) | V# + AI (steps,coverage)|
