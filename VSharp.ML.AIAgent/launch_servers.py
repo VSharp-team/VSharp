@@ -1,10 +1,55 @@
 import argparse
+import json
 import os
 import signal
 import subprocess
+from queue import Queue
+
+from aiohttp import web
+
+routes = web.RouteTableDef()
+
+
+@routes.get("/get_ws")
+async def dequeue_ws(request):
+    try:
+        ws = WS_URLS.get(timeout=0.1)
+        print(f"issued {ws}")
+        return web.Response(text=ws)
+    except Exception as e:
+        print(e)
+        return web.Response(text="")
+
+
+@routes.post("/post_ws")
+async def enqueue_ws(request):
+    data = await request.read()
+    print(f"put back {data.decode('utf-8')}")
+    WS_URLS.put(data.decode("utf-8"))
+    return web.HTTPOk()
+
+
+@routes.post("/send_res")
+async def append_results(request):
+    global RESULTS
+    data = await request.read()
+    data = data.decode("utf-8")
+    RESULTS.append(data)
+    return web.HTTPOk()
+
+
+@routes.get("/recv_res")
+async def send_and_clear_results(request):
+    global RESULTS
+    if not RESULTS:
+        raise RuntimeError("Must play a game first")
+    rst = json.dumps(RESULTS)
+    RESULTS = []
+    return web.Response(text=rst)
 
 
 def main():
+    global WS_URLS, RESULTS
     parser = argparse.ArgumentParser(description="V# instances launcher")
     parser.add_argument(
         "-n", "--num_inst", type=int, help="number of instances to launch"
@@ -32,7 +77,19 @@ def main():
         procs.append(proc)
         print(f"{proc.pid}: " + " ".join(launch_server + [str(start_port + i)]))
 
-    input("Press any key to kill server processes... ")
+    SOCKET_URLS = [
+        f"ws://0.0.0.0:{start_port + i}/gameServer" for i in range(args.num_inst)
+    ]
+
+    WS_URLS = Queue()
+    RESULTS = []
+
+    for ws_url in SOCKET_URLS:
+        WS_URLS.put(ws_url)
+
+    app = web.Application()
+    app.add_routes(routes)
+    web.run_app(app)
 
     for proc in procs:
         os.kill(proc.pid, signal.SIGTERM)

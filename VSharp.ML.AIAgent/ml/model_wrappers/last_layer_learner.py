@@ -1,12 +1,8 @@
 import random
-from math import floor
-from typing import Iterable
-
-import numpy as np
 
 from common.constants import Constant
 from common.game import GameState
-from config import Config
+from config import FeatureConfig
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
@@ -43,7 +39,7 @@ class LastLayerLearner(ModelWrapper):
         )
 
         self._name = gen_name()
-        if Config.SHOW_SUCCESSORS:
+        if FeatureConfig.SHOW_SUCCESSORS:
             self._name = successor_name_closure(self._name)
 
     def predict(self, input: GameState):

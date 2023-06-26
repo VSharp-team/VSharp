@@ -1,17 +1,17 @@
+import json
 import logging
-import queue
 from collections import defaultdict
 from contextlib import closing
-from typing import Callable, TypeAlias
 
 import pygad.torchga
-import torch
 import tqdm
 import websocket
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import SOCKET_URLS, DEVICE, Constant
+from broker_connection.broker import Broker
+from broker_connection.classes import Agent2ResultsOnMaps
+from common.constants import DEVICE, MAX_STEPS, Constant
 from common.game import MoveReward
 from common.utils import covered, get_states
 from displayer.tables import create_pivot_table, table_to_string
@@ -95,25 +95,19 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
     return model_result
 
 
-def create_socket_queue():
-    # manager = mp.Manager()
-    ws_urls = queue.Queue()
-    for ws_url in SOCKET_URLS:
-        ws_urls.put(ws_url)
-    return ws_urls
-
-
-socket_queue = create_socket_queue()
-
-
-loss_function = torch.nn.L1Loss()
 info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
 
 
 def on_generation(ga_instance):
-    global info_for_tables
+    broker = Broker()
+    broker_raw = json.loads(broker.recv_game_result_list())
+
+    json_games = [Agent2ResultsOnMaps.from_json(item) for item in broker_raw]
+
+    for full_game_result in json_games:
+        info_for_tables[full_game_result.agent] = full_game_result.results
+
     print(f"Generation = {ga_instance.generations_completed};")
-    print(f"Fitness    = {ga_instance.best_solution()[1]};")
 
     ga_pop_inner_hashes = [tuple(item).__hash__() for item in ga_instance.population]
     info_for_tables_filtered = {
@@ -126,9 +120,9 @@ def on_generation(ga_instance):
     append_to_tables_file(table_to_string(stats) + "\n")
 
 
-def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> float:
-    global socket_queue, info_for_tables
+def fitness_function(ga_inst, solution, solution_idx) -> float:
     maps_type = MapsType.TRAIN
+    max_steps = MAX_STEPS
 
     #################### MODEL ####################
     # model = nn.Sequential(
@@ -148,14 +142,17 @@ def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> f
     predictor = NNWrapper(model, weights_flat=solution)
 
     ###############################################
-    if info_for_tables[predictor] != []:
-        rst = [map2result.game_result for map2result in info_for_tables[predictor]]
-        return minkowski_superscorer(rst, k=2)
+    # if info_for_tables[predictor] != []:
+    #     rst = [map2result.game_result for map2result in info_for_tables[predictor]]
+    #     return minkowski_superscorer(rst, k=2)
 
-    ws_url = socket_queue.get()
-    maps = get_maps(ws_string=ws_url, type=maps_type)[:4]
+    broker = Broker()
+
+    ws_url = broker.aquire_ws()
+    maps = get_maps(ws_string=ws_url, type=maps_type)
 
     rst: list[GameResult] = []
+    list_of_map2result: list[Map2Result] = []
     with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
         total=len(maps),
         desc=f"{predictor.name():20}: {maps_type.value}",
@@ -167,6 +164,7 @@ def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> f
             agent = NAgent(ws, game_map, max_steps)
             game_result = play_map(with_agent=agent, with_model=predictor)
             rst.append(game_result)
+            list_of_map2result.append(Map2Result(game_map, game_result))
 
             actual_report = (
                 f"actual coverage: {game_result.actual_coverage_percent:.2f}, "
@@ -181,8 +179,8 @@ def fitness_function_with_steps(ga_inst, solution, solution_idx, max_steps) -> f
                 f"reward.ForVisitedInstructions: {game_result.move_reward.ForVisitedInstructions}"
             )
             pbar.update(1)
-            info_for_tables[predictor].append(Map2Result(game_map, game_result))
-    socket_queue.put(ws_url)
+    broker.send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
+    broker.return_ws(ws_url)
 
     return minkowski_superscorer(rst, k=2)
 

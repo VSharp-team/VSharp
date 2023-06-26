@@ -1,3 +1,5 @@
+import json
+
 import torch.nn
 
 from common.game import GameState
@@ -7,7 +9,7 @@ from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 
 class NNWrapper(Predictor):
-    def __init__(self, model: torch.nn.modules, weights_flat: list[float]) -> None:
+    def __init__(self, model: torch.nn.Module, weights_flat: list[float]) -> None:
         self.model = model
         self._name = str(sum(weights_flat))
         self._hash = tuple(weights_flat).__hash__()
@@ -34,3 +36,19 @@ class NNWrapper(Predictor):
 
     def __hash__(self) -> int:
         return self._name.__hash__() + self._hash
+
+
+def encode(obj):
+    if isinstance(obj, NNWrapper):
+        return {"_name": obj._name, "_hash": obj._hash}
+    return json.dumps(obj)
+
+
+def decode(obj):
+    if "_name" not in obj or "_hash" not in obj:
+        return obj
+
+    fake_nnwrapper = NNWrapper(None, [])
+    fake_nnwrapper._name = obj["_name"]
+    fake_nnwrapper._hash = obj["_hash"]
+    return fake_nnwrapper

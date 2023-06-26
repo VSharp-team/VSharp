@@ -2,10 +2,13 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Optional, TypeAlias
 
+from dataclasses_json import dataclass_json
+
 from common.game import GameMap, MoveReward
 from ml.model_wrappers.protocols import Named
 
 
+@dataclass_json
 @dataclass
 class GameResult:
     move_reward: MoveReward
@@ -38,6 +41,7 @@ class Agent2Result:
     game_result: GameResult
 
 
+@dataclass_json
 @dataclass
 class Map2Result:
     map: GameMap

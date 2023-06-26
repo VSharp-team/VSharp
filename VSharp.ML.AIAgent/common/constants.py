@@ -31,7 +31,11 @@ class Constant:
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 START_PORT = 8100
-SERVER_COUNT = 4
+MAX_STEPS = 500
 
-# len(SOCKET_URLS) == proc_num
-SOCKET_URLS = [f"ws://0.0.0.0:{START_PORT + i}/gameServer" for i in range(SERVER_COUNT)]
+
+class BrokerLinks:
+    BROKER_LINK_GET = "http://0.0.0.0:8080/get_ws"
+    BROKER_LINK_POST = "http://0.0.0.0:8080/post_ws"
+    BROKER_LINK_SEND_RES = "http://0.0.0.0:8080/send_res"
+    BROKER_LINK_RECV_RES = "http://0.0.0.0:8080/recv_res"

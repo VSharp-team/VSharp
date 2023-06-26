@@ -8,7 +8,7 @@ from common.strings import (
     EUC_DIST2FULL_COV_COL_NAME,
     MEDIAN_COVERAGE_COL_NAME,
 )
-from config import Config
+from config import FeatureConfig
 from displayer.common import Interval, Name2ResultViewModel
 from displayer.gen_stats import compute_euc_dist_to_full_coverage
 from selection.classes import AgentResultsOnGameMaps, Agent2Result
@@ -95,7 +95,9 @@ def convert_to_view_model(
 ) -> Name2ResultViewModel:
     return Name2ResultViewModel(
         model_name=m2r_mapping.agent.name(),
-        pretty_result=m2r_mapping.game_result.printable(Config.VERBOSE_TABLES),
+        pretty_result=m2r_mapping.game_result.printable(
+            verbose=FeatureConfig.VERBOSE_TABLES
+        ),
     )
 
 

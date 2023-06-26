@@ -3,7 +3,7 @@ import logging
 import pygad
 import pygad.torchga
 
-from common.constants import DEVICE, SERVER_COUNT, Constant
+from common.constants import DEVICE, Constant
 from displayer.utils import clean_log_file, clean_tables_file
 from ml.utils import load_model_with_last_layer
 from selection.crossover_type import CrossoverType
@@ -18,29 +18,23 @@ logging.basicConfig(
 )
 
 
-from r_learn import fitness_function_with_steps, on_generation
-
-
-def with_concrete_steps(steps: int):
-    def fitness(ga_inst, solution, solution_idx):
-        return fitness_function_with_steps(ga_inst, solution, solution_idx, steps)
-
-    return fitness
+from r_learn import on_generation, fitness_function
 
 
 def main():
     clean_tables_file()
     clean_log_file()
 
-    max_steps = 100
+    server_count = 8
+
     num_agents = 14
-    num_generations = 4
-    num_parents_mating = 5
+    num_generations = 6
+    num_parents_mating = 6
     keep_parents = 2
     parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
     crossover_type = CrossoverType.SINGLE_POINT
     mutation_type = MutationType.RANDOM
-    mutation_percent_genes = 10
+    mutation_percent_genes = 30
 
     model = load_model_with_last_layer(
         Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
@@ -55,10 +49,10 @@ def main():
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
         initial_population=initial_population,
-        fitness_func=with_concrete_steps(max_steps),
+        fitness_func=fitness_function,
         on_generation=on_generation,
         save_solutions=True,
-        parallel_processing=SERVER_COUNT,
+        parallel_processing=["process", server_count],
         parent_selection_type=parent_selection_type,
         keep_parents=keep_parents,
         crossover_type=crossover_type,
