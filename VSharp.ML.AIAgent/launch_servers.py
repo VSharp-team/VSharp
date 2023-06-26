@@ -7,6 +7,8 @@ from queue import Queue
 
 from aiohttp import web
 
+from common.constants import BROKER_SERVER_PORT, VSHARP_INSTANCES_START_PORT
+
 routes = web.RouteTableDef()
 
 
@@ -18,14 +20,15 @@ async def dequeue_ws(request):
         return web.Response(text=ws)
     except Exception as e:
         print(e)
-        return web.Response(text="")
+        return web.Response(text=str(e))
 
 
 @routes.post("/post_ws")
 async def enqueue_ws(request):
-    data = await request.read()
-    print(f"put back {data.decode('utf-8')}")
-    WS_URLS.put(data.decode("utf-8"))
+    returning_ws_raw = await request.read()
+    returning_ws = returning_ws_raw.decode("utf-8")
+    print(f"put back {returning_ws}")
+    WS_URLS.put(returning_ws)
     return web.HTTPOk()
 
 
@@ -33,8 +36,8 @@ async def enqueue_ws(request):
 async def append_results(request):
     global RESULTS
     data = await request.read()
-    data = data.decode("utf-8")
-    RESULTS.append(data)
+    decoded = data.decode("utf-8")
+    RESULTS.append(decoded)
     return web.HTTPOk()
 
 
@@ -56,8 +59,6 @@ def main():
     )
     args = parser.parse_args()
 
-    start_port = 8100
-
     # assuming we start from ~/gsv/VSharp/VSharp.ML.AIAgent
     working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
     launch_server = [
@@ -70,15 +71,19 @@ def main():
     procs = []
     for i in range(args.num_inst):
         proc = subprocess.Popen(
-            launch_server + [str(start_port + i)],
+            launch_server + [str(VSHARP_INSTANCES_START_PORT + i)],
             start_new_session=True,
             cwd=working_dir,
         )
         procs.append(proc)
-        print(f"{proc.pid}: " + " ".join(launch_server + [str(start_port + i)]))
+        print(
+            f"{proc.pid}: "
+            + " ".join(launch_server + [str(VSHARP_INSTANCES_START_PORT + i)])
+        )
 
     SOCKET_URLS = [
-        f"ws://0.0.0.0:{start_port + i}/gameServer" for i in range(args.num_inst)
+        f"ws://0.0.0.0:{VSHARP_INSTANCES_START_PORT + i}/gameServer"
+        for i in range(args.num_inst)
     ]
 
     WS_URLS = Queue()
@@ -89,7 +94,7 @@ def main():
 
     app = web.Application()
     app.add_routes(routes)
-    web.run_app(app)
+    web.run_app(app, port=BROKER_SERVER_PORT)
 
     for proc in procs:
         os.kill(proc.pid, signal.SIGTERM)

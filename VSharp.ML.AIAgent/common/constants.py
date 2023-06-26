@@ -30,12 +30,16 @@ class Constant:
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-START_PORT = 8100
+BROKER_SERVER_PORT = 8080
+VSHARP_INSTANCES_START_PORT = 8100
 MAX_STEPS = 500
 
 
-class BrokerLinks:
-    BROKER_LINK_GET = "http://0.0.0.0:8080/get_ws"
-    BROKER_LINK_POST = "http://0.0.0.0:8080/post_ws"
-    BROKER_LINK_SEND_RES = "http://0.0.0.0:8080/send_res"
-    BROKER_LINK_RECV_RES = "http://0.0.0.0:8080/recv_res"
+class WebsocketSourceLinks:
+    GET_WS = f"http://0.0.0.0:{BROKER_SERVER_PORT}/get_ws"
+    POST_WS = f"http://0.0.0.0:{BROKER_SERVER_PORT}/post_ws"
+
+
+class ResultsHandlerLinks:
+    POST_RES = f"http://0.0.0.0:{BROKER_SERVER_PORT}/send_res"
+    GET_RES = f"http://0.0.0.0:{BROKER_SERVER_PORT}/recv_res"

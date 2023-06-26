@@ -9,8 +9,6 @@ import websocket
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from broker_connection.broker import Broker
-from broker_connection.classes import Agent2ResultsOnMaps
 from common.constants import DEVICE, MAX_STEPS, Constant
 from common.game import MoveReward
 from common.utils import covered, get_states
@@ -21,6 +19,9 @@ from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import minkowski_superscorer
+from ws_source.classes import Agent2ResultsOnMaps
+from ws_source.requests import recv_game_result_list, send_game_results
+from ws_source.ws_source import WebsocketSource
 
 
 def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
@@ -99,12 +100,12 @@ info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
 
 
 def on_generation(ga_instance):
-    broker = Broker()
-    broker_raw = json.loads(broker.recv_game_result_list())
+    game_results_raw = json.loads(recv_game_result_list())
+    game_results_decoded = [
+        Agent2ResultsOnMaps.from_json(item) for item in game_results_raw
+    ]
 
-    json_games = [Agent2ResultsOnMaps.from_json(item) for item in broker_raw]
-
-    for full_game_result in json_games:
+    for full_game_result in game_results_decoded:
         info_for_tables[full_game_result.agent] = full_game_result.results
 
     print(f"Generation = {ga_instance.generations_completed};")
@@ -146,41 +147,39 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     #     rst = [map2result.game_result for map2result in info_for_tables[predictor]]
     #     return minkowski_superscorer(rst, k=2)
 
-    broker = Broker()
+    with closing(WebsocketSource()) as ws_source:
+        ws_url = ws_source.websocket
+        maps = get_maps(ws_string=ws_url, type=maps_type)
 
-    ws_url = broker.aquire_ws()
-    maps = get_maps(ws_string=ws_url, type=maps_type)
+        rst: list[GameResult] = []
+        list_of_map2result: list[Map2Result] = []
+        with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
+            total=len(maps),
+            desc=f"{predictor.name():20}: {maps_type.value}",
+            **Constant.TQDM_FORMAT_DICT,
+        ) as pbar:
+            for game_map in maps:
+                logging.info(f"<{predictor.name()}> is playing {game_map.MapName}")
 
-    rst: list[GameResult] = []
-    list_of_map2result: list[Map2Result] = []
-    with closing(websocket.create_connection(ws_url)) as ws, tqdm.tqdm(
-        total=len(maps),
-        desc=f"{predictor.name():20}: {maps_type.value}",
-        **Constant.TQDM_FORMAT_DICT,
-    ) as pbar:
-        for game_map in maps:
-            logging.info(f"<{predictor.name()}> is playing {game_map.MapName}")
+                agent = NAgent(ws, game_map, max_steps)
+                game_result = play_map(with_agent=agent, with_model=predictor)
+                rst.append(game_result)
+                list_of_map2result.append(Map2Result(game_map, game_result))
 
-            agent = NAgent(ws, game_map, max_steps)
-            game_result = play_map(with_agent=agent, with_model=predictor)
-            rst.append(game_result)
-            list_of_map2result.append(Map2Result(game_map, game_result))
-
-            actual_report = (
-                f"actual coverage: {game_result.actual_coverage_percent:.2f}, "
-                if game_result.actual_coverage_percent is not None
-                else ""
-            )
-            logging.info(
-                f"<{predictor.name()}> finished map {game_map.MapName} "
-                f"in {game_result.steps_count} steps, "
-                f"coverage: {game_result.coverage_percent:.2f}%, "
-                f"{actual_report}"
-                f"reward.ForVisitedInstructions: {game_result.move_reward.ForVisitedInstructions}"
-            )
-            pbar.update(1)
-    broker.send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
-    broker.return_ws(ws_url)
+                actual_report = (
+                    f"actual coverage: {game_result.actual_coverage_percent:.2f}, "
+                    if game_result.actual_coverage_percent is not None
+                    else ""
+                )
+                logging.info(
+                    f"<{predictor.name()}> finished map {game_map.MapName} "
+                    f"in {game_result.steps_count} steps, "
+                    f"coverage: {game_result.coverage_percent:.2f}%, "
+                    f"{actual_report}"
+                    f"reward.ForVisitedInstructions: {game_result.move_reward.ForVisitedInstructions}"
+                )
+                pbar.update(1)
+    send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
 
     return minkowski_superscorer(rst, k=2)
 
