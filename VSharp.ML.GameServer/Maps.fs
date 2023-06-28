@@ -223,13 +223,13 @@ let trainMaps, validationMaps =
     
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinarySearchTreeSorter.UnbalancedBSTSort"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "BubbleSorter.BubbleSortAscending"
-    add 0u<percent> "Algorithms.dll" CoverageZone.Method "BucketSorter.BucketSortAscending"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BucketSorter.BucketSortAscending"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "CombSorter.CombSortAscending"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "CountingSorter.CountingSort"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "CycleSorter.CycleSortAscending"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "GnomeSorter.GnomeSortAscending"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "InsertionSorter.InsertionSort"
-    add 0u<percent> "Algorithms.dll" CoverageZone.Method "PigeonHoleSorter.PigeonHoleSortAscending"
+    //add 0u<percent> "Algorithms.dll" CoverageZone.Method "PigeonHoleSorter.PigeonHoleSortAscending"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "SelectionSorter.SelectionSortAscending"
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "ShellSorter.ShellSortAscending"
     
@@ -247,8 +247,6 @@ let trainMaps, validationMaps =
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BreadthFirstShortestPaths.ShortestPathTo"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BreadthFirstSearcher.FindFirstMatch"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BellmanFordShortestPaths.ShortestPathTo"
-    
-    
     
     
     
