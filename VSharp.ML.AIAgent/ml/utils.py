@@ -45,7 +45,7 @@ def model_weights_with_random_last_layer(
 ):
     model = load_model_with_last_layer(
         model_load_path,
-        [random.randint(low, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)],
+        [random.uniform(low, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)],
     )
     model_weights_vector = pygad.torchga.model_weights_as_vector(model=model)
     return model_weights_vector

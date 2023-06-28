@@ -1,3 +1,5 @@
 # python cache and venv
 .env
 __pycache__/
+epochs_best/
+*.pkl

@@ -12,8 +12,9 @@ from agent.utils import MapsType, get_maps
 from common.constants import DEVICE, MAX_STEPS, Constant
 from common.game import MoveReward
 from common.utils import covered, get_states
-from displayer.tables import create_pivot_table, table_to_string
-from displayer.utils import append_to_tables_file
+from config import FeatureConfig
+from epochs_statistics.tables import create_pivot_table, table_to_string
+from epochs_statistics.utils import append_to_tables_file, create_epoch_subdir
 from ml.model_wrappers.nnwrapper import NNWrapper
 from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
@@ -99,6 +100,21 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
 info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
 
 
+def get_n_best_weights_in_last_generation(ga_instance, n: int):
+    population = ga_instance.population
+    population_fitnesses = ga_instance.last_generation_fitness
+
+    assert n <= len(
+        population
+    ), f"asked for {n} best when population size is {len(population)}"
+
+    sorted_population = sorted(
+        zip(population, population_fitnesses), key=lambda x: x[1], reverse=True
+    )
+
+    return list(map(lambda x: x[0], sorted_population))[:n]
+
+
 def on_generation(ga_instance):
     game_results_raw = json.loads(recv_game_result_list())
     game_results_decoded = [
@@ -109,6 +125,13 @@ def on_generation(ga_instance):
         info_for_tables[full_game_result.agent] = full_game_result.results
 
     print(f"Generation = {ga_instance.generations_completed};")
+    epoch_subdir = create_epoch_subdir(ga_instance.generations_completed)
+
+    for weights in get_n_best_weights_in_last_generation(
+        ga_instance, FeatureConfig.N_BEST_SAVED_EACH_GEN
+    ):
+        with open(epoch_subdir / f"{sum(weights)}.txt", "w+") as weights_file:
+            weights_file.write(str(weights.tolist()))
 
     ga_pop_inner_hashes = [tuple(item).__hash__() for item in ga_instance.population]
     info_for_tables_filtered = {

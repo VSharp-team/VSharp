@@ -1,6 +1,6 @@
 from statistics import mean, median
 
-from displayer.common import CoverageStats, Interval
+from epochs_statistics.common import CoverageStats, Interval
 from selection.classes import Map2Result
 
 

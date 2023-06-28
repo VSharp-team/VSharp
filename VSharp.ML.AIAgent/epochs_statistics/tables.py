@@ -9,8 +9,8 @@ from common.strings import (
     MEDIAN_COVERAGE_COL_NAME,
 )
 from config import FeatureConfig
-from displayer.common import Interval, Name2ResultViewModel
-from displayer.gen_stats import compute_euc_dist_to_full_coverage
+from epochs_statistics.common import Interval, Name2ResultViewModel
+from epochs_statistics.gen_stats import compute_euc_dist_to_full_coverage
 from selection.classes import AgentResultsOnGameMaps, Agent2Result
 from selection.utils import invert_mapping_mrgm_gmmr
 

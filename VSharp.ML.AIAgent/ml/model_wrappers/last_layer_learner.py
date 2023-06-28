@@ -28,9 +28,7 @@ class LastLayerLearner(ModelWrapper):
     ) -> None:
         if weights is None:
             # -1 to 1
-            self.weights = [
-                random.random() * 2 - 1 for _ in range(Constant.NUM_FEATURES)
-            ]
+            self.weights = [random.uniform(-1, 1) for _ in range(Constant.NUM_FEATURES)]
         else:
             self.weights = weights
 

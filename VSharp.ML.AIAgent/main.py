@@ -1,12 +1,15 @@
 import logging
-import random
 
 import pygad
 import pygad.torchga
 from torch.multiprocessing import set_start_method
 
 from common.constants import BASE_NN_OUT_FEATURES_NUM, Constant
-from displayer.utils import clean_log_file, clean_tables_file
+from epochs_statistics.utils import (
+    clean_log_file,
+    clean_tables_file,
+    create_epochs_best_dir,
+)
 from ml.utils import (
     load_model_with_last_layer,
     model_weights_with_random_last_layer,
@@ -62,6 +65,7 @@ def main():
     set_start_method("spawn")
     clean_tables_file()
     clean_log_file()
+    create_epochs_best_dir()
 
     server_count = 8
 
