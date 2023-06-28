@@ -33,6 +33,7 @@ DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 BROKER_SERVER_PORT = 8080
 VSHARP_INSTANCES_START_PORT = 8100
 MAX_STEPS = 500
+BASE_NN_OUT_FEATURES_NUM = 8
 
 
 class WebsocketSourceLinks:

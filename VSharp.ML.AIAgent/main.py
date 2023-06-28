@@ -5,9 +5,13 @@ import pygad
 import pygad.torchga
 from torch.multiprocessing import set_start_method
 
-from common.constants import Constant
+from common.constants import BASE_NN_OUT_FEATURES_NUM, Constant
 from displayer.utils import clean_log_file, clean_tables_file
-from ml.utils import load_model_with_last_layer
+from ml.utils import (
+    load_model_with_last_layer,
+    model_weights_with_random_last_layer,
+    random_model_weights,
+)
 from selection.crossover_type import CrossoverType
 from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
@@ -23,6 +27,37 @@ logging.basicConfig(
 from r_learn import fitness_function, on_generation
 
 
+def weights_vector(
+    weights: list[float], model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
+):
+    model = load_model_with_last_layer(
+        model_path,
+        weights,
+    )
+    assert len(weights) == BASE_NN_OUT_FEATURES_NUM
+    return pygad.torchga.model_weights_as_vector(model)
+
+
+def n_random_model_weights(
+    n: int, low: float, hi: float, model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
+):
+    rv = [
+        random_model_weights(low=low, hi=hi, model_load_path=model_path)
+        for _ in range(n)
+    ]
+    return rv
+
+
+def n_random_last_layer_model_weights(
+    n: int, low: float, hi: float, model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
+):
+    rv = [
+        model_weights_with_random_last_layer(low=low, hi=hi, model_load_path=model_path)
+        for _ in range(n)
+    ]
+    return rv
+
+
 def main():
     set_start_method("spawn")
     clean_tables_file()
@@ -30,7 +65,9 @@ def main():
 
     server_count = 8
 
-    num_agents = 14
+    num_models_with_random_last_layer = 8
+    num_random_models = 4
+
     num_generations = 6
     num_parents_mating = 6
     keep_parents = 2
@@ -40,11 +77,12 @@ def main():
     mutation_percent_genes = 30
     random_mutation_max_val = 5.0
     random_mutation_min_val = -5.0
+    random_init_weights_max_val = 5.0
+    random_init_weights_min_val = -5.0
 
     initial_weights = []
 
-    pre_loaded_last_layer1 = load_model_with_last_layer(
-        Constant.IMPORTED_DICT_MODEL_PATH,
+    pre_loaded_last_layer1 = weights_vector(
         [
             -0.7853140655460631,
             0.7524892603731441,
@@ -58,8 +96,7 @@ def main():
     )
     initial_weights.append(pre_loaded_last_layer1)
 
-    pre_loaded_last_layer2 = load_model_with_last_layer(
-        Constant.IMPORTED_DICT_MODEL_PATH,
+    pre_loaded_last_layer2 = weights_vector(
         [
             -0.7853139452883172,
             0.752490045931864,
@@ -69,23 +106,25 @@ def main():
             0.17791068654815034,
             0.9555442824877577,
             0.2793786892860371,
-        ],
+        ]
     )
     initial_weights.append(pre_loaded_last_layer2)
 
-    with_random_weights = [
-        load_model_with_last_layer(
-            Constant.IMPORTED_DICT_MODEL_PATH,
-            [2 * random.random() - 1 for _ in range(8)],
-        )
-        for _ in range(num_agents - len(initial_weights))
-    ]
+    with_random_last_layer_weights = n_random_last_layer_model_weights(
+        n=num_models_with_random_last_layer,
+        low=random_init_weights_min_val,
+        hi=random_init_weights_max_val,
+    )
+
+    initial_weights += with_random_last_layer_weights
+
+    with_random_weights = n_random_model_weights(
+        n=num_random_models,
+        low=random_init_weights_min_val,
+        hi=random_init_weights_max_val,
+    )
 
     initial_weights += with_random_weights
-
-    initial_weights = [
-        pygad.torchga.model_weights_as_vector(model) for model in initial_weights
-    ]
 
     ga_instance = pygad.GA(
         num_generations=num_generations,
