@@ -97,36 +97,37 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         else validationMaps.[gameStartParams.MapId]
                     let assembly = RunnerProgram.TryLoadAssembly <| FileInfo settings.AssemblyFullName
                     
-                    let actualCoverage = 
+                    let actualCoverage,testsCount,errorsCount = 
                         match settings.CoverageZone with
                         | CoverageZone.Method ->
                             let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
                             let statistics = TestGenerator.Cover(method, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
-
-                            if checkActualCoverage
-                            then
-                                try 
-                                    let testsDir = statistics.OutputDir
-                                    let _expectedCoverage = 100
-                                    let exploredMethodInfo = AssemblyManager.NormalizeMethod method
-                                    let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                    printfn $"Actual coverage: {actualCoverage}"
-                                    System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
-                                with
-                                e ->
-                                    printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
-                                    System.Nullable(0u)
-                            else System.Nullable()
+                            let actualCOverage = 
+                                if checkActualCoverage
+                                then
+                                    try 
+                                        let testsDir = statistics.OutputDir
+                                        let _expectedCoverage = 100
+                                        let exploredMethodInfo = AssemblyManager.NormalizeMethod method
+                                        let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
+                                        printfn $"Actual coverage: {actualCoverage}"
+                                        System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
+                                    with
+                                    e ->
+                                        printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
+                                        System.Nullable(0u)
+                                else System.Nullable()
+                            actualCOverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>
                             
                         | CoverageZone.Class ->
                             let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
                             TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
-                            System.Nullable()
+                            System.Nullable(), 0u<test>, 0u<error>
                         | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     
                     Application.reset()
                     API.Reset()
-                    do! sendResponse (GameOver actualCoverage)
+                    do! sendResponse (GameOver (actualCoverage, testsCount, errorsCount))
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->

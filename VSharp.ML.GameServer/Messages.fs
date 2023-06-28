@@ -13,11 +13,16 @@ type RawInputMessage =
 
 type IRawOutgoingMessageBody = interface end
 
+type [<Measure>] test
+type [<Measure>] error
+
 [<Struct>]
 type GameOverMessageBody =    
      interface IRawOutgoingMessageBody
      val ActualCoverage: System.Nullable<uint>
-     new (actualCoverage) = {ActualCoverage = actualCoverage}
+     val TestsCount: uint32<test>
+     val ErrorsCount: uint32<error>
+     new (actualCoverage, testsCount, errorsCount) = {ActualCoverage = actualCoverage; TestsCount = testsCount; ErrorsCount = errorsCount}
      
      
     
@@ -214,7 +219,7 @@ type GameMap =
      new (stateId) = {StateId = stateId}     
  
 type OutgoingMessage =
-    | GameOver of System.Nullable<uint>
+    | GameOver of System.Nullable<uint>*uint32<test>*uint32<error>
     | Maps of seq<GameMap>
     | MoveReward of Reward
     | IncorrectPredictedStateId of uint<stateId>
@@ -248,7 +253,7 @@ let deserializeInputMessage (messageData:byte[]) =
 
 let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
-    | GameOver actualCoverage -> RawOutgoingMessage("GameOver", box (GameOverMessageBody actualCoverage))
+    | GameOver (actualCoverage,testsCount, errorsCount) -> RawOutgoingMessage("GameOver", box (GameOverMessageBody (actualCoverage, testsCount, errorsCount)))
     | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody (Array.ofSeq maps))
     | MoveReward reward -> RawOutgoingMessage("MoveReward", reward)
     | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", IncorrectPredictedStateIdMessageBody stateId)
