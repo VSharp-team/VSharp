@@ -247,3 +247,6 @@ VSharp.Test/GeneratedTests/**
 
 #Python caches
 **/__pycache__/**
+
+#logs
+**/logs_full*/**
