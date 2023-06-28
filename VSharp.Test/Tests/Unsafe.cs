@@ -96,10 +96,16 @@ namespace IntegrationTests
             return **&p;
         }
 
-        [Ignore("Need to create IntPtr struct")]
+        [TestSvm]
         public static IntPtr IntPtrZero()
         {
             return IntPtr.Zero;
+        }
+
+        [TestSvm]
+        public static UIntPtr UIntPtrZero()
+        {
+            return UIntPtr.Zero;
         }
 
         [TestSvm]
@@ -110,10 +116,43 @@ namespace IntegrationTests
             return ptr1 == ptr2;
         }
 
-        [Ignore("Need to create IntPtr struct")]
+        [TestSvm]
+        public static IntPtr ConvIntToNativeInt(int a)
+        {
+            return (IntPtr) a;
+        }
+
+        [TestSvm]
+        public static UIntPtr ConvUIntToNativeUInt(uint a)
+        {
+            return (UIntPtr) a;
+        }
+
+        [TestSvm]
+        public static void* PointerFromIntPtr(int a)
+        {
+            IntPtr ptr = new IntPtr(a);
+            return ptr.ToPointer();
+        }
+
+        [TestSvm]
+        public static void* PointerFromUIntPtr(uint a)
+        {
+            var ptr = new UIntPtr(a);
+            return ptr.ToPointer();
+        }
+
+        [TestSvm]
         public static IntPtr IntPtrSum()
         {
             IntPtr ptr = new IntPtr(0);
+            return ptr + 10;
+        }
+
+        [TestSvm]
+        public static UIntPtr UIntPtrSum()
+        {
+            var ptr = new UIntPtr(0);
             return ptr + 10;
         }
 
@@ -655,6 +694,25 @@ namespace IntegrationTests
             var a = System.Runtime.CompilerServices.Unsafe.As<long[], int[]>(ref b);
             a[0] = 10;
             return b[0];
+        }
+
+        public struct IntStruct
+        {
+            public int X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs6(int a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<int, IntStruct>(ref a);
+            return structValue.X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs7(long a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<long, IntStruct>(ref a);
+            return structValue.X;
         }
 
         [Ignore("Insufficient information")]

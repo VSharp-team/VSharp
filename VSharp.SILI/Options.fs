@@ -11,7 +11,6 @@ type searchMode =
     | ContributedCoverageMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
-    | ConcolicMode of searchMode
     | GuidedMode of searchMode
 
 type coverageZone =
@@ -23,13 +22,8 @@ type explorationMode =
     | TestCoverageMode of coverageZone * searchMode
     | StackTraceReproductionMode of StackTrace
 
-type executionMode =
-    | ConcolicMode
-    | SymbolicMode
-
 type SiliOptions = {
     explorationMode : explorationMode
-    executionMode : executionMode
     outputDirectory : DirectoryInfo
     recThreshold : uint32
     timeout : int

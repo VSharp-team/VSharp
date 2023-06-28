@@ -21,7 +21,7 @@ module PrettyPrinting =
 
     let private classToString obj (t : System.Type) =
         let fields = t.GetFields() |> Array.map (fun f -> f.Name + ": " + (f.GetValue(obj) |> valueToString)) |> join "; "
-        sprintf "%O { %s } " (t.GetType()) fields
+        $"{t} {{ {fields} }}"
 
     let printConcrete (obj : obj) =
         let t = TypeUtils.getTypeOfConcrete obj

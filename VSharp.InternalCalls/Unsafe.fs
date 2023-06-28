@@ -18,7 +18,7 @@ module Unsafe =
 //        Types.Cast (List.item 1 args) (Pointer Void)
         List.item 1 args
 
-    let internal ObjectAsT (_ : state) (args : term list) : term = // TODO: reinterpret data (use pointers) #do
+    let internal ObjectAsT (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let typ, ref = args.[0], args.[1]
         let typ = getTypeFromTerm typ
@@ -30,7 +30,10 @@ module Unsafe =
 
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
-        args.[2]
+        let toType = getTypeFromTerm args[1]
+        let ref = args[2]
+        assert(IsReference ref || IsPtr ref)
+        Types.Cast ref toType
 
     let internal NullRef (_ : state) (args : term list) : term =
         match args with
@@ -47,12 +50,20 @@ module Unsafe =
         let ref, offset = args.[1], args.[2]
         PerformBinaryOperation OperationType.Add ref offset id
 
-    let internal Add (_ : state) (args : term list) : term =
-        assert(List.length args = 3)
-        let typ, ref, offset = args.[0], args.[1], args.[2]
+    let private CommonAdd typ ref offset =
         let size = getTypeFromTerm typ |> Types.SizeOf |> MakeNumber
         let byteOffset = Arithmetics.Mul offset size
         PerformBinaryOperation OperationType.Add ref byteOffset id
+
+    let internal AddIntPtr (_ : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let typ, ref, offset = args[0], args[1], args[2]
+        CommonAdd typ ref offset
+
+    let internal AddInt (_ : state) (args : term list) : term =
+        assert(List.length args = 3)
+        let typ, ref, offset = args[0], args[1], args[2]
+        CommonAdd typ ref offset
 
     let internal ReadUnaligned (state : state) (args : term list) : term =
         assert(List.length args = 2)
@@ -79,5 +90,5 @@ module Unsafe =
             let t = MostConcreteTypeOfHeapRef state ref
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | Ref(BoxedLocation(address, t)) ->
-            Ptr (HeapLocation(ConcreteHeapAddress address, t)) typeof<byte> (MakeNumber 0)
+            Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"

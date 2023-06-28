@@ -55,13 +55,18 @@ module TestGenerator =
                             Array.init rank (fun i -> ArrayLength(cha, MakeNumber i, arrayType) |> eval |> unbox),
                             Array.init rank (fun i -> ArrayLowerBound(cha, MakeNumber i, arrayType) |> eval |> unbox)
                         | SymbolicDimension -> __notImplemented__()
-                    let length = Array.reduce ( * ) lengths
+                    let length = Array.reduce (*) lengths
                     // TODO: normalize model (for example, try to minimize lengths of generated arrays)
                     if maxBufferSize > 0 && length > maxBufferSize then
                         raise <| InsufficientInformationException "Test generation for too large buffers disabled for now"
                     let repr = encodeArr test arrayType addr typ lengths lowerBounds index
                     repr :> obj
-                | _ when typ.IsValueType -> BoxedLocation(addr, typ) |> eval
+                | _ when typ.IsValueType ->
+                    let index = memoryGraph.ReserveRepresentation()
+                    indices.Add(addr, index)
+                    let content = BoxedLocation(ConcreteHeapAddress addr, typ) |> eval
+                    let repr = memoryGraph.AddBoxed content index
+                    repr :> obj
                 | _ when typ = typeof<string> ->
                     let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
                     let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
@@ -140,46 +145,51 @@ module TestGenerator =
             let indices = Array.map Array.ofList indices
             test.MemoryGraph.AddCompactArrayRepresentation typ defaultValue indices values lengths lowerBounds index
 
-    let rec private term2obj (model : model) state indices mockCache (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) = function
+    let rec private term2obj (model : model) state indices mockCache implementations (test : UnitTest) term : obj =
+        let term2obj = term2obj model state indices mockCache implementations test
+        match term with
         | {term = Concrete(_, TypeUtils.AddressType)} -> __unreachable__()
+        | {term = Concrete(v, t)} when t = typeof<IntPtr> ->
+            test.MemoryGraph.RepresentIntPtr (int64 (v :?> IntPtr))
+        | {term = Concrete(v, t)} when t = typeof<UIntPtr> ->
+            test.MemoryGraph.RepresentUIntPtr (int64 (v :?> UIntPtr))
         | {term = Concrete(v, t)} when t.IsEnum -> test.MemoryGraph.RepresentEnum v
         | {term = Concrete(v, _)} -> v
         | {term = Nop} -> null
-        | {term = Constant _ } as c -> model.Eval c |> term2obj model state indices mockCache implementations test
+        | {term = Constant _ } as c -> model.Eval c |> term2obj
         | {term = Struct(fields, t)} when Types.IsNullable t ->
             let valueField, hasValueField = Reflection.fieldsOfNullable t
-            let hasValue : bool = fields.[hasValueField] |> term2obj model state indices mockCache implementations test |> unbox
-            if hasValue then
-                fields.[valueField] |> term2obj model state indices mockCache implementations test
+            let hasValue : bool = term2obj fields[hasValueField] |> unbox
+            if hasValue then term2obj fields[valueField]
             else null
         | {term = Struct(fields, t)} ->
-            let fieldReprs =
-                t |> Reflection.fieldsOf false |> Array.map (fun (field, _) -> model.Complete fields.[field] |> term2obj model state indices mockCache implementations test)
+            let field2obj (field, _) = model.Complete fields[field] |> term2obj
+            let fieldReprs = Reflection.fieldsOf false t |> Array.map field2obj
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef _
         | NullPtr -> null
+        | DetachedPtr offset -> internalfail $"term2obj: got detached pointer with offset {offset}"
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
             match model with
             | StateModel modelState ->
                 match PersistentDict.tryFind modelState.allocatedTypes addr with
                 | Some typ ->
                     let eval address =
-                        address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj model state indices mockCache implementations test
-                    let arr2Obj = encodeArrayCompactly state model (term2obj model state indices mockCache implementations test)
+                        address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj
+                    let arr2Obj = encodeArrayCompactly state model term2obj
                     let encodeMock = encodeTypeMock model state indices mockCache implementations test
                     obj2test eval arr2Obj indices encodeMock test addr typ
                 // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
                 | None -> null
             | PrimitiveModel _ -> __unreachable__()
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
-            let term2Obj = model.Eval >> term2obj model state indices mockCache implementations test
-            let eval address =
-                address |> Ref |> Memory.Read state |> term2Obj
+            let term2Obj = model.Eval >> term2obj
+            let eval address = Ref address |> Memory.Read state |> term2Obj
             let arr2Obj = encodeArrayCompactly state model term2Obj
             let typ = state.allocatedTypes[addr]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
             obj2test eval arr2Obj indices encodeMock test addr typ
-        | Combined(terms, t) ->
+        | CombinedTerm(terms, t) ->
             let slices = List.map model.Eval terms
             ReinterpretConcretes slices t
         | term -> internalfailf "creating object from term: unexpected term %O" term

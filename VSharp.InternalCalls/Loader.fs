@@ -13,21 +13,17 @@ module Loader =
 
     let private collectImplementations (ts : Type seq) =
         let bindingFlags = BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
-        ts |> Seq.collect (fun t ->
-            t.GetMethods(bindingFlags)
-            |> Seq.choose (fun m ->
-                // Case for assembly, loaded via default load context (F# internal calls)
-                let findViaDefault (attr : Attribute) =
-                    match attr with
-                    | :? ImplementsAttribute as attr -> Some (attr.Name, m)
-                    | _ -> None
-                // Case for assembly, loaded via VSharp load context (C# internal calls)
-                let findViaVSharpLoadContext (attr : Attribute) = Some (getImplementsName attr, m)
-                let attrFromDefaultContext = m.GetCustomAttributes<ImplementsAttribute>() |> Seq.tryPick findViaDefault
-                match attrFromDefaultContext with
-                | Some info -> Some info
-                | None -> m.GetCustomAttributes(implementsAttribute.Value) |> Seq.tryPick findViaVSharpLoadContext))
-        |> Map.ofSeq
+        let internalCalls = ResizeArray<string * MethodInfo>()
+        for t in ts do
+            for m in t.GetMethods(bindingFlags) do
+                let mutable found = false
+                for attr in m.GetCustomAttributes<ImplementsAttribute>() do
+                    internalCalls.Add(attr.Name, m)
+                    found <- true
+                if not found then
+                    for attr in m.GetCustomAttributes(implementsAttribute.Value) do
+                        internalCalls.Add(getImplementsName attr, m)
+        Map.ofSeq internalCalls
 
     let private CSharpUtilsAssembly =
         AssemblyName("VSharp.CSharpUtils").FullName |> AssemblyManager.LoadFromAssemblyName
@@ -138,6 +134,17 @@ module Loader =
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateNullReferenceException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateInvalidCastException(System.String)"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateOverflowException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateIndexOutOfRangeException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArgumentOutOfRangeException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArgumentException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.DivideByZeroException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.ArithmeticException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateArrayTypeMismatchException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateArgumentNullException()"
+            "System.Void VSharp.CSharpUtils.Exceptions.CreateOutOfMemoryException()"
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =

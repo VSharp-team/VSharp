@@ -85,8 +85,15 @@ module API =
 
         let MakeBool b = makeBool b
         let MakeNumber n = makeNumber n
-        // NOTE: Ref, Ptr, and nonzero numbers
-        let MakeIntPtr (value : term) = value
+
+        // This function is used only for creating IntPtr structure
+        let MakeIntPtr (value : term) = makeIntPtr value
+
+        // This function is used only for creating UIntPtr structure
+        let MakeUIntPtr (value : term) = makeUIntPtr value
+
+        let NativeToPtr (value : term) = nativeToPointer value
+
         let AddressToBaseAndOffset address = Pointers.addressToBaseAndOffset address
         // NOTE: returns type of value
         let TypeOf term = typeOf term
@@ -123,6 +130,7 @@ module API =
         let (|ConcreteHeapAddress|_|) t = (|ConcreteHeapAddress|_|) t
 
         let (|Combined|_|) t = (|Combined|_|) t
+        let (|CombinedTerm|_|) t = (|CombinedTerm|_|) t
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -138,6 +146,8 @@ module API =
         let (|NullPtr|_|) = function
             | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
             | _ -> None
+
+        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term.term
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
@@ -172,8 +182,7 @@ module API =
 
         let rec HeapReferenceToBoxReference reference =
             match reference.term with
-            | HeapRef({term = ConcreteHeapAddress addr}, typ) -> Ref (BoxedLocation(addr, typ))
-            | HeapRef _ -> __insufficientInformation__ "Unable to unbox symbolic ref %O" reference
+            | HeapRef(address, typ) -> Ref (BoxedLocation(address, typ))
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
             | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
@@ -333,7 +342,8 @@ module API =
             | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
-                ReferenceField state (HeapReferenceToBoxReference reference) fieldId
+                let ref = HeapReferenceToBoxReference reference
+                ReferenceField state ref fieldId
             | HeapRef(address, typ) ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
@@ -361,8 +371,10 @@ module API =
             let doRead target =
                 match target.term with
                 | HeapRef _
+                | Ptr _
                 | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
                 | Struct _ -> Memory.readStruct target field
+                | Combined _ -> Memory.readFieldUnsafe target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 
@@ -595,6 +607,8 @@ module API =
                 state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
             | StackBufferSort key ->
                 state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
+            | BoxedSort typ ->
+                state.boxedLocations <- PersistentDict.update state.boxedLocations typ (MemoryRegion.empty typ) (MemoryRegion.fillRegion value)
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
 

@@ -80,7 +80,7 @@ public static class ObjectsComparer
             return StructurallyEqual(expected, got);
         }
 
-        public bool CompareObjects(object? expected, object? got)
+        public bool Compare(object? expected, object? got)
         {
             try
             {
@@ -97,6 +97,11 @@ public static class ObjectsComparer
     public static bool CompareObjects(object? expected, object? got)
     {
         var comparer = new Comparer();
-        return comparer.CompareObjects(expected, got);
+        return comparer.Compare(expected, got);
+    }
+
+    public static unsafe bool CompareObjects(void* expected, void* got)
+    {
+        return expected == got;
     }
 }

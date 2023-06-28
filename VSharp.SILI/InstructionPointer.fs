@@ -113,11 +113,7 @@ module ipOperations =
         | Exit _ -> None
         | Instruction(offset, _) -> Some offset
         | Leave(ip, _, _, _) -> offsetOf ip
-        | SearchingForHandler([], []) -> None
-        | SearchingForHandler(codeLocation :: _, []) -> Some codeLocation.offset
-        | SearchingForHandler(_, codeLocations) ->
-            let codeLoc = List.last codeLocations
-            Some codeLoc.offset
+        | SearchingForHandler _ -> None
         | InFilterHandler(offset, _, _, _) -> Some offset
         | SecondBypass(None, _, _) -> None
         | SecondBypass(Some ip, _, _) -> offsetOf ip

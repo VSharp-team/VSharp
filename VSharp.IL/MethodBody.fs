@@ -87,7 +87,7 @@ type MethodWithBody internal (m : MethodBase) =
                  handlerOffset = eh.handlerOffset |> int |> Offset.from
                  handlerLength = eh.handlerLength |> int |> Offset.from
                  ehcType = ehcType }
-            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some (rewriter.CopyInstructions()))
+            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
 
     member x.Name = name
     member x.FullName = fullName
@@ -300,9 +300,10 @@ module MethodBody =
 
     let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
 
+    // TODO: deal with calli
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
-        || opCode = OpCodes.Calli
+        //|| opCode = OpCodes.Calli
         || opCode = OpCodes.Callvirt
         || opCode = OpCodes.Tailcall
     let private isNewObjOpCode (opCode : OpCode) =

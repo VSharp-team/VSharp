@@ -68,6 +68,10 @@ module SR =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_DivideByZero" state
 
+    let internal get_Arg_KeyNotFoundWithKey (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "Arg_KeyNotFoundWithKey" state
+
     let internal get_Arg_ArithmeticException (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "Arg_ArithmeticException" state

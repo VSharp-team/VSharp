@@ -116,10 +116,13 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatist
 
     interface IWeighter with
         override x.Weight(state) =
-            state.ipStack |> Seq.tryPick (fun ip ->
-                match ipOperations.ip2codeLocation ip with
-                | Some loc when loc.method.InCoverageZone -> minDistance loc.method loc.offset
-                | Some _ -> None
-                | None -> Some 1u)
+            let calculateWeight ip =
+                match ip2codeLocation ip, ip with
+                | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset
+                | Some _, _-> None
+                | None, SearchingForHandler(toObserve, _) ->
+                    List.length toObserve |> uint |> Some
+                | None, _ -> Some 1u
+            state.ipStack |> Seq.tryPick calculateWeight
 
         override x.Next() = 0u

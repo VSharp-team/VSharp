@@ -54,6 +54,9 @@ module internal SR =
     [<Implements("System.String System.SR.get_Arg_ArithmeticException()")>]
     val internal get_Arg_ArithmeticException : state -> term list -> term
 
+    [<Implements("System.String System.SR.get_Arg_KeyNotFoundWithKey()")>]
+    val internal get_Arg_KeyNotFoundWithKey : state -> term list -> term
+
     [<Implements("System.String System.SR.get_InvalidOperation_EmptyStack()")>]
     val internal get_InvalidOperation_EmptyStack : state -> term list -> term
 

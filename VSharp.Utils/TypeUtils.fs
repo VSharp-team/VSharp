@@ -15,19 +15,23 @@ type arrayDimensionType =
 
 module TypeUtils =
 
+    let private nativeSize = IntPtr.Size
+
     // ---------------------------------- Basic type groups ----------------------------------
 
     let private integralTypes =
-        HashSet<Type>([typedefof<byte>; typedefof<sbyte>;
-                       typedefof<int16>; typedefof<uint16>;
-                       typedefof<int32>; typedefof<uint32>;
-                       typedefof<int64>; typedefof<uint64>;
-                       typedefof<char>])
+        HashSet<Type>(
+            [
+                typedefof<byte>; typedefof<sbyte>; typedefof<int16>; typedefof<uint16>
+                typedefof<int32>; typedefof<uint32>; typedefof<int64>; typedefof<uint64>;
+                typedefof<char>; typeof<IntPtr>; typeof<UIntPtr>
+            ]
+        )
 
     let private unsignedTypes =
-        HashSet<Type>([typedefof<byte>; typedefof<uint16>;
-                       typedefof<uint32>; typedefof<uint64>
-                       typeof<UIntPtr>])
+        HashSet<Type>(
+            [typedefof<byte>; typedefof<uint16>; typedefof<uint32>; typedefof<uint64>; typeof<UIntPtr>]
+        )
 
     let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
 
@@ -81,10 +85,26 @@ module TypeUtils =
     let private isULong = (=) typeof<uint64>
 
     let private isWiderForNumericTypesMap =
-        let widerThan8  = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>; typeof<int16>; typeof<uint16>; typeof<char>; typeof<float32>; typeof<float>|]
-        let widerThan16 = [|typeof<int32>; typeof<uint32>; typeof<int64>; typeof<float32>; typeof<uint64>; typeof<float>|]
-        let widerThan32 = [|typeof<int64>; typeof<uint64>; typeof<float>|]
+        let widerThan8 =
+            [|
+                typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>
+                typeof<int16>; typeof<uint16>; typeof<char>; typeof<float32>; typeof<float>
+                typeof<IntPtr>; typeof<UIntPtr>
+            |]
+        let widerThan16 =
+            [|
+                typeof<int32>; typeof<uint32>; typeof<int64>
+                typeof<float32>; typeof<uint64>; typeof<float>
+                typeof<IntPtr>; typeof<UIntPtr>
+            |]
+        let widerThan32 =
+            if nativeSize > sizeof<int> then
+                [|typeof<int64>; typeof<uint64>; typeof<float>; typeof<IntPtr>; typeof<UIntPtr>|]
+            else [|typeof<int64>; typeof<uint64>; typeof<float>|]
         let widerThan64 = [||]
+        let widerThanNative =
+            if nativeSize > sizeof<int> then widerThan64
+            else widerThan32
         PersistentDict.ofSeq [
             (typeof<int8>,    widerThan8)
             (typeof<uint8>,   widerThan8)
@@ -96,7 +116,10 @@ module TypeUtils =
             (typeof<float32>, widerThan32)
             (typeof<int64>,   widerThan64)
             (typeof<uint64>,  widerThan64)
-            (typeof<float>,   widerThan64) ]
+            (typeof<float>,   widerThan64)
+            (typeof<IntPtr>,  widerThanNative)
+            (typeof<UIntPtr>, widerThanNative)
+        ]
 
     let isLessForNumericTypes (t1 : Type) (t2 : Type) =
         let t1 = if t1.IsEnum then getEnumUnderlyingTypeChecked t1 else t1
@@ -112,15 +135,32 @@ module TypeUtils =
         if box value = null then null
         else value.GetType()
 
-    // TODO: wrap Type, cache size there
-    let internalSizeOf (typ: Type) : int32 = // Reflection hacks, don't touch! Marshal.SizeOf lies!
+    type private sizeOfType = Func<uint32>
+
+    let private sizeOfs = Dictionary<Type, sizeOfType>()
+
+    let private createSizeOf (typ : Type) =
         assert(not typ.ContainsGenericParameters)
-        let meth = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
-        let gen = meth.GetILGenerator()
+        let m = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
+        let gen = m.GetILGenerator()
         gen.Emit(OpCodes.Sizeof, typ)
         gen.Emit(OpCodes.Ret)
-        let size : uint32 = meth.CreateDelegate(typeof<Func<uint32>>).DynamicInvoke() |> unbox
-        int size
+        m.CreateDelegate(typeof<sizeOfType>) :?> sizeOfType
+
+    let getSizeOf typ =
+        let result : sizeOfType ref = ref null
+        if sizeOfs.TryGetValue(typ, result) then result.Value
+        else
+            let sizeOf = createSizeOf typ
+            sizeOfs.Add(typ, sizeOf)
+            sizeOf
+
+    let internalSizeOf (typ: Type) : int32 =
+        if typ = typeof<IntPtr> || typ = typeof<UIntPtr> then
+            nativeSize
+        else
+            let sizeOf = getSizeOf(typ)
+            sizeOf.Invoke() |> int
 
     let numericSizeOf (typ: Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
@@ -137,10 +177,12 @@ module TypeUtils =
         | _ when typ = typeof<int64> -> 64u
         | _ when typ = typeof<uint64> -> 64u
         | _ when typ = typeof<float> -> 64u
+        | _ when typ = typeof<IntPtr> -> uint (nativeSize * 8)
+        | _ when typ = typeof<UIntPtr> -> uint (nativeSize * 8)
         | _ -> __unreachable__()
 
     let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t2.IsAssignableFrom(t1)
-    let isPointer (t : Type) = t.IsPointer || t = typeof<IntPtr> || t = typeof<UIntPtr>
+    let isPointer (t : Type) = t.IsPointer
 
     let isValueType = function
         | (t : Type) when t.IsGenericParameter ->
@@ -221,11 +263,10 @@ module TypeUtils =
         | TypeVariable t when isValueTypeParameter t -> Some(ValueType)
         | _ -> None
 
-    let (|Pointer|_|) = function
-        | t when t = typeof<IntPtr> || t = typeof<UIntPtr> -> Some(typeof<Void>)
-        | p when p.IsPointer -> Some(p.GetElementType())
+    let (|Pointer|_|) (t : Type) =
+        match t with
+        | _ when t.IsPointer -> Some(t.GetElementType())
         | _ -> None
-
 
     let (|ByRef|_|) = function
         | (t : Type) when t.IsByRef -> Some(t.GetElementType())
@@ -309,7 +350,13 @@ module TypeUtils =
 
     // --------------------------------------- Conversions ---------------------------------------
 
-    let canConvert leftType rightType = isPrimitive leftType && isPrimitive rightType
+    let canConvert leftType rightType =
+        let lPrimitive = isPrimitive leftType
+        let rPrimitive = isPrimitive rightType
+        let enumCase() =
+            (rPrimitive && leftType.IsEnum || lPrimitive && rightType.IsEnum)
+            && internalSizeOf leftType = internalSizeOf rightType
+        lPrimitive && rPrimitive || enumCase()
 
     type private convType = delegate of obj -> obj
 
@@ -328,9 +375,9 @@ module TypeUtils =
         | _ when t = typeof<UInt64>     -> OpCodes.Conv_U8
         | _ when t = typeof<float32>    -> OpCodes.Conv_R4
         | _ when t = typeof<float>      -> OpCodes.Conv_R8
+        | _ when t = typeof<nativeint>  -> OpCodes.Conv_I
+        | _ when t = typeof<unativeint> -> OpCodes.Conv_U
         | _ when t = typeof<Boolean>    -> __unreachable__()
-        | _ when t = typeof<nativeint>  -> __unreachable__()
-        | _ when t = typeof<unativeint> -> __unreachable__()
         | _                             -> __unreachable__()
 
     let private createNumericConv (fromType : Type) (toType : Type) =
@@ -353,17 +400,21 @@ module TypeUtils =
             convs.Add((fromType, toType), conv)
             conv
 
-    let private convNumeric value toType =
-        let fromType = getTypeOfConcrete value
-        let conv = getConv fromType toType
+    let private convNumeric value actualType toType =
+        let conv = getConv actualType toType
         conv.Invoke(value)
 
     let convert (value : obj) t =
-        match t with
-        // TODO: throws an exception when value = char, implement using Emit
-        | _ when t = typeof<Boolean> || value.GetType() = typeof<Boolean> -> Convert.ChangeType(value, t)
-        | _ when t.IsEnum -> Enum.ToObject(t, value)
-        | _ -> convNumeric value t
+        if value = null then value
+        else
+            let actualType = value.GetType()
+            match t with
+            // TODO: throws an exception when value = char, implement using Emit
+            | _ when actualType = t -> value
+            | _ when t = typeof<Boolean> || actualType = typeof<Boolean> -> Convert.ChangeType(value, t)
+            | _ when t.IsEnum -> Enum.ToObject(t, value)
+            | _ when actualType.IsEnum -> Convert.ChangeType(value, t)
+            | _ -> convNumeric value actualType t
 
     // --------------------------------------- Subtyping ---------------------------------------
 
@@ -372,15 +423,14 @@ module TypeUtils =
         match leftType, rightType with
         | _ when leftType = rightType -> certainK true
         | ArrayType _, ClassType(obj, _) -> obj = typedefof<obj> |> certainK
-        | Numeric t, Numeric enum
-        | Numeric enum, Numeric t when enum.IsEnum && numericSizeOf enum = numericSizeOf t -> certainK true
+        | Numeric t1, Numeric t2 -> canCast t1 t2 |> certainK
         // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
         // NOTE: Numeric zero may may be treated as ref or ptr
-        | Numeric _, Pointer _
-        | Pointer _, Numeric _
-        | Pointer _, Pointer _
-        | Numeric _, ByRef _
-        | ByRef _, Numeric _ -> certainK true
+        | Numeric t, Pointer _
+        | Pointer _, Numeric t
+        | Numeric t, ByRef _
+        | ByRef _, Numeric t when t = typeof<IntPtr> || t = typeof<UIntPtr> -> certainK true
+        | Pointer _, Pointer _ -> certainK true
         | ByRef t1, ByRef t2 -> commonConcreteCanCast canCast t1 t2 certainK uncertainK
         // NOTE: *void cannot be used for read, so we can store refs there
         | ByRef _, Pointer Void -> certainK true
@@ -394,6 +444,8 @@ module TypeUtils =
         | ArrayType(t1, ConcreteDimension d1), ArrayType(t2, ConcreteDimension d2) ->
             // TODO: check 'is' for int[] and long[] (it must be false) #do
             if d1 = d2 then commonConcreteCanCast canCast t1 t2 certainK uncertainK else certainK false
+        | _ when leftType.IsByRefLike -> certainK false
+        | _ when rightType.IsByRefLike -> certainK false
         | ComplexType, ComplexType ->
             if canCast leftType rightType then certainK true
             elif isGround leftType && isGround rightType then certainK false

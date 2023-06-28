@@ -66,8 +66,10 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
 
     member private this.GetInstructions() =
         let parsedInstructions = method.ParsedInstructions
-        let mutable instr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.StartOffset)
-        let endInstr = parsedInstructions |> Array.find (fun instr -> Offset.from (int instr.offset) = this.FinalOffset)
+        let mutable instr = parsedInstructions[this.StartOffset]
+        assert(Offset.from (int instr.offset) = this.StartOffset)
+        let endInstr = parsedInstructions[this.FinalOffset]
+        assert(Offset.from (int endInstr.offset) = this.FinalOffset)
         let mutable notEnd = true
         seq {
             while notEnd do
@@ -250,19 +252,16 @@ and CfgInfo internal (method : MethodWithBody) =
 
         methodSize <- 0
 
-        basicBlocks
-        |> Seq.sortBy (fun b -> b.StartOffset)
-        |> Seq.iter (fun bb ->
+        let sorted = basicBlocks |> Seq.sortBy (fun b -> b.StartOffset)
+        for bb in sorted do
             methodSize <- methodSize + bb.BlockSize
             sortedBasicBlocks.Add bb
-        )
-
 
     let cfgDistanceFrom = GraphUtils.distanceCache<ICfgNode>()
 
     let findDistanceFrom node =
         Dict.getValueOrUpdate cfgDistanceFrom node (fun () ->
-        let dist = incrementalSourcedDijkstraAlgo node cfgDistanceFrom
+        let dist = incrementalSourcedShortestDistanceBfs node cfgDistanceFrom
         let distFromNode = Dictionary<ICfgNode, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -307,7 +306,6 @@ and CfgInfo internal (method : MethodWithBody) =
     member this.Sinks = sinks
     member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
-    member this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
     member this.ResolveBasicBlock offset = resolveBasicBlock offset
     member this.IsBasicBlockStart offset = (resolveBasicBlock offset).StartOffset = offset
     // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)
@@ -385,7 +383,7 @@ and Method internal (m : MethodBase) as this =
 
         let exists, value = callGraphDist.TryGetValue x
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> ICallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> ICallGraphNode) callGraphDist
             let distFromNode = Dictionary<ICallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then
@@ -408,7 +406,7 @@ and Method internal (m : MethodBase) as this =
         let exists, value = callGraphDist.TryGetValue x
         let mutable res = null
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> IReversedCallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> IReversedCallGraphNode) callGraphDist
             let distToNode = Dictionary<IReversedCallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then

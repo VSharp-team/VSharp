@@ -65,6 +65,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
     let compactRepresentations = memoryGraph.CompactRepresentations()
+    let boxedLocations = memoryGraph.BoxedLocations()
     let mutable extraAssemblyLoadDirs : string list = [Directory.GetCurrentDirectory()]
 
     new(m : MethodBase) =
@@ -109,6 +110,8 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     member x.TypeMocks with get() : ResizeArray<Mocking.Type> = mockStorage.TypeMocks
 
     member x.CompactRepresentations with get() = compactRepresentations
+
+    member x.BoxedLocations with get() = boxedLocations
 
     member private x.SerializeMock (m : Mocking.Type option) =
         match m with

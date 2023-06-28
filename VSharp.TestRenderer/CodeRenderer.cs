@@ -77,6 +77,9 @@ internal class CodeRenderer
     // TODO: make non-static
     public static Dictionary<object, CompactArrayRepr> CompactRepresentations = new ();
 
+    // TODO: make non-static
+    public static HashSet<physicalAddress> BoxedLocations = new ();
+
     public static void PrepareCache()
     {
         MocksInfo.Clear();
@@ -219,6 +222,13 @@ internal class CodeRenderer
             var elemType = type.GetElementType();
             Debug.Assert(elemType != null);
             return RenderArrayType(RenderType(elemType), type.GetArrayRank());
+        }
+
+        if (type.IsPointer)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return PointerType(RenderType(elemType));
         }
 
         if (PredefinedTypes.TryGetValue(type, out var name))
