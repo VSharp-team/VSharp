@@ -132,6 +132,12 @@ and CfgInfo internal (method : MethodWithBody) =
                     found <- true
                     index <- currentIndex
                 | _ -> currentIndex <- currentIndex - 1
+            found <- false
+            
+            while not found do
+                if method.ParsedInstructions.ContainsKey (index *1<offsets>)
+                then found <- true
+                else index <- index - 1
             Offset.from index
 
         let splitBasicBlock (block : BasicBlock) intermediatePoint =
