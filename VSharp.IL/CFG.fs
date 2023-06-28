@@ -490,22 +490,15 @@ type ApplicationGraph() =
             assert added
 
     let moveState (initialPosition : codeLocation) (stateWithNewPosition : IGraphTrackableState) =
+        // Not implemented yet
         ()
 
     let addStates (parentState : Option<IGraphTrackableState>) (states : array<IGraphTrackableState>) =
+        // Not implemented yet 
         ()
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =
-        __notImplemented__()
-
-    let tryGetCfgInfo (method : Method) =
-        if method.HasBody then
-            // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
-            // TODO: fix it
-            let cfg = method.CFG
-            Some cfg
-        else None
-        
+        __notImplemented__()    
 
     member this.RegisterMethod (method: Method) =
         assert method.HasBody
@@ -523,7 +516,6 @@ type ApplicationGraph() =
         addStates (Some parentState) (Array.ofSeq forkedStates)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
-        tryGetCfgInfo toLocation.CodeLocation.method |> ignore
         moveState fromLocation toLocation
 
     member x.AddGoal (location:codeLocation) =
