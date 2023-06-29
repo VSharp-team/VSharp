@@ -139,7 +139,9 @@ def on_generation(ga_instance):
     }
 
     pivot, stats = create_pivot_table(info_for_tables_filtered)
-    append_to_tables_file(f"Generation = {ga_instance.generations_completed}" + "\n")
+    append_to_tables_file(
+        f"Generations completed: {ga_instance.generations_completed}" + "\n"
+    )
     append_to_tables_file(table_to_string(pivot) + "\n")
     append_to_tables_file(table_to_string(stats) + "\n")
 

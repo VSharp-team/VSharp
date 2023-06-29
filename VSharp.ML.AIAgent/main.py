@@ -26,6 +26,9 @@ logging.basicConfig(
     format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
 )
 
+import os
+
+os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from r_learn import fitness_function, on_generation
 
@@ -61,6 +64,26 @@ def n_random_last_layer_model_weights(
     return rv
 
 
+from functools import wraps
+from time import time
+
+
+def timeit(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time()
+        rv = func(*args, **kwargs)
+        end = time()
+        print(
+            "func:%r args:[%r, %r] took: %2.4f sec"
+            % (wrapper.__name__, args, kwargs, end - start)
+        )
+        return rv
+
+    return wrapper
+
+
+@timeit
 def main():
     set_start_method("spawn")
     clean_tables_file()
