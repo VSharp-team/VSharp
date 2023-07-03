@@ -12,6 +12,7 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 using VSharp.TestRenderer;
@@ -92,6 +93,7 @@ namespace VSharp.Test
         private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
+        private readonly bool _hasExternMocking;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -103,7 +105,8 @@ namespace VSharp.Test
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
-            bool checkAttributes = true)
+            bool checkAttributes = true,
+            bool hasExternMocking = false)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -119,6 +122,7 @@ namespace VSharp.Test
             _coverageZone = coverageZone;
             _testsCheckerMode = testsCheckerMode;
             _checkAttributes = checkAttributes;
+            _hasExternMocking = hasExternMocking;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -134,7 +138,8 @@ namespace VSharp.Test
                 _strat,
                 _coverageZone,
                 _testsCheckerMode,
-                _checkAttributes
+                _checkAttributes,
+                _hasExternMocking
             );
         }
 
@@ -152,6 +157,7 @@ namespace VSharp.Test
             private readonly CoverageZone _baseCoverageZone;
             private readonly bool _renderTests;
             private readonly bool _checkAttributes;
+            private readonly bool _hasExternMocking;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -164,7 +170,8 @@ namespace VSharp.Test
                 SearchStrategy strat,
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
-                bool checkAttributes) : base(innerCommand)
+                bool checkAttributes,
+                bool hasExternMocking) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -211,10 +218,18 @@ namespace VSharp.Test
                 }
 
                 _checkAttributes = checkAttributes;
+
+                _hasExternMocking = hasExternMocking;
             }
 
             private TestResult Explore(TestExecutionContext context)
             {
+                if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
+                {
+                    context.CurrentResult.SetResult(ResultState.Skipped);
+                    return context.CurrentResult;
+                }
+
                 IStatisticsReporter reporter = null;
 
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
@@ -285,13 +300,18 @@ namespace VSharp.Test
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         var testsDir = unitTests.TestDirectory;
-                        if (_renderTests)
+                        // TODO: support rendering for extern mocks
+                        if (_renderTests && !_hasExternMocking)
                         {
                             var tests = testsDir.EnumerateFiles("*.vst");
                             TestContext.Out.WriteLine("Starting tests renderer...");
                             try
                             {
                                 Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
+                            }
+                            catch (UnexpectedExternCallException)
+                            {
+                                // TODO: support rendering for extern mocks
                             }
                             catch (Exception e)
                             {
