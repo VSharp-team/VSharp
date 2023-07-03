@@ -78,6 +78,20 @@ module Loader =
     let public getRuntimeExceptionsImplementation (fullMethodName : string) =
         runtimeExceptionsConstructors.[fullMethodName]
 
+    let private shimImplementations =
+        set [
+            "System.DateTime System.DateTime.get_Now()"
+            "System.String System.IO.File.ReadAllText(System.String)"
+            "System.String[] System.IO.File.ReadAllLines(System.String)"
+            "System.String[] System.IO.File.ReadLines(System.String)"
+            "System.Byte[] System.IO.File.ReadAllBytes(System.String)"
+            "System.String System.Console.ReadLine()"
+            // Socket.Read  TODO: writing to the out parameters
+        ]
+
+    let public isShimmed (fullMethodName : string) =
+        Set.contains fullMethodName shimImplementations
+
     let public ConcreteInvocations =
         set [
             // Types

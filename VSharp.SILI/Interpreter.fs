@@ -7,6 +7,7 @@ open System.Reflection.Emit
 open FSharpx.Collections
 open CilStateOperations
 open VSharp
+open VSharp.CSharpUtils
 open VSharp.Core
 open VSharp.Interpreter.IL
 open ipOperations
@@ -857,6 +858,10 @@ type internal ILInterpreter() as this =
             method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
+    member private x.ShouldMock (method : Method) fullMethodName =
+        Loader.isShimmed fullMethodName
+        || method.IsExternalMethod && not method.IsQCall
+
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with
         | Some this ->
@@ -895,7 +900,7 @@ type internal ILInterpreter() as this =
 
     member private x.IsArrayGetOrSet (method : Method) =
         let name = method.Name
-        (name = "Set" || name = "Get") && typeof<Array>.IsAssignableFrom(method.DeclaringType)
+        (name = "Set" || name = "Get") && typeof<System.Array>.IsAssignableFrom(method.DeclaringType)
 
     static member InitFunctionFrame state (method : Method) this paramValues =
         let parameters = method.Parameters
@@ -1115,9 +1120,21 @@ type internal ILInterpreter() as this =
         elif x.IsArrayGetOrSet method then
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
+        elif ExternMocker.ExtMocksSupported && x.ShouldMock method fullMethodName then
+            let mockMethod = ExternMockAndCall cilState.state method None []
+            match mockMethod with
+            | Some symVal ->
+                push symVal cilState
+            | None -> ()
+            moveIpToExit cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = sprintf "New extern method: %s" fullMethodName
+            let message = sprintf "Not supported extern method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
+        elif method.IsInternalCall then
+            assert(not <| method.IsImplementedInternalCall)
+            let stackTrace = Memory.StackTraceString cilState.state.stack
+            let message = sprintf "New internal call: %s" fullMethodName
             UnknownMethodException(message, method, stackTrace) |> raise
         elif x.IsNotImplementedIntrinsic method fullMethodName then
             let stackTrace = Memory.StackTraceString cilState.state.stack
@@ -1192,13 +1209,11 @@ type internal ILInterpreter() as this =
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
-                let methodMock = MockMethod cilState.state overriden
-                match methodMock.Call this [] with // TODO: pass args!
-                | Some result ->
-                    assert(ancestorMethod.ReturnType <> typeof<Void>)
-                    push result cilState
-                | None ->
-                    assert(ancestorMethod.ReturnType = typeof<Void>)
+                let mockMethod = MethodMockAndCall cilState.state overriden (Some this) []
+                match mockMethod with
+                | Some symVal ->
+                    push symVal cilState
+                | None -> ()
                 match tryCurrentLoc cilState with
                 | Some loc ->
                     // Moving ip to next instruction after mocking method result

@@ -37,7 +37,8 @@ module API =
     val ErrorReporter : string -> (state -> term -> unit)
     val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
-    val MockMethod : state -> IMethod -> IMethodMock
+    val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
+    val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
 
     [<AutoOpen>]
     module Terms =

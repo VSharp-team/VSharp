@@ -200,6 +200,31 @@ with
 [<XmlInclude(typeof<pointerRepr>)>]
 [<XmlInclude(typeof<arrayRepr>)>]
 [<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<methodRepr>)>]
+type extMockRepr = {
+    name : string
+    baseMethod : methodRepr
+    methodImplementation : obj array
+}
+with
+    static member Encode name baseMethod results =
+        {
+            name = name
+            baseMethod = methodRepr.Encode baseMethod
+            methodImplementation = results
+        }
+
+    member x.Decode() =
+        let baseMethod = x.baseMethod.Decode()
+        ExtMocking.Type.Deserialize x.name baseMethod x.methodImplementation
+
+[<CLIMutable>]
+[<Serializable>]
+[<XmlInclude(typeof<structureRepr>)>]
+[<XmlInclude(typeof<referenceRepr>)>]
+[<XmlInclude(typeof<pointerRepr>)>]
+[<XmlInclude(typeof<arrayRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
 [<XmlInclude(typeof<typeMockRepr>)>]
 [<XmlInclude(typeof<stringRepr>)>]
 type memoryRepr = {

@@ -18,6 +18,7 @@ type IMethod =
     abstract LocalVariables : IList<Reflection.LocalVariableInfo>
     abstract HasThis : bool
     abstract IsConstructor : bool
+    abstract IsExternalMethod : bool
     abstract GenericArguments : Type[]
     abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
     abstract MethodBase : System.Reflection.MethodBase

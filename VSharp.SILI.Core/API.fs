@@ -62,7 +62,8 @@ module API =
         result
     let UnspecifiedErrorReporter() = ErrorReporter "Unspecified"
 
-    let MockMethod state method = MethodMocking.mockMethod state method
+    let MethodMockAndCall state method this args = MethodMocking.mockAndCall state method this args Default
+    let ExternMockAndCall state method this args = MethodMocking.mockAndCall state method this args Extern
 
     [<AutoOpen>]
     module public Terms =

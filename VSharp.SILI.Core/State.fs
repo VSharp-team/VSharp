@@ -33,9 +33,14 @@ type IConcreteMemory =
     abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
     abstract Remove : concreteHeapAddress -> unit
 
+type MockingType =
+    | Default
+    | Extern
+
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
-    abstract Call : term -> term list -> term option
+    abstract MockingType : MockingType
+    abstract Call : term option -> term list -> term
     abstract GetImplementationClauses : unit -> term array
     abstract Copy : unit -> IMethodMock
 

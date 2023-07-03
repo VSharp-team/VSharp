@@ -213,6 +213,12 @@ module TestGenerator =
                         freshMock.AddMethod(method, Array.map eval values)
             freshMock
 
+    let encodeExternMock (model : model) state indices mockCache implementations test (methodMock : IMethodMock) =
+        let eval = model.Eval >> term2obj model state indices mockCache implementations test
+        let clauses = methodMock.GetImplementationClauses() |> Array.map eval
+        let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
+        test.AddExternMock extMock
+
     let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
         let state = cilState.state
         let suitableState state =
@@ -232,8 +238,12 @@ module TestGenerator =
                 let implementations = Dictionary<MethodInfo, term[]>()
                 for entry in state.methodMocks do
                     let mock = entry.Value
-                    let values = mock.GetImplementationClauses()
-                    implementations.Add(mock.BaseMethod, values)
+                    match mock.MockingType with
+                    | Default ->
+                        let values = mock.GetImplementationClauses()
+                        implementations.Add(mock.BaseMethod, values)
+                    | Extern ->
+                        encodeExternMock model state indices mockCache implementations test mock
 
                 let concreteClassParams = Array.zeroCreate classParams.Length
                 let mockedClassParams = Array.zeroCreate classParams.Length
