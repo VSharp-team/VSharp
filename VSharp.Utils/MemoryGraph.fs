@@ -83,7 +83,7 @@ with
 
     member x.Decode() =
         let declaringType = x.declaringType.Decode()
-        declaringType.GetMethods() |> Seq.find (fun m -> m.MetadataToken = x.token)
+        declaringType.GetMethods(Reflection.allBindingFlags) |> Seq.find (fun m -> m.MetadataToken = x.token)
 
 [<CLIMutable>]
 [<Serializable>]
@@ -192,6 +192,31 @@ with
         let interfaces = x.interfaces |> Array.map (fun i -> i.Decode())
         let baseMethods = x.baseMethods |> Array.map (fun m -> m.Decode())
         Mocking.Type.Deserialize x.name baseClass interfaces baseMethods x.methodImplementations
+
+[<CLIMutable>]
+[<Serializable>]
+[<XmlInclude(typeof<structureRepr>)>]
+[<XmlInclude(typeof<referenceRepr>)>]
+[<XmlInclude(typeof<pointerRepr>)>]
+[<XmlInclude(typeof<arrayRepr>)>]
+[<XmlInclude(typeof<enumRepr>)>]
+[<XmlInclude(typeof<methodRepr>)>]
+type extMockRepr = {
+    name : string
+    baseMethod : methodRepr
+    methodImplementation : obj array
+}
+with
+    static member Encode name baseMethod results =
+        {
+            name = name
+            baseMethod = methodRepr.Encode baseMethod
+            methodImplementation = results
+        }
+
+    member x.Decode() =
+        let baseMethod = x.baseMethod.Decode()
+        ExtMocking.Type.Deserialize x.name baseMethod x.methodImplementation
 
 [<CLIMutable>]
 [<Serializable>]

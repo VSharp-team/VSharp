@@ -39,6 +39,7 @@
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="Mocking.fs" />
+        <Compile Include="ExternMocking.fs" />
         <Compile Include="PhysicalAddress.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />

@@ -57,7 +57,9 @@ namespace VSharp.TestRunner
                     };
                     if (shouldInvoke)
                     {
+                        test.ApplyExternMocks(fileInfo.Name);
                         result = method.Invoke(test.ThisArg, parameters);
+                        test.ReverseExternMocks(); // reverses if ex was not thrown
                     }
                     else
                     {
@@ -87,6 +89,7 @@ namespace VSharp.TestRunner
                 }
                 catch (TargetInvocationException e)
                 {
+                    test.ReverseExternMocks(); // reverses if ex was thrown
                     var exceptionExpected = e.InnerException != null && e.InnerException.GetType() == ex;
                     if (exceptionExpected || test.IsError && suiteType == SuiteType.TestsAndErrors && !fileMode) {
                         Console.ForegroundColor = ConsoleColor.Green;
@@ -102,6 +105,10 @@ namespace VSharp.TestRunner
                         throw e.InnerException;
                     }
                     else throw;
+                }
+                finally
+                {
+                    test.ReverseExternMocks();
                 }
             }
             catch (Exception e)

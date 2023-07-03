@@ -91,3 +91,23 @@ module SR =
     let internal concurrencyLevelMustBeNegative (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "concurrencyLevelMustBeNegative" state
+
+    let internal get_ArgumentOutOfRange_BadYearMonthDay (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "ArgumentOutOfRange_BadYearMonthDay" state
+
+    let internal get_ArgumentOutOfRange_Count (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "ArgumentOutOfRange_Count" state
+
+    let internal get_ArgumentOutOfRange_SmallCapacity (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "get_ArgumentOutOfRange_SmallCapacity" state
+
+    let internal get_Argument_HasToBeArrayClass (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "get_Argument_HasToBeArrayClass" state
+
+    let internal get_ThreadLocal_Disposed (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "get_ThreadLocal_Disposed" state
