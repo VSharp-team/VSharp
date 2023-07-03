@@ -204,7 +204,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         try
             let mdle = Reflection.resolveModule ti.assemblyName ti.moduleFullyQualifiedName
             if mdle = null then
-                raise <| InvalidOperationException(sprintf "Could not resolve module %s!" ti.moduleFullyQualifiedName)
+                raise <| InvalidOperationException($"Could not resolve module {ti.moduleFullyQualifiedName}!")
             let mockStorage = MockStorage()
             mockStorage.Deserialize ti.typeMocks
             let decodeTypeParameter (concrete : typeRepr) (mockIndex : Nullable<int>) =

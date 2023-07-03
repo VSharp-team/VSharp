@@ -1666,6 +1666,7 @@ module internal Memory =
             methodMocks.Add(kvp.Key, kvp.Value)
         for kvp in state'.methodMocks do
             methodMocks.Add(kvp.Key, kvp.Value)
+
         // TODO: do nothing if state is empty!
         list {
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc

@@ -92,7 +92,7 @@ module Loader =
     let public isShimmed (fullMethodName : string) =
         Set.contains fullMethodName shimImplementations
 
-    let public ConcreteInvocations =
+    let private concreteInvocations =
         set [
             // Types
             "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
@@ -162,4 +162,4 @@ module Loader =
         ]
 
     let isInvokeInternalCall (fullMethodName : string) =
-        ConcreteInvocations.Contains fullMethodName
+        concreteInvocations.Contains fullMethodName
