@@ -83,7 +83,7 @@ with
 
     member x.Decode() =
         let declaringType = x.declaringType.Decode()
-        declaringType.GetMethods() |> Seq.find (fun m -> m.MetadataToken = x.token)
+        declaringType.GetMethods(Reflection.allBindingFlags) |> Seq.find (fun m -> m.MetadataToken = x.token)
 
 [<CLIMutable>]
 [<Serializable>]
