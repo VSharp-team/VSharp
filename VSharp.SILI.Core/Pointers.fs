@@ -91,6 +91,9 @@ module internal Pointers =
                 | Ref _, Ptr _
                 | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
                 | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
+                | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
+                | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
+                    simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
                 | _ -> False |> k)
             (fun x y k -> simplifyReferenceEqualityk x y k)
 
