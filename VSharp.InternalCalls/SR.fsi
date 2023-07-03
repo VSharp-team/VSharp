@@ -68,3 +68,18 @@ module internal SR =
 
     [<Implements("System.String System.SR.get_ConcurrentDictionary_ConcurrencyLevelMustBeNegative()")>]
     val internal concurrencyLevelMustBeNegative : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_BadYearMonthDay()")>]
+    val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_Count()")>]
+    val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_SmallCapacity()")>]
+    val internal get_ArgumentOutOfRange_SmallCapacity : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Argument_HasToBeArrayClass()")>]
+    val internal get_Argument_HasToBeArrayClass : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ThreadLocal_Disposed()")>]
+    val internal get_ThreadLocal_Disposed : state -> term list -> term
