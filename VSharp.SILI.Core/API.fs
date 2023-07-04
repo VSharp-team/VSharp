@@ -396,7 +396,7 @@ module API =
 
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
-        let WriteLocalVariable state location value = Memory.writeStackLocation state location value
+        let WriteStackLocation state location value = Memory.writeStackLocation state location value
         let Write state reference value =
             let errorReporter = UnspecifiedErrorReporter()
             Branching.guardedStatedMap (fun state reference -> Memory.write state errorReporter reference value) state reference
@@ -430,6 +430,41 @@ module API =
 
         let InitializeStaticMembers state targetType =
             Memory.initializeStaticMembers state targetType
+
+        let InitFunctionFrame state (method : IMethod) this paramValues =
+            let parameters = method.Parameters
+            let values, areParametersSpecified =
+                match paramValues with
+                | Some values -> values, true
+                | None -> [], false
+            let localVarsDecl (lvi : System.Reflection.LocalVariableInfo) =
+                let stackKey = LocalVariableKey(lvi, method)
+                (stackKey, lvi.LocalType |> DefaultOf |> Some, lvi.LocalType)
+            let locals =
+                match method.LocalVariables with
+                | null -> []
+                | lvs -> lvs |> Seq.map localVarsDecl |> Seq.toList
+            let valueOrFreshConst (param : System.Reflection.ParameterInfo option) value =
+                match param, value with
+                | None, _ -> internalfail "parameters list is longer than expected!"
+                | Some param, None ->
+                    let stackKey = ParameterKey param
+                    match areParametersSpecified with
+                    | true when param.HasDefaultValue ->
+                        let typ = param.ParameterType
+                        (stackKey, Some(Concrete param.DefaultValue typ), typ)
+                    | true -> internalfail "parameters list is shorter than expected!"
+                    | _ -> (stackKey, None, param.ParameterType)
+                | Some param, Some value -> (ParameterKey param, value, param.ParameterType)
+            let parameters = List.map2Different valueOrFreshConst parameters values
+            let parametersAndThis =
+                match this with
+                | Some thisValue ->
+                    let thisKey = ThisKey method
+                    // TODO: incorrect type when ``this'' is Ref to stack
+                    (thisKey, Some thisValue, TypeOfLocation thisValue) :: parameters
+                | None -> parameters
+            NewStackFrame state (Some method) (parametersAndThis @ locals)
 
         let AllocateTemporaryLocalVariable state index typ term =
             let tmpKey = TemporaryLocalVariableKey(typ, index)
@@ -621,9 +656,7 @@ module API =
                 let result = EvaluationStack.Pop state.evaluationStack |> fst
                 let method = GetCurrentExploringFunction state
                 match method with
-                | _ ->
-                    assert(callStackSize = 1)
-                    Types.Cast result method.ReturnType
+                | _ when callStackSize = 1 -> Types.Cast result method.ReturnType
                 | _ when state.exceptionsRegister.UnhandledError -> Nop
                 | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
             | _ -> internalfail "EvaluationStack size was bigger than 1"
