@@ -250,3 +250,6 @@ VSharp.Test/GeneratedTests/**
 
 #logs
 **/logs_full*/**
+
+/output/**
+/References/*.dll

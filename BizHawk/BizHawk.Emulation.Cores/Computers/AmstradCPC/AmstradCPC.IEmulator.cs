@@ -1,0 +1,67 @@
+﻿using BizHawk.Emulation.Common;
+
+namespace BizHawk.Emulation.Cores.Computers.AmstradCPC
+{
+	/// <summary>
+	/// CPCHawk: Core Class
+	/// * IEmulator *
+	/// </summary>
+	public partial class AmstradCPC : IEmulator
+	{
+		public IEmulatorServiceProvider ServiceProvider { get; }
+
+		public ControllerDefinition ControllerDefinition { get; set; }
+
+		public bool FrameAdvance(IController controller, bool render, bool renderSound)
+		{
+			_controller = controller;
+
+			bool ren = render;
+			bool renSound = renderSound;
+
+			if (DeterministicEmulation)
+			{
+				ren = true;
+				renSound = true;
+			}
+
+			_isLag = true;
+
+			if (_tracer.IsEnabled())
+			{
+				_cpu.TraceCallback = s => _tracer.Put(s);
+			}
+			else
+			{
+				_cpu.TraceCallback = null;
+			}
+
+			_machine.ExecuteFrame(ren, renSound);
+
+			if (_isLag)
+			{
+				_lagCount++;
+			}
+
+			return true;
+		}
+
+		public int Frame => _machine?.FrameCount ?? 0;
+
+		public string SystemId => VSystemID.Raw.AmstradCPC;
+
+		public bool DeterministicEmulation { get; }
+
+		public void ResetCounters()
+		{
+			_machine.FrameCount = 0;
+			_lagCount = 0;
+			_isLag = false;
+		}
+
+		public void Dispose()
+		{
+			_machine = null;
+		}
+	}
+}
