@@ -498,6 +498,9 @@ public static class Renderer
         var unitTests = DeserializeTests(tests);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
+        unitTests = unitTests.FindAll(ut => !ut.HasExternMocks);
+        if (unitTests.Count == 0)
+            throw new UnexpectedExternCallException("Render is not supported for tests with extern mocks. Nothing to render.");
         var originAssembly = unitTests.First().Method.Module.Assembly;
         var exploredAssembly = AssemblyManager.LoadCopy(originAssembly);
 

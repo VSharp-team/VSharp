@@ -1,5 +1,6 @@
 using NUnit.Framework;
 using System;
+using System.Text;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -109,7 +110,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [Ignore("need more extern methods")]
+        [Ignore("takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {
             string s = c + "c";
@@ -130,14 +131,20 @@ namespace IntegrationTests
             public Kind Kind;
         }
 
-        [Ignore("need to fix StringBuilder.AppendLine")]
+        [Ignore("need to fix Enum.ToString")]
         public static string StringFormat(ClassToString c)
+        {
+            return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
+        }
+
+        [Ignore("need to fix StringBuilder.AppendLine")]
+        public static string StringFormat1(ClassToString c)
         {
             return string.Format("{0}: {1}, {2}: {3}, {4}: {5}", "Kind", c.Kind, "X", c.X, "Y", c.Y);
         }
 
         [Ignore("need to fix StringBuilder.AppendLine")]
-        public static string StringFormat1(ClassToString c)
+        public static string StringFormat2(ClassToString c)
         {
             if (c.Kind == Kind.First)
                 return $"Kind: {c.Kind}, X: {c.X}, Y: {c.Y}";

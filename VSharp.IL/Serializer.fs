@@ -6,9 +6,9 @@ open System.Reflection
 open System.Text.Json
 open Microsoft.FSharp.Collections
 open VSharp
-open VSharp.Core
 open VSharp.GraphUtils
 open VSharp.ML.GameServer.Messages
+open FSharpx.Collections
 
 
 [<Struct>]
@@ -108,7 +108,7 @@ let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackabl
         let assembly = currentBasicBlock.Method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate interproceduralGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())
         Dict.getValueOrUpdate callGraphDist (currentBasicBlock :> IInterproceduralCfgNode) (fun () ->        
-        let dist = incrementalSourcedDijkstraAlgo (currentBasicBlock :> IInterproceduralCfgNode) callGraphDist
+        let dist = incrementalSourcedShortestDistanceBfs (currentBasicBlock :> IInterproceduralCfgNode) callGraphDist
         let distFromNode = Dictionary<IInterproceduralCfgNode, uint>()
         for i in dist do
             if i.Value <> infinity then

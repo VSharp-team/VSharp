@@ -107,12 +107,23 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
         and set (v: offset) = finalOffset <- v
 
     member this.GetInstructions() =
-        method.ParsedInstructions
-        |> Array.filter (fun instr -> Offset.from (int instr.offset) >= this.StartOffset && Offset.from (int instr.offset) <= this.FinalOffset)
-            
-    member this.ToString () =
-        this.GetInstructions()
-        |> Array.map (fun instr -> ILRewriter.PrintILInstr None None (method :> Core.IMethod).MethodBase instr)    
+        let parsedInstructions = method.ParsedInstructions
+        let mutable instr = parsedInstructions[this.StartOffset]
+        assert(Offset.from (int instr.offset) = this.StartOffset)
+        let endInstr = parsedInstructions[this.FinalOffset]
+        assert(Offset.from (int endInstr.offset) = this.FinalOffset)
+        let mutable notEnd = true
+        seq {
+            while notEnd do
+                notEnd <- not <| LanguagePrimitives.PhysicalEquality instr endInstr
+                yield instr
+                instr <- instr.next
+        }
+
+    member this.ToString() =
+        let methodBase = (method :> Core.IMethod).MethodBase
+        this.GetInstructions() |> Seq.map (ILRewriter.PrintILInstr None None methodBase)
+
     member this.BlockSize with get() =
         this.GetInstructions() |> Seq.length
         
@@ -181,6 +192,12 @@ and CfgInfo internal (method : MethodWithBody) =
                     found <- true
                     index <- currentIndex
                 | _ -> currentIndex <- currentIndex - 1
+            found <- false
+            
+            while not found do
+                if method.ParsedInstructions.ContainsKey (index *1<offsets>)
+                then found <- true
+                else index <- index - 1
             Offset.from index
 
         let splitBasicBlock (block : BasicBlock) intermediatePoint =
@@ -301,19 +318,16 @@ and CfgInfo internal (method : MethodWithBody) =
 
         methodSize <- 0
 
-        basicBlocks
-        |> Seq.sortBy (fun b -> b.StartOffset)
-        |> Seq.iter (fun bb ->
+        let sorted = basicBlocks |> Seq.sortBy (fun b -> b.StartOffset)
+        for bb in sorted do
             methodSize <- methodSize + bb.BlockSize
             sortedBasicBlocks.Add bb
-        )
-
 
     let cfgDistanceFrom = GraphUtils.distanceCache<ICfgNode>()
 
     let findDistanceFrom node =
         Dict.getValueOrUpdate cfgDistanceFrom node (fun () ->
-        let dist = incrementalSourcedDijkstraAlgo node cfgDistanceFrom
+        let dist = incrementalSourcedShortestDistanceBfs node cfgDistanceFrom
         let distFromNode = Dictionary<ICfgNode, uint>()
         for i in dist do
             if i.Value <> infinity then
@@ -358,7 +372,6 @@ and CfgInfo internal (method : MethodWithBody) =
     member this.Sinks = sinks
     member this.Calls = calls
     member this.IsLoopEntry offset = loopEntries.Contains offset
-    member this.ResolveBasicBlockIndex offset = resolveBasicBlockIndex offset
     member this.ResolveBasicBlock offset = resolveBasicBlock offset
     member this.IsBasicBlockStart offset = (resolveBasicBlock offset).StartOffset = offset
     // Returns dictionary of shortest distances, in terms of basic blocks (1 step = 1 basic block transition)
@@ -440,7 +453,7 @@ and Method internal (m : MethodBase) as this =
 
         let exists, value = callGraphDist.TryGetValue x
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> ICallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> ICallGraphNode) callGraphDist
             let distFromNode = Dictionary<ICallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then
@@ -463,7 +476,7 @@ and Method internal (m : MethodBase) as this =
         let exists, value = callGraphDist.TryGetValue x
         let mutable res = null
         if not exists then
-            let dist = incrementalSourcedDijkstraAlgo (x :> IReversedCallGraphNode) callGraphDist
+            let dist = incrementalSourcedShortestDistanceBfs (x :> IReversedCallGraphNode) callGraphDist
             let distToNode = Dictionary<IReversedCallGraphNode, uint>()
             for i in dist do
                 if i.Value <> infinity then
@@ -585,7 +598,7 @@ type ApplicationGraph() =
             max
                 stateWithNewPosition.CodeLocation.ForceBasicBlock.VisitedInstructions
                 (uint ((stateWithNewPosition.CodeLocation.ForceBasicBlock.GetInstructions()
-                      |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1))       
+                      |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1))       
         stateWithNewPosition.CodeLocation.ForceBasicBlock.IsVisited <-
             stateWithNewPosition.CodeLocation.ForceBasicBlock.IsVisited
             || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.ForceBasicBlock.FinalOffset
@@ -600,22 +613,13 @@ type ApplicationGraph() =
                 max
                     newState.CodeLocation.ForceBasicBlock.VisitedInstructions
                     (uint ((newState.CodeLocation.ForceBasicBlock.GetInstructions()
-                          |> Array.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
+                          |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
             newState.CodeLocation.ForceBasicBlock.IsVisited <-
                 newState.CodeLocation.ForceBasicBlock.IsVisited
                 || newState.CodeLocation.offset = newState.CodeLocation.ForceBasicBlock.FinalOffset
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =
-        __notImplemented__()
-
-    let tryGetCfgInfo (method : Method) =
-        if method.HasBody then
-            // TODO: enabling this currently crushes V# as we asynchronously change Application.methods! Fix it
-            // TODO: fix it
-            let cfg = method.CFG
-            Some cfg
-        else None
-        
+        __notImplemented__()    
 
     member this.RegisterMethod (method: Method) =
         assert method.HasBody
@@ -633,7 +637,6 @@ type ApplicationGraph() =
         addStates (Some parentState) (Array.ofSeq forkedStates)
 
     member this.MoveState (fromLocation : codeLocation) (toLocation : IGraphTrackableState) =
-        tryGetCfgInfo toLocation.CodeLocation.method |> ignore
         moveState fromLocation toLocation
 
     member x.AddGoal (location:codeLocation) =

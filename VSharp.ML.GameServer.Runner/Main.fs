@@ -95,7 +95,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         if inTrainMode
                         then trainMaps.[gameStartParams.MapId]
                         else validationMaps.[gameStartParams.MapId]
-                    let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
+                    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo settings.AssemblyFullName
                     
                     let actualCoverage = 
                         match settings.CoverageZone with

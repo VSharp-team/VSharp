@@ -45,8 +45,13 @@ type MethodWithBody internal (m : MethodBase) =
     let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
     let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
-    let isInternalCall =
+    let isImplementedInternalCall =
         lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
+    let isInternalCall =
+        lazy (
+            int (m.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0
+            || DllManager.isQCall m
+        )
 
     let actualMethod =
         if not isCSharpInternalCall.Value then m
@@ -87,7 +92,7 @@ type MethodWithBody internal (m : MethodBase) =
                  handlerOffset = eh.handlerOffset |> int |> Offset.from
                  handlerLength = eh.handlerLength |> int |> Offset.from
                  ehcType = ehcType }
-            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some (rewriter.CopyInstructions()))
+            Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
 
     member x.Name = name
     member x.FullName = fullName
@@ -185,6 +190,9 @@ type MethodWithBody internal (m : MethodBase) =
         // Method should not contain varargs
         (m.CallingConvention &&& CallingConventions.VarArgs) <> CallingConventions.VarArgs
 
+    member x.IsExternalMethod with get() = Reflection.isExternalMethod m
+    member x.IsQCall with get() = DllManager.isQCall m
+
     interface VSharp.Core.IMethod with
         override x.Name = name
         override x.FullName = fullName
@@ -195,6 +203,7 @@ type MethodWithBody internal (m : MethodBase) =
         override x.LocalVariables = localVariables
         override x.HasThis = hasThis
         override x.IsConstructor = isConstructor
+        override x.IsExternalMethod with get() = x.IsExternalMethod
         override x.GenericArguments with get() = genericArguments.Value
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
@@ -217,8 +226,7 @@ type MethodWithBody internal (m : MethodBase) =
         m = (m.Module.Assembly.EntryPoint :> MethodBase)
 
     member x.IsInternalCall with get() = isInternalCall.Value
-
-    member x.IsExternalMethod with get() = Reflection.isExternalMethod m
+    member x.IsImplementedInternalCall with get () = isImplementedInternalCall.Value
 
     member x.CanBeOverriden targetType =
         match m with
@@ -300,9 +308,10 @@ module MethodBody =
 
     let isLeaveOpCode (opCode : OpCode) = opCode = OpCodes.Leave || opCode = OpCodes.Leave_S
 
+    // TODO: deal with calli
     let private isCallOpCode (opCode : OpCode) =
         opCode = OpCodes.Call
-        || opCode = OpCodes.Calli
+        //|| opCode = OpCodes.Calli
         || opCode = OpCodes.Callvirt
         || opCode = OpCodes.Tailcall
     let private isNewObjOpCode (opCode : OpCode) =

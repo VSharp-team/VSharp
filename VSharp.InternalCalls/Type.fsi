@@ -22,10 +22,10 @@ module internal Type =
 //    [<Implements("System.Type System.RuntimeType.GetElementType(this)")>]
     val GetElementType : state -> term list -> (term * state) list
 
-//    [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
+    [<Implements("System.Boolean System.Type.op_Inequality(System.Type, System.Type)")>]
     val opInequality : state -> term list -> term
 
-//    [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
+    [<Implements("System.Boolean System.Type.op_Equality(System.Type, System.Type)")>]
     val opEquality : state -> term list -> term
 
 //    [<Implements("System.Boolean System.RuntimeTypeHandle.IsGenericTypeDefinition(System.RuntimeType)")>]

@@ -175,7 +175,6 @@ namespace VSharp
                         coverageZone,
                         timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
                     ),
-                    executionMode: executionMode.SymbolicMode,
                     outputDirectory: unitTests.TestDirectory,
                     recThreshold: recThreshold,
                     timeout: timeout,

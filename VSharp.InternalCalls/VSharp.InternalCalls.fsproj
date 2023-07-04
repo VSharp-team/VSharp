@@ -55,8 +55,6 @@
         <Compile Include="Globalization.fs" />
         <Compile Include="PlatformHelper.fsi" />
         <Compile Include="PlatformHelper.fs" />
-        <Compile Include="DateTime.fsi" />
-        <Compile Include="DateTime.fs" />
         <Compile Include="InteropServices.fsi" />
         <Compile Include="InteropServices.fs" />
         <Compile Include="Loader.fs" />
@@ -67,7 +65,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="FSharp.Core" Version="7.0.0" />
+      <PackageReference Update="FSharp.Core" Version="7.0.300" />
     </ItemGroup>
 
 </Project>

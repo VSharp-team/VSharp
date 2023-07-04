@@ -1,38 +1,19 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <TargetFramework>netcoreapp6.0</TargetFramework>
-        <Configurations>Debug;Release;DebugTailRec;ReleaseConcolic;DebugConcolic</Configurations>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
         <Tailcalls>false</Tailcalls>
-        <BuildConcolic>false</BuildConcolic>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
         <Tailcalls>true</Tailcalls>
         <DebugSymbols>true</DebugSymbols>
         <DefineConstants>TRACE;DEBUG</DefineConstants>
-        <BuildConcolic>false</BuildConcolic>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'DebugConcolic' ">
-        <Tailcalls>false</Tailcalls>
-        <DebugSymbols>true</DebugSymbols>
-        <DefineConstants>TRACE;DEBUG</DefineConstants>
-        <BuildConcolic>true</BuildConcolic>
-        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-        <BuildConcolic>false</BuildConcolic>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'ReleaseConcolic' ">
-        <BuildConcolic>true</BuildConcolic>
-        <DisableFastUpToDateCheck>true</DisableFastUpToDateCheck>
     </PropertyGroup>
 
     <ItemGroup>
@@ -44,7 +25,6 @@
         <Compile Include="Interpreter.fs" />
         <Compile Include="CombinedWeighter.fs" />
         <Compile Include="DistanceWeighter.fs" />
-        <Compile Include="ConcolicSearcher.fs" />
         <Compile Include="ContributedCoverageSearcher.fs" />
         <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
         <Compile Include="InterleavedSearcher.fs" />
@@ -52,9 +32,6 @@
         <Compile Include="FairSearcher.fs" />
         <Compile Include="AISearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
-        <Compile Include="Communication.fs" />
-        <Compile Include="Instrumenter.fs" />
-        <Compile Include="ClientMachine.fs" />
         <Compile Include="TestGenerator.fs" />
         <Compile Include="SILI.fs" />
     </ItemGroup>
@@ -66,44 +43,8 @@
         <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
     </ItemGroup>
 
-    <Target Name="CloneDotnetRuntime" BeforeTargets="UnixBuildConcolic;WinBuildConcolic" Condition=" $(BuildConcolic) And !Exists('../runtime') ">
-        <Exec Command="&#xA;            cd ../&#xA;            git clone https://github.com/dotnet/runtime.git&#xA;            cd runtime&#xA;            git checkout 3a25a7f1cc446b60678ed25c9d829420d6321eba" />
-    </Target>
-
-<!--Building concolic every project build, to disable this, uncomment line below-->
-<!--    <Target Name="BuildConcolic" AfterTargets="BeforeBuild" Condition =" !Exists('../VSharp.ClrInteraction/cmake-build-debug') ">-->
-    <Target Name="UnixBuildConcolic" AfterTargets="BeforeBuild" Condition=" $(BuildConcolic) And !$([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;            cd ../VSharp.ClrInteraction&#xA;            mkdir cmake-build-debug&#xA;            cd cmake-build-debug&#xA;            cmake -G &quot;Unix Makefiles&quot; -DCMAKE_BUILD_TYPE=Debug ../&#xA;            cmake --build . --target vsharpConcolic -j 6" />
-    </Target>
-
-    <Target Name="WinBuildConcolic" AfterTargets="BeforeBuild" Condition=" $(BuildConcolic) And $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;            cd ../VSharp.ClrInteraction&#xA;            mkdir build&#xA;            msbuild VSharp.ClrInteraction.vcxproj /p:Configuration=&quot;Debug&quot; /p:BuildOS=&quot;Windows_NT&quot; /p:BuildType=&quot;Debug&quot; /p:BuildArch=&quot;x64&quot; /p:Platform=&quot;x64&quot;" />
-    </Target>
-
-    <ItemGroup Condition=" $(BuildConcolic) And $([MSBuild]::IsOSPlatform('Linux')) ">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.so">
-            <Link>libvsharpConcolic.so</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup Condition=" $(BuildConcolic) And $([MSBuild]::IsOSPlatform('OSX')) ">
-        <Content Include="..\VSharp.ClrInteraction\cmake-build-debug\libvsharpConcolic.dylib">
-            <Link>libvsharpConcolic.dylib</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
-    <ItemGroup Condition=" $(BuildConcolic) And $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Content Include="..\VSharp.ClrInteraction\build\libvsharpConcolic.dll">
-            <Link>libvsharpConcolic.dll</Link>
-            <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-        </Content>
-    </ItemGroup>
-
     <ItemGroup>
-      <PackageReference Include="FSharp.Core" Version="7.0.0" />
+      <PackageReference Update="FSharp.Core" Version="7.0.300" />
     </ItemGroup>
-
 
 </Project>

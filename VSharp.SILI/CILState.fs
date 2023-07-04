@@ -192,6 +192,7 @@ module internal CilStateOperations =
 
     let setCurrentIp (ip : ip) (cilState : cilState) =
         moveCodeLoc cilState ip
+        assert(List.isEmpty cilState.ipStack |> not)
         cilState.ipStack <- ip :: List.tail cilState.ipStack
 
     let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack

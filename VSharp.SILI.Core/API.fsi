@@ -37,7 +37,8 @@ module API =
     val ErrorReporter : string -> (state -> term -> unit)
     val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
-    val MockMethod : state -> IMethod -> IMethodMock
+    val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
+    val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
 
     [<AutoOpen>]
     module Terms =
@@ -61,6 +62,8 @@ module API =
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
         val MakeIntPtr : term -> term
+        val MakeUIntPtr : term -> term
+        val NativeToPtr : term -> term
         val AddressToBaseAndOffset : address -> pointerBase * term
 
         val TypeOf : term -> Type
@@ -84,7 +87,8 @@ module API =
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
-        val (|Combined|_|) : term -> (term list * Type) option
+        val (|Combined|_|) : termNode -> (term list * Type) option
+        val (|CombinedTerm|_|) : term -> (term list * Type) option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
@@ -94,6 +98,7 @@ module API =
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
         val (|NullPtr|_|) : term -> unit option
+        val (|DetachedPtr|_|) : term -> term option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>

@@ -124,23 +124,27 @@ module TypeSolver =
     let private canBeMocked (t : Type) =
         (hasSubtypes t && TypeUtils.isPublic t) || TypeUtils.isDelegate t
 
-    let private enumerateTypes (supertypes : Type list) (mock : Type list -> ITypeMock) validate (assemblies : Assembly seq) =
+    let private enumerateTypes supertypes mock validate assemblies =
         seq {
             if List.isEmpty supertypes && validate typeof<obj> then
                 yield ConcreteType typeof<obj>
             else
                 yield! supertypes |> Seq.filter validate |> Seq.map ConcreteType
             if List.forall hasSubtypes supertypes then
+                // This case is for reference types and interfaces (because value types are sealed)
                 let assemblies =
                     match supertypes |> Seq.tryFind (TypeUtils.isPublic >> not) with
                     | Some u -> Seq.singleton u.Assembly
                     | None ->
                         // Dynamic mock assemblies may appear here
                         assemblies |> Seq.filter (fun a -> not a.IsDynamic)
+                let suitable (t : Type) =
+                    // Byref-like can not be casted to any reference type or interface, so filtering them
+                    not t.ContainsGenericParameters && not t.IsByRefLike && validate t
                 for assembly in assemblies do
                     let types = assembly.GetExportedTypesChecked()
                     // TODO: in any assembly, there is no array types, so need to generate it manually
-                    yield! types |> Seq.filter (fun t -> not t.ContainsGenericParameters && validate t) |> Seq.map ConcreteType
+                    yield! types |> Seq.filter suitable |> Seq.map ConcreteType
             if List.forall canBeMocked supertypes then
                 yield mock supertypes |> MockType
         }
@@ -162,9 +166,11 @@ module TypeSolver =
         let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
         let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
         // TODO: check 'managed' constraint
+        // Byref-like structures can not be generic argument
+        (not t.IsByRefLike) &&
         (not t.ContainsGenericParameters) &&
         (not isReferenceType || not t.IsValueType) &&
-        (not isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null && not t.IsByRefLike)) &&
+        (not isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null)) &&
         (not hasDefaultConstructor || t.IsValueType || not t.IsAbstract && t.GetConstructor(Type.EmptyTypes) <> null) &&
         (parameter.GetGenericParameterConstraints() |> Array.forall (substitute subst >> t.IsAssignableTo))
 
@@ -450,11 +456,6 @@ module TypeSolver =
             for entry in evalInModel model typeStorage do
                 let address = entry.Key
                 let typeForModel = entry.Value
-                match typeForModel with
-                | ConcreteType t when t.IsValueType ->
-                    let value = makeDefaultValue t
-                    modelState.boxedLocations <- PersistentDict.add address value modelState.boxedLocations
-                | _ -> ()
                 modelState.allocatedTypes <- PersistentDict.add address typeForModel modelState.allocatedTypes
         | PrimitiveModel _ -> internalfail "Refining types in model: got primitive model"
 
@@ -489,7 +490,7 @@ module TypeSolver =
             let getMock = getMock typeStorage.TypeMocks
             let result = refineStorage getMock typeStorage Array.empty Array.empty
             match result with
-            | TypeSat -> typeStorage[thisAddress].Value |> Seq.filter checkOverrides
+            | TypeSat -> typeStorage[thisAddress].Value |> Seq.filter checkOverrides |> Seq.truncate 5
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
             assert(thisType = typeOfAddress address)

@@ -133,9 +133,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 
 // ----------------------------- Primitives -----------------------------
 
+    member private x.HandleBoxed (obj : obj) : obj =
+        match obj with
+        | :? Box as b -> b.Value
+        | obj -> obj
+
     member private x.ReadObject address =
         assert(virtToPhys.ContainsKey address)
-        virtToPhys[address].object
+        virtToPhys[address].object |> x.HandleBoxed
 
     member private x.WriteObject address obj =
         assert(virtToPhys.ContainsKey address)
@@ -172,14 +177,12 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             virtToPhys.ContainsKey address
 
         // TODO: leave only one function #refactor
-        override x.VirtToPhys virtAddress = x.ReadObject virtAddress
+        override x.VirtToPhys virtAddress =
+            x.ReadObject virtAddress |> x.HandleBoxed
 
         override x.TryVirtToPhys virtAddress =
             let exists, result = virtToPhys.TryGetValue(virtAddress)
-            if exists then
-                match result.object with
-                | :? Box as b -> Some b.Value
-                | obj -> Some obj
+            if exists then x.HandleBoxed result.object |> Some
             else None
 
         override x.PhysToVirt physAddress =

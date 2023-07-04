@@ -145,9 +145,7 @@ module public Reflection =
         m.IsStatic && m.Name = ".cctor"
 
     let isExternalMethod (methodBase : MethodBase) =
-        let isInternalCall = methodBase.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall
-        let isPInvokeImpl = methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
-        int isInternalCall <> 0 || isPInvokeImpl
+        methodBase.Attributes.HasFlag(MethodAttributes.PinvokeImpl)
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
@@ -215,12 +213,14 @@ module public Reflection =
         if interfaceType = targetType then interfaceMethod
         else
             let sign = createSignature interfaceMethod
-            let methods =
-                match targetType with
-                | _ when targetType.IsArray -> getArrayMethods targetType
-                | _ when targetType.IsInterface -> getAllMethods targetType
-                | _ -> targetType.GetInterfaceMap(interfaceType).TargetMethods
-            methods |> Seq.find (fun mi -> createSignature mi = sign)
+            let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
+            match targetType with
+            | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
+            | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
+            | _ ->
+                let interfaceMap = targetType.GetInterfaceMap(interfaceType)
+                let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
+                interfaceMap.TargetMethods[targetMethodIndex]
 
     let private virtualBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
@@ -300,6 +300,7 @@ module public Reflection =
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
+        assert(not t.IsByRefLike)
         match t with
         | _ when t = typeof<String> -> String.Empty :> obj
         | _ when TypeUtils.isNullable t -> null
@@ -308,6 +309,7 @@ module public Reflection =
         | _ -> System.Runtime.Serialization.FormatterServices.GetUninitializedObject t
 
     let defaultOf (t : Type) =
+        assert(not t.IsByRefLike)
         if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
             then Activator.CreateInstance t
             else null

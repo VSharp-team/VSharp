@@ -39,18 +39,19 @@
         <Compile Include="PrettyPrinting.fs" />
         <Compile Include="FileSystem.fs" />
         <Compile Include="Mocking.fs" />
+        <Compile Include="ExternMocking.fs" />
+        <Compile Include="PhysicalAddress.fs" />
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
-        <Compile Include="PhysicalAddress.fs" />
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
+      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
-      <PackageReference Include="FSharp.Core" Version="7.0.0" />
+      <PackageReference Update="FSharp.Core" Version="7.0.300" />
     </ItemGroup>
 
     <ItemGroup>

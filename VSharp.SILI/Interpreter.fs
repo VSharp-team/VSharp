@@ -7,6 +7,7 @@ open System.Reflection.Emit
 open FSharpx.Collections
 open CilStateOperations
 open VSharp
+open VSharp.CSharpUtils
 open VSharp.Core
 open VSharp.Interpreter.IL
 open ipOperations
@@ -353,9 +354,11 @@ module internal InstructionsSet =
         push address cilState
     let ldnull (cilState : cilState) = push (NullRef typeof<obj>) cilState
     let convu (cilState : cilState) =
+        let ptr = pop cilState |> MakeUIntPtr
+        push ptr cilState
+    let convi (cilState : cilState) =
         let ptr = pop cilState |> MakeIntPtr
         push ptr cilState
-    let convi = convu
     let castTopOfOperationalStack targetType (cilState : cilState) =
         let t = pop cilState
         let termForStack = Types.Cast t targetType
@@ -400,13 +403,6 @@ module internal InstructionsSet =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Initobj.Size)
         let states = Memory.Write cilState.state targetAddress (Memory.DefaultOf typ)
         states |> List.map (changeState cilState)
-    let ldind t reportError (cilState : cilState) =
-        // TODO: what about null pointers?
-        let address = pop cilState
-        let castedAddress = if TypeOfLocation address = t then address else Types.Cast address (t.MakePointerType())
-        ConfigureErrorReporter (changeState cilState >> reportError)
-        let value = Memory.Read cilState.state castedAddress
-        push value cilState
 
     let clt = binaryOperationWithBoolResult OperationType.Less idTransformation idTransformation
     let cgt = binaryOperationWithBoolResult OperationType.Greater idTransformation idTransformation
@@ -559,7 +555,7 @@ type UnknownMethodException(message : string, methodInfo : Method, interpreterSt
     member x.InterpreterStackTrace with get() = interpreterStackTrace
 
 
-type internal ILInterpreter(isConcolicMode : bool) as this =
+type internal ILInterpreter() as this =
 
     let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
         Map.ofList [
@@ -856,6 +852,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         //    method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
         //isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
+    member private x.ShouldMock (method : Method) fullMethodName =
+        Loader.isShimmed fullMethodName
+        || method.IsExternalMethod && not method.IsQCall
+
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with
         | Some this ->
@@ -894,7 +894,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
 
     member private x.IsArrayGetOrSet (method : Method) =
         let name = method.Name
-        (name = "Set" || name = "Get") && typeof<Array>.IsAssignableFrom(method.DeclaringType)
+        (name = "Set" || name = "Get") && typeof<System.Array>.IsAssignableFrom(method.DeclaringType)
 
     static member InitFunctionFrame state (method : Method) this paramValues =
         let parameters = method.Parameters
@@ -1050,13 +1050,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 | None -> whenInitializedCont cilState
                 // TODO: make assumption ``Memory.withPathCondition state (!!typeInitialized)''
 
-    member private x.ConcreteInvokeCatch (e : Exception) cilState =
+    member private x.ConcreteInvokeCatch (e : Exception) cilState isRuntime =
         let state = cilState.state
-        let ref = Memory.AllocateConcreteObject state e (e.GetType())
+        let error = Memory.AllocateConcreteObject state e (e.GetType())
         popFrameOf cilState
-        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
-        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-        setException (Unhandled(ref, true)) cilState
+        x.CommonThrow cilState error isRuntime
 
     member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
@@ -1087,7 +1085,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                         push resultTerm cilState
                     | _ -> ()
                     setCurrentIp (Exit method) cilState
-                with :? TargetInvocationException as e -> x.ConcreteInvokeCatch e.InnerException cilState
+                with :? TargetInvocationException as e ->
+                    let isRuntime = Loader.isRuntimeExceptionsImplementation fullMethodName
+                    x.ConcreteInvokeCatch e.InnerException cilState isRuntime
                 true
         else false
 
@@ -1096,8 +1096,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         assert(currentMethod cilState = method && currentOffset cilState = Some 0<offsets>)
         let fullMethodName, args, thisOption = x.GetFullMethodNameArgsAndThis cilState.state method
         let moveIpToExit (cilState : cilState) =
-            // [NOTE] else current method non method
-            if currentMethod cilState = method then
+            if isUnhandledError cilState |> not then
                 setCurrentIp (Exit method) cilState
             cilState
         if x.TryConcreteInvoke method fullMethodName args thisOption cilState then
@@ -1115,9 +1114,21 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         elif x.IsArrayGetOrSet method then
             let cilStates = x.InvokeArrayGetOrSet cilState method thisOption args
             List.map moveIpToExit cilStates |> k
+        elif ExternMocker.ExtMocksSupported && x.ShouldMock method fullMethodName then
+            let mockMethod = ExternMockAndCall cilState.state method None []
+            match mockMethod with
+            | Some symVal ->
+                push symVal cilState
+            | None -> ()
+            moveIpToExit cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = sprintf "New extern method: %s" fullMethodName
+            let message = sprintf "Not supported extern method: %s" fullMethodName
+            UnknownMethodException(message, method, stackTrace) |> raise
+        elif method.IsInternalCall then
+            assert(not <| method.IsImplementedInternalCall)
+            let stackTrace = Memory.StackTraceString cilState.state.stack
+            let message = sprintf "New internal call: %s" fullMethodName
             UnknownMethodException(message, method, stackTrace) |> raise
         elif x.IsNotImplementedIntrinsic method fullMethodName then
             let stackTrace = Memory.StackTraceString cilState.state.stack
@@ -1192,13 +1203,11 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 let overriden =
                     if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
                     else x.ResolveVirtualMethod targetType ancestorMethod
-                let methodMock = MockMethod cilState.state overriden
-                match methodMock.Call this [] with // TODO: pass args!
-                | Some result ->
-                    assert(ancestorMethod.ReturnType <> typeof<Void>)
-                    push result cilState
-                | None ->
-                    assert(ancestorMethod.ReturnType = typeof<Void>)
+                let mockMethod = MethodMockAndCall cilState.state overriden (Some this) []
+                match mockMethod with
+                | Some symVal ->
+                    push symVal cilState
+                | None -> ()
                 match tryCurrentLoc cilState with
                 | Some loc ->
                     // Moving ip to next instruction after mocking method result
@@ -1324,8 +1333,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             x.InitFunctionFrameCIL cilState calledMethod this (Some args)
             let cilStates = ILInterpreter.CheckDisallowNullAssumptionsAndReport cilState calledMethod
             Cps.List.mapk (x.CommonCall calledMethod) cilStates List.concat
-        if isConcolicMode then getArgsAndCall cilState
-        else x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
+        x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
     member x.CommonCallVirt (ancestorMethod : Method) (cilState : cilState) (k : cilState list -> 'a) =
         let this = Memory.ReadThis cilState.state ancestorMethod
         let call (cilState : cilState) k =
@@ -1431,9 +1439,10 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
         let declaringTermType = fieldInfo.DeclaringType
         let fieldId = Reflection.wrapField fieldInfo
-        let value = if addressNeeded
-                    then StaticField(declaringTermType, fieldId) |> Ref
-                    else Memory.ReadStaticField cilState.state declaringTermType fieldId
+        let value =
+            if addressNeeded then
+                StaticField(declaringTermType, fieldId) |> Ref
+            else Memory.ReadStaticField cilState.state declaringTermType fieldId
         push value cilState
         setCurrentIp newIp cilState
         [cilState])
@@ -1459,7 +1468,9 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 k [cilState]
             let fieldId = Reflection.wrapField fieldInfo
             ConfigureErrorReporter (changeState cilState >> reportError)
-            if TypeUtils.isPointer fieldInfo.DeclaringType then
+            let t = fieldInfo.DeclaringType
+            if t = typeof<IntPtr> || t = typeof<UIntPtr> then
+                // This case is used for IntPtr structure -- ignoring field and returning IntPtr pointer
                 if addressNeeded then createCilState target
                 else Memory.Read cilState.state target |> createCilState
             else
@@ -1572,6 +1583,16 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState this ldvirtftn id
 
+    member x.Ldind t reportError (cilState : cilState) =
+        let address = pop cilState
+        let load cilState k =
+            let castedAddress = if TypeOfLocation address = t then address else Types.Cast address (t.MakePointerType())
+            ConfigureErrorReporter (changeState cilState >> reportError)
+            let value = Memory.Read cilState.state castedAddress
+            push value cilState
+            k (List.singleton cilState)
+        x.NpeOrInvokeStatementCIL cilState address load id
+
     member x.BoxNullable (t : Type) (v : term) (cilState : cilState) : cilState list =
         // TODO: move it to Reflection.fs; add more validation in case if .NET implementation does not have these fields
         let boxValue (cilState : cilState) =
@@ -1617,7 +1638,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             if Types.IsNullable t then
                 let nullableTerm = Memory.DefaultOf t
                 let address = Memory.BoxValueType cilState.state nullableTerm
-                let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                let ref = HeapReferenceToBoxReference address
+                let res = handleRestResults cilState ref
                 nonExceptionCont cilState res k
             else
                 x.Raise x.NullReferenceException cilState k
@@ -1633,7 +1655,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                     let nullableTerm = Memory.WriteStructField nullableTerm valueField value
                     let nullableTerm = Memory.WriteStructField nullableTerm hasValueField (MakeBool true)
                     let address = Memory.BoxValueType cilState.state nullableTerm
-                    let res = handleRestResults cilState (HeapReferenceToBoxReference address)
+                    let ref = HeapReferenceToBoxReference address
+                    let res = handleRestResults cilState ref
                     nonExceptionCont cilState res k)
                 (x.Raise x.InvalidCastException)
         let nonNullCase (cilState : cilState) =
@@ -1643,7 +1666,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (Types.IsCast state obj t, state))
                     (fun cilState k ->
-                        let res = handleRestResults cilState (Types.Cast obj t |> HeapReferenceToBoxReference)
+                        let ref = Types.Cast obj t |> HeapReferenceToBoxReference
+                        let res = handleRestResults cilState ref
                         push res cilState
                         k [cilState])
                     (x.Raise x.InvalidCastException)
@@ -1652,15 +1676,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             nonNullCase
             k
 
+    member private x.CommonThrow cilState error isRuntime =
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setException (Unhandled(error, isRuntime)) cilState
+
     member private x.Throw (cilState : cilState) =
         let error = peek cilState
         let isRuntime = Loader.isRuntimeExceptionsImplementation (currentMethod cilState).FullName
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
             (fun cilState k ->
-                let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
-                setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-                setException (Unhandled(error, isRuntime)) cilState
+                x.CommonThrow cilState error isRuntime
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
@@ -1957,6 +1984,7 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
                             (this.Raise this.OverflowException))
                     id
         this.SignedCheckOverflow checkOverflowForSigned cilState
+
     member private x.Newarr (m : Method) offset (cilState : cilState) =
         let (>>=) = API.Arithmetics.(>>=)
         let elemType = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Newarr.Size)
@@ -1973,7 +2001,6 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             allocate
             (this.Raise this.OverflowException)
             id
-
 
     member x.CreateException (exceptionType : Type) arguments cilState =
         assert (not <| exceptionType.IsValueType)
@@ -1994,6 +2021,8 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
         assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
         let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName |> Application.getMethod
         x.InitFunctionFrameCIL cilState proxyCtor None (Some arguments)
+        let success = x.TryConcreteInvoke proxyCtor proxyCtor.FullName arguments None cilState
+        assert success
 
     member x.InvalidProgramException cilState =
         x.CreateException typeof<InvalidProgramException> [] cilState
@@ -2331,18 +2360,18 @@ type internal ILInterpreter(isConcolicMode : bool) as this =
             | OpCodeValues.Initobj -> initobj |> forkThrough m offset cilState
             | OpCodeValues.Ldarga -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt16 ilBytes (offset + Offset.from OpCodes.Ldarga.Size) |> int) |> fallThrough m offset cilState
             | OpCodeValues.Ldarga_S -> ldarga (fun ilBytes offset -> NumberCreator.extractUnsignedInt8 ilBytes (offset + Offset.from OpCodes.Ldarga_S.Size) |> int) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_I4 -> (fun _ _ -> ldind TypeUtils.int32Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_I1 -> (fun _ _ -> ldind TypeUtils.int8Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_I2 -> (fun _ _ -> ldind TypeUtils.int16Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_I8 -> (fun _ _ -> ldind TypeUtils.int64Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_U1 -> (fun _ _ -> ldind TypeUtils.uint8Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_U2 -> (fun _ _ -> ldind TypeUtils.uint16Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_U4 -> (fun _ _ -> ldind TypeUtils.uint32Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_R4 -> (fun _ _ -> ldind TypeUtils.float32Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_R8 -> (fun _ _ -> ldind TypeUtils.float64Type reportError) |> fallThrough m offset cilState
-            | OpCodeValues.Ldind_Ref -> (fun _ _ -> ldind TypeUtils.nativeint reportError) |> fallThrough m offset cilState
+            | OpCodeValues.Ldind_I4 -> (fun _ _ -> x.Ldind TypeUtils.int32Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_I1 -> (fun _ _ -> x.Ldind TypeUtils.int8Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_I2 -> (fun _ _ -> x.Ldind TypeUtils.int16Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_I8 -> (fun _ _ -> x.Ldind TypeUtils.int64Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_U1 -> (fun _ _ -> x.Ldind TypeUtils.uint8Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_U2 -> (fun _ _ -> x.Ldind TypeUtils.uint16Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_U4 -> (fun _ _ -> x.Ldind TypeUtils.uint32Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_R4 -> (fun _ _ -> x.Ldind TypeUtils.float32Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_R8 -> (fun _ _ -> x.Ldind TypeUtils.float64Type reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_Ref -> (fun _ _ -> x.Ldind TypeUtils.nativeint reportError) |> forkThrough m offset cilState
             // TODO: need to cast to nativeint? #do
-            | OpCodeValues.Ldind_I -> (fun _ _ -> ldind TypeUtils.nativeint reportError) |> fallThrough m offset cilState
+            | OpCodeValues.Ldind_I -> (fun _ _ -> x.Ldind TypeUtils.nativeint reportError) |> forkThrough m offset cilState
             | OpCodeValues.Isinst -> isinst |> forkThrough m offset cilState
             | OpCodeValues.Stobj -> (stobj reportError) |> forkThrough m offset cilState
             | OpCodeValues.Ldobj -> ldobj |> fallThrough m offset cilState

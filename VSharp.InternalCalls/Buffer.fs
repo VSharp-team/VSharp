@@ -9,7 +9,8 @@ open VSharp.Core
 module Buffer =
 
     let internal Memmove (state : state) (args : term list) : term =
-        let dst, src, elemCount = args.[1], args.[2], args.[3]
+        let dst, src, elemCount = args[1], args[2], args[3]
+        let elemCount = Types.Cast elemCount typeof<int>
         let getArrayInfo ref =
             match ref.term with
             | Ref(ArrayIndex(address, indices, arrayType)) -> address, indices, arrayType

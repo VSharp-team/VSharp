@@ -13,6 +13,7 @@ using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
 using NUnit.Framework.Internal.Builders;
 using NUnit.Framework.Internal.Commands;
+using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
 using VSharp.TestRenderer;
@@ -87,13 +88,13 @@ namespace VSharp.Test
         private readonly uint _recThresholdForTest;
         private readonly int _timeout;
         private readonly int _solverTimeout;
-        private readonly bool _concolicMode;
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
         private readonly TestsCheckerMode _testsCheckerMode;
         private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
+        private readonly bool _hasExternMocking;
         private readonly string _pathToSerialize;
         private readonly bool _serialize;
 
@@ -102,12 +103,12 @@ namespace VSharp.Test
             uint recThresholdForTest = 0u,
             int timeout = -1,
             int solverTimeout = -1,
-            bool concolicMode = false,
             bool guidedMode = true,
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
+            bool hasExternMocking = false,
             bool checkAttributes = true,
             string serialize = null)
         {
@@ -119,12 +120,12 @@ namespace VSharp.Test
             _recThresholdForTest = recThresholdForTest;
             _timeout = timeout;
             _solverTimeout = solverTimeout;
-            _concolicMode = concolicMode;
             _guidedMode = guidedMode;
             _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
             _testsCheckerMode = testsCheckerMode;
+            _hasExternMocking = hasExternMocking;
             _checkAttributes = checkAttributes;
             if (serialize == null)
             {
@@ -139,7 +140,6 @@ namespace VSharp.Test
 
         public virtual TestCommand Wrap(TestCommand command)
         {
-            var execMode = _concolicMode ? executionMode.ConcolicMode : executionMode.SymbolicMode;
             return new TestSvmCommand(
                 command,
                 _expectedCoverage,
@@ -148,11 +148,11 @@ namespace VSharp.Test
                 _solverTimeout,
                 _guidedMode,
                 _releaseBranches,
-                execMode,
                 _strat,
                 _coverageZone,
                 _testsCheckerMode,
                 _checkAttributes,
+                _hasExternMocking,
                 _serialize,
                 _pathToSerialize
             );
@@ -165,7 +165,6 @@ namespace VSharp.Test
             private readonly int _timeout;
             private readonly int _solverTimeout;
             private readonly bool _releaseBranches;
-            private readonly executionMode _executionMode;
             private readonly searchMode _searchStrat;
             private readonly coverageZone _coverageZone;
 
@@ -173,6 +172,7 @@ namespace VSharp.Test
             private readonly CoverageZone _baseCoverageZone;
             private readonly bool _renderTests;
             private readonly bool _checkAttributes;
+            private readonly bool _hasExternMocking;
             private readonly string _pathToSerialize;
             private readonly bool _serialize;
 
@@ -184,11 +184,11 @@ namespace VSharp.Test
                 int solverTimeout,
                 bool guidedMode,
                 bool releaseBranches,
-                executionMode execMode,
                 SearchStrategy strat,
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
+                bool hasExternMocking,
                 bool serialize,
                 string pathToSerialize) : base(innerCommand)
             {
@@ -200,7 +200,6 @@ namespace VSharp.Test
                     expectedCoverage : int.Parse(TestContext.Parameters[ExpectedCoverageParameterName]);
 
                 _recThresholdForTest = recThresholdForTest;
-                _executionMode = execMode;
 
                 _timeout = TestContext.Parameters[TimeoutParameterName] == null ?
                     timeout : int.Parse(TestContext.Parameters[TimeoutParameterName]);
@@ -238,12 +237,20 @@ namespace VSharp.Test
                 }
 
                 _checkAttributes = checkAttributes;
+
+                _hasExternMocking = hasExternMocking;
                 _serialize = serialize;
                 _pathToSerialize = pathToSerialize;
             }
 
             private TestResult Explore(TestExecutionContext context)
             {
+                if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
+                {
+                    context.CurrentResult.SetResult(ResultState.Skipped);
+                    return context.CurrentResult;
+                }
+
                 IStatisticsReporter reporter = null;
 
                 var csvReportPath = TestContext.Parameters[CsvPathParameterName];
@@ -273,7 +280,6 @@ namespace VSharp.Test
                     UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
-                        executionMode: _executionMode,
                         outputDirectory: unitTests.TestDirectory,
                         recThreshold: _recThresholdForTest,
                         timeout: _timeout,
@@ -321,13 +327,18 @@ namespace VSharp.Test
                     if (unitTests.UnitTestsCount != 0 || unitTests.ErrorsCount != 0)
                     {
                         var testsDir = unitTests.TestDirectory;
-                        if (_renderTests)
+                        // TODO: support rendering for extern mocks
+                        if (_renderTests && !_hasExternMocking)
                         {
                             var tests = testsDir.EnumerateFiles("*.vst");
                             TestContext.Out.WriteLine("Starting tests renderer...");
                             try
                             {
                                 Renderer.Render(tests, true, false, exploredMethodInfo.DeclaringType);
+                            }
+                            catch (UnexpectedExternCallException)
+                            {
+                                // TODO: support rendering for extern mocks
                             }
                             catch (Exception e)
                             {

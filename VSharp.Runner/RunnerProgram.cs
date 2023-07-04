@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Collections.Generic;
 using System.CommandLine;
 using System.CommandLine.Invocation;
 using System.IO;
@@ -13,7 +12,7 @@ namespace VSharp.Runner
     public static class RunnerProgram
     {
 
-        public static Assembly? ResolveAssembly(FileInfo assemblyPath)
+        public static Assembly? TryLoadAssembly(FileInfo assemblyPath)
         {
             try
             {
@@ -21,7 +20,7 @@ namespace VSharp.Runner
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine("I did not load assembly {0}; Error:{1}", assemblyPath.FullName, ex.Message);
+                Console.Error.WriteLine($"Cannot load assembly {assemblyPath.FullName}; Error: {ex.Message}");
                 Console.Error.WriteLine(ex.StackTrace);
                 return null;
             }
@@ -118,26 +117,6 @@ namespace VSharp.Runner
             }
 
             return method;
-        }
-
-        private static IEnumerable<Type> ResolveNamespace(Assembly assembly, string namespaceArgumentValue)
-        {
-            if (namespaceArgumentValue == null)
-            {
-                Console.Error.WriteLine("Specified namespace can not be null");
-                return null;
-            }
-
-            var types =
-                assembly.EnumerateExplorableTypes()
-                    .Where(t => t.Namespace?.StartsWith(namespaceArgumentValue) == true);
-
-            if (types.Count() == 0)
-            {
-                Console.Error.WriteLine($"I did not found any types in namespace {namespaceArgumentValue}");
-            }
-
-            return types;
         }
 
         private static void PostProcess(Statistics statistics)
@@ -244,55 +223,81 @@ namespace VSharp.Runner
 
             entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity>((assemblyPath, args, timeout, solverTimeout, output, unknownArgs, renderTests, strat, verbosity) =>
             {
-                var assembly = ResolveAssembly(assemblyPath);
+                var assembly = TryLoadAssembly(assemblyPath);
                 var inputArgs = unknownArgs ? null : args;
                 if (assembly != null)
                     PostProcess(TestGenerator.Cover(assembly, inputArgs, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
             });
+
             allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity>((assemblyPath, timeout, solverTimeout, output, renderTests, singleFile, strat, verbosity) =>
             {
-                var assembly = ResolveAssembly(assemblyPath);
+                var assembly = TryLoadAssembly(assemblyPath);
                 if (assembly != null)
                     PostProcess(TestGenerator.Cover(assembly, timeout, solverTimeout, output.FullName, renderTests, singleFile, strat, verbosity));
             });
+
             publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((className, assemblyPath, timeout, solverTimeout, output, renderTests, strat, verbosity) =>
             {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
+                var assembly = TryLoadAssembly(assemblyPath);
+                if (assembly == null) return;
+
+                var type = assembly.ResolveType(className);
+                if (type == null)
                 {
-                    var type = ResolveType(assembly, className);
-                    if (type != null)
-                    {
-                        PostProcess(TestGenerator.Cover(type, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
-                    }
+                    Console.Error.WriteLine($"Cannot find type with name {className} in assembly {assembly.Location}");
+                    return;
                 }
-            });
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((methodName, assemblyPath, timeout, solverTimeout, output, renderTests, strat, verbosity) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
-                {
-                    var method = ResolveMethod(assembly, methodName);
-                    if (method != null)
-                    {
-                        PostProcess(TestGenerator.Cover(method, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
-                    }
-                }
-            });
-            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((namespaceName, assemblyPath, timeout, solverTimeout, output, renderTests, strat, verbosity) =>
-            {
-                var assembly = ResolveAssembly(assemblyPath);
-                if (assembly != null)
-                {
-                    var namespaceTypes = ResolveNamespace(assembly, namespaceName);
-                    if (namespaceTypes.Count() != 0)
-                    {
-                        PostProcess(TestGenerator.Cover(namespaceTypes, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
-                    }
-                }
+
+                PostProcess(TestGenerator.Cover(type, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
             });
 
-            return rootCommand.InvokeAsync(args).Result;
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((methodName, assemblyPath, timeout, solverTimeout, output, renderTests, strat, verbosity) =>
+            {
+                var assembly = TryLoadAssembly(assemblyPath);
+                if (assembly == null) return;
+
+                MethodBase? method;
+
+                if (int.TryParse(methodName, out var methodToken))
+                {
+                    method = assembly.ResolveMethod(methodToken);
+
+                    if (method == null)
+                    {
+                        Console.Error.WriteLine($"Cannot find method with token {methodToken} in assembly {assembly.Location}");
+                        return;
+                    }
+                }
+                else
+                {
+                    method = assembly.ResolveMethod(methodName);
+
+                    if (method == null)
+                    {
+                        Console.Error.WriteLine($"Cannot find method with name {methodName} in assembly {assembly.Location}");
+                        return;
+                    }
+                }
+
+                PostProcess(TestGenerator.Cover(method, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
+            });
+
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, SearchStrategy, Verbosity>((namespaceName, assemblyPath, timeout, solverTimeout, output, renderTests, strat, verbosity) =>
+            {
+                var assembly = TryLoadAssembly(assemblyPath);
+                if (assembly == null) return;
+
+                var namespaceTypes = assembly.ResolveNamespace(namespaceName).ToArray();
+                if (namespaceTypes.Length == 0)
+                {
+                    Console.Error.WriteLine($"Cannot find any types in namespace {namespaceName}");
+                    return;
+                }
+
+                PostProcess(TestGenerator.Cover(namespaceTypes, timeout, solverTimeout, output.FullName, renderTests, strat, verbosity));
+            });
+
+            return rootCommand.Invoke(args);
         }
     }
 }

@@ -91,6 +91,9 @@ module internal Pointers =
                 | Ref _, Ptr _
                 | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
                 | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
+                | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
+                | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
+                    simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
                 | _ -> False |> k)
             (fun x y k -> simplifyReferenceEqualityk x y k)
 
@@ -111,15 +114,40 @@ module internal Pointers =
             shift ptr bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
 
-    let rec private commonPointerAddition ptr number k = // y must be normalized by Arithmetics!
+    // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
+    let private multiplyPtrByNumber ptr number k =
+        match ptr.term with
+        | DetachedPtr offset ->
+            mul offset number |> k
+        | _ -> internalfail $"multiplyPtrByNumber: unexpected pointer {ptr}"
+
+    let private simplifyOperands x y =
+        let xType = typeOf x
+        let yType = typeOf y
+        match x.term, y.term with
+        | _ when isNumeric yType -> x, y
+        | _ when isNumeric xType -> y, x
+        | _, DetachedPtr offset ->
+            assert(isRefOrPtr x)
+            x, offset
+        | DetachedPtr offset, _ ->
+            assert(isRefOrPtr y)
+            y, offset
+        | _ -> internalfail $"pointer arithmetic: unexpected operands {x} {y}"
+
+    let rec private simplifyPointerAddition x y k =
+        let ptr, number = simplifyOperands x y
         simplifyGenericBinary "add shift to pointer" ptr number k
             (fun _ _ _ -> __unreachable__())
             addNumberToPtr
-            commonPointerAddition
+            simplifyPointerAddition
 
-    let private simplifyPointerAddition x y k =
-        let x', y' = if Terms.isNumeric y then x, y else y, x
-        commonPointerAddition x' y' k
+    let rec private simplifyPointerMultiply x y k = // y must be normalized by Arithmetics!
+        let ptr, number = simplifyOperands x y
+        simplifyGenericBinary "multiply pointer by number" ptr number k
+            (fun _ _ _ -> __unreachable__())
+            multiplyPtrByNumber
+            simplifyPointerMultiply
 
     let private pointerDifference x y k =
         match x.term, y.term with
@@ -137,7 +165,7 @@ module internal Pointers =
 
     let private simplifyPointerSubtraction x y k =
         if Terms.isNumeric y
-        then commonPointerAddition x (neg y) k
+        then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
     let simplifyBinaryOperation op x y k =
@@ -146,31 +174,22 @@ module internal Pointers =
             simplifyPointerSubtraction x y k
         | OperationType.Add ->
             simplifyPointerAddition x y k
+        | OperationType.Multiply ->
+            simplifyPointerMultiply x y k
         | OperationType.Equal -> simplifyReferenceEqualityk x y k
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk x y (fun e ->
             simplifyNegation e k)
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
-    let add x y =
-        simplifyBinaryOperation OperationType.Add x y id
-
-    let sub x y =
-        simplifyBinaryOperation OperationType.Subtract x y id
-
     let isPointerOperation op t1 t2 =
-        let isReferenceType = function
+        let isRefOrPtr = function
             | ReferenceType _ -> true
-            | _ -> false
-        // NOTE: safe pointer is Ref, unsafe pointer is Ptr
-        let isPointer t = isPointer t || t.IsByRef
-        let isPtrOrNull t = isPointer t
-
+            | t -> t.IsByRef || isPointer t
         match op with
         | OperationType.Equal
-        | OperationType.NotEqual ->
-            isReferenceType t1 || isReferenceType t2 || isPtrOrNull t1 || isPtrOrNull t2
-        | OperationType.Subtract -> isPointer t1 && (isPointer t2 || isNumeric t2)
-        | OperationType.Add ->
-            (isPointer t1 && isNumeric t2) || (isPointer t2 && isNumeric t1)
+        | OperationType.NotEqual -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.Subtract -> isRefOrPtr t1 && (isRefOrPtr t2 || isNumeric t2)
+        | OperationType.Add -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.Multiply -> isRefOrPtr t1 || isRefOrPtr t2
         | _ -> false

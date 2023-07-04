@@ -33,9 +33,14 @@ type IConcreteMemory =
     abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
     abstract Remove : concreteHeapAddress -> unit
 
+type MockingType =
+    | Default
+    | Extern
+
 type IMethodMock =
     abstract BaseMethod : System.Reflection.MethodInfo
-    abstract Call : term -> term list -> term option
+    abstract MockingType : MockingType
+    abstract Call : term option -> term list -> term
     abstract GetImplementationClauses : unit -> term array
     abstract Copy : unit -> IMethodMock
 
@@ -336,7 +341,7 @@ and
         mutable lengths : pdict<arrayType, vectorRegion>                   // Lengths by dimensions of arrays in heap
         mutable lowerBounds : pdict<arrayType, vectorRegion>               // Lower bounds by dimensions of arrays in heap
         mutable staticFields : pdict<fieldId, staticsRegion>               // Static fields of types without type variables
-        mutable boxedLocations : pdict<concreteHeapAddress, term>          // Value types boxed in heap
+        mutable boxedLocations : pdict<Type, heapRegion>                   // Value types boxed in heap
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
         concreteMemory : IConcreteMemory                                   // Fully concrete objects
         mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
