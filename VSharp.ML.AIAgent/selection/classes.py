@@ -14,6 +14,8 @@ class GameResult:
     move_reward: MoveReward
     steps_count: int
     coverage_percent: float
+    tests_count: int
+    errors_count: int
     actual_coverage_percent: Optional[float] = None
 
     def printable(self, verbose) -> str:
@@ -25,14 +27,22 @@ class GameResult:
         steps_format = (
             f"steps: {self.steps_count}," if verbose else f"#s={self.steps_count}"
         )
+        tests_count_format = (
+            f"test count: {self.tests_count}" if verbose else f"#t={self.tests_count}"
+        )
+        errors_count_format = (
+            f"error count: {self.errors_count}"
+            if verbose
+            else f"#e={self.errors_count}"
+        )
         if self.actual_coverage_percent is not None:
             actual_coverage_percent_format = (
                 f"actual %: {self.actual_coverage_percent:.2f},"
                 if verbose
                 else f"%ac={self.actual_coverage_percent:.2f}"
             )
-            return f"{coverage_percent_format} {actual_coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
-        return f"{coverage_percent_format} {steps_format} {self.move_reward.printable(verbose)}"
+            return f"{coverage_percent_format} {actual_coverage_percent_format} {steps_format} {tests_count_format} {errors_count_format} {self.move_reward.printable(verbose)}"
+        return f"{coverage_percent_format} {steps_format} {tests_count_format} {errors_count_format} {self.move_reward.printable(verbose)}"
 
 
 @dataclass

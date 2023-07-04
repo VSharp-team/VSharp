@@ -19,7 +19,7 @@ from ml.model_wrappers.nnwrapper import NNWrapper
 from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
-from selection.scorer import minkowski_superscorer
+from selection.scorer import straight_scorer
 from ws_source.classes import Agent2ResultsOnMaps
 from ws_source.requests import recv_game_result_list, send_game_results
 from ws_source.ws_source import WebsocketSource
@@ -62,9 +62,14 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
                 move_reward=MoveReward(ForCoverage=0, ForVisitedInstructions=0),
                 steps_count=steps,
                 coverage_percent=0,
+                tests_count=0,
+                errors_count=0,
             )
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
+
+        tests_count = gameover.tests_count
+        errors_count = gameover.errors_count
 
     computed_coverage, vertexes_in_zone = covered(game_state)
     computed_coverage += last_step_covered
@@ -88,10 +93,12 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
         steps_count = steps
 
     model_result = GameResult(
-        cumulative_reward,
-        steps_count,
-        coverage_percent,
-        actual_coverage,
+        move_reward=cumulative_reward,
+        steps_count=steps_count,
+        coverage_percent=coverage_percent,
+        tests_count=tests_count,
+        errors_count=errors_count,
+        actual_coverage_percent=actual_coverage,
     )
 
     return model_result
@@ -206,7 +213,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
                 pbar.update(1)
     send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
 
-    return minkowski_superscorer(rst, k=2)
+    return straight_scorer(rst)
 
 
 def actual_if_exists(actual_coverage, manual_coverage):

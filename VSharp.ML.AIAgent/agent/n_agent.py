@@ -33,8 +33,16 @@ class NAgent:
         pass
 
     class GameOver(Exception):
-        def __init__(self, actual_coverage: Optional[int], *args) -> None:
+        def __init__(
+            self,
+            actual_coverage: Optional[int],
+            tests_count: int,
+            errors_count: int,
+            *args,
+        ) -> None:
             self.actual_coverage = actual_coverage
+            self.tests_count = tests_count
+            self.errors_count = errors_count
             super().__init__(*args)
 
     def __init__(
@@ -67,7 +75,11 @@ class NAgent:
                 )
                 self.game_is_over = True
                 logging.debug(f"--> {matching_message_type}")
-                raise NAgent.GameOver(deser_msg.MessageBody.ActualCoverage)
+                raise NAgent.GameOver(
+                    actual_coverage=deser_msg.MessageBody.ActualCoverage,
+                    tests_count=deser_msg.MessageBody.TestsCount,
+                    errors_count=deser_msg.MessageBody.ErrorsCount,
+                )
             case _:
                 return msg
 

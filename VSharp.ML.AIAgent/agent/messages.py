@@ -122,6 +122,8 @@ class MapsServerMessage(ServerMessage):
 @dataclass
 class GameOverServerMessageBody:
     ActualCoverage: Optional[int]
+    TestsCount: int
+    ErrorsCount: int
 
 
 @dataclass
