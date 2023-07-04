@@ -713,8 +713,9 @@ module internal Z3 =
             // TODO: use stringRepr for serialization of strings
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
-            let cond = x.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
-            {expr = expr; assumptions = cond :: assumptions}
+            let left = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
+            let right = ctx.MkBVSLT(expr, ctx.MkBV(127, expr.SortSize))
+            {expr = expr; assumptions = left :: right :: assumptions}
 
         member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source structFields name =
             assert mo.defaultValue.IsNone
