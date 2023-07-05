@@ -499,7 +499,7 @@ type ApplicationGraph() =
         ()
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =
-        __notImplemented__()    
+        __notImplemented__()
 
     member this.RegisterMethod (method: Method) =
         assert method.HasBody
