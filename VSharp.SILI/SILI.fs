@@ -102,7 +102,9 @@ type public SILI(options : SiliOptions) =
 
     let reportState reporter isError cilState message =
         try
-            let isNewHistory() = cilState.history |> Set.exists (not << statistics.IsBasicBlockCoveredByTest)
+            let isNewHistory() =
+                let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
+                Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
             let suitableHistory = Set.isEmpty cilState.history || isNewHistory()
             if suitableHistory && not isError || isError && statistics.IsNewError cilState message then
                 let callStackSize = Memory.CallStackSize cilState.state
