@@ -44,3 +44,7 @@ class WebsocketSourceLinks:
 class ResultsHandlerLinks:
     POST_RES = f"http://0.0.0.0:{BROKER_SERVER_PORT}/send_res"
     GET_RES = f"http://0.0.0.0:{BROKER_SERVER_PORT}/recv_res"
+
+
+DUMMY_INPUT_PATH = "ml/onnx/dummy_input.json"
+BEST_MODEL_ONNX_SAVE_PATH = "ml/onnx/StateModelEncoder.onnx"

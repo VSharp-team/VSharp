@@ -62,3 +62,16 @@ def random_model_weights(low, hi, model_load_path=Constant.IMPORTED_DICT_MODEL_P
     )
 
     return net_weights
+
+
+def create_model_from_weights_vector(weights: list[float]):
+    model = load_model_with_last_layer(
+        Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
+    )
+
+    state_dict = pygad.torchga.model_weights_as_dict(
+        model=model, weights_vector=weights
+    )
+    model.load_state_dict(state_dict)
+
+    return model

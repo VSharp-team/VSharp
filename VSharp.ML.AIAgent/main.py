@@ -83,6 +83,11 @@ def timeit(func):
     return wrapper
 
 
+from common.constants import BEST_MODEL_ONNX_SAVE_PATH
+from ml.onnx.onnx_import import export_onnx_model
+from ml.utils import create_model_from_weights_vector
+
+
 @timeit
 def main():
     set_start_method("spawn")
@@ -186,6 +191,9 @@ def main():
         "Index of the best solution : {solution_idx}".format(solution_idx=solution_idx)
     )
     ga_instance.save("./last_ga_instance")
+
+    best_model = create_model_from_weights_vector(solution)
+    export_onnx_model(best_model, BEST_MODEL_ONNX_SAVE_PATH)
 
 
 if __name__ == "__main__":
