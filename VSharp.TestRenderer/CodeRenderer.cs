@@ -1004,6 +1004,19 @@ internal class CodeRenderer
 
 internal static class CorrectNameGenerator
 {
+    private class EmptyReferenceManager : IReferenceManager
+    {
+        public void AddUsing(string name) { }
+
+        public void AddStaticUsing(string name) { }
+
+        public void AddAssembly(Assembly assembly) { }
+
+        public void AddTestExtensions() { }
+
+        public void AddObjectsComparer() { }
+    }
+
     public static string GetTypeName(Type type)
     {
         var typeName = type.Name;
@@ -1049,5 +1062,32 @@ internal static class CorrectNameGenerator
 
         Debug.Assert(correctName.Length > 0);
         return correctName.ToString();
+    }
+
+    public static string GetVariableName(MethodBase method)
+    {
+        var codeRenderer = new CodeRenderer(new EmptyReferenceManager());
+        string varName;
+        var renderedName = codeRenderer.RenderMethodName(method);
+        switch (renderedName)
+        {
+            case GenericNameSyntax g:
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.Append(g.Identifier.ToString());
+                foreach (var t in method.GetGenericArguments())
+                {
+                    sb.Append($"_{t}");
+                }
+
+                varName = sb.ToString();
+                break;
+            }
+            default:
+                varName = renderedName.ToString();
+                break;
+        }
+
+        return GetVariableName(varName);
     }
 }

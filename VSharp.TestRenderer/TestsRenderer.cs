@@ -413,7 +413,7 @@ public static class TestsRenderer
         // Rendering mocked method clauses
         var returnType = m.ReturnType.MakeArrayType();
         var renderedReturnType = (ArrayTypeSyntax) mock.RenderType(returnType);
-        var methodName = mock.RenderMethodName(m).ToString();
+        var methodName = CorrectNameGenerator.GetVariableName(m);
         var valuesFieldName = $"_clauses{methodName}";
         var emptyArray =
             RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
