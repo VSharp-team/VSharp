@@ -63,16 +63,24 @@ type IpStackComparer() =
 type DFSSearcher() =
     let states = List<cilState>()
 
-    let update newStates =
-        for newState in newStates do
-            assert(states.Contains newState |> not)
-            states.Add newState
+    let update parent newStates =
+        if Seq.isEmpty newStates |> not then
+            let last = states.Count - 1
+            assert(states[last] = parent)
+            states.RemoveAt(last)
+            for newState in newStates do
+                assert(states.Contains newState |> not)
+                states.Add newState
+            states.Add(parent)
 
     interface IForwardSearcher with
         override x.Init initialStates = states.AddRange initialStates
         override x.Pick selector = Seq.tryFindBack selector states
-        override x.Pick() = Seq.tryLast states
-        override x.Update(_, newStates) = update newStates
+        override x.Pick() =
+            let last = states.Count - 1
+            if last >= 0 then Some states[last]
+            else None
+        override x.Update(parent, newStates) = update parent newStates
         override x.States() = states
         override x.Reset() = states.Clear()
         override x.Remove cilState = states.Remove cilState |> ignore
