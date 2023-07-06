@@ -153,7 +153,7 @@ let main args =
     let port =
         match args.TryGetResult <@Port@> with
         | Some port -> port
-        | None -> 8080
+        | None -> 8100
     
     let outputDirectory =
         Path.Combine(Directory.GetCurrentDirectory(), string port)
