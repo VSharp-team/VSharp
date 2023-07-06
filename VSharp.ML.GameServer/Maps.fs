@@ -15,7 +15,6 @@ let trainMaps, validationMaps =
     
     let add = add' trainMaps 10000000u<step>
    
-    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"    
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
         
@@ -23,10 +22,6 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     //debug me//add 15u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    // too slow
-    //add 25u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
-    // too slow
-    //add 50u "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches3"
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches4"
@@ -44,7 +39,6 @@ let trainMaps, validationMaps =
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
-    //!!!
     add 70u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "bsPartition"
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "matrixInverse"
@@ -60,7 +54,7 @@ let trainMaps, validationMaps =
     add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"
     add 40u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "fillRemaining"   
     
-    add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
+    //add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     //add 20u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     //add 80u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "solveWordWrap"
     
@@ -91,7 +85,7 @@ let trainMaps, validationMaps =
     //add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MergeSortMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "MatrixInverseMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "SudokuMain"
-    add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "WordWrapMain"
+    //add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "WordWrapMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "LCSMain"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze1Main"
     add 0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinaryMaze2Main"
@@ -200,14 +194,10 @@ let trainMaps, validationMaps =
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.Clear"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryExtract"
     add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "JetPriorityQueue.TryPeek"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
+        
     //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.FlowInto"
     //--add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseAddRemove"
-    
-    add 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
-    
+       
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinaryTreeRecursiveWalker.ForEach"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BinaryTreeRecursiveWalker.BinarySearch"
     
@@ -239,10 +229,10 @@ let trainMaps, validationMaps =
     
     //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscMountJob.Run"
     //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscHasher.OldHash"
+
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "TI83LinkPort.Update"
     
-    
-    
-    
+        
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "TopologicalSorter.Sort"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraShortestPaths.ShortestPathTo"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraAllPairsShortestPaths.ShortestPath"
@@ -274,5 +264,8 @@ let trainMaps, validationMaps =
     add 5000u<step>  0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "bucketSort"
     //add 15000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "GetMaxBiPartiteMatchingMain"
     add 5000u<step> 0u<percent> "Advanced.Algorithms.dll" CoverageZone.Method "GetMaxBiPartiteMatchingMain"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
+    add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
 
     trainMaps, validationMaps
