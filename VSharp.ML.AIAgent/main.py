@@ -164,7 +164,6 @@ def main():
         initial_population=initial_weights,
         fitness_func=fitness_function,
         on_generation=on_generation,
-        save_solutions=True,
         parallel_processing=["process", server_count],
         parent_selection_type=parent_selection_type,
         keep_parents=keep_parents,
@@ -176,20 +175,6 @@ def main():
     )
 
     ga_instance.run()
-
-    ga_instance.plot_fitness(save_dir="./ga_plots/1.png")
-    ga_instance.plot_new_solution_rate(save_dir="./ga_plots/2.png")
-
-    # Returning the details of the best solution.
-    solution, solution_fitness, solution_idx = ga_instance.best_solution()
-    print(
-        "Fitness value of the best solution = {solution_fitness}".format(
-            solution_fitness=solution_fitness
-        )
-    )
-    print(
-        "Index of the best solution : {solution_idx}".format(solution_idx=solution_idx)
-    )
     ga_instance.save("./last_ga_instance")
 
     best_model = create_model_from_weights_vector(solution)
