@@ -12,8 +12,10 @@ def compute_statistics(inference_times_array: list[float], base_z_score=3):
         return abs((point - mean_inference) / std) >= base_z_score
 
     inference_times_array = list(filter(z_score_filter, inference_times_array))
+    outliers_array = list(filter(outliers_filter, inference_times_array))
 
     mean_inference_no_outliers = statistics.mean(inference_times_array) * 1000
     std_no_outliers = statistics.stdev(inference_times_array) * 1000
 
+    print(outliers_array)
     return mean_inference_no_outliers, std_no_outliers
