@@ -3,7 +3,7 @@ import json
 import os
 import signal
 import subprocess
-from queue import Queue
+from queue import Queue, Empty
 
 from aiohttp import web
 
@@ -18,8 +18,10 @@ async def dequeue_ws(request):
         ws = WS_URLS.get(timeout=0.1)
         print(f"issued {ws}")
         return web.Response(text=ws)
-    except Exception as e:
-        print(e)
+    except Empty as e:
+        print(
+            "Exception occured when trying to get socket! Make sure that server count is the same as in main.py"
+        )
         return web.Response(text=str(e))
 
 
@@ -51,14 +53,9 @@ async def send_and_clear_results(request):
     return web.Response(text=rst)
 
 
-def main():
-    global WS_URLS, RESULTS
-    parser = argparse.ArgumentParser(description="V# instances launcher")
-    parser.add_argument(
-        "-n", "--num_inst", type=int, help="number of instances to launch"
-    )
-    args = parser.parse_args()
-
+def run_servers(
+    num_inst: int, start_port: int = VSHARP_INSTANCES_START_PORT
+) -> list[subprocess.Popen]:
     # assuming we start from ~/gsv/VSharp/VSharp.ML.AIAgent
     working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
     launch_server = [
@@ -69,17 +66,39 @@ def main():
     ]
 
     procs = []
-    for i in range(args.num_inst):
+    for i in range(num_inst):
         proc = subprocess.Popen(
-            launch_server + [str(VSHARP_INSTANCES_START_PORT + i)],
+            launch_server + [str(start_port + i)],
             start_new_session=True,
             cwd=working_dir,
         )
         procs.append(proc)
-        print(
-            f"{proc.pid}: "
-            + " ".join(launch_server + [str(VSHARP_INSTANCES_START_PORT + i)])
-        )
+        print(f"{proc.pid}: " + " ".join(launch_server + [str(start_port + i)]))
+
+    return procs
+
+
+def kill_servers(procs: list[subprocess.Popen]):
+    for proc in procs:
+        os.kill(proc.pid, signal.SIGTERM)
+        print(f"killed {proc.pid}")
+
+
+def main():
+    global WS_URLS, RESULTS
+    parser = argparse.ArgumentParser(description="V# instances launcher")
+    parser.add_argument(
+        "-n", "--num_inst", type=int, help="number of instances to launch"
+    )
+    parser.add_argument(
+        "--debug",
+        action=argparse.BooleanOptionalAction,
+        help="dont launch servers if set",
+    )
+    args = parser.parse_args()
+
+    if not args.debug:
+        procs = run_servers(args.num_inst)
 
     SOCKET_URLS = [
         f"ws://0.0.0.0:{VSHARP_INSTANCES_START_PORT + i}/gameServer"
@@ -96,9 +115,8 @@ def main():
     app.add_routes(routes)
     web.run_app(app, port=BROKER_SERVER_PORT)
 
-    for proc in procs:
-        os.kill(proc.pid, signal.SIGTERM)
-        print(f"killed {proc.pid}")
+    if not args.debug:
+        kill_servers(procs)
 
 
 if __name__ == "__main__":
