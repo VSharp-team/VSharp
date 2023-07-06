@@ -1,0 +1,3 @@
+[submodule "BizHawk"]
+	path = BizHawk
+	url = https://github.com/TASEmulators/BizHawk.git

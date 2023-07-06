@@ -1,1 +1,0 @@
-Modified copy of a subset of [EzArIk/PcxFileType](https://github.com/EzArIk/PcxFileType). As with upstream, this is distributed under the terms and conditions of the MIT license. See License.md for more information.
