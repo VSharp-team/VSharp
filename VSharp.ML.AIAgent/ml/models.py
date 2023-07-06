@@ -15,7 +15,9 @@ from torch_geometric.nn import (
     TransformerConv,
     global_mean_pool,
     to_hetero,
+    GatedGraphConv,
 )
+from torchvision.ops import MLP
 
 from .data_loader_compact import NUM_NODE_FEATURES
 
@@ -492,3 +494,45 @@ class StateModelEncoder(torch.nn.Module):
 
         # return self.decoder(z_dict, edge_index_dict) # TODO: process separately
         return z_dict
+
+
+class GatedGCNModel(torch.nn.Module):
+    def __init__(self, hidden_channels):
+        super().__init__()
+        self.gatedgcn_gv1 = GatedGraphConv(hidden_channels, 1)
+        self.gatedgcn_sv1 = GatedGraphConv(hidden_channels, 1)
+        self.gatedgcn_common1 = GatedGraphConv(hidden_channels, 1)
+        self.gatedgcn_common2 = GatedGraphConv(hidden_channels, 1)
+        self.sage_conv1 = SAGEConv((-1, -1), hidden_channels)
+        self.sage_conv2 = SAGEConv((-1, -1), hidden_channels)
+        # self.gatedgcn_common3 = GatedGraphConv(hidden_channels, 1)
+        self.mlp = MLP(hidden_channels, [20, 1])
+
+
+    def forward(self, x_dict, edge_index_dict):
+        game_x = self.gatedgcn_gv1(
+            x_dict["game_vertex"],
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+        state_x = self.gatedgcn_sv1(
+            x_dict["state_vertex"],
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+        common_x = self.sage_conv1(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")]
+            # torch.cat(
+            # (edge_index_dict[("game_vertex", "history", "state_vertex")],
+            # edge_index_dict[("state_vertex", "history", "game_vertex")]), 1
+            # )
+        ).relu()
+        common_x = self.sage_conv2(
+            (game_x, common_x),
+            edge_index_dict[("game_vertex", "in", "state_vertex")]
+            # torch.cat((
+            # edge_index_dict[("game_vertex", "in", "state_vertex")],
+            # edge_index_dict[("state_vertex", "in", "game_vertex")]), 1
+            # )
+        ).relu()
+
+        return self.mlp(common_x)
