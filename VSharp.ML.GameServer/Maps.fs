@@ -223,16 +223,19 @@ let trainMaps, validationMaps =
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "GreatestCommonDivisor.FindGCDStein"
     
     add 0u<percent> "Algorithms.dll" CoverageZone.Method "SieveOfEratosthenes.GeneratePrimesUpTo"
-    
+        
     //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscHasher.Calculate_PSX_BizIDHash"
     //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscHasher.Calculate_PSX_RedumpHash"
     
-    //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscMountJob.Run"
-    //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscHasher.OldHash"
+    add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscMountJob.Run"
+    add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscHasher.OldHash"
+
+    //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscSectorReader.ReadLBA_SubQ"
+    //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscSectorReader.ReadLBA_2448"
+    //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscStream.Read"
 
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "TI83LinkPort.Update"
     
-        
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "TopologicalSorter.Sort"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraShortestPaths.ShortestPathTo"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraAllPairsShortestPaths.ShortestPath"
