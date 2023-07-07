@@ -1,13 +1,11 @@
 import json
 import logging
 from collections import defaultdict
-from contextlib import closing
 from os import getpid
 
 import numpy.typing as npt
 import pygad.torchga
 import tqdm
-import websocket
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
@@ -21,7 +19,7 @@ from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import straight_scorer
-from timer.context_managers import manage_map_inference_times_array
+from timer.resources_manager import manage_map_inference_times_array
 from timer.stats import compute_statistics
 from timer.utils import (
     create_temp_epoch_inference_dir,
@@ -29,9 +27,9 @@ from timer.utils import (
     get_map_inference_times,
     load_times_array,
 )
-from ws_source.classes import Agent2ResultsOnMaps
-from ws_source.requests import recv_game_result_list, send_game_results
-from ws_source.ws_source import game_server_sock
+from conn.classes import Agent2ResultsOnMaps
+from conn.requests import recv_game_result_list, send_game_results
+from conn.socket_manager import game_server_socket_manager
 
 
 def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
@@ -173,9 +171,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     model.eval()
     predictor = NNWrapper(model, weights_flat=solution)
 
-    with game_server_sock() as ws_url, closing(
-        websocket.create_connection(ws_url)
-    ) as ws:
+    with game_server_socket_manager() as ws:
         maps = get_maps(websocket=ws, type=maps_type)
         with tqdm.tqdm(
             total=len(maps),

@@ -1,17 +1,13 @@
-Framework for neural network training
+Framework for Genetic NN training
 
 ## Steps to start server
  1. [Build V#](https://github.com/gsvgit/VSharp/tree/mlSearcher#how-to-build)
  2. Go to `VSharp.ML.GameServer.Runner/bin/Release/net6.0/`
- 3. ```dotnet VSharp.ML.GameServer.Runner.dll``` to start server on default port (8080) or ```cmd dotnet VSharp.ML.GameServer.Runner.dll --port [specific_port]``` to start server on `specific_port`.
+ 3. ```dotnet VSharp.ML.GameServer.Runner.dll``` to start server on default port (8100) or ```cmd dotnet VSharp.ML.GameServer.Runner.dll --port [specific_port]``` to start server on `specific_port`.
 
 ## Steps to run client
 
-python version >= 3.10 required
-
-### 1. Game server connection + Torch installation using conda/miniconda
-
-Works on ARM proc, macOS v13.1
+### 1. Create venv, install deps
 Python 3.10.8
 
 ```sh
@@ -24,16 +20,11 @@ conda env create -f conda_env.yml
 
 # activate env with your script:
 conda activate <enter your system path>/VSharp/VSharp.ML.AIAgent/.env
-cd ..
+
+"""then install required dependencies"""
 ```
 
-### 1.1 Dumping env config
 
-use
-```sh
-conda env export | grep -v "^prefix: " > conda_env.yml
-```
-to dump current env info into config file
 
 ### 2. Launch training
 

@@ -18,7 +18,7 @@ from ml.utils import (
 from selection.crossover_type import CrossoverType
 from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
-from timer.context_managers import manage_inference_stats
+from timer.resources_manager import manage_inference_stats
 
 logging.basicConfig(
     level=logging.INFO,

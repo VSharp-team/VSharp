@@ -4,7 +4,7 @@ from typing import Optional, TypeAlias
 
 from dataclasses_json import dataclass_json
 
-from common.game import GameMap, MoveReward
+from common.game import GameMap
 from ml.model_wrappers.protocols import Named
 
 
