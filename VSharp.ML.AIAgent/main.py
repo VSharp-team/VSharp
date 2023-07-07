@@ -71,88 +71,89 @@ def main():
     init_log_file()
     init_epochs_best_dir()
 
+    server_count = 8
+
+    num_models_with_random_last_layer = 8
+    num_random_models = 4
+
+    num_generations = 6
+    num_parents_mating = 6
+    keep_parents = 2
+    parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
+    crossover_type = CrossoverType.SINGLE_POINT
+    mutation_type = MutationType.RANDOM
+    mutation_percent_genes = 30
+    random_mutation_max_val = 5.0
+    random_mutation_min_val = -5.0
+    random_init_weights_max_val = 5.0
+    random_init_weights_min_val = -5.0
+
+    initial_weights = []
+
+    pre_loaded_last_layer1 = weights_vector(
+        [
+            -0.7853140655460631,
+            0.7524892603731441,
+            0.2844810949678288,
+            -0.6819831165289404,
+            -0.0830326280153653,
+            0.1779108098019602,
+            0.95478059636744,
+            0.27937866719070503,
+        ],
+    )
+    initial_weights.append(pre_loaded_last_layer1)
+
+    pre_loaded_last_layer2 = weights_vector(
+        [
+            -0.7853139452883172,
+            0.752490045931864,
+            0.2844807733073216,
+            -0.6819766889604519,
+            -0.08303258833890134,
+            0.17791068654815034,
+            0.9555442824877577,
+            0.2793786892860371,
+        ]
+    )
+    initial_weights.append(pre_loaded_last_layer2)
+
+    with_random_last_layer_weights = n_random_last_layer_model_weights(
+        n=num_models_with_random_last_layer,
+        low=random_init_weights_min_val,
+        hi=random_init_weights_max_val,
+    )
+
+    initial_weights += with_random_last_layer_weights
+
+    with_random_weights = n_random_model_weights(
+        n=num_random_models,
+        low=random_init_weights_min_val,
+        hi=random_init_weights_max_val,
+    )
+
+    initial_weights += with_random_weights
+
+    ga_instance = pygad.GA(
+        num_generations=num_generations,
+        num_parents_mating=num_parents_mating,
+        initial_population=initial_weights,
+        fitness_func=fitness_function,
+        on_generation=on_generation,
+        parallel_processing=["process", server_count],
+        parent_selection_type=parent_selection_type,
+        keep_parents=keep_parents,
+        crossover_type=crossover_type,
+        mutation_type=mutation_type,
+        mutation_percent_genes=mutation_percent_genes,
+        random_mutation_max_val=random_mutation_max_val,
+        random_mutation_min_val=random_mutation_min_val,
+    )
+
     with manage_inference_stats():
-        server_count = 8
-
-        num_models_with_random_last_layer = 8
-        num_random_models = 4
-
-        num_generations = 6
-        num_parents_mating = 6
-        keep_parents = 2
-        parent_selection_type = ParentSelectionType.STEADY_STATE_SELECTION
-        crossover_type = CrossoverType.SINGLE_POINT
-        mutation_type = MutationType.RANDOM
-        mutation_percent_genes = 30
-        random_mutation_max_val = 5.0
-        random_mutation_min_val = -5.0
-        random_init_weights_max_val = 5.0
-        random_init_weights_min_val = -5.0
-
-        initial_weights = []
-
-        pre_loaded_last_layer1 = weights_vector(
-            [
-                -0.7853140655460631,
-                0.7524892603731441,
-                0.2844810949678288,
-                -0.6819831165289404,
-                -0.0830326280153653,
-                0.1779108098019602,
-                0.95478059636744,
-                0.27937866719070503,
-            ],
-        )
-        initial_weights.append(pre_loaded_last_layer1)
-
-        pre_loaded_last_layer2 = weights_vector(
-            [
-                -0.7853139452883172,
-                0.752490045931864,
-                0.2844807733073216,
-                -0.6819766889604519,
-                -0.08303258833890134,
-                0.17791068654815034,
-                0.9555442824877577,
-                0.2793786892860371,
-            ]
-        )
-        initial_weights.append(pre_loaded_last_layer2)
-
-        with_random_last_layer_weights = n_random_last_layer_model_weights(
-            n=num_models_with_random_last_layer,
-            low=random_init_weights_min_val,
-            hi=random_init_weights_max_val,
-        )
-
-        initial_weights += with_random_last_layer_weights
-
-        with_random_weights = n_random_model_weights(
-            n=num_random_models,
-            low=random_init_weights_min_val,
-            hi=random_init_weights_max_val,
-        )
-
-        initial_weights += with_random_weights
-
-        ga_instance = pygad.GA(
-            num_generations=num_generations,
-            num_parents_mating=num_parents_mating,
-            initial_population=initial_weights,
-            fitness_func=fitness_function,
-            on_generation=on_generation,
-            parallel_processing=["process", server_count],
-            parent_selection_type=parent_selection_type,
-            keep_parents=keep_parents,
-            crossover_type=crossover_type,
-            mutation_type=mutation_type,
-            mutation_percent_genes=mutation_percent_genes,
-            random_mutation_max_val=random_mutation_max_val,
-            random_mutation_min_val=random_mutation_min_val,
-        )
-
         ga_instance.run()
-        ga_instance.save("./last_ga_instance")
+
+    ga_instance.save("./last_ga_instance")
 
 
 if __name__ == "__main__":
