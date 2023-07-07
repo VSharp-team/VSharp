@@ -47,16 +47,15 @@ def switch_maps_type(
     logging.info(f"switched servers to {type.value} mode")
 
 
-def get_maps(ws_string: websocket.WebSocket, type: MapsType) -> list[GameMap]:
+def get_maps(websocket: websocket.WebSocket, type: MapsType) -> list[GameMap]:
     match type:
         case MapsType.TRAIN:
             request_all_maps_message = ClientMessage(GetTrainMapsMessageBody())
         case MapsType.VALIDATION:
             request_all_maps_message = ClientMessage(GetValidationMapsMessageBody())
 
-    with closing(websocket.create_connection(ws_string)) as ws:
-        ws.send(request_all_maps_message.to_json())
-        maps_message = ws.recv()
+    websocket.send(request_all_maps_message.to_json())
+    maps_message = websocket.recv()
 
     return MapsServerMessage.from_json_handle(
         maps_message, expected=MapsServerMessage

@@ -3,7 +3,8 @@ import json
 import os
 import signal
 import subprocess
-from queue import Queue, Empty
+from contextlib import contextmanager, nullcontext
+from queue import Empty, Queue
 
 from aiohttp import web
 
@@ -53,10 +54,8 @@ async def send_and_clear_results(request):
     return web.Response(text=rst)
 
 
-def run_servers(
-    num_inst: int, start_port: int = VSHARP_INSTANCES_START_PORT
-) -> list[subprocess.Popen]:
-    # assuming we start from ~/gsv/VSharp/VSharp.ML.AIAgent
+def run_servers(num_inst: int, start_port: int) -> list[subprocess.Popen]:
+    # assuming we start from /VSharp/VSharp.ML.AIAgent
     working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
     launch_server = [
         "dotnet",
@@ -84,6 +83,15 @@ def kill_servers(procs: list[subprocess.Popen]):
         print(f"killed {proc.pid}")
 
 
+@contextmanager
+def process_manager(num_inst: int, start_port: int = VSHARP_INSTANCES_START_PORT):
+    procs = run_servers(num_inst, start_port)
+    try:
+        yield
+    finally:
+        kill_servers(procs)
+
+
 def main():
     global WS_URLS, RESULTS
     parser = argparse.ArgumentParser(description="V# instances launcher")
@@ -97,9 +105,6 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.debug:
-        procs = run_servers(args.num_inst)
-
     SOCKET_URLS = [
         f"ws://0.0.0.0:{VSHARP_INSTANCES_START_PORT + i}/gameServer"
         for i in range(args.num_inst)
@@ -111,12 +116,10 @@ def main():
     for ws_url in SOCKET_URLS:
         WS_URLS.put(ws_url)
 
-    app = web.Application()
-    app.add_routes(routes)
-    web.run_app(app, port=BROKER_SERVER_PORT)
-
-    if not args.debug:
-        kill_servers(procs)
+    with process_manager(args.num_inst) if not args.debug else nullcontext():
+        app = web.Application()
+        app.add_routes(routes)
+        web.run_app(app, port=BROKER_SERVER_PORT)
 
 
 if __name__ == "__main__":

@@ -10,18 +10,18 @@ def append_to_tables_file(s: str):
         file.write(s)
 
 
-def clean_tables_file():
+def init_tables_file():
     open(Constant.TABLES_LOG_FILE, "w").close()
 
 
-def clean_log_file():
+def init_log_file():
     open(Constant.APP_LOG_FILE, "w").close()
 
 
 EPOCH_BEST_DIR = "./epochs_best"
 
 
-def create_epochs_best_dir():
+def init_epochs_best_dir():
     dir_to_create = EPOCH_BEST_DIR
     if os.path.exists(dir_to_create):
         rmtree(dir_to_create)

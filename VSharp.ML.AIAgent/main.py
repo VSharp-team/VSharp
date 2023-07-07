@@ -6,9 +6,9 @@ from torch.multiprocessing import set_start_method
 
 from common.constants import BASE_NN_OUT_FEATURES_NUM, Constant
 from epochs_statistics.utils import (
-    clean_log_file,
-    clean_tables_file,
-    create_epochs_best_dir,
+    init_epochs_best_dir,
+    init_log_file,
+    init_tables_file,
 )
 from ml.utils import (
     load_model_with_last_layer,
@@ -18,6 +18,7 @@ from ml.utils import (
 from selection.crossover_type import CrossoverType
 from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
+from timer.resources_manager import manage_inference_stats
 
 logging.basicConfig(
     level=logging.INFO,
@@ -64,36 +65,11 @@ def n_random_last_layer_model_weights(
     return rv
 
 
-from functools import wraps
-from time import time
-
-
-def timeit(func):
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        start = time()
-        rv = func(*args, **kwargs)
-        end = time()
-        print(
-            "func:%r args:[%r, %r] took: %2.4f sec"
-            % (wrapper.__name__, args, kwargs, end - start)
-        )
-        return rv
-
-    return wrapper
-
-
-from common.constants import BEST_MODEL_ONNX_SAVE_PATH
-from ml.onnx.onnx_import import export_onnx_model
-from ml.utils import create_model_from_weights_vector
-
-
-@timeit
 def main():
     set_start_method("spawn")
-    clean_tables_file()
-    clean_log_file()
-    create_epochs_best_dir()
+    init_tables_file()
+    init_log_file()
+    init_epochs_best_dir()
 
     server_count = 8
 
@@ -174,11 +150,10 @@ def main():
         random_mutation_min_val=random_mutation_min_val,
     )
 
-    ga_instance.run()
-    ga_instance.save("./last_ga_instance")
+    with manage_inference_stats():
+        ga_instance.run()
 
-    best_model = create_model_from_weights_vector(solution)
-    export_onnx_model(best_model, BEST_MODEL_ONNX_SAVE_PATH)
+    ga_instance.save("./last_ga_instance")
 
 
 if __name__ == "__main__":
