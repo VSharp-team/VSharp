@@ -55,7 +55,7 @@ async def send_and_clear_results(request):
 
 
 def run_servers(num_inst: int, start_port: int) -> list[subprocess.Popen]:
-    # assuming we start from ~/gsv/VSharp/VSharp.ML.AIAgent
+    # assuming we start from /VSharp/VSharp.ML.AIAgent
     working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
     launch_server = [
         "dotnet",

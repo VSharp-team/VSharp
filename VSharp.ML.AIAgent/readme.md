@@ -10,20 +10,10 @@ Framework for Genetic NN training
 ### 1. Create venv, install deps
 Python 3.10.8
 
-```sh
-cd VSharp.ML.AIAgent
-
-# load env from condig file:
-conda env create -f conda_env.yml
-# optional: specify your path by adding -p <your env path>
-# by default env with name 'agent_env' will be created
-
-# activate env with your script:
-conda activate <enter your system path>/VSharp/VSharp.ML.AIAgent/.env
-
-"""then install required dependencies"""
-```
-
+In ```VSharp/VSharp.ML.AIAgent/```
+- create virtualenv or conda env
+- activate venv
+- install dependencies
 
 
 ### 2. Launch training
