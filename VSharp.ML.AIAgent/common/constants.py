@@ -48,3 +48,4 @@ class ResultsHandlerLinks:
 
 DUMMY_INPUT_PATH = "ml/onnx/dummy_input.json"
 BEST_MODEL_ONNX_SAVE_PATH = "ml/onnx/StateModelEncoder.onnx"
+TEMP_EPOCH_INFERENCE_TIMES_DIR = Path(".epoch_inference_times/")

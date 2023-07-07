@@ -1,7 +1,9 @@
 import json
 import logging
+import statistics
 from collections import defaultdict
 from contextlib import closing
+from os import getpid
 
 import pygad.torchga
 import tqdm
@@ -20,6 +22,14 @@ from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import straight_scorer
+from timer.context_managers import manage_map_inference_times_array
+from timer.stats import compute_statistics
+from timer.utils import (
+    create_temp_epoch_inference_dir,
+    dump_and_reset_epoch_times,
+    get_map_inference_times,
+    load_times_array,
+)
 from ws_source.classes import Agent2ResultsOnMaps
 from ws_source.requests import recv_game_result_list, send_game_results
 from ws_source.ws_source import WebsocketSource
@@ -101,6 +111,16 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
         actual_coverage_percent=actual_coverage,
     )
 
+    with manage_map_inference_times_array():
+        try:
+            map_inference_times = get_map_inference_times()
+            mean, std = compute_statistics(map_inference_times)
+            logging.info(
+                f"Inference stats for <{with_model.name()}> on {with_agent.map.MapName}: {mean=}ms, {std=}ms"
+            )
+        except statistics.StatisticsError as se:
+            print(f"{steps_count=}", str(se))
+
     return model_result
 
 
@@ -151,6 +171,11 @@ def on_generation(ga_instance):
     )
     append_to_tables_file(table_to_string(pivot) + "\n")
     append_to_tables_file(table_to_string(stats) + "\n")
+    mean, std = compute_statistics(load_times_array())
+    print(f"Gen#{ga_instance.generations_completed} inference statistics:")
+    print(f"{mean=}ms")
+    print(f"{std=}ms")
+    create_temp_epoch_inference_dir()
 
 
 def fitness_function(ga_inst, solution, solution_idx) -> float:
@@ -213,6 +238,9 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
                 pbar.update(1)
     send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
 
+    dump_and_reset_epoch_times(
+        f"{predictor.name()}_epoch{ga_inst.generations_completed}_pid{getpid()}"
+    )
     return straight_scorer(rst)
 
 

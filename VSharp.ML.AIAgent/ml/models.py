@@ -17,6 +17,8 @@ from torch_geometric.nn import (
     to_hetero,
 )
 
+from timer.wrapper import timeit
+
 from .data_loader_compact import NUM_NODE_FEATURES
 
 NUM_PREDICTED_VALUES = 4
@@ -479,6 +481,7 @@ class StateModelEncoder(torch.nn.Module):
         # self.decoder = GNN_Het(hidden_channels, out_channels)
         # self.decoder = to_hetero(self.decoder, metadata, aggr='sum')
 
+    @timeit
     def forward(self, x_dict, edge_index_dict):
         z_dict = {}
         # x_dict['game_vertex'] = self.user_emb(x_dict['game_vertex'])
