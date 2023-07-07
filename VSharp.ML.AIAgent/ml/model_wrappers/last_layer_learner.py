@@ -1,6 +1,6 @@
 import random
 
-from common.constants import Constant
+from common.constants import Constant, BASE_NN_OUT_FEATURES_NUM
 from common.game import GameState
 from config import FeatureConfig
 from ml.data_loader_compact import ServerDataloaderHeteroVector
@@ -28,7 +28,9 @@ class LastLayerLearner(ModelWrapper):
     ) -> None:
         if weights is None:
             # -1 to 1
-            self.weights = [random.uniform(-1, 1) for _ in range(Constant.NUM_FEATURES)]
+            self.weights = [
+                random.uniform(-1, 1) for _ in range(BASE_NN_OUT_FEATURES_NUM)
+            ]
         else:
             self.weights = weights
 

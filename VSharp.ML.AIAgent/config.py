@@ -1,3 +1,16 @@
+class GeneralConfig:
+    SERVER_COUNT = 8
+    MAX_STEPS = 3000
+
+
+class BrokerConfig:
+    BROKER_PORT = 8080
+
+
+class ServerConfig:
+    VSHARP_INSTANCES_START_PORT = 8100
+
+
 class FeatureConfig:
     VERBOSE_TABLES = True
     SHOW_SUCCESSORS = True

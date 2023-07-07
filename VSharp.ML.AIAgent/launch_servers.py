@@ -8,7 +8,7 @@ from queue import Empty, Queue
 
 from aiohttp import web
 
-from common.constants import BROKER_SERVER_PORT, VSHARP_INSTANCES_START_PORT
+from config import GeneralConfig, BrokerConfig, ServerConfig
 
 routes = web.RouteTableDef()
 
@@ -84,8 +84,8 @@ def kill_servers(procs: list[subprocess.Popen]):
 
 
 @contextmanager
-def process_manager(num_inst: int, start_port: int = VSHARP_INSTANCES_START_PORT):
-    procs = run_servers(num_inst, start_port)
+def process_manager(num_inst: int):
+    procs = run_servers(num_inst, ServerConfig.VSHARP_INSTANCES_START_PORT)
     try:
         yield
     finally:
@@ -96,9 +96,6 @@ def main():
     global WS_URLS, RESULTS
     parser = argparse.ArgumentParser(description="V# instances launcher")
     parser.add_argument(
-        "-n", "--num_inst", type=int, help="number of instances to launch"
-    )
-    parser.add_argument(
         "--debug",
         action=argparse.BooleanOptionalAction,
         help="dont launch servers if set",
@@ -106,8 +103,8 @@ def main():
     args = parser.parse_args()
 
     SOCKET_URLS = [
-        f"ws://0.0.0.0:{VSHARP_INSTANCES_START_PORT + i}/gameServer"
-        for i in range(args.num_inst)
+        f"ws://0.0.0.0:{ServerConfig.VSHARP_INSTANCES_START_PORT + i}/gameServer"
+        for i in range(GeneralConfig.SERVER_COUNT)
     ]
 
     WS_URLS = Queue()
@@ -116,10 +113,12 @@ def main():
     for ws_url in SOCKET_URLS:
         WS_URLS.put(ws_url)
 
-    with process_manager(args.num_inst) if not args.debug else nullcontext():
+    with process_manager(
+        GeneralConfig.SERVER_COUNT
+    ) if not args.debug else nullcontext():
         app = web.Application()
         app.add_routes(routes)
-        web.run_app(app, port=BROKER_SERVER_PORT)
+        web.run_app(app, port=BrokerConfig.BROKER_PORT)
 
 
 if __name__ == "__main__":
