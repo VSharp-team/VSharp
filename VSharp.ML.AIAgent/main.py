@@ -7,6 +7,7 @@ from torch.multiprocessing import set_start_method
 from common.constants import BASE_NN_OUT_FEATURES_NUM, Constant
 from epochs_statistics.utils import (
     init_epochs_best_dir,
+    init_leader_tables_file,
     init_log_file,
     init_tables_file,
 )
@@ -68,6 +69,7 @@ def n_random_last_layer_model_weights(
 def main():
     set_start_method("spawn")
     init_tables_file()
+    init_leader_tables_file()
     init_log_file()
     init_epochs_best_dir()
 

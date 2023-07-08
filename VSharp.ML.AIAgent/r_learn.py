@@ -1,5 +1,7 @@
+import copy
 import json
 import logging
+import random
 from collections import defaultdict
 from os import getpid
 
@@ -12,8 +14,15 @@ from agent.utils import MapsType, get_maps
 from common.constants import DEVICE, MAX_STEPS, Constant
 from common.utils import get_states
 from config import FeatureConfig
+from conn.classes import Agent2ResultsOnMaps
+from conn.requests import recv_game_result_list, send_game_results
+from conn.socket_manager import game_server_socket_manager
 from epochs_statistics.tables import create_pivot_table, table_to_string
-from epochs_statistics.utils import append_to_tables_file, create_epoch_subdir
+from epochs_statistics.utils import (
+    append_to_tables_file,
+    create_epoch_subdir,
+    rewrite_best_tables_file,
+)
 from ml.model_wrappers.nnwrapper import NNWrapper
 from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model_with_last_layer
@@ -27,9 +36,6 @@ from timer.utils import (
     get_map_inference_times,
     load_times_array,
 )
-from conn.classes import Agent2ResultsOnMaps
-from conn.requests import recv_game_result_list, send_game_results
-from conn.socket_manager import game_server_socket_manager
 
 
 def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
@@ -98,6 +104,7 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
 
 
 info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
+leader_table: AgentResultsOnGameMaps = defaultdict(list)
 
 
 def get_n_best_weights_in_last_generation(ga_instance, n: int):
@@ -137,15 +144,40 @@ def on_generation(ga_instance):
     ):
         save_weights(weights, to=epoch_subdir)
 
-    ga_pop_inner_hashes = [tuple(item).__hash__() for item in ga_instance.population]
+    ga_pop_inner_hashes = [
+        tuple(individual).__hash__() for individual in ga_instance.population
+    ]
     info_for_tables_filtered = {
-        k: v for k, v in info_for_tables.items() if k._hash in ga_pop_inner_hashes
+        nnwrapper: res
+        for nnwrapper, res in info_for_tables.items()
+        if nnwrapper._hash in ga_pop_inner_hashes
     }
 
-    pivot, stats = create_pivot_table(info_for_tables_filtered)
+    best_solution_hash = tuple(
+        ga_instance.best_solution(pop_fitness=ga_instance.last_generation_fitness)[0]
+    ).__hash__()
+    best_solution_nnwrapper, best_solution_results = next(
+        filter(
+            lambda item: item[0]._hash == best_solution_hash,
+            info_for_tables_filtered.items(),
+        )
+    )
+
     append_to_tables_file(
         f"Generations completed: {ga_instance.generations_completed}" + "\n"
     )
+
+    if best_solution_nnwrapper in leader_table.keys():
+        best_wrapper_copy = copy.copy(best_solution_nnwrapper)
+        best_wrapper_copy._hash += random.randint(0, 10**3)
+        leader_table[best_wrapper_copy] = best_solution_results
+    else:
+        leader_table[best_solution_nnwrapper] = best_solution_results
+
+    _, stats = create_pivot_table(leader_table, sort=False)
+    rewrite_best_tables_file(table_to_string(stats) + "\n")
+
+    pivot, stats = create_pivot_table(info_for_tables_filtered)
     append_to_tables_file(table_to_string(pivot) + "\n")
     append_to_tables_file(table_to_string(stats) + "\n")
     mean, std = compute_statistics(load_times_array())

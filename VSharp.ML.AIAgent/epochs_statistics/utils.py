@@ -5,6 +5,15 @@ from shutil import rmtree
 from common.constants import Constant
 
 
+def rewrite_best_tables_file(s: str):
+    with open(Constant.LEADERS_TABLES_LOG_FILE, "w") as file:
+        file.write(s)
+
+
+def init_leader_tables_file():
+    open(Constant.LEADERS_TABLES_LOG_FILE, "w").close()
+
+
 def append_to_tables_file(s: str):
     with open(Constant.TABLES_LOG_FILE, "a") as file:
         file.write(s)
