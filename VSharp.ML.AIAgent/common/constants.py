@@ -20,6 +20,7 @@ class Constant:
     )
     NUM_FEATURES = 8
     TABLES_LOG_FILE = Path("./tables.log")
+    LEADERS_TABLES_LOG_FILE = Path("./leaders.log")
     APP_LOG_FILE = Path("./app.log")
     TQDM_FORMAT_DICT = {
         "unit": "game",
