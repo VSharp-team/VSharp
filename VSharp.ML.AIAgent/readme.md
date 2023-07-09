@@ -8,13 +8,13 @@ Framework for Genetic NN training
 ## Steps to run client
 
 ### 1. Create venv, install deps
-Python 3.10.8
 
-In ```VSharp/VSharp.ML.AIAgent/```
-- create virtualenv or conda env
-- activate venv
-- install dependencies
-
+```sh
+cd VSharp/VSharp.ML.AIAgent/
+conda create -n agent_env python=3.10.9
+conda activate agent_env
+bash install_script.sh
+```
 
 ### 2. Launch training
 
