@@ -1,4 +1,4 @@
-from time import time
+from time import perf_counter
 
 EPOCH_TIMES = []
 MAP_TIMES = []
@@ -6,9 +6,9 @@ MAP_TIMES = []
 
 def timeit(func):
     def wrapper(*args, **kwargs):
-        start = time()
+        start = perf_counter()
         rv = func(*args, **kwargs)
-        end = time()
+        end = perf_counter()
         EPOCH_TIMES.append(end - start)
         MAP_TIMES.append(end - start)
         return rv
