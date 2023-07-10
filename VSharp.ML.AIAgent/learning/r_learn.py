@@ -11,9 +11,9 @@ import tqdm
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import DEVICE, MAX_STEPS, Constant
+from common.constants import DEVICE, Constant
 from common.utils import get_states
-from config import FeatureConfig
+from config import FeatureConfig, GeneralConfig
 from conn.classes import Agent2ResultsOnMaps
 from conn.requests import recv_game_result_list, send_game_results
 from conn.socket_manager import game_server_socket_manager
@@ -189,7 +189,7 @@ def on_generation(ga_instance):
 
 def fitness_function(ga_inst, solution, solution_idx) -> float:
     maps_type = MapsType.TRAIN
-    max_steps = MAX_STEPS
+    max_steps = GeneralConfig.MAX_STEPS
 
     model = load_model_with_last_layer(
         Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
