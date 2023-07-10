@@ -1,6 +1,10 @@
+import logging
+
+
 class GeneralConfig:
     SERVER_COUNT = 8
     MAX_STEPS = 3000
+    LOGGER_LEVEL = logging.INFO
 
 
 class BrokerConfig:

@@ -11,7 +11,7 @@ import tqdm
 
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import DEVICE, Constant
+from common.constants import DEVICE, IMPORTED_DICT_MODEL_PATH, TQDM_FORMAT_DICT
 from common.utils import get_states
 from config import FeatureConfig, GeneralConfig
 from conn.classes import Agent2ResultsOnMaps
@@ -191,9 +191,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     maps_type = MapsType.TRAIN
     max_steps = GeneralConfig.MAX_STEPS
 
-    model = load_model_with_last_layer(
-        Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)]
-    )
+    model = load_model_with_last_layer(IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)])
     model_weights_dict = pygad.torchga.model_weights_as_dict(
         model=model, weights_vector=solution
     )
@@ -208,7 +206,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
         with tqdm.tqdm(
             total=len(maps),
             desc=f"{predictor.name():20}: {maps_type.value}",
-            **Constant.TQDM_FORMAT_DICT,
+            **TQDM_FORMAT_DICT,
         ) as pbar:
             rst: list[GameResult] = []
             list_of_map2result: list[Map2Result] = []

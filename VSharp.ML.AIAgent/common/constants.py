@@ -13,22 +13,24 @@ def _build_bar_format() -> str:
     return f"{custom_left} {custom_bar} - {custom_info}"
 
 
-class Constant:
-    IMPORTED_FULL_MODEL_PATH = Path(
-        "ml/imported/GNN_state_pred_het_full_TAGConv_20e_2xAll_10h"
-    )
-    IMPORTED_DICT_MODEL_PATH = Path(
-        "ml/imported/GNN_state_pred_het_dict_TAGConv_20e_2xAll_10h"
-    )
-    TABLES_LOG_FILE = Path("./tables.log")
-    LEADERS_TABLES_LOG_FILE = Path("./leaders.log")
-    APP_LOG_FILE = Path("./app.log")
-    TQDM_FORMAT_DICT = {
-        "unit": "game",
-        "bar_format": _build_bar_format(),
-        "dynamic_ncols": True,
-    }
+IMPORTED_FULL_MODEL_PATH = Path(
+    "ml/imported/GNN_state_pred_het_full_TAGConv_20e_2xAll_10h"
+)
+IMPORTED_DICT_MODEL_PATH = Path(
+    "ml/imported/GNN_state_pred_het_dict_TAGConv_20e_2xAll_10h"
+)
 
+BASE_REPORT_DIR = Path("./report")
+TABLES_LOG_FILE = BASE_REPORT_DIR / "tables.log"
+LEADERS_TABLES_LOG_FILE = BASE_REPORT_DIR / "leaders.log"
+EPOCH_BEST_DIR = BASE_REPORT_DIR / "epochs_best"
+APP_LOG_FILE = Path("app.log")
+
+TQDM_FORMAT_DICT = {
+    "unit": "game",
+    "bar_format": _build_bar_format(),
+    "dynamic_ncols": True,
+}
 
 DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 BASE_NN_OUT_FEATURES_NUM = 8

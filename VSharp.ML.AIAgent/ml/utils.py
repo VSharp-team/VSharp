@@ -7,7 +7,7 @@ import torch
 from torch import nn
 
 import ml.models
-from common.constants import BASE_NN_OUT_FEATURES_NUM, DEVICE, Constant
+from common.constants import BASE_NN_OUT_FEATURES_NUM, DEVICE, IMPORTED_DICT_MODEL_PATH
 
 
 def load_full_model(path: str):
@@ -41,7 +41,7 @@ def load_model_with_last_layer(
 
 
 def model_weights_with_random_last_layer(
-    low, hi, model_load_path=Constant.IMPORTED_DICT_MODEL_PATH
+    low, hi, model_load_path=IMPORTED_DICT_MODEL_PATH
 ):
     model = load_model_with_last_layer(
         model_load_path,
@@ -51,7 +51,7 @@ def model_weights_with_random_last_layer(
     return model_weights_vector
 
 
-def random_model_weights(low, hi, model_load_path=Constant.IMPORTED_DICT_MODEL_PATH):
+def random_model_weights(low, hi, model_load_path=IMPORTED_DICT_MODEL_PATH):
     init_model = load_model_with_last_layer(
         model_load_path, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
     )
@@ -66,7 +66,7 @@ def random_model_weights(low, hi, model_load_path=Constant.IMPORTED_DICT_MODEL_P
 
 def create_model_from_weights_vector(weights: list[float]):
     model = load_model_with_last_layer(
-        Constant.IMPORTED_DICT_MODEL_PATH, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
+        IMPORTED_DICT_MODEL_PATH, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
     )
 
     state_dict = pygad.torchga.model_weights_as_dict(

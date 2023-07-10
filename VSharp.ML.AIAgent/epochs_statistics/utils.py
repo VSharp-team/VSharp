@@ -2,32 +2,35 @@ import os
 import pathlib
 from shutil import rmtree
 
-from common.constants import Constant
+from common.constants import (
+    LEADERS_TABLES_LOG_FILE,
+    TABLES_LOG_FILE,
+    APP_LOG_FILE,
+    EPOCH_BEST_DIR,
+    BASE_REPORT_DIR,
+)
 
 
 def rewrite_best_tables_file(s: str):
-    with open(Constant.LEADERS_TABLES_LOG_FILE, "w") as file:
+    with open(LEADERS_TABLES_LOG_FILE, "w") as file:
         file.write(s)
 
 
 def init_leader_tables_file():
-    open(Constant.LEADERS_TABLES_LOG_FILE, "w").close()
+    open(LEADERS_TABLES_LOG_FILE, "w").close()
 
 
 def append_to_tables_file(s: str):
-    with open(Constant.TABLES_LOG_FILE, "a") as file:
+    with open(TABLES_LOG_FILE, "a") as file:
         file.write(s)
 
 
 def init_tables_file():
-    open(Constant.TABLES_LOG_FILE, "w").close()
+    open(TABLES_LOG_FILE, "w").close()
 
 
 def init_log_file():
-    open(Constant.APP_LOG_FILE, "w").close()
-
-
-EPOCH_BEST_DIR = "./epochs_best"
+    open(APP_LOG_FILE, "w").close()
 
 
 def init_epochs_best_dir():
@@ -38,6 +41,12 @@ def init_epochs_best_dir():
 
 
 def create_epoch_subdir(epoch_num) -> pathlib.Path:
-    new_dir = pathlib.Path(EPOCH_BEST_DIR) / f"epoch_{epoch_num}"
+    new_dir = EPOCH_BEST_DIR / f"epoch_{epoch_num}"
     os.mkdir(new_dir)
     return new_dir
+
+
+def create_report_dir():
+    if BASE_REPORT_DIR.exists():
+        rmtree(BASE_REPORT_DIR)
+    BASE_REPORT_DIR.mkdir()
