@@ -1,6 +1,6 @@
 import random
 
-from common.constants import Constant, BASE_NN_OUT_FEATURES_NUM
+from common.constants import BASE_NN_OUT_FEATURES_NUM, IMPORTED_DICT_MODEL_PATH
 from common.game import GameState
 from config import FeatureConfig
 from ml.data_loader_compact import ServerDataloaderHeteroVector
@@ -34,9 +34,7 @@ class LastLayerLearner(ModelWrapper):
         else:
             self.weights = weights
 
-        self.nn = load_model_with_last_layer(
-            Constant.IMPORTED_DICT_MODEL_PATH, self.weights
-        )
+        self.nn = load_model_with_last_layer(IMPORTED_DICT_MODEL_PATH, self.weights)
 
         self._name = gen_name()
         if FeatureConfig.SHOW_SUCCESSORS:

@@ -1,10 +1,16 @@
 import logging
+import os
+import shutil
+from contextlib import contextmanager
 
 import pygad
 import pygad.torchga
 from torch.multiprocessing import set_start_method
 
+from common.constants import APP_LOG_FILE, BASE_REPORT_DIR
+from config import GeneralConfig
 from epochs_statistics.utils import (
+    create_report_dir,
     init_epochs_best_dir,
     init_log_file,
     init_tables_file,
@@ -15,17 +21,23 @@ from selection.parent_selection_type import ParentSelectionType
 from timer.resources_manager import manage_inference_stats
 
 logging.basicConfig(
-    level=logging.INFO,
-    filename="app.log",
+    level=GeneralConfig.LOGGER_LEVEL,
+    filename=APP_LOG_FILE,
     filemode="a",
     format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
 )
 
-import os
-
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
 from .r_learn import fitness_function, on_generation
+
+
+@contextmanager
+def move_app_log():
+    try:
+        yield
+    finally:
+        shutil.move(APP_LOG_FILE, BASE_REPORT_DIR / APP_LOG_FILE)
 
 
 def run(
@@ -42,6 +54,8 @@ def run(
     initial_population: list = None,
 ):
     set_start_method("spawn")
+
+    create_report_dir()
     init_tables_file()
     init_log_file()
     init_epochs_best_dir()
@@ -62,7 +76,7 @@ def run(
         random_mutation_min_val=random_mutation_min_val,
     )
 
-    with manage_inference_stats():
+    with manage_inference_stats(), move_app_log():
         ga_instance.run()
 
     ga_instance.save("./last_ga_instance")

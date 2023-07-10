@@ -2,7 +2,7 @@ import pygad
 import pygad.torchga
 
 import learning.genetic_alorithm as ga
-from common.constants import BASE_NN_OUT_FEATURES_NUM, Constant
+from common.constants import BASE_NN_OUT_FEATURES_NUM, IMPORTED_DICT_MODEL_PATH
 from config import GeneralConfig
 from ml.utils import (
     load_model_with_last_layer,
@@ -14,9 +14,7 @@ from selection.mutation_type import MutationType
 from selection.parent_selection_type import ParentSelectionType
 
 
-def weights_vector(
-    weights: list[float], model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
-):
+def weights_vector(weights: list[float], model_path: str = IMPORTED_DICT_MODEL_PATH):
     model = load_model_with_last_layer(
         model_path,
         weights,
@@ -26,7 +24,7 @@ def weights_vector(
 
 
 def n_random_model_weights(
-    n: int, low: float, hi: float, model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
+    n: int, low: float, hi: float, model_path: str = IMPORTED_DICT_MODEL_PATH
 ):
     rv = [
         random_model_weights(low=low, hi=hi, model_load_path=model_path)
@@ -36,7 +34,7 @@ def n_random_model_weights(
 
 
 def n_random_last_layer_model_weights(
-    n: int, low: float, hi: float, model_path: str = Constant.IMPORTED_DICT_MODEL_PATH
+    n: int, low: float, hi: float, model_path: str = IMPORTED_DICT_MODEL_PATH
 ):
     rv = [
         model_weights_with_random_last_layer(low=low, hi=hi, model_load_path=model_path)
