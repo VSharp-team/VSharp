@@ -42,7 +42,7 @@ def create_stats(
 
 
 def create_pivot_table(
-    model_map_results_mapping: AgentResultsOnGameMaps,
+    model_map_results_mapping: AgentResultsOnGameMaps, sort: bool = True
 ) -> pd.DataFrame:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
     euc_dists2full_cov, avs, medians, intervals = create_stats(
@@ -69,7 +69,8 @@ def create_pivot_table(
     df[AV_COVERAGE_COL_NAME] = avs
     df[MEDIAN_COVERAGE_COL_NAME] = medians
     df[COV_DEVIATION_COL_NAME] = intervals
-    df.sort_values(by=[EUC_DIST2FULL_COV_COL_NAME], inplace=True)
+    if sort:
+        df.sort_values(by=[EUC_DIST2FULL_COV_COL_NAME], inplace=True)
 
     stats_df = df[
         [
