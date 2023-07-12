@@ -48,7 +48,7 @@ def main():
     num_random_models = 30
     num_generations = 20
     num_parents_mating = 10
-    keep_parents = 2
+    keep_elitism = 2
     random_init_weights_max_val = 5.0
     random_init_weights_min_val = -5.0
     initial_weights = [
@@ -97,7 +97,7 @@ def main():
         server_count=GeneralConfig.SERVER_COUNT,
         num_generations=num_generations,
         num_parents_mating=num_parents_mating,
-        keep_parents=keep_parents,
+        keep_elitism=keep_elitism,
         parent_selection_type=ParentSelectionType.STOCHASTIC_UNIVERSAL_SELECTION,
         crossover_type=CrossoverType.SINGLE_POINT,
         mutation_type=MutationType.RANDOM,
