@@ -235,6 +235,20 @@ let trainMaps, validationMaps =
     //add 0u<percent> "BizHawk.Emulation.DiscSystem.dll" CoverageZone.Method "DiscStream.Read"
 
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "TI83LinkPort.Update"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.ClockCycle"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.OnHSYNC"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.GetVideoBuffer"
+    
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CRCT_6845.ClockCycle"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CRTC6845.CycleClock"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CRTC6845.ReadPort"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CRTC6845.WritePort"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "ScanLine.AddDisplayValue"
+    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "ScanLine.CommitScanline"
+    
+    add 0u<percent> "Virtu.dll" CoverageZone.Method "DiskIIController.ReadIoRegionC0C0"
+    add 0u<percent> "Virtu.dll" CoverageZone.Method "DiskIIController.WriteIoRegionC0C0"
+    //add 0u<percent> "Virtu.dll" CoverageZone.Method "Keyboard.SetKeys"
     
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "TopologicalSorter.Sort"
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "DijkstraShortestPaths.ShortestPathTo"

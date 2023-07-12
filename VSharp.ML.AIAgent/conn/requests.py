@@ -7,30 +7,30 @@ from common.constants import ResultsHandlerLinks, WebsocketSourceLinks
 from .classes import Agent2ResultsOnMaps
 
 
-def aquire_ws():
+def aquire_ws() -> str:
     while True:
         response, content = httplib2.Http().request(WebsocketSourceLinks.GET_WS)
-        aquired_ws = content.decode("utf-8")
-        if aquired_ws == "":
+        aquired_ws_url = content.decode("utf-8")
+        if aquired_ws_url == "":
             logging.warning(f"all sockets are in use")
             continue
-        logging.info(f"aquired ws: {aquired_ws}")
-        return aquired_ws
+        logging.info(f"aquired ws: {aquired_ws_url}")
+        return aquired_ws_url
 
 
-def return_ws(websocket):
-    logging.info(f"returning: {websocket}")
+def return_ws(ws_url: str):
+    logging.info(f"returning: {ws_url}")
 
     response, content = httplib2.Http().request(
         WebsocketSourceLinks.POST_WS,
         method="POST",
-        body=websocket,
+        body=ws_url,
     )
 
     if response.status == 200:
-        logging.info(f"{websocket} is returned")
+        logging.info(f"{ws_url} is returned")
     else:
-        logging.error(f"{response.status} on returning {websocket}")
+        logging.error(f"{response.status} on returning {ws_url}")
         raise RuntimeError(f"Not ok response: {response.status}")
 
 
