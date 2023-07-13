@@ -97,6 +97,7 @@ def main():
     # initial_population += with_random_weights
 
     model=SAGEConvModel(64)
+    # model = GatedGCNModel(64)
 
     model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
     torch_ga = pygad.torchga.TorchGA(model=model, num_solutions=60)
