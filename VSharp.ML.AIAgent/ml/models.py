@@ -521,17 +521,31 @@ class SAGEConvModel(torch.nn.Module):
             sage_sv = SAGEConv(-1, hidden_channels)
             self.sv_layers.append(sage_sv)
 
-        self.history_layers = nn.ModuleList()
-        for i in range(num_history_layers):
-            sage_h = SAGEConv((-1, -1), hidden_channels)
-            self.history_layers.append(sage_h)
+        # self.history_layers = nn.ModuleList()
+        # for i in range(num_history_layers):
+        #     sage_h = SAGEConv((-1, -1), hidden_channels)
+        #     self.history_layers.append(sage_h)
+        self.history1 = SAGEConv((-1, -1), hidden_channels)
+        #self.history2 = SAGEConv((-1, -1), hidden_channels)
 
-        self.in_layers = nn.ModuleList()
-        for i in range(num_in_layers):
-            sage_in = SAGEConv((-1, -1), hidden_channels)
-            self.in_layers.append(sage_in)
+        self.in1 = SAGEConv((-1, -1), hidden_channels)
 
-        self.mlp = MLP(hidden_channels, [8, 1])
+        self.sv_layers2 = nn.ModuleList()
+        self.sv_layers2.append(SAGEConv(-1, hidden_channels))
+        for i in range(num_sv_layers - 1):
+            sage_sv = SAGEConv(-1, hidden_channels)
+            self.sv_layers2.append(sage_sv)
+
+        #self.in2 = SAGEConv((-1, -1), hidden_channels)
+
+
+
+        # self.in_layers = nn.ModuleList()
+        # for i in range(num_in_layers):
+        #     sage_in = SAGEConv((-1, -1), hidden_channels)
+        #     self.in_layers.append(sage_in)
+
+        self.mlp = MLP(hidden_channels, [1])
 
     @timeit
     def forward(self, x_dict, edge_index_dict):
@@ -544,7 +558,7 @@ class SAGEConvModel(torch.nn.Module):
                 game_x,
                 edge_index_dict[("game_vertex", "to", "game_vertex")],
             ).relu()
-        print(game_x.size())
+        # print(game_x.size())
 
         state_x = self.sv_layers[0](
             x_dict["state_vertex"],
@@ -556,44 +570,67 @@ class SAGEConvModel(torch.nn.Module):
                 edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
             ).relu()
 
-        print(state_x.size())
-        history_x = self.history_layers[0](
-            (game_x, state_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")]
-
-            # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
-            # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
-        ).relu()
-        for layer in self.history_layers[1:]:
-            history_x = layer(
-            (game_x, history_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")]
-
-            # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
-            # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
-            ).relu()
-        print(history_x.size())
-
-        in_x = self.in_layers[0](
+        history_x = self.history1((game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
+        #history_x = self.history2((history_x, game_x),
+        #    edge_index_dict[("state_vertex", "history", "game_vertex")]).relu()
+        
+        in_x = self.in1(
             (game_x, history_x),
             edge_index_dict[("game_vertex", "in", "state_vertex")]
+        ).relu()
+
+        state_x = self.sv_layers2[0](
+            in_x,
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+        for layer in self.sv_layers2[1:]:
+            state_x = layer(
+                state_x,
+                edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+            ).relu()
+        #in_x = self.in2(
+        #    (game_x, in_x),
+        #    edge_index_dict[("state_vertex", "in", "game_vertex")]
+        #).relu()
+
+        # print(state_x.size())
+        # history_x = self.history_layers[0](
+        #     (game_x, state_x),
+        #     edge_index_dict[("game_vertex", "history", "state_vertex")]
+
+        #     # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
+        #     # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
+        # ).relu()
+        # for layer in self.history_layers[1:]:
+        #     history_x = layer(
+        #     (game_x, history_x),
+        #     edge_index_dict[("game_vertex", "history", "state_vertex")]
+
+        #     # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
+        #     # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
+        #     ).relu()
+        # # print(history_x.size())
+
+        # in_x = self.in_layers[0](
+        #     (game_x, history_x),
+        #     edge_index_dict[("game_vertex", "in", "state_vertex")]
+
+        #     # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
+        #     # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
+        # ).relu()
+        # for layer in self.in_layers[1:]:
+        #     in_x = layer(
+        #     (game_x, in_x),
+        #     edge_index_dict[("game_vertex", "in", "state_vertex")]
 
             # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
             # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
-        ).relu()
-        for layer in self.in_layers[1:]:
-        for layer in self.in_layers[1:]:
-            in_x = layer(
-            (game_x, in_x),
-            edge_index_dict[("game_vertex", "in", "state_vertex")]
-
-            # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
-            # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
-            ).relu()
-        print(in_x.size())
-        print(in_x)
+            # ).relu()
+        # print(in_x.size())
+        # print(in_x)
         x = self.mlp(in_x)
-        print(x.size())
+        # print(x.size())
         return x
 
 

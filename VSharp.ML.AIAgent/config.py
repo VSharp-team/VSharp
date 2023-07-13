@@ -7,7 +7,7 @@ class GeneralConfig:
     SERVER_COUNT = 8
     MAX_STEPS = 3000
     LOGGER_LEVEL = logging.INFO
-    MODEL_INIT = lambda: ml.models.GatedGCNModel(64)
+    MODEL_INIT = lambda: ml.models.SAGEConvModel(16)
 
 
 class BrokerConfig:
