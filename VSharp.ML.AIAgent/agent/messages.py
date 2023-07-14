@@ -102,7 +102,7 @@ class ServerMessage:
             return obj_from_dict(json.loads(data))
 
         try:
-            return expected.from_json(data, {})
+            return expected.from_json(data)
         except Exception as e:
             err_to_display = f"{type(e)} - {e}: tried to decode {expected}, got unmatched structure, registered to app.log under [ERROR] tag"
             error = f"{type(e)} - {e}: tried to decode {expected}, got raw data: {json.dumps(json.loads(data), indent=2)}"

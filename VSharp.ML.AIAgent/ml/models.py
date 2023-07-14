@@ -537,9 +537,7 @@ class SAGEConvModel(torch.nn.Module):
             sage_sv = SAGEConv(-1, hidden_channels)
             self.sv_layers2.append(sage_sv)
 
-        #self.in2 = SAGEConv((-1, -1), hidden_channels)
-
-
+        # self.in2 = SAGEConv((-1, -1), hidden_channels)
 
         # self.in_layers = nn.ModuleList()
         # for i in range(num_in_layers):
@@ -591,10 +589,9 @@ class SAGEConvModel(torch.nn.Module):
         #     edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
         #history_x = self.history2((history_x, game_x),
         #    edge_index_dict[("state_vertex", "history", "game_vertex")]).relu()
-        
+
         in_x = self.in1(
-            (game_x, history_x),
-            edge_index_dict[("game_vertex", "in", "state_vertex")]
+            (game_x, history_x), edge_index_dict[("game_vertex", "in", "state_vertex")]
         ).relu()
 
         state_x = self.sv_layers2[0](
@@ -606,10 +603,10 @@ class SAGEConvModel(torch.nn.Module):
                 state_x,
                 edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
             ).relu()
-        #in_x = self.in2(
+        # in_x = self.in2(
         #    (game_x, in_x),
         #    edge_index_dict[("state_vertex", "in", "game_vertex")]
-        #).relu()
+        # ).relu()
 
         # print(state_x.size())
         # history_x = self.history_layers[0](
@@ -641,9 +638,9 @@ class SAGEConvModel(torch.nn.Module):
         #     (game_x, in_x),
         #     edge_index_dict[("game_vertex", "in", "state_vertex")]
 
-            # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
-            # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
-            # ).relu()
+        # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
+        # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
+        # ).relu()
         # print(in_x.size())
         # print(in_x)
         x = self.mlp(in_x)
@@ -695,4 +692,3 @@ class GatedGCNModel(torch.nn.Module):
         ).relu()
 
         return self.mlp(common_x)
-
