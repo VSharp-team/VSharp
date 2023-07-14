@@ -4,8 +4,11 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
+from .unsafe_json import obj_from_dict
+
 from common.game import GameMap, GameState, Reward
 from dataclasses_json import config, dataclass_json
+from config import FeatureConfig
 
 
 class ClientMessageType(str, Enum):
@@ -16,28 +19,28 @@ class ClientMessageType(str, Enum):
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class ClientMessageBody:
     def type(self) -> ClientMessageType:
         pass
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GetTrainMapsMessageBody(ClientMessageBody):
     def type(self) -> ClientMessageType:
         return ClientMessageType.GETTRAINMAPS
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GetValidationMapsMessageBody(ClientMessageBody):
     def type(self) -> ClientMessageType:
         return ClientMessageType.GETVALIDATIONMAPS
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class StartMessageBody(ClientMessageBody):
     MapId: int
     StepsToPlay: int
@@ -47,7 +50,7 @@ class StartMessageBody(ClientMessageBody):
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class StepMessageBody(ClientMessageBody):
     StateId: int
     PredictedStateUsefulness: float
@@ -57,7 +60,7 @@ class StepMessageBody(ClientMessageBody):
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class ClientMessage:
     MessageType: str = field(init=False)
     MessageBody: ClientMessageBody = field(
@@ -73,7 +76,7 @@ class ClientMessage:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class MapsMessageBody:
     Maps: list[GameMap]
 
@@ -87,45 +90,48 @@ class ServerMessageType(str, Enum):
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class ServerMessage:
     MessageType: ServerMessageType
 
     class DeserializationException(Exception):
         pass
 
-    def from_json_handle(*args, expected, **kwargs):
+    def from_json_handle(data, expected):
+        if FeatureConfig.DISABLE_MESSAGE_CHECKS:
+            return obj_from_dict(json.loads(data))
+
         try:
-            return expected.from_json(args[0], **kwargs)
+            return expected.from_json(data, {})
         except Exception as e:
             err_to_display = f"{type(e)} - {e}: tried to decode {expected}, got unmatched structure, registered to app.log under [ERROR] tag"
-            error = f"{type(e)} - {e}: tried to decode {expected}, got raw data: {json.dumps(json.loads(args[0]), indent=2)}"
+            error = f"{type(e)} - {e}: tried to decode {expected}, got raw data: {json.dumps(json.loads(data), indent=2)}"
             logging.error(error)
             raise ServerMessage.DeserializationException(err_to_display)
 
 
-@dataclass
+@dataclass(slots=True)
 class GameStateServerMessage(ServerMessage):
     MessageBody: GameState
 
 
-@dataclass
+@dataclass(slots=True)
 class RewardServerMessage(ServerMessage):
     MessageBody: Reward
 
 
-@dataclass
+@dataclass(slots=True)
 class MapsServerMessage(ServerMessage):
     MessageBody: MapsMessageBody
 
 
-@dataclass
+@dataclass(slots=True)
 class GameOverServerMessageBody:
     ActualCoverage: Optional[int]
     TestsCount: int
     ErrorsCount: int
 
 
-@dataclass
+@dataclass(slots=True)
 class GameOverServerMessage(ServerMessage):
     MessageBody: GameOverServerMessageBody

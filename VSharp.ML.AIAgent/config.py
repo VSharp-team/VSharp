@@ -23,3 +23,4 @@ class FeatureConfig:
     SHOW_SUCCESSORS = True
     NAME_LEN = 7
     N_BEST_SAVED_EACH_GEN = 2
+    DISABLE_MESSAGE_CHECKS = True
