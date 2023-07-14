@@ -342,9 +342,9 @@ type public SILI(options : SiliOptions) =
             stepsCount <- stepsCount + 1                        
             if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
             then stepsPlayed <- stepsPlayed + 1u
-            //if statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
-            if options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
-                releaseBranches()
+            if statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
+            then x.Stop()
+            
             match action with
             | GoFront s ->
                 try
