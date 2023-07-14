@@ -101,7 +101,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         match settings.CoverageZone with
                         | CoverageZone.Method ->
                             let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                            let statistics = TestGenerator.Cover(method, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                            let statistics = TestGenerator.Cover(method, timeout = 15 * 60, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
                             let actualCOverage = 
                                 if checkActualCoverage
                                 then
