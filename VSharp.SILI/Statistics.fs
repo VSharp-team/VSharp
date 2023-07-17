@@ -281,6 +281,7 @@ type public SILIStatistics() =
         internalFails.Clear()
         iies.Clear()
         solverStopwatch.Reset()
+        stopwatch.Reset()
 
         coveringStepsInsideZone <- 0u
         nonCoveringStepsInsideZone <- 0u
