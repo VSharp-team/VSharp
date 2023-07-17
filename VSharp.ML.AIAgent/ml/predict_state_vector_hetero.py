@@ -119,7 +119,7 @@ class PredictStateVectorHetGNN:
         reversed_state_map = {v: k for k, v in state_map.items()}
 
         with torch.no_grad():
-            out = model.forward(data.x_dict, data.edge_index_dict)
+            out = model.forward(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
 
         remapped = []
 

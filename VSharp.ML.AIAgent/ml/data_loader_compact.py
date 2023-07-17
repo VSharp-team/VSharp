@@ -45,6 +45,7 @@ class ServerDataloaderHeteroVector:
         edges_index_v_s_in = []
         edges_index_s_v_history = []
         edges_index_v_s_history = []
+        edge_attr_history = []
         edges_attr_v_v = []
 
         state_map: Dict[int, int] = {}  # Maps real state id to its index
@@ -102,6 +103,7 @@ class ServerDataloaderHeteroVector:
                     v_to = vertex_map[h.GraphVertexId]
                     edges_index_s_v_history.append(np.array([state_index, v_to]))
                     edges_index_v_s_history.append(np.array([v_to, state_index]))
+                    edge_attr_history.append(h.NumOfVisits)
                 state_index = state_index + 1
             else:
                 state_doubles += 1
@@ -161,6 +163,8 @@ class ServerDataloaderHeteroVector:
             .t()
             .contiguous()
         )
+        data["state_vertex", "history", "game_vertex"].edge_attr = torch.tensor(edge_attr_history, dtype=torch.int32)
+        
         data["game_vertex", "history", "state_vertex"].edge_index = null_if_empty(
             gv_his_sv
         )

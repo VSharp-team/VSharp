@@ -525,8 +525,9 @@ class SAGEConvModel(torch.nn.Module):
         # for i in range(num_history_layers):
         #     sage_h = SAGEConv((-1, -1), hidden_channels)
         #     self.history_layers.append(sage_h)
-        self.history1 = SAGEConv((-1, -1), hidden_channels)
-        #self.history2 = SAGEConv((-1, -1), hidden_channels)
+        # self.history1 = SAGEConv((-1, -1), hidden_channels)
+        self.history1 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
+        # self.history2 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
 
         self.in1 = SAGEConv((-1, -1), hidden_channels)
 
@@ -548,7 +549,9 @@ class SAGEConvModel(torch.nn.Module):
         self.mlp = MLP(hidden_channels, [1])
 
     @timeit
-    def forward(self, x_dict, edge_index_dict):
+    def forward(self, x_dict, edge_index_dict, edge_attr_dict):
+        # print(x_dict)
+        # print(edge_attr_dict)
         game_x = self.gv_layers[0](
             x_dict["game_vertex"],
             edge_index_dict[("game_vertex", "to", "game_vertex")],
@@ -570,8 +573,22 @@ class SAGEConvModel(torch.nn.Module):
                 edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
             ).relu()
 
-        history_x = self.history1((game_x, state_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
+        history_x = self.history1(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")], 
+            edge_attr_dict,
+            size=(game_x.size(0), state_x.size(0))
+            ).relu()
+        
+        # history_x = self.history1(
+        #     (state_x, game_x),
+        #     edge_index_dict[("state_vertex", "history", "game_vertex")], 
+        #     edge_attr_dict,
+        #     size=(state_x.size(0), game_x.size(0))
+        #     ).relu()
+        
+        # history_x = self.history1((game_x, state_x),
+        #     edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
         #history_x = self.history2((history_x, game_x),
         #    edge_index_dict[("state_vertex", "history", "game_vertex")]).relu()
         

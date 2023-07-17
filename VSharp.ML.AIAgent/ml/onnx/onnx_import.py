@@ -24,6 +24,7 @@ def create_onnx_dummy_input():
     return {
         "x_dict": hetero_data.x_dict,
         "edge_index_dict": hetero_data.edge_index_dict,
+        "edge_attr_dict": hetero_data.edge_attr_dict,
     }
 
 
@@ -50,7 +51,7 @@ def create_onnxruntime_dummy_input():
 
 def create_torch_dummy_input():
     hetero_data = create_dummy_hetero_data()
-    return hetero_data.x_dict, hetero_data.edge_index_dict
+    return hetero_data.x_dict, hetero_data.edge_index_dict, hetero_data.edge_attr_dict
 
 
 def export_onnx_model(model: torch.nn.Module, save_path: str):
