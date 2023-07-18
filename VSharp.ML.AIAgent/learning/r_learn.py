@@ -5,8 +5,9 @@ import random
 from collections import defaultdict
 from os import getpid
 from statistics import StatisticsError
+from time import perf_counter
+from typing import TypeAlias
 
-import numpy.typing as npt
 import pygad.torchga
 import tqdm
 
@@ -37,13 +38,20 @@ from timer.utils import (
     get_map_inference_times,
     load_times_array,
 )
+from weights_dump.weights_dump import save_weights
+
+TimeDuration: TypeAlias = float
 
 
-def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
+def play_map(
+    with_agent: NAgent, with_model: Predictor
+) -> tuple[GameResult, TimeDuration]:
     steps_count = 0
     game_state = None
     actual_coverage = None
     steps = with_agent.steps
+
+    start_time = perf_counter()
 
     try:
         for _ in range(steps):
@@ -80,6 +88,8 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
         tests_count = gameover.tests_count
         errors_count = gameover.errors_count
 
+    end_time = perf_counter()
+
     if actual_coverage != 100 and steps_count != steps:
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
@@ -106,7 +116,7 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
                 f"<{with_model.name()}> on {with_agent.map.MapName}: too few samples for stats count"
             )
 
-    return model_result
+    return model_result, end_time - start_time
 
 
 info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
@@ -126,11 +136,6 @@ def get_n_best_weights_in_last_generation(ga_instance, n: int):
     )
 
     return list(map(lambda x: x[0], sorted_population))[:n]
-
-
-def save_weights(w: npt.NDArray, to: str):
-    with open(to / f"{sum(w)}.txt", "w+") as weights_file:
-        json.dump(list(w), weights_file)
 
 
 def on_generation(ga_instance):
@@ -220,7 +225,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
             for game_map in maps:
                 logging.info(f"<{predictor.name()}> is playing {game_map.MapName}")
 
-                game_result = play_map(
+                game_result, time = play_map(
                     with_agent=NAgent(ws, game_map, max_steps), with_model=predictor
                 )
                 rst.append(game_result)
@@ -228,7 +233,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
 
                 logging.info(
                     f"<{predictor.name()}> finished map {game_map.MapName} "
-                    f"in {game_result.steps_count} steps, "
+                    f"in {game_result.steps_count} steps, {time} seconds, "
                     f"actual coverage: {game_result.actual_coverage_percent:.2f}"
                 )
                 pbar.update(1)
