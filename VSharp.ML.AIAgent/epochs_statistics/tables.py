@@ -1,4 +1,5 @@
 from collections import defaultdict
+from pathlib import Path
 
 import pandas as pd
 
@@ -11,7 +12,7 @@ from common.strings import (
 from config import FeatureConfig
 from epochs_statistics.common import Interval, Name2ResultViewModel
 from epochs_statistics.gen_stats import compute_euc_dist_to_full_coverage
-from selection.classes import AgentResultsOnGameMaps, Agent2Result
+from selection.classes import Agent2Result, AgentResultsOnGameMaps
 from selection.utils import invert_mapping_mrgm_gmmr
 
 
@@ -43,20 +44,27 @@ def create_stats(
 
 def create_pivot_table(
     model_map_results_mapping: AgentResultsOnGameMaps, sort: bool = True
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     map_results_with_models = invert_mapping_mrgm_gmmr(model_map_results_mapping)
     euc_dists2full_cov, avs, medians, intervals = create_stats(
         model_map_results_mapping
     )
 
     name_results_dict: defaultdict[int, list[Name2ResultViewModel]] = defaultdict(list)
+    epoch_percents_dict: defaultdict[int, list[Name2ResultViewModel]] = defaultdict(
+        list
+    )
 
     for map_obj, mutable2result_list in map_results_with_models.items():
         for mutable2result in mutable2result_list:
             name_results_dict[map_obj.Id].append(convert_to_view_model(mutable2result))
+            epoch_percents_dict[map_obj.Id].append(
+                mutable2result.game_result.actual_coverage_percent
+            )
 
     mutable_names = get_model_names_in_order(name_results_dict)
     df = pd.DataFrame(name_results_dict, index=mutable_names)
+    epochs_percent_df = pd.DataFrame(epoch_percents_dict, index=mutable_names)
     for col in df:
         df[col] = df[col].map(lambda name2result_vm: name2result_vm.pretty_result)
 
@@ -65,6 +73,7 @@ def create_pivot_table(
     )
 
     df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
+    epochs_percent_df.rename(columns=lambda map_id: maps_indexes[map_id], inplace=True)
     df[EUC_DIST2FULL_COV_COL_NAME] = euc_dists2full_cov
     df[AV_COVERAGE_COL_NAME] = avs
     df[MEDIAN_COVERAGE_COL_NAME] = medians
@@ -84,11 +93,15 @@ def create_pivot_table(
     df.drop([AV_COVERAGE_COL_NAME], axis=1, inplace=True)
     df.drop([MEDIAN_COVERAGE_COL_NAME], axis=1, inplace=True)
     df.drop([COV_DEVIATION_COL_NAME], axis=1, inplace=True)
-    return df, stats_df
+    return df, stats_df, epochs_percent_df
 
 
 def table_to_string(table: pd.DataFrame):
     return table.to_markdown(tablefmt="psql")
+
+
+def table_to_csv(table: pd.DataFrame, path: Path):
+    table.to_csv(path_or_buf=path)
 
 
 def convert_to_view_model(
