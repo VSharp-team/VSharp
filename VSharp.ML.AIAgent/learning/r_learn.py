@@ -4,6 +4,7 @@ import logging
 import random
 from collections import defaultdict
 from os import getpid
+from statistics import StatisticsError
 
 import numpy.typing as npt
 import pygad.torchga
@@ -94,11 +95,16 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
     )
 
     with manage_map_inference_times_array():
-        map_inference_times = get_map_inference_times()
-        mean, std = compute_statistics(map_inference_times)
-        logging.info(
-            f"Inference stats for <{with_model.name()}> on {with_agent.map.MapName}: {mean=}ms, {std=}ms"
-        )
+        try:
+            map_inference_times = get_map_inference_times()
+            mean, std = compute_statistics(map_inference_times)
+            logging.info(
+                f"Inference stats for <{with_model.name()}> on {with_agent.map.MapName}: {mean=}ms, {std=}ms"
+            )
+        except StatisticsError:
+            logging.info(
+                f"<{with_model.name()}> on {with_agent.map.MapName}: too few samples for stats count"
+            )
 
     return model_result
 
