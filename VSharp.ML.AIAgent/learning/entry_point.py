@@ -29,7 +29,7 @@ logging.basicConfig(
 
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 
-from .r_learn import fitness_function, on_generation
+from .genetic_learning import fitness_function, on_generation
 
 
 @contextmanager

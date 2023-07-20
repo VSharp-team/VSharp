@@ -1,7 +1,7 @@
 import pygad
 import pygad.torchga
 
-import learning.genetic_alorithm as ga
+import learning.entry_point as ga
 import ml.onnx.onnx_import
 from config import GeneralConfig
 from selection.crossover_type import CrossoverType

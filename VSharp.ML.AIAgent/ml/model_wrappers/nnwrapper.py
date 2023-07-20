@@ -4,19 +4,22 @@ import torch.nn
 
 from common.game import GameState
 from ml.data_loader_compact import ServerDataloaderHeteroVector
-from ml.model_wrappers.protocols import Predictor
+from ml.model_wrappers.protocols import WeightedPredictor
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 
-class NNWrapper(Predictor):
+class NNWrapper(WeightedPredictor):
     def __init__(self, model: torch.nn.Module, weights_flat: list[float]) -> None:
         self.model = model
-        self.weights = weights_flat
         self._name = str(sum(weights_flat))
-        self._hash = tuple(weights_flat).__hash__()
+        self._weights = weights_flat
+        self.weights_hash = tuple(weights_flat).__hash__()
 
     def name(self) -> str:
         return self._name
+
+    def weights(self) -> list:
+        return self._weights
 
     def predict(self, input: GameState):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
@@ -36,20 +39,20 @@ class NNWrapper(Predictor):
         return self.__hash__() == __value.__hash__()
 
     def __hash__(self) -> int:
-        return self._name.__hash__() + self._hash
+        return self.name().__hash__() + self.weights_hash
 
 
 def encode(obj):
     if isinstance(obj, NNWrapper):
-        return {"_name": obj._name, "_hash": obj._hash}
+        return {"name": obj._name, "weights_hash": obj.weights_hash}
     return json.dumps(obj)
 
 
 def decode(obj):
-    if "_name" not in obj or "_hash" not in obj:
+    if "name" not in obj or "weights_hash" not in obj:
         return obj
 
     fake_nnwrapper = NNWrapper(None, [])
-    fake_nnwrapper._name = obj["_name"]
-    fake_nnwrapper._hash = obj["_hash"]
+    fake_nnwrapper._name = obj["name"]
+    fake_nnwrapper.weights_hash = obj["weights_hash"]
     return fake_nnwrapper

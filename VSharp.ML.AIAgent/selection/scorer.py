@@ -28,7 +28,7 @@ def euc_dist(data: Iterable, bound):
     return sum([abs(bound - item) ** 2 for item in data])
 
 
-def straight_scorer(model_results: list[GameResult]) -> tuple:
+def straight_scorer(model_results: Iterable[GameResult]) -> tuple:
     # less is better
     coverage_score = -1 * euc_dist(
         data=[game_res.actual_coverage_percent for game_res in model_results], bound=100
