@@ -7,27 +7,27 @@ from os import getpid
 import pygad.torchga
 
 import ml
-from agent.utils import MapsType
+from common.classes import AgentResultsOnGameMaps
 from common.constants import DEVICE
 from config import FeatureConfig, GeneralConfig
-from conn.classes import Agent2ResultsOnMaps
-from conn.requests import recv_game_result_list, send_game_results
+from connection.broker_conn.classes import Agent2ResultsOnMaps
+from connection.broker_conn.requests import recv_game_result_list, send_game_results
+from connection.game_server_conn.utils import MapsType
 from epochs_statistics.tables import create_pivot_table, table_to_csv, table_to_string
 from epochs_statistics.utils import (
     append_to_tables_file,
     create_epoch_subdir,
     rewrite_best_tables_file,
 )
-from ml.fileop import save_model
-from ml.model_wrappers.nnwrapper import NNWrapper
-from selection.classes import AgentResultsOnGameMaps
-from selection.scorer import straight_scorer
-from timer.stats import compute_statistics
-from timer.utils import (
+from learning.selection.scorer import straight_scorer
+from learning.timer.stats import compute_statistics
+from learning.timer.utils import (
     create_temp_epoch_inference_dir,
     dump_and_reset_epoch_times,
     load_times_array,
 )
+from ml.fileop import save_model
+from ml.model_wrappers.nnwrapper import NNWrapper
 
 from .play_game import play_game
 
@@ -133,7 +133,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     nnwrapper = NNWrapper(model, weights_flat=solution)
 
     list_of_map2result = play_game(
-        weighted_predictor=nnwrapper,
+        with_predictor=nnwrapper,
         max_steps=GeneralConfig.MAX_STEPS,
         maps_type=MapsType.TRAIN,
     )

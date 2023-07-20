@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 
+import torch
+
 from common.game import GameState
 
 
@@ -14,8 +16,6 @@ class Predictor(Named, ABC):
     def predict(self, input: GameState):
         raise NotImplementedError
 
-
-class WeightedPredictor(Predictor, ABC):
     @abstractmethod
-    def weights(self) -> list:
+    def model(self) -> torch.nn.Module:
         raise NotImplementedError

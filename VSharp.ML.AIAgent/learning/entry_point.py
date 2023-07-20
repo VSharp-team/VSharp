@@ -15,10 +15,10 @@ from epochs_statistics.utils import (
     init_log_file,
     init_tables_file,
 )
-from selection.crossover_type import CrossoverType
-from selection.mutation_type import MutationType
-from selection.parent_selection_type import ParentSelectionType
-from timer.resources_manager import manage_inference_stats
+from learning.selection.crossover_type import CrossoverType
+from learning.selection.mutation_type import MutationType
+from learning.selection.parent_selection_type import ParentSelectionType
+from learning.timer.resources_manager import manage_inference_stats
 
 logging.basicConfig(
     level=GeneralConfig.LOGGER_LEVEL,

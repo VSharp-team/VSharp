@@ -1,5 +1,7 @@
 import random
 
+from protocols import Predictor
+
 from common.constants import BASE_NN_OUT_FEATURES_NUM, IMPORTED_DICT_MODEL_PATH
 from common.game import GameState
 from config import FeatureConfig
@@ -7,8 +9,6 @@ from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_model_with_last_layer
-
-from .protocols import Predictor
 
 MAX_W, MIN_W = 1, -1
 

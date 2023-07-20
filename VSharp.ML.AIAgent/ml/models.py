@@ -1,12 +1,12 @@
 import torch
 import torch.nn.functional as F
+from .data_loader_compact import NUM_NODE_FEATURES
 from torch import nn
 from torch.nn import Linear
 from torch_geometric.nn import (
     ARMAConv,
     FeaStConv,
     GATConv,
-    GatedGraphConv,
     GCNConv,
     HeteroConv,
     Linear,
@@ -19,9 +19,7 @@ from torch_geometric.nn import (
 )
 from torchvision.ops import MLP
 
-from timer.wrapper import timeit
-
-from .data_loader_compact import NUM_NODE_FEATURES
+from learning.timer.wrapper import timeit
 
 NUM_PREDICTED_VALUES = 4
 

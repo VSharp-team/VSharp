@@ -5,7 +5,7 @@ from typing import Iterable
 
 from bit_coder.bit_coder import convert_to_big_int
 
-from .classes import GameResult
+from common.classes import GameResult
 
 
 def minkowski_superscorer(model_results: list[GameResult], k) -> float:

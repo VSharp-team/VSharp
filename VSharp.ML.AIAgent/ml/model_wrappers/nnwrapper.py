@@ -4,31 +4,30 @@ import torch.nn
 
 from common.game import GameState
 from ml.data_loader_compact import ServerDataloaderHeteroVector
-from ml.model_wrappers.protocols import WeightedPredictor
+from ml.model_wrappers.protocols import Predictor
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 
-class NNWrapper(WeightedPredictor):
+class NNWrapper(Predictor):
     def __init__(self, model: torch.nn.Module, weights_flat: list[float]) -> None:
-        self.model = model
         self._name = str(sum(weights_flat))
-        self._weights = weights_flat
+        self._model = model
         self.weights_hash = tuple(weights_flat).__hash__()
 
     def name(self) -> str:
         return self._name
 
-    def weights(self) -> list:
-        return self._weights
+    def model(self) -> list:
+        return self._model
 
     def predict(self, input: GameState):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
-        assert self.model is not None
+        assert self._model is not None
 
         next_step_id = PredictStateVectorHetGNN.predict_state_single_out(
-            self.model, hetero_input, state_map
+            self._model, hetero_input, state_map
         )
         del hetero_input
         return next_step_id
