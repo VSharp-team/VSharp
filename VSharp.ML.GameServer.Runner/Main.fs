@@ -127,6 +127,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                     
                     Application.reset()
                     API.Reset()
+                    HashMap.hashMap.Free()
                     do! sendResponse (GameOver (actualCoverage, testsCount, errorsCount))
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
