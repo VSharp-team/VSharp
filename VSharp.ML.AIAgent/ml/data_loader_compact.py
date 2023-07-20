@@ -163,8 +163,10 @@ class ServerDataloaderHeteroVector:
             .t()
             .contiguous()
         )
-        data["state_vertex", "history", "game_vertex"].edge_attr = torch.tensor(edge_attr_history, dtype=torch.int32)
-        
+        data["state_vertex", "history", "game_vertex"].edge_attr = torch.tensor(
+            edge_attr_history, dtype=torch.int32
+        )
+
         data["game_vertex", "history", "state_vertex"].edge_index = null_if_empty(
             gv_his_sv
         )
