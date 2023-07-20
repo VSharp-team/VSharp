@@ -4,14 +4,14 @@ from dataclasses_json import dataclass_json
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class StateHistoryElem:
     GraphVertexId: int
     NumOfVisits: int
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class State:
     Id: int
     Position: int
@@ -28,7 +28,7 @@ class State:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GameMapVertex:
     Uid: int
     Id: int
@@ -41,13 +41,13 @@ class GameMapVertex:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GameEdgeLabel:
     Token: int
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GameMapEdge:
     VertexFrom: int
     VertexTo: int
@@ -55,7 +55,7 @@ class GameMapEdge:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GameState:
     GraphVertices: list[GameMapVertex]
     States: list[State]
@@ -63,7 +63,7 @@ class GameState:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class GameMap:
     Id: int
     MaxSteps: int
@@ -78,7 +78,7 @@ class GameMap:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class MoveReward:
     ForCoverage: int
     ForVisitedInstructions: int
@@ -103,7 +103,7 @@ class MoveReward:
 
 
 @dataclass_json
-@dataclass
+@dataclass(slots=True)
 class Reward:
     ForMove: MoveReward
     MaxPossibleReward: int

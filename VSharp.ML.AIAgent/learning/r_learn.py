@@ -4,14 +4,16 @@ import logging
 import random
 from collections import defaultdict
 from os import getpid
+from statistics import StatisticsError
 
 import numpy.typing as npt
 import pygad.torchga
 import tqdm
 
+import ml
 from agent.n_agent import NAgent
 from agent.utils import MapsType, get_maps
-from common.constants import DEVICE, IMPORTED_DICT_MODEL_PATH, TQDM_FORMAT_DICT
+from common.constants import DEVICE, TQDM_FORMAT_DICT
 from common.utils import get_states
 from config import FeatureConfig, GeneralConfig
 from conn.classes import Agent2ResultsOnMaps
@@ -25,7 +27,6 @@ from epochs_statistics.utils import (
 )
 from ml.model_wrappers.nnwrapper import NNWrapper
 from ml.model_wrappers.protocols import Predictor
-from ml.utils import load_model_with_last_layer
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import straight_scorer
 from timer.resources_manager import manage_map_inference_times_array
@@ -94,11 +95,16 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
     )
 
     with manage_map_inference_times_array():
-        map_inference_times = get_map_inference_times()
-        mean, std = compute_statistics(map_inference_times)
-        logging.info(
-            f"Inference stats for <{with_model.name()}> on {with_agent.map.MapName}: {mean=}ms, {std=}ms"
-        )
+        try:
+            map_inference_times = get_map_inference_times()
+            mean, std = compute_statistics(map_inference_times)
+            logging.info(
+                f"Inference stats for <{with_model.name()}> on {with_agent.map.MapName}: {mean=}ms, {std=}ms"
+            )
+        except StatisticsError:
+            logging.info(
+                f"<{with_model.name()}> on {with_agent.map.MapName}: too few samples for stats count"
+            )
 
     return model_result
 
@@ -191,7 +197,8 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     maps_type = MapsType.TRAIN
     max_steps = GeneralConfig.MAX_STEPS
 
-    model = load_model_with_last_layer(IMPORTED_DICT_MODEL_PATH, [1 for _ in range(8)])
+    model = GeneralConfig.MODEL_INIT()
+    model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
     model_weights_dict = pygad.torchga.model_weights_as_dict(
         model=model, weights_vector=solution
     )

@@ -30,7 +30,9 @@ def switch_maps_type(
 
     def send_all(message_body: ClientMessage):
         for ws_string in websocket_strings:
-            with closing(websocket.create_connection(ws_string)) as ws:
+            with closing(
+                websocket.create_connection(ws_string, skip_utf8_validation=True)
+            ) as ws:
                 ws.send(message_body.to_json())
                 ws.recv()
 
