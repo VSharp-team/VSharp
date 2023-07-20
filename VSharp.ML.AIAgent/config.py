@@ -34,6 +34,18 @@ class DumpByTimeoutFeature:
             self.save_path.mkdir()
 
 
+@dataclass(slots=True, frozen=True)
+class SaveEpochsCoveragesFeature:
+    enabled: bool
+    save_path: Path
+
+    def create_save_path_if_not_exists(self):
+        if self.enabled:
+            if self.save_path.exists():
+                rmtree(self.save_path)
+            self.save_path.mkdir()
+
+
 class FeatureConfig:
     VERBOSE_TABLES = True
     SHOW_SUCCESSORS = True
@@ -42,4 +54,7 @@ class FeatureConfig:
     DISABLE_MESSAGE_CHECKS = True
     DUMP_BY_TIMEOUT = DumpByTimeoutFeature(
         enabled=True, timeout_seconds=1200, save_path=Path("./report/timeouted_agents/")
+    )
+    SAVE_EPOCHS_COVERAGES = SaveEpochsCoveragesFeature(
+        enabled=True, save_path=Path("./report/epochs_tables/")
     )

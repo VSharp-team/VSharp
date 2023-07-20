@@ -20,7 +20,7 @@ from config import FeatureConfig, GeneralConfig
 from conn.classes import Agent2ResultsOnMaps
 from conn.requests import recv_game_result_list, send_game_results
 from conn.socket_manager import game_server_socket_manager
-from epochs_statistics.tables import create_pivot_table, table_to_string
+from epochs_statistics.tables import create_pivot_table, table_to_csv, table_to_string
 from epochs_statistics.utils import (
     append_to_tables_file,
     create_epoch_subdir,
@@ -190,10 +190,16 @@ def on_generation(ga_instance):
     else:
         leader_table[best_solution_nnwrapper] = best_solution_results
 
-    _, stats = create_pivot_table(leader_table, sort=False)
+    _, stats, _ = create_pivot_table(leader_table, sort=False)
     rewrite_best_tables_file(table_to_string(stats) + "\n")
 
-    pivot, stats = create_pivot_table(info_for_tables_filtered)
+    pivot, stats, epoch_table = create_pivot_table(info_for_tables_filtered)
+    if FeatureConfig.SAVE_EPOCHS_COVERAGES.enabled:
+        path_to_save_to = (
+            FeatureConfig.SAVE_EPOCHS_COVERAGES.save_path
+            / f"{ga_instance.generations_completed}.csv"
+        )
+        table_to_csv(epoch_table, path=path_to_save_to)
     append_to_tables_file(table_to_string(pivot) + "\n")
     append_to_tables_file(table_to_string(stats) + "\n")
     mean, std = compute_statistics(load_times_array())

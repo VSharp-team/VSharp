@@ -60,6 +60,7 @@ def run(
     init_log_file()
     init_epochs_best_dir()
     FeatureConfig.DUMP_BY_TIMEOUT.create_save_path_if_not_exists()
+    FeatureConfig.SAVE_EPOCHS_COVERAGES.create_save_path_if_not_exists()
 
     ga_instance = pygad.GA(
         num_generations=num_generations,
