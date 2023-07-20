@@ -48,53 +48,53 @@ module internal Pointers =
 
 // -------------------------- Comparison operations --------------------------
 
-    let private isZero x = simplifyEqual x zeroAddress id
+    let private isZero x = simplifyEqual x (zeroAddress()) id
 
-    let isZeroAddress x = fastNumericCompare x zeroAddress
+    let isZeroAddress x = fastNumericCompare x (zeroAddress())
 
     let rec private compareAddress = function
         | PrimitiveStackLocation k1, PrimitiveStackLocation k2 -> makeBool (k1 = k2)
-        | ClassField(addr1, f1), ClassField(addr2, f2) -> if f1 = f2 then simplifyEqual addr1 addr2 id else False
-        | StructField(addr1, f1), StructField(addr2, f2) -> if f1 = f2 then compareAddress(addr1, addr2) else False
+        | ClassField(addr1, f1), ClassField(addr2, f2) -> if f1 = f2 then simplifyEqual addr1 addr2 id else False()
+        | StructField(addr1, f1), StructField(addr2, f2) -> if f1 = f2 then compareAddress(addr1, addr2) else False()
         | ArrayIndex(addr1, idcs1, t1), ArrayIndex(addr2, idcs2, t2) ->
             if t1 = t2 && idcs1.Length = idcs2.Length then simplifyEqual addr1 addr2 id
-            else False
+            else False()
         | StackBufferIndex(k1, i1), StackBufferIndex(k2, i2) -> makeBool (k1 = k2) &&& simplifyEqual i1 i2 id
         | BoxedLocation(addr1, _), BoxedLocation(addr2, _) -> makeBool (addr1 = addr2)
         | ArrayLength _, ArrayLength _
         | ArrayLowerBound _, ArrayLowerBound _
         | StaticField _, StaticField _ -> __unreachable__()
-        | _ -> False
+        | _ -> False()
 
     let rec private comparePointerBase left right =
         match left, right with
         | StackLocation loc1, StackLocation loc2 -> makeBool (loc1 = loc2)
         | HeapLocation(loc1, _), HeapLocation(loc2, _) -> simplifyEqual loc1 loc2 id
         | StaticLocation _, StaticLocation _ -> __unreachable__()
-        | _ -> False
+        | _ -> False()
 
     let rec simplifyReferenceEqualityk x y k =
         simplifyGenericBinary "reference comparison" x y k
             (fun _ _ _ -> __unreachable__())
             (fun x y k ->
                 match x.term, y.term with
-                | _ when x = y -> k True
+                | _ when x = y -> k (True())
                 | Ref address1, Ref address2 -> compareAddress (address1, address2) |> k
                 | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
                     let addressEq = comparePointerBase address1 address2
                     addressEq &&& simplifyEqual shift1 shift2 id |> k
                 | Concrete(:? int as i, _), Ptr(HeapLocation(address, _), _, shift)
                 | Ptr(HeapLocation(address, _), _, shift), Concrete(:? int as i, _) when i = 0 ->
-                    simplifyEqual address zeroAddress id &&& simplifyEqual shift (makeNumber 0) id |> k
+                    simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber 0) id |> k
                 | Concrete(:? int as i, _), HeapRef(address, _)
-                | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address zeroAddress k
+                | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
                 | Ref _, Ptr _
                 | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
                 | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
                 | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
                 | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
                     simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
-                | _ -> False |> k)
+                | _ -> False() |> k)
             (fun x y k -> simplifyReferenceEqualityk x y k)
 
     let isNull heapReference =

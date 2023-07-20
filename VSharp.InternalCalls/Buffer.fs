@@ -31,4 +31,4 @@ module Buffer =
         let linearIndex1 = Memory.LinearizeArrayIndex state addr1 indices1 arrayType1
         let linearIndex2 = Memory.LinearizeArrayIndex state addr2 indices2 arrayType2
         Memory.CopyArray state heapRef1 linearIndex1 typ1 heapRef2 linearIndex2 typ2 elemCount
-        Nop
+        Nop()

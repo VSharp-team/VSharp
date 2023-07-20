@@ -205,8 +205,8 @@ module internal InstructionsSet =
         let states = Memory.Write cilState.state location value
         states |> List.map (changeState cilState)
     let private simplifyConditionResult state res k =
-        if Contradicts state !!res then k True
-        elif Contradicts state res then k False
+        if Contradicts state !!res then k (True())
+        elif Contradicts state res then k (False())
         else k res
     let performCILUnaryOperation op (cilState : cilState) =
         let x = pop cilState
@@ -595,7 +595,7 @@ type internal ILInterpreter() as this =
                 acc &&& notTooSmall &&& notTooLarge
             assert(List.length upperBounds = List.length indices)
             let upperBoundsAndIndices = List.zip upperBounds indices
-            List.fold checkOneBound True upperBoundsAndIndices
+            List.fold checkOneBound (True()) upperBoundsAndIndices
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (checkArrayBounds lengths indices, state))
             accessor
@@ -716,9 +716,9 @@ type internal ILInterpreter() as this =
                 defaultCase
         let indicesCheck (cilState : cilState) =
             // TODO: extended form needs
-            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False)
-            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False)
-            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False)
+            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False())
+            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False())
+            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False())
 
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
@@ -728,7 +728,7 @@ type internal ILInterpreter() as this =
             let srcElemType = Types.ElementType srcType
             let dstElemType = Types.ElementType dstType
             let condition =
-                if Types.IsValueType srcElemType then True
+                if Types.IsValueType srcElemType then True()
                 else Types.TypeIsType srcElemType dstElemType
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (condition, state))
@@ -791,7 +791,7 @@ type internal ILInterpreter() as this =
         assert(List.length args = 2 && Option.isNone this)
         let obj, resultRef = args[0], args[1]
         let success cilState k =
-            Memory.Write cilState.state resultRef True |> List.map (changeState cilState) |> k
+            Memory.Write cilState.state resultRef (True()) |> List.map (changeState cilState) |> k
         BranchOnNullCIL cilState obj
             (x.Raise x.ArgumentNullException)
             success
@@ -952,7 +952,7 @@ type internal ILInterpreter() as this =
             |> Seq.map (fun parameter ->
                 if Attribute.IsDefined(parameter, typeof<CodeAnalysis.DisallowNullAttribute>)
                     then !!(IsNullReference (readParameter parameter cilState))
-                    else True)
+                    else True())
             |> conjunction
 
         let message = "DisallowNullAttribute violation"
@@ -969,7 +969,7 @@ type internal ILInterpreter() as this =
                 |> Seq.map (fun parameter ->
                     if Attribute.IsDefined(parameter, typeof<CodeAnalysis.NotNullAttribute>)
                         then !!(IsNullReference (readParameter parameter cilState))
-                        else True)
+                        else True())
                 |> conjunction
             let returnAssumptions =
                 match method.ReturnParameter with
@@ -977,7 +977,7 @@ type internal ILInterpreter() as this =
                     let res = pop cilState
                     push res cilState
                     !!(IsNullReference res)
-                | _ -> True
+                | _ -> True()
 
             parameterAssumptions &&& returnAssumptions
 
@@ -1264,7 +1264,7 @@ type internal ILInterpreter() as this =
             let (<<=) = API.Arithmetics.(<<=)
             assert(Terms.TypeOf term |> Types.IsNumeric)
             let termType = Terms.TypeOf term
-            if isSubset termType targetTermType then True
+            if isSubset termType targetTermType then True()
             elif termType = TypeUtils.int64Type && targetTermType = TypeUtils.uint64Type then
                 let int64Zero = MakeNumber (0 |> int64)
                 int64Zero <<= term
@@ -1542,7 +1542,7 @@ type internal ILInterpreter() as this =
                 Memory.WriteArrayIndex cilState.state arrayRef indices value typ |> List.map (changeState cilState) |> k
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
-                    if Types.IsValueType typeOfValue then True
+                    if Types.IsValueType typeOfValue then True()
                     else Types.RefIsAssignableToType cilState.state value baseType
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (condition, state))

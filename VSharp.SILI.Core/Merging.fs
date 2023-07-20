@@ -8,11 +8,11 @@ module internal Merging =
     let guardOf term =
         match term.term with
         | GuardedValues(gs, _) -> disjunction gs
-        | _ -> True
+        | _ -> True()
 
     let private boolMerge gvs =
-        let guard = List.fold (|||) False (List.map fst gvs)
-        let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) False gvs
+        let guard = List.fold (|||) (False()) (List.map fst gvs)
+        let value = List.fold (fun acc (g, v) -> acc ||| (g &&& v)) (False()) gvs
         [(guard, value)]
 
     let rec private structMerge typ gvs =
@@ -57,7 +57,7 @@ module internal Merging =
 
     and private compress = function
         | [] -> []
-        | [(_, v)] -> [True, v]
+        | [(_, v)] -> [True(), v]
         | [(_, v1); (_, v2)] as gvs when typeOf v1 = typeOf v2 -> typedMerge (typeOf v1) (mergeSame gvs)
         | [_; _] as gvs -> gvs
         | gvs ->
@@ -119,7 +119,7 @@ module internal Merging =
 
     let unguard = function
         | {term = Union gvs} -> gvs
-        | t -> [(True, t)]
+        | t -> [(True(), t)]
 
     let unguardMerge = unguard >> merge
 
@@ -142,7 +142,7 @@ module internal Merging =
             |> genericSimplify
         | [] -> [(gacc, xsacc)]
     let genericGuardedCartesianProduct mapper xs =
-        genericGuardedCartesianProductRec mapper True [] xs
+        genericGuardedCartesianProductRec mapper (True()) [] xs
 
     let rec private guardedCartesianProductRec mapper ctor gacc xsacc = function
         | x::xs ->
@@ -154,4 +154,4 @@ module internal Merging =
         | [] -> [(gacc, ctor xsacc)]
 
     let guardedCartesianProduct mapper terms ctor =
-        guardedCartesianProductRec mapper ctor True [] terms
+        guardedCartesianProductRec mapper ctor (True()) [] terms

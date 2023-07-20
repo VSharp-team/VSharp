@@ -76,7 +76,7 @@ module internal TypeCasting =
         let typeCheck address =
             let boolConst address =
                 match address.term with
-                | ConcreteHeapAddress _ -> False
+                | ConcreteHeapAddress _ -> False()
                 | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetTyp)
             commonTypeIsType leftType targetTyp ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
@@ -87,10 +87,10 @@ module internal TypeCasting =
         let typeCheck rightAddress =
             let boolConst address =
                 match address.term with
-                | ConcreteHeapAddress _ -> True
+                | ConcreteHeapAddress _ -> True()
                 | _ -> makeSubtypeBoolConst (ConcreteType leftType) (SymbolicType address)
             match leftType with
-            | InterfaceType _ -> False
+            | InterfaceType _ -> False()
             | _ -> typeIsType leftType rightType &&& boolConst rightAddress
         Merging.guardedApply typeCheck rightAddress
 
@@ -167,7 +167,7 @@ module internal TypeCasting =
                         match PersistentDict.tryFind state.allocatedTypes addr with
                         | Some(MockType mockType) ->
                             let assignableExists = mockType.SuperTypes |> Seq.exists (fun st -> st.IsAssignableTo r)
-                            if assignableExists then True else False
+                            if assignableExists then True() else False()
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, SymbolicType r ->
@@ -177,7 +177,7 @@ module internal TypeCasting =
                     | {term = ConcreteHeapAddress addr} ->
                         // None when addr is null
                         match PersistentDict.tryFind state.allocatedTypes addr with
-                        | Some(MockType _) -> False
+                        | Some(MockType _) -> False()
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
@@ -189,7 +189,7 @@ module internal TypeCasting =
         | DetachedPtr offset, Numeric t -> primitiveCast offset t
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
-        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef t when address = zeroAddress && offset = 0 -> nullRef t
+        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef t when address = zeroAddress() && offset = 0 -> nullRef t
         // CASE: pointer from concolic
         | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset
         | Ptr _, ByRef _ ->
