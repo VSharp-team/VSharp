@@ -5,8 +5,9 @@ import random
 from collections import defaultdict
 from os import getpid
 from statistics import StatisticsError
+from time import perf_counter
+from typing import TypeAlias
 
-import numpy.typing as npt
 import pygad.torchga
 import tqdm
 
@@ -26,7 +27,6 @@ from epochs_statistics.utils import (
     rewrite_best_tables_file,
 )
 from ml.model_wrappers.nnwrapper import NNWrapper
-from ml.model_wrappers.protocols import Predictor
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import straight_scorer
 from timer.resources_manager import manage_map_inference_times_array
@@ -37,13 +37,20 @@ from timer.utils import (
     get_map_inference_times,
     load_times_array,
 )
+from weights_dump.weights_dump import save_weights
+
+TimeDuration: TypeAlias = float
 
 
-def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
+def play_map(
+    with_agent: NAgent, with_model: NNWrapper
+) -> tuple[GameResult, TimeDuration]:
     steps_count = 0
     game_state = None
     actual_coverage = None
     steps = with_agent.steps
+
+    start_time = perf_counter()
 
     try:
         for _ in range(steps):
@@ -80,6 +87,14 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
         tests_count = gameover.tests_count
         errors_count = gameover.errors_count
 
+    end_time = perf_counter()
+
+    if (
+        FeatureConfig.DUMP_BY_TIMEOUT.enabled
+        and end_time - start_time > FeatureConfig.DUMP_BY_TIMEOUT.timeout_seconds
+    ):
+        save_weights(with_model.weights, to=FeatureConfig.DUMP_BY_TIMEOUT.save_path)
+
     if actual_coverage != 100 and steps_count != steps:
         logging.error(
             f"<{with_model.name()}>: not all steps exshausted on {with_agent.map.MapName} with non-100% coverage"
@@ -106,7 +121,7 @@ def play_map(with_agent: NAgent, with_model: Predictor) -> GameResult:
                 f"<{with_model.name()}> on {with_agent.map.MapName}: too few samples for stats count"
             )
 
-    return model_result
+    return model_result, end_time - start_time
 
 
 info_for_tables: AgentResultsOnGameMaps = defaultdict(list)
@@ -126,11 +141,6 @@ def get_n_best_weights_in_last_generation(ga_instance, n: int):
     )
 
     return list(map(lambda x: x[0], sorted_population))[:n]
-
-
-def save_weights(w: npt.NDArray, to: str):
-    with open(to / f"{sum(w)}.txt", "w+") as weights_file:
-        json.dump(list(w), weights_file)
 
 
 def on_generation(ga_instance):
@@ -206,35 +216,35 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     model.load_state_dict(model_weights_dict)
     model.to(DEVICE)
     model.eval()
-    predictor = NNWrapper(model, weights_flat=solution)
+    nnwrapper = NNWrapper(model, weights_flat=solution)
 
     with game_server_socket_manager() as ws:
         maps = get_maps(websocket=ws, type=maps_type)
         with tqdm.tqdm(
             total=len(maps),
-            desc=f"{predictor.name():20}: {maps_type.value}",
+            desc=f"{nnwrapper.name():20}: {maps_type.value}",
             **TQDM_FORMAT_DICT,
         ) as pbar:
             rst: list[GameResult] = []
             list_of_map2result: list[Map2Result] = []
             for game_map in maps:
-                logging.info(f"<{predictor.name()}> is playing {game_map.MapName}")
+                logging.info(f"<{nnwrapper.name()}> is playing {game_map.MapName}")
 
-                game_result = play_map(
-                    with_agent=NAgent(ws, game_map, max_steps), with_model=predictor
+                game_result, time = play_map(
+                    with_agent=NAgent(ws, game_map, max_steps), with_model=nnwrapper
                 )
                 rst.append(game_result)
                 list_of_map2result.append(Map2Result(game_map, game_result))
 
                 logging.info(
-                    f"<{predictor.name()}> finished map {game_map.MapName} "
-                    f"in {game_result.steps_count} steps, "
+                    f"<{nnwrapper.name()}> finished map {game_map.MapName} "
+                    f"in {game_result.steps_count} steps, {time} seconds, "
                     f"actual coverage: {game_result.actual_coverage_percent:.2f}"
                 )
                 pbar.update(1)
-    send_game_results(Agent2ResultsOnMaps(predictor, list_of_map2result))
+    send_game_results(Agent2ResultsOnMaps(nnwrapper, list_of_map2result))
 
     dump_and_reset_epoch_times(
-        f"{predictor.name()}_epoch{ga_inst.generations_completed}_pid{getpid()}"
+        f"{nnwrapper.name()}_epoch{ga_inst.generations_completed}_pid{getpid()}"
     )
     return straight_scorer(rst)
