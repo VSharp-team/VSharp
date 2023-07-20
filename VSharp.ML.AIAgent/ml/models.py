@@ -505,8 +505,6 @@ class SAGEConvModel(torch.nn.Module):
         hidden_channels,
         num_gv_layers=2,
         num_sv_layers=2,
-        num_history_layers=2,
-        num_in_layers=2,
     ):
         super().__init__()
         self.gv_layers = nn.ModuleList()
@@ -521,14 +519,7 @@ class SAGEConvModel(torch.nn.Module):
             sage_sv = SAGEConv(-1, hidden_channels)
             self.sv_layers.append(sage_sv)
 
-        # self.history_layers = nn.ModuleList()
-        # for i in range(num_history_layers):
-        #     sage_h = SAGEConv((-1, -1), hidden_channels)
-        #     self.history_layers.append(sage_h)
-        # self.history1 = SAGEConv((-1, -1), hidden_channels)
         self.history1 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
-        # self.history2 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
-
         self.in1 = SAGEConv((-1, -1), hidden_channels)
 
         self.sv_layers2 = nn.ModuleList()
@@ -536,20 +527,10 @@ class SAGEConvModel(torch.nn.Module):
         for i in range(num_sv_layers - 1):
             sage_sv = SAGEConv(-1, hidden_channels)
             self.sv_layers2.append(sage_sv)
-
-        # self.in2 = SAGEConv((-1, -1), hidden_channels)
-
-        # self.in_layers = nn.ModuleList()
-        # for i in range(num_in_layers):
-        #     sage_in = SAGEConv((-1, -1), hidden_channels)
-        #     self.in_layers.append(sage_in)
-
         self.mlp = MLP(hidden_channels, [1])
 
     @timeit
     def forward(self, x_dict, edge_index_dict, edge_attr_dict):
-        # print(x_dict)
-        # print(edge_attr_dict)
         game_x = self.gv_layers[0](
             x_dict["game_vertex"],
             edge_index_dict[("game_vertex", "to", "game_vertex")],
@@ -559,7 +540,6 @@ class SAGEConvModel(torch.nn.Module):
                 game_x,
                 edge_index_dict[("game_vertex", "to", "game_vertex")],
             ).relu()
-        # print(game_x.size())
 
         state_x = self.sv_layers[0](
             x_dict["state_vertex"],
@@ -573,22 +553,10 @@ class SAGEConvModel(torch.nn.Module):
 
         history_x = self.history1(
             (game_x, state_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")], 
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
             edge_attr_dict,
-            size=(game_x.size(0), state_x.size(0))
-            ).relu()
-        
-        # history_x = self.history1(
-        #     (state_x, game_x),
-        #     edge_index_dict[("state_vertex", "history", "game_vertex")], 
-        #     edge_attr_dict,
-        #     size=(state_x.size(0), game_x.size(0))
-        #     ).relu()
-        
-        # history_x = self.history1((game_x, state_x),
-        #     edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
-        #history_x = self.history2((history_x, game_x),
-        #    edge_index_dict[("state_vertex", "history", "game_vertex")]).relu()
+            size=(game_x.size(0), state_x.size(0)),
+        ).relu()
 
         in_x = self.in1(
             (game_x, history_x), edge_index_dict[("game_vertex", "in", "state_vertex")]
@@ -603,92 +571,5 @@ class SAGEConvModel(torch.nn.Module):
                 state_x,
                 edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
             ).relu()
-        # in_x = self.in2(
-        #    (game_x, in_x),
-        #    edge_index_dict[("state_vertex", "in", "game_vertex")]
-        # ).relu()
-
-        # print(state_x.size())
-        # history_x = self.history_layers[0](
-        #     (game_x, state_x),
-        #     edge_index_dict[("game_vertex", "history", "state_vertex")]
-
-        #     # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
-        #     # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
-        # ).relu()
-        # for layer in self.history_layers[1:]:
-        #     history_x = layer(
-        #     (game_x, history_x),
-        #     edge_index_dict[("game_vertex", "history", "state_vertex")]
-
-        #     # torch.cat((edge_index_dict[("game_vertex", "history", "state_vertex")],
-        #     # edge_index_dict[("state_vertex", "history", "game_vertex")]), dim=1)
-        #     ).relu()
-        # # print(history_x.size())
-
-        # in_x = self.in_layers[0](
-        #     (game_x, history_x),
-        #     edge_index_dict[("game_vertex", "in", "state_vertex")]
-
-        #     # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
-        #     # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
-        # ).relu()
-        # for layer in self.in_layers[1:]:
-        #     in_x = layer(
-        #     (game_x, in_x),
-        #     edge_index_dict[("game_vertex", "in", "state_vertex")]
-
-        # torch.cat((edge_index_dict[("game_vertex", "in", "state_vertex")],
-        # edge_index_dict[("state_vertex", "in", "game_vertex")]), dim=1)
-        # ).relu()
-        # print(in_x.size())
-        # print(in_x)
         x = self.mlp(in_x)
-        # print(x.size())
         return x
-
-
-class GatedGCNModel(torch.nn.Module):
-    def __init__(self, hidden_channels):
-        super().__init__()
-        self.gatedgcn_gv1 = GatedGraphConv(hidden_channels, 1)
-        self.gatedgcn_sv1 = GatedGraphConv(hidden_channels, 1)
-        self.gatedgcn_common1 = GatedGraphConv(hidden_channels, 1)
-        self.gatedgcn_common2 = GatedGraphConv(hidden_channels, 1)
-        self.sage_conv1 = SAGEConv((-1, -1), hidden_channels)
-        self.sage_conv2 = SAGEConv((-1, -1), hidden_channels)
-        # self.gatedgcn_common3 = GatedGraphConv(hidden_channels, 1)
-        self.mlp = MLP(hidden_channels, [20, 1])
-
-    @timeit
-    def forward(self, x_dict, edge_index_dict):
-        game_x = self.gatedgcn_gv1(
-            x_dict["game_vertex"],
-            edge_index_dict[("game_vertex", "to", "game_vertex")],
-        ).relu()
-        print(game_x.size())
-        state_x = self.gatedgcn_sv1(
-            x_dict["state_vertex"],
-            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
-        ).relu()
-        print(state_x.size())
-
-        common_x = self.sage_conv1(
-            (game_x, state_x),
-            edge_index_dict[("game_vertex", "history", "state_vertex")]
-            # torch.cat(
-            # (edge_index_dict[("game_vertex", "history", "state_vertex")],
-            # edge_index_dict[("state_vertex", "history", "game_vertex")]), 1
-            # )
-        ).relu()
-        print(common_x.size())
-        common_x = self.sage_conv2(
-            (game_x, common_x),
-            edge_index_dict[("game_vertex", "in", "state_vertex")]
-            # torch.cat((
-            # edge_index_dict[("game_vertex", "in", "state_vertex")],
-            # edge_index_dict[("state_vertex", "in", "game_vertex")]), 1
-            # )
-        ).relu()
-
-        return self.mlp(common_x)
