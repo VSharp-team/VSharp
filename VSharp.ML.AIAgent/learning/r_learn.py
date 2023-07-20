@@ -26,6 +26,7 @@ from epochs_statistics.utils import (
     create_epoch_subdir,
     rewrite_best_tables_file,
 )
+from ml.fileop import save_model
 from ml.model_wrappers.nnwrapper import NNWrapper
 from selection.classes import AgentResultsOnGameMaps, GameResult, Map2Result
 from selection.scorer import straight_scorer
@@ -37,7 +38,6 @@ from timer.utils import (
     get_map_inference_times,
     load_times_array,
 )
-from weights_dump.weights_dump import save_weights
 
 TimeDuration: TypeAlias = float
 
@@ -93,7 +93,12 @@ def play_map(
         FeatureConfig.DUMP_BY_TIMEOUT.enabled
         and end_time - start_time > FeatureConfig.DUMP_BY_TIMEOUT.timeout_seconds
     ):
-        save_weights(with_model.weights, to=FeatureConfig.DUMP_BY_TIMEOUT.save_path)
+        save_model(
+            GeneralConfig.MODEL_INIT(),
+            to=FeatureConfig.DUMP_BY_TIMEOUT.save_path
+            / f"{sum(with_model.weights)}.pth",
+            weights=with_model.weights,
+        )
 
     if actual_coverage != 100 and steps_count != steps:
         logging.error(
@@ -158,7 +163,11 @@ def on_generation(ga_instance):
     for weights in get_n_best_weights_in_last_generation(
         ga_instance, FeatureConfig.N_BEST_SAVED_EACH_GEN
     ):
-        save_weights(weights, to=epoch_subdir)
+        save_model(
+            GeneralConfig.MODEL_INIT(),
+            to=epoch_subdir / f"{sum(weights)}.pth",
+            weights=weights,
+        )
 
     ga_pop_inner_hashes = [
         tuple(individual).__hash__() for individual in ga_instance.population
