@@ -1,6 +1,6 @@
 # python cache and venv
 .env
 __pycache__/
-epochs_best/
+report/
 *.pkl
 *.onnx
