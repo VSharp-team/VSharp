@@ -173,7 +173,8 @@ namespace VSharp
                 new SiliOptions(
                     explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
-                        timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+                        //timeout > 0 ? searchMode.NewFairMode(baseSearchMode) : baseSearchMode
+                        baseSearchMode
                     ),
                     outputDirectory: unitTests.TestDirectory,
                     recThreshold: recThreshold,

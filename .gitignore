@@ -251,7 +251,5 @@ VSharp.Test/GeneratedTests/**
 #logs
 **/logs_full*/**
 
-torch_venv/*
-
 /output/**
 /References/*.dll

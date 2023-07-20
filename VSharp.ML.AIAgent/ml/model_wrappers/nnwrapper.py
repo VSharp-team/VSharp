@@ -11,6 +11,7 @@ from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 class NNWrapper(Predictor):
     def __init__(self, model: torch.nn.Module, weights_flat: list[float]) -> None:
         self.model = model
+        self.weights = weights_flat
         self._name = str(sum(weights_flat))
         self._hash = tuple(weights_flat).__hash__()
 

@@ -8,7 +8,7 @@ import pygad.torchga
 from torch.multiprocessing import set_start_method
 
 from common.constants import APP_LOG_FILE, BASE_REPORT_DIR
-from config import GeneralConfig
+from config import FeatureConfig, GeneralConfig
 from epochs_statistics.utils import (
     create_report_dir,
     init_epochs_best_dir,
@@ -59,6 +59,8 @@ def run(
     init_tables_file()
     init_log_file()
     init_epochs_best_dir()
+    FeatureConfig.DUMP_BY_TIMEOUT.create_save_path_if_not_exists()
+    FeatureConfig.SAVE_EPOCHS_COVERAGES.create_save_path_if_not_exists()
 
     ga_instance = pygad.GA(
         num_generations=num_generations,
