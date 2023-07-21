@@ -1,35 +1,28 @@
-import os.path
-from collections import namedtuple
-
 import torch
-import torch.nn.functional as F
 from common.constants import DEVICE
-from ml import data_loader_compact
-from ml.models import GNN_Het
-from torch_geometric.data import HeteroData
-from torch_geometric.loader import DataLoader
-from torch_geometric.nn import to_hetero
+import os
+import re
+
 from torch import nn
-from torch.nn import Linear
 from torch_geometric.nn import (
     GATConv,
-    GatedGraphConv,
-    GCNConv,
-    HeteroConv,
-    Linear,
-    ResGatedGraphConv,
     SAGEConv,
-    TAGConv,
-    TransformerConv,
-    global_mean_pool,
-    to_hetero,
 )
 from torchvision.ops import MLP
 
-from timer.wrapper import timeit
-from conn.socket_manager import game_server_socket_manager
+from common.game import GameState
+from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Predictor
+from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
+import csv
 
+from learning.play_game import play_game
+from config import GeneralConfig
+from connection.game_server_conn.utils import MapsType
+from ml.models import SAGEConvModel
+
+csv_path = '../report/epochs_tables/'
+models_path = '../report/epochs_best/'
 
 
 class CommonModel(torch.nn.Module):
@@ -38,8 +31,6 @@ class CommonModel(torch.nn.Module):
         hidden_channels,
         num_gv_layers=2,
         num_sv_layers=2,
-        num_history_layers=2,
-        num_in_layers=2,
     ):
         super().__init__()
         self.gv_layers = nn.ModuleList()
@@ -66,10 +57,7 @@ class CommonModel(torch.nn.Module):
 
         self.mlp = MLP(hidden_channels, [1])
 
-    @timeit
     def forward(self, x_dict, edge_index_dict, edge_attr_dict):
-        # print(x_dict)
-        # print(edge_attr_dict)
         game_x = self.gv_layers[0](
             x_dict["game_vertex"],
             edge_index_dict[("game_vertex", "to", "game_vertex")],
@@ -79,7 +67,6 @@ class CommonModel(torch.nn.Module):
                 game_x,
                 edge_index_dict[("game_vertex", "to", "game_vertex")],
             ).relu()
-        # print(game_x.size())
 
         state_x = self.sv_layers[0](
             x_dict["state_vertex"],
@@ -97,19 +84,7 @@ class CommonModel(torch.nn.Module):
             edge_attr_dict,
             size=(game_x.size(0), state_x.size(0))
             ).relu()
-        
-        # history_x = self.history1(
-        #     (state_x, game_x),
-        #     edge_index_dict[("state_vertex", "history", "game_vertex")], 
-        #     edge_attr_dict,
-        #     size=(state_x.size(0), game_x.size(0))
-        #     ).relu()
-        
-        # history_x = self.history1((game_x, state_x),
-        #     edge_index_dict[("game_vertex", "history", "state_vertex")]).relu()
-        #history_x = self.history2((history_x, game_x),
-        #    edge_index_dict[("state_vertex", "history", "game_vertex")]).relu()
-        
+
         in_x = self.in1(
             (game_x, history_x),
             edge_index_dict[("game_vertex", "in", "state_vertex")]
@@ -138,23 +113,19 @@ def euclidean_dist(y_pred, y_true):
     return torch.sqrt(torch.sum((y_pred_norm - y_true_norm) ** 2))
 
 
-lr = 0.0001
-model = CommonModel(32)
-model.to(DEVICE)
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-criterion = euclidean_dist
-
-
-class CommonModelPredictor(Predictor):
+class CommonModelWrapper(Predictor):
     def __init__(self, model: torch.nn.Module, best_models: dict) -> None:
         self.model = model
-        self._name = str(sum(weights_flat))
-        self._hash = tuple(weights_flat).__hash__()
+        self.best_models = best_models
+        self._model = model
 
     def name(self) -> str:
-        return self._name
+        return "MY AWESOME MODEL"
 
-    def predict(self, input: GameState):
+    def model(self):
+        return self._model
+
+    def predict(self, input: GameState, map_name):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
@@ -164,20 +135,68 @@ class CommonModelPredictor(Predictor):
             self.model, hetero_input, state_map
         )
 
-        back_prop(best_models[input.map_name], self.model, hetero_input)
+        back_prop(self.best_models[map_name], self.model, hetero_input)
 
         del hetero_input
         return next_step_id
+
+
+def get_last_epoch_num(path):
+    epochs = list(map(lambda x: re.findall('[0-9]+', x), os.listdir(path)))
+    return str(sorted(epochs)[-1][0])
+
+
+def csv2best_models():
+    best_models = {}
+    values = []
+    models_names = []
+
+    with open(csv_path + get_last_epoch_num(csv_path) + '.csv', 'r') as csv_file:
+        csv_reader = csv.reader(csv_file)
+        map_names = next(csv_reader)[1:]
+        for row in csv_reader:
+            models_names.append(row[0])
+            int_row = list(map(lambda x: int(x), row[1:]))
+            values.append(int_row)
+        val, ind = torch.max(torch.tensor(values), dim=0)
+        for i in range(len(map_names)):
+            best_models[map_names[i]] = models_names[ind[i]]
+        return best_models
 
 
 def back_prop(best_model, model, data):
     model.train()
     data.to(DEVICE)
     optimizer.zero_grad()
-
+    ref_model = SAGEConvModel(16)
+    ref_model.load_state_dict(torch.load(models_path + "epoch_" + get_last_epoch_num(models_path) + "/" + best_model + ".pth"))
+    ref_model.to(DEVICE)
     out = model(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
-    y_true = best_model(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
+    y_true = ref_model(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
 
     loss = criterion(out, y_true)
     loss.backward()
     optimizer.step()
+
+
+model = CommonModel(32)
+model.to(DEVICE)
+
+cmwrapper = CommonModelWrapper(model, csv2best_models())
+lr = 0.0001
+epochs = 10
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+criterion = euclidean_dist
+
+
+def train():
+    for epoch in range(epochs):
+        # some function with some parameters
+        play_game(
+          with_predictor=cmwrapper,
+          max_steps=GeneralConfig.MAX_STEPS,
+          maps_type=MapsType.TRAIN,
+        )
+
+
+train()

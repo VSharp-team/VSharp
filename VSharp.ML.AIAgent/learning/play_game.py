@@ -34,7 +34,7 @@ def play_map(
     try:
         for _ in range(steps):
             game_state = with_connector.recv_state_or_throw_gameover()
-            predicted_state_id = with_predictor.predict(game_state)
+            predicted_state_id = with_predictor.predict(game_state, with_connector.map.MapName)
             logging.debug(
                 f"<{with_predictor.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
             )
@@ -59,7 +59,7 @@ def play_map(
                 tests_count=0,
                 errors_count=0,
                 actual_coverage_percent=0,
-            )
+            ), perf_counter() - start_time
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
 
