@@ -80,7 +80,7 @@ def play_map(
                 tests_count=0,
                 errors_count=0,
                 actual_coverage_percent=0,
-            )
+            ), perf_counter() - start_time
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
 
