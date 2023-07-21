@@ -3,17 +3,17 @@ from pathlib import Path
 
 import pandas as pd
 
+from common.classes import Agent2Result, AgentResultsOnGameMaps
 from common.strings import (
     AV_COVERAGE_COL_NAME,
     COV_DEVIATION_COL_NAME,
     EUC_DIST2FULL_COV_COL_NAME,
     MEDIAN_COVERAGE_COL_NAME,
 )
+from common.utils import invert_mapping_mrgm_gmmr
 from config import FeatureConfig
 from epochs_statistics.common import Interval, Name2ResultViewModel
 from epochs_statistics.gen_stats import compute_euc_dist_to_full_coverage
-from selection.classes import Agent2Result, AgentResultsOnGameMaps
-from selection.utils import invert_mapping_mrgm_gmmr
 
 
 def get_sample_val(d: dict):

@@ -5,7 +5,7 @@ from typing import Iterable
 
 from bit_coder.bit_coder import convert_to_big_int
 
-from .classes import GameResult
+from common.classes import GameResult
 
 
 def minkowski_superscorer(model_results: list[GameResult], k) -> float:
@@ -28,7 +28,7 @@ def euc_dist(data: Iterable, bound):
     return sum([abs(bound - item) ** 2 for item in data])
 
 
-def straight_scorer(model_results: list[GameResult]) -> tuple:
+def straight_scorer(model_results: Iterable[GameResult]) -> tuple:
     # less is better
     coverage_score = -1 * euc_dist(
         data=[game_res.actual_coverage_percent for game_res in model_results], bound=100

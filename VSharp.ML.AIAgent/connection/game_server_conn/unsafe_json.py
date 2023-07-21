@@ -1,4 +1,5 @@
-from dataclasses import asdict as dataclasses_asdict, is_dataclass
+from dataclasses import asdict as dataclasses_asdict
+from dataclasses import is_dataclass
 from typing import ClassVar, Protocol
 
 
