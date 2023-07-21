@@ -40,7 +40,8 @@ module internal Z3 =
         sorts : IDictionary<Type, Sort>
         e2t : IDictionary<Expr, term>
         t2e : IDictionary<term, encodingResult>
-        heapAddresses : IDictionary<Type * Expr, vectorTime>
+        heapAddresses : IDictionary<Expr, vectorTime>
+        addressesConstants : HashSet<Expr>
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * fieldId list, ArrayExpr>
         mutable lastSymbolicAddress : int32
@@ -62,7 +63,8 @@ module internal Z3 =
         sorts = Dictionary<Type, Sort>()
         e2t = Dictionary<Expr, term>()
         t2e = Dictionary<term, encodingResult>()
-        heapAddresses = Dictionary<Type * Expr, vectorTime>()
+        heapAddresses = Dictionary<Expr, vectorTime>()
+        addressesConstants = HashSet<Expr>()
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * fieldId list, ArrayExpr>()
         lastSymbolicAddress = 0
@@ -108,6 +110,8 @@ module internal Z3 =
 
         member private x.AddressSort = ctx.MkBitVecSort(32u) :> Sort
 
+        member x.AddressesConstants with get() = encodingCache.addressesConstants
+
         member private x.Type2Sort typ =
             Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
                 match typ with
@@ -131,8 +135,8 @@ module internal Z3 =
             else ctx.MkNumeral(0, sort)
 
         member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            let encoded = ctx.MkNumeral(encCtx.addressOrder.[address], x.Type2Sort addressType)
-            encodingCache.heapAddresses[(addressType, encoded)] <- address
+            let encoded = ctx.MkNumeral(encCtx.addressOrder[address], x.Type2Sort addressType)
+            encodingCache.heapAddresses[encoded] <- address
             encoded
 
         member private x.CreateConstant name typ =
@@ -153,11 +157,7 @@ module internal Z3 =
             | False -> TrueExpr
             | _ -> ctx.MkNot expr
 
-        member private x.MkEq(left, right) =
-            if left = right then TrueExpr
-            else ctx.MkEq(left, right)
-
-        member x.MkAnd(left, right) =
+        member private x.MkAnd(left, right) =
             match left, right with
             | _ when left = right -> left
             | True, _ -> right
@@ -166,7 +166,7 @@ module internal Z3 =
             | _, False -> right
             | _ -> ctx.MkAnd(left, right)
 
-        member x.MkOr(left, right) =
+        member private x.MkOr(left, right) =
             match left, right with
             | _ when left = right -> left
             | True, _ -> left
@@ -198,33 +198,136 @@ module internal Z3 =
             | Seq.Cons(head, tail) when Seq.isEmpty tail -> head
             | elems -> ctx.MkOr(elems)
 
-        member x.MkOr ([<ParamArray>] elems : BoolExpr[]) =
+        member private x.MkOr ([<ParamArray>] elems : BoolExpr[]) =
             if Array.contains TrueExpr elems then TrueExpr
             else
                 let nonFalseElems = Array.filter (fun elem -> elem <> FalseExpr) elems
                 x.SimplifyOrElements nonFalseElems
 
-        member x.MkOr (elems : BoolExpr seq) =
+        member private x.MkOr (elems : BoolExpr seq) =
             if Seq.contains TrueExpr elems then TrueExpr
             else
                 let nonFalseElems = Seq.filter (fun elem -> elem <> FalseExpr) elems
                 x.SimplifyOrElements nonFalseElems
 
-        member x.MkITE(cond : BoolExpr, thenExpr, elseExpr) : Expr =
-            match cond with
-            | True -> thenExpr
-            | False -> elseExpr
+        member private x.MkITE(cond : BoolExpr, thenExpr, elseExpr) : Expr =
+            match cond, thenExpr, elseExpr with
+            | True, _, _ -> thenExpr
+            | False, _, _ -> elseExpr
+            | _, (:? BitVecExpr as thenExpr), (:? BitVecExpr as elseExpr) ->
+                let thenExpr, elseExpr = x.ExtendIfNeed (thenExpr, elseExpr) true
+                ctx.MkITE(cond, thenExpr, elseExpr)
             | _ -> ctx.MkITE(cond, thenExpr, elseExpr)
 
 // ------------------------------- Encoding: arithmetic simplifications -------------------------------
 
-        member x.MkBVSLE(left, right) : BoolExpr =
-            if left = right then TrueExpr
-            else ctx.MkBVSLE(left, right)
+        member private x.ExtendIfNeed (x : BitVecExpr, y : BitVecExpr as args) isSigned =
+            let difference = int x.SortSize - int y.SortSize
+            if difference = 0 then args
+            else
+                let extend = if isSigned then ctx.MkSignExt else ctx.MkZeroExt
+                if difference > 0 then x, extend(uint32 difference, y)
+                else extend(uint32 -difference, x), y
 
-        member x.MkBVSGE(left, right) : BoolExpr =
-            if left = right then TrueExpr
-            else ctx.MkBVSGE(left, right)
+        member private x.MkEq(left : Expr, right : Expr) =
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | :? BitVecExpr as l, (:? BitVecExpr as r) ->
+                x.ExtendIfNeed(l, r) true |> ctx.MkEq
+            | _ -> ctx.MkEq(left, right)
+
+        member private x.MkBVSGT(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> x.ExtendIfNeed operands true |> ctx.MkBVSGT
+
+        member private x.MkBVUGT(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> x.ExtendIfNeed operands false |> ctx.MkBVUGT
+
+        member private x.MkBVSGE(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> x.ExtendIfNeed operands true |> ctx.MkBVSGE
+
+        member private x.MkBVUGE(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> x.ExtendIfNeed operands false |> ctx.MkBVUGE
+
+        member private x.MkBVSLT(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> x.ExtendIfNeed operands true |> ctx.MkBVSLT
+
+        member private x.MkBVULT(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> x.ExtendIfNeed operands false |> ctx.MkBVULT
+
+        member private x.MkBVSLE(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> x.ExtendIfNeed operands true |> ctx.MkBVSLE
+
+        member private x.MkBVULE(left, right as operands) : BoolExpr =
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> x.ExtendIfNeed operands false |> ctx.MkBVULE
+
+        member private x.MkBVAnd operands : BitVecExpr =
+            x.ExtendIfNeed operands false |> ctx.MkBVAND
+
+        member private x.MkBVOr operands : BitVecExpr =
+            x.ExtendIfNeed operands false |> ctx.MkBVOR
+
+        member private x.MkBVXor operands : BitVecExpr =
+            x.ExtendIfNeed operands false |> ctx.MkBVXOR
+
+        member private x.MkBVShl operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVSHL
+
+        member private x.MkBVAShr operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVASHR
+
+        member private x.MkBVLShr operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVLSHR
+
+        member private x.MkBVAdd operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVAdd
+
+        member private x.MkBVAddNoUnderflow operands : BoolExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVAddNoUnderflow
+
+        member private x.MkBVAddNoOverflow operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands true
+            ctx.MkBVAddNoOverflow(left, right, true)
+
+        member private x.MkBVMul operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVMul
+
+        member private x.MkBVMulNoUnderflow operands : BoolExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVMulNoUnderflow
+
+        member private x.MkBVMulNoOverflow operands : BoolExpr =
+            let left, right = x.ExtendIfNeed operands true
+            ctx.MkBVMulNoOverflow(left, right, true)
+
+        member private x.MkBVSub operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVSub
+
+        member private x.MkBVSDiv operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVSDiv
+
+        member private x.MkBVUDiv operands : BitVecExpr =
+            x.ExtendIfNeed operands false |> ctx.MkBVUDiv
+
+        member private x.MkBVSRem operands : BitVecExpr =
+            x.ExtendIfNeed operands true |> ctx.MkBVSRem
+
+        member private x.MkBVURem operands : BitVecExpr =
+            x.ExtendIfNeed operands false |> ctx.MkBVURem
 
 // ------------------------------- Encoding: common -------------------------------
 
@@ -277,55 +380,46 @@ module internal Z3 =
 
 // ------------------------------- Encoding: expression -------------------------------
 
-        // [NOTE] using signed extend, because both arguments of shift are signed (always)
-        member private x.ExtendIfNeed (x : BitVecExpr, y : BitVecExpr as args) =
-            let difference = int x.SortSize - int y.SortSize
-            if difference = 0 then args
-            elif difference > 0 then
-                x, ctx.MkSignExt(uint32 difference, y)
-            else
-                ctx.MkSignExt(uint32 -difference, x), y
-
         member private x.EncodeOperation encCtx operation args =
             match operation with
             | OperationType.BitwiseNot -> x.MakeUnary encCtx ctx.MkBVNot args
-            | OperationType.BitwiseAnd -> x.MakeBinary encCtx ctx.MkBVAND args
-            | OperationType.BitwiseOr -> x.MakeBinary encCtx ctx.MkBVOR args
-            | OperationType.BitwiseXor -> x.MakeBinary encCtx ctx.MkBVXOR args
+            | OperationType.BitwiseAnd -> x.MakeBinary encCtx x.MkBVAnd args
+            | OperationType.BitwiseOr -> x.MakeBinary encCtx x.MkBVOr args
+            | OperationType.BitwiseXor -> x.MakeBinary encCtx x.MkBVXor args
             // [NOTE] IL specifies: arguments of SHL, SHR, SHR.UN are (int32 and int32), (int64 and int32)
             // So it's needed to extend one of them for Z3
-            | OperationType.ShiftLeft -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVSHL) args
-            | OperationType.ShiftRight -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVASHR) args
-            | OperationType.ShiftRight_Un -> x.MakeBinary encCtx (x.ExtendIfNeed >> ctx.MkBVLSHR) args
+            | OperationType.ShiftLeft -> x.MakeBinary encCtx x.MkBVShl args
+            | OperationType.ShiftRight -> x.MakeBinary encCtx x.MkBVAShr args
+            | OperationType.ShiftRight_Un -> x.MakeBinary encCtx x.MkBVLShr args
             | OperationType.LogicalNot -> x.MakeUnary encCtx x.MkNot args
             | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
             | OperationType.LogicalOr -> x.MakeOperation encCtx x.MkOr args
             | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
             | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
             | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << x.MkEq) args
-            | OperationType.Greater -> x.MakeBinary encCtx ctx.MkBVSGT args
-            | OperationType.Greater_Un -> x.MakeBinary encCtx ctx.MkBVUGT args
+            | OperationType.Greater -> x.MakeBinary encCtx x.MkBVSGT args
+            | OperationType.Greater_Un -> x.MakeBinary encCtx x.MkBVUGT args
             | OperationType.GreaterOrEqual -> x.MakeBinary encCtx x.MkBVSGE args
-            | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVUGE args
-            | OperationType.Less -> x.MakeBinary encCtx ctx.MkBVSLT args
-            | OperationType.Less_Un -> x.MakeBinary encCtx ctx.MkBVULT args
+            | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx x.MkBVUGE args
+            | OperationType.Less -> x.MakeBinary encCtx x.MkBVSLT args
+            | OperationType.Less_Un -> x.MakeBinary encCtx x.MkBVULT args
             | OperationType.LessOrEqual -> x.MakeBinary encCtx x.MkBVSLE args
-            | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx ctx.MkBVULE args
-            | OperationType.Add -> x.MakeBinary encCtx ctx.MkBVAdd args
+            | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx x.MkBVULE args
+            | OperationType.Add -> x.MakeBinary encCtx x.MkBVAdd args
             | OperationType.AddNoOvf ->
                 let operation (l, r) =
-                    x.MkAnd(ctx.MkBVAddNoUnderflow(l, r), ctx.MkBVAddNoOverflow(l, r, true))
+                    x.MkAnd(x.MkBVAddNoUnderflow(l, r), x.MkBVAddNoOverflow(l, r))
                 x.MakeBinary encCtx operation args
-            | OperationType.Multiply -> x.MakeBinary encCtx ctx.MkBVMul args
+            | OperationType.Multiply -> x.MakeBinary encCtx x.MkBVMul args
             | OperationType.MultiplyNoOvf ->
                 let operation (l, r) =
-                    x.MkAnd(ctx.MkBVMulNoUnderflow(l, r), ctx.MkBVMulNoOverflow(l, r, true))
+                    x.MkAnd(x.MkBVMulNoUnderflow(l, r), x.MkBVMulNoOverflow(l, r))
                 x.MakeBinary encCtx operation args
-            | OperationType.Subtract -> x.MakeBinary encCtx ctx.MkBVSub args
-            | OperationType.Divide -> x.MakeBinary encCtx ctx.MkBVSDiv args
-            | OperationType.Divide_Un -> x.MakeBinary encCtx ctx.MkBVUDiv args
-            | OperationType.Remainder -> x.MakeBinary encCtx ctx.MkBVSRem args
-            | OperationType.Remainder_Un -> x.MakeBinary encCtx ctx.MkBVURem args
+            | OperationType.Subtract -> x.MakeBinary encCtx x.MkBVSub args
+            | OperationType.Divide -> x.MakeBinary encCtx x.MkBVSDiv args
+            | OperationType.Divide_Un -> x.MakeBinary encCtx x.MkBVUDiv args
+            | OperationType.Remainder -> x.MakeBinary encCtx x.MkBVSRem args
+            | OperationType.Remainder_Un -> x.MakeBinary encCtx x.MkBVURem args
             | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
             | _ -> __unreachable__()
 
@@ -357,28 +451,30 @@ module internal Z3 =
                 let startByte = startByte.expr :?> BitVecExpr
                 let endByte = endByte.expr :?> BitVecExpr
                 let pos = pos.expr :?> BitVecExpr
-                let pos = ctx.MkBVMul(pos, ctx.MkBV(8, pos.SortSize))
-                let startBit = ctx.MkBVMul(startByte, ctx.MkBV(8, startByte.SortSize))
-                let endBit = ctx.MkBVMul(endByte, ctx.MkBV(8, endByte.SortSize))
+                let pos = x.MkBVMul(pos, ctx.MkBV(8, pos.SortSize))
+                let startBit = x.MkBVMul(startByte, ctx.MkBV(8, startByte.SortSize))
+                let endBit = x.MkBVMul(endByte, ctx.MkBV(8, endByte.SortSize))
                 let termSize = term.SortSize
                 let sizeExpr = ctx.MkBV(termSize, endBit.SortSize)
-                let left = x.MkITE(ctx.MkBVSGT(startBit, zero), startBit, zero) :?> BitVecExpr
-                let right = x.MkITE(ctx.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
-                let size = ctx.MkBVSub(right, left)
-                let intersects = ctx.MkBVSGT(size, zero)
+                let left = x.MkITE(x.MkBVSGT(startBit, zero), startBit, zero) :?> BitVecExpr
+                let right = x.MkITE(x.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
+                let size = x.MkBVSub(right, left)
+                let intersects = x.MkBVSGT(size, zero)
                 let term = x.ReverseBytes term
                 let left = x.ExtractOrExtend left term.SortSize
-                let term = ctx.MkBVLSHR(ctx.MkBVSHL(term, left), left)
-                let toShiftRight = x.ExtractOrExtend (ctx.MkBVSub(sizeExpr, right)) term.SortSize
-                let term = ctx.MkBVLSHR(term, toShiftRight)
-                let term = if termSize > window then ctx.MkExtract(window - 1u, 0u, term) else ctx.MkZeroExt(window - termSize, term)
+                let term = x.MkBVLShr(x.MkBVShl(term, left), left)
+                let toShiftRight = x.ExtractOrExtend (x.MkBVSub(sizeExpr, right)) term.SortSize
+                let term = x.MkBVLShr(term, toShiftRight)
+                let term =
+                    if termSize > window then ctx.MkExtract(window - 1u, 0u, term)
+                    else ctx.MkZeroExt(window - termSize, term)
                 let w = x.ExtractOrExtend windowExpr term.SortSize
                 let s = x.ExtractOrExtend sizeExpr term.SortSize
                 let pos = x.ExtractOrExtend pos term.SortSize
                 let toShiftRight = x.ExtractOrExtend toShiftRight term.SortSize
-                let shift = ctx.MkBVAdd(ctx.MkBVSub(w, ctx.MkBVSub(s, pos)), toShiftRight)
-                let part = ctx.MkBVSHL(term, shift)
-                let res = x.MkITE(intersects, ctx.MkBVOR(res, part), res) :?> BitVecExpr
+                let shift = x.MkBVAdd(x.MkBVSub(w, x.MkBVSub(s, pos)), toShiftRight)
+                let part = x.MkBVShl(term, shift)
+                let res = x.MkITE(intersects, x.MkBVOr(res, part), res) :?> BitVecExpr
                 res, assumptions
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
             {expr = x.ReverseBytes result; assumptions = assumptions}
@@ -452,7 +548,9 @@ module internal Z3 =
 // ------------------------------- Encoding: memory reading -------------------------------
 
         member private x.EncodeSymbolicAddress encCtx (heapRefSource : ISymbolicConstantSource) structFields name =
-            x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
+            let res = x.EncodeMemoryAccessConstant encCtx name heapRefSource structFields addressType
+            encodingCache.addressesConstants.Add(res.expr) |> ignore
+            res
 
         // TODO: [style] get rid of accumulators
         member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
@@ -460,9 +558,9 @@ module internal Z3 =
                 let bound = ctx.MkNumeral(encCtx.addressOrder.[y.elem], x.Type2Sort addressType) :?> BitVecExpr
                 let condition =
                     match y.sort with
-                    | endpointSort.OpenRight -> ctx.MkBVSLT(key :?> BitVecExpr, bound)
+                    | endpointSort.OpenRight -> x.MkBVSLT(key :?> BitVecExpr, bound)
                     | endpointSort.ClosedRight -> x.MkBVSLE(key :?> BitVecExpr, bound)
-                    | endpointSort.OpenLeft -> ctx.MkBVSGT(key :?> BitVecExpr, bound)
+                    | endpointSort.OpenLeft -> x.MkBVSGT(key :?> BitVecExpr, bound)
                     | endpointSort.ClosedLeft -> x.MkBVSGE(key :?> BitVecExpr, bound)
                     | _ -> __unreachable__()
                 x.MkAnd(acc, condition)
@@ -564,7 +662,7 @@ module internal Z3 =
             if typ = addressType then
                 // In case of symbolic address instantiation, adding assumption "inst < 0"
                 let zero = ctx.MkNumeral(0, inst.Sort) :?> BitVecExpr
-                let belowZero = ctx.MkBVSLE(inst :?> BitVecExpr, zero)
+                let belowZero = x.MkBVSLE(inst :?> BitVecExpr, zero)
                 belowZero |> List.singleton
             else List.empty
 
@@ -586,7 +684,7 @@ module internal Z3 =
             // TODO: use stringRepr for serialization of strings
             let expr = encodingResult.expr :?> BitVecExpr
             let assumptions = encodingResult.assumptions
-            let cond = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
+            let cond = x.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
             {expr = expr; assumptions = cond :: assumptions}
 
         member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source structFields name =
@@ -702,8 +800,8 @@ module internal Z3 =
                 let lowerIsZero = x.MkEq(lowerWord, ctx.MkBV(0, lowerWord.SortSize))
                 let exp = ctx.MkExtract(23u, 16u, expr)
                 let expSize = exp.SortSize
-                let leftBound = ctx.MkBVUGE(exp, ctx.MkBV(0, expSize))
-                let rightBound = ctx.MkBVULE(exp, ctx.MkBV(28, expSize))
+                let leftBound = x.MkBVUGE(exp, ctx.MkBV(0, expSize))
+                let rightBound = x.MkBVULE(exp, ctx.MkBV(28, expSize))
                 let expInBound = x.MkAnd(leftBound, rightBound)
                 let upper = ctx.MkExtract(30u, 24u, expr)
                 let upperIsZero = x.MkEq(upper, ctx.MkBV(0, upper.SortSize))
@@ -741,26 +839,18 @@ module internal Z3 =
             elif bv.SortSize = 16u then typeof<int16>
             else __unreachable__()
 
-        member private x.DecodeConcreteHeapAddress typ (expr : Expr) : vectorTime =
-            // TODO: maybe throw away typ?
+        member private x.DecodeConcreteHeapAddress (expr : Expr) : vectorTime =
+            let addresses = encodingCache.heapAddresses
             let result = ref vectorTime.Empty
-            let checkAndGet key = encodingCache.heapAddresses.TryGetValue(key, result)
-            let charArray = typeof<char[]>
-            if expr :? BitVecNum && (expr :?> BitVecNum).Int64 = 0L then VectorTime.zero
-            elif checkAndGet (typ, expr) then result.Value
-            // Case for concrete heap address
-            elif checkAndGet (addressType, expr) then result.Value
-            elif typ = typeof<string> && checkAndGet (charArray, expr) then
-                // NOTE: storing most concrete type for string
-                encodingCache.heapAddresses.Remove((charArray, expr)) |> ignore
-                encodingCache.heapAddresses.Add((typ, expr), result.Value)
-                result.Value
-            elif typ = charArray && checkAndGet (typeof<string>, expr) then result.Value
-            else
+            let existing = addresses.TryGetValue(expr, result)
+            match expr with
+            | :? BitVecNum as expr when expr.Int64 = 0L -> VectorTime.zero
+            | _ when existing -> result.Value
+            | _ ->
                 encodingCache.lastSymbolicAddress <- encodingCache.lastSymbolicAddress - 1
-                let addr = [encodingCache.lastSymbolicAddress]
-                encodingCache.heapAddresses.Add((typ, expr), addr)
-                addr
+                let address = [encodingCache.lastSymbolicAddress]
+                addresses.Add(expr, address)
+                address
 
         member private x.DecodeSymbolicTypeAddress (expr : Expr) =
             let result = ref typeof<Void>
@@ -768,37 +858,37 @@ module internal Z3 =
             else __notImplemented__()
 
         member private x.DecodeMemoryKey (reg : regionSort) (exprs : Expr array) =
-            let toType (elementType : Type, rank, isVector) =
-                if isVector then elementType.MakeArrayType()
-                else elementType.MakeArrayType(rank)
             match reg with
             | HeapFieldSort field ->
                 assert(exprs.Length = 1)
-                let address = exprs.[0] |> x.DecodeConcreteHeapAddress field.declaringType |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 ClassField(address, field)
             | StaticFieldSort field ->
                 assert(exprs.Length = 1)
-                let typ = x.DecodeSymbolicTypeAddress exprs.[0]
+                let typ = x.DecodeSymbolicTypeAddress exprs[0]
                 StaticField(typ, field)
             | ArrayIndexSort typ ->
                 assert(exprs.Length >= 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let indices = exprs |> Seq.tail |> Seq.map (x.Decode Types.IndexType) |> List.ofSeq
                 ArrayIndex(heapAddress, indices, typ)
             | ArrayLengthSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLength(heapAddress, index, typ)
             | ArrayLowerBoundSort typ ->
                 assert(exprs.Length = 2)
-                let heapAddress = exprs.[0] |> x.DecodeConcreteHeapAddress (toType typ) |> ConcreteHeapAddress
+                let heapAddress = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 let index = x.Decode Types.IndexType exprs.[1]
                 ArrayLowerBound(heapAddress, index, typ)
             | StackBufferSort key ->
                 assert(exprs.Length = 1)
                 let index = x.Decode typeof<int8> exprs.[0]
                 StackBufferIndex(key, index)
+            | BoxedSort typ ->
+                let address = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
+                BoxedLocation(address, typ)
 
         member private x.DecodeBv t (bv : BitVecNum) =
             match bv.SortSize with
@@ -812,7 +902,7 @@ module internal Z3 =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
             | :? BitVecNum as bv when not (Types.IsValueType t) ->
-                let address = x.DecodeConcreteHeapAddress t bv |> ConcreteHeapAddress
+                let address = x.DecodeConcreteHeapAddress bv |> ConcreteHeapAddress
                 HeapRef address t
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
@@ -821,8 +911,8 @@ module internal Z3 =
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
             | _ ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
-                elif expr.IsTrue then True
-                elif expr.IsFalse then False
+                elif expr.IsTrue then True()
+                elif expr.IsFalse then False()
                 elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
                 elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
                 elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
@@ -842,7 +932,7 @@ module internal Z3 =
             | field::fields ->
                 match structure with
                 | {term = Struct(contents, _)} ->
-                    let recurred = x.WriteFields contents.[field] value fields
+                    let recurred = x.WriteFields contents[field] value fields
                     Memory.WriteStructField structure field recurred
                 | _ -> internalfail "Expected structure, but got %O" structure
             | [] -> __unreachable__()
@@ -875,7 +965,7 @@ module internal Z3 =
                     | HeapAddressSource(StructFieldChain(fields, StackReading(key))) ->
                         let refinedExpr = m.Eval(kvp.Value.expr, false)
                         let t = if List.isEmpty fields then key.TypeOfLocation else (List.last fields).typ
-                        let address = refinedExpr |> x.DecodeConcreteHeapAddress t |> ConcreteHeapAddress
+                        let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
                         let value = HeapRef address t
                         x.WriteDictOfValueTypes stackEntries key fields key.TypeOfLocation value
                     | HeapAddressSource(StructFieldChain(_, (:? functionResultConstantSource as frs)))
@@ -895,10 +985,10 @@ module internal Z3 =
                 | _ -> ())
 
             let frame = stackEntries |> Seq.map (fun kvp ->
-                    let key = kvp.Key
-                    let term = kvp.Value.Value
-                    let typ = TypeOf term
-                    (key, Some term, typ))
+                let key = kvp.Key
+                let term = kvp.Value.Value
+                let typ = TypeOf term
+                (key, Some term, typ))
             Memory.NewStackFrame state None (List.ofSeq frame)
 
             let defaultValues = Dictionary<regionSort, term ref>()
@@ -915,7 +1005,7 @@ module internal Z3 =
                         let constantValue =
                             if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
                             else
-                                let addr = x.DecodeConcreteHeapAddress typeOfLocation arr.Args.[0] |> ConcreteHeapAddress
+                                let addr = x.DecodeConcreteHeapAddress arr.Args[0] |> ConcreteHeapAddress
                                 HeapRef addr typeOfLocation
                         x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation constantValue
                     elif arr.IsDefaultArray then
@@ -928,12 +1018,25 @@ module internal Z3 =
                             if Types.IsValueType typeOfLocation then
                                 x.Decode typeOfLocation (Array.last arr.Args)
                             else
-                                let address = arr.Args |> Array.last |> x.DecodeConcreteHeapAddress typeOfLocation |> ConcreteHeapAddress
+                                let address = Array.last arr.Args |> x.DecodeConcreteHeapAddress |> ConcreteHeapAddress
                                 HeapRef address typeOfLocation
                         let address = fields |> List.fold (fun address field -> StructField(address, field)) address
                         let states = Memory.Write state (Ref address) value
                         assert(states.Length = 1 && states.[0] = state)
                     elif arr.IsConst then ()
+                    elif arr.IsQuantifier then
+                        let quantifier = arr :?> Quantifier
+                        let body = quantifier.Body
+                        // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
+                        if body.IsApp && body.IsEq && body.Args.Length = 2 then
+                            // Firstly, setting all values to 'false'
+                            x.WriteDictOfValueTypes defaultValues region fields region.TypeOfLocation (MakeBool false)
+                            let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
+                            let address = fields |> List.fold (fun address field -> StructField(address, field)) address
+                            // Secondly, setting 'true' value for concrete address from predicate
+                            let states = Memory.Write state (Ref address) (MakeBool true)
+                            assert(states.Length = 1 && states[0] = state)
+                        else internalfailf "Unexpected quantifier expression in model: %O" arr
                     else internalfailf "Unexpected array expression in model: %O" arr
                 parseArray arr)
             defaultValues |> Seq.iter (fun kvp ->
@@ -941,16 +1044,11 @@ module internal Z3 =
                 let constantValue = kvp.Value.Value
                 Memory.FillRegion state constantValue region)
 
-            encodingCache.heapAddresses |> Seq.iter (fun kvp ->
-                let typ, _ = kvp.Key
-                let addr = kvp.Value
-                if VectorTime.less addr VectorTime.zero && not <| PersistentDict.contains addr state.allocatedTypes then
-                    state.allocatedTypes <- PersistentDict.add addr (ConcreteType typ) state.allocatedTypes)
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
             encodingCache.heapAddresses.Clear()
             state.model <- PrimitiveModel subst
-            StateModel(state, typeModel.CreateEmpty())
+            StateModel state
 
 
     let private ctx = new Context()
@@ -979,7 +1077,7 @@ module internal Z3 =
                                 yield! (Seq.cast<_> assumptions)
                                 yield query.expr
                             } |> Array.ofSeq
-    //                    let pathAtoms = addSoftConstraints q.lvl
+
                         let result = solver.Check assumptions
                         match result with
                         | Status.SATISFIABLE ->
@@ -1002,7 +1100,6 @@ module internal Z3 =
                         Logger.printLog Logger.Info "SOLVER: exception was thrown: %s" e.Message
                         SmtUnknown (sprintf "Z3 has thrown an exception: %s" e.Message)
                 finally
-                    // TODO: need to reset encoding cache on every 'CheckSat'?
                     builder.Reset()
 
             member x.Assert encCtx (fml : term) =

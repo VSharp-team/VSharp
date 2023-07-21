@@ -67,9 +67,6 @@ public static class ObjectsComparer
                 return got.Equals(expected);
             }
 
-            if (expected is global::System.Array array)
-                return ContentwiseEqual(array, got as global::System.Array);
-
             if (_comparedObjects.Contains((expected, got)))
             {
                 return true;
@@ -77,10 +74,13 @@ public static class ObjectsComparer
 
             _comparedObjects.Add((expected, got));
 
+            if (expected is global::System.Array array)
+                return ContentwiseEqual(array, got as global::System.Array);
+
             return StructurallyEqual(expected, got);
         }
 
-        public bool CompareObjects(object? expected, object? got)
+        public bool Compare(object? expected, object? got)
         {
             try
             {
@@ -97,6 +97,11 @@ public static class ObjectsComparer
     public static bool CompareObjects(object? expected, object? got)
     {
         var comparer = new Comparer();
-        return comparer.CompareObjects(expected, got);
+        return comparer.Compare(expected, got);
+    }
+
+    public static unsafe bool CompareObjects(void* expected, void* got)
+    {
+        return expected == got;
     }
 }

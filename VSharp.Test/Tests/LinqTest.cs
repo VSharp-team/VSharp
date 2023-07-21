@@ -63,7 +63,7 @@ namespace IntegrationTests
             return result;
         }
 
-        [TestSvm(85)]
+        [TestSvm(89)]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
             int[] scores = { x, y, z, 60 };
@@ -202,6 +202,15 @@ namespace IntegrationTests
             var newList = Suits().Select(id => id);
             newList.Append(x);
             return newList.Select(i => i.Length);
+        }
+
+        [TestSvm(100)]
+        public static int OrderByTest(int value)
+        {
+            var list = new List<Order>();
+            var order = new Order { Id = value, Cost = value };
+            list.Add(order);
+            return list.OrderBy(o => o.Id).First().Id;
         }
 
         [Ignore("takes too much time")]

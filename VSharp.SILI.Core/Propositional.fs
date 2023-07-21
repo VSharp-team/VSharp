@@ -190,10 +190,10 @@ module internal Propositional =
         | _ -> unmatched ()
 
     and simplifyAnd x y k =
-        simplifyConnective OperationType.LogicalAnd OperationType.LogicalOr False True x y k
+        simplifyConnective OperationType.LogicalAnd OperationType.LogicalOr (False()) (True()) x y k
 
     and simplifyOr x y k =
-        simplifyConnective OperationType.LogicalOr OperationType.LogicalAnd True False x y k
+        simplifyConnective OperationType.LogicalOr OperationType.LogicalAnd (True()) (False()) x y k
 
     and internal simplifyNegation x k =
         match simplifier with
@@ -246,19 +246,19 @@ module internal Propositional =
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (&&&) x xs
-        | _ -> True
+        | _ -> True()
 
     let disjunction = function
         | Seq.Cons(x, xs) ->
             if Seq.isEmpty xs then x
             else Seq.fold (|||) x xs
-        | _ -> False
+        | _ -> False()
 
     let lazyConjunction xs =
-        Cps.Seq.foldlk lazyAnd True xs id
+        Cps.Seq.foldlk lazyAnd (True()) xs id
 
     let lazyDisjunction xs k =
-        Cps.Seq.foldlk lazyOr False xs k
+        Cps.Seq.foldlk lazyOr (False()) xs k
 
     let simplifyBinaryConnective op x y k =
         match op with

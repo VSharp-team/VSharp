@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using NUnit.Framework.Constraints;
 using VSharp.Test;
 
 namespace ML.GameMaps.Simple;
@@ -181,7 +182,114 @@ public class ControlFlow
 
         return String.Concat(numbers) ;
     }
+    
+    public List<int> Switches3(List<string> x)
+    {
+        List<int> result = new List<int>();
+        foreach (var name in x)
+        {
+            switch (name)
+            {
+                case "zero":
+                    result.Add(0);
+                    break;
+                case "one":
+                    result.Add(1);
+                    break;
+                case "two":
+                    result.Add(2);
+                    break;
+                case "three":
+                    result.Add(3);
+                    break;
+                case "four":
+                    result.Add(4);
+                    break;
+                case "five":
+                    result.Add(5);
+                    break;
+                case "six":
+                    result.Add(6);
+                    break;
+                case "seven":
+                    result.Add(7);
+                    break;
+                case "eight":
+                    result.Add(8);
+                    break;
+                case "nine":
+                    result.Add(9);
+                    break;
+            }
+            
+        }
 
+        return result;
+    }
+
+    public List<string> Switches4(List<int> x)
+    {
+        List<string> result = new List<string>();
+        foreach (var name in x)
+        {
+            switch (name)
+            {
+                case 0:
+                    result.Add("0");
+                    break;
+                case 1:
+                    result.Add("1");
+                    break;
+                case 2:
+                    result.Add("2");
+                    break;
+                case 3:
+                    result.Add("3");
+                    break;
+                case 4:
+                    result.Add("4");
+                    break;
+                case 5:
+                    result.Add("5");
+                    break;
+                case 6:
+                    result.Add("6");
+                    break;
+                case 7:
+                    result.Add("7");
+                    break;
+                case 8:
+                    result.Add("8");
+                    break;
+                case 9:
+                    result.Add("9");
+                    break;
+            }
+            
+        }
+        return result;
+    }
+
+    public bool Switches5(List<int> x)
+    {
+        if (x.Count == 0)
+        {
+            return false;
+        }
+
+        switch (x[0])
+        {
+            case 0:
+                return true;
+            case 1:
+                return (Switches5(x.Skip(1).ToList()));
+            case 2:
+                return (Switches5(x.Skip(2).ToList()));
+            default:
+                return (Switches5(x.Skip(3).ToList()));
+        }
+    }
+    
     [TestSvm(100,serialize:"NestedFors"), Category("Dataset")]
     public static int NestedFors(int x)
     {

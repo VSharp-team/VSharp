@@ -14,6 +14,7 @@
     <ItemGroup>
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.0.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
+      <PackageReference Include="MonoMod.RuntimeDetour" Version="22.7.31.1" />
     </ItemGroup>
 
 </Project>

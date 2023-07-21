@@ -13,8 +13,18 @@ type RawInputMessage =
 
 type IRawOutgoingMessageBody = interface end
 
-type GameOverMessageBody () =    
-     interface IRawOutgoingMessageBody    
+type [<Measure>] test
+type [<Measure>] error
+
+[<Struct>]
+type GameOverMessageBody =    
+     interface IRawOutgoingMessageBody
+     val ActualCoverage: System.Nullable<uint>
+     val TestsCount: uint32<test>
+     val ErrorsCount: uint32<error>
+     new (actualCoverage, testsCount, errorsCount) = {ActualCoverage = actualCoverage; TestsCount = testsCount; ErrorsCount = errorsCount}
+     
+     
     
 [<Struct>]
 type RawOutgoingMessage =
@@ -39,6 +49,7 @@ type GameStep =
     new (stateId, predictedStateUsefulness) = {StateId = stateId; PredictedStateUsefulness = predictedStateUsefulness}
         
 type InputMessage =
+    | ServerStop
     | GetTrainMaps
     | GetValidationMaps 
     | Start of GameStartParams
@@ -208,14 +219,14 @@ type GameMap =
      new (stateId) = {StateId = stateId}     
  
 type OutgoingMessage =
-    | GameOver
+    | GameOver of System.Nullable<uint>*uint32<test>*uint32<error>
     | Maps of seq<GameMap>
     | MoveReward of Reward
     | IncorrectPredictedStateId of uint<stateId>
     | ReadyForNextStep of GameState
     | ServerError of string
     
-let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|) (str:string) =
+let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|MsgStop|) (str:string) =
     let normalized = str.ToLowerInvariant().Trim()
     if normalized = "start"
     then MsgTypeStart
@@ -225,6 +236,8 @@ let (|MsgTypeStart|MsgTypeStep|MsgGetTrainMaps|MsgGetValidationMaps|) (str:strin
     then MsgGetTrainMaps
     elif normalized = "getvalidationmaps"
     then MsgGetValidationMaps
+    elif normalized = "stop"
+    then MsgStop
     else failwithf $"Unexpected message type %s{str}"
     
 let deserializeInputMessage (messageData:byte[]) =    
@@ -232,6 +245,7 @@ let deserializeInputMessage (messageData:byte[]) =
         let str = Encoding.UTF8.GetString messageData
         str |> JsonSerializer.Deserialize<RawInputMessage>
     match rawInputMessage.MessageType with
+    | MsgStop -> ServerStop
     | MsgTypeStart -> Start (JsonSerializer.Deserialize<GameStartParams> rawInputMessage.MessageBody)
     | MsgTypeStep -> Step (JsonSerializer.Deserialize<GameStep>(rawInputMessage.MessageBody))
     | MsgGetTrainMaps -> GetTrainMaps
@@ -239,7 +253,7 @@ let deserializeInputMessage (messageData:byte[]) =
 
 let serializeOutgoingMessage (message:OutgoingMessage) =
     match message with
-    | GameOver -> RawOutgoingMessage("GameOver", box (GameOverMessageBody()))
+    | GameOver (actualCoverage,testsCount, errorsCount) -> RawOutgoingMessage("GameOver", box (GameOverMessageBody (actualCoverage, testsCount, errorsCount)))
     | Maps maps -> RawOutgoingMessage("Maps", MapsMessageBody (Array.ofSeq maps))
     | MoveReward reward -> RawOutgoingMessage("MoveReward", reward)
     | IncorrectPredictedStateId stateId -> RawOutgoingMessage("IncorrectPredictedStateId", IncorrectPredictedStateIdMessageBody stateId)

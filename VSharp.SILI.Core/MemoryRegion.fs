@@ -21,6 +21,7 @@ type regionSort =
     | ArrayLengthSort of arrayType
     | ArrayLowerBoundSort of arrayType
     | StackBufferSort of stackKey
+    | BoxedSort of Type
     member x.TypeOfLocation =
         match x with
         | HeapFieldSort field
@@ -29,6 +30,7 @@ type regionSort =
         | ArrayLengthSort _
         | ArrayLowerBoundSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
+        | BoxedSort t -> t
 
 module private MemoryKeyUtils =
 
@@ -233,7 +235,7 @@ type stackBufferIndexKey =
         override x.Unguard =
             match x.index.term with
             | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
-            | _ -> [(True, x)]
+            | _ -> [(True(), x)]
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -267,7 +269,7 @@ type symbolicTypeKey =
         override x.Map _ mapper _ reg =
             reg.Map (fun t -> {t = mapper t.t}), {typ = mapper x.typ}
         override x.IsUnion = false
-        override x.Unguard = [(True, x)]
+        override x.Unguard = [(True(), x)]
     override x.ToString() = x.typ.ToString()
     override x.GetHashCode() = x.typ.GetDeterministicHashCode()
     override x.Equals(o : obj) =
@@ -323,7 +325,7 @@ module private UpdateTree =
                 let! g', k = key.key.Unguard
                 let key' = {key with key = k}
                 return (g &&& g', RegionTree.write reg key' tree)
-            }) [(True, earlier)]
+            }) [(True(), earlier)]
 
     let deterministicCompose earlier later = RegionTree.append earlier later
 
@@ -389,7 +391,7 @@ module MemoryRegion =
     let compose earlier later =
         assert later.defaultValue.IsNone
         if later.updates |> UpdateTree.forall (fun k -> not k.key.IsUnion) then
-            [(True, deterministicCompose earlier later)]
+            [(True(), deterministicCompose earlier later)]
         elif earlier.typ = later.typ then
             UpdateTree.compose earlier.updates later.updates |> List.map (fun (g, tree) -> (g, {typ=earlier.typ; updates = tree; defaultValue = earlier.defaultValue}))
         else internalfail "Composing two incomparable memory objects!"

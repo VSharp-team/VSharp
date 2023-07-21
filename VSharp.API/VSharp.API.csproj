@@ -60,8 +60,8 @@
 
     <ItemGroup>
       <PackageReference Include="CsvHelper" Version="30.0.1" />
-      <PackageReference Include="FSharp.Core" Version="7.0.200" />
-      <PackageReference Include="FSharpx.Collections" Version="2.0.0" />
+      <PackageReference Include="FSharp.Core" Version="7.0.300" />
+      <PackageReference Include="FSharpx.Collections" Version="3.1.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="2.0.0" />
       <PackageReference Include="Microsoft.Extensions.DependencyModel" Version="3.0.0" />
       <PackageReference Include="System.CommandLine" Version="2.0.0-beta1.21308.1" />

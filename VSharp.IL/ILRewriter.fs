@@ -1,5 +1,6 @@
 namespace VSharp
 
+open System.Collections.Generic
 open global.System
 open System.Reflection.Emit
 open VSharp
@@ -916,8 +917,6 @@ module EvaluationStackTyper =
 
 [<AllowNullLiteral>]
 type ILRewriter(body : rawMethodBody) =
-    // TODO: get rid of IL rewriting in non-concolic mode
-    let concolicMode = false
     // If this line throws exception, we should improve resolving assemblies by names. Probably we should track assemblies from the directory of executed assembly
     let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
     let code = body.il
@@ -999,12 +998,10 @@ type ILRewriter(body : rawMethodBody) =
         instrCount <- instrCount + 1u
         {prev = instr.prev; next = instr.next; opcode = instr.opcode; offset = instr.offset; stackState = instr.stackState; arg = instr.arg}
 
-    member x.CopyInstructions() =
-        let result = Array.zeroCreate<ilInstr> <| int instrCount
-        let mutable index = 0
+    member x.Instructions with get() =
+        let result = Dictionary<offset, ilInstr>()
         x.TraverseProgram (fun instr ->
-            result.[index] <- instr
-            index <- index + 1)
+            result.Add(Offset.from (int instr.offset), instr))
         result
 
     member x.InstrFromOffset offset =
@@ -1165,35 +1162,6 @@ type ILRewriter(body : rawMethodBody) =
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
         EvaluationStackTyper.createBodyStackState m il.next
-
-        if concolicMode then
-            x.TraverseProgram (fun instr ->
-                match instr.opcode with
-                | OpCode op ->
-                    // Replace binary branch instructions with binop + branch
-                    match LanguagePrimitives.EnumOfValue op.Value with
-                    | OpCodeValues.Beq_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue_S
-                    | OpCodeValues.Bge_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse_S
-                    | OpCodeValues.Bgt_S -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue_S
-                    | OpCodeValues.Ble_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse_S
-                    | OpCodeValues.Blt_S -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue_S
-                    | OpCodeValues.Bne_Un_S -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse_S
-                    | OpCodeValues.Bge_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse_S
-                    | OpCodeValues.Bgt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue_S
-                    | OpCodeValues.Ble_Un_S -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse_S
-                    | OpCodeValues.Blt_Un_S -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue_S
-                    | OpCodeValues.Beq -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brtrue
-                    | OpCodeValues.Bge -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt_Un else OpCodes.Clt) OpCodes.Brfalse
-                    | OpCodeValues.Bgt -> x.ReplaceBranchAlias instr OpCodes.Cgt OpCodes.Brtrue
-                    | OpCodeValues.Ble -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt_Un else OpCodes.Cgt)  OpCodes.Brfalse
-                    | OpCodeValues.Blt -> x.ReplaceBranchAlias instr OpCodes.Clt OpCodes.Brtrue
-                    | OpCodeValues.Bne_Un -> x.ReplaceBranchAlias instr OpCodes.Ceq OpCodes.Brfalse
-                    | OpCodeValues.Bge_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Clt else OpCodes.Clt_Un) OpCodes.Brfalse
-                    | OpCodeValues.Bgt_Un -> x.ReplaceBranchAlias instr OpCodes.Cgt_Un OpCodes.Brtrue
-                    | OpCodeValues.Ble_Un -> x.ReplaceBranchAlias instr (if x.IsFloatBinOp instr then OpCodes.Cgt else OpCodes.Cgt_Un)  OpCodes.Brfalse
-                    | OpCodeValues.Blt_Un -> x.ReplaceBranchAlias instr OpCodes.Clt_Un OpCodes.Brtrue
-                    | _ -> ()
-                | _ -> ())
 
     member private x.RecalculateOffsets() =
         let mutable branch = false

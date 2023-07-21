@@ -4,14 +4,15 @@ open VSharp
 
 module Substitution =
 
-    let rec substituteAddress termSubst typeSubst timeSubst = function
+    let rec substituteAddress termSubst typeSubst = function
         | PrimitiveStackLocation _ as sl -> sl
         | ClassField(addr, field) -> ClassField(termSubst addr, field)
-        | ArrayIndex(addr, index, (elementType, dim, isVector)) -> ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
-        | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst timeSubst addr, field)
+        | ArrayIndex(addr, index, (elementType, dim, isVector)) ->
+            ArrayIndex(termSubst addr, List.map termSubst index, (typeSubst elementType, dim, isVector))
+        | StructField(addr, field) -> StructField(substituteAddress termSubst typeSubst addr, field)
         | StaticField(typ, field) -> StaticField(typeSubst typ, field)
         | ArrayLength(addr, dim, (typ, d, isVector)) -> ArrayLength(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
-        | BoxedLocation(addr, typ) -> BoxedLocation(timeSubst addr, typeSubst typ)
+        | BoxedLocation(addr, typ) -> BoxedLocation(termSubst addr, typeSubst typ)
         | StackBufferIndex(key, index)  -> StackBufferIndex(key, termSubst index)
         | ArrayLowerBound(addr, dim, (typ, d, isVector)) -> ArrayLowerBound(termSubst addr, termSubst dim, (typeSubst typ, d, isVector))
 
@@ -54,7 +55,7 @@ module Substitution =
             let typ' = typeSubst typ
             Struct contents' typ'
         | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
-        | Ref address -> substituteAddress recur typeSubst timeSubst address |> Ref
+        | Ref address -> substituteAddress recur typeSubst address |> Ref
         | Ptr(address, typ, shift) -> Ptr (substitutePointerBase recur typeSubst address) (typeSubst typ) (recur shift)
         | Slice(term, s, e, pos) -> Slice (recur term) (recur s) (recur e) (recur pos)
         | _ -> termSubst term

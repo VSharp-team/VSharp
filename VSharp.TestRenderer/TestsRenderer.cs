@@ -273,11 +273,12 @@ public static class TestsRenderer
             block.AddExpression(callMethod);
     }
 
-    private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter)
+    private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter, bool hasOverloads)
     {
-        var needExplicitType = NeedExplicitType(obj, parameter.ParameterType);
+        var needExplicitType = NeedExplicitType(obj, parameter.ParameterType) || hasOverloads;
         var correctName = parameter.Name is null? null: CorrectNameGenerator.GetVariableName(parameter.Name);
-        return block.RenderObject(obj, correctName, needExplicitType);
+        var explicitType = needExplicitType ? parameter.ParameterType : null;
+        return block.RenderObject(obj, correctName, explicitType);
     }
 
     private static void RenderTest(
@@ -301,7 +302,7 @@ public static class TestsRenderer
         {
             Debug.Assert(Reflection.hasThis(method));
             thisArgType = thisArg.GetType();
-            var needExplicitType = thisArg is Delegate;
+            var needExplicitType = thisArg is Delegate ? thisArgType : null;
             var renderedThis = mainBlock.RenderObject(thisArg, thisArgName, needExplicitType);
             if (renderedThis is IdentifierNameSyntax id)
             {
@@ -314,8 +315,14 @@ public static class TestsRenderer
             }
         }
         var parameters = method.GetParameters();
+        var hasOverloads =
+            method
+                .DeclaringType?
+                .GetMethods(Reflection.allBindingFlags)
+                .Count(m => m.Name == method.Name) > 1;
         var renderedArgs =
-            args.Select((obj, index) => RenderArgument(mainBlock, obj, parameters[index])).ToArray();
+            args.Select((obj, index) =>
+                RenderArgument(mainBlock, obj, parameters[index], hasOverloads)).ToArray();
 
         Debug.Assert(parameters.Length == renderedArgs.Length);
         for (int i = 0; i < parameters.Length; i++)
@@ -348,7 +355,9 @@ public static class TestsRenderer
             var isPrimitive = retType.IsPrimitive || retType == typeof(string);
 
             var expectedExpr =
-                method.IsConstructor ? thisArgId : mainBlock.RenderObject(expected, "expected", true);
+                method.IsConstructor
+                    ? thisArgId
+                    : mainBlock.RenderObject(expected, "expected", retType);
             Debug.Assert(expectedExpr != null);
             // If rendering expected result added statements to method block, need 'arrange' comment
             f.HasArgs |= mainBlock.StatementsCount() > 0;
@@ -488,7 +497,7 @@ public static class TestsRenderer
 
         SimpleNameSyntax? methodId = null;
 
-        foreach (var method in typeMock.Methods)
+        foreach (var method in typeMock.MethodMocks)
         {
             var m = method.BaseMethod;
             if (Reflection.hasNonVoidResult(m))
@@ -508,12 +517,12 @@ public static class TestsRenderer
         if (isDelegate)
         {
             var baseClass = typeMock.BaseClass;
-            Debug.Assert(typeMock.Methods.Count() == 1 && methodId != null && baseClass != null);
-            info = new DelegateMockInfo(mock.TypeId, methodsInfo, methodId, baseClass);
+            Debug.Assert(typeMock.MethodMocks.Count() == 1 && methodId != null && baseClass != null);
+            info = new DelegateMockInfo(mock.TypeId, typeMock, methodsInfo, methodId, baseClass);
         }
         else
         {
-            info = new MockInfo(mock.TypeId, methodsInfo);
+            info = new MockInfo(mock.TypeId, typeMock, methodsInfo);
         }
         AddMockInfo(typeMock.Id, info);
     }
@@ -587,6 +596,7 @@ public static class TestsRenderer
                 var method = test.Method;
                 var methodType = method.DeclaringType;
                 CompactRepresentations = test.CompactRepresentations;
+                BoxedLocations = test.BoxedLocations;
                 Debug.Assert(methodType != null &&
                     (methodType.IsGenericType && declaringType.IsGenericType &&
                      methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
@@ -597,6 +607,7 @@ public static class TestsRenderer
 
                 // Rendering mocked types
                 foreach (var mock in test.TypeMocks)
+                    // TODO: cache mocks among all generated tests
                     RenderMockedType(mocksProgram, mock);
 
                 // Rendering test

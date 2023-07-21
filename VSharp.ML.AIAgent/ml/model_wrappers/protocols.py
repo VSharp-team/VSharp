@@ -1,40 +1,21 @@
-from abc import abstractmethod
-from typing import Protocol
+from abc import ABC, abstractmethod
+
+import torch
 
 from common.game import GameState
 
 
-class Named(Protocol):
+class Named(ABC):
     @abstractmethod
     def name(self) -> str:
         raise NotImplementedError
 
 
-class Mutable(Named, Protocol):
-    @staticmethod
-    @abstractmethod
-    def average(mutables: list["Mutable"]):
-        raise NotImplementedError
-
-    @staticmethod
-    @abstractmethod
-    def mutate(
-        mutable: "Mutable", mutation_volume: float, mutation_freq: float
-    ) -> "Mutable":
-        raise NotImplementedError
-
-
-class Predictor(Named, Protocol):
+class Predictor(Named, ABC):
     @abstractmethod
     def predict(self, input: GameState):
         raise NotImplementedError
 
-
-class RLearner(Named, Protocol):
     @abstractmethod
-    def train_single_val(self):
+    def model(self) -> torch.nn.Module:
         raise NotImplementedError
-
-
-class ModelWrapper(Mutable, Predictor, RLearner):
-    pass

@@ -1,46 +1,30 @@
-Framework for neural network training
+Framework for Genetic NN training
 
 ## Steps to start server
  1. [Build V#](https://github.com/gsvgit/VSharp/tree/mlSearcher#how-to-build)
  2. Go to `VSharp.ML.GameServer.Runner/bin/Release/net6.0/`
- 3. ```dotnet VSharp.ML.GameServer.Runner.dll``` to start server on default port (8080) or ```cmd dotnet VSharp.ML.GameServer.Runner.dll --port [specific_port]``` to start server on `specific_port`.
+ 3. ```dotnet VSharp.ML.GameServer.Runner.dll``` to start server on default port (8100) or ```cmd dotnet VSharp.ML.GameServer.Runner.dll --port [specific_port]``` to start server on `specific_port`.
 
 ## Steps to run client
 
-python version >= 3.10 required
-
-### 1. Game server connection + Torch installation using conda/miniconda
-
-Works on ARM proc, macOS v13.1
-Python 3.10.8
+### 1. Create venv, install deps
 
 ```sh
-cd VSharp.ML.AIAgent
-
-# load env from condig file:
-conda env create -f conda_env.yml
-# optional: specify your path by adding -p <your env path>
-# by default env with name 'agent_env' will be created
-
-# activate env with your script:
-conda activate <enter your system path>/VSharp/VSharp.ML.AIAgent/.env
-cd ..
+cd VSharp/VSharp.ML.AIAgent/
+conda create -n agent_env python=3.10.9
+conda activate agent_env
+bash install_script.sh
 ```
-
-### 1.1 Dumping env config
-
-use
-```sh
-conda env export | grep -v "^prefix: " > conda_env.yml
-```
-to dump current env info into config file
 
 ### 2. Launch training
 
 (you are in ```/VSharp/VSharp.ML.AIAgent/```, conda env is activated)
-```sh
-python3 main.py
-```
+
+1. configure MAX_STEPS in [common.constants](./common/constants.py)
+2. set up `server_count` in [main.py](./main.py)
+3. `python3 launch_servers.py -n <server_count>`
+4. `python3 main.py`
+
 ## Evaluation
 
 | Map                      | V# default settings (steps,coverage) | V# + AI (steps,coverage)|

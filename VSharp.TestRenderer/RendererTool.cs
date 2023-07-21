@@ -7,8 +7,6 @@ using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
 
 namespace VSharp.TestRenderer;
 
-
-
 public static class Renderer
 {
     private static readonly string NewLine = Environment.NewLine;
@@ -497,10 +495,12 @@ public static class Renderer
         bool wrapErrors = false,
         bool singleFile = false)
     {
-
         var unitTests = DeserializeTests(tests);
         if (unitTests.Count == 0)
             throw new Exception("No *.vst files were generated, nothing to render");
+        unitTests = unitTests.FindAll(ut => !ut.HasExternMocks);
+        if (unitTests.Count == 0)
+            throw new UnexpectedExternCallException("Render is not supported for tests with extern mocks. Nothing to render.");
         var originAssembly = unitTests.First().Method.Module.Assembly;
         var exploredAssembly = AssemblyManager.LoadCopy(originAssembly);
 

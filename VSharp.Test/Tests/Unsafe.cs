@@ -96,10 +96,16 @@ namespace IntegrationTests
             return **&p;
         }
 
-        [Ignore("Need to create IntPtr struct")]
+        [TestSvm]
         public static IntPtr IntPtrZero()
         {
             return IntPtr.Zero;
+        }
+
+        [TestSvm]
+        public static UIntPtr UIntPtrZero()
+        {
+            return UIntPtr.Zero;
         }
 
         [TestSvm]
@@ -110,10 +116,43 @@ namespace IntegrationTests
             return ptr1 == ptr2;
         }
 
-        [Ignore("Need to create IntPtr struct")]
+        [TestSvm]
+        public static IntPtr ConvIntToNativeInt(int a)
+        {
+            return (IntPtr) a;
+        }
+
+        [TestSvm]
+        public static UIntPtr ConvUIntToNativeUInt(uint a)
+        {
+            return (UIntPtr) a;
+        }
+
+        [TestSvm]
+        public static void* PointerFromIntPtr(int a)
+        {
+            IntPtr ptr = new IntPtr(a);
+            return ptr.ToPointer();
+        }
+
+        [TestSvm]
+        public static void* PointerFromUIntPtr(uint a)
+        {
+            var ptr = new UIntPtr(a);
+            return ptr.ToPointer();
+        }
+
+        [TestSvm]
         public static IntPtr IntPtrSum()
         {
             IntPtr ptr = new IntPtr(0);
+            return ptr + 10;
+        }
+
+        [TestSvm]
+        public static UIntPtr UIntPtrSum()
+        {
+            var ptr = new UIntPtr(0);
             return ptr + 10;
         }
 
@@ -138,7 +177,7 @@ namespace IntegrationTests
         }
 
         // Expected true
-        [TestSvm(83)]
+        [TestSvm(90)]
         public static bool ArrayConcreteSafeRead1()
         {
             var array = new int[] {1, 2, 3};
@@ -155,7 +194,7 @@ namespace IntegrationTests
         }
 
         // Expected 2
-        [TestSvm(83)]
+        [TestSvm(90)]
         public static bool ArrayConcreteSafeRead2()
         {
             var array = new int[] {1, 2, 3};
@@ -171,7 +210,7 @@ namespace IntegrationTests
 
         }
 
-        [TestSvm(86)]
+        [TestSvm(91)]
         public static bool ArrayConcreteUnsafeRead()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -188,7 +227,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(83)]
+        [TestSvm(92)]
         public static bool ArraySymbolicSafeRead(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -205,7 +244,7 @@ namespace IntegrationTests
 
         }
 
-        [TestSvm(86)]
+        [TestSvm(93)]
         public static bool ArraySymbolicUnsafeRead(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -222,7 +261,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(93)]
         public static bool ArraySymbolicUnsafeRead2(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -240,7 +279,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(83)]
+        [TestSvm(91)]
         public static bool ArrayConcreteSafeWrite()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -255,7 +294,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(86)]
+        [TestSvm(92)]
         public static bool ArrayConcreteUnsafeWrite()
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -271,7 +310,7 @@ namespace IntegrationTests
                 return false;
         }
 
-        [TestSvm(88)]
+        [TestSvm(94)]
         public static bool ArraySymbolicUnsafeWrite(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -288,7 +327,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(97)]
         public static bool ArraySymbolicUnsafeWrite2(int i)
         {
             var array = new int[] {1, 2, 3, 4, 5};
@@ -377,7 +416,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(88)]
+        [TestSvm(95)]
         public static bool StructInsideArraySymbolicUnsafeRead(int i)
         {
             var array = new [] {new SequentialStruct(1, 2), new SequentialStruct(3, 4), new SequentialStruct(5, 6)};
@@ -395,7 +434,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(95)]
         public static bool StructInsideArraySymbolicUnsafeRead2(int i)
         {
             var array = new [] {new ExplicitStruct(1, 2), new ExplicitStruct(3, 4), new ExplicitStruct(5, 6)};
@@ -413,7 +452,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(90)]
+        [TestSvm(94)]
         public static bool ClassSymbolicUnsafeRead(int i)
         {
             var x = new ExplicitStruct(1, 2);
@@ -433,7 +472,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(91)]
+        [TestSvm(94)]
         public static bool ClassSymbolicUnsafeRead2(int i)
         {
             var x = new SequentialStruct(1, 2);
@@ -454,7 +493,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(88)]
+        [TestSvm(92)]
         public static bool ClassSymbolicReadZeroBetweenFields(int i)
         {
             var c = new ExplicitClass(1, 2);
@@ -471,7 +510,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(83)]
+        [TestSvm(87)]
         // TODO: minimize combine term #do
         public static bool ClassWriteSafeOverlappingFields(int i, int j)
         {
@@ -483,7 +522,7 @@ namespace IntegrationTests
             return false;
         }
 
-        [TestSvm(89)]
+        [TestSvm(96)]
         public static bool StructInsideArraySymbolicUnsafeWrite(int i, SequentialStruct v)
         {
             var array = new [] {new SequentialStruct(i, i), new SequentialStruct(i, i), new SequentialStruct(i, i)};
@@ -520,7 +559,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(93)]
         public static bool StringSymbolicRead(int i)
         {
             var s = "best string";
@@ -539,7 +578,7 @@ namespace IntegrationTests
                 return true;
         }
 
-        [TestSvm(89)]
+        [TestSvm(82)]
         public static bool StringSymbolicRead2(int i)
         {
             var s = "best string";
@@ -618,7 +657,7 @@ namespace IntegrationTests
             return a[0].y;
         }
 
-        [TestSvm(75)]
+        [TestSvm(86)]
         public static int UnsafeAs3()
         {
             var b = new ClassA[]{ new ClassA(), new ClassA(), new ClassA() };
@@ -655,6 +694,25 @@ namespace IntegrationTests
             var a = System.Runtime.CompilerServices.Unsafe.As<long[], int[]>(ref b);
             a[0] = 10;
             return b[0];
+        }
+
+        public struct IntStruct
+        {
+            public int X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs6(int a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<int, IntStruct>(ref a);
+            return structValue.X;
+        }
+
+        [TestSvm]
+        public static int UnsafeAs7(long a)
+        {
+            var structValue = System.Runtime.CompilerServices.Unsafe.As<long, IntStruct>(ref a);
+            return structValue.X;
         }
 
         [Ignore("Insufficient information")]

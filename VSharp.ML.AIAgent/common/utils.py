@@ -1,21 +1,23 @@
-from .game import GameState
+from collections import defaultdict
 
+from common.classes import Agent2Result, AgentResultsOnGameMaps, GameMapsModelResults
 
-def covered(state: GameState) -> tuple[int, int]:
-    in_coverage_zone_vertexes_ids: set[int] = set()
-    covered_by_test_vertexes_ids: set[int] = set()
-
-    for vertex in state.GraphVertices:
-        if vertex.InCoverageZone:
-            in_coverage_zone_vertexes_ids.add(vertex.Id)
-            if vertex.CoveredByTest:
-                covered_by_test_vertexes_ids.add(vertex.Id)
-
-    return (
-        len(covered_by_test_vertexes_ids),
-        len(in_coverage_zone_vertexes_ids),
-    )
+from common.game import GameState
 
 
 def get_states(game_state: GameState) -> set[int]:
     return {s.Id for s in game_state.States}
+
+
+def invert_mapping_mrgm_gmmr(
+    model_results_on_map: AgentResultsOnGameMaps,
+) -> GameMapsModelResults:
+    inverse_mapping: GameMapsModelResults = defaultdict(list)
+
+    for named_agent, list_of_map_result_mappings in model_results_on_map.items():
+        for map_result_mapping in list_of_map_result_mappings:
+            map, result = (map_result_mapping.map, map_result_mapping.game_result)
+
+            inverse_mapping[map].append(Agent2Result(named_agent, result))
+
+    return inverse_mapping

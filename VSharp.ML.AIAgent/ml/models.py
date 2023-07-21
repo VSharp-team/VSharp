@@ -1,17 +1,167 @@
 import torch
 import torch.nn.functional as F
+from .data_loader_compact import NUM_NODE_FEATURES
+from torch import nn
+from torch.nn import Linear
 from torch_geometric.nn import (
+    ARMAConv,
+    FeaStConv,
     GATConv,
     GCNConv,
     HeteroConv,
     Linear,
+    ResGatedGraphConv,
     SAGEConv,
+    TAGConv,
+    TransformerConv,
     global_mean_pool,
+    to_hetero,
 )
+from torchvision.ops import MLP
 
-from .data_loader_compact import NUM_NODE_FEATURES
+from learning.timer.wrapper import timeit
 
 NUM_PREDICTED_VALUES = 4
+
+
+class ARMANet(torch.nn.Module):
+    def __init__(self, hidden_channels, num_classes, num_stacks=1, num_layers=1):
+        super(ARMANet, self).__init__()
+
+        self.conv1 = ARMAConv(
+            -1,
+            out_channels=hidden_channels,
+            num_stacks=num_stacks,
+            num_layers=num_layers,
+        )
+
+        self.conv2 = ARMAConv(
+            -1,
+            out_channels=hidden_channels,
+            num_stacks=num_stacks,
+            num_layers=num_layers,
+        )
+
+        self.fc1 = nn.Linear(64, num_classes)
+
+    """def forward(self, x, edge_index):
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        #x = global_mean_pool(x, x.batch)
+        x = F.dropout(x)
+        x = self.fc1(x)
+        return x"""
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
+        x = self.conv2(x, edge_index)
+        return x
+
+
+class GATNet(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels=512, num_classes=2):
+        super(GATNet, self).__init__()
+
+        # self.fc0 = nn.Linear(in_channels, hidden_channels)
+        self.conv1 = GATConv(in_channels, hidden_channels)
+        self.conv2 = GATConv(hidden_channels, 64)
+        self.fc1 = nn.Linear(64, num_classes)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.conv1.reset_parameters()
+        self.conv2.reset_parameters()
+
+    def forward(self, x, edge_index):
+        # x = F.relu(self.fc0(x))
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        # x = global_mean_pool(x, data.batch)
+        x = F.dropout(x, training=self.training)
+        x = self.fc1(x)
+        return x
+
+
+class FeaStNet(torch.nn.Module):
+    def __init__(
+        self, in_channels, hidden_channels=512, num_classes=2, heads=1, t_inv=True
+    ):
+        super(FeaStNet, self).__init__()
+
+        # self.fc0 = nn.Linear(in_channels, hidden_channels)
+        self.conv1 = FeaStConv(in_channels, hidden_channels, heads=heads, t_inv=t_inv)
+        self.conv2 = FeaStConv(hidden_channels, 64, heads=heads, t_inv=t_inv)
+        self.fc1 = nn.Linear(64, num_classes)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.conv1.reset_parameters()
+        self.conv2.reset_parameters()
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+
+        # x = F.relu(self.fc0(x))
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        x = global_mean_pool(x, data.batch)
+        x = F.dropout(x, training=self.training)
+        x = self.fc1(x)
+        return x
+
+
+class RGGCN(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels=512, num_classes=2):
+        super(RGGCN, self).__init__()
+
+        # self.fc0 = nn.Linear(in_channels, hidden_channels)
+        self.conv1 = ResGatedGraphConv(in_channels, hidden_channels)
+        self.conv2 = ResGatedGraphConv(hidden_channels, 64)
+        self.fc1 = nn.Linear(64, num_classes)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.conv1.reset_parameters()
+        self.conv2.reset_parameters()
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+
+        # x = F.relu(self.fc0(x))
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        x = global_mean_pool(x, data.batch)
+        x = F.dropout(x, training=self.training)
+        x = self.fc1(x)
+        return x
+
+
+class UniMP(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels=512, num_classes=2):
+        super(UniMP, self).__init__()
+        # self.fc0 = nn.Linear(in_channels, hidden_channels)
+        self.conv1 = TransformerConv(in_channels, hidden_channels)
+        self.conv2 = TransformerConv(hidden_channels, 64)
+        self.fc1 = nn.Linear(64, num_classes)
+
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        self.conv1.reset_parameters()
+        self.conv2.reset_parameters()
+
+    def forward(self, data):
+        x, edge_index = data.x, data.edge_index
+        # x = F.relu(self.fc0(x))
+        x = F.relu(self.conv1(x, edge_index))
+        x = F.relu(self.conv2(x, edge_index))
+        x = global_mean_pool(x, data.batch)
+        x = F.dropout(x, training=self.training)
+        x = self.fc1(x)
+        return x
 
 
 class HeteroGNN(torch.nn.Module):
@@ -119,6 +269,19 @@ class GNN_Het(torch.nn.Module):
         super().__init__()
         self.conv1 = SAGEConv((-1, -1), hidden_channels)
         self.conv2 = SAGEConv((-1, -1), out_channels)
+        # GATConv
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
+        x = self.conv2(x, edge_index)
+        return x
+
+
+class ARMA_Het(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = ARMAConv(-1, hidden_channels)
+        self.conv2 = ARMAConv(-1, out_channels)
 
     def forward(self, x, edge_index):
         x = self.conv1(x, edge_index).relu()
@@ -136,21 +299,6 @@ class GNN_Het_EA(torch.nn.Module):
         x = self.conv1(x, edge_index, edge_attr).relu()
         x = self.conv2(x, edge_index, edge_attr)
         return x
-
-
-class EdgeDecoder(torch.nn.Module):
-    def __init__(self, hidden_channels):
-        super().__init__()
-        self.lin1 = Linear(2 * hidden_channels, hidden_channels)
-        self.lin2 = Linear(hidden_channels, 1)
-
-    def forward(self, z_dict, edge_label_index):
-        row, col = edge_label_index
-        z = torch.cat([z_dict["user"][row], z_dict["movie"][col]], dim=-1)
-
-        z = self.lin1(z).relu()
-        z = self.lin2(z)
-        return z.view(-1)
 
 
 class GCN(torch.nn.Module):
@@ -189,4 +337,237 @@ class GAT(torch.nn.Module):
         x = self.conv1(x, edge_index) + self.lin1(x)
         x = x.relu()
         x = self.conv2(x, edge_index) + self.lin2(x)
+        return x
+
+
+class VertexGNNEncoder(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+
+        self.conv1 = SAGEConv(-1, hidden_channels)
+        self.conv2 = SAGEConv(hidden_channels, hidden_channels)
+        self.lin = Linear(hidden_channels, out_channels)
+
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
+        x = self.conv2(x, edge_index).relu()
+        return self.lin(x)
+
+
+class StateGNNEncoder(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        self.conv1 = SAGEConv((-1, -1), hidden_channels)
+        self.conv2 = SAGEConv((-1, -1), hidden_channels)
+        self.conv3 = SAGEConv((-1, -1), hidden_channels)
+        self.conv4 = SAGEConv((-1, -1), hidden_channels)
+        self.lin = Linear(hidden_channels, out_channels)
+
+    def forward(self, x_dict, edge_index_dict):
+        game_x = self.conv1(
+            x_dict["game_vertex"],
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+
+        state_x = self.conv2(
+            x_dict["state_vertex"],
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv3(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv4(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "in", "state_vertex")],
+        ).relu()
+
+        return self.lin(state_x)
+
+
+class StateGNNEncoderConv(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        # self.conv1 = GCNConv(5, hidden_channels)
+        # self.conv2 = GCNConv(6, hidden_channels)
+        # GravNetConv
+        # self.conv1 = GravNetConv(-1, hidden_channels, 2, 2, 2)
+        # self.conv2 = GravNetConv(-1, hidden_channels, 2, 2, 2)
+        # GatedGraphConv
+        self.conv1 = TAGConv(5, hidden_channels, 10)
+        self.conv12 = TAGConv(hidden_channels, hidden_channels, 10)  # TAGConv
+        self.conv22 = TAGConv(hidden_channels, hidden_channels, 10)  # TAGConv
+        self.conv2 = TAGConv(6, hidden_channels, 10)  # TAGConv
+        self.conv3 = SAGEConv((-1, -1), hidden_channels)  # SAGEConv
+        self.conv32 = SAGEConv((-1, -1), hidden_channels)
+        self.conv4 = SAGEConv((-1, -1), hidden_channels)
+        self.conv42 = SAGEConv((-1, -1), hidden_channels)
+        self.lin = Linear(hidden_channels, out_channels)
+
+    def forward(self, x_dict, edge_index_dict):
+        game_x = self.conv1(
+            x_dict["game_vertex"],
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+
+        game_x = self.conv12(
+            game_x,
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+
+        state_x = self.conv2(
+            x_dict["state_vertex"],
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv22(
+            state_x,
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv3(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv32(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv4(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "in", "state_vertex")],
+        ).relu()
+
+        state_x = self.conv42(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "in", "state_vertex")],
+        ).relu()
+
+        return self.lin(state_x)
+
+
+class VerStateModel(torch.nn.Module):
+    def __init__(self, metadata, hidden_channels, out_channels):
+        super().__init__()
+        self.vertex_encoder = VertexGNNEncoder(hidden_channels, out_channels)
+        self.state_encoder = StateGNNEncoder(hidden_channels, out_channels)
+        self.decoder = GNN_Het(hidden_channels, out_channels)
+        self.decoder = to_hetero(self.decoder, metadata, aggr="sum")
+
+    def forward(self, x_dict, edge_index_dict):
+        z_dict = {}
+        # x_dict['game_vertex'] = self.user_emb(x_dict['game_vertex'])
+        z_dict["state_vertex"] = self.state_encoder(x_dict, edge_index_dict)
+        z_dict["game_vertex"] = x_dict["game_vertex"]
+        # print(edge_index_dict)
+        # z_dict['state_vertex'] = self.state_encoder(
+        #    x_dict['state_vertex'],
+        #    edge_index_dict[('state_vertex', 'parent_of', 'state_vertex')],
+        # )
+
+        # return self.decoder(z_dict, edge_index_dict) # TODO: process separately
+        return z_dict
+
+
+class StateModelEncoder(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        # self.vertex_encoder = VertexGNNEncoder(hidden_channels, out_channels)
+        self.state_encoder = StateGNNEncoderConv(hidden_channels, out_channels)
+        # self.decoder = GNN_Het(hidden_channels, out_channels)
+        # self.decoder = to_hetero(self.decoder, metadata, aggr='sum')
+
+    @timeit
+    def forward(self, x_dict, edge_index_dict):
+        z_dict = {}
+        # x_dict['game_vertex'] = self.user_emb(x_dict['game_vertex'])
+        z_dict["state_vertex"] = self.state_encoder(x_dict, edge_index_dict)
+        z_dict["game_vertex"] = x_dict["game_vertex"]
+        # print(edge_index_dict)
+        # z_dict['state_vertex'] = self.state_encoder(
+        #    x_dict['state_vertex'],
+        #    edge_index_dict[('state_vertex', 'parent_of', 'state_vertex')],
+        # )
+
+        # return self.decoder(z_dict, edge_index_dict) # TODO: process separately
+        return z_dict
+
+
+class SAGEConvModel(torch.nn.Module):
+    def __init__(
+        self,
+        hidden_channels,
+        num_gv_layers=2,
+        num_sv_layers=2,
+    ):
+        super().__init__()
+        self.gv_layers = nn.ModuleList()
+        self.gv_layers.append(SAGEConv(-1, hidden_channels))
+        for i in range(num_gv_layers - 1):
+            sage_gv = SAGEConv(-1, hidden_channels)
+            self.gv_layers.append(sage_gv)
+
+        self.sv_layers = nn.ModuleList()
+        self.sv_layers.append(SAGEConv(-1, hidden_channels))
+        for i in range(num_sv_layers - 1):
+            sage_sv = SAGEConv(-1, hidden_channels)
+            self.sv_layers.append(sage_sv)
+
+        self.history1 = GATConv((-1, -1), hidden_channels, add_self_loops=False)
+        self.in1 = SAGEConv((-1, -1), hidden_channels)
+
+        self.sv_layers2 = nn.ModuleList()
+        self.sv_layers2.append(SAGEConv(-1, hidden_channels))
+        for i in range(num_sv_layers - 1):
+            sage_sv = SAGEConv(-1, hidden_channels)
+            self.sv_layers2.append(sage_sv)
+        self.mlp = MLP(hidden_channels, [1])
+
+    @timeit
+    def forward(self, x_dict, edge_index_dict, edge_attr_dict):
+        game_x = self.gv_layers[0](
+            x_dict["game_vertex"],
+            edge_index_dict[("game_vertex", "to", "game_vertex")],
+        ).relu()
+        for layer in self.gv_layers[1:]:
+            game_x = layer(
+                game_x,
+                edge_index_dict[("game_vertex", "to", "game_vertex")],
+            ).relu()
+
+        state_x = self.sv_layers[0](
+            x_dict["state_vertex"],
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+        for layer in self.sv_layers[1:]:
+            state_x = layer(
+                state_x,
+                edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+            ).relu()
+
+        history_x = self.history1(
+            (game_x, state_x),
+            edge_index_dict[("game_vertex", "history", "state_vertex")],
+            edge_attr_dict,
+            size=(game_x.size(0), state_x.size(0)),
+        ).relu()
+
+        in_x = self.in1(
+            (game_x, history_x), edge_index_dict[("game_vertex", "in", "state_vertex")]
+        ).relu()
+
+        state_x = self.sv_layers2[0](
+            in_x,
+            edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+        ).relu()
+        for layer in self.sv_layers2[1:]:
+            state_x = layer(
+                state_x,
+                edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
+            ).relu()
+        x = self.mlp(in_x)
         return x

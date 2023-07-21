@@ -76,7 +76,7 @@ module internal TypeCasting =
         let typeCheck address =
             let boolConst address =
                 match address.term with
-                | ConcreteHeapAddress _ -> False
+                | ConcreteHeapAddress _ -> False()
                 | _ -> makeSubtypeBoolConst (SymbolicType address) (ConcreteType targetTyp)
             commonTypeIsType leftType targetTyp ||| boolConst address
         Merging.guardedApply typeCheck leftAddress
@@ -87,10 +87,10 @@ module internal TypeCasting =
         let typeCheck rightAddress =
             let boolConst address =
                 match address.term with
-                | ConcreteHeapAddress _ -> True
+                | ConcreteHeapAddress _ -> True()
                 | _ -> makeSubtypeBoolConst (ConcreteType leftType) (SymbolicType address)
             match leftType with
-            | InterfaceType _ -> False
+            | InterfaceType _ -> False()
             | _ -> typeIsType leftType rightType &&& boolConst rightAddress
         Merging.guardedApply typeCheck rightAddress
 
@@ -110,6 +110,9 @@ module internal TypeCasting =
         | HeapRef(addr, sightType) ->
             let rightType = Memory.mostConcreteTypeOfHeapRef state addr sightType
             typeIsAddress typ addr rightType
+        | Ref address ->
+            let rightType = typeOfAddress address
+            typeIsType typ rightType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, typeIsRef state typ v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
@@ -118,6 +121,9 @@ module internal TypeCasting =
         | HeapRef(addr, sightType) ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
             commonAddressIsType addr leftType typ
+        | Ref address ->
+            let leftType = typeOfAddress address
+            typeIsType leftType typ
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType state v typ)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
@@ -130,6 +136,14 @@ module internal TypeCasting =
             let leftType = Memory.mostConcreteTypeOfHeapRef state leftAddr leftSightType
             let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
             addressIsAddress leftAddr leftType rightAddr rightType
+        | Ref leftAddress, HeapRef(rightAddr, rightSightType) ->
+            let leftType = typeOfAddress leftAddress
+            let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
+            typeIsAddress leftType rightAddr rightType
+        | HeapRef(leftAddr, leftSightType), Ref rightAddress ->
+            let leftType = Memory.mostConcreteTypeOfHeapRef state leftAddr leftSightType
+            let rightType = typeOfAddress rightAddress
+            addressIsType leftAddr leftType rightType
         | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, refIsRef state v rightRef)) |> Merging.merge
         | _, Union gvs -> gvs |> List.map (fun (g, v) -> (g, refIsRef state leftRef v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
@@ -153,7 +167,7 @@ module internal TypeCasting =
                         match PersistentDict.tryFind state.allocatedTypes addr with
                         | Some(MockType mockType) ->
                             let assignableExists = mockType.SuperTypes |> Seq.exists (fun st -> st.IsAssignableTo r)
-                            if assignableExists then True else False
+                            if assignableExists then True() else False()
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, SymbolicType r ->
@@ -163,7 +177,7 @@ module internal TypeCasting =
                     | {term = ConcreteHeapAddress addr} ->
                         // None when addr is null
                         match PersistentDict.tryFind state.allocatedTypes addr with
-                        | Some(MockType _) -> False
+                        | Some(MockType _) -> False()
                         | _ -> notMock()
                     | _ -> notMock()
                 | ConcreteType l, ConcreteType r -> typeIsType (fillType l) (fillType r)
@@ -171,11 +185,13 @@ module internal TypeCasting =
     let private doCast term targetType =
         match term.term, targetType with
         | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
+        // Converting IntPtr to number
+        | DetachedPtr offset, Numeric t -> primitiveCast offset t
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
         | Ptr _, Numeric _ -> term
-        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef t when address = zeroAddress && offset = 0 -> nullRef t
+        | Ptr(HeapLocation(address, _), _, ConcreteT(:? int as offset, _)), ByRef t when address = zeroAddress() && offset = 0 -> nullRef t
         // CASE: pointer from concolic
-        | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset // TODO: need to change type?
+        | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset
         | Ptr _, ByRef _ ->
             Logger.trace "Casting nonnull ptr to ByRef type %O" targetType
             term
@@ -183,9 +199,10 @@ module internal TypeCasting =
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress typ' offset
-        | Ref _, _ ->
-            // TODO: can this happen? Ref points to primitive type!
-            internalfailf "casting ref %O to type %O" term targetType
+        | Ref address, _ when typeOfAddress address = targetType -> term
+        | Ref address, _ ->
+            let baseAddress, offset = Pointers.addressToBaseAndOffset address
+            Ptr baseAddress targetType offset
         | HeapRef(addr, sightType), _ when isAssignable sightType targetType || isAssignable targetType sightType ->
             HeapRef addr targetType
         | HeapRef _, _ ->
@@ -211,6 +228,9 @@ module internal TypeCasting =
         let castUnguarded term =
             match typeOf term with
             | t when t = targetType -> term
+            // Case for method pointer
+            | t when t.IsAssignableTo typeof<System.Reflection.MethodInfo> ->
+                primitiveCast term targetType
             | Bool
             | Numeric _ -> primitiveCast term targetType
             | Pointer _
@@ -236,6 +256,8 @@ module internal TypeCasting =
         | _ when t = typeof<uint64>  -> typeof<uint64>
         | _ when t = typeof<float32> -> typeof<float32>
         | _ when t = typeof<float>   -> typeof<float>
+        | _ when t = typeof<IntPtr>  -> typeof<IntPtr>
+        | _ when t = typeof<UIntPtr> -> typeof<UIntPtr>
         | _ when t.IsEnum -> EnumUtils.getEnumUnderlyingTypeChecked t |> nearestBiggerTypeForEvaluationStack
         | _ -> __notImplemented__()
 

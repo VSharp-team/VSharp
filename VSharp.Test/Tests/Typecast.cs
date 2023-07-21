@@ -90,12 +90,102 @@ namespace IntegrationTests.Typecast
             return x is Double;
         }
 
+        public enum MyEnum
+        {
+            A,
+            B
+        }
+
+        public enum MyEnum1
+        {
+            C,
+            D
+        }
+
+        private static bool Check(object o)
+        {
+            return o is MyEnum1;
+        }
+
+        [TestSvm(75)]
+        public static int CheckIs1(MyEnum d)
+        {
+            if (Check(d))
+                return 1;
+            return 2;
+        }
+
         [TestSvm(100)]
         public static int DownCastObject2(object obj1, object obj2)
         {
             bool a = obj1 is Piece & obj2 is Pawn;
             bool b = obj1 is Piece & obj1 is Pawn;
             return a | b ? 5 : 6;
+        }
+
+        [TestSvm(92)]
+        public static int DownCastObject3(object obj)
+        {
+            if (obj is int d)
+            {
+                if (obj is long)
+                {
+                    return -42;
+                }
+                return d + 10;
+            }
+
+            if (obj is string s)
+            {
+                return s.Length;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static object DownCastObject4(object obj)
+        {
+            if (obj is int d)
+            {
+                if (d > 10)
+                    return obj;
+            }
+
+            if (obj is string s)
+            {
+                return s.Length;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(86)]
+        public static object DownCastObject5(object obj1, object obj2)
+        {
+            if (ReferenceEquals(obj1, obj2))
+            {
+                switch (obj1, obj2)
+                {
+                    case (int i, int j) when i == 10:
+                        return j;
+                    case (12, int j):
+                        return j;
+                    case (long i, long j) when (i + 1).GetHashCode() == 3000:
+                        return j.GetHashCode();
+                    case (Coord c1, Coord c2) when c1.Norm() != c2.Norm():
+                        return -1;
+                    case (Coord c1, Coord c2):
+                        return c1.X + c2.X;
+                    case (Coord, int):
+                        return -42;
+                    case (int, long):
+                        // Unreachable case
+                        return -3;
+                }
+            }
+
+            return 0;
         }
 
         [TestSvm]

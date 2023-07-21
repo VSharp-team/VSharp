@@ -18,4 +18,4 @@ module Environment =
 
     let internal WriteLine (_ : state) (args : term list) =
         assert(List.length args = 1)
-        Nop
+        Nop()

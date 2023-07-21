@@ -18,26 +18,28 @@ namespace VSharp.CSharpUtils
         }
 
         /// <summary>
-        /// Returns true if numeric value <paramref name="x"/> is power of two.
-        /// </summary>
-        public static bool IsPowOfTwo(object x)
-        {
-            return !IsZero(x) & (((dynamic) x & ((dynamic) x - 1)) == 0);
-        }
-
-        /// <summary>
         /// Returns which power of two value <paramref name="x"/> is.
         /// </summary>
         public static uint WhatPowerOf2(object x)
         {
-            dynamic val = x;
-            uint i = 0;
-            while (val > 1)
+            return x switch
             {
-                val >>= 1;
-                i++;
-            }
-            return i;
+                float s => (uint)Math.Log2(s),
+                double d => (uint)Math.Log2(d),
+                byte b => (uint)Math.Log2(b),
+                sbyte s => (uint)Math.Log2(s),
+                short i => (uint)Math.Log2(i),
+                ushort i => (uint)Math.Log2(i),
+                int i => (uint)Math.Log2(i),
+                uint i => (uint)Math.Log2(i),
+                long i => (uint)Math.Log2(i),
+                ulong i => (uint)Math.Log2(i),
+                char c => (uint)Math.Log2(c),
+                IntPtr i => (uint)Math.Log2(i.ToInt64()),
+                UIntPtr i => (uint)Math.Log2(i.ToUInt64()),
+                Enum e => (uint)Math.Log2((double)Convert.ChangeType(e, typeof(double))),
+                _ => throw new ArgumentException($"WhatPowerOf2: unexpected argument {x}")
+            };
         }
 
         /// <summary>
@@ -46,108 +48,6 @@ namespace VSharp.CSharpUtils
         public static bool FuzzyEqual(object x, object y, double eps = 1e-8)
         {
             return IsZero((dynamic) x - (dynamic) y, eps);
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object Rem(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                return Convert.ChangeType((dynamic) x%(dynamic) y, targetType);
-            }
-            catch (DivideByZeroException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> % <paramref name="y"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object RemChecked(object x, object y, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType((dynamic)x % (dynamic)y, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-
-        /// <summary>
-        /// Calculates <paramref name="x"/> << <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object ShiftLeft(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic)x << (dynamic)y, targetType);
-        }
-
-        /// <summary>
-        /// Calculates -<paramref name="x"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object UnaryMinus(object x, Type targetType)
-        {
-            return Convert.ChangeType(-(dynamic) x, targetType);
-        }
-
-        /// <summary>
-        /// Calculates -<paramref name="x"/> casted to <paramref name="targetType"/> and checks for overflow.
-        /// <param name="success">If false then overflow happened during calculation process.</param>
-        /// </summary>
-        public static object UnaryMinusChecked(object x, Type targetType, out bool success)
-        {
-            success = true;
-            try
-            {
-                checked { return Convert.ChangeType(-(dynamic)x, targetType); }
-            }
-            catch (OverflowException e)
-            {
-                success = false;
-                return e;
-            }
-        }
-        /// <summary>
-        /// Calculates <paramref name="x"/> & <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object BitwiseAnd(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic)x & (dynamic)y, targetType);
-        }
-        /// <summary>
-        /// Calculates <paramref name="x"/> | <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object BitwiseOr(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic)x | (dynamic)y, targetType);
-        }
-        /// <summary>
-        /// Calculates <paramref name="x"/> ^ <paramref name="y"/> casted to <paramref name="targetType"/>.
-        /// </summary>
-        public static object BitwiseXor(object x, object y, Type targetType)
-        {
-            return Convert.ChangeType((dynamic)x ^ (dynamic)y, targetType);
-        }
-        public static int Compare(object x, object y)
-        {
-            if ((dynamic) x == (dynamic) y)
-            {
-                return 0;
-            }
-            if ((dynamic)x < (dynamic)y)
-            {
-                return -1;
-            }
-            return 1;
         }
 
         public static int GetDeterministicHashCode(this string str)

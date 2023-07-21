@@ -1,4 +1,5 @@
 open System.IO
+open System.Reflection
 open Argu
 open Microsoft.FSharp.Core
 open Suave
@@ -17,15 +18,19 @@ open VSharp.Runner
    
 type CliArguments =
     | [<Unique>] Port of int
+    | [<Unique>] CheckActualCoverage
     interface IArgParserTemplate with
         member s.Usage =
             match s with
             | Port _ -> "Port to communicate with game client."
+            | CheckActualCoverage -> "Check actual coverage using external coverage tool."
             
-let ws (webSocket : WebSocket) (context: HttpContext) =
+let mutable inTrainMode = true
+
+let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: HttpContext) =
+  let mutable loop = true
   
   socket {
-    let mutable loop = true
     
     let sendResponse (message:OutgoingMessage) =
         let byteResponse =
@@ -71,8 +76,6 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                 | Choice2Of2 error -> failwithf $"Error: %A{error}"
         
         Oracle(predict,feedback)
-        
-    let mutable inTrainMode = true
     
     while loop do
         let! msg = webSocket.read()
@@ -80,6 +83,7 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | (Text, data, true) ->
                 let message = deserializeInputMessage data
                 match message with
+                | ServerStop -> loop <- false
                 | GetTrainMaps ->
                     inTrainMode <- true
                     do! sendResponse (Maps trainMaps.Values)
@@ -91,18 +95,40 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
                         if inTrainMode
                         then trainMaps.[gameStartParams.MapId]
                         else validationMaps.[gameStartParams.MapId]
-                    let assembly = RunnerProgram.ResolveAssembly <| FileInfo settings.AssemblyFullName
-                    match settings.CoverageZone with
-                    | CoverageZone.Method ->
-                        let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(method, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore                        
-                    | CoverageZone.Class ->
-                        let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                        TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
-                    | x -> failwithf $"Unexpected coverage zone: %A{x}"
+                    let assembly = RunnerProgram.TryLoadAssembly <| FileInfo settings.AssemblyFullName
+                    
+                    let actualCoverage,testsCount,errorsCount = 
+                        match settings.CoverageZone with
+                        | CoverageZone.Method ->
+                            let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
+                            let statistics = TestGenerator.Cover(method, timeout = 15 * 60, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                            let actualCOverage = 
+                                if checkActualCoverage
+                                then
+                                    try 
+                                        let testsDir = statistics.OutputDir
+                                        let _expectedCoverage = 100
+                                        let exploredMethodInfo = AssemblyManager.NormalizeMethod method
+                                        let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
+                                        printfn $"Actual coverage: {actualCoverage}"
+                                        System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
+                                    with
+                                    e ->
+                                        printfn $"Coverage checking problem:{e.Message} \n {e.StackTrace}"
+                                        System.Nullable(0u)
+                                else System.Nullable()
+                            actualCOverage, statistics.TestsCount * 1u<test>, statistics.ErrorsCount *1u<error>
+                            
+                        | CoverageZone.Class ->
+                            let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
+                            TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
+                            System.Nullable(), 0u<test>, 0u<error>
+                        | x -> failwithf $"Unexpected coverage zone: %A{x}"
+                    
                     Application.reset()
                     API.Reset()
-                    do! sendResponse GameOver
+                    HashMap.hashMap.Free()
+                    do! sendResponse (GameOver (actualCoverage, testsCount, errorsCount))
                 | x -> failwithf $"Unexpected message: %A{x}"
                 
         | (Close, _, _) ->
@@ -112,21 +138,33 @@ let ws (webSocket : WebSocket) (context: HttpContext) =
         | _ -> ()
     }
   
-let app: WebPart =
+let app checkActualCoverage port : WebPart =
     choose [
-        path "/gameServer" >=> handShake ws
+        path "/gameServer" >=> handShake (ws checkActualCoverage port)
     ]
     
 [<EntryPoint>]
 let main args =
     let parser = ArgumentParser.Create<CliArguments>(programName = "VSharp.ML.GameServer.Runner.exe")
     let args = parser.Parse args
+    let checkActualCoverage =
+        match args.TryGetResult <@CheckActualCoverage@> with
+        | Some _ -> true
+        | None -> false
     let port =
         match args.TryGetResult <@Port@> with
         | Some port -> port
-        | None -> 8080
+        | None -> 8100
+    
+    let outputDirectory =
+        Path.Combine(Directory.GetCurrentDirectory(), string port)
+    if Directory.Exists outputDirectory
+    then Directory.Delete(outputDirectory,true)
+    let testsDirInfo = Directory.CreateDirectory outputDirectory
+    printfn $"outputDir: {outputDirectory}"                
+  
     
     startWebServer {defaultConfig with
                         logger = Targets.create Verbose [||]
-                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} app
+                        bindings = [HttpBinding.createSimple HTTP "127.0.0.1" port]} (app checkActualCoverage outputDirectory)
     0

@@ -7,12 +7,21 @@ open VSharp.TypeUtils
 open VSharp.CSharpUtils
 open VSharp.Core.Common
 
-module Calculator1 =
+module ILCalculator =
 
     // TODO: add all other operations and cache delegates
-    type binaryDelegateType = delegate of obj * obj -> obj
+    type private binaryDelegateType = delegate of obj * obj -> obj
+    type private compareDelegateType = delegate of obj * obj -> int
+    type private unaryToIntDelegateType = delegate of obj -> int
+    type private unaryToObjDelegateType = delegate of obj -> obj
 
-    let Add(x : obj, y : obj, t : System.Type) =
+    let private isValidOperand op =
+        let isValidType() =
+            let typ = op.GetType()
+            isNumeric typ || typ = typeof<bool>
+        op <> null && isValidType()
+
+    let add(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let add = DynamicMethod("Add", typeof<obj>, args)
@@ -27,7 +36,7 @@ module Calculator1 =
         let add = add.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         add.Invoke(x, y)
 
-    let AddOvf(x : obj, y : obj, t : System.Type) =
+    let addOvf(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let addOvf = DynamicMethod("AddOvf", typeof<obj>, args)
@@ -42,7 +51,7 @@ module Calculator1 =
         let addOvf = addOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         addOvf.Invoke(x, y)
 
-    let Sub(x : obj, y : obj, t : System.Type) =
+    let sub(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let sub = DynamicMethod("Sub", typeof<obj>, args)
@@ -57,7 +66,7 @@ module Calculator1 =
         let sub = sub.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         sub.Invoke(x, y)
 
-    let Mul(x : obj, y : obj, t : System.Type) =
+    let mul(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let mul = DynamicMethod("Mul", typeof<obj>, args)
@@ -72,7 +81,7 @@ module Calculator1 =
         let mul = mul.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         mul.Invoke(x, y)
 
-    let MulOvf(x : obj, y : obj, t : System.Type) =
+    let mulOvf(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let mulOvf = DynamicMethod("MulOvf", typeof<obj>, args)
@@ -87,7 +96,7 @@ module Calculator1 =
         let mulOvf = mulOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         mulOvf.Invoke(x, y)
 
-    let Div(x : obj, y : obj, t : System.Type) =
+    let div(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let div = DynamicMethod("Div", typeof<obj>, args)
@@ -102,7 +111,37 @@ module Calculator1 =
         let div = div.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         div.Invoke(x, y)
 
-    let ShiftRight(x : obj, y : obj, t : System.Type) =
+    let rem(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let rem = DynamicMethod("Rem", typeof<obj>, args)
+        let il = rem.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Rem)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let rem = rem.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        rem.Invoke(x, y)
+
+    let shiftLeft(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let shl = DynamicMethod("ShiftLeft", typeof<obj>, args)
+        let il = shl.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Shl)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let shl = shl.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        shl.Invoke(x, y)
+
+    let shiftRight(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
         let shr = DynamicMethod("ShiftRight", typeof<obj>, args)
@@ -117,10 +156,8 @@ module Calculator1 =
         let shr = shr.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         shr.Invoke(x, y)
 
-    type compareDelegateType = delegate of obj * obj -> int
-
-    let Compare(x : obj, y : obj) : int =
-        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+    let compare(x : obj, y : obj) : int =
+        assert(isValidOperand x && isValidOperand y)
         let args = [| typeof<obj>; typeof<obj> |]
         let compare = DynamicMethod("Compare", typeof<int>, args)
         let il = compare.GetILGenerator(256)
@@ -171,10 +208,8 @@ module Calculator1 =
         let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
         compare.Invoke(x, y)
 
-    type unaryToIntDelegateType = delegate of obj -> int
-
-    let IsZero x =
-        assert(isNumeric <| x.GetType())
+    let isZero x =
+        assert(isValidOperand x)
         let args = [| typeof<obj> |]
         let isZero = DynamicMethod("IsZero", typeof<int>, args)
         let il = isZero.GetILGenerator(256)
@@ -190,10 +225,40 @@ module Calculator1 =
         let isZero = isZero.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
         isZero.Invoke(x) = 1
 
-    type unaryToObjDelegateType = delegate of obj -> obj
+    let isPowOfTwo (x : obj) =
+        assert(isNumeric <| x.GetType())
+        let check (x : obj) =
+            if not (isZero(x)) then
+                let args = [| typeof<obj> |]
+                let isPowOfTwo = DynamicMethod("IsPowOfTwo", typeof<int>, args)
+                let il = isPowOfTwo.GetILGenerator(256)
+                let zeroCase = il.DefineLabel()
+                il.Emit(OpCodes.Ldarg_0)
+                il.Emit(OpCodes.Unbox_Any, x.GetType())
+                il.Emit(OpCodes.Dup)
+                il.Emit(OpCodes.Ldc_I4_M1)
+                il.Emit(OpCodes.Add)
+                il.Emit(OpCodes.And)
+                il.Emit(OpCodes.Brfalse, zeroCase)
+                il.Emit(OpCodes.Ldc_I4_0)
+                il.Emit(OpCodes.Ret)
+                il.MarkLabel(zeroCase)
+                il.Emit(OpCodes.Ldc_I4_1)
+                il.Emit(OpCodes.Ret)
+                let isPowOfTwo = isPowOfTwo.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
+                isPowOfTwo.Invoke(x) = 1
+            else false
+        match x with
+        | :? single as s ->
+            let floored = floor s
+            floored = s && check (int64 floored)
+        | :? double as d ->
+            let floored = floor d
+            floored = d && check (int64 floored)
+        | _ -> check x
 
-    let BitwiseNot(x : obj, t : System.Type) =
-        assert(x <> null && isNumeric <| x.GetType())
+    let bitwiseNot(x : obj, t : System.Type) =
+        assert(isValidOperand x)
         let args = [| typeof<obj> |]
         let bitwiseNot = DynamicMethod("BitwiseNot", typeof<obj>, args)
         let il = bitwiseNot.GetILGenerator(256)
@@ -204,6 +269,51 @@ module Calculator1 =
         il.Emit(OpCodes.Ret)
         let bitwiseNot = bitwiseNot.CreateDelegate(typeof<unaryToObjDelegateType>) :?> unaryToObjDelegateType
         bitwiseNot.Invoke(x)
+
+    let bitwiseAnd(x : obj, y : obj, t : System.Type) =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let bAnd = DynamicMethod("BitwiseAnd", typeof<obj>, args)
+        let il = bAnd.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.And)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let bAnd = bAnd.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        bAnd.Invoke(x, y)
+
+    let bitwiseOr(x : obj, y : obj, t : System.Type) =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let bOr = DynamicMethod("BitwiseOr", typeof<obj>, args)
+        let il = bOr.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Or)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let bOr = bOr.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        bOr.Invoke(x, y)
+
+    let bitwiseXor(x : obj, y : obj, t : System.Type) =
+        assert(isValidOperand x && isValidOperand y)
+        let args = [| typeof<obj>; typeof<obj> |]
+        let bXor = DynamicMethod("BitwiseXor", typeof<obj>, args)
+        let il = bXor.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Xor)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let bXor = bXor.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        bXor.Invoke(x, y)
 
 [<AutoOpen>]
 module internal Arithmetics =
@@ -223,7 +333,7 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "+" -------------------------------
 
     let private simplifyConcreteAddition t x y =
-        castConcrete (Calculator1.Add(x, y, t)) t
+        castConcrete (ILCalculator.add(x, y, t)) t
 //        castConcrete (Calculator.Add(x, y, t)) t
 
     let rec private simplifyAdditionToSum t a b y matched unmatched =
@@ -287,11 +397,11 @@ module internal Arithmetics =
         // (a << b) + (a << b) = 0            if unchecked, b = (size of a) * 8 - 1
         // (a << b) + (a << b) = a << (b + 1) if unchecked, b < (size of a) * 8 - 1
         | Concrete(bval, bt), ShiftLeft(c, ConcreteT(d, _), _) when a = c && bval = d ->
-            let tooBigShift = Calculator1.Compare(bval, ((sizeOf a) * 8) - 1) = 0
+            let tooBigShift = ILCalculator.compare(bval, ((sizeOf a) * 8) - 1) = 0
             if tooBigShift then
                 castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(bval, 1, bt)) bt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (ILCalculator.add(bval, 1, bt)) bt) matched
         | _ -> unmatched ()
 
     and private simplifyAdditionToExpression x y t matched unmatched =
@@ -306,8 +416,8 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(xval, _), Concrete(yval, _) ->
             simplifyConcreteAddition t xval yval |> matched
-        | Concrete(xval, _), _ when Calculator1.IsZero xval -> matched y
-        | _, Concrete(yval, _) when Calculator1.IsZero yval -> matched x
+        | Concrete(xval, _), _ when ILCalculator.isZero xval -> matched y
+        | _, Concrete(yval, _) when ILCalculator.isZero yval -> matched x
         | Expression _, Expression _ ->
             simplifyAdditionToExpression x y t matched (fun () ->
             simplifyAdditionToExpression y x t matched unmatched)
@@ -320,9 +430,9 @@ module internal Arithmetics =
             let sorted = if isConcrete y then (y, x) else (x, y)
             makeAddition t (fst sorted) (snd sorted) k
         simplifyGenericBinary "addition" x y k
-                              (simplifyConcreteBinary simplifyConcreteAddition t)
-                              (fun x y k -> simplifyAdditionExt t x y k defaultCase)
-                              (fun x y k -> simplifyAddition t x y k)
+            (simplifyConcreteBinary simplifyConcreteAddition t)
+            (fun x y k -> simplifyAdditionExt t x y k defaultCase)
+            (fun x y k -> simplifyAddition t x y k)
 
     and private simplifySubtraction t x y k =
         simplifyUnaryMinus t y (fun minusY ->
@@ -332,14 +442,14 @@ module internal Arithmetics =
 
     and private simplifyBinaryNot t x k =
         match x.term with
-        | Concrete(x, _) -> castConcrete (Calculator1.BitwiseNot(x, t)) t |> k
+        | Concrete(x, _) -> castConcrete (ILCalculator.bitwiseNot(x, t)) t |> k
         | _ -> makeUnary OperationType.BitwiseNot x t |> k
 
 // ------------------------------- Simplification of unary "-" -------------------------------
 
     and private simplifyConcreteUnaryMinus t x =
         let zero = Reflection.createObject (x.GetType())
-        castConcrete (Calculator1.Sub(zero, x, t)) t
+        castConcrete (ILCalculator.sub(zero, x, t)) t
 
     and private simplifyUnaryMinus (t : System.Type) x k =
         let simplifyConcrete _ obj _ =
@@ -363,7 +473,7 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "*" -------------------------------
 
     and private simplifyConcreteMultiplication t x y =
-        castConcrete (Calculator1.Mul(x, y, t)) t
+        castConcrete (ILCalculator.mul(x, y, t)) t
 
     and private simplifyMultiplicationOfProduct t a b y matched unmatched =
         // Simplifying (a * b) * y at this step
@@ -415,21 +525,21 @@ module internal Arithmetics =
         // (a << b) * (c << d) = (a * c) << (b + d) if unchecked, b and d are conctere, b + d < (size of a) * 8
         // (a << b) * (c << d) = 0 if unchecked, b and d are conctere, b + d >= (size of a) * 8
         | Concrete(bval, bt), ShiftLeft(c, ConcreteT(dval, _), _) ->
-            let smallShift = Calculator1.Compare(Calculator1.Add(bval, dval, t), bitSizeOf a t) = -1
+            let smallShift = ILCalculator.compare(ILCalculator.add(bval, dval, t), bitSizeOf a t) = -1
             if smallShift then
                 simplifyMultiplication t a c (fun mul ->
-                let bPlusD = castConcrete (Calculator1.Add(bval, dval, bt)) bt
+                let bPlusD = castConcrete (ILCalculator.add(bval, dval, bt)) bt
                 simplifyShift OperationType.ShiftLeft t mul bPlusD matched)
             else
                 castConcrete 0 t |> matched
         // (a << b) * 2^n = a << (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
         // (a << b) * 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
-        | Concrete(bval, bt), ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) ->
+        | Concrete(bval, bt), ConcreteT(powOf2, _) when ILCalculator.isPowOfTwo(powOf2) ->
             let n = Calculator.WhatPowerOf2(powOf2)
-            let tooBigShift = Calculator1.Compare(Calculator1.Add(bval, n, t), bitSizeOf a t) >= 0
+            let tooBigShift = ILCalculator.compare(ILCalculator.add(bval, n, t), bitSizeOf a t) >= 0
             if tooBigShift then castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(bval, n, bt)) bt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (ILCalculator.add(bval, n, bt)) bt) matched
         | _ -> unmatched ()
 
     and private simplifyMultiplicationOfExpression t x y matched unmatched =
@@ -441,13 +551,13 @@ module internal Arithmetics =
 
     and private simplifyMultiplicationExt (t : System.Type) (x : term) y matched unmatched =
         match x.term, y.term with
-        | Concrete(xval, _), _ when Calculator1.IsZero(xval) -> castConcrete 0 t |> matched
-        | _, Concrete(yval, _) when Calculator1.IsZero(yval) -> castConcrete 0 t |> matched
-        | Concrete(x, _), _ when Calculator.FuzzyEqual(x, System.Convert.ChangeType(1, t)) -> matched y
-        | _, Concrete(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> matched x
-        | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, System.Convert.ChangeType(-1, t)) ->
+        | Concrete(xval, _), _ when ILCalculator.isZero(xval) -> castConcrete 0 t |> matched
+        | _, Concrete(yval, _) when ILCalculator.isZero(yval) -> castConcrete 0 t |> matched
+        | Concrete(x, _), _ when Calculator.FuzzyEqual(x, convert 1 t) -> matched y
+        | _, Concrete(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> matched x
+        | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, convert -1 t) ->
             simplifyUnaryMinus t y matched
-        | _, Concrete(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, System.Convert.ChangeType(-1, t)) ->
+        | _, Concrete(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
             simplifyUnaryMinus t x matched
         | Expression _, Expression _ ->
             simplifyMultiplicationOfExpression t x y matched (fun () ->
@@ -468,7 +578,7 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "/" -------------------------------
 
     and simplifyConcreteDivision t x y =
-        let result = Calculator1.Div(x, y, t)
+        let result = ILCalculator.div(x, y, t)
         castConcrete result t
 
     and private simplifyDivision isSigned t x y k =
@@ -477,9 +587,9 @@ module internal Arithmetics =
             (fun x y k ->
                 match x, y with
                 // 0 / y = 0
-                | ConcreteT(xval, _), _ when Calculator1.IsZero(xval) -> x |> k
+                | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x / 1 = x
-                | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, System.Convert.ChangeType(1, typeOf x)) -> x |> k
+                | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, convert 1 (typeOf y)) -> x |> k
                 // x / -1 = -x
                 | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, convert -1 (typeOf y)) ->
                     simplifyUnaryMinus t x k
@@ -488,7 +598,7 @@ module internal Arithmetics =
                 // x / -x = -1 if unchecked
                 | x, UnaryMinusT(y, _) when not <| isUnsigned t && x = y -> castConcrete -1 t |> k
                 // x / 2^n = x >> n if unchecked and x is unsigned
-                | _, ConcreteT(powOf2, _) when Calculator.IsPowOfTwo(powOf2) && not isSigned ->
+                | _, ConcreteT(powOf2, _) when ILCalculator.isPowOfTwo(powOf2) && not isSigned ->
                     let n = Calculator.WhatPowerOf2(powOf2) |> int |> makeNumber
                     simplifyShift OperationType.ShiftRight_Un t x n k
                 // (a >> b) / 2^n = a >> (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
@@ -496,13 +606,13 @@ module internal Arithmetics =
 //                | CastExpr(ShiftRight(a, b, Numeric(Id t2)), (Numeric(Id t1) as t)) when not <| typeIsLessType t1 t2 -> Some(ShiftRight(primitiveCast x t, y, t)) ->
                 | ShiftRightThroughCast(a, ConcreteT(b, bt), _), ConcreteT(powOf2, _)
                 | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
-                    when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
+                    when ILCalculator.isPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
                         let n = Calculator.WhatPowerOf2(powOf2)
-                        let tooBigShift = Calculator1.Compare(Calculator1.Add(b, n, t), bitSizeOf a t) >= 0
+                        let tooBigShift = ILCalculator.compare(ILCalculator.add(b, n, t), bitSizeOf a t) >= 0
                         if tooBigShift then castConcrete 0 t |> k
                         else
                             let op = if isSigned then OperationType.ShiftRight else OperationType.ShiftRight_Un
-                            simplifyShift op t a (castConcrete (Calculator1.Add(b, n, bt)) bt) k
+                            simplifyShift op t a (castConcrete (ILCalculator.add(b, n, bt)) bt) k
                 | _ ->
                     let op = if isSigned then OperationType.Divide else OperationType.Divide_Un
                     (makeBinary op x y t) |> k)
@@ -512,13 +622,12 @@ module internal Arithmetics =
 
     and private simplifyConcreteRemainder t x y =
         let success = ref true
-        let result = Calculator.Rem(x, y, t, success)
+        let result = ILCalculator.rem(x, y, t)
         assert success.Value
         castConcrete result t
 
     and private divides t x y =
-        let success = ref true
-        Calculator1.IsZero(Calculator.Rem(x, y, t, success)) && success.Value
+        ILCalculator.isZero(ILCalculator.rem(x, y, t))
 
     and simplifyRemainder isSigned t x y k =
         simplifyGenericBinary "remainder" x y k
@@ -526,11 +635,11 @@ module internal Arithmetics =
             (fun x y k ->
                 match x, y with
                 // 0 % y = 0
-                | ConcreteT(xval, _), _ when Calculator1.IsZero(xval) -> x |> k
+                | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x % 1 = 0
-                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, System.Convert.ChangeType(1, t)) -> castConcrete 0 t |> k
+                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> castConcrete 0 t |> k
                 // x % -1 = 0
-                | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, System.Convert.ChangeType(-1, t)) ->
+                | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
                     castConcrete 0 t |> k
                 // x % x = 0
                 | x, y when x = y -> castConcrete 0 t |> k
@@ -548,9 +657,9 @@ module internal Arithmetics =
 
     and private simplifyConcreteShift operation t x y =
         match operation with
-        | OperationType.ShiftLeft -> castConcrete (Calculator.ShiftLeft(x, y, t)) t
+        | OperationType.ShiftLeft -> castConcrete (ILCalculator.shiftLeft(x, y, t)) t
         | OperationType.ShiftRight
-        | OperationType.ShiftRight_Un -> castConcrete (Calculator1.ShiftRight(x, y, t)) t
+        | OperationType.ShiftRight_Un -> castConcrete (ILCalculator.shiftRight(x, y, t)) t
         | _ -> __unreachable__()
 
     and private simplifyShiftLeftMul t a b y matched unmatched =
@@ -559,12 +668,12 @@ module internal Arithmetics =
         // (2^n * b) << y = b << (y + n) if unchecked, y is concrete, y + n < bitSize of a
         // (2^n * b) << y = 0 if unchecked, y is concrete, y + n >= bitSize of a
         | Concrete(powOf2, _), _, Concrete(yval, yt)
-            when Calculator.IsPowOfTwo(powOf2) ->
+            when ILCalculator.isPowOfTwo(powOf2) ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator1.Compare(Calculator1.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = ILCalculator.compare(ILCalculator.add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
-                    simplifyShift OperationType.ShiftLeft t b (castConcrete (Calculator1.Add(yval, n, yt)) yt) matched
+                    simplifyShift OperationType.ShiftLeft t b (castConcrete (ILCalculator.add(yval, n, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftRightDiv op t a b y matched unmatched =
@@ -573,12 +682,12 @@ module internal Arithmetics =
         // (a / 2^n) >> y = a >> (y + n) if y is concrete, a is unsigned, y + n < bitSize of a
         // (a / 2^n) >> y = 0 if y is concrete, a is unsigned, y + n >= bitSize of a
         | Concrete(powOf2, _), Concrete(yval, yt)
-            when Calculator.IsPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
+            when ILCalculator.isPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->
                 let n = Calculator.WhatPowerOf2(powOf2)
-                let tooBigShift = Calculator1.Compare(Calculator1.Add(yval, n, t), bitSizeOf a t) >= 0
+                let tooBigShift = ILCalculator.compare(ILCalculator.add(yval, n, t), bitSizeOf a t) >= 0
                 if tooBigShift then castConcrete 0 t |> matched
                 else
-                    simplifyShift op t a (castConcrete (Calculator1.Add(yval, n, yt)) yt) matched
+                    simplifyShift op t a (castConcrete (ILCalculator.add(yval, n, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftLeftOfAddition t a y (matched : term -> 'a) unmatched =
@@ -587,18 +696,18 @@ module internal Arithmetics =
         // (a + a) << y = 0 if unchecked, y is concrete, y = (size of a) * 8 - 1
         // (a + a) << y = a << (y + 1) if unchecked, y is concrete, y < (size of a) * 8 - 1
         | Concrete(yval, yt) ->
-            let tooBigShift = Calculator1.Compare(yval, ((sizeOf a) * 8) - 1) = 0
+            let tooBigShift = ILCalculator.compare(yval, ((sizeOf a) * 8) - 1) = 0
             if tooBigShift then castConcrete 0 t |> matched
             else
-                simplifyShift OperationType.ShiftLeft t a (castConcrete (Calculator1.Add(yval, 1, yt)) yt) matched
+                simplifyShift OperationType.ShiftLeft t a (castConcrete (ILCalculator.add(yval, 1, yt)) yt) matched
         | _ -> unmatched ()
 
     and private simplifyShiftOfShifted op t a b y matched unmatched =
         // Simplifying (a op b) op y at this step
         match b.term, y.term, op with
         // (a op b) op y = a op (b + y) if unchecked, b and y are concrete, b + y < (size of a) * 8
-        | Concrete(bval, bt), Concrete(yval, _), _ when Calculator1.Compare(Calculator1.Add(bval, yval, t), bitSizeOf a t) = -1 ->
-            simplifyShift op t a (castConcrete (Calculator1.Add(bval, yval, bt)) bt) matched
+        | Concrete(bval, bt), Concrete(yval, _), _ when ILCalculator.compare(ILCalculator.add(bval, yval, t), bitSizeOf a t) = -1 ->
+            simplifyShift op t a (castConcrete (ILCalculator.add(bval, yval, bt)) bt) matched
         // (a op b) op y = 0 if unchecked, b and y are concrete, b + y >= (size of a) * 8
         | Concrete _, Concrete _, OperationType.ShiftLeft ->
             castConcrete 0 t |> matched
@@ -622,8 +731,8 @@ module internal Arithmetics =
 
     and private simplifyShiftExt op t x y matched unmatched =
         match x.term, y.term with
-        | Concrete(x, _), _ when Calculator1.IsZero(x) -> castConcrete 0 t |> matched
-        | _, Concrete(y, _) when Calculator1.IsZero(y) -> x |> matched
+        | Concrete(x, _), _ when ILCalculator.isZero(x) -> castConcrete 0 t |> matched
+        | _, Concrete(y, _) when ILCalculator.isZero(y) -> x |> matched
         | Expression _, Expression _
         | Expression _, _ -> simplifyShiftOfExpression op t x y matched unmatched
         | _ -> unmatched ()
@@ -635,24 +744,23 @@ module internal Arithmetics =
         simplifyGenericBinary "shift" x y k
             (simplifyConcreteBinary (simplifyConcreteShift operation) t)
             (fun x y k -> simplifyShiftExt operation t x y k defaultCase)
-            (fun x y k -> simplifyShift operation t x y k)
+            (simplifyShift operation t)
 
-// TODO: IMPLEMENT BITWISE OPERATIONS!
     and private simplifyBitwise (op : OperationType) x y t resType k =
         match x.term, y.term with
         | Concrete(x, _), Concrete(y, _) ->
             match op with
-            | OperationType.BitwiseAnd -> k <| Concrete (Calculator.BitwiseAnd(x, y, t)) resType
-            | OperationType.BitwiseOr -> k <| Concrete (Calculator.BitwiseOr(x, y, t)) resType
-            | OperationType.BitwiseXor -> k <| Concrete (Calculator.BitwiseXor(x, y, t)) resType
+            | OperationType.BitwiseAnd -> k <| Concrete (ILCalculator.bitwiseAnd(x, y, t)) resType
+            | OperationType.BitwiseOr -> k <| Concrete (ILCalculator.bitwiseOr(x, y, t)) resType
+            | OperationType.BitwiseXor -> k <| Concrete (ILCalculator.bitwiseXor(x, y, t)) resType
             | _ -> __notImplemented__()
         | _ -> k (Expression (Operator op) [x; y] resType)
 
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
     and fastNumericCompare n m =
-        if n = m then True
-        elif isConcrete n && isConcrete m then False
+        if n = m then True ()
+        elif isConcrete n && isConcrete m then False ()
         else makeBinary OperationType.Equal n m bool
 
     and private simplifyConcreteComparison operator _ x y =
@@ -661,7 +769,7 @@ module internal Arithmetics =
         if (bx :? int32 list) && (by :? int32 list) then
             Concrete (List.compareWith compare (bx :?> int32 list) (by :?> int32 list) |> operator) bool
         else
-            Concrete (Calculator1.Compare(bx, by) |> operator) bool
+            Concrete (ILCalculator.compare(bx, by) |> operator) bool
 
     and private simplifyComparison op x y comparator sameIsTrue k =
         simplifyGenericBinary "comparison" x y k
@@ -674,7 +782,7 @@ module internal Arithmetics =
                 | x, Add(ConcreteT(_, t) as c, y, _) when x = y && (op = OperationType.Equal || op = OperationType.NotEqual) ->
                     simplifyComparison op (castConcrete 0 t) c comparator sameIsTrue k
                 | _ -> makeBinary op x y bool |> k)
-            (fun x y k -> simplifyComparison op x y comparator sameIsTrue k)
+            (fun x y -> simplifyComparison op x y comparator sameIsTrue)
 
     and simplifyEqual x y k = simplifyComparison OperationType.Equal x y ((=) 0) true k
     and simplifyNotEqual x y k = simplifyEqual x y ((!!) >> k)
@@ -693,9 +801,9 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
-            assert(t1 = t2)
+            assert(isNumeric t1 && isNumeric t2)
             try
-                Calculator1.AddOvf(x, y, t1) |> ignore
+                ILCalculator.addOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
@@ -705,9 +813,9 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(x, t1), Concrete(y, t2) ->
             let mutable noOverflow = true
-            assert(t1 = t2)
+            assert(isNumeric t1 && isNumeric t2)
             try
-                Calculator1.MulOvf(x, y, t1) |> ignore
+                ILCalculator.mulOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
@@ -735,6 +843,9 @@ module internal Arithmetics =
 
     let rem x y =
         simplifyRemainder true (deduceArithmeticTargetType x y) x y id
+
+    let remUn x y =
+        simplifyRemainder false (deduceArithmeticTargetType x y) x y id
 
     let eq x y =
         simplifyEqual x y id
@@ -812,13 +923,14 @@ module internal Arithmetics =
 
     // TODO: implement without using of expression AddNoOvf or MultiplyNoOvf:
     // TODO: - if signed, then it should keep the sign
-    let rec makeExpressionNoOvf expr k =
-        match expr with
-        | Add(x, y, _) -> simplifyAddNoOvf x y |> k
-        | Mul(x, y, _) -> simplifyMultiplyNoOvf x y |> k
-        | {term = Expression(_, args, _) } ->
-            Cps.List.foldlk (fun acc x k -> makeExpressionNoOvf x (fun x' -> k (acc &&& x'))) True args k
-        | _ -> k True
+    let makeExpressionNoOvf expr =
+        let collectConditions acc expr next into =
+            match expr with
+            | Add(x, y, _) -> acc &&& simplifyAddNoOvf x y |> next
+            | Mul(x, y, _) -> acc &&& simplifyMultiplyNoOvf x y |> next
+            | {term = Expression _ } -> into acc
+            | _ -> next acc
+        Seq.singleton expr |> fold collectConditions (True())
 
 // ------------------------------- Standard functions -------------------------------
 

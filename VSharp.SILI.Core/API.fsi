@@ -30,18 +30,19 @@ module API =
     val PerformBinaryOperation : OperationType -> term -> term -> (term -> 'a) -> 'a
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
-    val SolveGenericMethodParameters : typeModel -> IMethod -> (symbolicType[] * symbolicType[]) option
+    val SolveGenericMethodParameters : typeStorage -> IMethod -> (symbolicType[] * symbolicType[]) option
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit
     val ErrorReporter : string -> (state -> term -> unit)
     val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
-    val MockMethod : state -> IMethod -> IMethodMock
+    val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
+    val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
 
     [<AutoOpen>]
     module Terms =
-        val Nop : term
+        val Nop : unit ->term
         val Concrete : 'a -> Type -> term
         val Constant : string -> ISymbolicConstantSource -> Type -> term
         val Expression : operation -> term list -> Type -> term
@@ -52,8 +53,8 @@ module API =
         val HeapRef : heapAddress -> Type -> term
         val Union : (term * term) list -> term
 
-        val True : term
-        val False : term
+        val True : unit -> term
+        val False : unit -> term
         val NullRef : Type -> term
         val MakeNullPtr : Type -> term
         val ConcreteHeapAddress : concreteHeapAddress -> term
@@ -61,6 +62,8 @@ module API =
         val MakeBool : bool -> term
         val MakeNumber : 'a -> term
         val MakeIntPtr : term -> term
+        val MakeUIntPtr : term -> term
+        val NativeToPtr : term -> term
         val AddressToBaseAndOffset : address -> pointerBase * term
 
         val TypeOf : term -> Type
@@ -72,6 +75,8 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
+        val TryPtrToArrayInfo : Type -> Type -> term -> option<term list * arrayType>
+
         val TryTermToObj : state -> term -> obj option
 
         val IsStruct : term -> bool
@@ -82,7 +87,8 @@ module API =
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
-        val (|Combined|_|) : term -> (term list * Type) option
+        val (|Combined|_|) : termNode -> (term list * Type) option
+        val (|CombinedTerm|_|) : term -> (term list * Type) option
 
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
@@ -92,6 +98,7 @@ module API =
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
         val (|NullPtr|_|) : term -> unit option
+        val (|DetachedPtr|_|) : term -> term option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
@@ -108,6 +115,7 @@ module API =
         val (|RefSubtypeTypeSource|_|) : ISymbolicConstantSource -> option<heapAddress * Type>
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
+        val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
 
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
@@ -173,6 +181,7 @@ module API =
         val Sub : term -> term -> term
         val Add : term -> term -> term
         val Rem : term -> term -> term
+        val RemUn : term -> term -> term
         val IsZero : term -> term
 
         val Acos : term -> term
@@ -212,7 +221,7 @@ module API =
 
     module public Memory =
         val EmptyState : unit -> state
-        val EmptyModel : IMethod -> typeModel -> model
+        val EmptyModel : IMethod -> model
         val PopFrame : state -> unit
         val ForcePopFrames : int -> state -> unit
         val PopTypeVariables : state -> unit

@@ -21,6 +21,7 @@ module internal Memory =
 
     let makeEmpty complete = {
         pc = PC.empty
+        typeStorage = typeStorage()
         evaluationStack = EvaluationStack.empty
         exceptionsRegister = NoException
         stack = CallStack.empty
@@ -187,7 +188,7 @@ module internal Memory =
 
     let baseTypeOfAddress state address =
         match address with
-        | BoxedLocation(addr, _) -> typeOfConcreteHeapAddress state addr
+        | BoxedLocation(addr, _) -> typeOfHeapLocation state addr
         | _ -> typeOfAddress address
 
 // -------------------------------- GetHashCode --------------------------------
@@ -195,19 +196,23 @@ module internal Memory =
     [<StructuralEquality;NoComparison>]
     type private hashCodeSource =
         {object : term}
-        interface IStatedSymbolicConstantSource with
+        interface INonComposableSymbolicConstantSource with
             override x.SubTerms = Seq.empty
             override x.Time = VectorTime.zero
             override x.TypeOfLocation = typeof<int32>
 
+    let (|GetHashCodeSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? hashCodeSource as { object = object } -> Some(object)
+        | _ -> None
+
     let hashConcreteAddress (address : concreteHeapAddress) =
-        let hashValue =
-            if address = VectorTime.zero then RuntimeHelpers.GetHashCode null
-            else address.GetHashCode()
+        let hashValue = VectorTime.hash address
         hashValue |> makeNumber
 
     let getHashCode object =
         // TODO: implement GetHashCode() for value type (it's boxed)
+        // TODO: use 'termToObj' for valid hash
         match object.term with
         | ConcreteHeapAddress address
         | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
@@ -221,7 +226,13 @@ module internal Memory =
 
     [<CustomEquality;NoComparison>]
     type regionPicker<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-        {sort : regionSort; extract : state -> memoryRegion<'key, 'reg>; mkname : 'key -> string; isDefaultKey : state -> 'key -> bool}
+        {
+            sort : regionSort
+            extract : state -> memoryRegion<'key, 'reg>
+            mkName : 'key -> string
+            isDefaultKey : state -> 'key -> bool
+            isDefaultRegion : bool
+        }
         override x.Equals y =
             match y with
             | :? regionPicker<'key, 'reg> as y -> x.sort = y.sort
@@ -280,7 +291,7 @@ module internal Memory =
         | Constant(_, ArrayRangeReading(mo, srcAddress, srcFrom, srcTo, picker, time), typ) ->
             let key = key.Specialize writeKey srcAddress srcFrom srcTo
             let source : arrayReading = {picker = picker; key = key; memoryObject = mo; time = time}
-            let name = picker.mkname key
+            let name = picker.mkName key
             Constant name source typ
         | _ -> constant
 
@@ -371,6 +382,7 @@ module internal Memory =
             HeapRef address typ
         | ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
         | ByRef _ -> __insufficientInformation__ "Can't instantiate symbolic value of ByRef type %O" typ
+        | Pointer _ -> __insufficientInformation__ "Can't instantiate symbolic value of pointer type %O" typ
         | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
 
     let private makeSymbolicStackRead key typ time =
@@ -380,7 +392,7 @@ module internal Memory =
 
     let rec private makeSymbolicHeapRead _ picker key time typ memoryObject _ =
         let source : heapReading<'key, 'reg> = {picker = picker; key = key; memoryObject = memoryObject; time = time}
-        let name = picker.mkname key
+        let name = picker.mkName key
         makeSymbolicValue source name typ
 
     let rec private makeArraySymbolicHeapRead state picker (key : heapArrayKey) time typ memoryObject (singleValue : updateTreeKey<heapArrayKey, term> option) =
@@ -392,13 +404,14 @@ module internal Memory =
         | Some { key = key'; value = value } when key'.Includes key -> value
         | _ ->
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
-            let name = picker.mkname key
+            let name = picker.mkName key
             makeSymbolicValue source name typ
 
+    // This function is used only for creating 'this' of reference types
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
-        if isValueType declaringType then __insufficientInformation__ "Can't execute in isolation methods of value types, because we can't be sure where exactly \"this\" is allocated!"
-        else HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
+        assert(isValueType declaringType |> not)
+        HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
@@ -471,8 +484,8 @@ module internal Memory =
         let nullableType = Nullable.GetUnderlyingType t
         let valueField, hasValueField = Reflection.fieldsOfNullable t
         let value, hasValue =
-            if box obj <> null then objToTerm state nullableType obj, True
-            else objToTerm state nullableType (Reflection.createObject nullableType), False
+            if box obj <> null then objToTerm state nullableType obj, True ()
+            else objToTerm state nullableType (Reflection.createObject nullableType), False ()
         let fields = PersistentDict.ofSeq <| seq [(valueField, value); (hasValueField, hasValue)]
         Struct fields t
 
@@ -505,13 +518,14 @@ module internal Memory =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
             let fieldInfo = Reflection.getFieldInfo fieldId
-            match tryTermToObj state value with
             // field was not found in the structure, skipping it
-            | _ when fieldInfo = null -> k ()
-            // field can be converted to obj, so continue
-            | Some v -> fieldInfo.SetValue(structObj, v) |> k
-            // field can not be converted to obj, so break and return None
-            | None -> None
+            if fieldInfo = null then k ()
+            else
+                match tryTermToObj state value with
+                // field can be converted to obj, so continue
+                | Some v -> fieldInfo.SetValue(structObj, v) |> k
+                // field can not be converted to obj, so break and return None
+                | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
 
     and tryNullableTermToObj (state : state) fields typ =
@@ -519,8 +533,8 @@ module internal Memory =
         let value = PersistentDict.find fields valueField
         let hasValue = PersistentDict.find fields hasValueField
         match tryTermToObj state value with
-        | Some obj when hasValue = True -> Some obj
-        | _ when hasValue = False -> Some null
+        | Some obj when hasValue = True() -> Some obj
+        | _ when hasValue = False() -> Some null
         | _ -> None
 
     // ------------------------------- Merging -------------------------------
@@ -596,8 +610,11 @@ module internal Memory =
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "LowerBound(%O, %O)" key.address key.index
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
         let key = {address = address; index = dimension}
-        MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead state {sort = ArrayLowerBoundSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+        let inst typ memoryRegion =
+            let sort = ArrayLowerBoundSort arrayType
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readLowerBound state address dimension arrayType =
         let cm = state.concreteMemory
@@ -611,8 +628,11 @@ module internal Memory =
         let mkname = fun (key : heapVectorIndexKey) -> sprintf "Length(%O, %O)" key.address key.index
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
         let key = {address = address; index = dimension}
-        MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead state {sort = ArrayLengthSort arrayType; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+        let inst typ memoryRegion =
+            let sort = ArrayLengthSort arrayType
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readLength state address dimension arrayType =
         let cm = state.concreteMemory
@@ -621,10 +641,11 @@ module internal Memory =
             cm.ReadArrayLength address dim |> objToTerm state typeof<int>
         | _ -> readLengthSymbolic state address dimension arrayType
 
-    let private readArrayRegion state arrayType extractor region key =
+    let private readArrayRegion state arrayType extractor region (isDefaultRegion : bool) key =
         let isDefault state (key : heapArrayKey) = isHeapAddressDefault state key.Address
         let instantiate typ memory singleValue =
-            let picker = {sort = ArrayIndexSort arrayType; extract = extractor; mkname = toString; isDefaultKey = isDefault}
+            let sort = ArrayIndexSort arrayType
+            let picker = {sort = sort; extract = extractor; mkName = toString; isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion}
             let time =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
@@ -633,27 +654,32 @@ module internal Memory =
 
     let private readArrayKeySymbolic state key arrayType =
         let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
-        readArrayRegion state arrayType extractor (extractor state) key
+        readArrayRegion state arrayType extractor (extractor state) false key
 
     let private readArrayIndexSymbolic state address indices arrayType =
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayKeySymbolic state key arrayType
 
     let private readArrayRangeSymbolic state address fromIndices toIndices arrayType =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayKeySymbolic state key arrayType
 
     let private regionFromData state address data regionType =
         let prepareData (index, value) =
-            let key = OneArrayIndexKey(address, List.map makeNumber index)
+            let key = OneArrayIndexKey(address, List.map (int >> makeNumber) index)
             let value = objToTerm state regionType value
             key, value
         Seq.map prepareData data |> MemoryRegion.memset (MemoryRegion.empty regionType)
 
     let private readRangeFromConcreteArray state address arrayData fromIndices toIndices arrayType =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let region = regionFromData state address arrayData (fst3 arrayType)
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
-        readArrayRegion state arrayType (always region) region key
+        readArrayRegion state arrayType (always region) region true key
 
     let readArrayRange state address fromIndices toIndices arrayType =
         let cm = state.concreteMemory
@@ -665,8 +691,9 @@ module internal Memory =
 
     let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
         let region = regionFromData state address arrayData (fst3 arrayType)
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
-        readArrayRegion state arrayType (always region) region key
+        readArrayRegion state arrayType (always region) region true key
 
     let readArrayIndex state address indices arrayType =
         let cm = state.concreteMemory
@@ -690,7 +717,8 @@ module internal Memory =
             let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
             let key = {address = address}
             let instantiate typ memory =
-                let picker = {sort = HeapFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault}
+                let sort = HeapFieldSort field
+                let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
                 let time =
                     if isValueType typ then state.startingTime
                     else MemoryRegion.maxTime region.updates state.startingTime
@@ -709,24 +737,45 @@ module internal Memory =
         let mkname = fun (key : symbolicTypeKey) -> sprintf "%O.%O" key.typ field
         let isDefault _ _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
         let key = {typ = typ}
-        MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead state {sort = StaticFieldSort field; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+        let inst typ memoryRegion =
+            let sort = StaticFieldSort field
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readStackBuffer state (stackKey : stackKey) index =
         let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) typeof<int8>
         let mkname = fun (key : stackBufferIndexKey) -> sprintf "%O[%O]" stackKey key.index
         let isDefault _ _ = true
         let key : stackBufferIndexKey = {index = index}
-        MemoryRegion.read (extractor state) key (isDefault state)
-            (makeSymbolicHeapRead state {sort = StackBufferSort stackKey; extract = extractor; mkname = mkname; isDefaultKey = isDefault} key state.startingTime)
+        let inst typ memoryRegion =
+            let sort = StackBufferSort stackKey
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
-    let readBoxedLocation state (address : concreteHeapAddress) =
+    let private readBoxedSymbolic state address typ =
+        let extractor state = accessRegion state.boxedLocations typ typ
+        let region = extractor state
+        let mkname = fun (key : heapAddressKey) -> $"boxed {key.address} of {typ}"
+        let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+        let key = {address = address}
+        let instantiate typ memory =
+            let sort = BoxedSort typ
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            let time = state.startingTime
+            makeSymbolicHeapRead state picker key time typ memory
+        MemoryRegion.read region key (isDefault state) instantiate
+
+    let readBoxedLocation state (address : term) sightType =
         let cm = state.concreteMemory
-        let typ = typeOfConcreteHeapAddress state address
-        match cm.TryVirtToPhys address, PersistentDict.tryFind state.boxedLocations address with
-        | Some value, _ -> objToTerm state typ value
-        | None, Some value -> value
-        | _ -> internalfailf "Boxed location %O was not found in heap: this should not happen!" address
+        let typeFromMemory = typeOfHeapLocation state address
+        let typ = mostConcreteType typeFromMemory sightType
+        match memoryMode, address.term with
+        | ConcreteMemory, ConcreteHeapAddress address when cm.Contains address ->
+            let value = cm.VirtToPhys address
+            objToTerm state typ value
+        | _ -> readBoxedSymbolic state address typ
 
     let rec readDelegate state reference =
         match reference.term with
@@ -750,7 +799,7 @@ module internal Memory =
             let structTerm = readSafe state address
             readStruct structTerm field
         | ArrayLength(address, dimension, typ) -> readLength state address dimension typ
-        | BoxedLocation(address, _) -> readBoxedLocation state address
+        | BoxedLocation(address, typ) -> readBoxedLocation state address typ
         | StackBufferIndex(key, index) -> readStackBuffer state key index
         | ArrayLowerBound(address, dimension, typ) -> readLowerBound state address dimension typ
 
@@ -759,7 +808,9 @@ module internal Memory =
     let private checkBlockBounds state reportError blockSize startByte endByte =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
-        state.pc <- PC.add state.pc (makeExpressionNoOvf failCondition id)
+        let noOvf = makeExpressionNoOvf failCondition
+        // TODO: move noOvf to failCondition (failCondition = failCondition || !noOvf) ?
+        state.pc <- PC.add state.pc noOvf
         reportError state failCondition
 
     let private readAddressUnsafe address startByte endByte =
@@ -777,6 +828,7 @@ module internal Memory =
         | Ptr _ -> readAddressUnsafe term startByte endByte
         | Concrete _
         | Constant _
+        // TODO: make simplification for 'Combine' term
         | Expression _ -> Slice term startByte endByte startByte |> List.singleton
         | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
@@ -883,17 +935,13 @@ module internal Memory =
         checkBlockBounds state reportError locSize offset endByte
         readTermUnsafe term offset endByte
 
-    let private readBoxedStructUnsafe state loc typ offset viewSize =
-        let address =
-            match loc.term with
-            | ConcreteHeapAddress address -> BoxedLocation(address, typ)
-            | _ -> internalfail "readUnsafe: struct case is not fully implemented"
-        let fields =
-            match readSafe state address with
-            | {term = Struct(fields, _)} -> fields
-            | term -> internalfailf "readUnsafe: reading struct resulted in term %O" term
+    let private readBoxedUnsafe state loc typ offset viewSize =
+        let address = BoxedLocation(loc, typ)
         let endByte = makeNumber viewSize |> add offset
-        readStructUnsafe fields typ offset endByte
+        match readSafe state address with
+        | {term = Struct(fields, _)} -> readStructUnsafe fields typ offset endByte
+        | term when isPrimitive typ || typ.IsEnum -> readTermUnsafe term offset endByte
+        | term -> internalfail $"readUnsafe: reading struct resulted in term {term}"
 
     let private readUnsafe state reportError baseAddress offset sightType =
         let viewSize = internalSizeOf sightType
@@ -905,11 +953,21 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
-                | StructType _ -> readBoxedStructUnsafe state loc typ offset viewSize
+                | StructType _ -> readBoxedUnsafe state loc typ offset viewSize
+                | _ when isPrimitive typ || typ.IsEnum ->
+                    readBoxedUnsafe state loc typ offset viewSize
                 | _ -> internalfailf "expected complex type, but got %O" typ
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
         combine slices sightType
+
+    let readFieldUnsafe block (field : fieldId) =
+        assert(typeOf block = field.declaringType)
+        let fieldType = field.typ
+        let startByte = Reflection.getFieldOffset field
+        let endByte = startByte + internalSizeOf fieldType
+        let slices = readTermUnsafe block (makeNumber startByte) (makeNumber endByte)
+        combine slices fieldType
 
 // --------------------------- General reading ---------------------------
 
@@ -917,7 +975,7 @@ module internal Memory =
         let key : symbolicTypeKey = {typ=typ}
         let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
         match matchingTypes with
-        | [x] when x = key -> True
+        | [x] when x = key -> True()
         | _ ->
             let name = sprintf "%O_initialized" typ
             let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
@@ -959,10 +1017,13 @@ module internal Memory =
         state.arrays <- PersistentDict.add arrayType mr' state.arrays
 
     let private writeArrayIndexSymbolic state address indices arrayType value =
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         writeArrayKeySymbolic state key arrayType value
 
     let private writeArrayRangeSymbolic state address fromIndices toIndices arrayType value =
+        let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
+        let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         writeArrayKeySymbolic state key arrayType value
 
@@ -1010,16 +1071,25 @@ module internal Memory =
         let mr' = MemoryRegion.write mr key value
         state.stackBuffers <- PersistentDict.add stackKey mr' state.stackBuffers
 
-    let writeBoxedLocationSymbolic state (address : concreteHeapAddress) value =
-        state.boxedLocations <- PersistentDict.add address value state.boxedLocations
+    let writeBoxedLocationSymbolic state (address : term) value typ =
+        ensureConcreteType typ
+        let mr = accessRegion state.boxedLocations typ typ
+        let key = {address = address}
+        let mr' = MemoryRegion.write mr key value
+        state.boxedLocations <- PersistentDict.add typ mr' state.boxedLocations
 
-    let writeBoxedLocation state (address : concreteHeapAddress) value =
+    let writeBoxedLocation state (address : term) value =
         let cm = state.concreteMemory
-        match tryTermToObj state value with
-        | Some value when cm.Contains(address) ->
-            cm.Remove address
-            cm.Allocate address value
-        | _ -> writeBoxedLocationSymbolic state address value
+        match memoryMode, address.term, tryTermToObj state value with
+        | ConcreteMemory, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
+            cm.Remove a
+            cm.Allocate a value
+        | ConcreteMemory, ConcreteHeapAddress a, Some value ->
+            cm.Allocate a value
+        | ConcreteMemory, ConcreteHeapAddress a, None when cm.Contains(a) ->
+            cm.Remove a
+            typeOf value |> writeBoxedLocationSymbolic state address value
+        | _ -> typeOf value |> writeBoxedLocationSymbolic state address value
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
@@ -1332,7 +1402,7 @@ module internal Memory =
             allocateString state string
         | _ ->
             let address = commonAllocateString state (makeNumber 1) " "
-            writeArrayIndexSymbolic state address [Concrete 0 indexType] (typeof<char>, 1, true) char
+            writeArrayIndex state address [Concrete 0 indexType] (typeof<char>, 1, true) char
             HeapRef address typeof<string>
 
     let allocateDelegate state delegateTerm =
@@ -1347,7 +1417,11 @@ module internal Memory =
         let typ = typeOf value
         let concreteAddress = allocateType state typ
         let address = ConcreteHeapAddress concreteAddress
-        writeBoxedLocationSymbolic state concreteAddress value
+        match memoryMode, tryTermToObj state value with
+        // 'value' may be null, if it's nullable value type
+        | ConcreteMemory, Some value when value <> null ->
+            state.concreteMemory.Allocate concreteAddress value
+        | _ -> writeBoxedLocationSymbolic state address value typ
         HeapRef address typeof<obj>
 
     let allocateConcreteObject state obj (typ : Type) =
@@ -1398,8 +1472,14 @@ module internal Memory =
         | Constant(_, source, _) ->
             match source with
             | :? IStatedSymbolicConstantSource as source -> source.Compose state
-            | :? INonComposableSymbolicConstantSource -> term
-            | _ -> __notImplemented__()
+            | :? INonComposableSymbolicConstantSource ->
+                match state.model with
+                | PrimitiveModel dict ->
+                    // Case for model state, so using eval from substitution dict for non composable constants
+                    let typ = typeOf term
+                    model.EvalDict dict source term typ true
+                | _ -> term
+            | _ -> internalfail $"fillHole: unexpected term {term}"
         | _ -> term
 
     and fillHoles state term =
@@ -1430,9 +1510,12 @@ module internal Memory =
                 let substTime = composeTime state
                 let key = x.key :> IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
                 let key = key.Map substTerm substType substTime key.Region |> snd
-                let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
-                let before = x.picker.extract state
-                let afters = MemoryRegion.compose before effect
+                let afters =
+                    if not x.picker.isDefaultRegion then
+                        let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
+                        let before = x.picker.extract state
+                        MemoryRegion.compose before effect
+                    else List.singleton (True(), x.memoryObject)
                 let read region =
                     let inst = makeArraySymbolicHeapRead state x.picker key state.startingTime
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
@@ -1460,7 +1543,7 @@ module internal Memory =
                     let x = x :> ISymbolicConstantSource
                     match state.model with
                     | PrimitiveModel subst when state.complete ->
-                        let value = ref Nop
+                        let value = ref (Nop())
                         if subst.TryGetValue(x, value) then value.Value
                         else makeDefaultValue x.TypeOfLocation
                     | _ ->
@@ -1476,7 +1559,7 @@ module internal Memory =
                     | src ->
                         match state.model with
                         | PrimitiveModel subst when state.complete ->
-                            let value = ref Nop
+                            let value = ref (Nop())
                             if subst.TryGetValue(x, value) then value.Value
                             else makeDefaultValue src.TypeOfLocation
                         | _ ->
@@ -1525,10 +1608,7 @@ module internal Memory =
             }
         dict'
             |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
-            |> PersistentDict.fold composeOneRegion [(True, dict)]
-
-    let private composeBoxedLocations state state' =
-        state'.boxedLocations |> PersistentDict.fold (fun acc k v -> PersistentDict.add (composeTime state k) (fillHoles state v) acc) state.boxedLocations
+            |> PersistentDict.fold composeOneRegion [(True(), dict)]
 
     let private composeTypeVariablesOf state state' =
         let ms, s = state.typeVariables
@@ -1586,6 +1666,7 @@ module internal Memory =
             methodMocks.Add(kvp.Key, kvp.Value)
         for kvp in state'.methodMocks do
             methodMocks.Add(kvp.Key, kvp.Value)
+
         // TODO: do nothing if state is empty!
         list {
             let pc = PC.mapPC (fillHoles state) state'.pc |> PC.union state.pc
@@ -1599,7 +1680,6 @@ module internal Memory =
             let! g4, lengths = composeMemoryRegions state state.lengths state'.lengths
             let! g5, lowerBounds = composeMemoryRegions state state.lowerBounds state'.lowerBounds
             let! g6, staticFields = composeMemoryRegions state state.staticFields state'.staticFields
-            let boxedLocations = composeBoxedLocations state state'
             let initializedTypes = composeInitializedTypes state state'.initializedTypes
             composeConcreteMemory (composeTime state) state.concreteMemory state'.concreteMemory
             let allocatedTypes = composeConcreteDictionaries (composeTime state) (substituteTypeVariablesToSymbolicType state) state.allocatedTypes state'.allocatedTypes
@@ -1610,6 +1690,7 @@ module internal Memory =
             if not <| isFalse g then
                 return {
                     pc = if isTrue g then pc else PC.add pc g
+                    typeStorage = state.typeStorage
                     evaluationStack = evaluationStack
                     exceptionsRegister = exceptionRegister
                     stack = stack
@@ -1619,9 +1700,9 @@ module internal Memory =
                     lengths = lengths
                     lowerBounds = lowerBounds
                     staticFields = staticFields
-                    boxedLocations = boxedLocations
+                    boxedLocations = state.boxedLocations // TODO: compose boxed locations
                     initializedTypes = initializedTypes
-                    concreteMemory = state.concreteMemory
+                    concreteMemory = state.concreteMemory // TODO: compose concrete memory
                     allocatedTypes = allocatedTypes
                     typeVariables = typeVariables
                     delegates = delegates
@@ -1639,12 +1720,6 @@ module internal Memory =
                 let typ = substituteTypeVariables state x.typ
                 let newTypes = composeInitializedTypes state x.matchingTypes
                 isTypeInitialized {state with initializedTypes = newTypes} typ
-
-    type hashCodeSource with
-        interface IStatedSymbolicConstantSource with
-            override x.Compose state =
-                let object' = fillHoles state x.object
-                getHashCode object'
 
 // ------------------------------- Pretty-printing -------------------------------
 
@@ -1684,7 +1759,6 @@ module internal Memory =
         let sb = dumpDict "Fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.classFields
         let sb = dumpDict "Array contents" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.arrays
         let sb = dumpDict "Array lengths" (sortBy arrayTypeToString) arrayTypeToString (MemoryRegion.toString "    ") sb s.lengths
-        let sb = dumpDict "Boxed items" sortVectorTime VectorTime.print toString sb s.boxedLocations
         let sb = dumpDict "Types tokens" sortVectorTime VectorTime.print toString sb s.allocatedTypes
         let sb = dumpDict "Static fields" (sortBy toString) toString (MemoryRegion.toString "    ") sb s.staticFields
         let sb = dumpDict "Delegates" sortVectorTime VectorTime.print toString sb s.delegates

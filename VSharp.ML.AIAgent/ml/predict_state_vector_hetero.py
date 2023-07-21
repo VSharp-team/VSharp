@@ -3,11 +3,13 @@ from collections import namedtuple
 
 import torch
 import torch.nn.functional as F
-from ml import data_loader_compact
-from ml.models import GNN_Het
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import to_hetero
+
+from common.constants import DEVICE
+from ml import data_loader_compact
+from ml.models import GNN_Het
 
 StateVectorMapping = namedtuple("StateVectorMapping", ["state", "vector"])
 
@@ -86,20 +88,46 @@ class PredictStateVectorHetGNN:
 
     @staticmethod
     def predict_state_weighted(
-        model, weights, data: HeteroData, state_map: dict[int, int]
+        model: torch.nn.Module, weights, data: HeteroData, state_map: dict[int, int]
     ) -> int:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
+        data.to(DEVICE)
         reversed_state_map = {v: k for k, v in state_map.items()}
-        out = model(data.x_dict, data.edge_index_dict)
+
+        with torch.no_grad():
+            out = model.forward(data.x_dict, data.edge_index_dict)
 
         remapped = []
 
         for index, vector in enumerate(out["state_vertex"]):
             state_vector_mapping = StateVectorMapping(
                 state=reversed_state_map[index],
-                vector=(vector.detach().numpy() * weights).tolist(),
+                vector=(vector.detach().cpu().numpy() * weights).tolist(),
+            )
+            remapped.append(state_vector_mapping)
+
+        return max(remapped, key=lambda mapping: sum(mapping.vector)).state
+
+    def predict_state_single_out(
+        model: torch.nn.Module, data: HeteroData, state_map: dict[int, int]
+    ) -> int:
+        """Gets state id from model and heterogeneous graph
+        data.state_map - maps real state id to state index"""
+
+        data.to(DEVICE)
+        reversed_state_map = {v: k for k, v in state_map.items()}
+
+        with torch.no_grad():
+            out = model.forward(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
+
+        remapped = []
+
+        for index, vector in enumerate(out):
+            state_vector_mapping = StateVectorMapping(
+                state=reversed_state_map[index],
+                vector=(vector.detach().cpu().numpy()).tolist(),
             )
             remapped.append(state_vector_mapping)
 
