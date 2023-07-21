@@ -46,8 +46,8 @@ module EqualityComparer =
                 let block2Field = Memory.ReadField state block2 field
                 (block1Field === block2Field) &&& acc
             let blockFields = Reflection.fieldsOf false blockType
-            Array.fold compareOneField True blockFields
+            Array.fold compareOneField (True()) blockFields
         let typeEquals = Types.RefIsRef state block1 block2 &&& Types.RefIsRef state block2 block1
-        if typeEquals = True then checkContents ()
-        elif typeEquals = False then False
+        if typeEquals = True() then checkContents ()
+        elif typeEquals = False() then False()
         else __insufficientInformation__ "unable to check structural equality: %O, %O" block1 block2

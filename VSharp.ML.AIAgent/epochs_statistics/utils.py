@@ -3,11 +3,11 @@ import pathlib
 from shutil import rmtree
 
 from common.constants import (
+    APP_LOG_FILE,
+    BASE_REPORT_DIR,
+    EPOCH_BEST_DIR,
     LEADERS_TABLES_LOG_FILE,
     TABLES_LOG_FILE,
-    APP_LOG_FILE,
-    EPOCH_BEST_DIR,
-    BASE_REPORT_DIR,
 )
 
 

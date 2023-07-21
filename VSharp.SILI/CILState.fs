@@ -47,12 +47,12 @@ type cilState =
 //        assert(Memory.CallStackSize x.state = 1)
         match EvaluationStack.Length x.state.evaluationStack with
         | _ when Memory.CallStackSize x.state > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
-        | 0 -> Nop
+        | 0 -> Nop()
         | 1 ->
             let result = EvaluationStack.Pop x.state.evaluationStack |> fst
             match x.ipStack with
             | [Exit m] -> Types.Cast result m.ReturnType
-            | _ when x.state.exceptionsRegister.UnhandledError -> Nop
+            | _ when x.state.exceptionsRegister.UnhandledError -> Nop()
             | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 

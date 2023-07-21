@@ -3,12 +3,13 @@ from collections import namedtuple
 
 import torch
 import torch.nn.functional as F
-from common.constants import DEVICE
-from ml import data_loader_compact
-from ml.models import GNN_Het
 from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import to_hetero
+
+from common.constants import DEVICE
+from ml import data_loader_compact
+from ml.models import GNN_Het
 
 StateVectorMapping = namedtuple("StateVectorMapping", ["state", "vector"])
 

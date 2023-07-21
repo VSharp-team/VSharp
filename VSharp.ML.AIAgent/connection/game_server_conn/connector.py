@@ -19,8 +19,8 @@ from .messages import (
 )
 
 
-class NAgent:
-    class WrongAgentStateError(Exception):
+class Connector:
+    class WrongConnectorStateError(Exception):
         def __init__(
             self, source: str, received: str, expected: str, at_step: int
         ) -> None:
@@ -63,7 +63,7 @@ class NAgent:
 
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
-            raise NAgent.GameOver
+            raise Connector.GameOver
 
         matching_message_type = ServerMessage.from_json_handle(
             msg, expected=ServerMessage
@@ -75,7 +75,7 @@ class NAgent:
                 )
                 self.game_is_over = True
                 logging.debug(f"--> {matching_message_type}")
-                raise NAgent.GameOver(
+                raise Connector.GameOver(
                     actual_coverage=deser_msg.MessageBody.ActualCoverage,
                     tests_count=deser_msg.MessageBody.TestsCount,
                     errors_count=deser_msg.MessageBody.ErrorsCount,
@@ -114,7 +114,7 @@ class NAgent:
     def _process_reward_server_message(self, msg):
         match msg.MessageType:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
-                raise NAgent.IncorrectSentStateError(
+                raise Connector.IncorrectSentStateError(
                     f"Sending state_id={self._sent_state_id} \
                     at step #{self._current_step} resulted in {msg.MessageType}"
                 )

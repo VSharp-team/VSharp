@@ -1,7 +1,7 @@
 from statistics import mean, median
 
 from epochs_statistics.common import CoverageStats, Interval
-from selection.classes import Map2Result
+from common.classes import Map2Result
 
 
 def euc_dist2full_coverage(data: list[float]) -> float:

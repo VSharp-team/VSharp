@@ -57,4 +57,4 @@ module internal Interlocked =
         exchange state location (Arithmetics.Add (Memory.Read state location) value)
 
     let memoryBarrier (state : state) (args : term list) : term =
-        Nop
+        Nop()

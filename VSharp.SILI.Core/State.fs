@@ -117,7 +117,7 @@ with
         | _ -> value
 
     static member EvalDict (subst : IDictionary<ISymbolicConstantSource, term>) source term typ complete =
-        let value = ref Nop
+        let value = ref (Nop())
         if subst.TryGetValue(source, value) then value.Value
         elif complete then makeDefaultValue typ
         else term

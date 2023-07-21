@@ -33,7 +33,7 @@ module Branching =
 
     let commonStatedConditionalExecutionk (state : state) conditionInvocation thenBranch elseBranch merge2Results k =
         let execution thenState elseState condition k =
-            assert (condition <> True && condition <> False)
+            assert (condition <> True() && condition <> False())
             thenBranch thenState (fun thenResult ->
             elseBranch elseState (fun elseResult ->
             merge2Results thenResult elseResult |> k))
