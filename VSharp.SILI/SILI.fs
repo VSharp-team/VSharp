@@ -277,16 +277,18 @@ type public SILI(options : SiliOptions) =
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
         toReportIIE |> List.iter reportStateIncomplete
-        let sIsStopped, newStates =
-            match goodStates with
-            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
+        let mutable sIsStopped = false
+        let newStates =
+            match goodStates, iieStates, errors with
+            | s'::goodStates, _, _ when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
+            | _, s'::iieStates, _ when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
+            | _, _, s'::errors when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
             | _ ->
-                match iieStates with
-                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
-                | _ ->
-                    match errors with
-                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> false, goodStates @ iieStates @ errors
-                    | _ -> true, goodStates @ iieStates @ errors
+                sIsStopped <- true
+                goodStates @ iieStates @ errors
         Application.moveState loc s (Seq.cast<_> newStates)
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates

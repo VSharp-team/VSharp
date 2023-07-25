@@ -80,7 +80,7 @@ type DFSSearcher() =
 
 type BFSSearcher() =
     let states = List<cilState>()
-    
+
     let update parent newStates =
         let wasParentRemoved = states.Remove(parent)
         assert wasParentRemoved
@@ -88,7 +88,7 @@ type BFSSearcher() =
         for newState in newStates do
             assert(states.Contains newState |> not)
             states.Add newState
-            
+
     interface IForwardSearcher with
         override x.Init initialStates = states.AddRange initialStates
         override x.Pick selector = Seq.tryFind selector states

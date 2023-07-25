@@ -1047,6 +1047,7 @@ internal static class CorrectNameGenerator
             correctName.Insert(0, '@');
         }
 
+        Debug.Assert(correctName.Length > 0);
         return correctName.ToString();
     }
 }

@@ -66,7 +66,8 @@ module Mocking =
                     if interfaceConstraints.Length > 0 then
                         builder.SetInterfaceConstraints interfaceConstraints)
                 let rec convertType (typ : Type) =
-                    if typ.IsGenericMethodParameter then genericsBuilder.[Array.IndexOf(baseGenericArgs, typ)] :> Type
+                    if typ.IsGenericMethodParameter then
+                        genericsBuilder[Array.IndexOf(baseGenericArgs, typ)] :> Type
                     elif typ.IsGenericType then
                         let args = typ.GetGenericArguments()
                         let args' = args |> Array.map convertType

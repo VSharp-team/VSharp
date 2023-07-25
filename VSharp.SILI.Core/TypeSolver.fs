@@ -492,7 +492,7 @@ module TypeSolver =
             match result with
             | TypeSat ->
                 let types = typeStorage[thisAddress].Value |> Seq.filter checkOverrides |> Seq.truncate 15
-                typeStorage.AddressesTypes[thisAddress] <- types
+                typeStorage[thisAddress] <- types
                 types
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
