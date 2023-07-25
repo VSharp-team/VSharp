@@ -31,9 +31,10 @@ module Unsafe =
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
         let toType = getTypeFromTerm args[1]
+        let pointerType = toType.MakePointerType()
         let ref = args[2]
         assert(IsReference ref || IsPtr ref)
-        Types.Cast ref toType
+        Types.Cast ref pointerType
 
     let internal NullRef (_ : state) (args : term list) : term =
         match args with
@@ -92,3 +93,6 @@ module Unsafe =
         | Ref(BoxedLocation(address, t)) ->
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"
+
+    let internal SkipInit (_ : state) (_ : term list) : term =
+        Nop
