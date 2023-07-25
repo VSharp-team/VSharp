@@ -444,12 +444,6 @@ module internal InstructionsSet =
         ConfigureErrorReporter (changeState cilState >> reportError)
         let states = Memory.Write cilState.state dest value
         states |> List.map (changeState cilState)
-    let stind valueCast reportError (cilState : cilState) = // TODO: do like ldind #do
-        let value, address = pop2 cilState
-        let value = valueCast value
-        ConfigureErrorReporter (changeState cilState >> reportError)
-        let states = Memory.Write cilState.state address value
-        states |> List.map (changeState cilState)
     let sizeofInstruction (m : Method) offset (cilState : cilState) =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
@@ -553,7 +547,6 @@ type UnknownMethodException(message : string, methodInfo : Method, interpreterSt
     inherit Exception(message)
     member x.Method with get() = methodInfo
     member x.InterpreterStackTrace with get() = interpreterStackTrace
-
 
 type internal ILInterpreter() as this =
 
@@ -1583,15 +1576,38 @@ type internal ILInterpreter() as this =
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState this ldvirtftn id
 
-    member x.Ldind t reportError (cilState : cilState) =
+    member private x.CheckInd ptr invoke cilState =
+        let isBadPointer state k =
+            match ptr with
+            | DetachedPtr _ -> k (True, state)
+            | _ -> k (IsNullReference ptr, state)
+        StatedConditionalExecutionCIL cilState
+            isBadPointer
+            // TODO: may be AccessViolation or NullReference, in general it's undefined behaviour
+            (x.Raise x.NullReferenceException)
+            invoke
+            id
+
+    member private x.Ldind t reportError (cilState : cilState) =
         let address = pop cilState
         let load cilState k =
-            let castedAddress = if TypeOfLocation address = t then address else Types.Cast address (t.MakePointerType())
+            let castedAddress =
+                if TypeOfLocation address = t then address
+                else Types.Cast address (t.MakePointerType())
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.Read cilState.state castedAddress
             push value cilState
             k (List.singleton cilState)
-        x.NpeOrInvokeStatementCIL cilState address load id
+        x.CheckInd address load cilState
+
+    member private x.Stind valueCast reportError (cilState : cilState) =
+        let value, address = pop2 cilState
+        let store cilState k =
+            let value = valueCast value
+            ConfigureErrorReporter (changeState cilState >> reportError)
+            let states = Memory.Write cilState.state address value
+            states |> List.map (changeState cilState) |> k
+        x.CheckInd address store cilState
 
     member x.BoxNullable (t : Type) (v : term) (cilState : cilState) : cilState list =
         // TODO: move it to Reflection.fs; add more validation in case if .NET implementation does not have these fields
@@ -2375,14 +2391,14 @@ type internal ILInterpreter() as this =
             | OpCodeValues.Isinst -> isinst |> forkThrough m offset cilState
             | OpCodeValues.Stobj -> (stobj reportError) |> forkThrough m offset cilState
             | OpCodeValues.Ldobj -> ldobj |> fallThrough m offset cilState
-            | OpCodeValues.Stind_I1 -> (fun _ _ -> stind (castUnchecked TypeUtils.int8Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_I2 -> (fun _ _ -> stind (castUnchecked TypeUtils.int16Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_I4 -> (fun _ _ -> stind (castUnchecked TypeUtils.int32Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_I8 -> (fun _ _ -> stind (castUnchecked TypeUtils.int64Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_R4 -> (fun _ _ -> stind (castUnchecked TypeUtils.float32Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_R8 -> (fun _ _ -> stind (castUnchecked TypeUtils.float64Type) reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_Ref -> (fun _ _ -> stind id reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Stind_I -> (fun _ _ -> stind MakeIntPtr reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_I1 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.int8Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_I2 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.int16Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_I4 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.int32Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_I8 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.int64Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_R4 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.float32Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_R8 -> (fun _ _ -> x.Stind (castUnchecked TypeUtils.float64Type) reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_Ref -> (fun _ _ -> x.Stind id reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Stind_I -> (fun _ _ -> x.Stind MakeIntPtr reportError) |> forkThrough m offset cilState
             | OpCodeValues.Sizeof -> sizeofInstruction |> fallThrough m offset cilState
             | OpCodeValues.Leave
             | OpCodeValues.Leave_S -> leave m offset cilState; [cilState]
