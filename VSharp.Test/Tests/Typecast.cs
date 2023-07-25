@@ -152,6 +152,12 @@ namespace IntegrationTests.Typecast
                     return obj;
             }
 
+            if (obj is decimal dec)
+            {
+                if (dec > 10)
+                    return dec + 10;
+            }
+
             if (obj is string s)
             {
                 return s.Length;
@@ -183,6 +189,43 @@ namespace IntegrationTests.Typecast
                         // Unreachable case
                         return -3;
                 }
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static object DownCastObject6(object obj)
+        {
+            if (obj is decimal d)
+            {
+                return d + 10;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static object DownCastObject7(object obj)
+        {
+            if (obj is decimal d)
+            {
+                if (d > 10)
+                    return d * 10 + 10;
+                return d / 10 % 10;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static object DownCastObject8(object obj)
+        {
+            if (obj is decimal d)
+            {
+                if (d.GetHashCode() == 3000)
+                    return d * 10 + 10;
+                return d / 10 % 10;
             }
 
             return 0;

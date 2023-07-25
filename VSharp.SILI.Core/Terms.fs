@@ -106,7 +106,7 @@ type termNode =
     | Ref of address
     // NOTE: use ptr only in case of reinterpretation: changed sight type or address arithmetic, otherwise use ref instead
     | Ptr of pointerBase * Type * term // base address * sight type * offset (in bytes)
-    | Slice of term * term * term * term // what term to slice * start byte * end byte * position inside combine
+    | Slice of term * list<term * term * term> // what term to slice * list of slices (start byte * end byte * position inside combine)
     | Union of (term * term) list
 
     override x.ToString() =
@@ -179,7 +179,9 @@ type termNode =
             | Ptr(address, typ, shift) ->
                 let offset = ", offset = " + shift.ToString()
                 sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
-            | Slice(term, offset, size, _) -> sprintf "Slice(%O, %O, %O)" term offset size |> k
+            | Slice(term, slices) ->
+                let slices = List.map (fun (s, e, _) -> $"[{s} .. {e}]") slices |> join ", "
+                $"Slice({term}, {slices})" |> k
 
         and fieldsToString indent fields =
             let stringResult = PersistentDict.toString "| %O ~> %O" ("\n" + indent) toString toString toString fields
@@ -288,7 +290,7 @@ module internal Terms =
         | _ -> ()
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
-    let Slice term first termSize pos = HashMap.addTerm (Slice(term, first, termSize, pos))
+    let Slice term slices = HashMap.addTerm (Slice(term, slices))
     let ConcreteHeapAddress addr = Concrete addr addressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
@@ -508,6 +510,10 @@ module internal Terms =
             Some(CastExpr(x, srcType, dstType))
         | _ -> None
 
+    let (|Combined|_|) = function
+        | Expression(Combine, args, t) -> Some(Combined(args, t))
+        | _ -> None
+
     let rec private makeCast term fromType toType =
         match term, toType with
         | _ when fromType = toType -> term
@@ -525,6 +531,9 @@ module internal Terms =
         | _, ByRef t ->
             makeDetachedPtr term t
         | Concrete(value, _), _ -> castConcrete value targetType
+        | Combined(slices, t), _ when isIntegralOrEnum t && isIntegralOrEnum targetType && internalSizeOf t = internalSizeOf targetType ->
+            // TODO: simplify for narrow cast
+            combine slices targetType
         // TODO: make cast to Bool like function Transform2BooleanTerm
         | Constant(_, _, t), _
         | Expression(_, _, t), _ -> makeCast term t targetType
@@ -540,27 +549,27 @@ module internal Terms =
             let offset = primitiveCast value typeof<int>
             Ptr (HeapLocation(zeroAddress, typeof<Void>)) t offset
 
-    let (|DetachedPtr|_|) = function
+    and (|DetachedPtr|_|) = function
         | Ptr(HeapLocation(address, _), _, offset) when address = zeroAddress ->
             Some(DetachedPtr offset)
         | _ -> None
 
     // This function is used only for creating IntPtr structure
-    let makeIntPtr value =
+    and makeIntPtr value =
         match value.term with
         | DetachedPtr offset -> primitiveCast offset typeof<IntPtr>
         | _ when isRefOrPtr value -> value
         | _ -> primitiveCast value typeof<IntPtr>
 
     // This function is used only for creating UIntPtr structure
-    let makeUIntPtr value =
+    and makeUIntPtr value =
         match value.term with
         | DetachedPtr offset -> primitiveCast offset typeof<UIntPtr>
         | _ when isRefOrPtr value -> value
         | _ -> primitiveCast value typeof<UIntPtr>
 
     // Transforms IntPtr or UIntPtr to detached pointer
-    let rec nativeToPointer ptr =
+    and nativeToPointer ptr =
         match ptr.term with
         | _ when isRefOrPtr ptr -> ptr
         | Concrete _
@@ -570,100 +579,96 @@ module internal Terms =
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, nativeToPointer v)) |> Union
         | _ -> internalfail $"nativeToPointer: unexpected pointer {ptr}"
 
-    let negate term =
+    and negate term =
         assert(isBool term)
         makeUnary OperationType.LogicalNot term typeof<bool>
 
-    let (|True|_|) term = if isTrue term then Some True else None
-    let (|False|_|) term = if isFalse term then Some False else None
+    and (|True|_|) term = if isTrue term then Some True else None
+    and (|False|_|) term = if isFalse term then Some False else None
 
-    let (|ConcreteT|_|) = term >> function
+    and (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
         | _ -> None
 
-    let (|UnionT|_|) = term >> function
+    and (|UnionT|_|) = term >> function
         | Union gvs -> Some(UnionT gvs)
         | _ -> None
 
-    let (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
+    and (|GuardedValues|_|) = function // TODO: this could be ineffective (because of unzip)
         | Union gvs -> Some(GuardedValues(List.unzip gvs))
         | _ -> None
 
-    let (|UnaryMinus|_|) = function
+    and (|UnaryMinus|_|) = function
         | Expression(Operator OperationType.UnaryMinus, [x], t) -> Some(UnaryMinus(x, t))
         | _ -> None
 
-    let (|UnaryMinusT|_|) = term >> (|UnaryMinus|_|)
+    and (|UnaryMinusT|_|) = term >> (|UnaryMinus|_|)
 
-    let (|Add|_|) = term >> function
+    and (|Add|_|) = term >> function
         | Expression(Operator OperationType.Add, [x;y], t) -> Some(Add(x, y, t))
         | _ -> None
 
-    let (|Sub|_|) = term >> function
+    and (|Sub|_|) = term >> function
         | Expression(Operator OperationType.Subtract, [x;y], t) -> Some(Sub(x, y, t))
         | _ -> None
 
-    let (|Mul|_|) = term >> function
+    and (|Mul|_|) = term >> function
         | Expression(Operator OperationType.Multiply, [x;y], t) -> Some(Mul(x, y, t))
         | _ -> None
 
-    let (|Div|_|) = term >> function
+    and (|Div|_|) = term >> function
         | Expression(Operator OperationType.Divide, [x;y], t) -> Some(Div(x, y, t, true))
         | Expression(Operator OperationType.Divide_Un, [x;y], t) -> Some(Div(x, y, t, false))
         | _ -> None
 
-    let (|Rem|_|) = term >> function
+    and (|Rem|_|) = term >> function
         | Expression(Operator OperationType.Remainder, [x;y], t)
         | Expression(Operator OperationType.Remainder_Un, [x;y], t) -> Some(Rem(x, y, t))
         | _ -> None
 
-    let (|Negation|_|) = function
+    and (|Negation|_|) = function
         | Expression(Operator OperationType.LogicalNot, [x], _) -> Some(Negation x)
         | _ -> None
 
-    let (|NegationT|_|) = term >> (|Negation|_|)
+    and (|NegationT|_|) = term >> (|Negation|_|)
 
-    let (|Conjunction|_|) = function
+    and (|Conjunction|_|) = function
         | Expression(Operator OperationType.LogicalAnd, xs, _) -> Some(Conjunction xs)
         | _ -> None
 
-    let (|Disjunction|_|) = function
+    and (|Disjunction|_|) = function
         | Expression(Operator OperationType.LogicalOr, xs, _) -> Some(Disjunction xs)
         | _ -> None
 
-    let (|Xor|_|) = term >> function
+    and (|Xor|_|) = term >> function
         | Expression(Operator OperationType.LogicalXor, [x;y], _) -> Some(Xor(x, y))
         | _ -> None
 
-    let (|ShiftLeft|_|) = term >> function
+    and (|ShiftLeft|_|) = term >> function
         | Expression(Operator OperationType.ShiftLeft, [x;y], t) -> Some(ShiftLeft(x, y, t))
         | _ -> None
 
-    let (|ShiftRight|_|) = term >> function
+    and (|ShiftRight|_|) = term >> function
         | Expression(Operator OperationType.ShiftRight, [x;y], t) -> Some(ShiftRight(x, y, t, true))
         | Expression(Operator OperationType.ShiftRight_Un, [x;y], t) -> Some(ShiftRight(x, y, t, false))
         | _ -> None
 
-    let (|ShiftRightThroughCast|_|) = function
+    and (|ShiftRightThroughCast|_|) = function
         | CastExpr(ShiftRight(a, b, Numeric t, _), _, (Numeric castType as t')) when not <| isLessForNumericTypes castType t ->
             Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
         | _ -> None
 
-    let (|Combined|_|) = function
-        | Expression(Combine, args, t) -> Some(Combined(args, t))
-        | _ -> None
+    and (|CombinedTerm|_|) = term >> (|Combined|_|)
 
-    let (|CombinedTerm|_|) = term >> (|Combined|_|)
-
-    let (|ConcreteHeapAddress|_|) = function
+    and (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
 
-    let getConcreteHeapAddress = term >> function
+    and getConcreteHeapAddress = term >> function
         | ConcreteHeapAddress(addr) -> addr
         | _ -> __unreachable__()
 
-    let tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
+    and tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
         match offset.term with
         | Concrete(:? int as offset, _) ->
             let checkType() =
@@ -680,7 +685,7 @@ module internal Terms =
             else None
         | _ -> None
 
-    let tryIntListFromTermList (termList : term list) =
+    and tryIntListFromTermList (termList : term list) =
         let addElement term concreteList k =
             match term.term with
             | Concrete(:? int16 as i, _) -> int i :: concreteList |> k
@@ -693,12 +698,12 @@ module internal Terms =
             | _ -> None
         Cps.List.foldrk addElement List.empty termList Some
 
-    let isConcreteHeapAddress term =
+    and isConcreteHeapAddress term =
         match term.term with
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
-    let rec private concreteToBytes (obj : obj) =
+    and private concreteToBytes (obj : obj) =
         match obj with
         | _ when obj = null -> internalSizeOf typeof<obj> |> Array.zeroCreate
         | :? byte as o -> Array.singleton o
@@ -731,7 +736,7 @@ module internal Terms =
             array
         | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
-    let rec private bytesToObj (bytes : byte[]) t =
+    and private bytesToObj (bytes : byte[]) t =
         let span = ReadOnlySpan<byte>(bytes)
         match t with
         | _ when t = typeof<byte> -> Array.head bytes :> obj
@@ -761,25 +766,34 @@ module internal Terms =
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
         | _ -> internalfailf "creating object from bytes: unexpected object type %O" t
 
-    let rec reinterpretConcretes (sliceTerms : term list) t =
+    and reinterpretConcretes (sliceTerms : term list) t =
         let bytes : byte array = internalSizeOf t |> Array.zeroCreate
-        let folder bytes slice =
+        let combineLength = Array.length bytes
+        let mutable solidPart = Nop
+        for slice in sliceTerms do
             match slice.term with
-            | Slice(term, {term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}) ->
-                let s = convert s typeof<int> :?> int
-                let e = convert e typeof<int> :?> int
-                let pos = convert pos typeof<int> :?> int
+            | Slice(term, [{term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}]) ->
                 let o = slicingTerm term
                 let sliceBytes = concreteToBytes o
-                let sliceStart = max s 0
-                // NOTE: 'pos = 0' is write case
-                let termStart = if pos = 0 then max s 0 else max (-s) 0
-                let e = min e (Array.length sliceBytes)
-                let count = e - sliceStart
-                if count > 0 then Array.blit sliceBytes sliceStart bytes termStart count
-                bytes
+                let sliceLength = Array.length sliceBytes
+                let s = convert s typeof<int> :?> int
+                assert(s >= 0 && s < sliceLength)
+                let e = convert e typeof<int> :?> int
+                assert(e > 0 && e <= sliceLength)
+                let pos = convert pos typeof<int> :?> int
+                assert(pos >= 0 && pos < combineLength)
+                let count = e - s
+                assert(count > 0)
+                Array.blit sliceBytes s bytes pos count
+            | Concrete(o, _) when solidPart = Nop ->
+                solidPart <- slice
+                let sliceBytes = concreteToBytes o
+                let sliceSize = Array.length sliceBytes
+                assert(sliceSize <= combineLength)
+                Array.blit sliceBytes 0 bytes 0 sliceSize
+            | Concrete _ ->
+                assert(solidPart = slice)
             | _ -> internalfailf "expected concrete slice, but got %O" slice
-        let bytes = List.fold folder bytes sliceTerms
         bytesToObj bytes t
 
     and private slicingTerm term =
@@ -788,29 +802,98 @@ module internal Terms =
         | CombinedTerm(slices, t) -> reinterpretConcretes slices t
         | _ -> internalfail "getting slicing term: unexpected term %O" term
 
-    let rec private allSlicesAreConcrete slices =
-        let rec sliceIsConcrete = function
-            | {term = Slice({term = Concrete _}, {term = Concrete _}, {term = Concrete _}, {term = Concrete _})} -> true
-            | CombinedTerm(slices, _) -> allSlicesAreConcrete slices
+    and private allSlicesAreConcrete slices =
+        let rec sliceIsConcrete t =
+            match t.term with
+            | Slice({term = Concrete _}, [({term = Concrete _}, {term = Concrete _}, {term = Concrete _})])
+            | Concrete _ -> true
+            | Combined(slices, _) -> allSlicesAreConcrete slices
             | _ -> false
         List.forall sliceIsConcrete slices
 
-    let combine terms t =
-        let defaultCase() = Expression Combine terms t
-        let isSolid term =
-            typeOf term = t || isRefOrPtr term
+    and private isEmptySlice term =
+        match term.term with
+        | Slice(_, cuts) -> List.isEmpty cuts
+        | _ -> false
+
+    and createSlice term slices =
+        assert(match term.term with Combined _ -> false | _ -> true)
+        let termSize = sizeOf term
+        let mutable cuts = List.empty
+        let mutable left = 0
+        let mutable right = termSize
+        let mutable position = 0
+        let mutable isValid = true
+        let narrowed () =
+            left > 0 || right < termSize || position <> 0
+        let narrow (l, r, p as current) _ =
+            let wereConcrete = List.isEmpty cuts
+            match l.term, r.term, p.term with
+            // TODO: need to simplify after symbolic elements?
+            | _ when not isValid -> ()
+            | Concrete(l, _), Concrete(r, _), Concrete(p, _) when wereConcrete ->
+                let l = convert l typeof<int> :?> int
+                let r = convert r typeof<int> :?> int
+                let p = convert p typeof<int> :?> int
+                let sliceLeft = max (l - position) 0
+                left <- sliceLeft + left
+                let sliceRight = min (r - position) right
+                let sliceSize = sliceRight - sliceLeft
+                right <- min (left + sliceSize) right
+                position <- max p 0
+                if right - left > 0 then
+                    assert(left >= 0 && left < termSize)
+                    assert(right > 0 && right <= termSize)
+                    assert(position >= 0)
+                else
+                    isValid <- false
+            // Case, when concrete cut is not whole term
+            | _ when wereConcrete && narrowed() ->
+                let cut = (makeNumber left, makeNumber right, makeNumber position)
+                cuts <- current :: List.singleton cut
+            | _ ->
+                cuts <- current :: cuts
+        List.foldBack narrow slices ()
+        match cuts with
+        | _ when not isValid -> Slice term List.empty
+        | [] when narrowed() ->
+            let cut = (makeNumber left, makeNumber right, makeNumber position)
+            Slice term (List.singleton cut)
+        | [] ->
+            assert(left = 0 && right = termSize && position = 0)
+            term
+        | _ -> Slice term cuts
+
+    and combine terms t =
+        // TODO: filter slices with position >= internalSizeOf t
+        let terms = List.filter (not << isEmptySlice) terms |> List.distinct
+        let defaultCase() =
+            Expression Combine terms t
+        let isSolid term typeOfTerm =
+            typeOfTerm = t || isRefOrPtr term
+        let simplify p s e pos =
+            let typ = typeOf p
+            let termSize = lazy (internalSizeOf typ)
+            let combineSize = lazy (internalSizeOf t)
+            if s = 0 && pos = 0 then
+                if e = termSize.Value && isSolid p typ then p
+                elif combineSize.Value <= termSize.Value && e = combineSize.Value && isIntegralOrEnum typ && isIntegralOrEnum t then
+                    primitiveCast p t
+                else defaultCase()
+            else defaultCase()
         assert(List.isEmpty terms |> not)
         match terms with
         | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
-        | [{term = Slice(p, s, e, _)}] ->
-            match s.term, e.term with
-            | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && isSolid p ->
-                assert(e = sizeOf p)
-                p
+        | [{term = Slice(p, cuts)}] ->
+            match cuts with
+            | [({term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)})] ->
+                let s = convert s typeof<int> :?> int
+                let e = convert e typeof<int> :?> int
+                let pos = convert pos typeof<int> :?> int
+                simplify p s e pos
             | _ -> defaultCase()
-        | [nonSliceTerm] when isSolid nonSliceTerm ->
-            assert(internalSizeOf t = sizeOf nonSliceTerm)
-            nonSliceTerm
+        | [nonSliceTerm] ->
+            simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
 
     let rec timeOf (address : heapAddress) =
@@ -844,11 +927,13 @@ module internal Terms =
         | GuardedValues(gs, vs) ->
             foldSeq folder gs state (fun state ->
             foldSeq folder vs state k)
-        | Slice(t, s, e, pos) ->
+        | Slice(t, slices) ->
+            let foldSlice state (s, e, pos) k =
+                doFold folder state s (fun state ->
+                doFold folder state e (fun state ->
+                doFold folder state pos k))
             doFold folder state t (fun state ->
-            doFold folder state s (fun state ->
-            doFold folder state e (fun state ->
-            doFold folder state pos k)))
+            Cps.List.foldlk foldSlice state slices k)
         | _ -> k state
 
     and doFold folder state term k =

@@ -74,7 +74,6 @@ module API =
         let Struct fields typ = Struct fields typ
         let Ref address = Ref address
         let Ptr baseAddress typ offset = Ptr baseAddress typ offset
-        let Slice term first termSize pos = Slice term first termSize pos
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 

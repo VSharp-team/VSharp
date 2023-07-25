@@ -329,6 +329,14 @@ module internal Z3 =
         member private x.MkBVURem operands : BitVecExpr =
             x.ExtendIfNeed operands false |> ctx.MkBVURem
 
+        member private x.Max (left : BitVecExpr) (right : BitVecExpr) =
+            assert(left.SortSize = right.SortSize)
+            x.MkITE(x.MkBVSGT(left, right), left, right) :?> BitVecExpr
+
+        member private x.Min (left : BitVecExpr) (right : BitVecExpr) =
+            assert(left.SortSize = right.SortSize)
+            x.MkITE(x.MkBVSGT(left, right), right, left) :?> BitVecExpr
+
 // ------------------------------- Encoding: common -------------------------------
 
         member public x.EncodeTerm encCtx (t : term) : encodingResult =
@@ -425,7 +433,8 @@ module internal Z3 =
 
         member private x.ExtractOrExtend (expr : BitVecExpr) size =
             let exprSize = expr.SortSize
-            if exprSize > size then ctx.MkExtract(size - 1u, 0u, expr)
+            if exprSize = size then expr
+            elif exprSize > size then ctx.MkExtract(size - 1u, 0u, expr)
             else ctx.MkSignExt(size - exprSize, expr)
 
         member private x.ReverseBytes (expr : BitVecExpr) =
@@ -434,45 +443,65 @@ module internal Z3 =
             let bytes = List.init (size / 8) (fun byte -> ctx.MkExtract(uint ((byte + 1) * 8) - 1u, uint (byte * 8), expr))
             List.reduce (fun x y -> ctx.MkConcat(x, y)) bytes
 
+        member private x.ComputeSliceBounds assumptions cuts termSortSize =
+            assert(termSortSize % 8u = 0u && termSortSize > 0u)
+            let zero = ctx.MkBV(0, termSortSize)
+            let sizeExpr = ctx.MkBV(termSortSize / 8u, termSortSize)
+            let addBounds (startByte, endByte, pos) (assumptions, startExpr, sizeExpr, position) =
+                let assumptions = assumptions @ startByte.assumptions @ endByte.assumptions @ pos.assumptions
+                let startByte = x.ExtractOrExtend (startByte.expr :?> BitVecExpr) termSortSize
+                let endByte = x.ExtractOrExtend (endByte.expr :?> BitVecExpr) termSortSize
+                let pos = x.ExtractOrExtend (pos.expr :?> BitVecExpr) termSortSize
+                let startByte = x.MkBVSub(startByte, position)
+                let endByte = x.MkBVSub(endByte, position)
+                let left = x.Max startByte zero
+                let right = x.Min endByte sizeExpr
+                let sliceSize = x.MkBVSub(right, left)
+                let newLeft = x.MkBVAdd(startExpr, left)
+                let newRight = x.Min (x.MkBVAdd(newLeft, sliceSize)) sizeExpr
+                let newPos = x.Max pos zero
+                assumptions, newLeft, newRight, newPos
+            List.foldBack addBounds cuts (assumptions, zero, sizeExpr, zero)
+
         // TODO: make code better
         member private x.EncodeCombine encCtx slices typ =
             let res = ctx.MkNumeral(0, x.Type2Sort typ) :?> BitVecExpr
             let window = res.SortSize
             let windowExpr = ctx.MkNumeral(window, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
-            let zero = ctx.MkNumeral(0, x.Type2Sort(Types.IndexType)) :?> BitVecExpr
             let addOneSlice (res, assumptions) slice =
-                let term, startByte, endByte, pos =
+                let term, cuts =
                     match slice.term with
-                    | Slice(term, startByte, endByte, pos) ->
-                        x.EncodeTerm encCtx term, x.EncodeTerm encCtx startByte, x.EncodeTerm encCtx endByte, x.EncodeTerm encCtx pos
-                    | _ -> internalfailf "encoding combine: expected slice as argument, but got %O" slice
-                let assumptions = assumptions @ term.assumptions @ startByte.assumptions @ endByte.assumptions @ pos.assumptions
-                let term = term.expr :?> BitVecExpr
-                let startByte = startByte.expr :?> BitVecExpr
-                let endByte = endByte.expr :?> BitVecExpr
-                let pos = pos.expr :?> BitVecExpr
-                let pos = x.MkBVMul(pos, ctx.MkBV(8, pos.SortSize))
-                let startBit = x.MkBVMul(startByte, ctx.MkBV(8, startByte.SortSize))
-                let endBit = x.MkBVMul(endByte, ctx.MkBV(8, endByte.SortSize))
-                let termSize = term.SortSize
-                let sizeExpr = ctx.MkBV(termSize, endBit.SortSize)
-                let left = x.MkITE(x.MkBVSGT(startBit, zero), startBit, zero) :?> BitVecExpr
-                let right = x.MkITE(x.MkBVSGT(sizeExpr, endBit), endBit, sizeExpr) :?> BitVecExpr
-                let size = x.MkBVSub(right, left)
-                let intersects = x.MkBVSGT(size, zero)
-                let term = x.ReverseBytes term
-                let left = x.ExtractOrExtend left term.SortSize
-                let term = x.MkBVLShr(x.MkBVShl(term, left), left)
-                let toShiftRight = x.ExtractOrExtend (x.MkBVSub(sizeExpr, right)) term.SortSize
-                let term = x.MkBVLShr(term, toShiftRight)
+                    | Slice(term, cuts) ->
+                        let slices = List.map (fun (s, e, pos) -> x.EncodeTerm encCtx s, x.EncodeTerm encCtx e, x.EncodeTerm encCtx pos) cuts
+                        x.EncodeTerm encCtx term, slices
+                    | _ -> x.EncodeTerm encCtx slice, List.empty
+                let t = term.expr :?> BitVecExpr
+                let assumptions = assumptions @ term.assumptions
+                let termSize = t.SortSize
+                let sizeExpr = ctx.MkBV(termSize, termSize)
+                let assumptions, lByte, rByte, posByte = x.ComputeSliceBounds assumptions cuts termSize
+                let lByte = x.ExtractOrExtend lByte termSize
+                let rByte = x.ExtractOrExtend rByte termSize
+                let posByte = x.ExtractOrExtend posByte termSize
+                let lBit = x.MkBVMul(lByte, ctx.MkBV(8, termSize))
+                let rBit = x.MkBVMul(rByte, ctx.MkBV(8, termSize))
+                let posBit = x.MkBVMul(posByte, ctx.MkBV(8, termSize))
+                let sliceSize = x.MkBVSub(rBit, lBit)
+                let zero = ctx.MkBV(0, termSize)
+                let intersects = x.MkBVSGT(sliceSize, zero)
+                let term = x.ReverseBytes t
+                let left = x.ExtractOrExtend lBit termSize
+                let term = x.MkBVShl(term, left)
+                let cutRight = x.ExtractOrExtend (x.MkBVSub(sizeExpr, rBit)) termSize
+                let term = x.MkBVLShr(term, x.MkBVAdd(left, cutRight))
                 let term =
                     if termSize > window then ctx.MkExtract(window - 1u, 0u, term)
                     else ctx.MkZeroExt(window - termSize, term)
-                let w = x.ExtractOrExtend windowExpr term.SortSize
-                let s = x.ExtractOrExtend sizeExpr term.SortSize
-                let pos = x.ExtractOrExtend pos term.SortSize
-                let toShiftRight = x.ExtractOrExtend toShiftRight term.SortSize
-                let shift = x.MkBVAdd(x.MkBVSub(w, x.MkBVSub(s, pos)), toShiftRight)
+                let changedTermSize = term.SortSize
+                let w = x.ExtractOrExtend windowExpr changedTermSize
+                let pos = x.ExtractOrExtend posBit changedTermSize
+                let sliceSize = x.ExtractOrExtend sliceSize changedTermSize
+                let shift = x.MkBVSub(w, x.MkBVAdd(pos, sliceSize))
                 let part = x.MkBVShl(term, shift)
                 let res = x.MkITE(intersects, x.MkBVOr(res, part), res) :?> BitVecExpr
                 res, assumptions
@@ -951,8 +980,6 @@ module internal Z3 =
             let subst = Dictionary<ISymbolicConstantSource, term>()
             let stackEntries = Dictionary<stackKey, term ref>()
             let state = {Memory.EmptyState() with complete = true}
-            // TODO: some of evaluated constants are written to model: most of them contain stack reading
-            // TODO: maybe encode stack reading as reading from array?
             encodingCache.t2e |> Seq.iter (fun kvp ->
                 match kvp.Key with
                 | {term = Constant(_, StructFieldChain(fields, StackReading(key)), t)} as constant ->
@@ -992,7 +1019,7 @@ module internal Z3 =
             Memory.NewStackFrame state None (List.ofSeq frame)
 
             let defaultValues = Dictionary<regionSort, term ref>()
-            encodingCache.regionConstants |> Seq.iter (fun kvp ->
+            for kvp in encodingCache.regionConstants do
                 let region, fields = kvp.Key
                 let constant = kvp.Value
                 let arr = m.Eval(constant, false)
@@ -1003,7 +1030,7 @@ module internal Z3 =
                     if arr.IsConstantArray then
                         assert(arr.Args.Length = 1)
                         let constantValue =
-                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args.[0]
+                            if Types.IsValueType typeOfLocation then x.Decode typeOfLocation arr.Args[0]
                             else
                                 let addr = x.DecodeConcreteHeapAddress arr.Args[0] |> ConcreteHeapAddress
                                 HeapRef addr typeOfLocation
@@ -1038,11 +1065,11 @@ module internal Z3 =
                             assert(states.Length = 1 && states[0] = state)
                         else internalfailf "Unexpected quantifier expression in model: %O" arr
                     else internalfailf "Unexpected array expression in model: %O" arr
-                parseArray arr)
-            defaultValues |> Seq.iter (fun kvp ->
+                parseArray arr
+            for kvp in defaultValues do
                 let region = kvp.Key
                 let constantValue = kvp.Value.Value
-                Memory.FillRegion state constantValue region)
+                Memory.FillRegion state constantValue region
 
             state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 

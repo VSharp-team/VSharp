@@ -49,7 +49,6 @@ module API =
         val Struct : pdict<fieldId, term> -> Type -> term
         val Ref : address -> term
         val Ptr : pointerBase -> Type -> term -> term
-        val Slice : term -> term -> term -> term -> term
         val HeapRef : heapAddress -> Type -> term
         val Union : (term * term) list -> term
 
