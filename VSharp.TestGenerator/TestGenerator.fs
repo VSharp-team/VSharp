@@ -328,7 +328,7 @@ module TestGenerator =
                 let concreteThis = term2obj model state indices mockCache implementations test thisTerm
                 test.ThisArg <- concreteThis
 
-            match state.exceptionsRegister, suite with
+            match state.exceptionsRegister.Head, suite with
             | Unhandled(e, _, _), Error(msg, isFatal) ->
                 test.Exception <- MostConcreteTypeOfRef state e
                 test.IsError <- true

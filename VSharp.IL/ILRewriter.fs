@@ -913,9 +913,13 @@ module EvaluationStackTyper =
 
     let createEHStackState (m : MethodBase) (flags : int) (startInstr : ilInstr) =
         let catchFlags = LanguagePrimitives.EnumToValue ExceptionHandlingClauseOptions.Clause
-        if flags = catchFlags then // NOTE: is catch
-            startInstr.stackState <- Some [evaluationStackCellType.Ref] // TODO: finially and filter! #do
-        else startInstr.stackState <- Some Stack.empty
+        let filterFlags = LanguagePrimitives.EnumToValue ExceptionHandlingClauseOptions.Filter
+        // TODO: finially! #do
+        let pushRef () = startInstr.stackState <- Some [evaluationStackCellType.Ref]
+        match flags with
+        | x when x = catchFlags -> pushRef () // Clause
+        | x when x = filterFlags -> pushRef () // Filter
+        | _ -> startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
 [<AllowNullLiteral>]

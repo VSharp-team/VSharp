@@ -119,7 +119,7 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SVMStatisti
                 match ip2codeLocation ip, ip with
                 | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset |> Some
                 | Some _, _-> None
-                | None, SearchingForHandler(toObserve, _) ->
+                | None, SearchingForHandler(_, toObserve, _) ->
                     List.length toObserve |> uint |> Some
                 | _ -> Some 1u
             state.ipStack |> Seq.tryPick calculateWeight

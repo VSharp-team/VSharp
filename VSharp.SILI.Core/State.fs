@@ -102,6 +102,21 @@ type exceptionRegister =
         | Caught(e, s) -> Caught(f e, s)
         | NoException -> NoException
 
+type exceptionRegisterStack =
+    private {s: exceptionRegister stack}
+    member t.GetError() = t.s.Head.GetError()
+    member t.TransformToCaught() = { s = t.s.Head.TransformToCaught () :: t.s.Tail }
+    member t.TransformToUnhandled() = { s = t.s.Head.TransformToUnhandled() :: t.s.Tail }
+    member t.UnhandledError = t.s.Head.UnhandledError
+    member t.ExceptionTerm = t.s.Head.ExceptionTerm
+    member t.Tail = { s = t.s.Tail }
+    member t.Head = t.s.Head
+    member t.Pop = t.s.Head, { s = t.s.Tail }
+    member t.Push x = { s = Stack.push t.s x }
+    static member singleton x = { s = Stack.singleton x } 
+    static member mapOne f t = { s = exceptionRegister.map f t.s.Head :: t.s.Tail }
+    static member map f t = { s = Stack.map (exceptionRegister.map f) t.s }
+
 type arrayCopyInfo =
     {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
         override x.ToString() =
@@ -170,7 +185,7 @@ and
         mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
         mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-        mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+        mutable exceptionsRegister : exceptionRegisterStack               // Heap-address of exception objects, multiple if handling filter
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
         methodMocks : IDictionary<IMethod, IMethodMock>

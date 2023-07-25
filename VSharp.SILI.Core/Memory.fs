@@ -22,7 +22,7 @@ module internal Memory =
         pc = PC.empty
         typeStorage = typeStorage()
         evaluationStack = EvaluationStack.empty
-        exceptionsRegister = NoException
+        exceptionsRegister = exceptionRegisterStack.singleton NoException
         stack = CallStack.empty
         stackBuffers = PersistentDict.empty
         classFields = PersistentDict.empty
@@ -2061,9 +2061,11 @@ module internal Memory =
         let keyMapper (k : stackKey) = k.Map (typeVariableSubst state)
         CallStack.map keyMapper (fillHoles state) (substituteTypeVariables state) stack
 
-    let composeRaisedExceptionsOf (state : state) (error : exceptionRegister) =
-        match state.exceptionsRegister, error with
-        | NoException, _ -> error |> exceptionRegister.map (fillHoles state)
+    let composeRaisedExceptionsOf (state : state) (error : exceptionRegisterStack) =
+        let elem, rest = state.exceptionsRegister.Pop
+        let error = error.Head
+        match elem, error with
+        | NoException, _ -> rest.Push error |> exceptionRegisterStack.map (fillHoles state)
         | _ -> __unreachable__()
 
     let private composeStacksOf state state' : callStack =

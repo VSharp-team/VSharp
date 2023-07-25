@@ -8,12 +8,12 @@ type ip =
     | Instruction of offset * Method
     | Leave of ip * ExceptionHandlingClause list * offset * Method
     // frames to observe catch clause; frames to observe finally clauses
-    | SearchingForHandler of codeLocation list * codeLocation list
+    | SearchingForHandler of ExceptionHandlingClause list option * codeLocation list * codeLocation list
     // ip of filter function; previous searching handler information
-    | InFilterHandler of offset * Method * codeLocation list * int
+    | InFilterHandler of ip * ExceptionHandlingClause list * codeLocation list * codeLocation list
     // ``None'' -- we are seeking for next finally or fault handler, ``Some _'' -- we are executing handler;
-    // rest frames of possible handlers; starting code location of handler
-    | SecondBypass of ip option * codeLocation list * codeLocation
+    // rest frames of possible handlers; starting code location of handler if one was valid
+    | SecondBypass of ip option * codeLocation list * codeLocation option
     with
     member x.CanBeExpanded () =
         match x with
@@ -30,10 +30,10 @@ type ip =
             | Exit mx, Exit my -> mx = my
             | Instruction(ix, mx), Instruction(iy, my) -> ix = iy && mx.Equals(my)
             | Leave(ix, _, ipx, mx), Leave(iy, _, ipy, my) -> ix = iy && ipx.Equals(ipy) && mx.Equals(my)
-            | SearchingForHandler(toObserve1, framesToPop1), SearchingForHandler(toObserve2, framesToPop2) ->
-                toObserve1.Equals(toObserve2) && framesToPop1.Equals(framesToPop2)
-            | InFilterHandler(offset1, m1, toObserve1, n1), InFilterHandler(offset2, m2, toObserve2, n2) ->
-                offset1 = offset2 && m1.Equals(m2) && toObserve1.Equals(toObserve2) && n1 = n2
+            | SearchingForHandler(handlersToSearch1, toObserve1, framesToPop1), SearchingForHandler(handlersToSearch2, toObserve2, framesToPop2) ->
+                toObserve1.Equals(toObserve2) && framesToPop1.Equals(framesToPop2) && handlersToSearch1.Equals(handlersToSearch2)
+            | InFilterHandler(ip1, ehcs1, toObserve1, toPop1), InFilterHandler(ip2, ehcs2,toObserve2, toPop2) ->
+                ip1.Equals(ip2) && toObserve1.Equals(toObserve2) && toPop1.Equals(toPop2) && ehcs1.Equals(ehcs2)
             | SecondBypass(ip1, toFinalize1, location1), SecondBypass(ip2, toFinalize2, location2) ->
                 ip1.Equals(ip2) && toFinalize1.Equals(toFinalize2) && location1 = location2
             | _ -> false
@@ -41,35 +41,47 @@ type ip =
     override x.GetHashCode() = x.ToString().GetHashCode()
     interface System.IComparable with
         override x.CompareTo y =
+            // Chain compare
+            let inline (>==>) x y = if x = 0 then y else x
+            // TODO: Add proper comparison to Exception Handling Clause
+            let inline compareEhcsOptions a b =
+                match a, b with
+                | None, None -> 0
+                | None, Some _ -> -1
+                | Some _, None -> 1
+                | Some a, Some b -> compare (List.length a) (List.length b)
+            let compareEhcs a b =
+                compareEhcsOptions (Some a) (Some b)
             match y with
             | :? ip as y ->
                 match x, y with
-                | Exit m1, Exit m2 -> compare m1 m2
+                | Exit m1, Exit m2 ->
+                    compare m1 m2
                 | Exit _, _ -> -1
-                | Instruction(offset1, m1), Instruction(offset2, m2) when compare m1 m2 = 0 ->
-                    compare offset1 offset2
-                | Instruction(_, m1), Instruction(_, m2) -> compare m1 m2
+                | Instruction(offset1, m1), Instruction(offset2, m2) ->
+                    (compare offset1 offset2) >==>
+                    (compare m1 m2)
                 | Instruction _, _ -> -1
-                | Leave(ip1, _, offset1, m1), Leave(ip2, _, offset2, m2)
-                    when compare ip1 ip2 = 0 && compare m1 m2 = 0 ->compare offset1 offset2
-                | Leave(ip1, _, _, m1), Leave(ip2, _, _, m2) when compare ip1 ip2 = 0 -> compare m1 m2
-                | Leave(ip1,_,_,_), Leave(ip2,_,_, _) -> compare ip1 ip2
+                | Leave(ip1, _, offset1, m1), Leave(ip2, _, offset2, m2) ->
+                    (compare ip1 ip2) >==>
+                    (compare offset1 offset2) >==>
+                    (compare m1 m2)
                 | Leave _, _ -> -1
-                | SearchingForHandler(toObserve1, pop1), SearchingForHandler(toObserve2, pop2)
-                    when compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
-                | SearchingForHandler(toObserve1, _), SearchingForHandler(toObserve2, _) -> compare toObserve1 toObserve2
+                | SearchingForHandler(ehcs1, toObserve1, pop1), SearchingForHandler(ehcs2, toObserve2, pop2)  ->
+                    (compareEhcsOptions ehcs1 ehcs2) >==>
+                    (compare toObserve1 toObserve2) >==>
+                    (compare pop1 pop2)
                 | SearchingForHandler _, _ -> -1
-                | InFilterHandler(offset1, m1, toObserve1, pop1), InFilterHandler(offset2, m2, toObserve2, pop2)
-                    when compare offset1 offset2 = 0 && compare m1 m2 = 0 &&  compare toObserve1 toObserve2 = 0 -> compare pop1 pop2
-                | InFilterHandler(offset1, m1, toObserve1, _), InFilterHandler(offset2, m2 ,toObserve2, _)
-                    when compare offset1 offset2 = 0 && compare m1 m2 = 0 -> compare toObserve1 toObserve2
-                | InFilterHandler(offset1, m1, _, _), InFilterHandler(offset2, m2 ,_, _) when compare offset1 offset2 = 0 -> compare m1 m2
+                | InFilterHandler(ip1, ehcs1, toObserve1, pop1), InFilterHandler(ip2, ehcs2, toObserve2, pop2) ->
+                    (compare ip1 ip2) >==>
+                    (compareEhcs ehcs1 ehcs2) >==>
+                    (compare toObserve1 toObserve2) >==>
+                    (compare pop1 pop2)
                 | InFilterHandler _, _ -> -1
-                | SecondBypass(ip1, toFinalize1, location1), SecondBypass(ip2, toFinalize2, location2)
-                    when compare ip1 ip2 = 0 && compare toFinalize1 toFinalize2 = 0 -> compare location1 location2
-                | SecondBypass(ip1, toFinalize1,_), SecondBypass(ip2, toFinalize2, _)
-                    when compare ip1 ip2 = 0 -> compare toFinalize1 toFinalize2
-                | SecondBypass(ip1, _, _), SecondBypass(ip2, _, _) -> compare ip1 ip2
+                | SecondBypass(ip1, toFinalize1, location1), SecondBypass(ip2, toFinalize2, location2) ->
+                    (compare ip1 ip2) >==>
+                    (compare toFinalize1 toFinalize2) >==>
+                    (compare location1 location2)
                 | SecondBypass _, _ -> -1
             | _ -> -1
     override x.ToString() =
@@ -77,9 +89,10 @@ type ip =
         | Instruction(offset, m) -> sprintf "{Instruction = %s; M = %s}" ((int offset).ToString("X")) m.FullName
         | Exit m -> $"{{Exit from M = %s{m.FullName}}}"
         | Leave(ip, _, offset, m) -> $"{{M = %s{m.FullName}; Leaving to %d{offset}\n;Currently in {ip}}}"
-        | SearchingForHandler(toObserve, checkFinally) -> $"SearchingForHandler({toObserve}, {checkFinally})"
+        | SearchingForHandler(ehcs, toObserve, checkFinally) -> $"SearchingForHandler({ehcs}, {toObserve}, {checkFinally})"
         | SecondBypass(ip, restFrames, handler) -> $"SecondBypass({ip}, {restFrames}, {handler})"
-        | _ -> __notImplemented__()
+        | InFilterHandler(ip , ehcs, codeLocations, locations) ->
+            $"InFilterHandler({ip.ToString()}, {ehcs}, {codeLocations}, {locations}"
 
 and ipStack = ip list
 
@@ -100,7 +113,12 @@ module ipOperations =
         let rec helper (newOffset : offset) ip k =
             match ip with
             | Instruction(_, m) -> Instruction(newOffset, m) |> k
-            | InFilterHandler(_, m, x, y) -> InFilterHandler(newOffset, m, x, y) |> k
+            | InFilterHandler(ip, m, x, y) ->
+                helper newOffset ip (fun ip' ->
+                InFilterHandler(ip', m, x, y) |> k)
+            | SecondBypass(Some ip, m, x) ->
+                helper newOffset ip (fun ip' ->
+                SecondBypass(Some ip', m, x) |> k)
             | Leave(ip, ehcs, dst, m) ->
                 helper newOffset ip (fun ip' ->
                 leave ip' ehcs dst m |> k)
@@ -114,7 +132,7 @@ module ipOperations =
         | Instruction(offset, _) -> Some offset
         | Leave(ip, _, _, _) -> offsetOf ip
         | SearchingForHandler _ -> None
-        | InFilterHandler(offset, _, _, _) -> Some offset
+        | InFilterHandler(ip, _, _, _) -> offsetOf ip
         | SecondBypass(None, _, _) -> None
         | SecondBypass(Some ip, _, _) -> offsetOf ip
 
@@ -122,12 +140,12 @@ module ipOperations =
         | Exit m
         | Instruction(_, m)
         | Leave(_, _, _, m) -> Some m
-        | SearchingForHandler([], []) -> None
-        | SearchingForHandler(codeLocation :: _, []) -> Some codeLocation.method
-        | SearchingForHandler(_, codeLocations) ->
+        | SearchingForHandler(_, [], []) -> None
+        | SearchingForHandler(_, codeLocation :: _, []) -> Some codeLocation.method
+        | SearchingForHandler(_, _, codeLocations) ->
             let codeLoc = List.last codeLocations
             Some codeLoc.method
-        | InFilterHandler(_, method, _, _) -> Some method
+        | InFilterHandler(ip, _, _, _) -> methodOf ip
         | SecondBypass(None, _, _) -> None
         | SecondBypass(Some ip, _, _) -> methodOf ip
 

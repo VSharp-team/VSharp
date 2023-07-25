@@ -104,12 +104,12 @@ module CilStateOperations =
         | _ -> true
 
     let isUnhandledException (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Head with
         | Unhandled _ -> true
         | _ -> false
 
     let isUnhandledExceptionOrError (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Head with
         | Unhandled _ -> true
         | _ -> s.errorReported
 
@@ -121,12 +121,15 @@ module CilStateOperations =
 //        List.head s.ipStack
 
     let stoppedByException (s : cilState) =
-        match currentIp s with
-        | SearchingForHandler([], []) -> true
-        | _ -> false
+        let rec stoppedByExceptionIp ip =
+            match ip with
+            | SearchingForHandler(Some [], [], []) -> true
+            | Leave (ip, [], _, _) -> stoppedByExceptionIp ip
+            | _ -> false
+        currentIp s |> stoppedByExceptionIp
 
     let hasRuntimeExceptionOrError (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Head with
         | _ when s.errorReported -> true
         | Unhandled(_, isRuntime, _) -> isRuntime
         | _ -> false
@@ -173,6 +176,43 @@ module CilStateOperations =
         moveCodeLoc cilState ip
         assert(List.isEmpty cilState.ipStack |> not)
         cilState.ipStack <- ip :: List.tail cilState.ipStack
+        
+    let rec setCurrentIpSafe (ip : ip) (cilState : cilState) =
+        let rec createNewIp oldIp newIp =
+            match oldIp with
+            | Leave(ip, e, i, m) ->
+                Leave(createNewIp ip newIp, e, i, m)
+            | InFilterHandler(ip, e, lc, l) ->
+                InFilterHandler(createNewIp ip newIp, e, lc, l)
+            | SecondBypass(Some ip, cl, ftp) ->
+                SecondBypass(Some (createNewIp ip newIp), cl, ftp)
+            | _ -> newIp
+        let oldIp = currentIp cilState
+        let newIp = createNewIp oldIp ip
+        setCurrentIp newIp cilState
+        
+    let rec replaceLastIp (ip : ip) (cilState : cilState) =
+        let rec (|NonRecInstruction|_|) =
+            function
+            | Instruction _ -> Some ()
+            | Exit _ -> Some ()
+            | SearchingForHandler _ -> Some ()
+            | _ -> None
+        let rec createNewIp oldIp newIp =
+            match oldIp with
+            | InFilterHandler(NonRecInstruction _, _, _, _) ->
+                newIp
+            | Leave(NonRecInstruction _, _, _, _) ->
+                newIp
+            | InFilterHandler(ip, e, lc, l) ->
+                InFilterHandler(createNewIp ip newIp, e, lc, l)
+            | Leave(ip, e, i, m) ->
+                Leave(createNewIp ip newIp, e, i, m)
+            | _ -> newIp
+        let oldIp = currentIp cilState
+        let newIp = createNewIp oldIp ip
+        setCurrentIp newIp cilState
+
 
     let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
     let startingIpOf (cilState : cilState) = cilState.startingIP
@@ -263,7 +303,7 @@ module CilStateOperations =
         if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
         else {cilState with state = state; id = getNextStateId()}
 
-    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
+    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- cilState.state.exceptionsRegister.Tail.Push exc
 
     let push v (cilState : cilState) =
         match v.term with

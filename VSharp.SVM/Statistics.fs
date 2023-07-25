@@ -252,7 +252,7 @@ type public SVMStatistics(entryMethods : Method seq) =
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
 
     member x.IsNewError (s : cilState) (errorMessage : string) isFatal =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Head with
         | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage, isFatal)
         | _ -> emittedErrors.Add(s.ipStack, errorMessage, isFatal)
 
