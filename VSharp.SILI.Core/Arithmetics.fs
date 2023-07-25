@@ -51,6 +51,21 @@ module ILCalculator =
         let addOvf = addOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         addOvf.Invoke(x, y)
 
+    let addOvfUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let addOvfUn = DynamicMethod("AddOvf_Un", typeof<obj>, args)
+        let il = addOvfUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Add_Ovf_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let addOvfUn = addOvfUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        addOvfUn.Invoke(x, y)
+
     let sub(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
@@ -65,6 +80,36 @@ module ILCalculator =
         il.Emit(OpCodes.Ret)
         let sub = sub.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         sub.Invoke(x, y)
+
+    let subOvf(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let subOvf = DynamicMethod("SubOvf", typeof<obj>, args)
+        let il = subOvf.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Sub_Ovf)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let subOvf = subOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        subOvf.Invoke(x, y)
+
+    let subOvfUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let subOvfUn = DynamicMethod("SubOvf_Un", typeof<obj>, args)
+        let il = subOvfUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Sub_Ovf_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let subOvfUn = subOvfUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        subOvfUn.Invoke(x, y)
 
     let mul(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
@@ -96,6 +141,21 @@ module ILCalculator =
         let mulOvf = mulOvf.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         mulOvf.Invoke(x, y)
 
+    let mulOvfUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let mulOvfUn = DynamicMethod("MulOvf_Un", typeof<obj>, args)
+        let il = mulOvfUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Mul_Ovf_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let mulOvfUn = mulOvfUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        mulOvfUn.Invoke(x, y)
+
     let div(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
@@ -111,6 +171,21 @@ module ILCalculator =
         let div = div.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         div.Invoke(x, y)
 
+    let divUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let divUn = DynamicMethod("Div_Un", typeof<obj>, args)
+        let il = divUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Div_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let divUn = divUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        divUn.Invoke(x, y)
+
     let rem(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
         let args = [| typeof<obj>; typeof<obj> |]
@@ -125,6 +200,21 @@ module ILCalculator =
         il.Emit(OpCodes.Ret)
         let rem = rem.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         rem.Invoke(x, y)
+
+    let remUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let remUn = DynamicMethod("Rem_Un", typeof<obj>, args)
+        let il = remUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Rem_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let remUn = remUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        remUn.Invoke(x, y)
 
     let shiftLeft(x : obj, y : obj, t : System.Type) =
         assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
@@ -155,6 +245,21 @@ module ILCalculator =
         il.Emit(OpCodes.Ret)
         let shr = shr.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
         shr.Invoke(x, y)
+
+    let shiftRightUn(x : obj, y : obj, t : System.Type) =
+        assert(isNumeric <| x.GetType() && isNumeric <| y.GetType())
+        let args = [| typeof<obj>; typeof<obj> |]
+        let shrUn = DynamicMethod("ShiftRight", typeof<obj>, args)
+        let il = shrUn.GetILGenerator(256)
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Ldarg_1)
+        il.Emit(OpCodes.Unbox_Any, y.GetType())
+        il.Emit(OpCodes.Shr_Un)
+        il.Emit(OpCodes.Box, t)
+        il.Emit(OpCodes.Ret)
+        let shrUn = shrUn.CreateDelegate(typeof<binaryDelegateType>) :?> binaryDelegateType
+        shrUn.Invoke(x, y)
 
     let compare(x : obj, y : obj) : int =
         assert(isValidOperand x && isValidOperand y)
@@ -208,14 +313,44 @@ module ILCalculator =
         let compare = compare.CreateDelegate(typeof<compareDelegateType>) :?> compareDelegateType
         compare.Invoke(x, y)
 
-    let isZero x =
+    let private floatIsZero x =
         assert(isValidOperand x)
+        let typ = x.GetType()
+        assert(isReal typ)
+        let args = [| typeof<obj> |]
+        let fuzzyIsZero = DynamicMethod("FuzzyIsZero", typeof<int>, args)
+        let il = fuzzyIsZero.GetILGenerator(256)
+        let greater = il.DefineLabel()
+        let less = il.DefineLabel()
+        il.Emit(OpCodes.Ldarg_0)
+        il.Emit(OpCodes.Unbox_Any, typ)
+        il.Emit(OpCodes.Dup)
+        il.Emit(OpCodes.Ldc_R8, 1e-8)
+        il.Emit(OpCodes.Bgt, greater)
+        il.Emit(OpCodes.Ldc_R8, -1e-8)
+        il.Emit(OpCodes.Blt, less)
+        il.Emit(OpCodes.Ldc_I4_1)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(less)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        il.MarkLabel(greater)
+        il.Emit(OpCodes.Pop)
+        il.Emit(OpCodes.Ldc_I4_0)
+        il.Emit(OpCodes.Ret)
+        let fuzzyIsZero = fuzzyIsZero.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
+        fuzzyIsZero.Invoke(x) = 1
+
+    let private integralIsZero x =
+        assert(isValidOperand x)
+        let typ = x.GetType()
+        assert(isReal typ |> not)
         let args = [| typeof<obj> |]
         let isZero = DynamicMethod("IsZero", typeof<int>, args)
         let il = isZero.GetILGenerator(256)
         let zeroCase = il.DefineLabel()
         il.Emit(OpCodes.Ldarg_0)
-        il.Emit(OpCodes.Unbox_Any, x.GetType())
+        il.Emit(OpCodes.Unbox_Any, typ)
         il.Emit(OpCodes.Brfalse, zeroCase)
         il.Emit(OpCodes.Ldc_I4_0)
         il.Emit(OpCodes.Ret)
@@ -224,6 +359,15 @@ module ILCalculator =
         il.Emit(OpCodes.Ret)
         let isZero = isZero.CreateDelegate(typeof<unaryToIntDelegateType>) :?> unaryToIntDelegateType
         isZero.Invoke(x) = 1
+
+    let isZero (x : obj) =
+        match x with
+        | :? double
+        | :? single -> floatIsZero x
+        | _ -> integralIsZero x
+
+    let equal (x : obj) (y : obj) =
+        sub(x, y, x.GetType()) |> isZero
 
     let isPowOfTwo (x : obj) =
         assert(isNumeric <| x.GetType())
@@ -553,11 +697,11 @@ module internal Arithmetics =
         match x.term, y.term with
         | Concrete(xval, _), _ when ILCalculator.isZero(xval) -> castConcrete 0 t |> matched
         | _, Concrete(yval, _) when ILCalculator.isZero(yval) -> castConcrete 0 t |> matched
-        | Concrete(x, _), _ when Calculator.FuzzyEqual(x, convert 1 t) -> matched y
-        | _, Concrete(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> matched x
-        | Concrete(x, _), _ when not <| isUnsigned t && Calculator.FuzzyEqual(x, convert -1 t) ->
+        | Concrete(x, _), _ when ILCalculator.equal x (convert 1 t) -> matched y
+        | _, Concrete(y, _) when ILCalculator.equal y (convert 1 t) -> matched x
+        | Concrete(x, _), _ when not <| isUnsigned t && ILCalculator.equal x (convert -1 t) ->
             simplifyUnaryMinus t y matched
-        | _, Concrete(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
+        | _, Concrete(y, _) when not <| isUnsigned t && ILCalculator.equal y (convert -1 t) ->
             simplifyUnaryMinus t x matched
         | Expression _, Expression _ ->
             simplifyMultiplicationOfExpression t x y matched (fun () ->
@@ -577,21 +721,23 @@ module internal Arithmetics =
 
 // ------------------------------- Simplification of "/" -------------------------------
 
-    and simplifyConcreteDivision t x y =
-        let result = ILCalculator.div(x, y, t)
+    and simplifyConcreteDivision isSigned t x y =
+        let result =
+            if isSigned then ILCalculator.div(x, y, t)
+            else ILCalculator.divUn(x, y, t)
         castConcrete result t
 
     and private simplifyDivision isSigned t x y k =
         simplifyGenericBinary "division" x y k
-            (simplifyConcreteBinary simplifyConcreteDivision t)
+            (simplifyConcreteBinary (simplifyConcreteDivision isSigned) t)
             (fun x y k ->
                 match x, y with
                 // 0 / y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x / 1 = x
-                | _, ConcreteT(yval, _) when Calculator.FuzzyEqual(yval, convert 1 (typeOf y)) -> x |> k
+                | _, ConcreteT(yval, _) when ILCalculator.equal yval (convert 1 (typeOf y)) -> x |> k
                 // x / -1 = -x
-                | _, ConcreteT(yval, _) when not <| isUnsigned t && Calculator.FuzzyEqual(yval, convert -1 (typeOf y)) ->
+                | _, ConcreteT(yval, _) when not <| isUnsigned t && ILCalculator.equal yval (convert -1 (typeOf y)) ->
                     simplifyUnaryMinus t x k
                 // x / x = 1 if unchecked
                 | x, y when x = y -> castConcrete 1 t |> k
@@ -620,33 +766,39 @@ module internal Arithmetics =
 
 // ------------------------------- Simplification of "%" -------------------------------
 
-    and private simplifyConcreteRemainder t x y =
+    and private simplifyConcreteRemainder isSigned t x y =
         let success = ref true
-        let result = ILCalculator.rem(x, y, t)
+        let result =
+            if isSigned then
+                ILCalculator.rem(x, y, t)
+            else ILCalculator.remUn(x, y, t)
         assert success.Value
         castConcrete result t
 
-    and private divides t x y =
-        ILCalculator.isZero(ILCalculator.rem(x, y, t))
+    and private divides isSigned t x y =
+        let res =
+            if isSigned then ILCalculator.rem(x, y, t)
+            else ILCalculator.remUn(x, y, t)
+        ILCalculator.isZero res
 
     and simplifyRemainder isSigned t x y k =
         simplifyGenericBinary "remainder" x y k
-            (simplifyConcreteBinary simplifyConcreteRemainder t)
+            (simplifyConcreteBinary (simplifyConcreteRemainder isSigned) t)
             (fun x y k ->
                 match x, y with
                 // 0 % y = 0
                 | ConcreteT(xval, _), _ when ILCalculator.isZero(xval) -> x |> k
                 // x % 1 = 0
-                | _, ConcreteT(y, _) when Calculator.FuzzyEqual(y, convert 1 t) -> castConcrete 0 t |> k
+                | _, ConcreteT(y, _) when ILCalculator.equal y (convert 1 t) -> castConcrete 0 t |> k
                 // x % -1 = 0
-                | _, ConcreteT(y, _) when not <| isUnsigned t && Calculator.FuzzyEqual(y, convert -1 t) ->
+                | _, ConcreteT(y, _) when not <| isUnsigned t && ILCalculator.equal y (convert -1 t) ->
                     castConcrete 0 t |> k
                 // x % x = 0
                 | x, y when x = y -> castConcrete 0 t |> k
                 // x % -x = 0 if unchecked
                 | x, UnaryMinusT(y, _) when x = y -> castConcrete 0 t |> k
                 // (a * b) % y = 0 if unchecked, b and y concrete and a % y = 0
-                | Mul(ConcreteT(a, _), _, _), ConcreteT(y, _) when divides t a y ->
+                | Mul(ConcreteT(a, _), _, _), ConcreteT(y, _) when divides isSigned t a y ->
                      castConcrete 0 t |> k
                 | _ ->
                     let op = if isSigned then OperationType.Remainder else OperationType.Remainder_Un
@@ -658,8 +810,8 @@ module internal Arithmetics =
     and private simplifyConcreteShift operation t x y =
         match operation with
         | OperationType.ShiftLeft -> castConcrete (ILCalculator.shiftLeft(x, y, t)) t
-        | OperationType.ShiftRight
-        | OperationType.ShiftRight_Un -> castConcrete (ILCalculator.shiftRight(x, y, t)) t
+        | OperationType.ShiftRight -> castConcrete (ILCalculator.shiftRight(x, y, t)) t
+        | OperationType.ShiftRight_Un -> castConcrete (ILCalculator.shiftRightUn(x, y, t)) t
         | _ -> __unreachable__()
 
     and private simplifyShiftLeftMul t a b y matched unmatched =
@@ -746,15 +898,15 @@ module internal Arithmetics =
             (fun x y k -> simplifyShiftExt operation t x y k defaultCase)
             (simplifyShift operation t)
 
-    and private simplifyBitwise (op : OperationType) x y t resType k =
+    and private simplifyBitwise (op : OperationType) x y t k =
         match x.term, y.term with
         | Concrete(x, _), Concrete(y, _) ->
             match op with
-            | OperationType.BitwiseAnd -> k <| Concrete (ILCalculator.bitwiseAnd(x, y, t)) resType
-            | OperationType.BitwiseOr -> k <| Concrete (ILCalculator.bitwiseOr(x, y, t)) resType
-            | OperationType.BitwiseXor -> k <| Concrete (ILCalculator.bitwiseXor(x, y, t)) resType
+            | OperationType.BitwiseAnd -> k <| Concrete (ILCalculator.bitwiseAnd(x, y, t)) t
+            | OperationType.BitwiseOr -> k <| Concrete (ILCalculator.bitwiseOr(x, y, t)) t
+            | OperationType.BitwiseXor -> k <| Concrete (ILCalculator.bitwiseXor(x, y, t)) t
             | _ -> __notImplemented__()
-        | _ -> k (Expression (Operator op) [x; y] resType)
+        | _ -> k (Expression (Operator op) [x; y] t)
 
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
@@ -803,7 +955,11 @@ module internal Arithmetics =
             let mutable noOverflow = true
             assert(isNumeric t1 && isNumeric t2)
             try
-                ILCalculator.addOvf(x, y, t1) |> ignore
+                if isUnsigned t1 then
+                    ILCalculator.addOvfUn(x, y, t1) |> ignore
+                elif isUnsigned t2 then
+                    ILCalculator.addOvfUn(x, y, t2) |> ignore
+                else ILCalculator.addOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
@@ -815,7 +971,11 @@ module internal Arithmetics =
             let mutable noOverflow = true
             assert(isNumeric t1 && isNumeric t2)
             try
-                ILCalculator.mulOvf(x, y, t1) |> ignore
+                if isUnsigned t1 then
+                    ILCalculator.mulOvfUn(x, y, t1) |> ignore
+                elif isUnsigned t2 then
+                    ILCalculator.mulOvfUn(x, y, t2) |> ignore
+                else ILCalculator.mulOvf(x, y, t1) |> ignore
             with :? System.OverflowException ->
                 noOverflow <- false
             makeBool noOverflow
@@ -875,7 +1035,7 @@ module internal Arithmetics =
         | OperationType.LessOrEqual_Un -> simplifyLessOrEqualUn x y k
         | OperationType.BitwiseAnd
         | OperationType.BitwiseOr
-        | OperationType.BitwiseXor -> simplifyBitwise op x y t (typeOf x) k
+        | OperationType.BitwiseXor -> simplifyBitwise op x y t k
         | OperationType.AddNoOvf -> simplifyAddNoOvf x y |> k
         | OperationType.MultiplyNoOvf -> simplifyMultiplyNoOvf x y |> k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
