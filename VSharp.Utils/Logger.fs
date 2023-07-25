@@ -42,6 +42,10 @@ module Logger =
         currentTextWriter.WriteLine(builder.ToString())
         currentTextWriter.Flush()
 
+    let public writeLine (message : string) =
+        currentTextWriter.WriteLine(message)
+        currentTextWriter.Flush()
+
     let public printLogString vLevel (message : string) =
         if currentLogLevel >= vLevel then
             writeLineString vLevel "" message

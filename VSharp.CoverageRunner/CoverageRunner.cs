@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using System.Text;
 using Microsoft.FSharp.Core;
 
@@ -112,26 +111,21 @@ namespace VSharp.CoverageRunner
             IReadOnlySet<BasicBlock> visited,
             MethodInfo methodInfo)
         {
-            string ToString()
+            var sb = new StringBuilder();
+            sb.AppendLine($"Coverage for method {methodInfo}:");
+            var allCovered = true;
+            foreach (var block in allBlocks)
             {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Coverage for method {methodInfo}:");
-                var allCovered = true;
-                foreach (var block in allBlocks)
+                if (!visited.Contains(block))
                 {
-                    if (!visited.Contains(block))
-                    {
-                        allCovered = false;
-                        sb.AppendLine($"Block [0x{block.StartOffset:X} .. 0x{block.FinalOffset:X}] not covered");
-                    }
+                    allCovered = false;
+                    sb.AppendLine($"Block [0x{block.StartOffset:X} .. 0x{block.FinalOffset:X}] not covered");
                 }
-                if (allCovered)
-                    sb.AppendLine("All blocks are covered");
-
-                return sb.ToString();
             }
+            if (allCovered)
+                sb.AppendLine("All blocks are covered");
 
-            Logger.printLogLazyString(Logger.Trace, ToString);
+            Logger.writeLine(sb.ToString());
         }
 
         private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodInfo methodInfo)

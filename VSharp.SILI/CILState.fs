@@ -140,7 +140,7 @@ module internal CilStateOperations =
     let violatesLevel (s : cilState) maxBound =
         match tryCurrentLoc s with
         | Some currLoc when PersistentDict.contains currLoc s.level ->
-            s.level.[currLoc] >= maxBound
+            s.level[currLoc] >= maxBound
         | _ -> false
 
     // [NOTE] Obtaining exploring method
@@ -276,7 +276,7 @@ module internal CilStateOperations =
     let addTarget (state : cilState) target =
         let prev = state.targets
         state.targets <- Set.add target prev
-        prev.Count <> state.targets.Count 
+        prev.Count <> state.targets.Count
 
     let removeTarget (state : cilState) target =
         let prev = state.targets
