@@ -1694,8 +1694,9 @@ type internal ILInterpreter() as this =
 
     member private x.CommonThrow cilState error isRuntime =
         let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        let stackTrace = List.map toString codeLocations |> join ","
         setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
-        setException (Unhandled(error, isRuntime)) cilState
+        setException (Unhandled(error, isRuntime, stackTrace)) cilState
 
     member private x.Throw (cilState : cilState) =
         let error = peek cilState

@@ -128,7 +128,7 @@ module internal CilStateOperations =
 
     let hasRuntimeException (s : cilState) =
         match s.state.exceptionsRegister with
-        | Unhandled(_, isRuntime) -> isRuntime
+        | Unhandled(_, isRuntime, _) -> isRuntime
         | _ -> false
 
     let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
