@@ -208,7 +208,7 @@ module TestGenerator =
                     let values = methodMock.Value
                     let methodType = method.ReflectedType
                     let mockedBaseInterface() =
-                        t.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
+                        methodType.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
                     if methodType = t || mockedBaseInterface() then
                         freshMock.AddMethod(method, Array.map eval values)
             freshMock

@@ -129,12 +129,12 @@ module internal InstructionsSet =
                 methodInfo.Invoke(null, parameters)
             with
             | :? TargetInvocationException as targetException ->
-                Logger.trace "InternalCall got TargetInvocationException %s" targetException.Message
+                Logger.trace $"InternalCall got TargetInvocationException {targetException.Message}"
                 let actualException = targetException.GetBaseException()
-                Logger.trace "TargetInvocationException.GetBaseException %s" actualException.Message
+                Logger.trace $"TargetInvocationException.GetBaseException {actualException.Message}"
                 raise actualException
             | e ->
-                Logger.trace "InternalCall got exception %s" e.Message
+                Logger.trace $"InternalCall got exception {e.Message}"
                 reraise()
 
         let pushOnEvaluationStack (term : term, cilState : cilState) =
@@ -1196,7 +1196,8 @@ type internal ILInterpreter() as this =
         }
         let invokeMock cilState k =
             match typeMocks with
-            | _ when Seq.isEmpty typeMocks -> List.singleton cilState |> k
+            | _ when Seq.isEmpty typeMocks ->
+                __insufficientInformation__ $"Trying to CallVirt method {ancestorMethod} without mocks"
             | _ when Seq.length typeMocks = 1 ->
                 popFrameOf cilState
                 let overriden =

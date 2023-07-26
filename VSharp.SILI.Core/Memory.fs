@@ -2,7 +2,6 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
-open System.Runtime.CompilerServices
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -210,17 +209,19 @@ module internal Memory =
         let hashValue = VectorTime.hash address
         hashValue |> makeNumber
 
+    let createHashCodeConstant (term : term) =
+        let name = $"HashCode({term})"
+        let source = {object = term}
+        Constant name source typeof<Int32>
+
     let getHashCode object =
         // TODO: implement GetHashCode() for value type (it's boxed)
         // TODO: use 'termToObj' for valid hash
         match object.term with
         | ConcreteHeapAddress address
         | HeapRef({term = ConcreteHeapAddress address}, _) -> hashConcreteAddress address
-        | HeapRef(address, _) ->
-            let name = $"HashCode({address})"
-            let source = {object = address}
-            Constant name source typeof<Int32>
-        | _ -> internalfail $"Getting hash code: unexpected object {object}"
+        | HeapRef(address, _) -> createHashCodeConstant address
+        | _ -> createHashCodeConstant object
 
 // ------------------------------- Instantiation -------------------------------
 

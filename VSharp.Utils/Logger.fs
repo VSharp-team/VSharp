@@ -26,6 +26,7 @@ module Logger =
     let public isTagEnabled tag = tagFilter tag
 
     let LevelToString = function
+        | 0 -> "Quiet"
         | 1 -> "Critical"
         | 2 -> "Error"
         | 3 -> "Warning"

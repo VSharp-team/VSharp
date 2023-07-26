@@ -56,10 +56,10 @@ type ShortestDistanceWeighter(target : codeLocation) =
             if w = infinity then None else Some (w, n)
 
     // Returns the number proportional to distance from loc to target in CFG.
-    let localWeight loc (tagets : codeLocation seq) =
+    let localWeight loc (targets : codeLocation seq) =
         let localCFG = loc.method.ForceCFG
         let dist = localCFG.DistancesFrom loc.offset
-        tagets
+        targets
         |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.ForceBasicBlock infinity)) infinity
         |> handleInfinity
         |> Option.map logarithmicScale
@@ -74,13 +74,17 @@ type ShortestDistanceWeighter(target : codeLocation) =
             localCFG.Calls
             |> Seq.filter (fun kv -> callGraphDistanceToTarget.ContainsKey kv.Value.Callee)
             |> Seq.map (fun kv -> { offset = kv.Key.StartOffset; method = currLoc.method })
-        localWeight currLoc targets |> Option.map ((+) 32u)
+        match localWeight currLoc targets with
+        | Some w -> Some(w + 32u)
+        | None -> Some 63u
 
     // Returns the number proportional to distance from loc to return of this method
     let postTargetWeight currLoc =
         let localCFG = currLoc.method.ForceCFG
         let targets = localCFG.Sinks |> Seq.map (fun basicBlock -> { offset = basicBlock.StartOffset; method = currLoc.method })
-        localWeight currLoc targets |> Option.map ((+) 32u)
+        match localWeight currLoc targets with
+        | Some w -> Some(w + 32u)
+        | None -> Some 63u
 
     interface IWeighter with
         override x.Weight(state) =
@@ -96,7 +100,6 @@ type ShortestDistanceWeighter(target : codeLocation) =
                     return weight * logarithmicScale state.stepsNumber
                 | None -> return 1u
             }
-        override x.Next() = 0u
 
 type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatistics) =
 
@@ -124,5 +127,3 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatist
                     List.length toObserve |> uint |> Some
                 | None, _ -> Some 1u
             state.ipStack |> Seq.tryPick calculateWeight
-
-        override x.Next() = 0u

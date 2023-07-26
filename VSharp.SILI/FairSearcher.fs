@@ -91,7 +91,7 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         types
 
     let onMethodRound methods =
-        List.sortBy (fun (m : Method) -> statistics.GetApproximateCoverage m) methods
+        List.sortBy (fun (m : Method) -> statistics.GetCurrentCoverage m) methods
 
     let rec getCallsCount (m : Method) =
         try

@@ -90,17 +90,15 @@ namespace VSharp.Test
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
         private readonly TestsCheckerMode _testsCheckerMode;
-        private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
         private readonly bool _hasExternMocking;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
-            uint recThresholdForTest = 0u,
+            uint recThresholdForTest = 1u,
             int timeout = -1,
             int solverTimeout = -1,
-            bool guidedMode = true,
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
@@ -116,7 +114,6 @@ namespace VSharp.Test
             _recThresholdForTest = recThresholdForTest;
             _timeout = timeout;
             _solverTimeout = solverTimeout;
-            _guidedMode = guidedMode;
             _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
@@ -133,7 +130,6 @@ namespace VSharp.Test
                 _recThresholdForTest,
                 _timeout,
                 _solverTimeout,
-                _guidedMode,
                 _releaseBranches,
                 _strat,
                 _coverageZone,
@@ -165,7 +161,6 @@ namespace VSharp.Test
                 uint recThresholdForTest,
                 int timeout,
                 int solverTimeout,
-                bool guidedMode,
                 bool releaseBranches,
                 SearchStrategy strat,
                 CoverageZone coverageZone,
@@ -211,12 +206,6 @@ namespace VSharp.Test
                 };
 
                 _renderTests = testsCheckerMode == TestsCheckerMode.RenderAndRun;
-
-                if (guidedMode)
-                {
-                    _searchStrat = searchMode.NewGuidedMode(_searchStrat);
-                }
-
                 _checkAttributes = checkAttributes;
 
                 _hasExternMocking = hasExternMocking;
@@ -247,7 +236,6 @@ namespace VSharp.Test
                 var exploredMethodInfo = (MethodInfo) AssemblyManager.NormalizeMethod(originMethodInfo);
                 var stats = new TestStatistics(
                     exploredMethodInfo,
-                    _searchStrat.IsGuidedMode,
                     _releaseBranches,
                     _timeout,
                     _baseSearchStrat,
@@ -256,7 +244,7 @@ namespace VSharp.Test
 
                 try
                 {
-                    UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
+                    var unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
                         outputDirectory: unitTests.TestDirectory,
@@ -287,7 +275,7 @@ namespace VSharp.Test
                     }
 
                     explorer.Statistics.PrintDebugStatistics(TestContext.Out);
-                    TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
+                    TestContext.Out.WriteLine($"Test results written to {unitTests.TestDirectory.FullName}");
                     unitTests.WriteReport(explorer.Statistics.PrintDebugStatistics);
 
                     stats = stats with

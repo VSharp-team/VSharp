@@ -12,10 +12,9 @@ type internal ContributedCoverageWeighter(statistics : SILIStatistics) =
 
     interface IWeighter with
         override x.Weight(state) = weight state
-        override x.Next() = UInt32.MaxValue
 
-type internal ContributedCoverageSearcher(maxBound, statistics) =
-    inherit WeightedSearcher(maxBound, ContributedCoverageWeighter(statistics), BidictionaryPriorityQueue())
+type internal ContributedCoverageSearcher(statistics) =
+    inherit WeightedSearcher(ContributedCoverageWeighter(statistics), BidictionaryPriorityQueue())
 
 type internal ContributedCoverageWithDistanceAsFallbackWeighter(statistics) =
     inherit CombinedWeighter(
@@ -24,5 +23,5 @@ type internal ContributedCoverageWithDistanceAsFallbackWeighter(statistics) =
         UInt32.MaxValue,
         WeightOperations.withInverseLinearFallback 100u)
 
-type internal ContributedCoverageWithDistanceAsFallbackSearcher(maxBound, statistics) =
-    inherit WeightedSearcher(maxBound, ContributedCoverageWithDistanceAsFallbackWeighter(statistics), BidictionaryPriorityQueue())
+type internal ContributedCoverageWithDistanceAsFallbackSearcher(statistics) =
+    inherit WeightedSearcher(ContributedCoverageWithDistanceAsFallbackWeighter(statistics), BidictionaryPriorityQueue())

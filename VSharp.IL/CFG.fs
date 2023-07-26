@@ -132,11 +132,12 @@ and CfgInfo internal (method : MethodWithBody) =
                     found <- true
                     index <- currentIndex
                 | _ -> currentIndex <- currentIndex - 1
+
             found <- false
-            
+            let instructions = method.ParsedInstructions
             while not found do
-                if method.ParsedInstructions.ContainsKey (index *1<offsets>)
-                then found <- true
+                if instructions.ContainsKey (Offset.from index) then
+                    found <- true
                 else index <- index - 1
             Offset.from index
 
@@ -494,7 +495,7 @@ type ApplicationGraph() =
         ()
 
     let addStates (parentState : Option<IGraphTrackableState>) (states : array<IGraphTrackableState>) =
-        // Not implemented yet 
+        // Not implemented yet
         ()
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =

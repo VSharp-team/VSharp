@@ -321,10 +321,14 @@ and typeStorage private (constraints, addressesTypes, typeMocks, classesParams, 
     member x.AddConstraint address typeConstraint =
         constraints.Add address typeConstraint
 
-    member x.Item(address : term) =
-        let types = ref null
-        if addressesTypes.TryGetValue(address, types) then Some types.Value
-        else None
+    member x.Item
+        with get (address : term) =
+            let types = ref null
+            if addressesTypes.TryGetValue(address, types) then Some types.Value
+            else None
+        and set (address : term) (types : symbolicType seq) =
+            assert(Seq.isEmpty types |> not)
+            addressesTypes[address] <- types
 
     member x.IsValid with get() = addressesTypes.Count = constraints.Count
 

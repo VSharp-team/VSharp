@@ -143,7 +143,7 @@ namespace IntegrationTests
             public int Cost { get; set; }
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.DFS)]
         public static long HardSymbolicLinqTest(int m1, int m2, int id1, int id2, int c1, int c2)
         {
             if (m1 <= 0 | m2 <= 0 | c1 <= 0 | c2 <= 0)
@@ -213,7 +213,7 @@ namespace IntegrationTests
             return list.OrderBy(o => o.Id).First().Id;
         }
 
-        [Ignore("takes too much time")]
+        [Ignore("Invalid test generated")]
         public static int SequenceLinqTest()
         {
             var startingDeck = (from s in Suits()
