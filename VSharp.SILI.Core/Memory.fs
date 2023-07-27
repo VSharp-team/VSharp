@@ -833,7 +833,7 @@ module internal Memory =
         | _ -> createSlice term (List.singleton (startByte, endByte, pos))
 
     // NOTE: returns list of slices
-    // TODO: return empty? #combine
+    // TODO: return empty if every slice is invalid
     let rec private commonReadTermUnsafe term startByte endByte pos stablePos =
         match term.term with
         | Struct(fields, t) -> commonReadStructUnsafe fields t startByte endByte pos stablePos
@@ -866,11 +866,11 @@ module internal Memory =
         commonReadStructUnsafe fields structType startByte endByte (neg startByte) false
 
     and private getAffectedFields state reportError readField isStatic (blockType : Type) startByte endByte =
-        let blockSize = CSharpUtils.LayoutUtils.ClassSize blockType
+        let blockSize = Reflection.blockSize blockType
         if isValueType blockType |> not then checkBlockBounds state reportError (makeNumber blockSize) startByte endByte
         let fields = Reflection.fieldsOf isStatic blockType
         let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
-            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, internalSizeOf fieldInfo.FieldType
+            fieldId, Reflection.getFieldOffset fieldInfo, internalSizeOf fieldInfo.FieldType
         let fieldIntervals = Array.map getOffsetAndSize fields |> Array.sortBy snd3
         let betweenField = {name = ""; declaringType = blockType; typ = typeof<byte>}
         let addZerosBetween (_, offset, size as field) (allFields, nextOffset) =
@@ -996,7 +996,7 @@ module internal Memory =
     let readFieldUnsafe block (field : fieldId) =
         assert(typeOf block = field.declaringType)
         let fieldType = field.typ
-        let startByte = Reflection.getFieldOffset field
+        let startByte = Reflection.getFieldIdOffset field
         let endByte = startByte + internalSizeOf fieldType
         let slices = readTermUnsafe block (makeNumber startByte) (makeNumber endByte)
         combine slices fieldType

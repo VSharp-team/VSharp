@@ -59,9 +59,9 @@ module Substitution =
         | Ptr(address, typ, shift) ->
             let address' = substitutePointerBase recur typeSubst address
             Ptr address' (typeSubst typ) (recur shift)
-        | Slice(term, slices) ->
+        | Slice(part, slices) ->
             let slices' = List.map (fun (s, e, pos) -> recur s, recur e, recur pos) slices
-            createSlice (recur term) slices'
+            createSlice (recur part) slices'
         | _ -> termSubst term
 
     and private substituteMany termSubst typeSubst timeSubst terms ctor =

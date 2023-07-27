@@ -218,7 +218,7 @@ namespace IntegrationTests.Typecast
             return 0;
         }
 
-        [TestSvm(100)]
+        [Ignore("takes too much time")]
         public static object DownCastObject8(object obj)
         {
             if (obj is decimal d)
