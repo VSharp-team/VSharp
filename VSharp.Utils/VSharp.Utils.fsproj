@@ -44,6 +44,7 @@
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
+        <Compile Include="Copier.fs" />
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>
