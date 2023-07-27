@@ -237,7 +237,7 @@ module TypeUtils =
         | _ -> None
 
     let (|ClassType|_|) = function
-        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsArray && t <> typeof<Array> ->
+        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsPointer && not t.IsArray && t <> typeof<Array> ->
             Some(getGenericDefinition t, getGenericArguments t)
         | _ -> None
 
