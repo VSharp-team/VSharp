@@ -810,7 +810,7 @@ module internal Memory =
         let failCondition = simplifyGreater endByte blockSize id ||| simplifyLess startByte (makeNumber 0) id
         // NOTE: disables overflow in solver
         let noOvf = makeExpressionNoOvf failCondition
-        // TODO: move noOvf to failCondition (failCondition = failCondition || !noOvf) ?
+        // TODO: move noOvf to failCondition (failCondition = failCondition || !noOvf)
         state.pc <- PC.add state.pc noOvf
         reportError state failCondition
 
@@ -820,29 +820,57 @@ module internal Memory =
         | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && size = e -> List.singleton address
         | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
 
-    // NOTE: returns list of slices
-    let rec private readTermUnsafe term startByte endByte =
+    let sliceTerm term startByte endByte pos stablePos =
         match term.term with
-        | Struct(fields, t) -> readStructUnsafe fields t startByte endByte
+        | Slice(term, cuts) when stablePos ->
+            assert(List.isEmpty cuts |> not)
+            let _, _, p = List.head cuts
+            createSlice term ((startByte, endByte, p) :: cuts)
+        | Slice(term, cuts) ->
+            assert(List.isEmpty cuts |> not)
+            let _, _, p = List.head cuts
+            createSlice term ((startByte, endByte, add pos p) :: cuts)
+        | _ -> createSlice term (List.singleton (startByte, endByte, pos))
+
+    // NOTE: returns list of slices
+    // TODO: return empty if every slice is invalid
+    let rec private commonReadTermUnsafe term startByte endByte pos stablePos =
+        match term.term with
+        | Struct(fields, t) -> commonReadStructUnsafe fields t startByte endByte pos stablePos
         | HeapRef _
         | Ref _
         | Ptr _ -> readAddressUnsafe term startByte endByte
+        | Combined([t], _) -> commonReadTermUnsafe t startByte endByte pos stablePos
+        | Combined(slices, _) ->
+            List.collect (fun part -> commonReadTermUnsafe part startByte endByte pos stablePos) slices
+        | Slice _
         | Concrete _
         | Constant _
-        // TODO: make simplification for 'Combine' term
-        | Expression _ -> Slice term startByte endByte startByte |> List.singleton
+        | Expression _ ->
+            sliceTerm term startByte endByte pos stablePos |> List.singleton
         | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
+    and private readTermUnsafe term startByte endByte =
+        commonReadTermUnsafe term startByte endByte (neg startByte) false
+
+    and private readTermPartUnsafe term startByte endByte =
+        commonReadTermUnsafe term startByte endByte startByte true
+
+    and private commonReadStructUnsafe fields structType startByte endByte pos stablePos =
+        let readField fieldId = fields[fieldId]
+        let state = makeEmpty false
+        let reportError _ = __unreachable__()
+        commonReadFieldsUnsafe state reportError readField false structType startByte endByte pos stablePos
+
     and private readStructUnsafe fields structType startByte endByte =
-        let readField fieldId = fields.[fieldId]
-        readFieldsUnsafe (makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte endByte
+        commonReadStructUnsafe fields structType startByte endByte (neg startByte) false
 
     and private getAffectedFields state reportError readField isStatic (blockType : Type) startByte endByte =
-        let blockSize = CSharpUtils.LayoutUtils.ClassSize blockType
+        let blockSize = Reflection.blockSize blockType
         if isValueType blockType |> not then checkBlockBounds state reportError (makeNumber blockSize) startByte endByte
         let fields = Reflection.fieldsOf isStatic blockType
         let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
-            fieldId, CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo, internalSizeOf fieldInfo.FieldType
+            fieldId, Reflection.getFieldOffset fieldInfo, internalSizeOf fieldInfo.FieldType
         let fieldIntervals = Array.map getOffsetAndSize fields |> Array.sortBy snd3
         let betweenField = {name = ""; declaringType = blockType; typ = typeof<byte>}
         let addZerosBetween (_, offset, size as field) (allFields, nextOffset) =
@@ -863,7 +891,7 @@ module internal Memory =
             let fieldOffset = makeNumber fieldOffset
             let startByte = sub startByte fieldOffset
             let endByte = sub endByte fieldOffset
-            fieldId, fieldValue, startByte, endByte
+            fieldId, fieldOffset, fieldValue, startByte, endByte
         match startByte.term, endByte.term with
         | Concrete(:? int as s, _), Concrete(:? int as e, _) ->
             let concreteGetField (_, fieldOffset, fieldSize as field) affectedFields =
@@ -873,9 +901,12 @@ module internal Memory =
             List.foldBack concreteGetField allFields List.empty
         | _ -> List.map getField allFields
 
-    and private readFieldsUnsafe state reportError readField isStatic (blockType : Type) startByte endByte =
+    and private commonReadFieldsUnsafe state reportError readField isStatic (blockType : Type) startByte endByte pos stablePos =
         let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
-        List.collect (fun (_, v, s, e) -> readTermUnsafe v s e) affectedFields
+        List.collect (fun (_, o, v, s, e) -> commonReadTermUnsafe v s e (add pos o) stablePos) affectedFields
+
+    and private readFieldsUnsafe state reportError readField isStatic (blockType : Type) startByte endByte =
+        commonReadFieldsUnsafe state reportError readField isStatic blockType startByte endByte (neg startByte) false
 
     // TODO: Add undefined behaviour:
     // TODO: 1. when reading info between fields
@@ -965,7 +996,7 @@ module internal Memory =
     let readFieldUnsafe block (field : fieldId) =
         assert(typeOf block = field.declaringType)
         let fieldType = field.typ
-        let startByte = Reflection.getFieldOffset field
+        let startByte = Reflection.getFieldIdOffset field
         let endByte = startByte + internalSizeOf fieldType
         let slices = readTermUnsafe block (makeNumber startByte) (makeNumber endByte)
         combine slices fieldType
@@ -1205,27 +1236,30 @@ module internal Memory =
             let termSize = internalSizeOf termType
             let valueSize = sizeOf value
             match startByte.term with
-            | Concrete(:? int as startByte, _) when startByte = 0 && valueSize = termSize -> value
+            | Concrete(:? int as startByte, _) when startByte = 0 && valueSize = termSize ->
+                combine (List.singleton value) termType
             | _ ->
                 let zero = makeNumber 0
-                let termSize = internalSizeOf termType |> makeNumber
-                let valueSize = sizeOf value |> makeNumber
-                let left = Slice term zero startByte zero
+                let termSize = makeNumber termSize
+                let valueSize = makeNumber valueSize
+                let left = readTermPartUnsafe term zero startByte
                 let valueSlices = readTermUnsafe value (neg startByte) (sub termSize startByte)
-                let right = Slice term (add startByte valueSize) termSize zero
-                combine ([left] @ valueSlices @ [right]) termType
+                let right = readTermPartUnsafe term (add startByte valueSize) termSize
+                combine (left @ valueSlices @ right) termType
         | _ -> internalfailf "writeTermUnsafe: unexpected term %O" term
 
     and private writeStructUnsafe structTerm fields structType startByte value =
-        let readField fieldId = fields.[fieldId]
-        let updatedFields = writeFieldsUnsafe (makeEmpty false) (fun _ -> __unreachable__()) readField false structType startByte value
+        let readField fieldId = fields[fieldId]
+        let state = makeEmpty false
+        let reportError _ = __unreachable__()
+        let updatedFields = writeFieldsUnsafe state reportError readField false structType startByte value
         let writeField structTerm (fieldId, value) = writeStruct structTerm fieldId value
         List.fold writeField structTerm updatedFields
 
     and private writeFieldsUnsafe state reportError readField isStatic (blockType : Type) startByte value =
         let endByte = sizeOf value |> makeNumber |> add startByte
         let affectedFields = getAffectedFields state reportError readField isStatic blockType startByte endByte
-        List.map (fun (id, v, s, _) -> id, writeTermUnsafe v s value) affectedFields
+        List.map (fun (id, _, v, s, _) -> id, writeTermUnsafe v s value) affectedFields
 
     let writeClassUnsafe state reportError address typ offset value =
         let readField fieldId = readClassField state address fieldId
@@ -1265,8 +1299,7 @@ module internal Memory =
         let updatedTerm = writeTermUnsafe term offset value
         writeStackLocation state loc updatedTerm
 
-    let private writeUnsafe state reportError baseAddress offset sightType value =
-        assert(sightType = typeof<Void> && isConcrete offset || int (internalSizeOf sightType) = sizeOf value)
+    let private writeUnsafe state reportError baseAddress offset value =
         match baseAddress with
         | HeapLocation(loc, sightType) ->
             let typ = mostConcreteTypeOfHeapRef state loc sightType
@@ -1287,7 +1320,7 @@ module internal Memory =
         let baseAddress, offset = Pointers.addressToBaseAndOffset address
         let ptr = Ptr baseAddress field.typ offset
         match ptr.term with
-        | Ptr(baseAddress, sightType, offset) -> writeUnsafe state (fun _ _ -> ()) baseAddress offset sightType value
+        | Ptr(baseAddress, _, offset) -> writeUnsafe state (fun _ _ -> ()) baseAddress offset value
         | _ -> internalfailf "expected to get ptr, but got %O" ptr
 
     let rec private writeSafe state address value =
@@ -1313,7 +1346,7 @@ module internal Memory =
     let write state reportError reference value =
         match reference.term with
         | Ref address -> writeSafe state address value
-        | Ptr(address, sightType, offset) -> writeUnsafe state reportError address offset sightType value
+        | Ptr(address, _, offset) -> writeUnsafe state reportError address offset value
         | _ -> internalfailf "Writing: expected reference, but got %O" reference
         state
 

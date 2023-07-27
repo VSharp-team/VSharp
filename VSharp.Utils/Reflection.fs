@@ -449,22 +449,6 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) = wrapField field, field
         FSharp.Collections.Array.map extractFieldInfo fields
 
-    let fieldIntersects (field : fieldId) =
-        let fieldInfo = getFieldInfo field
-        let fieldType = fieldInfo.FieldType
-        if fieldType.ContainsGenericParameters then false
-        else
-            let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-            let size = TypeUtils.internalSizeOf fieldType
-            let intersects o s = o + s > offset && o < offset + size
-            let fields = fieldsOf false field.declaringType
-            let checkIntersects (_, fieldInfo : FieldInfo) =
-                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
-                intersects o s
-            let intersectingFields = Array.filter checkIntersects fields
-            Array.length intersectingFields > 1
-
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
         let fs = fieldsOf false typ
@@ -489,9 +473,41 @@ module public Reflection =
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
-    let getFieldOffset fieldId =
+    // ------------------------------ Layout Utils ------------------------------
+
+    let getFieldOffset field =
+        if wrapField field = stringFirstCharField then 0
+        else CSharpUtils.LayoutUtils.GetFieldOffset field
+
+    let getFieldIdOffset fieldId =
         if fieldId = stringFirstCharField then 0
         else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
+
+    let blockSize (t : Type) =
+        if t.IsValueType then TypeUtils.internalSizeOf t
+        else CSharpUtils.LayoutUtils.ClassSize t
+
+    let arrayElementsOffset = CSharpUtils.LayoutUtils.ArrayElementsOffset
+
+    let stringElementsOffset = CSharpUtils.LayoutUtils.StringElementsOffset
+
+    let fieldIntersects (fieldId : fieldId) =
+        let fieldInfo = getFieldInfo fieldId
+        let fieldType = fieldInfo.FieldType
+        if fieldType.ContainsGenericParameters then false
+        else
+            let offset = getFieldIdOffset fieldId
+            let size = TypeUtils.internalSizeOf fieldType
+            let intersects o s = o + s > offset && o < offset + size
+            let fields = fieldsOf false fieldId.declaringType
+            let checkIntersects (_, fieldInfo : FieldInfo) =
+                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
+                intersects o s
+            let intersectingFields = Array.filter checkIntersects fields
+            Array.length intersectingFields > 1
+
+    // -------------------------------- Types --------------------------------
 
     let private cachedTypes = Dictionary<Type, bool>()
 

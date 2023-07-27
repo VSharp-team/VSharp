@@ -56,3 +56,7 @@ module internal Unsafe =
 
     [<Implements("System.Byte& System.Runtime.CompilerServices.RuntimeHelpers.GetRawData(System.Object)")>]
     val internal GetRawData : state -> term list -> term
+
+    [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.SkipInit(T&)")>]
+    [<Implements("System.Void System.Runtime.CompilerServices.Unsafe.SkipInit(T&)")>]
+    val internal SkipInit : state -> term list -> term

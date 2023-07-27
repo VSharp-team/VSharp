@@ -435,6 +435,24 @@ namespace IntegrationTests
             return 3;
         }
 
+        [Ignore("Need to add arrays into type candidates")]
+        public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
+        {
+            if (o[42] == str1)
+            {
+                if (str1 != String.Empty)
+                {
+                    s[42] = str2;
+                    if (o[42] == str2)
+                        return 1;
+                    if (o[42] != str1)
+                        throw new ArgumentException("unreachable");
+                }
+            }
+
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int MakeDefaultAndWrite(int k)
         {

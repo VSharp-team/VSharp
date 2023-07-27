@@ -20,7 +20,7 @@ module internal Pointers =
         | _ -> __unreachable__()
 
     let private getFieldOffset fieldId =
-        Reflection.getFieldOffset fieldId |> makeNumber
+        Reflection.getFieldIdOffset fieldId |> makeNumber
 
     let rec addressToBaseAndOffset (address : address) =
         match address with

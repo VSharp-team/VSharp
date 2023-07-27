@@ -45,6 +45,7 @@ type public SILIStatistics() =
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string>()
+    let emittedExceptions = HashSet<string * string>()
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
@@ -255,7 +256,9 @@ type public SILIStatistics() =
         visitedBlocksNotCoveredByTests.Remove s |> ignore
 
     member x.IsNewError (s : cilState) (errorMessage : string) =
-        emittedErrors.Add(s.ipStack, errorMessage)
+        match s.state.exceptionsRegister with
+        | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage)
+        | _ -> emittedErrors.Add(s.ipStack, errorMessage)
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO

@@ -715,6 +715,84 @@ namespace IntegrationTests
             return structValue.X;
         }
 
+        [TestSvm(65)]
+        public static int ReinterpretationVsNarrowCast(long l, int i)
+        {
+            long* p = &l;
+            if (*(UInt64*)p != (UInt64)l)
+                throw new ArgumentException("unreachable");
+            if (*(Int32*)p != (Int32)l)
+                throw new ArgumentException("unreachable");
+            if (*(UInt32*)p != (UInt32)l)
+                throw new ArgumentException("unreachable");
+            if (*(Int16*)p != (Int16)l)
+                throw new ArgumentException("unreachable");
+            if (*(char*)p != (char)l)
+                throw new ArgumentException("unreachable");
+            if (*(UInt16*)p != (UInt16)l)
+                throw new ArgumentException("unreachable");
+            if (*(sbyte*)p != (sbyte)l)
+                throw new ArgumentException("unreachable");
+            if (*(byte*)p != (byte)l)
+                throw new ArgumentException("unreachable");
+
+            int* p1 = &i;
+            if (*(Int64*)p1 != (Int64)i)
+                throw new Exception("reachable");
+            if (*(UInt64*)p1 != (UInt64)i)
+                throw new Exception("reachable");
+            if (*(UInt32*)p1 != (UInt32)i)
+                throw new ArgumentException("unreachable");
+            if (*(Int16*)p1 != (Int16)i)
+                throw new ArgumentException("unreachable");
+            if (*(char*)p1 != (char)i)
+                throw new ArgumentException("unreachable");
+            if (*(UInt16*)p1 != (UInt16)i)
+                throw new ArgumentException("unreachable");
+            if (*(sbyte*)p1 != (sbyte)i)
+                throw new ArgumentException("unreachable");
+            if (*(byte*)p1 != (byte)i)
+                throw new ArgumentException("unreachable");
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int DoubleReinterpretation(long a, int i, int j)
+        {
+            var p = &a;
+            var ptr = (int*)((byte*)p + i);
+            var v = *ptr;
+            ptr = (int*)((byte *)p + i);
+            *ptr = v;
+            return *(int*)((byte*)ptr + j);
+        }
+
+        [TestSvm(100)]
+        public static int DoubleReinterpretation1(int[] arr, int i, int j)
+        {
+            fixed (int* p = arr)
+            {
+                var ptr = (long*)((byte*)p + i);
+                var v = *ptr;
+                ptr = (long*)p + i;
+                *ptr = v;
+                return *(int*)((byte*)ptr + j);
+            }
+        }
+
+        [TestSvm(100)]
+        public static int DoubleWrite(long[] arr, int i, int v, byte v2)
+        {
+            fixed (long* p = arr)
+            {
+                var ptr = (int*)((byte*)p + i);
+                *ptr = v;
+                *(byte*)ptr = v2;
+                return *ptr;
+            }
+        }
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
