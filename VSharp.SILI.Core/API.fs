@@ -481,6 +481,10 @@ module API =
                 Memory.allocateString state (String('\000', 1))
             else Memory.allocateClass state typ
 
+        let AllocateMock state mock targetType =
+            let concreteAddress = Memory.allocateMockType state mock
+            HeapRef (ConcreteHeapAddress concreteAddress) targetType
+
         let AllocateDefaultArray state lengths typ =
             let zeroLowerBounds = List.map (fun _ -> makeNumber 0) lengths
             let address = Memory.allocateArray state typ zeroLowerBounds lengths

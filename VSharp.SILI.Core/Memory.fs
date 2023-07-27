@@ -430,16 +430,23 @@ module internal Memory =
 
 // -------------------------- Allocation helpers --------------------------
 
-    let freshAddress state =
+    let private freshAddress state =
         state.currentTime <- VectorTime.advance state.currentTime
         state.currentTime
 
-    let allocateType state (typ : Type) =
-        assert(not typ.IsAbstract)
+    let private allocateType state symbolicType =
         let concreteAddress = freshAddress state
         assert(not <| PersistentDict.contains concreteAddress state.allocatedTypes)
-        state.allocatedTypes <- PersistentDict.add concreteAddress (ConcreteType typ) state.allocatedTypes
+        state.allocatedTypes <- PersistentDict.add concreteAddress symbolicType state.allocatedTypes
         concreteAddress
+
+    let allocateConcreteType state (typ : Type) =
+        assert(not typ.IsAbstract)
+        allocateType state (ConcreteType typ)
+
+    let allocateMockType state mock =
+        allocateType state (MockType mock)
+
 
 // =============== Marshalling/unmarshalling without state changing ===============
 
@@ -455,7 +462,7 @@ module internal Memory =
             | None ->
                 let typ = mostConcreteType (obj.GetType()) t
                 if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
-                let concreteAddress = allocateType state typ
+                let concreteAddress = allocateConcreteType state typ
                 cm.Allocate concreteAddress obj
                 concreteAddress
         ConcreteHeapAddress address
@@ -1359,7 +1366,7 @@ module internal Memory =
     let allocateClass state typ =
         assert (not <| isSubtypeOrEqual typ typeof<String>)
         assert (not <| isSubtypeOrEqual typ typeof<Delegate>)
-        let concreteAddress = allocateType state typ
+        let concreteAddress = allocateConcreteType state typ
         match memoryMode with
         // TODO: it's hack for reflection, remove it after concolic will be implemented
         | _ when isSubtypeOrEqual typ typeof<Type> -> ()
@@ -1370,7 +1377,7 @@ module internal Memory =
     // TODO: unify allocation with unmarshalling
     let allocateArray state typ lowerBounds lengths =
         assert (isSubtypeOrEqual typ typeof<Array>)
-        let concreteAddress = allocateType state typ
+        let concreteAddress = allocateConcreteType state typ
         let arrayType = symbolicTypeToArrayType typ
         let address = ConcreteHeapAddress concreteAddress
         let concreteLengths = tryIntListFromTermList lengths
@@ -1390,7 +1397,7 @@ module internal Memory =
     let allocateConcreteVector state (elementType : Type) length contents =
         match memoryMode, length.term with
         | ConcreteMemory, Concrete(:? int as intLength, _) ->
-            let concreteAddress = allocateType state (elementType.MakeArrayType())
+            let concreteAddress = allocateConcreteType state (elementType.MakeArrayType())
             let array = Array.CreateInstance(elementType, intLength)
             Seq.iteri (fun i value -> array.SetValue(value, i)) contents
             state.concreteMemory.Allocate concreteAddress (array :> obj)
@@ -1441,7 +1448,7 @@ module internal Memory =
 
     let allocateDelegate state delegateTerm =
         let typ = typeOf delegateTerm
-        let concreteAddress = allocateType state typ
+        let concreteAddress = allocateConcreteType state typ
         let address = ConcreteHeapAddress concreteAddress
         // TODO: create real Delegate objects and use concrete memory
         state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
@@ -1449,7 +1456,7 @@ module internal Memory =
 
     let allocateBoxedLocation state value =
         let typ = typeOf value
-        let concreteAddress = allocateType state typ
+        let concreteAddress = allocateConcreteType state typ
         let address = ConcreteHeapAddress concreteAddress
         match memoryMode, tryTermToObj state value with
         // 'value' may be null, if it's nullable value type

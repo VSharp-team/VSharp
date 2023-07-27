@@ -266,6 +266,7 @@ module API =
         val AllocateTemporaryLocalVariable : state -> int -> Type -> term -> term
         val AllocateTemporaryLocalVariableOfType : state -> string -> int -> Type -> term
         val AllocateDefaultClass : state -> Type -> term
+        val AllocateMock : state -> ITypeMock -> Type -> term
         val AllocateDefaultArray : state -> term list -> Type -> term
         val AllocateVectorArray : state -> term -> Type -> term
         val AllocateConcreteVectorArray : state -> term -> Type -> 'a seq -> term
