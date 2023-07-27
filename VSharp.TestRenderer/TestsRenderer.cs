@@ -484,7 +484,7 @@ public static class TestsRenderer
             baseType.GetConstructors(instanceFlags)
                 .MinBy(ctor => ctor.GetParameters().Length);
         if (constructor == null)
-            throw new InvalidOperationException($"Can not find public constructors to create object of {baseType}");
+            return;
         var ctorRenderer = mock.AddMockMethod(constructor);
         var args = ctorRenderer.GetArgs();
         ctorRenderer.CallBaseConstructor(args);
