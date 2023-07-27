@@ -104,6 +104,7 @@ type typeSolvingResult =
 
 module TypeSolver =
 
+    let mutable private userAssembly = None
     type private substitution = pdict<Type, symbolicType>
 
     let getAssemblies() =
@@ -112,11 +113,15 @@ module TypeSolver =
             yield typeof<int>.Assembly
         }
 
-    let rec private enumerateNonAbstractSupertypes predicate (typ : Type) =
-        if typ = null || typ.IsAbstract then List.empty
-        else
-            let supertypes = enumerateNonAbstractSupertypes predicate typ.BaseType
-            if predicate typ then typ::supertypes else supertypes
+    let private enumerateNonAbstractSupertypes predicate (typ : Type) =
+        let rec getNonAbstractSupertypes predicate (t: Type) =
+            if typ = null || typ.IsAbstract then List.empty
+            else
+                let supertypes = getNonAbstractSupertypes predicate t.BaseType
+                if predicate typ then typ::supertypes else supertypes
+        assert userAssembly.IsSome
+        let types = getNonAbstractSupertypes predicate typ
+        candidates(types, None, userAssembly.Value)
 
     let private hasSubtypes (t : Type) =
         not t.IsSealed && not t.IsArray
@@ -125,11 +130,11 @@ module TypeSolver =
         (hasSubtypes t && TypeUtils.isPublic t) || TypeUtils.isDelegate t
 
     let private enumerateTypes supertypes mock validate assemblies =
-        seq {
+        let types = seq {
             if List.isEmpty supertypes && validate typeof<obj> then
-                yield ConcreteType typeof<obj>
+                yield typeof<obj>
             else
-                yield! supertypes |> Seq.filter validate |> Seq.map ConcreteType
+                yield! supertypes |> Seq.filter validate
             if List.forall hasSubtypes supertypes then
                 // This case is for reference types and interfaces (because value types are sealed)
                 let assemblies =
@@ -144,10 +149,12 @@ module TypeSolver =
                 for assembly in assemblies do
                     let types = assembly.GetExportedTypesChecked()
                     // TODO: in any assembly, there is no array types, so need to generate it manually
-                    yield! types |> Seq.filter suitable |> Seq.map ConcreteType
-            if List.forall canBeMocked supertypes then
-                yield mock supertypes |> MockType
+                    yield! types |> Seq.filter suitable
         }
+        
+        let mock = if List.forall canBeMocked supertypes then Some (mock supertypes) else None
+        assert userAssembly.IsSome
+        candidates(types, mock, userAssembly.Value)
 
     let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
         enumerateTypes supertypes mock (fun t -> not t.IsAbstract && validate t) assemblies
@@ -182,21 +189,24 @@ module TypeSolver =
         constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
 
     let private typeCandidates getMock subst constraints =
+        assert userAssembly.IsSome
         match constraints.supertypes |> List.tryFind (fun t -> t.IsSealed) with
         | Some t ->
             if TypeUtils.isDelegate t then
                 // Forcing mock usage for delegate types
                 let mock = getMock None constraints.supertypes
-                MockType mock |> Seq.singleton
+                candidates(Seq.empty, Some(mock), userAssembly.Value)
             else
-                ConcreteType t |> Seq.singleton
+                let types = t |> Seq.singleton
+                candidates(types, None, userAssembly.Value)
         | _ ->
             let validate = satisfiesConstraints constraints subst
             match constraints.subtypes with
             | [] ->
                 let assemblies = getAssemblies()
                 enumerateNonAbstractTypes constraints.supertypes (getMock None) validate assemblies
-            | t :: _ -> enumerateNonAbstractSupertypes validate t |> Seq.map ConcreteType
+            | t :: _ ->
+                 enumerateNonAbstractSupertypes validate t
 
     let private typeParameterCandidates getMock subst (parameter : Type, constraints : typeConstraints) =
         let validate typ = satisfiesTypeParameterConstraints parameter subst typ
@@ -265,17 +275,17 @@ module TypeSolver =
             elif satisfies then Some mock
             else None
 
-    let private solveConstraints typesConstraints (getCandidates : _ -> seq<symbolicType>) =
+    let private solveConstraints typesConstraints (getCandidates : _ -> candidates) =
         let typesCandidates = List.map getCandidates typesConstraints
-        if List.exists Seq.isEmpty typesCandidates then None
+        if typesCandidates |> List.exists (fun c -> c.IsEmpty) then None
         else Some typesCandidates
 
     let private solveTypesConstraints getMock typesConstraints subst =
         solveConstraints typesConstraints (typeCandidates getMock subst)
 
     let private solveGenericConstraints getMock indTypesConstraints subst =
-        let refineSubst candidates =
-            let candidates = List.map Seq.head candidates
+        let refineSubst (candidatesList : candidates list) =
+            let candidates = candidatesList |> List.map (fun l -> l.Pick())
             let types, _  = List.unzip indTypesConstraints
             List.zip types candidates
             |> PersistentDict.ofSeq
@@ -324,7 +334,7 @@ module TypeSolver =
                                 match solveTypesVarsRec (PersistentDict.add t cand subst) rest with
                                 | None -> tryCandidates subst cands
                                 | x -> x
-                        tryCandidates subst candidates
+                        tryCandidates subst candidates.Types
                 solveTypesVarsRec subst depGC
 
     let private getGenericParameters (m : IMethod) =
@@ -337,6 +347,7 @@ module TypeSolver =
 
     let solveMethodParameters (typeStorage : typeStorage) (m : IMethod) =
         let declaringType = m.DeclaringType
+        userAssembly <- Some declaringType.Assembly
         let methodBase = m.MethodBase
         let needToSolve =
             declaringType.IsGenericType && Array.isEmpty typeStorage.ClassesParams
@@ -354,14 +365,10 @@ module TypeSolver =
                 Some(classParams, methodParams)
             | None -> None
 
-    let private refineTypeSeq getMock typeConstraint types =
-        let refineType symbolicType =
-            match symbolicType with
-            | ConcreteType typ ->
-                if satisfiesConstraints typeConstraint (pdict.Empty()) typ then Some symbolicType
-                else None
-            | MockType mock -> refineMock getMock typeConstraint mock |> Option.map MockType
-        Seq.choose refineType types
+    let private refineCandidates getMock typeConstraint (candidates : candidates)  =
+        let satisfies (t : Type) = satisfiesConstraints typeConstraint (pdict.Empty()) t
+        let refineMock = refineMock getMock typeConstraint
+        candidates.Filter(satisfies, refineMock)
 
     let private refineStorage getMock (typeStorage : typeStorage) typeGenericArguments methodGenericArguments =
         let mutable emptyCandidates = false
@@ -372,11 +379,11 @@ module TypeSolver =
         for address in constraints.NewAddresses do
             if not emptyCandidates then
                 let typeConstraint = constraints[address]
-                let types = ref null
-                if addressesTypes.TryGetValue(address, types) then
-                    let types = refineTypeSeq getMock typeConstraint types.Value
-                    if Seq.isEmpty types then emptyCandidates <- true
-                    addressesTypes[address] <- types
+                let candidates = ref (candidates.Empty())
+                if addressesTypes.TryGetValue(address, candidates) then
+                    let candidates = refineCandidates getMock typeConstraint candidates.Value
+                    if candidates.IsEmpty then emptyCandidates <- true
+                    addressesTypes[address] <- candidates
                 else newAddresses.Add(address, typeConstraint)
 
         constraints.ClearNewAddresses()
@@ -439,14 +446,14 @@ module TypeSolver =
             let same = entry.Value
             let evaledType =
                 let address = Seq.head same
-                let types = addressesTypes[address]
-                assert(Seq.isEmpty types |> not)
+                let candidates = addressesTypes[address]
+                assert(candidates.IsEmpty |> not)
                 if same.Count > 1 then
                     let merged = mergeConstraints constraints same
-                    let refined = refineTypeSeq getMock merged types
-                    assert(Seq.isEmpty refined |> not)
-                    Seq.head refined
-                else Seq.head types
+                    let refined = refineCandidates getMock merged candidates
+                    assert(refined.IsEmpty |> not)
+                    refined.Pick()
+                else candidates.Pick()
             evaledTypes.Add(entry.Key, evaledType)
         evaledTypes
 
@@ -461,6 +468,7 @@ module TypeSolver =
 
     let solveTypes (model : model) (state : state) =
         let m = CallStack.stackTrace state.stack |> List.last
+        userAssembly <- Some m.DeclaringType.Assembly
         let typeParams, methodParams = getGenericParameters m
         let typeStorage = state.typeStorage
         let getMock = getMock typeStorage.TypeMocks
@@ -476,6 +484,7 @@ module TypeSolver =
         | TypeUnsat -> internalfail "Refining types: branch is unreachable"
 
     let getCallVirtCandidates state (thisRef : heapAddress) (thisType: Type) (ancestorMethod : IMethod) =
+        userAssembly <- Some ancestorMethod.DeclaringType.Assembly
         match thisRef.term with
         | HeapRef({term = ConcreteHeapAddress thisAddress}, _) when VectorTime.less state.startingTime thisAddress ->
             state.allocatedTypes[thisAddress] |> Seq.singleton
@@ -484,16 +493,18 @@ module TypeSolver =
             let typeStorage = state.typeStorage
             typeStorage.AddConstraint thisAddress thisConstraints
             let ancestorMethod = ancestorMethod.MethodBase :?> MethodInfo
-            let checkOverrides = function
-                | ConcreteType t -> Reflection.canOverrideMethod t ancestorMethod
-                | MockType _ -> true
+            let checkOverrides t =
+                 Reflection.canOverrideMethod t ancestorMethod
             let getMock = getMock typeStorage.TypeMocks
             let result = refineStorage getMock typeStorage Array.empty Array.empty
             match result with
             | TypeSat ->
-                let types = typeStorage[thisAddress].Value |> Seq.filter checkOverrides |> Seq.truncate 15
-                typeStorage[thisAddress] <- types
-                types
+                let candidates = typeStorage[thisAddress].Value
+                let optionMock m = Some m
+                let filtered = candidates.Filter(checkOverrides, optionMock)
+                let truncated = filtered.Take(5)
+                typeStorage[thisAddress] <- truncated
+                truncated.Types
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
             assert(thisType = typeOfAddress address)

@@ -283,7 +283,7 @@ and typeStorage private (constraints, addressesTypes, typeMocks, classesParams, 
 
     new() =
         let constraints = typesConstraints()
-        let addressesTypes = Dictionary<term, symbolicType seq>()
+        let addressesTypes = Dictionary<term, candidates>()
         let typeMocks = Dictionary<Type list, ITypeMock>()
         let classesParams : symbolicType[] = Array.empty
         let methodsParams : symbolicType[] = Array.empty
@@ -307,19 +307,17 @@ and typeStorage private (constraints, addressesTypes, typeMocks, classesParams, 
         let newAddressesTypes = Dictionary()
         for entry in addressesTypes do
             let address = entry.Key
-            let types = entry.Value
-            let changeType = function
-                | ConcreteType _ as t -> t
-                | MockType m ->
-                    let superTypes = Seq.toList m.SuperTypes
-                    let mock = ref (EmptyTypeMock() :> ITypeMock)
-                    if newTypeMocks.TryGetValue(superTypes, mock) then MockType mock.Value
-                    else
-                        let newMock = m.Copy()
-                        newTypeMocks.Add(superTypes, newMock)
-                        MockType newMock
-            let newTypes = Seq.map changeType types
-            newAddressesTypes.Add(address, newTypes)
+            let addressCandidates = entry.Value
+            let changeMock (m : ITypeMock) = 
+                let superTypes = Seq.toList m.SuperTypes
+                let mock = ref (EmptyTypeMock() :> ITypeMock)
+                if newTypeMocks.TryGetValue(superTypes, mock) then mock.Value
+                else
+                    let newMock = m.Copy()
+                    newTypeMocks.Add(superTypes, newMock)
+                    newMock 
+            let newCandidates = addressCandidates.Copy(changeMock)
+            newAddressesTypes.Add(address, newCandidates)
         typeStorage(newConstraints, newAddressesTypes, newTypeMocks, classesParams, methodsParams)
 
     member x.AddConstraint address typeConstraint =
@@ -327,15 +325,85 @@ and typeStorage private (constraints, addressesTypes, typeMocks, classesParams, 
 
     member x.Item
         with get (address : term) =
-            let types = ref null
-            if addressesTypes.TryGetValue(address, types) then Some types.Value
+            let t = ref (candidates.Empty())
+            if addressesTypes.TryGetValue(address, t) then Some t.Value
             else None
-        and set (address : term) (types : symbolicType seq) =
-            assert(Seq.isEmpty types |> not)
-            addressesTypes[address] <- types
+        and set (address : term) (candidates : candidates) =
+            assert(candidates.IsEmpty |> not)
+            addressesTypes[address] <- candidates
 
     member x.IsValid with get() = addressesTypes.Count = constraints.Count
 
+and
+    candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, privateBuiltInTypes, rest, mock, userAssembly) =
+        let orderedTypes = seq {
+            yield! publicBuiltInTypes
+            yield! publicUserTypes
+            yield! privateUserTypes
+            yield! privateBuiltInTypes
+            yield! rest
+        }
+        
+        new(types : seq<Type> , mock: ITypeMock option, userAssembly : Reflection.Assembly) =
+            let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && TypeUtils.isBuiltInType t
+            let isPrivateBuiltIn (t: Type) = not (TypeUtils.isPublic t) && TypeUtils.isBuiltInType t
+            let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
+            let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
+            let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
+            let privateBuiltInTypes = types |> Seq.filter isPrivateBuiltIn
+            let publicUserTypes = types |> Seq.filter isPublicUser
+            let privateUserTypes = types |> Seq.filter isPrivateUser
+            let predicates = Seq.ofList [isPublicBuiltIn; isPrivateBuiltIn; isPublicUser; isPrivateUser]
+            let rest = Seq.fold (fun types predicate -> Seq.filter (predicate >> not) types) types predicates                      
+            candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, privateBuiltInTypes, rest, mock, userAssembly)
+            
+        member x.IsEmpty
+            with get() =
+                match mock with
+                | Some _ -> false
+                | None -> Seq.isEmpty x.Types
+            
+        member x.Types =
+            seq {
+                yield! orderedTypes |> Seq.map ConcreteType
+                if mock.IsSome then yield mock.Value |> MockType
+            }
+            
+        static member Empty() =
+            candidates(Seq.empty, None, typeof<int>.Assembly)
+            
+        member x.Copy(changeMock: ITypeMock -> ITypeMock) =
+            let newMock =
+                match mock with
+                | Some m -> Some (changeMock m)
+                | None -> None
+            candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, privateBuiltInTypes, rest, newMock, userAssembly)
+            
+        member x.Pick() =
+            Seq.head x.Types
+                
+        member x.Filter(typesPredicate, refineMock : ITypeMock -> ITypeMock option) =
+            let publicBuiltInTypes = Seq.filter typesPredicate publicBuiltInTypes
+            let publicUserTypes = Seq.filter typesPredicate publicUserTypes
+            let privateUserTypes = Seq.filter typesPredicate privateUserTypes
+            let privateBuiltInTypes = Seq.filter typesPredicate privateBuiltInTypes
+            let rest = Seq.filter typesPredicate rest
+            let mock =
+                match mock with
+                | Some typeMock -> refineMock typeMock
+                | None -> None
+            candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, privateBuiltInTypes, rest, mock, userAssembly)
+            
+        member x.Take(count) =
+            let types =
+                match mock with
+                | Some _ ->
+                    seq {
+                         yield! Seq.truncate (count - 1) orderedTypes
+                    }
+                | None -> Seq.truncate count orderedTypes
+            candidates(types, mock, userAssembly)
+    
 and
     [<ReferenceEquality>]
     state = {
