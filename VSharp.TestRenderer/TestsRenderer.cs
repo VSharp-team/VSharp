@@ -255,12 +255,15 @@ public static class TestsRenderer
         if (method.IsConstructor)
             return $"{NameForType(method.DeclaringType)}Constructor";
 
-        if (IsGetPropertyMethod(method, out var testName))
-            return $"Get{testName}";
-
-        if (IsSetPropertyMethod(method, out testName))
-            return $"Set{testName}";
-
+        if (IsPropertyMethod(method, out var testName, out var accessorType))
+        {
+            return accessorType switch
+            {
+                AccessorType.Get => $"Get{testName}",
+                AccessorType.Set => $"Set{testName}",
+                _ => throw new ArgumentOutOfRangeException()
+            };
+        }
         return method.Name;
 
     }
@@ -346,7 +349,7 @@ public static class TestsRenderer
         f.CallingTest = callMethod.NormalizeWhitespace().ToString();
 
         var hasResult = Reflection.hasNonVoidResult(method) || method.IsConstructor;
-        var shouldUseDecl = method.IsConstructor || IsGetPropertyMethod(method, out _);
+        var shouldUseDecl = method.IsConstructor || IsPropertyMethod(method, out _, out var accessorType) && accessorType == AccessorType.Get ;
         var shouldCompareResult = hasResult && ex == null && !isError;
 
         if (shouldCompareResult)
