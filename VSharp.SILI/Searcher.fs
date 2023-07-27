@@ -64,10 +64,18 @@ type DFSSearcher() =
     let states = List<cilState>()
 
     let update parent newStates =
-        if Seq.isEmpty newStates |> not then
-            let last = states.Count - 1
-            assert(states[last] = parent)
-            states.RemoveAt(last)
+        let last = states.Count - 1
+        if states[last] = parent then
+            if Seq.isEmpty newStates |> not then
+                assert(states[last] = parent)
+                states.RemoveAt(last)
+                for newState in newStates do
+                    assert(states.Contains newState |> not)
+                    states.Add newState
+                states.Add(parent)
+        else
+            let success = states.Remove(parent)
+            assert(success)
             for newState in newStates do
                 assert(states.Contains newState |> not)
                 states.Add newState
