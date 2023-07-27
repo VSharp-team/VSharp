@@ -311,5 +311,9 @@ module TestGenerator =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
+        model2test test isError indices mockCache m state.model state message
 
+    let public state2testWithMockingCache isError (m : Method) (state : state) mockCache message =
+        let indices = Dictionary<concreteHeapAddress, int>()
+        let test = UnitTest((m :> IMethod).MethodBase)
         model2test test isError indices mockCache m state.model state message
