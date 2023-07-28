@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 
 import websocket
-
 from .requests import aquire_ws, return_ws
 
 

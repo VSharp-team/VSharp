@@ -4,11 +4,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional
 
-from .unsafe_json import obj_from_dict
+from dataclasses_json import config, dataclass_json
 
 from common.game import GameMap, GameState, Reward
-from dataclasses_json import config, dataclass_json
 from config import FeatureConfig
+
+from .unsafe_json import obj_from_dict
 
 
 class ClientMessageType(str, Enum):

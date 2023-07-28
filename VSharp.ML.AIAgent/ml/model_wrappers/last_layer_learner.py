@@ -1,5 +1,7 @@
 import random
 
+from protocols import Predictor
+
 from common.constants import BASE_NN_OUT_FEATURES_NUM, IMPORTED_DICT_MODEL_PATH
 from common.game import GameState
 from config import FeatureConfig
@@ -8,12 +10,10 @@ from ml.model_wrappers.utils import gen_name
 from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 from ml.utils import load_model_with_last_layer
 
-from .protocols import ModelWrapper
-
 MAX_W, MIN_W = 1, -1
 
 
-class LastLayerLearner(ModelWrapper):
+class LastLayerLearner(Predictor):
     def name(self) -> str:
         return self._name
 
@@ -55,13 +55,13 @@ class LastLayerLearner(ModelWrapper):
         return super().train_single_val()
 
     def copy(self, new_name: str) -> "LastLayerLearner":
-        assert new_name != self.name()
+        assert new_name != self._name
         copy = LastLayerLearner(self.weights.copy())
         copy.rename(new_name)
         return copy
 
     def __str__(self) -> str:
-        return f"{self.name()}: {self.weights}"
+        return f"{self._name}: {self.weights}"
 
     def __hash__(self) -> int:
         return self.__str__().__hash__()

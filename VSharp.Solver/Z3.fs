@@ -911,8 +911,8 @@ module internal Z3 =
             | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
             | _ ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t.[expr]
-                elif expr.IsTrue then True
-                elif expr.IsFalse then False
+                elif expr.IsTrue then True()
+                elif expr.IsFalse then False()
                 elif expr.IsNot then x.DecodeBoolExpr OperationType.LogicalNot expr
                 elif expr.IsAnd then x.DecodeBoolExpr OperationType.LogicalAnd expr
                 elif expr.IsOr then x.DecodeBoolExpr OperationType.LogicalOr expr
