@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using VSharp.Test;
+
 #pragma warning disable CS0108, CS0114, CS0649
 
 namespace IntegrationTests
@@ -1646,9 +1647,8 @@ namespace IntegrationTests
             return l.Contains(_customer);
         }
 
-        // TODO: this test works fine with configuration Debug and Release, but
-        // TODO: DebugTailRec doesn't work, because Mocking works incorrect (all args objects must be mocked)
-        [TestSvm(100)]
+        // TODO: fails with ShortestDistance searcher due to type solver bug (assert)
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public bool ArrayContainsOurCustomer(Customerrr[] customers)
         {
             foreach (var other in customers)

@@ -47,7 +47,7 @@ type cilState =
             match x.ipStack with
             | [Exit m] -> Types.Cast result m.ReturnType
             | _ when x.state.exceptionsRegister.UnhandledError -> Nop
-            | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
+            | _ -> internalfailf $"Method is not finished! IpStack = {x.ipStack}"
         | _ -> internalfail "EvaluationStack size was bigger than 1"
 
     interface IGraphTrackableState with
@@ -285,6 +285,7 @@ module internal CilStateOperations =
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
+    // TODO: not used
     let moveIp offset (m : Method) cilState =
         assert m.HasBody
         let opCode = MethodBody.parseInstruction m offset

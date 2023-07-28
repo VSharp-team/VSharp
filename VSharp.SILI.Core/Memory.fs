@@ -818,7 +818,7 @@ module internal Memory =
         let size = sizeOf address
         match startByte.term, endByte.term with
         | Concrete(:? int as s, _), Concrete(:? int as e, _) when s = 0 && size = e -> List.singleton address
-        | _ -> sprintf "reading: reinterpreting %O" address |> undefinedBehaviour
+        | _ -> $"Reading: reinterpreting {address}" |> undefinedBehaviour
 
     let sliceTerm term startByte endByte pos stablePos =
         match term.term with
@@ -988,7 +988,7 @@ module internal Memory =
                 | StructType _ -> readBoxedUnsafe state loc typ offset viewSize
                 | _ when isPrimitive typ || typ.IsEnum ->
                     readBoxedUnsafe state loc typ offset viewSize
-                | _ -> internalfailf "expected complex type, but got %O" typ
+                | _ -> internalfailf $"Expected complex type, but got {typ}"
             | StackLocation loc -> readStackUnsafe state reportError loc offset viewSize
             | StaticLocation loc -> readStaticUnsafe state reportError loc offset viewSize
         combine slices sightType
@@ -1019,12 +1019,12 @@ module internal Memory =
         | Ref address -> readSafe state address
         | Ptr(baseAddress, sightType, offset) -> readUnsafe state reportError baseAddress offset sightType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state reportError v)) |> Merging.merge
-        | _ -> internalfailf "Safe reading: expected reference, but got %O" reference
+        | _ -> internalfailf $"Safe reading: expected reference, but got {reference}"
 
 // ------------------------------- Writing -------------------------------
 
     let rec private ensureConcreteType typ =
-        if isOpenType typ then __insufficientInformation__ "Cannot write value of generic type %O" typ
+        if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
 
     let writeStackLocation (s : state) key value =
         s.stack <- CallStack.writeStackLocation s.stack key value

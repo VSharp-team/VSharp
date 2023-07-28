@@ -139,6 +139,7 @@ type public SILI(options : SiliOptions) =
         reportState action.Invoke true state errorMessage
 
     let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
+        searcher.Remove state
         statistics.IncompleteStates.Add(state)
         Application.terminateState state
         action.Invoke state.iie.Value
@@ -153,6 +154,7 @@ type public SILI(options : SiliOptions) =
                 state.iie <- Some e
             reportStateIncomplete state
         | _ ->
+            searcher.Remove state
             statistics.InternalFails.Add(e)
             Application.terminateState state
             action.Invoke(entryMethodOf state, e)
@@ -220,7 +222,7 @@ type public SILI(options : SiliOptions) =
                     Some this
             let parameters = SILI.AllocateByRefParameters initialState method
             ILInterpreter.InitFunctionFrame initialState method this (Some parameters)
-            let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
+            let cilStates = ILInterpreter.CheckDisallowNullAttribute method None cilState false id
             assert (List.length cilStates = 1)
             let [cilState] = cilStates
             interpreter.InitializeStatics cilState method.DeclaringType List.singleton

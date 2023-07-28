@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using NUnit.Framework;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -82,7 +81,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class Blockchain
     {
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static long test(long time)
         {
             var miner = new BlockMiner();
@@ -90,7 +89,7 @@ namespace IntegrationTests
             return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int test2(long time)
         {
             var a = new BlockMiner();
@@ -99,7 +98,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int test6(long time, bool f)
         {
             var a = new BlockMiner();
@@ -113,7 +112,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int test3(long time)
         {
             var a = new BlockMiner();
@@ -122,7 +121,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm(126)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static long test4(long time)
         {
             var a = new BlockMiner();

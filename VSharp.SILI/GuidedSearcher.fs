@@ -21,7 +21,7 @@ type TargetedSearcher(target) =
             let currLoc = tryCurrentLoc state
             match currLoc with
             | Some loc ->
-                let cfg = loc.method.ForceCFG
+                let cfg = loc.method.CFG
                 cfg.IsBasicBlockStart loc.offset
             | None -> false
 
@@ -38,9 +38,9 @@ type TargetedSearcher(target) =
             | None ->
                 removeTarget state target |> ignore
             | _ -> ()
-        
+
         wasAnyUpdated
-        
+
     member x.ReachedTarget (state : cilState) =
         match x.TryGetWeight state with
         | Some 0u -> true
@@ -54,13 +54,13 @@ type RecursionBasedTargetManager(statistics : SILIStatistics, threshold : uint) 
     interface ITargetManager with
         override x.IsStuck state =
             match tryCurrentLoc state with
-            | Some currLoc when currLoc.method.CFG.IsSome ->
-                let cfg = currLoc.method.ForceCFG
+            | Some currLoc ->
+                let cfg = currLoc.method.CFG
                 let onVertex = cfg.IsBasicBlockStart currLoc.offset
                 let level = if PersistentDict.contains currLoc state.level then state.level.[currLoc] else 0u
                 onVertex && level > threshold
             | _ -> false
-        
+
         override x.CalculateTarget state =
             let locStack = state.ipStack |> Seq.choose ipOperations.ip2codeLocation
             let inCoverageZone loc = loc.method.InCoverageZone
@@ -89,7 +89,7 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
     let addReturnTarget state =
         let startingLoc = startingLoc state
         let startingMethod = startingLoc.method
-        let cfg = startingMethod.ForceCFG
+        let cfg = startingMethod.CFG
 
         for retOffset in cfg.Sinks do
             let target = {offset = retOffset.StartOffset; method = startingMethod}
@@ -112,36 +112,36 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
             for target in state.targets do
                 let targetStates = Dict.getValueOrUpdate cilStatesByTarget target (fun () -> List())
                 targetStates.Add state
-                
+
         let statesReachedTarget = HashSet<cilState>()
-                
+
         for KeyValue(target, states) in cilStatesByTarget do
             let targetedSearcher = getTargetedSearcher target
-            
+
             if parent.targets.Contains target then
                 targetedSearcher.Update(parent, newStates) |> ignore
             else
                 Seq.iter (targetedSearcher.Insert >> ignore) newStates
-                
+
             let statesReachedCurrentTarget = Seq.cons parent states |> Seq.filter targetedSearcher.ReachedTarget
             if not <| Seq.isEmpty statesReachedTarget then
                 deleteTargetedSearcher target
                 Seq.iter (statesReachedTarget.Add >> ignore) statesReachedCurrentTarget
-                
+
         Seq.iter addReturnTarget statesReachedTarget
-    
-    let init states = 
+
+    let init states =
         baseSearcher.Init states
         for state in states do
             for target in state.targets do
                 insertInTargetedSearcher state target |> ignore
-    
+
     let pick (selector : (cilState -> bool) option) =
         let pickInternal (searcher : IForwardSearcher) =
             match selector with
             | Some selector -> searcher.Pick selector
             | None -> searcher.Pick()
-            
+
         let pickFromTargetedSearcher() =
             let currentTargetedSearcher = (Seq.item index targetedSearchers).Value
             match pickInternal currentTargetedSearcher with
@@ -150,24 +150,24 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
                 seq { yield! Seq.cast<IForwardSearcher> targetedSearchers.Values; yield baseSearcher }
                 |> Seq.filter (fun s -> s <> currentTargetedSearcher)
                 |> Seq.tryPick pickInternal
-                
+
         let size = targetedSearchers.Count
         index <- (index + 1) % (size + 1)
         if index <> size then
             pickFromTargetedSearcher()
         else
             pickInternal baseSearcher
-            
+
     let remove cilState =
         baseSearcher.Remove cilState
         for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Remove cilState
-                
-    let update parent newStates =        
+
+    let update parent newStates =
         baseSearcher.Update (parent, newStates)
         updateTargetedSearchers parent newStates
-        
+
         for state in Seq.cons parent newStates do
-            if Set.isEmpty state.targets && targetManager.IsStuck state then                
+            if Set.isEmpty state.targets && targetManager.IsStuck state then
                 match targetManager.CalculateTarget state with
                 | Some target ->
                     addTarget state target |> ignore
@@ -177,7 +177,7 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
                 | None ->
                     state.targets <- Set.empty
                     remove state
-                    
+
         let targetsWithEmptySearchers = targetedSearchers |> Seq.filter (fun (KeyValue(_, s)) -> s.Count = 0u) |> Seq.toList
         for KeyValue(t, _) in targetsWithEmptySearchers do
             deleteTargetedSearcher t
@@ -187,10 +187,10 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
         for searcher in targetedSearchers.Values do (searcher :> IForwardSearcher).Reset()
 
     interface IForwardSearcher with
-        override x.Init states = init states                    
+        override x.Init states = init states
         override x.Pick() = pick None
-        override x.Pick selector = pick (Some selector)        
-        override x.Update (parent, newStates) = update parent newStates            
+        override x.Pick selector = pick (Some selector)
+        override x.Update (parent, newStates) = update parent newStates
         override x.States() = baseSearcher.States()
         override x.Reset() = reset()
         override x.Remove cilState = remove cilState

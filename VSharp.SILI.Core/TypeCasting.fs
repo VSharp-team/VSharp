@@ -184,7 +184,7 @@ module internal TypeCasting =
 
     let private doCast term targetType =
         match term.term, targetType with
-        | Ptr(address, _, indent), Pointer typ' -> Ptr address typ' indent
+        | Ptr(address, _, indent), Pointer typ -> Ptr address typ indent
         // Converting IntPtr to number
         | DetachedPtr offset, Numeric t -> primitiveCast offset t
         // Converting ptr to number (conv.u8 instruction, for example) results in the same ptr, because number conversion is pointless
@@ -193,8 +193,11 @@ module internal TypeCasting =
         // CASE: pointer from concolic
         | Ptr(address, Void, offset), ByRef typ' -> Ptr address typ' offset
         | Ptr _, ByRef _ ->
-            Logger.trace "Casting nonnull ptr to ByRef type %O" targetType
+            Logger.trace $"Casting nonnull ptr to ByRef type {targetType}"
             term
+        | Ptr(address, _, indent), typ ->
+            Logger.warning $"Casting pointer {term} to non-pointer type {typ}"
+            Ptr address typ indent
         | Ref _, ByRef _ -> term
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
@@ -206,11 +209,11 @@ module internal TypeCasting =
         | HeapRef(addr, sightType), _ when isAssignable sightType targetType || isAssignable targetType sightType ->
             HeapRef addr targetType
         | HeapRef _, _ ->
-            Logger.trace "unsafe cast in safe context: address %O, type %O" term targetType
+            Logger.trace $"Unsafe cast in safe context: address {term}, type {targetType}"
             term
 //            Ptr (HeapLocation addr) typ (makeNumber 0)
-        | Struct _, _ -> internalfailf "Casting struct to %O" targetType
-        | _ -> internalfailf "Can't cast %O to type %O" term targetType
+        | Struct _, _ -> internalfailf $"Casting struct to {targetType}"
+        | _ -> internalfailf $"Can't cast {term} to type {targetType}"
 
     let canCast state term targetType =
         let castCheck term =
