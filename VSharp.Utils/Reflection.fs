@@ -35,10 +35,10 @@ module public Reflection =
 
     let staticBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let instanceBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
