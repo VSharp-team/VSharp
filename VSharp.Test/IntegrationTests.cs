@@ -42,6 +42,13 @@ namespace VSharp.Test
         RenderAndRun
     }
 
+    public enum OsType
+    {
+        All,
+        Windows,
+        Unix
+    }
+
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
     {
         public IEnumerable<TestSuite> BuildFrom(ITypeInfo typeInfo)
@@ -93,6 +100,7 @@ namespace VSharp.Test
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
         private readonly bool _hasExternMocking;
+        private readonly OsType _supportedOs;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -104,7 +112,8 @@ namespace VSharp.Test
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
             bool checkAttributes = true,
-            bool hasExternMocking = false)
+            bool hasExternMocking = false,
+            OsType supportedOs = OsType.All)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -120,6 +129,7 @@ namespace VSharp.Test
             _testsCheckerMode = testsCheckerMode;
             _checkAttributes = checkAttributes;
             _hasExternMocking = hasExternMocking;
+            _supportedOs = supportedOs;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -135,7 +145,8 @@ namespace VSharp.Test
                 _coverageZone,
                 _testsCheckerMode,
                 _checkAttributes,
-                _hasExternMocking
+                _hasExternMocking,
+                _supportedOs
             );
         }
 
@@ -154,6 +165,7 @@ namespace VSharp.Test
             private readonly bool _renderTests;
             private readonly bool _checkAttributes;
             private readonly bool _hasExternMocking;
+            private readonly OsType _supportedOs;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -166,7 +178,8 @@ namespace VSharp.Test
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
-                bool hasExternMocking) : base(innerCommand)
+                bool hasExternMocking,
+                OsType supportedOs) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -209,14 +222,32 @@ namespace VSharp.Test
                 _checkAttributes = checkAttributes;
 
                 _hasExternMocking = hasExternMocking;
+                _supportedOs = supportedOs;
+            }
+
+            private TestResult IgnoreTest(TestExecutionContext context)
+            {
+                context.CurrentResult.SetResult(ResultState.Skipped);
+                return context.CurrentResult;
             }
 
             private TestResult Explore(TestExecutionContext context)
             {
                 if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
+                    return IgnoreTest(context);
+
+                switch (_supportedOs)
                 {
-                    context.CurrentResult.SetResult(ResultState.Skipped);
-                    return context.CurrentResult;
+                    case OsType.Windows:
+                        if (!OperatingSystem.IsWindows())
+                            return IgnoreTest(context);
+                        break;
+                    case OsType.Unix:
+                        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+                            return IgnoreTest(context);
+                        break;
+                    case OsType.All:
+                        break;
                 }
 
                 IStatisticsReporter reporter = null;
