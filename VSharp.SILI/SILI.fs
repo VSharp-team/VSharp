@@ -364,7 +364,7 @@ type public SILI(options : SiliOptions) =
                     | :? BidirectionalSearcher as searcher ->
                         match searcher.ForwardSearcher with
                         | :? AISearcher as searcher ->
-                            let gameState, statisticsAfterStep,_ = collectGameState s.currentLoc
+                            let gameState, statisticsAfterStep = collectGameState s.currentLoc
                             searcher.LastGameState <- gameState
                             searcher.LastCollectedStatistics <- statisticsAfterStep
                             let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
@@ -374,7 +374,7 @@ type public SILI(options : SiliOptions) =
                     | _ -> ()
                     if options.serialize
                     then 
-                        let _,statistics2,_ = collectGameState s.currentLoc
+                        let _,statistics2 = collectGameState s.currentLoc
                         saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
                 with
                 | e ->

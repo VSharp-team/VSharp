@@ -240,7 +240,7 @@ let collectGameState (location:codeLocation) =
                 basicBlockToIdMap.Add(basicBlock, id)
                 id
     
-    let statesMetrics = ResizeArray<_>()
+    //let statesMetrics = ResizeArray<_>()
 
     let activeStates =
         basicBlocks
@@ -275,12 +275,12 @@ let collectGameState (location:codeLocation) =
         then
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
         
-        let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
+        //let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
         
         let states =
             currentBasicBlock.AssociatedStates
             |> Seq.map (fun s ->
-                statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
+                //statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
                       s.PredictedUsefulness,
@@ -310,7 +310,7 @@ let collectGameState (location:codeLocation) =
         |> (fun x -> vertices.Add(x.Id,x))
         
         
-    let statesInfoToDump =
+    (*let statesInfoToDump =
         let mutable maxVisitedVertices = UInt32.MinValue
         let mutable maxChildNumber = UInt32.MinValue
         let mutable minDistToUncovered = UInt32.MaxValue
@@ -346,7 +346,7 @@ let collectGameState (location:codeLocation) =
                                                       , normalize minDistToReturn m.DistanceToNearestReturn m 
                                                       , normalize minDistToUncovered m.DistanceToNearestUncovered m
                                                       , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
-    
+    *)
     let edges = ResizeArray<_>()
     
     for kvp in basicBlocks do
@@ -359,14 +359,14 @@ let collectGameState (location:codeLocation) =
                 
     GameState (vertices.Values |> Array.ofSeq, allStates |> Array.ofSeq, edges.ToArray())
     , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
-    , statesInfoToDump
+    //, statesInfoToDump
 
 let dumpGameState (location:codeLocation) fileForResultWithoutExtension =
-    let gameState, statistics, statesInfoToDump = collectGameState location
+    let gameState, statistics(*, statesInfoToDump*) = collectGameState location
     let gameStateJson = JsonSerializer.Serialize gameState
-    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
+    //let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
     System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
-    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
+    //System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
     statistics
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =
