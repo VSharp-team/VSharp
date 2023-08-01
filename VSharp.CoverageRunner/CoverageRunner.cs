@@ -62,7 +62,7 @@ namespace VSharp.CoverageRunner
             return proc.ExitCode == 0;
         }
 
-        private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodInfo method)
+        private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodBase method)
         {
             var profilerPath = GetProfilerPath();
 
@@ -108,7 +108,7 @@ namespace VSharp.CoverageRunner
         private static void PrintCoverage(
             IEnumerable<BasicBlock> allBlocks,
             IReadOnlySet<BasicBlock> visited,
-            MethodInfo methodInfo)
+            MethodBase methodInfo)
         {
             var sb = new StringBuilder();
             sb.AppendLine($"Coverage for method {methodInfo}:");
@@ -127,7 +127,7 @@ namespace VSharp.CoverageRunner
             Logger.writeLine(sb.ToString());
         }
 
-        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodInfo methodInfo)
+        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodBase methodInfo)
         {
             // filtering coverage records that are only relevant to this method
             var visitedInMethod =
@@ -151,7 +151,7 @@ namespace VSharp.CoverageRunner
             return (int)Math.Floor(100 * ((double)coveredSize / cfg.MethodSize));
         }
 
-        public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodInfo methodInfo)
+        public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodBase methodInfo)
         {
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
             if (!success)

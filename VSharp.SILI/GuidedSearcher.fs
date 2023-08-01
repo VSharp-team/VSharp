@@ -200,5 +200,5 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
 type ShortestDistanceBasedSearcher(statistics : SILIStatistics) =
     inherit WeightedSearcher(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())
 
-type RandomShortestDistanceBasedSearcher(statistics : SILIStatistics) =
-    inherit WeightedSearcher(AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)), DiscretePDF(mkCilStateHashComparer))
+type RandomShortestDistanceBasedSearcher(statistics : SILIStatistics, randomSeed : int option) =
+    inherit WeightedSearcher(AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)), DiscretePDF(mkCilStateHashComparer, randomSeed))

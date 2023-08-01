@@ -104,6 +104,7 @@ namespace VSharp.Test
         private readonly bool _hasExternMocking;
         private readonly OsType _supportedOs;
         private readonly int _randomSeed;
+        private readonly uint _stepsLimit;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -117,7 +118,8 @@ namespace VSharp.Test
             bool checkAttributes = true,
             bool hasExternMocking = false,
             OsType supportedOs = OsType.All,
-            int randomSeed = 0)
+            int randomSeed = 0,
+            uint stepsLimit = 0)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -135,6 +137,7 @@ namespace VSharp.Test
             _hasExternMocking = hasExternMocking;
             _supportedOs = supportedOs;
             _randomSeed = randomSeed;
+            _stepsLimit = stepsLimit;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -152,7 +155,8 @@ namespace VSharp.Test
                 _checkAttributes,
                 _hasExternMocking,
                 _supportedOs,
-                _randomSeed
+                _randomSeed,
+                _stepsLimit
             );
         }
 
@@ -173,6 +177,7 @@ namespace VSharp.Test
             private readonly bool _hasExternMocking;
             private readonly OsType _supportedOs;
             private readonly int _randomSeed;
+            private readonly uint _stepsLimit;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -187,7 +192,8 @@ namespace VSharp.Test
                 bool checkAttributes,
                 bool hasExternMocking,
                 OsType supportedOs,
-                int randomSeed) : base(innerCommand)
+                int randomSeed,
+                uint stepsLimit) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -233,6 +239,7 @@ namespace VSharp.Test
                 _hasExternMocking = hasExternMocking;
                 _supportedOs = supportedOs;
                 _randomSeed = randomSeed;
+                _stepsLimit = stepsLimit;
             }
 
             private TestResult IgnoreTest(TestExecutionContext context)
@@ -297,7 +304,8 @@ namespace VSharp.Test
                         maxBufferSize: 128,
                         checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
-                        randomSeed: _randomSeed
+                        randomSeed: _randomSeed,
+                        stepsLimit: _stepsLimit
                     );
                     using var explorer = new SILI(_options);
 

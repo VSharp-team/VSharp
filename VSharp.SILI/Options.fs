@@ -25,7 +25,7 @@ type explorationMode =
 type SiliOptions = {
     explorationMode : explorationMode
     outputDirectory : DirectoryInfo
-    recThreshold : uint32
+    recThreshold : uint
     timeout : int
     solverTimeout : int
     visualize : bool
@@ -34,4 +34,5 @@ type SiliOptions = {
     checkAttributes : bool
     stopOnCoverageAchieved : int
     randomSeed : int
+    stepsLimit : uint
 }
