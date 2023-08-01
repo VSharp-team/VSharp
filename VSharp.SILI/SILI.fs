@@ -74,6 +74,7 @@ type public SILI(options : SiliOptions) =
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
         | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher statistics :> IForwardSearcher
         | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
+        | ExecutionTreeMode -> ExecutionTreeSearcher(if options.randomSeed < 0 then None else Some options.randomSeed)
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->

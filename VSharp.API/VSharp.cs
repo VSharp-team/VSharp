@@ -8,7 +8,6 @@ using System.Reflection;
 using System.Text;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
-using VSharp.Solver;
 
 namespace VSharp
 {
@@ -111,7 +110,8 @@ namespace VSharp
                     releaseBranches: true,
                     maxBufferSize: 128,
                     checkAttributes: true,
-                    stopOnCoverageAchieved: 100
+                    stopOnCoverageAchieved: 100,
+                    randomSeed: -1
                 );
 
             using var explorer = new SILI(siliOptions);
@@ -209,6 +209,8 @@ namespace VSharp
                 SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                 SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                 SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
+                SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                 _ => throw new UnreachableException("Unknown search strategy")
             };

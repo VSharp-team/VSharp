@@ -27,6 +27,8 @@
         <Compile Include="DistanceWeighter.fs" />
         <Compile Include="ContributedCoverageSearcher.fs" />
         <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
+        <Compile Include="ExecutionTree.fs" />
+        <Compile Include="ExecutionTreeSearcher.fs" />
         <Compile Include="InterleavedSearcher.fs" />
         <Compile Include="GuidedSearcher.fs" />
         <Compile Include="FairSearcher.fs" />

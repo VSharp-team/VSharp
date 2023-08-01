@@ -26,6 +26,14 @@ public enum SearchStrategy
     /// </summary>
     ContributedCoverage,
     /// <summary>
+    /// Picks the next state by descending from root to leaf in symbolic execution tree.
+    /// </summary>
+    ExecutionTree,
+    /// <summary>
+    /// Interleaves <see cref="ExecutionTree"/> and <see cref="ContributedCoverage"/> strategies.
+    /// </summary>
+    ExecutionTreeContributedCoverage,
+    /// <summary>
     /// Interleaves <see cref="ShortestDistance"/> and <see cref="ContributedCoverage"/> strategies.
     /// </summary>
     Interleaved

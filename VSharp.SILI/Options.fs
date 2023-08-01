@@ -9,6 +9,7 @@ type searchMode =
     | ShortestDistanceBasedMode
     | RandomShortestDistanceBasedMode
     | ContributedCoverageMode
+    | ExecutionTreeMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
 
@@ -32,4 +33,5 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     stopOnCoverageAchieved : int
+    randomSeed : int
 }
