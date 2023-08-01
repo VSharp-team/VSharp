@@ -112,6 +112,10 @@ module internal Pointers =
             let baseAddress, offset = addressToBaseAndOffset address
             let ptr = Ptr baseAddress typ offset
             shift ptr bytesToShift |> k
+        | HeapRef(address, t) ->
+            assert(t.IsArray)
+            let ptrType = t.GetElementType().MakePointerType()
+            Ptr (HeapLocation(address, t)) ptrType bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
 
     // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted

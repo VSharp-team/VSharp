@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Runtime.InteropServices
 
 [<CustomEquality; CustomComparison>]
 type methodDescriptor = {
@@ -478,6 +479,20 @@ module public Reflection =
         match fs |> Array.tryFind (fun (f, _) -> f.name.Contains("empty", StringComparison.OrdinalIgnoreCase)) with
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
+
+    let private reinterpretValueTypeAsByteArray (value : obj) size =
+        let rawData = Array.create size Byte.MinValue
+        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
+        try
+            Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
+        finally
+            handle.Free()
+        rawData
+
+    let byteArrayFromField (fieldInfo : FieldInfo) =
+        let fieldValue : obj = fieldInfo.GetValue null
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
+        reinterpretValueTypeAsByteArray fieldValue size
 
     // ------------------------------ Layout Utils ------------------------------
 

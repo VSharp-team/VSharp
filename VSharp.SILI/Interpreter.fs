@@ -930,6 +930,7 @@ type internal ILInterpreter() as this =
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
         let fieldType = f.FieldType
+        let declaringType = f.DeclaringType
         let value =
             if f.IsLiteral then
                 match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
@@ -937,10 +938,11 @@ type internal ILInterpreter() as this =
                 | :? string as str -> Memory.AllocateString str state
                 | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Concrete v fieldType
                 | _ -> __unreachable__()
+            elif TypeUtils.isImplementationDetails declaringType then
+                Memory.AllocateArrayFromFieldInfo state f
             else Memory.DefaultOf fieldType
-        let targetType = f.DeclaringType
         let fieldId = Reflection.wrapField f
-        Memory.WriteStaticField state targetType fieldId value
+        Memory.WriteStaticField state declaringType fieldId value
 
     member private x.InvokeArrayGetOrSet (cilState : cilState) (method : Method) thisOption args =
         let name = method.Name
@@ -1173,21 +1175,21 @@ type internal ILInterpreter() as this =
             | true, false  -> min2, max2
             | false, true  -> min1, max1
             | false, false -> min1, max2
-        let canCastWithoutOverflow term targetTermType =
+        let canCastWithoutOverflow term targetType =
             let (<<=) = API.Arithmetics.(<<=)
             assert(Terms.TypeOf term |> Types.IsNumeric)
-            let termType = Terms.TypeOf term
-            if isSubset termType targetTermType then True
-            elif termType = TypeUtils.int64Type && targetTermType = TypeUtils.uint64Type then
+            let t = Terms.TypeOf term
+            if isSubset t targetType then True
+            elif t = TypeUtils.int64Type && targetType = TypeUtils.uint64Type then
                 let int64Zero = MakeNumber (0 |> int64)
                 int64Zero <<= term
-            elif termType = TypeUtils.uint64Type && targetTermType = TypeUtils.int64Type then
+            elif t = TypeUtils.uint64Type && targetType = TypeUtils.int64Type then
                 let uint64RightBorder = MakeNumber (Int64.MaxValue |> uint64)
                 term <<= uint64RightBorder
             else
-                let min, max = getSegment termType targetTermType
-                let leftBorder  = Concrete min termType // must save type info, because min is int64
-                let rightBorder = Concrete max termType // must save type info, because max is int64
+                let min, max = getSegment t targetType
+                let leftBorder  = Concrete min t // must save type info, because min is int64
+                let rightBorder = Concrete max t // must save type info, because max is int64
                 (leftBorder <<= term) &&& (term <<= rightBorder)
         let t = pop cilState
         StatedConditionalExecutionCIL cilState
@@ -1346,13 +1348,13 @@ type internal ILInterpreter() as this =
         let newIp = moveInstruction (fallThroughTarget m offset) (currentIp cilState)
         let fieldInfo = resolveFieldFromMetadata m (offset + Offset.from OpCodes.Ldsfld.Size)
         assert fieldInfo.IsStatic
-        x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
-        let declaringTermType = fieldInfo.DeclaringType
+        let declaringType = fieldInfo.DeclaringType
+        x.InitializeStatics cilState declaringType (fun cilState ->
         let fieldId = Reflection.wrapField fieldInfo
         let value =
-            if addressNeeded then
-                StaticField(declaringTermType, fieldId) |> Ref
-            else Memory.ReadStaticField cilState.state declaringTermType fieldId
+            if addressNeeded && not (TypeUtils.isImplementationDetails declaringType) then
+                StaticField(declaringType, fieldId) |> Ref
+            else Memory.ReadStaticField cilState.state declaringType fieldId
         push value cilState
         setCurrentIp newIp cilState
         [cilState])
@@ -1361,12 +1363,12 @@ type internal ILInterpreter() as this =
         let fieldInfo = resolveFieldFromMetadata m (offset + Offset.from OpCodes.Stsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
-        let declaringTermType = fieldInfo.DeclaringType
+        let declaringType = fieldInfo.DeclaringType
         let fieldId = Reflection.wrapField fieldInfo
         let value = pop cilState
         let fieldType = fieldInfo.FieldType
         let value = Types.Cast value fieldType
-        Memory.WriteStaticField cilState.state declaringTermType fieldId value
+        Memory.WriteStaticField cilState.state declaringType fieldId value
         setCurrentIp newIp cilState
         [cilState])
     member x.LdFldWithFieldInfo (fieldInfo : FieldInfo) addressNeeded (cilState : cilState) =

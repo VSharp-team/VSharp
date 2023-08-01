@@ -130,6 +130,9 @@ module TypeUtils =
 
     let isDelegate typ = typeof<Delegate>.IsAssignableFrom typ
 
+    let isImplementationDetails (t : Type) =
+        t.FullName = "<PrivateImplementationDetails>"
+
     // ---------------------------------- Basic type operations ----------------------------------
 
     let inline getTypeOfConcrete value =

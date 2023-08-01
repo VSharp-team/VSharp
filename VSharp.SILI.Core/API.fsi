@@ -270,6 +270,7 @@ module API =
         val AllocateDefaultArray : state -> term list -> Type -> term
         val AllocateVectorArray : state -> term -> Type -> term
         val AllocateConcreteVectorArray : state -> term -> Type -> 'a seq -> term
+        val AllocateArrayFromFieldInfo : state -> FieldInfo -> term
         val AllocateString : string -> state -> term
         val AllocateEmptyString : state -> term -> term
         val AllocateDelegate : state -> term -> term

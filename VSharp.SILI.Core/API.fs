@@ -498,6 +498,9 @@ module API =
             let address = Memory.allocateConcreteVector state elementType length contents
             HeapRef address (elementType.MakeArrayType())
 
+        let AllocateArrayFromFieldInfo state fieldInfo =
+            ArrayInitialization.allocateOptimizedArray state fieldInfo
+
         let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
 
         let AllocateString string state = Memory.allocateString state string

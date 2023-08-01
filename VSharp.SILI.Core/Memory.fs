@@ -1076,7 +1076,10 @@ module internal Memory =
 
     let writeStaticField state typ (field : fieldId) value =
         ensureConcreteType field.typ
-        let mr = accessRegion state.staticFields field field.typ
+        let fieldType =
+            if isImplementationDetails typ then typeof<byte>.MakeArrayType()
+            else field.typ
+        let mr = accessRegion state.staticFields field fieldType
         let key = {typ = typ}
         let mr' = MemoryRegion.write mr key value
         state.staticFields <- PersistentDict.add field mr' state.staticFields
