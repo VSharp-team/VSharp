@@ -769,7 +769,8 @@ module internal Terms =
     and reinterpretConcretes (sliceTerms : term list) t =
         let bytes : byte array = internalSizeOf t |> Array.zeroCreate
         let combineLength = Array.length bytes
-        let mutable solidPart = Nop
+        let mutable solidPartBytes = Array.empty
+        let mutable solidPartSize = 0
         for slice in sliceTerms do
             match slice.term with
             | Slice(term, [{term = Concrete(s, _)}, {term = Concrete(e, _)}, {term = Concrete(pos, _)}]) ->
@@ -785,14 +786,16 @@ module internal Terms =
                 let count = e - s
                 assert(count > 0)
                 Array.blit sliceBytes s bytes pos count
-            | Concrete(o, _) when solidPart = Nop ->
-                solidPart <- slice
+            | Concrete(o, _) ->
                 let sliceBytes = concreteToBytes o
                 let sliceSize = Array.length sliceBytes
-                assert(sliceSize <= combineLength)
-                Array.blit sliceBytes 0 bytes 0 sliceSize
-            | Concrete _ ->
-                assert(solidPart = slice)
+                if not (solidPartBytes = sliceBytes) then
+                    let intersectingEnd = (min sliceSize solidPartSize) - 1
+                    assert(Array.isEmpty solidPartBytes || sliceBytes[0..intersectingEnd] = solidPartBytes[0..intersectingEnd])
+                    assert(sliceSize <= combineLength)
+                    Array.blit sliceBytes 0 bytes 0 sliceSize
+                    solidPartBytes <- sliceBytes
+                    solidPartSize <- sliceSize
             | _ -> internalfailf "expected concrete slice, but got %O" slice
         bytesToObj bytes t
 

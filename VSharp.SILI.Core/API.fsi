@@ -81,6 +81,7 @@ module API =
         val IsStruct : term -> bool
         val IsReference : term -> bool
         val IsPtr : term -> bool
+        val IsRefOrPtr : term -> bool
         val IsConcrete : term -> bool
         val IsNullReference : term -> term
 

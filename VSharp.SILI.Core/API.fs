@@ -112,6 +112,7 @@ module API =
         let IsStruct term = isStruct term
         let IsReference term = isReference term
         let IsPtr term = isPtr term
+        let IsRefOrPtr term = isRefOrPtr term
         let IsConcrete term =
             match term.term with
             | Concrete _ -> true
@@ -315,6 +316,7 @@ module API =
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
+            let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
             | HeapRef(addr, typ) ->
                 let elemType, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
@@ -343,16 +345,17 @@ module API =
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
 
         let rec ReferenceField state reference fieldId =
+            let declaringType = fieldId.declaringType
             let isSuitableField address typ =
                 let typ = Memory.mostConcreteTypeOfHeapRef state address typ
-                fieldId.declaringType.IsAssignableFrom typ
+                declaringType.IsAssignableFrom typ
             match reference.term with
             | HeapRef(address, typ) when isSuitableField address typ |> not ->
                 // TODO: check this case with casting via "is"
                 Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
                 let offset = Reflection.getFieldIdOffset fieldId |> MakeNumber
                 Ptr (HeapLocation(address, typ)) fieldId.typ offset
-            | HeapRef(address, typ) when fieldId.declaringType.IsValueType ->
+            | HeapRef(address, typ) when declaringType.IsValueType ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
                 let ref = HeapReferenceToBoxReference reference
@@ -361,9 +364,14 @@ module API =
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
                 ClassField(address, fieldId) |> Ref
-            | Ref address ->
-                assert fieldId.declaringType.IsValueType
+            | Ref address when declaringType.IsAssignableFrom(typeOfAddress address) ->
+                assert declaringType.IsValueType
                 StructField(address, fieldId) |> Ref
+            | Ref address ->
+                assert declaringType.IsValueType
+                let pointerBase, offset = AddressToBaseAndOffset address
+                let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
+                Ptr pointerBase fieldId.typ (add offset fieldOffset)
             | Ptr(baseAddress, _, offset) ->
                 let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
                 Ptr baseAddress fieldId.typ (add offset fieldOffset)

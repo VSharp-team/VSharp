@@ -220,7 +220,7 @@ module internal InstructionsSet =
     let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
-            | _ when IsReference term -> !!(IsNullReference term)
+            | _ when IsRefOrPtr term -> !!(IsNullReference term)
             | Types.Bool -> term
             | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero
             | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero
@@ -231,6 +231,8 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
+            | t when t = TypeUtils.intPtr -> term !== MakeNumber IntPtr.Zero
+            | t when t = TypeUtils.uintPtr -> term !== MakeNumber UIntPtr.Zero
             | t when t.IsEnum -> term !== MakeNumber (Activator.CreateInstance t)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
