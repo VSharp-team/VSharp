@@ -456,7 +456,8 @@ internal class MethodRenderer : CodeRenderer
             }
 
             // TODO: handle recursive array case
-            var allowImplicit = elemType is { IsValueType: true } && rank == 1;
+            var allowImplicit =
+                elemType is { IsValueType: true } && !NumericWithoutSuffix(elemType) && rank == 1;
             if (allowImplicit || TypeUtils.isPublic(elemType))
                 return RenderArrayCreation(type, initializer, allowImplicit);
 
