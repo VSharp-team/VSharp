@@ -65,7 +65,7 @@ type DFSSearcher() =
 
     let update parent newStates =
         let last = states.Count - 1
-        if states[last] = parent then
+        if last >= 0 && states[last] = parent then
             if Seq.isEmpty newStates |> not then
                 assert(states[last] = parent)
                 states.RemoveAt(last)
