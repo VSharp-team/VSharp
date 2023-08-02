@@ -715,46 +715,78 @@ namespace IntegrationTests
             return structValue.X;
         }
 
-        [TestSvm(65)]
+        [TestSvm(75)]
         public static int ReinterpretationVsNarrowCast(long l, int i)
         {
-            long* p = &l;
-            if (*(UInt64*)p != (UInt64)l)
-                throw new ArgumentException("unreachable");
-            if (*(Int32*)p != (Int32)l)
-                throw new ArgumentException("unreachable");
-            if (*(UInt32*)p != (UInt32)l)
-                throw new ArgumentException("unreachable");
-            if (*(Int16*)p != (Int16)l)
-                throw new ArgumentException("unreachable");
-            if (*(char*)p != (char)l)
-                throw new ArgumentException("unreachable");
-            if (*(UInt16*)p != (UInt16)l)
-                throw new ArgumentException("unreachable");
-            if (*(sbyte*)p != (sbyte)l)
-                throw new ArgumentException("unreachable");
-            if (*(byte*)p != (byte)l)
-                throw new ArgumentException("unreachable");
+            var arr1 = new long[2];
+            arr1[0] = l;
+            arr1[1] = l;
 
-            int* p1 = &i;
-            if (*(Int64*)p1 != (Int64)i)
-                throw new Exception("reachable");
-            if (*(UInt64*)p1 != (UInt64)i)
-                throw new Exception("reachable");
-            if (*(UInt32*)p1 != (UInt32)i)
-                throw new ArgumentException("unreachable");
-            if (*(Int16*)p1 != (Int16)i)
-                throw new ArgumentException("unreachable");
-            if (*(char*)p1 != (char)i)
-                throw new ArgumentException("unreachable");
-            if (*(UInt16*)p1 != (UInt16)i)
-                throw new ArgumentException("unreachable");
-            if (*(sbyte*)p1 != (sbyte)i)
-                throw new ArgumentException("unreachable");
-            if (*(byte*)p1 != (byte)i)
-                throw new ArgumentException("unreachable");
+            var arr2 = new int[2];
+            arr2[0] = i;
+            arr2[1] = i;
 
-            return 0;
+            var result = 0;
+            fixed (long* p = &arr1[0])
+            {
+                if (*(UInt64*)p != (UInt64)l)
+                    throw new ArgumentException("unreachable");
+                if (*(Int32*)p != (Int32)l)
+                    throw new ArgumentException("unreachable");
+                if (*(UInt32*)p != (UInt32)l)
+                    throw new ArgumentException("unreachable");
+                if (*(Int16*)p != (Int16)l)
+                    throw new ArgumentException("unreachable");
+                if (*(char*)p != (char)l)
+                    throw new ArgumentException("unreachable");
+                if (*(UInt16*)p != (UInt16)l)
+                    throw new ArgumentException("unreachable");
+                if (*(sbyte*)p != (sbyte)l)
+                    throw new ArgumentException("unreachable");
+                if (*(byte*)p != (byte)l)
+                    throw new ArgumentException("unreachable");
+            }
+
+            fixed (int* p1 = &arr2[0])
+            {
+                if (*(Int64*)p1 != (Int64)i)
+                    result += 100;
+                if (*(UInt64*)p1 != (UInt64)i)
+                    result += 42;
+                if (*(UInt32*)p1 != (UInt32)i)
+                    throw new ArgumentException("unreachable");
+                if (*(Int16*)p1 != (Int16)i)
+                    throw new ArgumentException("unreachable");
+                if (*(char*)p1 != (char)i)
+                    throw new ArgumentException("unreachable");
+                if (*(UInt16*)p1 != (UInt16)i)
+                    throw new ArgumentException("unreachable");
+                if (*(sbyte*)p1 != (sbyte)i)
+                    throw new ArgumentException("unreachable");
+                if (*(byte*)p1 != (byte)i)
+                    throw new ArgumentException("unreachable");
+            }
+
+            return result;
+        }
+
+        [TestSvm(100)]
+        public static int ReinterpretationVsNarrowCast1(int i)
+        {
+            var arr2 = new int[2];
+            arr2[0] = i;
+            arr2[1] = i;
+
+            var result = 0;
+            fixed (int* p1 = &arr2[0])
+            {
+                if (*(Int64*)p1 != (Int64)i)
+                    result += 100;
+                if (*(UInt64*)p1 != (UInt64)i)
+                    result += 42;
+            }
+
+            return result;
         }
 
         [TestSvm(100)]
