@@ -110,6 +110,14 @@ namespace IntegrationTests
             return upper == str;
         }
 
+        [TestSvm]
+        public static int Contains(string str)
+        {
+            if (str.Contains("d8"))
+                return 1;
+            return 0;
+        }
+
         [Ignore("takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {
@@ -135,6 +143,14 @@ namespace IntegrationTests
         public static string StringFormat(ClassToString c)
         {
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
+        }
+
+        [TestSvm(100)]
+        public static string FormatUInt32(UInt32 x)
+        {
+            var ret = new StringBuilder();
+            ret.Append($"{x:X4}");
+            return ret.ToString();
         }
 
         [Ignore("need to fix StringBuilder.AppendLine")]

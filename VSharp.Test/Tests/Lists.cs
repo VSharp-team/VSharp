@@ -137,6 +137,29 @@ namespace IntegrationTests
             return c.Rank;
         }
 
+        [TestSvm]
+        public int ReadByFuncResult(string[] str, Func<int> d)
+        {
+            str[0] = "abc";
+            str[1] = "cbd";
+            str[2] = "edf";
+            if (str[d()] == null)
+                return 1;
+            return 0;
+        }
+
+        [TestSvm]
+        public int ReadByFuncResult1(Func<int> d)
+        {
+            string[] str = new string[3];
+            str[0] = "abc";
+            str[1] = "cbd";
+            str[2] = "edf";
+            if (str[d()] == null)
+                return 1;
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int[] RetOneDArray1(bool flag1, bool flag2)
         {
