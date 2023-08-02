@@ -117,7 +117,7 @@ module internal Z3 =
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
                 | typ when typ.IsEnum -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
-                | typ when Types.IsInteger typ -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
+                | typ when Types.isIntegral typ -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
                 | typ when Types.IsReal typ -> failToEncode "encoding real numbers is not implemented"
                 | AddressType -> x.AddressSort
                 | StructType _ -> internalfailf "struct should not appear while encoding! type: %O" typ

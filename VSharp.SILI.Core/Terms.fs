@@ -517,10 +517,10 @@ module internal Terms =
     let rec private makeCast term fromType toType =
         match term, toType with
         | _ when fromType = toType -> term
-        | CastExpr(x, xType, Numeric t), Numeric dstType when not <| isLessForNumericTypes t dstType ->
+        | CastExpr(x, xType, Numeric t), Numeric toType when not <| isLessForNumericTypes t toType ->
             makeCast x xType toType
-        | CastExpr(x, (Numeric srcType as xType), Numeric t), Numeric dstType
-            when not <| isLessForNumericTypes t srcType && not <| isLessForNumericTypes dstType t ->
+        | CastExpr(x, Numeric xType, Numeric t), Numeric toType
+            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t ->
             makeCast x xType toType
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
@@ -531,7 +531,7 @@ module internal Terms =
         | _, ByRef t ->
             makeDetachedPtr term t
         | Concrete(value, _), _ -> castConcrete value targetType
-        | Combined(slices, t), _ when isIntegralOrEnum t && isIntegralOrEnum targetType && internalSizeOf t = internalSizeOf targetType ->
+        | Combined(slices, t), _ when isIntegral t && isIntegral targetType && internalSizeOf t = internalSizeOf targetType ->
             // TODO: simplify for narrow cast
             combine slices targetType
         // TODO: make cast to Bool like function Transform2BooleanTerm
@@ -877,7 +877,7 @@ module internal Terms =
             let combineSize = lazy (internalSizeOf t)
             if s = 0 && pos = 0 then
                 if e = termSize.Value && isSolid p typ then p
-                elif combineSize.Value <= termSize.Value && e = combineSize.Value && isIntegralOrEnum typ && isIntegralOrEnum t then
+                elif combineSize.Value <= termSize.Value && e = combineSize.Value && isIntegral typ && isIntegral t then
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()

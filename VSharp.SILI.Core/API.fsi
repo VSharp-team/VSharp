@@ -116,6 +116,19 @@ module API =
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
         val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
 
+        val (|Int8T|_|) : term -> option<unit>
+        val (|UInt8T|_|) : term -> option<unit>
+        val (|Int16T|_|) : term -> option<unit>
+        val (|UInt16T|_|) : term -> option<unit>
+        val (|Int32T|_|) : term -> option<unit>
+        val (|UInt32T|_|) : term -> option<unit>
+        val (|Int64T|_|) : term -> option<unit>
+        val (|UInt64T|_|) : term -> option<unit>
+        val (|BoolT|_|) : term -> option<unit>
+        val (|Float32T|_|) : term -> option<unit>
+        val (|Float64T|_|) : term -> option<unit>
+        val (|FloatT|_|) : term -> option<unit>
+
         val GetHeapReadingRegionSort : ISymbolicConstantSource -> regionSort
 
         val SpecializeWithKey : term -> heapArrayKey -> heapArrayKey -> term
@@ -136,7 +149,7 @@ module API =
         val IndexType : Type
         val TLength : Type
         val IsBool : Type -> bool
-        val IsInteger : Type -> bool
+        val isIntegral : Type -> bool
         val IsReal : Type -> bool
         val IsNumeric : Type -> bool
         val IsPointer : Type -> bool

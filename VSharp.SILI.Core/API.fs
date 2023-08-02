@@ -176,6 +176,19 @@ module API =
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
         let (|GetHashCodeSource|_|) s = Memory.(|GetHashCodeSource|_|) s
 
+        let (|Int8T|_|) t = if typeOf t = typeof<int8> then Some() else None
+        let (|UInt8T|_|) t = if typeOf t = typeof<uint8> then Some() else None
+        let (|Int16T|_|) t = if typeOf t = typeof<int16> then Some() else None
+        let (|UInt16T|_|) t = if typeOf t = typeof<uint16> then Some() else None
+        let (|Int32T|_|) t = if typeOf t = typeof<int32> then Some() else None
+        let (|UInt32T|_|) t = if typeOf t = typeof<uint32> then Some() else None
+        let (|Int64T|_|) t = if typeOf t = typeof<int64> then Some() else None
+        let (|UInt64T|_|) t = if typeOf t = typeof<uint64> then Some() else None
+        let (|BoolT|_|) t = if isBool t then Some() else None
+        let (|Float32T|_|) t = if typeOf t = typeof<single> then Some() else None
+        let (|Float64T|_|) t = if typeOf t = typeof<double> then Some() else None
+        let (|FloatT|_|) t = if typeOf t |> TypeUtils.isReal then Some() else None
+
         let GetHeapReadingRegionSort src = Memory.getHeapReadingRegionSort src
 
         let SpecializeWithKey constant key writeKey = Memory.specializeWithKey constant key writeKey
@@ -203,7 +216,7 @@ module API =
         let IndexType = TypeUtils.indexType
         let TLength = TypeUtils.lengthType
         let IsBool t = t = typeof<bool>
-        let IsInteger t = TypeUtils.isIntegral t
+        let isIntegral t = TypeUtils.isIntegral t
         let IsReal t = TypeUtils.isReal t
         let IsNumeric t = TypeUtils.isNumeric t
         let IsPointer t = TypeUtils.isPointer t
