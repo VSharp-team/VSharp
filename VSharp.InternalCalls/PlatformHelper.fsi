@@ -10,7 +10,20 @@ module internal PlatformHelper =
     val internal get_ProcessorCount : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Lzcnt.get_IsSupported()")>]
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Lzcnt+X64.get_IsSupported()")>]
     val internal lzcntIsSupported : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.ArmBase.get_IsSupported()")>]
-    val internal armIsSupported : state -> term list -> term
+    [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd+Arm64.get_IsSupported()")>]
+    [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.ArmBase+Arm64.get_IsSupported()")>]
+    val internal armBaseIsSupported : state -> term list -> term
+
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Avx2.get_IsSupported()")>]
+    val internal avx2IsSupported : state -> term list -> term
+
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()")>]
+    val internal sse2IsSupported : state -> term list -> term
+
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.X86Base.get_IsSupported()")>]
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.X86Base+X64.get_IsSupported()")>]
+    val internal x86BaseIsSupported : state -> term list -> term
