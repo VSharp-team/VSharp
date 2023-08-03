@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Compile Include="TestGenerator.fs" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
+      <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Update="FSharp.Core" Version="7.0.0" />
+    </ItemGroup>
+
+</Project>

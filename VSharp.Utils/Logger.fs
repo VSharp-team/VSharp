@@ -7,6 +7,7 @@ module Logger =
 
     // Tag for state transitions info logs
     let stateTraceTag = "StateTrace"
+    let defaultTag = ""
 
     let Quiet = 0
     let Critical = 1
@@ -20,10 +21,16 @@ module Logger =
     let mutable writeTimestamps = true
     let mutable tagFilter : string -> bool = fun s -> s <> stateTraceTag
 
+    let private enabledTags = System.Collections.Generic.HashSet([
+        stateTraceTag
+        defaultTag
+    ])
+
     let public configureWriter writer = currentTextWriter <- writer
     let public enableTimestamps value = writeTimestamps <- value
-    let public setTagFilter filter = tagFilter <- filter
-    let public isTagEnabled tag = tagFilter tag
+    let public enableTag tag = enabledTags.Add tag |> ignore
+    let public disableTag tag = enabledTags.Remove tag |> ignore
+    let public isTagEnabled tag = enabledTags.Contains tag
 
     let LevelToString = function
         | 0 -> "Quiet"
@@ -37,7 +44,7 @@ module Logger =
     let private writeLineString vLevel tag (message : string) =
         let builder = StringBuilder $"[{LevelToString vLevel}] "
         let builder = if writeTimestamps then builder.Append $"[%A{DateTime.Now}] " else builder
-        let builder = if tag <> "" then builder.Append $"[{tag}] " else builder
+        let builder = if tag <> defaultTag then builder.Append $"[{tag}] " else builder
         let builder = builder.Append message
         currentTextWriter.WriteLine(builder.ToString())
         currentTextWriter.Flush()
@@ -48,7 +55,7 @@ module Logger =
 
     let public printLogString vLevel (message : string) =
         if currentLogLevel >= vLevel then
-            writeLineString vLevel "" message
+            writeLineString vLevel defaultTag message
 
     let public printLogLazyString vLevel (computeMessage : Func<string>) =
         if currentLogLevel >= vLevel then
@@ -57,13 +64,13 @@ module Logger =
     let public printLogWithTag tag vLevel format =
         Printf.ksprintf (fun message -> if currentLogLevel >= vLevel && tagFilter tag then writeLineString vLevel tag message) format
 
-    let public printLog vLevel format = printLogWithTag "" vLevel format
+    let public printLog vLevel format = printLogWithTag defaultTag vLevel format
 
     let public printLogLazyWithTag tag vLevel format (s : Lazy<_>) =
         if currentLogLevel >= vLevel && tagFilter tag then
             Printf.ksprintf (writeLineString vLevel tag) format (s.Force())
 
-    let public printLogLazy vLevel format s = printLogLazyWithTag "" vLevel format s
+    let public printLogLazy vLevel format s = printLogLazyWithTag defaultTag vLevel format s
 
     let public error format = printLog Error format
     let public warning format = printLog Warning format

@@ -243,7 +243,7 @@ module API =
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list
-        val WriteLocalVariable : state -> stackKey -> term -> unit
+        val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> Type option -> state list
@@ -262,9 +262,11 @@ module API =
 
         val InitializeStaticMembers : state -> Type -> unit
 
+        val InitFunctionFrame : state -> IMethod -> term option -> term option list option -> unit
         val AllocateTemporaryLocalVariable : state -> int -> Type -> term -> term
         val AllocateTemporaryLocalVariableOfType : state -> string -> int -> Type -> term
         val AllocateDefaultClass : state -> Type -> term
+        val AllocateMock : state -> ITypeMock -> Type -> term
         val AllocateDefaultArray : state -> term list -> Type -> term
         val AllocateVectorArray : state -> term -> Type -> term
         val AllocateConcreteVectorArray : state -> term -> Type -> 'a seq -> term
@@ -309,6 +311,8 @@ module API =
         val FillRegion : state -> term -> regionSort -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
+
+        val StateResult : state -> term
 
     module Print =
         val Dump : state -> string
