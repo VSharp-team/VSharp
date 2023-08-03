@@ -192,64 +192,26 @@ let collectGameState (location:codeLocation) =
     let mutable visitedInstructionsInZone = 0u
     let mutable touchedVerticesInZone = 0u
     let mutable touchedVerticesOutOfZone = 0u
-    let mutable totalVisibleVerticesInZone = 0u    
-    let mutable firstFreeBasicBlockID = 0u<graphVertexId>
+    let mutable totalVisibleVerticesInZone = 0u
     
     let vertices = Dictionary<_,_>()
     let allStates = HashSet<_>()
 
-    let basicBlocks = Dictionary<_,_>()
-    let basicBlocksIds = Dictionary<_,_>()
-    let visitedMethods = HashSet<_>()
-    let rec collectFullGraph (method:Method) =
-        if not <| visitedMethods.Contains method
-        then            
-            let added = visitedMethods.Add method
-            assert added
-            for basicBlock in method.ForceCFG.SortedBasicBlocks do
-                    basicBlock.IsGoal <- method.InCoverageZone
-                    basicBlocks.Add(firstFreeBasicBlockID, basicBlock)
-                    basicBlocksIds.Add(basicBlock, firstFreeBasicBlockID)
-                    firstFreeBasicBlockID <- firstFreeBasicBlockID + + 1u<graphVertexId>
-                    for state in basicBlock.AssociatedStates do
-                         state.History
-                         |> Seq.iter (fun kvp -> collectFullGraph (kvp.Key.Method :?> Method))
-                    basicBlock.IncomingCallEdges
-                    |> Seq.iter (fun x -> collectFullGraph (x.Method :?> Method))
-                    for edge in basicBlock.OutgoingEdges do
-                        for bb in edge.Value do
-                            if bb.Method <> basicBlock.Method
-                            then collectFullGraph (bb.Method :?> Method)
-                    
-            //(method :> VSharp.ICallGraphNode).OutgoingEdges
-            //|> Seq.iter (fun x -> collectFullGraph (x:?> Method))
-            (method :> VSharp.IReversedCallGraphNode).OutgoingEdges
-            |> Seq.iter (fun x -> collectFullGraph (x:?> Method))
-    collectFullGraph location.method
-    
-    let getBasicBlockId =
-        let basicBlockToIdMap = Dictionary<_,_>()
-        for kvp in basicBlocks do basicBlockToIdMap.Add(kvp.Value, uint kvp.Key)
-        fun basicBlock ->
-            let exists,id = basicBlockToIdMap.TryGetValue basicBlock
-            if exists
-            then id
-            else
-                let id = uint firstFreeBasicBlockID
-                firstFreeBasicBlockID <- firstFreeBasicBlockID + 1u<graphVertexId>
-                basicBlockToIdMap.Add(basicBlock, id)
-                id
-    
-    let statesMetrics = ResizeArray<_>()
+    let basicBlocks = ResizeArray<_>()
+    for method in Application.loadedMethods do
+        for basicBlock in method.Key.BasicBlocks do
+            basicBlock.IsGoal <- method.Key.InCoverageZone
+            basicBlocks.Add(basicBlock)
+            
+    //let statesMetrics = ResizeArray<_>()
 
     let activeStates =
         basicBlocks
-        |> Seq.collect (fun kvp -> kvp.Value.AssociatedStates)
+        |> Seq.collect (fun basicBlock -> basicBlock.AssociatedStates)
         |> Seq.map (fun s -> s.Id)
         |> fun x -> HashSet x
         
-    for kvp in basicBlocks do
-        let currentBasicBlock = kvp.Value
+    for currentBasicBlock in basicBlocks do        
         let isCovered = if currentBasicBlock.IsCovered then 1u else 0u
         if currentBasicBlock.IsGoal
         then coveredVerticesInZone <- coveredVerticesInZone + isCovered
@@ -275,12 +237,12 @@ let collectGameState (location:codeLocation) =
         then
             visitedInstructionsInZone <- visitedInstructionsInZone + currentBasicBlock.VisitedInstructions
         
-        let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
+        //let interproceduralGraphDistanceFrom = Dictionary<Assembly, GraphUtils.distanceCache<IInterproceduralCfgNode>>()
         
         let states =
             currentBasicBlock.AssociatedStates
             |> Seq.map (fun s ->
-                statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
+                //statesMetrics.Add (calculateStateMetrics interproceduralGraphDistanceFrom s)
                 State(s.Id,
                       uint <| s.CodeLocation.offset - currentBasicBlock.StartOffset + 1<offsets>,
                       s.PredictedUsefulness,
@@ -288,7 +250,7 @@ let collectGameState (location:codeLocation) =
                       s.VisitedAgainVertices,
                       s.VisitedNotCoveredVerticesInZone,
                       s.VisitedNotCoveredVerticesOutOfZone,
-                      s.History |> Seq.map (fun kvp -> StateHistoryElem(getBasicBlockId kvp.Key, kvp.Value)) |> Array.ofSeq,
+                      s.History |> Seq.map (fun kvp -> StateHistoryElem(kvp.Key.Id, kvp.Value)) |> Array.ofSeq,
                       s.Children |> Array.map (fun s -> s.Id) |> Array.filter activeStates.Contains
                       )
                 |> allStates.Add
@@ -300,7 +262,7 @@ let collectGameState (location:codeLocation) =
 
         GameMapVertex(
             0u,
-            kvp.Key,
+            currentBasicBlock.Id,
             currentBasicBlock.IsGoal,
             uint <| currentBasicBlock.FinalOffset - currentBasicBlock.StartOffset + 1<offsets>,
             currentBasicBlock.IsCovered,
@@ -310,7 +272,7 @@ let collectGameState (location:codeLocation) =
         |> (fun x -> vertices.Add(x.Id,x))
         
         
-    let statesInfoToDump =
+    (*let statesInfoToDump =
         let mutable maxVisitedVertices = UInt32.MinValue
         let mutable maxChildNumber = UInt32.MinValue
         let mutable minDistToUncovered = UInt32.MaxValue
@@ -346,27 +308,27 @@ let collectGameState (location:codeLocation) =
                                                       , normalize minDistToReturn m.DistanceToNearestReturn m 
                                                       , normalize minDistToUncovered m.DistanceToNearestUncovered m
                                                       , normalize minDistToUncovered m.DistanceToNearestNotVisited m))
-    
+    *)
     let edges = ResizeArray<_>()
     
-    for kvp in basicBlocks do
-        for outgoingEdges in kvp.Value.OutgoingEdges do
+    for basicBlock in basicBlocks do
+        for outgoingEdges in basicBlock.OutgoingEdges do
             for targetBasicBlock in outgoingEdges.Value do
-                GameMapEdge (vertices.[kvp.Key].Id,
-                             vertices[basicBlocksIds[targetBasicBlock]].Id,
+                GameMapEdge (vertices.[basicBlock.Id].Id,
+                             vertices[targetBasicBlock.Id].Id,
                              GameEdgeLabel (int outgoingEdges.Key))
                 |> edges.Add
                 
     GameState (vertices.Values |> Array.ofSeq, allStates |> Array.ofSeq, edges.ToArray())
     , Statistics(coveredVerticesInZone,coveredVerticesOutOfZone,visitedVerticesInZone,visitedVerticesOutOfZone,visitedInstructionsInZone,touchedVerticesInZone,touchedVerticesOutOfZone, totalVisibleVerticesInZone)
-    , statesInfoToDump
+    //, statesInfoToDump
 
 let dumpGameState (location:codeLocation) fileForResultWithoutExtension =
-    let gameState, statistics, statesInfoToDump = collectGameState location
+    let gameState, statistics(*, statesInfoToDump*) = collectGameState location
     let gameStateJson = JsonSerializer.Serialize gameState
-    let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
+    //let statesInfoJson = JsonSerializer.Serialize statesInfoToDump
     System.IO.File.WriteAllText(fileForResultWithoutExtension + "_gameState",gameStateJson)
-    System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
+    //System.IO.File.WriteAllText(fileForResultWithoutExtension + "_statesInfo",statesInfoJson)
     statistics
     
 let computeReward (statisticsBeforeStep:Statistics) (statisticsAfterStep:Statistics) =

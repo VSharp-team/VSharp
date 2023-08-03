@@ -2,6 +2,7 @@ namespace VSharp
 
 open System.Collections.Concurrent
 open VSharp.GraphUtils
+open VSharp.ML.GameServer.Messages
 open global.System
 open System.Reflection
 open System.Collections.Generic
@@ -56,7 +57,7 @@ type EdgeLabel =
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
+type BasicBlock (method: MethodWithBody, startOffset: offset, id:uint<basicBlockGlobalId>) =
     let mutable finalOffset = startOffset
     let mutable startOffset = startOffset
     let mutable isGoal = false
@@ -69,6 +70,7 @@ type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
     let incomingCallEdges = HashSet<BasicBlock>()
     let outgoingEdges = Dictionary<int<terminalSymbol>, HashSet<BasicBlock>>()
 
+    member this.Id = id
     member this.StartOffset
         with get () = startOffset
         and internal set v = startOffset <- v
@@ -165,7 +167,7 @@ and [<Struct>] CallInfo =
             ReturnTo = returnTo
         }        
 
-and CfgInfo internal (method : MethodWithBody) =
+and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -> uint<basicBlockGlobalId>) =
     let () = assert method.HasBody    
     let ilBytes = method.ILBytes
     let exceptionHandlers = method.ExceptionHandlers
@@ -202,7 +204,7 @@ and CfgInfo internal (method : MethodWithBody) =
 
         let splitBasicBlock (block : BasicBlock) intermediatePoint =
 
-            let newBlock = BasicBlock(method, block.StartOffset)
+            let newBlock = BasicBlock(method, block.StartOffset, getNextBasicBlockGlobalId())
             addBasicBlock newBlock
             block.StartOffset <- intermediatePoint
 
@@ -230,7 +232,7 @@ and CfgInfo internal (method : MethodWithBody) =
         let makeNewBasicBlock startVertex =
             match vertexToBasicBlock[int startVertex] with
             | None ->
-                let newBasicBlock = BasicBlock(method, startVertex)
+                let newBasicBlock = BasicBlock(method, startVertex, getNextBasicBlockGlobalId())
                 vertexToBasicBlock[int startVertex] <- Some newBasicBlock
                 addBasicBlock newBasicBlock
                 newBasicBlock
@@ -382,12 +384,12 @@ and CfgInfo internal (method : MethodWithBody) =
         let basicBlock = resolveBasicBlock offset
         basicBlock.HasSiblings
 
-and Method internal (m : MethodBase) as this =
+and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
     inherit MethodWithBody(m)
     let cfg = lazy(
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
-            let cfg = this |> CfgInfo |> Some
+            let cfg = CfgInfo(this, getNextBasicBlockGlobalId) |> Some
             Method.ReportCFGLoaded this
             cfg
         else None)
@@ -526,7 +528,7 @@ module public CodeLocation =
         | Some cfg -> cfg.HasSiblings blockStart.offset
         | None -> false
 
-type ApplicationGraph() =
+type ApplicationGraph(getNextBasicBlockGlobalId) =
     
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
@@ -664,19 +666,25 @@ type NullVisualizer() =
         override x.VisualizeStep _ _ _ = ()
 
 module Application =
+    let mutable basicBlockGlobalCount = 0u<basicBlockGlobalId>
+    let getNextBasicBlockGlobalId () =
+        let r = basicBlockGlobalCount
+        basicBlockGlobalCount <- basicBlockGlobalCount + 1u<basicBlockGlobalId>
+        r
     let private methods = ConcurrentDictionary<methodDescriptor, Method>()
     let private _loadedMethods = ConcurrentDictionary<Method, unit>()
     let loadedMethods = _loadedMethods :> seq<_>
-    let mutable graph = ApplicationGraph()
+    let mutable graph = ApplicationGraph(getNextBasicBlockGlobalId)
     let mutable visualizer : IVisualizer = NullVisualizer()
 
     let reset () =
-        graph <- ApplicationGraph()
+        basicBlockGlobalCount <- 0u<basicBlockGlobalId>
+        graph <- ApplicationGraph(getNextBasicBlockGlobalId)
         methods.Clear()
         _loadedMethods.Clear()
     let getMethod (m : MethodBase) : Method =
         let desc = Reflection.getMethodDescriptor m
-        Dict.getValueOrUpdate methods desc (fun () -> Method(m))
+        Dict.getValueOrUpdate methods desc (fun () -> Method(m,getNextBasicBlockGlobalId))
 
     let setCoverageZone (zone : Method -> bool) =
         Method.CoverageZone <- zone
