@@ -108,7 +108,7 @@ def play_map_with_stats(
 
 def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
     with game_server_socket_manager() as ws:
-        maps = get_maps(websocket=ws, type=maps_type)[:4]
+        maps = get_maps(websocket=ws, type=maps_type)
     with tqdm.tqdm(
         total=len(maps),
         desc=f"{with_predictor.name():20}: {maps_type.value}",
