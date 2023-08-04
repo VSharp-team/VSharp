@@ -18,10 +18,12 @@ def main():
 
     model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
 
-    random_population = create_population(lo=-5, hi=5, model=model, population_size=60)
+    random_population = create_population(
+        lo=-5, hi=5, model=model, population_size=GeneralConfig.NUM_RANDOM_SOLUTIONS
+    )
     with_random_last_layer = [
         model_weights_with_random_last_layer(lo=-1, hi=1, model=model)
-        for _ in range(18)
+        for _ in range(GeneralConfig.NUM_RANDOM_LAST_LAYER)
     ]
     with_last_layer1 = model_weights_with_last_layer(
         [
@@ -65,7 +67,7 @@ def main():
         server_count=GeneralConfig.SERVER_COUNT,
         num_generations=GeneralConfig.NUM_GENERATIONS,
         num_parents_mating=GeneralConfig.NUM_PARENTS_MATING,
-        keep_elitism=2,
+        keep_elitism=GeneralConfig.KEEP_ELITISM,
         parent_selection_type=ParentSelectionType.STOCHASTIC_UNIVERSAL_SELECTION,
         crossover_type=CrossoverType.SINGLE_POINT,
         mutation_type=MutationType.RANDOM,
