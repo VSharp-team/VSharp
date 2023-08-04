@@ -8,8 +8,6 @@ from connection.broker_conn.classes import WSUrl
 
 from .requests import acquire_instance, return_instance
 
-websocket.setdefaulttimeout(GameServerConnectorConfig.RESPONCE_TIMEOUT_SEC)
-
 
 def wait_for_connection(url: WSUrl):
     ws = websocket.WebSocket()
@@ -32,6 +30,7 @@ def game_server_socket_manager():
     socket = None
     try:
         socket = wait_for_connection(server_instance.ws_url)
+        socket.settimeout(GameServerConnectorConfig.RESPONCE_TIMEOUT_SEC)
         yield socket
     finally:
         socket.close()
