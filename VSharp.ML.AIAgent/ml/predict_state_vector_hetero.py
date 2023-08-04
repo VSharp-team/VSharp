@@ -7,7 +7,7 @@ from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import to_hetero
 
-from common.constants import DEVICE
+from config import GeneralConfig
 from ml import data_loader_compact
 from ml.models import GNN_Het
 
@@ -93,7 +93,7 @@ class PredictStateVectorHetGNN:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
-        data.to(DEVICE)
+        data.to(Ge)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
         with torch.no_grad():
@@ -116,7 +116,7 @@ class PredictStateVectorHetGNN:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
-        data.to(DEVICE)
+        data.to(GeneralConfig.DEVICE)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
         with torch.no_grad():

@@ -8,7 +8,6 @@ import pygad.torchga
 
 import ml
 from common.classes import AgentResultsOnGameMaps
-from common.constants import DEVICE
 from config import FeatureConfig, GeneralConfig
 from connection.broker_conn.classes import Agent2ResultsOnMaps
 from connection.broker_conn.requests import recv_game_result_list, send_game_results
@@ -62,9 +61,7 @@ def on_generation(ga_instance):
     print(f"Generation = {ga_instance.generations_completed};")
     epoch_subdir = create_epoch_subdir(ga_instance.generations_completed)
 
-    for weights in get_n_best_weights_in_last_generation(
-        ga_instance, FeatureConfig.N_BEST_SAVED_EACH_GEN
-    ):
+    for weights in ga_instance.population:
         save_model(
             GeneralConfig.MODEL_INIT(),
             to=epoch_subdir / f"{sum(weights)}.pth",
@@ -128,7 +125,7 @@ def fitness_function(ga_inst, solution, solution_idx) -> float:
     )
 
     model.load_state_dict(model_weights_dict)
-    model.to(DEVICE)
+    model.to(GeneralConfig.DEVICE)
     model.eval()
     nnwrapper = NNWrapper(model, weights_flat=solution)
 

@@ -10,25 +10,23 @@ from learning.selection.parent_selection_type import ParentSelectionType
 
 
 def main():
-    num_generations = 20
-    num_parents_mating = 10
-    keep_elitism = 2
-
     model = GeneralConfig.MODEL_INIT()
 
     model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
-    torch_ga = pygad.torchga.TorchGA(model=model, num_solutions=60)
+    torch_ga = pygad.torchga.TorchGA(
+        model=model, num_solutions=GeneralConfig.NUM_SOLUTIONS
+    )
     initial_population = torch_ga.population_weights
 
     ga.run(
         server_count=GeneralConfig.SERVER_COUNT,
-        num_generations=num_generations,
-        num_parents_mating=num_parents_mating,
-        keep_elitism=keep_elitism,
+        num_generations=GeneralConfig.NUM_GENERATIONS,
+        num_parents_mating=GeneralConfig.NUM_PARENTS_MATING,
+        keep_elitism=GeneralConfig.KEEP_ELITISM,
         parent_selection_type=ParentSelectionType.STOCHASTIC_UNIVERSAL_SELECTION,
         crossover_type=CrossoverType.SINGLE_POINT,
         mutation_type=MutationType.RANDOM,
-        mutation_percent_genes=30,
+        mutation_percent_genes=GeneralConfig.MUTATION_PERCENT_GENES,
         initial_population=initial_population,
     )
 

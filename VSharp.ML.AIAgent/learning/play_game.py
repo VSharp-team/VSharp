@@ -4,6 +4,7 @@ from time import perf_counter
 from typing import TypeAlias
 
 import tqdm
+from func_timeout import FunctionTimedOut, func_set_timeout
 
 from common.classes import GameResult, Map2Result
 from common.constants import TQDM_FORMAT_DICT
@@ -34,7 +35,9 @@ def play_map(
     try:
         for _ in range(steps):
             game_state = with_connector.recv_state_or_throw_gameover()
-            predicted_state_id = with_predictor.predict(game_state)
+            predicted_state_id = with_predictor.predict(
+                game_state, with_connector.map.MapName
+            )
             logging.debug(
                 f"<{with_predictor.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
             )
@@ -54,11 +57,9 @@ def play_map(
             logging.warning(
                 f"<{with_predictor.name()}>: immediate GameOver on {with_connector.map.MapName}"
             )
-            return GameResult(
-                steps_count=steps,
-                tests_count=0,
-                errors_count=0,
-                actual_coverage_percent=0,
+            return (
+                GameResult(steps, 0, 0, 0),
+                perf_counter() - start_time,
             )
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
@@ -105,41 +106,54 @@ def play_map_with_stats(
     return model_result, time_duration
 
 
+@func_set_timeout(FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec)
+def play_map_with_timeout(
+    with_connector: Connector, with_predictor: Predictor
+) -> tuple[GameResult, TimeDuration]:
+    return play_map_with_stats(with_connector, with_predictor)
+
+
 def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
     with game_server_socket_manager() as ws:
         maps = get_maps(websocket=ws, type=maps_type)
-        with tqdm.tqdm(
-            total=len(maps),
-            desc=f"{with_predictor.name():20}: {maps_type.value}",
-            **TQDM_FORMAT_DICT,
-        ) as pbar:
-            list_of_map2result: list[Map2Result] = []
-            for game_map in maps:
-                logging.info(f"<{with_predictor.name()}> is playing {game_map.MapName}")
+    with tqdm.tqdm(
+        total=len(maps),
+        desc=f"{with_predictor.name():20}: {maps_type.value}",
+        **TQDM_FORMAT_DICT,
+    ) as pbar:
+        list_of_map2result: list[Map2Result] = []
+        for game_map in maps:
+            logging.info(f"<{with_predictor.name()}> is playing {game_map.MapName}")
 
-                game_result, time = play_map_with_stats(
-                    with_connector=Connector(ws, game_map, max_steps),
-                    with_predictor=with_predictor,
+            try:
+                play_func = (
+                    play_map_with_timeout
+                    if FeatureConfig.DUMP_BY_TIMEOUT.enabled
+                    else play_map_with_stats
                 )
-                list_of_map2result.append(Map2Result(game_map, game_result))
-
-                message = (
+                with game_server_socket_manager() as ws:
+                    game_result, time = play_func(
+                        with_connector=Connector(ws, game_map, max_steps),
+                        with_predictor=with_predictor,
+                    )
+                logging.info(
                     f"<{with_predictor.name()}> finished map {game_map.MapName} "
                     f"in {game_result.steps_count} steps, {time} seconds, "
                     f"actual coverage: {game_result.actual_coverage_percent:.2f}"
                 )
-                logging_func = logging.info
-                if (
-                    FeatureConfig.DUMP_BY_TIMEOUT.enabled
-                    and time > FeatureConfig.DUMP_BY_TIMEOUT.timeout_seconds
-                ):
-                    logging_func = logging.warning
-                    message = "OVERTIME: " + message
-                    save_model(
-                        with_predictor.model(),
-                        to=FeatureConfig.DUMP_BY_TIMEOUT.save_path
-                        / f"{with_predictor.name()}.pth",
-                    )
-                logging_func(message)
-                pbar.update(1)
+            except FunctionTimedOut:
+                game_result, time = (
+                    GameResult(0, 0, 0, 0),
+                    FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec,
+                )
+                logging.warning(
+                    f"<{with_predictor.name()}> timeouted on map {game_map.MapName}"
+                )
+                save_model(
+                    with_predictor.model(),
+                    to=FeatureConfig.DUMP_BY_TIMEOUT.save_path
+                    / f"{with_predictor.name()}.pth",
+                )
+            list_of_map2result.append(Map2Result(game_map, game_result))
+            pbar.update(1)
     return list_of_map2result

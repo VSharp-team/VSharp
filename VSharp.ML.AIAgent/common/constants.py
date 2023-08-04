@@ -32,9 +32,6 @@ TQDM_FORMAT_DICT = {
     "dynamic_ncols": True,
 }
 
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-BASE_NN_OUT_FEATURES_NUM = 8
-
 
 class WebsocketSourceLinks:
     GET_WS = f"http://0.0.0.0:{BrokerConfig.BROKER_PORT}/get_ws"
@@ -49,3 +46,6 @@ class ResultsHandlerLinks:
 DUMMY_INPUT_PATH = Path("ml/onnx/dummy_input.json")
 BEST_MODEL_ONNX_SAVE_PATH = Path("ml/onnx/StateModelEncoder.onnx")
 TEMP_EPOCH_INFERENCE_TIMES_DIR = Path(".epoch_inference_times/")
+
+# assuming we start from /VSharp/VSharp.ML.AIAgent
+SERVER_WORKING_DIR = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"

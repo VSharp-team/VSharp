@@ -20,7 +20,7 @@ class NNWrapper(Predictor):
     def model(self) -> list:
         return self._model
 
-    def predict(self, input: GameState):
+    def predict(self, input: GameState, map_name):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )

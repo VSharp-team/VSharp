@@ -1,36 +1,39 @@
+import json
 import logging
 
 import httplib2
 
 from common.constants import ResultsHandlerLinks, WebsocketSourceLinks
 
-from .classes import Agent2ResultsOnMaps
+from .classes import Agent2ResultsOnMaps, ServerInstanceInfo
 
 
-def aquire_ws() -> str:
+def acquire_instance() -> ServerInstanceInfo:
     while True:
         response, content = httplib2.Http().request(WebsocketSourceLinks.GET_WS)
-        aquired_ws_url = content.decode("utf-8")
-        if aquired_ws_url == "":
+        if content.decode("utf-8") == "":
             logging.warning(f"all sockets are in use")
             continue
-        logging.info(f"aquired ws: {aquired_ws_url}")
-        return aquired_ws_url
+        aquired_instance = ServerInstanceInfo.from_json(
+            json.loads(content.decode("utf-8"))
+        )
+        logging.info(f"acquired ws: {aquired_instance}")
+        return aquired_instance
 
 
-def return_ws(ws_url: str):
-    logging.info(f"returning: {ws_url}")
+def return_instance(instance: ServerInstanceInfo):
+    logging.info(f"returning: {instance}")
 
     response, content = httplib2.Http().request(
         WebsocketSourceLinks.POST_WS,
         method="POST",
-        body=ws_url,
+        body=instance.to_json(),
     )
 
     if response.status == 200:
-        logging.info(f"{ws_url} is returned")
+        logging.info(f"{instance} is returned")
     else:
-        logging.error(f"{response.status} on returning {ws_url}")
+        logging.error(f"{response.status} on returning {instance}")
         raise RuntimeError(f"Not ok response: {response.status}")
 
 
@@ -51,5 +54,5 @@ def send_game_results(data: Agent2ResultsOnMaps):
 def recv_game_result_list() -> str:
     response, content = httplib2.Http().request(ResultsHandlerLinks.GET_RES)
     games_data = content.decode("utf-8")
-    logging.info(f"Aquired games data")
+    logging.info(f"Acquired games data")
     return games_data
