@@ -11,8 +11,12 @@ def _build_bar_format() -> str:
     return f"{custom_left} {custom_bar} - {custom_info}"
 
 
-IMPORTED_FULL_MODEL_PATH = Path("ml/imported/GNN_state_pred_het_full_compact.zip")
-IMPORTED_DICT_MODEL_PATH = Path("ml/imported/GNN_state_pred_het_dict_compact.zip")
+IMPORTED_FULL_MODEL_PATH = Path(
+    "ml/imported/GNN_state_pred_het_full_StateGNNEncoderConvEdgeAttr_32ch.zip"
+)
+IMPORTED_DICT_MODEL_PATH = Path(
+    "ml/imported/GNN_state_pred_het_dict_StateGNNEncoderConvEdgeAttr_32ch.zip"
+)
 
 BASE_REPORT_DIR = Path("./report")
 TABLES_LOG_FILE = BASE_REPORT_DIR / "tables.log"

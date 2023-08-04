@@ -20,10 +20,10 @@ class GeneralConfig:
     MUTATION_PERCENT_GENES = 5
     LOGGER_LEVEL = logging.INFO
     IMPORT_MODEL_INIT = lambda: ml.models.StateModelEncoder(
-        hidden_channels=64, out_channels=8
+        hidden_channels=32, out_channels=8
     )
     EXPORT_MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
-        hidden_channels=64, out_channels=8
+        hidden_channels=32, out_channels=8
     )
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
