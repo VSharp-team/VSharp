@@ -106,16 +106,9 @@ def play_map_with_stats(
     return model_result, time_duration
 
 
-# @func_set_timeout(FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec)
-# def play_map_with_timeout(
-#     with_connector: Connector, with_predictor: Predictor
-# ) -> tuple[GameResult, TimeDuration]:
-#     return play_map_with_stats(with_connector, with_predictor)
-
-
 def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
     with game_server_socket_manager() as ws:
-        maps = get_maps(websocket=ws, type=maps_type)
+        maps = get_maps(websocket=ws, type=maps_type)[:4]
     with tqdm.tqdm(
         total=len(maps),
         desc=f"{with_predictor.name():20}: {maps_type.value}",
@@ -126,11 +119,6 @@ def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
             logging.info(f"<{with_predictor.name()}> is playing {game_map.MapName}")
 
             try:
-                # play_func = (
-                #     play_map_with_timeout
-                #     if FeatureConfig.DUMP_BY_TIMEOUT.enabled
-                #     else play_map_with_stats
-                # )
                 with game_server_socket_manager() as ws:
                     game_result, time = play_map_with_stats(
                         with_connector=Connector(
