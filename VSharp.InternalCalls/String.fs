@@ -13,13 +13,13 @@ module internal String =
         assert(List.length args = 2)
         let this, arrayRef = List.item 0 args, List.item 1 args
         let states = Memory.StringCtorOfCharArray state arrayRef this
-        List.map (fun state -> (Nop, state)) states
+        List.map (fun state -> (Nop(), state)) states
 
     let CtorFromReplicatedChar state args =
         assert(List.length args = 3)
         let this, char, length = args.[0], args.[1], args.[2]
         Memory.StringFromReplicatedChar state this char length
-        Nop
+        Nop()
 
     let CtorFromSpan (state : state) (args : term list) : term =
         assert(List.length args = 2)
@@ -27,7 +27,7 @@ module internal String =
         let ref = ReadOnlySpan.GetContentsRef state span
         let len = ReadOnlySpan.GetLength state span
         match Memory.StringCtorOfCharArrayAndLen state ref this len with
-        | [ _ ] -> Nop
+        | [ _ ] -> Nop()
         | _ -> internalfail "CtorFromSpan: need to branch execution"
 
     let GetLength (state : state) (args : term list) =
@@ -84,7 +84,7 @@ module internal String =
             let len2 = obj2 :?> int
             if len1 = len2 then
                 let indices = List.init len1 id
-                List.fold checkOneChar True indices
+                List.fold checkOneChar (True()) indices
             else MakeBool false
         | _ -> __insufficientInformation__ "String.Equals works only for concrete length strings right now"
 

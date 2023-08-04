@@ -43,13 +43,13 @@ internal class LifetimesTargets
     
     public static IEnumerable<BenchmarkTarget> Collections()
     {
-        var assembly = BenchmarkRunner.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
+        var assembly = Benchmarks.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
         return BenchmarkTarget.ForAllMethods(assembly, CollectionsClasses);
     }
     
     public static IEnumerable<BenchmarkTarget> Util()
     {
-        var assembly = BenchmarkRunner.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
+        var assembly = Benchmarks.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
         return BenchmarkTarget.ForAllMethods(assembly, UtilClasses);
     }
 }

@@ -103,4 +103,4 @@ module Unsafe =
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"
 
     let internal SkipInit (_ : state) (_ : term list) : term =
-        Nop
+        Nop()

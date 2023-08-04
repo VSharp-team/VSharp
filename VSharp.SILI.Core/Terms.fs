@@ -269,6 +269,7 @@ module HashMap =
                 let term = { term = node; hc = hc }
                 hashMap.Add(node, term)
                 term
+    let clear() = hashMap.Free()
 
 [<AutoOpen>]
 module internal Terms =
@@ -277,7 +278,7 @@ module internal Terms =
 
 // --------------------------------------- Primitives ---------------------------------------
 
-    let Nop = HashMap.addTerm Nop
+    let Nop () = HashMap.addTerm Nop
     let Concrete obj typ = HashMap.addTerm (Concrete(obj, typ))
     let Constant name source typ = HashMap.addTerm (Constant({v=name}, source, typ))
     let Expression op args typ = HashMap.addTerm (Expression(op, args, typ))
@@ -430,14 +431,14 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
         | _ -> false
 
-    let zeroAddress =
+    let zeroAddress () =
         Concrete VectorTime.zero addressType
 
     let makeNumber n =
         Concrete n (n.GetType())
 
     let makeNullPtr typ =
-        Ptr (HeapLocation(zeroAddress, typ)) typ (makeNumber 0)
+        Ptr (HeapLocation(zeroAddress(), typ)) typ (makeNumber 0)
 
     // Only for concretes: there will never be null type
     let canCastConcrete (concrete : obj) targetType =
@@ -475,20 +476,20 @@ module internal Terms =
             let actualTypeName = Reflection.getFullTypeName actualType
             raise (InvalidCastException $"Cannot cast {actualTypeName} to {tName}!")
 
-    let True =
+    let True () =
         Concrete (box true) typeof<bool>
 
-    let False =
+    let False () =
         Concrete (box false) typeof<bool>
 
     let makeBool predicate =
-        if predicate then True else False
+        if predicate then True() else False()
 
     let makeIndex (i : int) =
         Concrete i indexType
 
     let nullRef t =
-        HeapRef zeroAddress t
+        HeapRef (zeroAddress()) t
 
     let makeBinary operation x y t =
         assert(Operations.isBinary operation)
@@ -547,10 +548,10 @@ module internal Terms =
         | _ when isRefOrPtr value -> value
         | _ ->
             let offset = primitiveCast value typeof<int>
-            Ptr (HeapLocation(zeroAddress, typeof<Void>)) t offset
+            Ptr (HeapLocation(zeroAddress(), typeof<Void>)) t offset
 
     and (|DetachedPtr|_|) = function
-        | Ptr(HeapLocation(address, _), _, offset) when address = zeroAddress ->
+        | Ptr(HeapLocation(address, _), _, offset) when address = zeroAddress() ->
             Some(DetachedPtr offset)
         | _ -> None
 
@@ -796,14 +797,14 @@ module internal Terms =
                     Array.blit sliceBytes 0 bytes 0 sliceSize
                     solidPartBytes <- sliceBytes
                     solidPartSize <- sliceSize
-            | _ -> internalfailf "expected concrete slice, but got %O" slice
+            | _ -> internalfailf $"Expected concrete slice, but got {slice}"
         bytesToObj bytes t
 
     and private slicingTerm term =
         match term with
         | {term = Concrete(o, _)} -> o
         | CombinedTerm(slices, t) -> reinterpretConcretes slices t
-        | _ -> internalfail "getting slicing term: unexpected term %O" term
+        | _ -> internalfail $"Getting slicing term: unexpected term {term}"
 
     and private allSlicesAreConcrete slices =
         let rec sliceIsConcrete t =
@@ -1004,7 +1005,7 @@ module internal Terms =
 
     let rec makeDefaultValue typ =
         match typ with
-        | Bool -> False
+        | Bool -> False()
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
@@ -1020,5 +1021,5 @@ module internal Terms =
         | TypeVariable t -> __insufficientInformation__ "Cannot instantiate value of undefined type %O" t
         | StructType _ -> makeStruct false (fun _ _ t -> makeDefaultValue t) typ
         | Pointer typ -> makeNullPtr typ
-        | AddressType -> zeroAddress
+        | AddressType -> zeroAddress()
         | _ -> __notImplemented__()

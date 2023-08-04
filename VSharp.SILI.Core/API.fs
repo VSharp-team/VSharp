@@ -67,7 +67,7 @@ module API =
 
     [<AutoOpen>]
     module public Terms =
-        let Nop = Nop
+        let Nop () = Nop ()
         let Concrete obj typ = Concrete obj typ
         let Constant name source typ = Constant name source typ
         let Expression op args typ = Expression op args typ
@@ -77,8 +77,8 @@ module API =
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
-        let True = True
-        let False = False
+        let True () = True ()
+        let False () = False ()
         let NullRef t = nullRef t
         let MakeNullPtr t = makeNullPtr t
         let ConcreteHeapAddress (address : concreteHeapAddress) = ConcreteHeapAddress address
@@ -139,13 +139,13 @@ module API =
         let (|Conjunction|_|) term = (|Conjunction|_|) term.term
         let (|Disjunction|_|) term = (|Disjunction|_|) term.term
         let (|NullRef|_|) = function
-            | {term = HeapRef(addr, t)} when addr = zeroAddress -> Some(t)
+            | {term = HeapRef(addr, t)} when addr = zeroAddress() -> Some(t)
             | _ -> None
         let (|NonNullRef|_|) = function
-            | {term = HeapRef(addr, _)} when addr = zeroAddress -> None
+            | {term = HeapRef(addr, _)} when addr = zeroAddress() -> None
             | _ -> Some()
         let (|NullPtr|_|) = function
-            | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress && offset = makeNumber 0 -> Some()
+            | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress() && offset = makeNumber 0 -> Some()
             | _ -> None
 
         let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term.term
@@ -642,7 +642,7 @@ module API =
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
                         Copying.copyCharArrayToString state arrayAddr dstAddr length
-                        k (Nop, state)
+                        k (Nop(), state)
                     | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
                 let nullCase state k =
                     let arrayRef = TypeOf arrayRef |> NullRef

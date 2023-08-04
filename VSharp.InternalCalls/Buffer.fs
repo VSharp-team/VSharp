@@ -31,4 +31,4 @@ module Buffer =
         let dstLinearIndex = Memory.LinearizeArrayIndex state dstAddr dstIndices dstArrayType
         let srcLinearIndex = Memory.LinearizeArrayIndex state srcAddr srcIndices srcArrayType
         Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
-        Nop
+        Nop()

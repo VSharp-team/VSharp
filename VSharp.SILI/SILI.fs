@@ -390,6 +390,8 @@ type public SILI(options : SiliOptions) =
                        (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                        (onInternalFail : Action<Method, Exception>) (onCrash : Action<Exception>): unit =
         try
+            HashMap.clear()
+            
             reportInternalFail <- wrapOnInternalFail onInternalFail
             reportStateInternalFail <- wrapOnStateInternalFail onInternalFail
             reportCrash <- wrapOnCrash onCrash

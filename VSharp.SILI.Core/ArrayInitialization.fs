@@ -10,8 +10,8 @@ module internal ArrayInitialization =
 
     let private boolTermCreator (rawData : byte []) index =
         match rawData.[index] with
-        | 0uy -> False
-        | 1uy -> True
+        | 0uy -> False()
+        | 1uy -> True()
         | _ -> __unreachable__()
     let private byteTermCreator (rawData : byte []) index =
         rawData.[index] |> makeNumber

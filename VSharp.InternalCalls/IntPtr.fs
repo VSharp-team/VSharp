@@ -10,7 +10,7 @@ module IntPtr =
 
     let private intPtrCtor (state : state) this term : (term * state) list =
         let ptr = MakeIntPtr term
-        Memory.Write state this ptr |> List.map (withFst Nop)
+        Memory.Write state this ptr |> List.map (withFst (Nop()))
 
     let internal intPtrCtorFromInt (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 2)
@@ -39,7 +39,7 @@ module UIntPtr =
 
     let private uintPtrCtor (state : state) this term : (term * state) list =
         let ptr = MakeUIntPtr term
-        Memory.Write state this ptr |> List.map (withFst Nop)
+        Memory.Write state this ptr |> List.map (withFst (Nop()))
 
     let internal uintPtrCtorFromUInt (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 2)

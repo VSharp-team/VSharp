@@ -13,11 +13,11 @@ module Thread =
 
     let internal SpinWaitInternal (_ : state) (args : term list) =
         assert(List.length args = 1)
-        Nop
+        Nop()
 
     let internal SpinOnce (_ : state) (args : term list) =
         assert(List.length args = 1)
-        Nop
+        Nop()
 
     let internal Yield (_ : state) (args : term list) =
         assert(List.length args = 0)
@@ -25,4 +25,4 @@ module Thread =
 
     let internal SleepInternal (_ : state) (args : term list) =
         assert(List.length args = 1)
-        Nop
+        Nop()

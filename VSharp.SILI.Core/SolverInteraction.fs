@@ -61,7 +61,7 @@ module public SolverInteraction =
 
     let rec private createContext (unequal : HashSet<term * term>) =
         let createCondition (a1, a2) =
-            ((a1 === zeroAddress) &&& (a2 === zeroAddress)) ||| (!!(a1 === a2))
+            ((a1 === zeroAddress()) &&& (a2 === zeroAddress())) ||| (!!(a1 === a2))
         Seq.map createCondition unequal
 
     let checkSatWithSubtyping (state : state) =

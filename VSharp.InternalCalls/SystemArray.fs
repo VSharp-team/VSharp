@@ -41,7 +41,7 @@ module internal SystemArray =
             | Concrete(obj, _) ->
                 let length = obj :?> int
                 let indices = List.init length id
-                List.fold checkOneElement False indices
+                List.fold checkOneElement (False()) indices
             | _ -> __unreachable__()
         | _ -> __insufficientInformation__ "Contains works only for concrete address arrays"
 

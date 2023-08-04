@@ -9,11 +9,12 @@ using NUnit.Framework;
 
 namespace VSharp.Test.Benchmarks;
 
-internal static class BenchmarkRunner
+internal static class Benchmarks
 {
-    public static Statistics RunBenchmark(
+    public static bool RunBenchmark(
         BenchmarkTarget target,
         VSharp.SearchStrategy searchStrategy,
+        out Statistics statistics,
         int timeoutS = -1,
         uint stepsLimit = 0,
         bool releaseBranches = true,
@@ -26,41 +27,23 @@ internal static class BenchmarkRunner
             Verbosity: Verbosity.Warning,
             RandomSeed: randomSeed,
             StepsLimit: stepsLimit);
-        Statistics statistics;
 
         if (target.Method is not null)
         {
-            TestGenerator.CoverAndRun(target.Method, out statistics, options);
-        }
-        else if (target.Types.Count == 1)
-        {
-            TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
-        }
-        else if (target.Types.Count > 1)
-        {
-            TestGenerator.CoverAndRun(target.Types, out statistics, options);
-        }
-        else
-        {
-            TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
+            return TestGenerator.CoverAndRun(target.Method, out statistics, options);
         }
 
-        return statistics;
-    }
-
-    public static int CompareCoverageSteps(Statistics one, Statistics another)
-    {
-        var lastTestOfOne = one.GeneratedTestInfos.Last();
-        var lastTestOfAnother = another.GeneratedTestInfos.Last();
-
-        if (lastTestOfOne.Coverage < lastTestOfAnother.Coverage)
+        if (target.Types.Count == 1)
         {
-            var closestToOne = another.GeneratedTestInfos.First(t => t.Coverage >= lastTestOfOne.Coverage);
-            return lastTestOfOne.StepsCount.CompareTo(closestToOne.StepsCount);
+            return TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
         }
         
-        var closestToAnother = one.GeneratedTestInfos.First(t => t.Coverage >= lastTestOfAnother.Coverage);
-        return closestToAnother.StepsCount.CompareTo(lastTestOfAnother.StepsCount);
+        if (target.Types.Count > 1)
+        {
+            return TestGenerator.CoverAndRun(target.Types, out statistics, options);
+        }
+        
+        return TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
     }
 
     public static void PrintStatisticsComparison(List<(string Title, Statistics Stats)> statistics)
@@ -106,6 +89,17 @@ internal static class BenchmarkRunner
         }
         
         testsStatsTable.Write();
+    }
+
+    public static int GetMethodCoverage(BenchmarkTarget target, Statistics result)
+    {
+        if (target.Method is null)
+        {
+            throw new Exception("Cannot get coverage of BenchmarkTarget without single method");
+        }
+        
+        var runnerWithArgs = $"{TestResultChecker.TestRunnerPath} {result.OutputDir.FullName}";
+        return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.OutputDir, target.Method);
     }
 
     public static Assembly LoadBenchmarkAssembly(string suite, string dllFileName)
