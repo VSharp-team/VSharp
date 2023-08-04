@@ -1,10 +1,12 @@
 import logging
 import logging.config
+import time
 from typing import Optional
 
 import websocket
 
 from common.game import GameMap, GameState
+from config import FeatureConfig
 
 from .messages import (
     ClientMessage,
@@ -32,6 +34,9 @@ class Connector:
     class IncorrectSentStateError(Exception):
         pass
 
+    class TimeoutError(Exception):
+        pass
+
     class GameOver(Exception):
         def __init__(
             self,
@@ -50,6 +55,7 @@ class Connector:
         ws: websocket.WebSocket,
         map: GameMap,
         steps: int,
+        timeout_sec: float,
     ) -> None:
         self.ws = ws
 
@@ -60,6 +66,8 @@ class Connector:
         self.game_is_over = False
         self.map = map
         self.steps = steps
+        self.start_time_ms = time.perf_counter()
+        self.timeout_sec = timeout_sec
 
     def _raise_if_gameover(self, msg) -> GameOverServerMessage | str:
         if self.game_is_over:
@@ -84,6 +92,9 @@ class Connector:
                 return msg
 
     def recv_state_or_throw_gameover(self) -> GameState:
+        self._handle_timeout(
+            start_time_ms=self.start_time_ms, current_time_ms=time.perf_counter()
+        )
         received = self.ws.recv()
         data = GameStateServerMessage.from_json_handle(
             self._raise_if_gameover(received),
@@ -103,6 +114,9 @@ class Connector:
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
+        self._handle_timeout(
+            start_time_ms=self.start_time_ms, current_time_ms=time.perf_counter()
+        )
         received = self.ws.recv()
         decoded = RewardServerMessage.from_json_handle(
             self._raise_if_gameover(received),
@@ -111,6 +125,14 @@ class Connector:
         logging.debug(f"<-- MoveReward    : {decoded.MessageBody}")
 
         return self._process_reward_server_message(decoded)
+
+    def _handle_timeout(self, start_time_ms, current_time_ms):
+        if not FeatureConfig.DUMP_BY_TIMEOUT.enabled:
+            return
+        if self.timeout_sec * 1000 <= (current_time_ms - start_time_ms):
+            raise Connector.TimeoutError(
+                f"{self.timeout_sec * 1000=}, {(current_time_ms - start_time_ms)=}"
+            )
 
     def _process_reward_server_message(self, msg):
         match msg.MessageType:

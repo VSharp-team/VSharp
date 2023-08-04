@@ -106,11 +106,11 @@ def play_map_with_stats(
     return model_result, time_duration
 
 
-@func_set_timeout(FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec)
-def play_map_with_timeout(
-    with_connector: Connector, with_predictor: Predictor
-) -> tuple[GameResult, TimeDuration]:
-    return play_map_with_stats(with_connector, with_predictor)
+# @func_set_timeout(FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec)
+# def play_map_with_timeout(
+#     with_connector: Connector, with_predictor: Predictor
+# ) -> tuple[GameResult, TimeDuration]:
+#     return play_map_with_stats(with_connector, with_predictor)
 
 
 def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
@@ -126,14 +126,19 @@ def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
             logging.info(f"<{with_predictor.name()}> is playing {game_map.MapName}")
 
             try:
-                play_func = (
-                    play_map_with_timeout
-                    if FeatureConfig.DUMP_BY_TIMEOUT.enabled
-                    else play_map_with_stats
-                )
+                # play_func = (
+                #     play_map_with_timeout
+                #     if FeatureConfig.DUMP_BY_TIMEOUT.enabled
+                #     else play_map_with_stats
+                # )
                 with game_server_socket_manager() as ws:
-                    game_result, time = play_func(
-                        with_connector=Connector(ws, game_map, max_steps),
+                    game_result, time = play_map_with_stats(
+                        with_connector=Connector(
+                            ws,
+                            game_map,
+                            max_steps,
+                            FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec,
+                        ),
                         with_predictor=with_predictor,
                     )
                 logging.info(
@@ -141,7 +146,7 @@ def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
                     f"in {game_result.steps_count} steps, {time} seconds, "
                     f"actual coverage: {game_result.actual_coverage_percent:.2f}"
                 )
-            except FunctionTimedOut:
+            except (Connector.TimeoutError, FunctionTimedOut):
                 game_result, time = (
                     GameResult(0, 0, 0, 0),
                     FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec,

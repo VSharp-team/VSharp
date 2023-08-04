@@ -5,19 +5,21 @@ from shutil import rmtree
 
 import torch
 
-import ml.models
+import ml.model_modified
 
 
 class GeneralConfig:
-    SERVER_COUNT = 8
-    NUM_GENERATIONS = 20
-    NUM_PARENTS_MATING = 10
-    KEEP_ELITISM = 2
-    NUM_SOLUTIONS = 60
-    MAX_STEPS = 3000
-    MUTATION_PERCENT_GENES = 30
+    SERVER_COUNT = 3
+    NUM_GENERATIONS = 2
+    NUM_PARENTS_MATING = 2
+    KEEP_ELITISM = None
+    NUM_SOLUTIONS = None
+    MAX_STEPS = 100
+    MUTATION_PERCENT_GENES = 4
     LOGGER_LEVEL = logging.INFO
-    MODEL_INIT = lambda: ml.models.SAGEConvModel(16)
+    MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
+        hidden_channels=64, out_channels=8
+    )
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 

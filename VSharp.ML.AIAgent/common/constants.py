@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import torch
-
 from config import BrokerConfig
 
 
@@ -46,6 +44,7 @@ class ResultsHandlerLinks:
 DUMMY_INPUT_PATH = Path("ml/onnx/dummy_input.json")
 BEST_MODEL_ONNX_SAVE_PATH = Path("ml/onnx/StateModelEncoder.onnx")
 TEMP_EPOCH_INFERENCE_TIMES_DIR = Path(".epoch_inference_times/")
+BASE_NN_OUT_FEATURES_NUM = 8
 
 # assuming we start from /VSharp/VSharp.ML.AIAgent
 SERVER_WORKING_DIR = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
