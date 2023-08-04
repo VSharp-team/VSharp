@@ -13,16 +13,16 @@ class GeneralConfig:
     SERVER_COUNT = 16
     NUM_GENERATIONS = 20
     NUM_PARENTS_MATING = 22
-    KEEP_ELITISM = 18
-    NUM_RANDOM_SOLUTIONS = 60
-    NUM_RANDOM_LAST_LAYER = 18
-    MAX_STEPS = 3000
-    MUTATION_PERCENT_GENES = 4
+    KEEP_ELITISM = 2
+    NUM_RANDOM_SOLUTIONS = 40
+    NUM_RANDOM_LAST_LAYER = 38
+    MAX_STEPS = 5000
+    MUTATION_PERCENT_GENES = 5
     LOGGER_LEVEL = logging.INFO
     IMPORT_MODEL_INIT = lambda: ml.models.StateModelEncoder(
         hidden_channels=64, out_channels=8
     )
-    MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
+    EXPORT_MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
         hidden_channels=64, out_channels=8
     )
     DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -67,7 +67,7 @@ class FeatureConfig:
     NAME_LEN = 7
     DISABLE_MESSAGE_CHECKS = True
     DUMP_BY_TIMEOUT = DumpByTimeoutFeature(
-        enabled=True, timeout_sec=600, save_path=Path("./report/timeouted_agents/")
+        enabled=True, timeout_sec=1800, save_path=Path("./report/timeouted_agents/")
     )
     SAVE_EPOCHS_COVERAGES = SaveEpochsCoveragesFeature(
         enabled=True, save_path=Path("./report/epochs_tables/")

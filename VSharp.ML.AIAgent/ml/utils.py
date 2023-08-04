@@ -1,6 +1,7 @@
 import copy
 import random
 from pathlib import Path
+from typing import OrderedDict
 
 import numpy
 import pygad.torchga
@@ -8,11 +9,8 @@ import torch
 from numpy import typing as npt
 from torch import nn
 
-import ml.model_modified
-import ml.models
 from common.constants import BASE_NN_OUT_FEATURES_NUM
 from config import GeneralConfig
-from ml.onnx.onnx_import import create_torch_dummy_input
 
 
 def load_model(path: Path, model: torch.nn.Module):
@@ -21,28 +19,39 @@ def load_model(path: Path, model: torch.nn.Module):
     return model
 
 
+def convert_to_export(
+    old_sd: OrderedDict, new_sd: OrderedDict, last_layer_weights: list[float]
+):
+    for key, value in [(k, v) for k, v in new_sd.items()]:
+        if key in old_sd:
+            new_sd.update({key: value})
+
+    new_model = GeneralConfig.EXPORT_MODEL_INIT()
+    new_model.load_state_dict(new_sd, strict=False)
+    new_model.state_encoder.lin_last.weight.data = torch.Tensor([last_layer_weights])
+    new_model.state_encoder.lin_last.bias.data = torch.Tensor([0])
+    return new_model
+
+
 def model_weights_with_last_layer(
-    last_layer_weights: list[float], model: ml.models.StateGNNEncoderConvEdgeAttr
+    old_sd: OrderedDict, new_sd: OrderedDict, last_layer_weights: list[float]
 ) -> npt.NDArray:
     assert len(last_layer_weights) == BASE_NN_OUT_FEATURES_NUM
-    model_2_export = ml.model_modified.StateGNNEncoderConvEdgeAttrExport(
-        hidden_channels=64, out_channels=BASE_NN_OUT_FEATURES_NUM
-    )
-    model_2_export.forward(*create_torch_dummy_input())
-    model_2_export.load_state_dict(model.state_dict(), strict=False)
-    model_2_export.lin_last.weight.data = torch.Tensor([last_layer_weights])
-    model_2_export.to(GeneralConfig.DEVICE)
-    model_2_export.eval()
+    model_2_export = convert_to_export(old_sd, new_sd, last_layer_weights)
     return pygad.torchga.model_weights_as_vector(model_2_export)
 
 
 def model_weights_with_random_last_layer(
-    lo: float, hi: float, model: ml.models.StateGNNEncoderConvEdgeAttr
+    lo: float, hi: float, old_sd: OrderedDict, new_sd: OrderedDict
 ) -> npt.NDArray:
-    model = model_weights_with_last_layer(
-        [random.uniform(lo, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)], model
+    weights = model_weights_with_last_layer(
+        old_sd,
+        new_sd,
+        last_layer_weights=[
+            random.uniform(lo, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)
+        ],
     )
-    return model
+    return weights
 
 
 def create_population(

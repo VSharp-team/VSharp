@@ -14,19 +14,33 @@ from ml.utils import (
 
 
 def main():
-    model = GeneralConfig.MODEL_INIT()
+    imported_model = load_model(
+        IMPORTED_DICT_MODEL_PATH, model=GeneralConfig.IMPORT_MODEL_INIT()
+    )
+    imported_model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
 
-    model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
+    exported_model = GeneralConfig.EXPORT_MODEL_INIT()
+    exported_model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
 
     random_population = create_population(
-        lo=-5, hi=5, model=model, population_size=GeneralConfig.NUM_RANDOM_SOLUTIONS
+        lo=-5,
+        hi=5,
+        model=exported_model,
+        population_size=GeneralConfig.NUM_RANDOM_SOLUTIONS,
     )
     with_random_last_layer = [
-        model_weights_with_random_last_layer(lo=-1, hi=1, model=model)
+        model_weights_with_random_last_layer(
+            lo=-1,
+            hi=1,
+            old_sd=imported_model.state_dict(),
+            new_sd=exported_model.state_dict(),
+        )
         for _ in range(GeneralConfig.NUM_RANDOM_LAST_LAYER)
     ]
     with_last_layer1 = model_weights_with_last_layer(
-        [
+        old_sd=imported_model.state_dict(),
+        new_sd=exported_model.state_dict(),
+        last_layer_weights=[
             -0.7853140655460631,
             0.7524892603731441,
             0.2844810949678288,
@@ -36,12 +50,11 @@ def main():
             0.95478059636744,
             0.27937866719070503,
         ],
-        load_model(
-            path=IMPORTED_DICT_MODEL_PATH, model=GeneralConfig.IMPORT_MODEL_INIT()
-        ),
     )
     with_last_layer2 = model_weights_with_last_layer(
-        [
+        old_sd=imported_model.state_dict(),
+        new_sd=exported_model.state_dict(),
+        last_layer_weights=[
             -0.7853139452883172,
             0.752490045931864,
             0.2844807733073216,
@@ -51,9 +64,6 @@ def main():
             0.9555442824877577,
             0.2793786892860371,
         ],
-        load_model(
-            path=IMPORTED_DICT_MODEL_PATH, model=GeneralConfig.IMPORT_MODEL_INIT()
-        ),
     )
 
     initial_population = [

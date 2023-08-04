@@ -63,7 +63,7 @@ def on_generation(ga_instance):
 
     for weights in ga_instance.population:
         save_model(
-            GeneralConfig.MODEL_INIT(),
+            GeneralConfig.EXPORT_MODEL_INIT(),
             to=epoch_subdir / f"{sum(weights)}.pth",
             weights=weights,
         )
@@ -118,7 +118,7 @@ def on_generation(ga_instance):
 
 
 def fitness_function(ga_inst, solution, solution_idx) -> float:
-    model = GeneralConfig.MODEL_INIT()
+    model = GeneralConfig.EXPORT_MODEL_INIT()
     model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
     model_weights_dict = pygad.torchga.model_weights_as_dict(
         model=model, weights_vector=solution
