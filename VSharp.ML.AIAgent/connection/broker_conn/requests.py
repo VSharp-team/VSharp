@@ -10,7 +10,7 @@ from .classes import Agent2ResultsOnMaps, ServerInstanceInfo
 
 def acquire_instance() -> ServerInstanceInfo:
     response, content = httplib2.Http().request(WebsocketSourceLinks.GET_WS)
-    aquired_instance = ServerInstanceInfo.from_json(content.decode("utf-8"))
+    aquired_instance = ServerInstanceInfo.from_json(json.loads(content.decode("utf-8")))
     logging.info(f"acquired ws: {aquired_instance}")
     return aquired_instance
 

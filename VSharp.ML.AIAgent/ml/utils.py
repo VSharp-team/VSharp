@@ -1,5 +1,6 @@
 import copy
 import random
+from pathlib import Path
 
 import numpy
 import pygad.torchga
@@ -12,6 +13,12 @@ import ml.models
 from common.constants import BASE_NN_OUT_FEATURES_NUM
 from config import GeneralConfig
 from ml.onnx.onnx_import import create_torch_dummy_input
+
+
+def load_model(path: Path, model: torch.nn.Module):
+    model.load_state_dict(torch.load(path))
+    model.eval()
+    return model
 
 
 def model_weights_with_last_layer(

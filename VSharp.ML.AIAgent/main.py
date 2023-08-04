@@ -1,11 +1,13 @@
 import learning.entry_point as ga
 import ml.onnx.onnx_import
+from common.constants import IMPORTED_DICT_MODEL_PATH
 from config import GeneralConfig
 from learning.selection.crossover_type import CrossoverType
 from learning.selection.mutation_type import MutationType
 from learning.selection.parent_selection_type import ParentSelectionType
 from ml.utils import (
     create_population,
+    load_model,
     model_weights_with_last_layer,
     model_weights_with_random_last_layer,
 )
@@ -16,9 +18,10 @@ def main():
 
     model.forward(*ml.onnx.onnx_import.create_torch_dummy_input())
 
-    random_population = create_population(lo=-5, hi=5, model=model, population_size=4)
+    random_population = create_population(lo=-5, hi=5, model=model, population_size=60)
     with_random_last_layer = [
-        model_weights_with_random_last_layer(lo=-1, hi=1, model=model) for _ in range(2)
+        model_weights_with_random_last_layer(lo=-1, hi=1, model=model)
+        for _ in range(18)
     ]
     with_last_layer1 = model_weights_with_last_layer(
         [
@@ -31,7 +34,9 @@ def main():
             0.95478059636744,
             0.27937866719070503,
         ],
-        model,
+        load_model(
+            path=IMPORTED_DICT_MODEL_PATH, model=GeneralConfig.IMPORT_MODEL_INIT()
+        ),
     )
     with_last_layer2 = model_weights_with_last_layer(
         [
@@ -44,7 +49,9 @@ def main():
             0.9555442824877577,
             0.2793786892860371,
         ],
-        model,
+        load_model(
+            path=IMPORTED_DICT_MODEL_PATH, model=GeneralConfig.IMPORT_MODEL_INIT()
+        ),
     )
 
     initial_population = [

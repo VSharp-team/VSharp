@@ -6,6 +6,7 @@ from shutil import rmtree
 import torch
 
 import ml.model_modified
+import ml.models
 
 
 class GeneralConfig:
@@ -14,9 +15,12 @@ class GeneralConfig:
     NUM_PARENTS_MATING = 2
     KEEP_ELITISM = None
     NUM_SOLUTIONS = None
-    MAX_STEPS = 100
+    MAX_STEPS = 3000
     MUTATION_PERCENT_GENES = 4
     LOGGER_LEVEL = logging.INFO
+    IMPORT_MODEL_INIT = lambda: ml.models.StateModelEncoder(
+        hidden_channels=64, out_channels=8
+    )
     MODEL_INIT = lambda: ml.model_modified.StateModelEncoderExport(
         hidden_channels=64, out_channels=8
     )
