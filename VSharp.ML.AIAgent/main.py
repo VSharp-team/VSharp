@@ -79,7 +79,7 @@ def main():
         num_parents_mating=GeneralConfig.NUM_PARENTS_MATING,
         keep_elitism=GeneralConfig.KEEP_ELITISM,
         parent_selection_type=ParentSelectionType.STOCHASTIC_UNIVERSAL_SELECTION,
-        crossover_type=CrossoverType.SINGLE_POINT,
+        crossover_type=CrossoverType.UNIFORM,
         mutation_type=MutationType.RANDOM,
         mutation_percent_genes=GeneralConfig.MUTATION_PERCENT_GENES,
         initial_population=initial_population,
