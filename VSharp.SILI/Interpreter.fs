@@ -1546,6 +1546,10 @@ type internal ILInterpreter() as this =
         if Types.IsValueType t then
             let v = pop cilState
             if Types.IsNullable t then x.BoxNullable t v cilState
+            elif t.IsEnum then
+                let enum = Types.Cast v t
+                allocateValueTypeInHeap enum cilState
+                [cilState]
             else
                 allocateValueTypeInHeap v cilState
                 [cilState]
