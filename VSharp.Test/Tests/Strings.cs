@@ -153,13 +153,27 @@ namespace IntegrationTests
             return ret.ToString();
         }
 
-        [Ignore("need to fix StringBuilder.AppendLine")]
+        [TestSvm(100)]
+        public static string FormatInt(int x)
+        {
+            if (x > 10)
+                return string.Format("int > 10, int = {0}", x);
+            return string.Format("int <= 10, int = {0}", x);
+        }
+
+        [TestSvm(100)]
+        public static string FormatInt1(int x)
+        {
+            return $"int = {x}";
+        }
+
+        [TestSvm(100)]
         public static string StringFormat1(ClassToString c)
         {
             return string.Format("{0}: {1}, {2}: {3}, {4}: {5}", "Kind", c.Kind, "X", c.X, "Y", c.Y);
         }
 
-        [Ignore("need to fix StringBuilder.AppendLine")]
+        [TestSvm(100)]
         public static string StringFormat2(ClassToString c)
         {
             if (c.Kind == Kind.First)
