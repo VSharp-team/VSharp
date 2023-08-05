@@ -22,13 +22,13 @@ module Buffer =
                 | Some(index, arrayType) -> address, index, arrayType
                 | None -> internalfail $"Memmove: unexpected pointer {ref}"
             | _ -> internalfail $"Memmove: unexpected reference {ref}"
-        let addr1, indices1, arrayType1 = getArrayInfo dst
-        let addr2, indices2, arrayType2 = getArrayInfo src
-        let typ1 = Types.ArrayTypeToSymbolicType arrayType1
-        let typ2 = Types.ArrayTypeToSymbolicType arrayType2
-        let heapRef1 = HeapRef addr1 typ1
-        let heapRef2 = HeapRef addr2 typ2
-        let linearIndex1 = Memory.LinearizeArrayIndex state addr1 indices1 arrayType1
-        let linearIndex2 = Memory.LinearizeArrayIndex state addr2 indices2 arrayType2
-        Memory.CopyArray state heapRef1 linearIndex1 typ1 heapRef2 linearIndex2 typ2 elemCount
+        let dstAddr, dstIndices, dstArrayType = getArrayInfo dst
+        let srcAddr, srcIndices, srcArrayType = getArrayInfo src
+        let dstType = Types.ArrayTypeToSymbolicType dstArrayType
+        let srcType = Types.ArrayTypeToSymbolicType srcArrayType
+        let dstHeapRef = HeapRef dstAddr dstType
+        let srcHeapRef = HeapRef srcAddr srcType
+        let dstLinearIndex = Memory.LinearizeArrayIndex state dstAddr dstIndices dstArrayType
+        let srcLinearIndex = Memory.LinearizeArrayIndex state srcAddr srcIndices srcArrayType
+        Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
         Nop

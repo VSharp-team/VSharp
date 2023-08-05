@@ -661,8 +661,8 @@ type internal ILInterpreter() as this =
 
     member private x.CommonCopyArray (cilState : cilState) src srcIndex dst dstIndex length =
         let state = cilState.state
-        let srcType = MostConcreteTypeOfHeapRef state src
-        let dstType = MostConcreteTypeOfHeapRef state dst
+        let srcType = MostConcreteTypeOfRef state src
+        let dstType = MostConcreteTypeOfRef state dst
         let (>>) = API.Arithmetics.(>>)
         let (>>=) = API.Arithmetics.(>>=)
         let (<<) = API.Arithmetics.(<<)
@@ -1072,7 +1072,7 @@ type internal ILInterpreter() as this =
         |> Application.getMethod
 
     member x.CallAbstract targetType (ancestorMethod : Method) (this : term) (arguments : term list) cilState k =
-        let thisType = MostConcreteTypeOfHeapRef cilState.state this
+        let thisType = MostConcreteTypeOfRef cilState.state this
         let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
         let candidateMethods = seq {
@@ -1253,7 +1253,7 @@ type internal ILInterpreter() as this =
             | _ -> this, ancestorMethod
 
         let callVirtual (cilState : cilState) this k =
-            let baseType = MostConcreteTypeOfHeapRef cilState.state this
+            let baseType = MostConcreteTypeOfRef cilState.state this
             // Forcing CallAbstract for delegates to generate mocks
             if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType || isDelegate then
                 x.CallAbstract baseType ancestorMethod this args cilState k
@@ -1389,7 +1389,7 @@ type internal ILInterpreter() as this =
             Memory.Write cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
-        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let arrayType = MostConcreteTypeOfRef cilState.state arrayRef
         let uncheckedLdElem (cilState : cilState) k =
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices typ
@@ -1417,7 +1417,7 @@ type internal ILInterpreter() as this =
             push value cilState
             k [cilState]
         let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
-            let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
+            let elementType = MostConcreteTypeOfRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
                 referenceLocation
@@ -1428,7 +1428,7 @@ type internal ILInterpreter() as this =
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkIndex id
     member private x.StElemCommon (typ : Type option) (cilState : cilState) arrayRef indices value =
-        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let arrayType = MostConcreteTypeOfRef cilState.state arrayRef
         let baseType = Types.ElementType arrayType
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
@@ -1469,7 +1469,7 @@ type internal ILInterpreter() as this =
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
-            let thisType = MostConcreteTypeOfHeapRef cilState.state this
+            let thisType = MostConcreteTypeOfRef cilState.state this
             let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
             let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
             let methodInfoType = methodInfo.GetType()
@@ -2113,7 +2113,7 @@ type internal ILInterpreter() as this =
                 let method = location.method
                 let ehcs = method.ExceptionHandlers
                 let filter = ehcs |> Seq.filter isFilterClause // TODO: use
-                let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError())
+                let exceptionType = MostConcreteTypeOfRef cilState.state (cilState.state.exceptionsRegister.GetError())
                 let isSuitable ehc =
                     match ehc.ehcType with
                     | Catch t -> TypeUtils.isSubtypeOrEqual exceptionType t

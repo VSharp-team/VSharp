@@ -67,7 +67,7 @@ module API =
 
         val TypeOf : term -> Type
         val TypeOfLocation : term -> Type
-        val MostConcreteTypeOfHeapRef : state -> term -> Type
+        val MostConcreteTypeOfRef : state -> term -> Type
         val TypeOfAddress : state -> term -> Type
 
         val GetHashCode : term -> term
@@ -315,6 +315,7 @@ module API =
 
         val StringLength : state -> term -> term
         val StringCtorOfCharArray : state -> term -> term -> state list
+        val StringCtorOfCharArrayAndLen : state -> term -> term -> term -> state list
 
         // TODO: get rid of all unnecessary stuff below!
         val ComposeStates : state -> state -> state list

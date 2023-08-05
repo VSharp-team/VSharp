@@ -99,7 +99,7 @@ module API =
         let TypeOf term = typeOf term
         // NOTE: returns type of location, referenced by 'ref'
         let TypeOfLocation ref = typeOfRef ref
-        let rec MostConcreteTypeOfHeapRef state ref =
+        let rec MostConcreteTypeOfRef state ref =
             let getType ref =
                 match ref.term with
                 | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
@@ -434,7 +434,7 @@ module API =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value =
                 if isPtr ref then Option.fold (fun _ -> Types.Cast value) value valueType
-                else MostConcreteTypeOfHeapRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
+                else MostConcreteTypeOfRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
             Write state ref value
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
@@ -633,7 +633,7 @@ module API =
 
         let StringLength state strRef = Memory.lengthOfString state strRef
 
-        let StringCtorOfCharArray state arrayRef stringRef =
+        let private CommonStringCtorOfCharArray state arrayRef stringRef length =
             match stringRef.term with
             | HeapRef({term = ConcreteHeapAddress dstAddr} as address, typ) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state address typ = typeof<string>)
@@ -641,7 +641,7 @@ module API =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
                         assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
-                        Copying.copyCharArrayToString state arrayAddr dstAddr
+                        Copying.copyCharArrayToString state arrayAddr dstAddr length
                         k (Nop, state)
                     | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
                 let nullCase state k =
@@ -650,6 +650,12 @@ module API =
                 let results = BranchStatementsOnNull state arrayRef nullCase (copy arrayRef) id
                 List.map snd results
             | _ -> internalfail $"StringCtorOfCharArray: unexpected string reference {stringRef}"
+
+        let StringCtorOfCharArray state arrayRef stringRef =
+            CommonStringCtorOfCharArray state arrayRef stringRef None
+
+        let StringCtorOfCharArrayAndLen state arrayRef stringRef length =
+            CommonStringCtorOfCharArray state arrayRef stringRef (Some length)
 
         let ComposeStates state state' = Memory.composeStates state state'
         let WLP state pc' = PC.mapPC (Memory.fillHoles state) pc' |> PC.union state.pc

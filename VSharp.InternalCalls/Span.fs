@@ -16,6 +16,12 @@ module ReadOnlySpan =
             HeapRef address (eType.MakeArrayType dim)
         else ArrayIndex(address, indices, arrayType) |> Ref
 
+    let internal GetLength (state : state) (spanStruct : term) =
+        let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
+        assert(Array.length spanFields = 2)
+        let lenField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
+        Memory.ReadField state spanStruct lenField
+
     let internal GetContentsRef (state : state) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)

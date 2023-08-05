@@ -48,6 +48,10 @@ module internal Unsafe =
     [<Implements("T System.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     val internal ReadUnaligned : state -> term list -> term
 
+    [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
+    [<Implements("System.Void System.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
+    val internal WriteUnaligned : state -> term list -> (term * state) list
+
     [<Implements("System.Int32 Internal.Runtime.CompilerServices.Unsafe.SizeOf()")>]
     [<Implements("System.Int32 System.Runtime.CompilerServices.Unsafe.SizeOf()")>]
     val internal SizeOf : state -> term list -> term

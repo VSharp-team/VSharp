@@ -54,7 +54,7 @@ module internal Type =
     let GetType (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)
         let ref = List.head args
-        let typ = MostConcreteTypeOfHeapRef state ref
+        let typ = MostConcreteTypeOfRef state ref
         allocateType state typ
 
     let GetElementType (state : state) (args : term list) : (term * state) list =

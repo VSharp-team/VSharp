@@ -25,7 +25,8 @@ module internal String =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
         let ref = ReadOnlySpan.GetContentsRef state span
-        match Memory.StringCtorOfCharArray state ref this with
+        let len = ReadOnlySpan.GetLength state span
+        match Memory.StringCtorOfCharArrayAndLen state ref this len with
         | [ _ ] -> Nop
         | _ -> internalfail "CtorFromSpan: need to branch execution"
 
