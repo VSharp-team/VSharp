@@ -40,7 +40,7 @@ namespace VSharp.CoverageRunner
                 (_, e) =>
                 {
                     var data = e.Data;
-                    if (String.IsNullOrEmpty(data))
+                    if (string.IsNullOrEmpty(data))
                         return;
                     Logger.printLogString(Logger.Info, data);
                 };
@@ -49,7 +49,7 @@ namespace VSharp.CoverageRunner
                 (_, e) =>
                 {
                     var data = e.Data;
-                    if (String.IsNullOrEmpty(data))
+                    if (string.IsNullOrEmpty(data))
                         return;
                     Logger.printLogString(Logger.Error, data);
                 };
