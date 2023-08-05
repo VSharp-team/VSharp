@@ -1028,6 +1028,10 @@ type internal ILInterpreter() as this =
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then
             let thisAndArguments = optCons typeAndMethodArgs thisOption
             internalCall Loader.FSharpImplementations[fullMethodName] thisAndArguments cilState (List.map fallThroughCall >> k)
+        elif Map.containsKey fullMethodName Loader.CSharpImplementations then
+            assert method.HasBody
+            ILInterpreter.InitFunctionFrameCIL cilState method thisOption (Some args)
+            [cilState] |> k
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet method then
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
