@@ -1259,7 +1259,7 @@ type internal ILInterpreter() as this =
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfRef cilState.state this
             // Forcing CallAbstract for delegates to generate mocks
-            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType || isDelegate then
+            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType && not baseType.IsSealed || isDelegate then
                 x.CallAbstract baseType ancestorMethod this args cilState k
             else
                 let targetMethod = x.ResolveVirtualMethod baseType ancestorMethod
