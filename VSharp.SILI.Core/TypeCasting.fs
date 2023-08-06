@@ -235,7 +235,8 @@ module internal TypeCasting =
             | t when t.IsAssignableTo typeof<System.Reflection.MethodInfo> ->
                 primitiveCast term targetType
             | Bool
-            | Numeric _ -> primitiveCast term targetType
+            | Numeric _ when isRefOrPtr term |> not -> primitiveCast term targetType
+            | Numeric _
             | Pointer _
             | ByRef _
             | StructType _
