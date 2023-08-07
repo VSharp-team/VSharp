@@ -93,6 +93,16 @@ module TestGenerator =
                 |> Array.mapToOneDArray test.MemoryGraph.Encode
             test.MemoryGraph.AddArray typ contents lengths lowerBounds index
         else
+            // Solver may return models with unused values with indices out of
+            // legal range. This code throws such values away to avoid IndexOutOfRange's
+            // while running tests.
+            let checkArrayIndex =
+                if lowerBounds = null then
+                    (fun (i : int list) ->
+                        assert(lengths.Length = 1 && i.Length = 1)
+                        List.head i < lengths[0])
+                else
+                    List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < l)
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with
@@ -118,7 +128,8 @@ module TestGenerator =
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
                                 let i = keyIndices |> List.map (encode >> unbox)
                                 let v = encode value
-                                indicesWithValues[i] <- v
+                                if checkArrayIndex i then
+                                    indicesWithValues[i] <- v
                             | _ -> ()
                         | RangeArrayIndexKey(address, fromIndices, toIndices) ->
                             let heapAddress = model.Eval address
@@ -133,11 +144,13 @@ module TestGenerator =
                                         let index = List.map MakeNumber i
                                         let key = OneArrayIndexKey(heapAddress, index)
                                         let v = SpecializeWithKey value key k.key |> encode
-                                        indicesWithValues[i] <- v
+                                        if checkArrayIndex i then
+                                            indicesWithValues[i] <- v
                                 | _ ->
                                     for i in allIndices do
                                         let v = encode value
-                                        indicesWithValues[i] <- v
+                                        if checkArrayIndex i then
+                                            indicesWithValues[i] <- v
                             | _ -> ()
                     updates |> RegionTree.foldr addOneKey ()
                     let indices = indicesWithValues.Keys.ToArray()

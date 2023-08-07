@@ -37,12 +37,12 @@ internal static class Benchmarks
         {
             return TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
         }
-        
+
         if (target.Types.Count > 1)
         {
             return TestGenerator.CoverAndRun(target.Types, out statistics, options);
         }
-        
+
         return TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
     }
 
@@ -54,29 +54,29 @@ internal static class Benchmarks
         var header = new List<string> { "" };
         header.AddRange(statistics.Select(ts => ts.Title));
         var totalStatsTable = new ConsoleTable(header.ToArray());
-        
+
         var timeRow = new List<string> { "Elapsed time" };
         timeRow.AddRange(statistics.Select(ts => ts.Stats.TestGenerationTime.ToString()));
         totalStatsTable.AddRow(timeRow.ToArray());
-        
+
         var stepsRow = new List<string> { "Steps count" };
         stepsRow.AddRange(statistics.Select(ts => ts.Stats.StepsCount.ToString()));
         totalStatsTable.AddRow(stepsRow.ToArray());
-        
+
         var testsCountRow = new List<string> { "Tests generated" };
         testsCountRow.AddRange(statistics.Select(ts => ts.Stats.TestsCount.ToString()));
         totalStatsTable.AddRow(testsCountRow.ToArray());
-        
+
         var errorsCountRow = new List<string> { "Errors found" };
         errorsCountRow.AddRange(statistics.Select(ts => ts.Stats.ErrorsCount.ToString()));
         totalStatsTable.AddRow(errorsCountRow.ToArray());
 
         totalStatsTable.Write();
-        
+
         var testsStatsTableHeader = new List<string> { "Steps count" };
         testsStatsTableHeader.AddRange(statistics.Select(ts => ts.Title));
         var testsStatsTable = new ConsoleTable(testsStatsTableHeader.ToArray());
-        
+
         foreach (var (title, info) in infos)
         {
             var row = new List<string> { info.StepsCount.ToString() };
@@ -87,7 +87,7 @@ internal static class Benchmarks
 
             testsStatsTable.AddRow(row.ToArray());
         }
-        
+
         testsStatsTable.Write();
     }
 
@@ -97,7 +97,7 @@ internal static class Benchmarks
         {
             throw new Exception("Cannot get coverage of BenchmarkTarget without single method");
         }
-        
+
         var runnerWithArgs = $"{TestResultChecker.TestRunnerPath} {result.OutputDir.FullName}";
         return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.OutputDir, target.Method);
     }

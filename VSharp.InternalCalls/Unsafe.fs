@@ -79,7 +79,7 @@ module Unsafe =
         let typ = getTypeFromTerm typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
         let states = Memory.Write state castedPtr value
-        List.map (withFst Nop) states
+        List.map (withFst <| Nop()) states
 
     let internal SizeOf (_ : state) (args : term list) : term =
         assert(List.length args = 1)

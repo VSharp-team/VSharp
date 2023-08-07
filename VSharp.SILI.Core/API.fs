@@ -685,7 +685,7 @@ module API =
             let callStackSize = CallStackSize state
             match EvaluationStack.Length state.evaluationStack with
             | _ when callStackSize > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
-            | 0 -> Nop
+            | 0 -> Nop()
             | 1 ->
                 let result = EvaluationStack.Pop state.evaluationStack |> fst
                 let method = GetCurrentExploringFunction state
@@ -694,7 +694,7 @@ module API =
                 let additionalFrameIsNeeded = hasByRefParameters || thisIsValueType
                 match method with
                 | _ when callStackSize = 1 || callStackSize = 2 && additionalFrameIsNeeded -> Types.Cast result method.ReturnType
-                | _ when state.exceptionsRegister.UnhandledError -> Nop
+                | _ when state.exceptionsRegister.UnhandledError -> Nop()
                 | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
             | _ -> internalfail "EvaluationStack size was bigger than 1"
 
