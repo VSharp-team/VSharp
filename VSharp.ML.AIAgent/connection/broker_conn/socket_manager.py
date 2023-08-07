@@ -12,7 +12,9 @@ from .requests import acquire_instance, return_instance
 def wait_for_connection(url: WSUrl):
     ws = websocket.WebSocket()
 
-    while True:
+    retries_left = 60
+
+    while retries_left:
         with suppress(ConnectionRefusedError, ConnectionResetError):
             ws.settimeout(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT)
             ws.connect(
@@ -21,6 +23,8 @@ def wait_for_connection(url: WSUrl):
         if ws.connected:
             return ws
         time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT)
+        retries_left -= 1
+    raise RuntimeError("Retries exsausted")
 
 
 @contextmanager
