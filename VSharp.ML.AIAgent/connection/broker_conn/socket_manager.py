@@ -14,7 +14,7 @@ def wait_for_connection(url: WSUrl):
     ws = websocket.WebSocket()
 
     max_retries = 60
-    retries_left = max_retries
+    retries_left = 60
 
     while retries_left:
         with suppress(ConnectionRefusedError, ConnectionResetError):

@@ -17,13 +17,15 @@ routes = web.RouteTableDef()
 
 @routes.get("/get_ws")
 async def dequeue_instance(request):
-    try:
-        server_info = SERVER_INSTANCES.get(timeout=0.1)
-        print(f"issued {server_info}")
-        return web.json_response(server_info.to_json())
-    except Empty as e:
-        print(f"{os.getpid()} tried to dequeue an empty queue. Waiting...")
-        return web.Response(text=str(e))
+    retry_count = 60
+    while retry_count:
+        try:
+            server_info = SERVER_INSTANCES.get(timeout=1)
+            print(f"issued {server_info}")
+            return web.json_response(server_info.to_json())
+        except Empty:
+            print(f"{os.getpid()} tried to dequeue an empty queue. Waiting...")
+        retry_count -= 1
 
 
 @routes.post("/post_ws")
