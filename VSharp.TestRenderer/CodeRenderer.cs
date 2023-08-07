@@ -154,6 +154,16 @@ internal class CodeRenderer
         return IsGetItem(method) || IsSetItem(method);
     }
 
+    public static bool NumericWithoutSuffix(Type? type)
+    {
+        return
+            type != null &&
+            (type == typeof(byte)
+                || type == typeof(sbyte)
+                || type == typeof(short)
+                || type == typeof(ushort));
+    }
+
     public static bool NeedExplicitType(object? obj, Type? containerType)
     {
         var needExplicitNumericType =

@@ -11,5 +11,14 @@ module internal PlatformHelper =
     let lzcntIsSupported (_ : state) (_ : term list) : term =
         MakeBool false
 
-    let armIsSupported (_ : state) (_ : term list) : term =
+    let armBaseIsSupported (_ : state) (_ : term list) : term =
+        MakeBool false
+
+    let avx2IsSupported (_ : state) (_ : term list) : term =
+        MakeBool false
+
+    let sse2IsSupported (_ : state) (_ : term list) : term =
+        MakeBool false
+
+    let x86BaseIsSupported (_ : state) (_ : term list) : term =
         MakeBool false

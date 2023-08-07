@@ -110,7 +110,7 @@ module TypeSolver =
     let getAssemblies() =
         seq {
             yield! AssemblyManager.GetAssemblies()
-            yield typeof<int>.Assembly
+            yield Reflection.mscorlibAssembly
         }
 
     let private enumerateNonAbstractSupertypes predicate (typ : Type) =
@@ -151,7 +151,7 @@ module TypeSolver =
                     // TODO: in any assembly, there is no array types, so need to generate it manually
                     yield! types |> Seq.filter suitable
         }
-        
+
         let mock = if List.forall canBeMocked supertypes then Some (mock supertypes) else None
         assert userAssembly.IsSome
         candidates(types, mock, userAssembly.Value)

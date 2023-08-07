@@ -40,7 +40,7 @@ module EqualityComparer =
 
     let internal structuralEquality (state : state) block1 block2 =
         let checkContents () =
-            let blockType = Terms.MostConcreteTypeOfHeapRef state block1
+            let blockType = Terms.MostConcreteTypeOfRef state block1
             let compareOneField acc (field, _) =
                 let block1Field = Memory.ReadField state block1 field
                 let block2Field = Memory.ReadField state block2 field

@@ -62,30 +62,45 @@ module internal Copying =
         // TODO: if src array is in concrete memory, make more efficient case: get array data and write it to dst array
         | _ -> copyArrayCommon state srcAddress srcIndex srcType dstAddress dstIndex dstType length
 
-    let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress =
+    let copyCharArrayToStringSymbolic (state : state) arrayAddress stringConcreteAddress arrayLength =
+        let arrayType = (typeof<char>, 1, true)
+        let lengthPlus1 = add arrayLength (makeNumber 1)
+        let stringAddress = ConcreteHeapAddress stringConcreteAddress
+        copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType arrayLength
+        writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
+        writeArrayIndex state stringAddress [arrayLength] arrayType (Concrete '\000' typeof<char>)
+        writeClassField state stringAddress Reflection.stringLengthField arrayLength
+
+    let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress length =
         let cm = state.concreteMemory
-        match arrayAddress.term with
-        | ConcreteHeapAddress concreteAddress when concreteAddress = VectorTime.zero ->
+        match arrayAddress.term, length with
+        | ConcreteHeapAddress concreteAddress, _ when concreteAddress = VectorTime.zero ->
             if cm.Contains stringConcreteAddress then
                 cm.Remove stringConcreteAddress
             cm.Allocate stringConcreteAddress ""
-        | ConcreteHeapAddress concreteAddress when cm.Contains concreteAddress ->
+        | ConcreteHeapAddress concreteAddress, Some {term = Concrete(len, _)} when cm.Contains concreteAddress ->
+            if cm.Contains stringConcreteAddress |> not then
+                // Allocating not empty string, because it should not be interned
+                // Copying array will mutate whole string
+                cm.Allocate stringConcreteAddress "\000"
+            let len = TypeUtils.convert len typeof<int> :?> int
+            cm.CopyCharArrayToStringLen concreteAddress stringConcreteAddress len
+        | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             if cm.Contains stringConcreteAddress |> not then
                 // Allocating not empty string, because it should not be interned
                 // Copying array will mutate whole string
                 cm.Allocate stringConcreteAddress "\000"
             cm.CopyCharArrayToString concreteAddress stringConcreteAddress
-        | _ ->
+        | _, Some length ->
+            if cm.Contains stringConcreteAddress then
+                cm.Remove stringConcreteAddress
+            copyCharArrayToStringSymbolic state arrayAddress stringConcreteAddress length
+        | _, None ->
             if cm.Contains stringConcreteAddress then
                 cm.Remove stringConcreteAddress
             let arrayType = (typeof<char>, 1, true)
             let length = readLength state arrayAddress (makeNumber 0) arrayType
-            let lengthPlus1 = add length (makeNumber 1)
-            let stringAddress = ConcreteHeapAddress stringConcreteAddress
-            copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType length
-            writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
-            writeArrayIndex state stringAddress [length] arrayType (Concrete '\000' typeof<char>)
-            writeClassField state stringAddress Reflection.stringLengthField length
+            copyCharArrayToStringSymbolic state arrayAddress stringConcreteAddress length
 
     let private fillArrayConcrete state arrayAddress arrayType startIndex length lbs lens castedValue =
         let offsets = List.init length id

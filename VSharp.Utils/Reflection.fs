@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Runtime.InteropServices
 
 [<CustomEquality; CustomComparison>]
 type methodDescriptor = {
@@ -35,10 +36,10 @@ module public Reflection =
 
     let staticBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let instanceBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
@@ -52,6 +53,8 @@ module public Reflection =
         match dynamicOption with
         | Some a -> a
         | None -> AssemblyManager.LoadFromAssemblyName assemblyName
+
+    let mscorlibAssembly = typeof<int>.Assembly
 
     // --------------------------- Metadata Resolving ---------------------------
 
@@ -479,6 +482,20 @@ module public Reflection =
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
+    let private reinterpretValueTypeAsByteArray (value : obj) size =
+        let rawData = Array.create size Byte.MinValue
+        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
+        try
+            Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
+        finally
+            handle.Free()
+        rawData
+
+    let byteArrayFromField (fieldInfo : FieldInfo) =
+        let fieldValue : obj = fieldInfo.GetValue null
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
+        reinterpretValueTypeAsByteArray fieldValue size
+
     // ------------------------------ Layout Utils ------------------------------
 
     let getFieldOffset field =
@@ -530,3 +547,7 @@ module public Reflection =
             let result = isReferenceOrContainsReferencesHelper t
             cachedTypes.Add(t, result)
             result
+
+    let isBuiltInType (t: Type) =
+        let builtInAssembly = mscorlibAssembly
+        t.Assembly = builtInAssembly

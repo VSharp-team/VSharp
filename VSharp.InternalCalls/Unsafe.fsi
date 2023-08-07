@@ -32,6 +32,8 @@ module internal Unsafe =
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.UIntPtr)")>]
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.UIntPtr)")>]
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
+    [<Implements("T& System.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
     val internal AddByteOffset : state -> term list -> term
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]
@@ -45,6 +47,10 @@ module internal Unsafe =
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     [<Implements("T System.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     val internal ReadUnaligned : state -> term list -> term
+
+    [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
+    [<Implements("System.Void System.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
+    val internal WriteUnaligned : state -> term list -> (term * state) list
 
     [<Implements("System.Int32 Internal.Runtime.CompilerServices.Unsafe.SizeOf()")>]
     [<Implements("System.Int32 System.Runtime.CompilerServices.Unsafe.SizeOf()")>]

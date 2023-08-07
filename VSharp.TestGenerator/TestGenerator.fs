@@ -302,7 +302,7 @@ module TestGenerator =
                 let hasException, message =
                     match state.exceptionsRegister with
                     | Unhandled(e, _, _) ->
-                        let t = MostConcreteTypeOfHeapRef state e
+                        let t = MostConcreteTypeOfRef state e
                         test.Exception <- t
                         let message =
                             if isError && String.IsNullOrEmpty message then

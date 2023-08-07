@@ -7,6 +7,7 @@ open VSharp.Core
 module internal ReadOnlySpan =
 
     val internal GetContentsRef : state -> term -> term
+    val internal GetLength : state -> term -> term
 
     [<Implements("T& System.ReadOnlySpan`1[T].get_Item(this, System.Int32)")>]
     val internal GetItemFromReadOnlySpan : state -> term list -> term

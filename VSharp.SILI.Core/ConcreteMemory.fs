@@ -261,6 +261,13 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let physAddress = {object = string}
             physToVirt[physAddress] <- stringAddress
 
+        override x.CopyCharArrayToStringLen arrayAddress stringAddress length =
+            let array = x.ReadObject arrayAddress :?> char array
+            let string = new string(array[0..(length - 1)]) :> obj
+            x.WriteObject stringAddress string
+            let physAddress = {object = string}
+            physToVirt[physAddress] <- stringAddress
+
     // ------------------------------- Remove -------------------------------
 
         override x.Remove address =

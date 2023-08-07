@@ -8,49 +8,42 @@ open TypeUtils
 
 module internal ArrayInitialization =
 
-    let private reinterpretValueTypeAsByteArray (value : obj) size =
-        let rawData = Array.create size Byte.MinValue
-        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
-        Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
-        handle.Free()
-        rawData
-
-    let boolTermCreator (rawData : byte []) index =
+    let private boolTermCreator (rawData : byte []) index =
         match rawData.[index] with
         | 0uy -> False
         | 1uy -> True
         | _ -> __unreachable__()
-    let byteTermCreator (rawData : byte []) index =
+    let private byteTermCreator (rawData : byte []) index =
         rawData.[index] |> makeNumber
 
-    let signedByteTermCreator (rawData : byte []) index =
+    let private signedByteTermCreator (rawData : byte []) index =
         rawData.[index] |> sbyte |> makeNumber
 
-    let charTermCreator (rawData : byte []) index =
+    let private charTermCreator (rawData : byte []) index =
         BitConverter.ToChar(rawData, index) |> makeNumber
 
-    let int32TermCreator (rawData : byte []) index =
+    let private int32TermCreator (rawData : byte []) index =
         BitConverter.ToInt32(rawData, index) |> makeNumber
 
-    let unsignedInt32TermCreator (rawData : byte []) index =
+    let private unsignedInt32TermCreator (rawData : byte []) index =
         BitConverter.ToUInt32(rawData, index) |> makeNumber
 
-    let int16TermCreator (rawData : byte []) index =
+    let private int16TermCreator (rawData : byte []) index =
         BitConverter.ToInt16(rawData, index) |> makeNumber
 
-    let unsignedInt16TermCreator (rawData : byte []) index =
+    let private unsignedInt16TermCreator (rawData : byte []) index =
         BitConverter.ToUInt16(rawData, index) |> makeNumber
 
-    let int64TermCreator (rawData : byte []) index =
+    let private int64TermCreator (rawData : byte []) index =
         BitConverter.ToUInt64(rawData, index) |> makeNumber
 
-    let unsignedInt64TermCreator (rawData : byte []) index =
+    let private unsignedInt64TermCreator (rawData : byte []) index =
         BitConverter.ToUInt64(rawData, index) |> makeNumber
 
-    let float32TermCreator (rawData : byte []) index =
+    let private float32TermCreator (rawData : byte []) index =
         BitConverter.ToSingle(rawData, index) |> makeNumber
 
-    let doubleTermCreator (rawData : byte []) index =
+    let private doubleTermCreator (rawData : byte []) index =
         BitConverter.ToDouble(rawData, index) |> makeNumber
 
     let private fillInArray termCreator (state : state) address typeOfArray (size : int) (rawData : byte[]) =
@@ -67,22 +60,17 @@ module internal ArrayInitialization =
         let indicesAndValues = allIndices |> Seq.mapi (fun i indices -> List.map makeNumber indices, termCreator rawData (i * size)) // TODO: sort if need
         Memory.initializeArray state address indicesAndValues arrayType
 
-    let initializeArray state arrayRef handleTerm =
+    let commonInitializeArray state address typ (handle : RuntimeFieldHandle) =
         let cm = state.concreteMemory
-        assert(Terms.isStruct handleTerm)
-        match arrayRef.term, Memory.tryTermToObj state handleTerm with
-        | HeapRef({term = ConcreteHeapAddress address}, _), Some(:? RuntimeFieldHandle as rfh)
-            when cm.Contains address ->
-                cm.InitializeArray address rfh
-        | HeapRef(address, sightType), Some(:? RuntimeFieldHandle as rfh) ->
-            let fieldInfo = FieldInfo.GetFieldFromHandle rfh
-            let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType
+        match address.term with
+        | ConcreteHeapAddress a when cm.Contains a ->
+            cm.InitializeArray a handle
+        | _ ->
+            let fieldInfo = FieldInfo.GetFieldFromHandle handle
+            let arrayType = Memory.mostConcreteTypeOfHeapRef state address typ
             let t = arrayType.GetElementType()
             assert t.IsValueType // TODO: be careful about type variables
-
-            let fieldValue : obj = fieldInfo.GetValue null
-            let size = internalSizeOf fieldInfo.FieldType
-            let rawData = reinterpretValueTypeAsByteArray fieldValue size
+            let rawData = Reflection.byteArrayFromField fieldInfo
             let fillArray termCreator t = fillInArray termCreator state address arrayType t rawData
             match t with
             | _ when t = typedefof<byte> -> fillArray byteTermCreator sizeof<byte>
@@ -98,4 +86,18 @@ module internal ArrayInitialization =
             | _ when t = typedefof<bool> -> fillArray boolTermCreator sizeof<bool>
             | _ when t = typedefof<char> -> fillArray charTermCreator sizeof<char>
             | _ -> __notImplemented__()
+
+    let initializeArray state arrayRef handleTerm =
+        assert(Terms.isStruct handleTerm)
+        match arrayRef.term, Memory.tryTermToObj state handleTerm with
+        | HeapRef(address, typ), Some(:? RuntimeFieldHandle as rfh) ->
+            commonInitializeArray state address typ rfh
         | _ -> internalfailf "initializeArray: case for (arrayRef = %O), (handleTerm = %O) is not implemented" arrayRef handleTerm
+
+    let allocateOptimizedArray state (fieldInfo : FieldInfo) =
+        let arrayType = typeof<byte>.MakeArrayType()
+        let lb = makeNumber 0
+        let length = internalSizeOf fieldInfo.FieldType |> makeNumber
+        let array = Memory.allocateArray state arrayType [lb] [length]
+        commonInitializeArray state array arrayType fieldInfo.FieldHandle
+        HeapRef array arrayType

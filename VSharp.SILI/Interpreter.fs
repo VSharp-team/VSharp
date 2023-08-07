@@ -18,48 +18,23 @@ type cfg = CfgInfo
 module internal TypeUtils =
     open Types
 
-    // TODO: get all this functions from Core #mbdo
     let float64Type = typedefof<double>
     let float32Type = typedefof<float32>
-    let int8Type    = typedefof<int8>
-    let int16Type   = typedefof<int16>
-    let int32Type   = typedefof<int32>
-    let int64Type   = typedefof<int64>
-    let uint8Type   = typedefof<uint8>
-    let uint16Type  = typedefof<uint16>
-    let uint32Type  = typedefof<uint32>
-    let uint64Type  = typedefof<uint64>
-    let charType    = typedefof<char>
-    let nativeint   = typedefof<nativeint>
+    let int8Type = typedefof<int8>
+    let int16Type = typedefof<int16>
+    let int32Type = typedefof<int32>
+    let int64Type = typedefof<int64>
+    let uint8Type = typedefof<uint8>
+    let uint16Type = typedefof<uint16>
+    let uint32Type = typedefof<uint32>
+    let uint64Type = typedefof<uint64>
+    let charType = typedefof<char>
+    let intPtr = typedefof<IntPtr>
+    let uintPtr = typedefof<UIntPtr>
 
-    // [NOTE] there is no enums, because pushing to evaluation stack causes cast
-    let rec signed2unsignedOrId = function
-        | typ when typ = typedefof<int32> || typ = typedefof<uint32> -> uint32Type
-        | typ when typ = typedefof<int8>  || typ = typedefof<uint8>  -> uint8Type
-        | typ when typ = typedefof<int16> || typ = typedefof<uint16> -> uint16Type
-        | typ when typ = typedefof<int64> || typ = typedefof<uint64> -> uint64Type
-        | _ -> __unreachable__()
-
-    let integers = [charType; int8Type; int16Type; int32Type; int64Type; uint8Type; uint16Type; uint32Type; uint64Type]
-    let longs = [int64Type; uint64Type]
-
-    let isIntegerTermType typ = integers |> List.contains typ || typ.IsEnum
-    let isFloatTermType typ = typ = float32Type || typ = float64Type
-    let isInteger = Terms.TypeOf >> isIntegerTermType
-    let isLong term = List.contains (TypeOf term) longs
-    let isBool = Terms.TypeOf >> IsBool
-    let (|Int8|_|) t = if Terms.TypeOf t = int8Type then Some() else None
-    let (|UInt8|_|) t = if Terms.TypeOf t = uint8Type then Some() else None
-    let (|Int16|_|) t = if Terms.TypeOf t = int16Type then Some() else None
-    let (|UInt16|_|) t = if Terms.TypeOf t = uint16Type then Some() else None
-    let (|Int32|_|) t = if Terms.TypeOf t = int32Type then Some() else None
-    let (|UInt32|_|) t = if Terms.TypeOf t = uint32Type then Some() else None
-    let (|Int64|_|) t = if Terms.TypeOf t = int64Type then Some() else None
-    let (|UInt64|_|) t = if Terms.TypeOf t = uint64Type then Some() else None
-    let (|Bool|_|) t = if isBool t then Some() else None
-    let (|Float32|_|) t = if Terms.TypeOf t = float32Type then Some() else None
-    let (|Float64|_|) t = if Terms.TypeOf t = float64Type then Some() else None
-    let (|Float|_|) t = if Terms.TypeOf t |> isFloatTermType then Some() else None
+    let isIntegralTerm term = Terms.TypeOf term |> TypeUtils.isIntegral
+    let isLong term = TypeOf term |> TypeUtils.isLongTypes
+    let isBool term = Terms.TypeOf term |> IsBool
 
     module Char =
         let Zero = MakeNumber Unchecked.defaultof<char>
@@ -245,7 +220,7 @@ module internal InstructionsSet =
     let transform2BooleanTerm pc (term : term) =
         let check term =
             match TypeOf term with
-            | _ when IsReference term -> !!(IsNullReference term)
+            | _ when IsRefOrPtr term -> !!(IsNullReference term)
             | Types.Bool -> term
             | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero
             | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero
@@ -256,6 +231,8 @@ module internal InstructionsSet =
             | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero
             | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
             | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
+            | t when t = TypeUtils.intPtr -> term !== MakeNumber IntPtr.Zero
+            | t when t = TypeUtils.uintPtr -> term !== MakeNumber UIntPtr.Zero
             | t when t.IsEnum -> term !== MakeNumber (Activator.CreateInstance t)
             | _ -> __notImplemented__()
         GuardedApplyExpressionWithPC pc term check
@@ -305,15 +282,21 @@ module internal InstructionsSet =
         match typ1, typ2 with
         | Types.Bool, Types.Bool ->
             binaryOperationWithBoolResult boolOp idTransformation idTransformation cilState
-        | _ when TypeUtils.isIntegerTermType typ1 && TypeUtils.isIntegerTermType typ2 ->
+        | _ when TypeUtils.isIntegral typ1 && TypeUtils.isIntegral typ2 ->
             standardPerformBinaryOperation bitwiseOp cilState
-        | Types.Bool, typ2 when TypeUtils.isIntegerTermType typ2 ->
+        // Bitwise operations for pointers are pointless (unless result will be checked on null), so returning pointer
+        | _ when TypeUtils.isPointer typ1 ->
+            pop cilState |> ignore
+        | _ when TypeUtils.isPointer typ2 ->
+            pop2 cilState |> ignore
+            push arg2 cilState
+        | Types.Bool, typ2 when TypeUtils.isIntegral typ2 ->
             let newArg1 = boolToInt arg1
             performCILBinaryOperation bitwiseOp (fun _ k -> k newArg1) idTransformation idTransformation cilState
-        | typ1, Types.Bool when TypeUtils.isIntegerTermType typ1 ->
+        | typ1, Types.Bool when TypeUtils.isIntegral typ1 ->
             let newArg2 = boolToInt arg2
             performCILBinaryOperation bitwiseOp idTransformation (fun _ k -> k newArg2) idTransformation cilState
-        | typ1, typ2 -> internalfailf "unhandled case for Bitwise operation %O and types: %O %O" bitwiseOp typ1 typ2
+        | typ1, typ2 -> internalfail $"unhandled case for bitwise operation {bitwiseOp} and types: {typ1} {typ2}"
     let bitwiseOrBoolNot (cilState : cilState) =
         let arg = peek cilState
         let op =
@@ -334,11 +317,11 @@ module internal InstructionsSet =
         match TypeOf term with
         | Types.Bool -> k <| Types.Cast term TypeUtils.uint32Type
         | t when t = typeof<double> || t = typeof<float> -> k term
-        | t when TypeUtils.isIntegral t -> k <| Types.Cast term (TypeUtils.signed2unsignedOrId t) // no specs found about overflows
+        | t when TypeUtils.isIntegral t -> k <| Types.Cast term (TypeUtils.signedToUnsigned t) // no specs found about overflows
         | _ -> k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
         let arg2, arg1 = peek2 cilState
-        if TypeUtils.isInteger arg1 && TypeUtils.isInteger arg2 then
+        if TypeUtils.isIntegralTerm arg1 && TypeUtils.isIntegralTerm arg2 then
             performCILBinaryOperation op makeUnsignedInteger makeUnsignedInteger idTransformation cilState
         else internalfailf "arguments for %O are not Integers!" op
     let ldstr (m : Method) offset (cilState : cilState) =
@@ -407,7 +390,7 @@ module internal InstructionsSet =
     let bgeHelper (cilState : cilState) =
         let arg1, arg2 = peek2 cilState
         let typ1, typ2 = Terms.TypeOf arg1, Terms.TypeOf arg2
-        if Types.IsInteger typ1 && Types.IsInteger typ2 then clt cilState
+        if Types.isIntegral typ1 && Types.isIntegral typ2 then clt cilState
         elif Types.IsReal typ1 && Types.IsReal typ2 then cltun cilState
         else __notImplemented__()
     let isinst (m : Method) offset (cilState : cilState) =
@@ -678,8 +661,8 @@ type internal ILInterpreter() as this =
 
     member private x.CommonCopyArray (cilState : cilState) src srcIndex dst dstIndex length =
         let state = cilState.state
-        let srcType = MostConcreteTypeOfHeapRef state src
-        let dstType = MostConcreteTypeOfHeapRef state dst
+        let srcType = MostConcreteTypeOfRef state src
+        let dstType = MostConcreteTypeOfRef state dst
         let (>>) = API.Arithmetics.(>>)
         let (>>=) = API.Arithmetics.(>>=)
         let (<<) = API.Arithmetics.(<<)
@@ -930,6 +913,7 @@ type internal ILInterpreter() as this =
     member private x.InitStaticFieldWithDefaultValue state (f : FieldInfo) =
         assert f.IsStatic
         let fieldType = f.FieldType
+        let declaringType = f.DeclaringType
         let value =
             if f.IsLiteral then
                 match f.GetValue(null) with // argument means class with field f, so we have null, because f is a static field
@@ -937,10 +921,11 @@ type internal ILInterpreter() as this =
                 | :? string as str -> Memory.AllocateString str state
                 | v when f.FieldType.IsPrimitive || f.FieldType.IsEnum -> Concrete v fieldType
                 | _ -> __unreachable__()
+            elif TypeUtils.isImplementationDetails declaringType then
+                Memory.AllocateArrayFromFieldInfo state f
             else Memory.DefaultOf fieldType
-        let targetType = f.DeclaringType
         let fieldId = Reflection.wrapField f
-        Memory.WriteStaticField state targetType fieldId value
+        Memory.WriteStaticField state declaringType fieldId value
 
     member private x.InvokeArrayGetOrSet (cilState : cilState) (method : Method) thisOption args =
         let name = method.Name
@@ -1039,10 +1024,14 @@ type internal ILInterpreter() as this =
         if x.TryConcreteInvoke method fullMethodName typeAndMethodArgs thisOption cilState then
             fallThroughCall cilState |> List.singleton |> k
         elif Map.containsKey fullMethodName cilStateImplementations then
-            cilStateImplementations.[fullMethodName] cilState thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
+            cilStateImplementations[fullMethodName] cilState thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
         elif Map.containsKey fullMethodName Loader.FSharpImplementations then
             let thisAndArguments = optCons typeAndMethodArgs thisOption
             internalCall Loader.FSharpImplementations[fullMethodName] thisAndArguments cilState (List.map fallThroughCall >> k)
+        elif Map.containsKey fullMethodName Loader.CSharpImplementations then
+            assert method.HasBody
+            ILInterpreter.InitFunctionFrameCIL cilState method thisOption (Some args)
+            [cilState] |> k
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet method then
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
@@ -1087,7 +1076,7 @@ type internal ILInterpreter() as this =
         |> Application.getMethod
 
     member x.CallAbstract targetType (ancestorMethod : Method) (this : term) (arguments : term list) cilState k =
-        let thisType = MostConcreteTypeOfHeapRef cilState.state this
+        let thisType = MostConcreteTypeOfRef cilState.state this
         let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod
         let candidateTypes = List.ofSeq candidateTypes |> List.distinct
         let candidateMethods = seq {
@@ -1173,21 +1162,21 @@ type internal ILInterpreter() as this =
             | true, false  -> min2, max2
             | false, true  -> min1, max1
             | false, false -> min1, max2
-        let canCastWithoutOverflow term targetTermType =
+        let canCastWithoutOverflow term targetType =
             let (<<=) = API.Arithmetics.(<<=)
             assert(Terms.TypeOf term |> Types.IsNumeric)
-            let termType = Terms.TypeOf term
-            if isSubset termType targetTermType then True
-            elif termType = TypeUtils.int64Type && targetTermType = TypeUtils.uint64Type then
+            let t = Terms.TypeOf term
+            if isSubset t targetType then True
+            elif t = TypeUtils.int64Type && targetType = TypeUtils.uint64Type then
                 let int64Zero = MakeNumber (0 |> int64)
                 int64Zero <<= term
-            elif termType = TypeUtils.uint64Type && targetTermType = TypeUtils.int64Type then
+            elif t = TypeUtils.uint64Type && targetType = TypeUtils.int64Type then
                 let uint64RightBorder = MakeNumber (Int64.MaxValue |> uint64)
                 term <<= uint64RightBorder
             else
-                let min, max = getSegment termType targetTermType
-                let leftBorder  = Concrete min termType // must save type info, because min is int64
-                let rightBorder = Concrete max termType // must save type info, because max is int64
+                let min, max = getSegment t targetType
+                let leftBorder  = Concrete min t // must save type info, because min is int64
+                let rightBorder = Concrete max t // must save type info, because max is int64
                 (leftBorder <<= term) &&& (term <<= rightBorder)
         let t = pop cilState
         StatedConditionalExecutionCIL cilState
@@ -1268,9 +1257,9 @@ type internal ILInterpreter() as this =
             | _ -> this, ancestorMethod
 
         let callVirtual (cilState : cilState) this k =
-            let baseType = MostConcreteTypeOfHeapRef cilState.state this
+            let baseType = MostConcreteTypeOfRef cilState.state this
             // Forcing CallAbstract for delegates to generate mocks
-            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType || isDelegate then
+            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType && not baseType.IsSealed || isDelegate then
                 x.CallAbstract baseType ancestorMethod this args cilState k
             else
                 let targetMethod = x.ResolveVirtualMethod baseType ancestorMethod
@@ -1346,13 +1335,13 @@ type internal ILInterpreter() as this =
         let newIp = moveInstruction (fallThroughTarget m offset) (currentIp cilState)
         let fieldInfo = resolveFieldFromMetadata m (offset + Offset.from OpCodes.Ldsfld.Size)
         assert fieldInfo.IsStatic
-        x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
-        let declaringTermType = fieldInfo.DeclaringType
+        let declaringType = fieldInfo.DeclaringType
+        x.InitializeStatics cilState declaringType (fun cilState ->
         let fieldId = Reflection.wrapField fieldInfo
         let value =
-            if addressNeeded then
-                StaticField(declaringTermType, fieldId) |> Ref
-            else Memory.ReadStaticField cilState.state declaringTermType fieldId
+            if addressNeeded && not (TypeUtils.isImplementationDetails declaringType) then
+                StaticField(declaringType, fieldId) |> Ref
+            else Memory.ReadStaticField cilState.state declaringType fieldId
         push value cilState
         setCurrentIp newIp cilState
         [cilState])
@@ -1361,12 +1350,12 @@ type internal ILInterpreter() as this =
         let fieldInfo = resolveFieldFromMetadata m (offset + Offset.from OpCodes.Stsfld.Size)
         assert fieldInfo.IsStatic
         x.InitializeStatics cilState fieldInfo.DeclaringType (fun cilState ->
-        let declaringTermType = fieldInfo.DeclaringType
+        let declaringType = fieldInfo.DeclaringType
         let fieldId = Reflection.wrapField fieldInfo
         let value = pop cilState
         let fieldType = fieldInfo.FieldType
         let value = Types.Cast value fieldType
-        Memory.WriteStaticField cilState.state declaringTermType fieldId value
+        Memory.WriteStaticField cilState.state declaringType fieldId value
         setCurrentIp newIp cilState
         [cilState])
     member x.LdFldWithFieldInfo (fieldInfo : FieldInfo) addressNeeded (cilState : cilState) =
@@ -1404,7 +1393,7 @@ type internal ILInterpreter() as this =
             Memory.Write cilState.state reference value |> List.map (changeState cilState) |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
-        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let arrayType = MostConcreteTypeOfRef cilState.state arrayRef
         let uncheckedLdElem (cilState : cilState) k =
             ConfigureErrorReporter (changeState cilState >> reportError)
             let value = Memory.ReadArrayIndex cilState.state arrayRef indices typ
@@ -1432,7 +1421,7 @@ type internal ILInterpreter() as this =
             push value cilState
             k [cilState]
         let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
-            let elementType = MostConcreteTypeOfHeapRef cilState.state arrayRef |> Types.ElementType
+            let elementType = MostConcreteTypeOfRef cilState.state arrayRef |> Types.ElementType
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (Types.TypeIsType typ elementType &&& Types.TypeIsType elementType typ, state))
                 referenceLocation
@@ -1443,7 +1432,7 @@ type internal ILInterpreter() as this =
             x.AccessArray checkTypeMismatch cilState length index k
         x.NpeOrInvokeStatementCIL cilState arrayRef checkIndex id
     member private x.StElemCommon (typ : Type option) (cilState : cilState) arrayRef indices value =
-        let arrayType = MostConcreteTypeOfHeapRef cilState.state arrayRef
+        let arrayType = MostConcreteTypeOfRef cilState.state arrayRef
         let baseType = Types.ElementType arrayType
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
@@ -1484,7 +1473,7 @@ type internal ILInterpreter() as this =
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
-            let thisType = MostConcreteTypeOfHeapRef cilState.state this
+            let thisType = MostConcreteTypeOfRef cilState.state this
             let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
             let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
             let methodInfoType = methodInfo.GetType()
@@ -1557,6 +1546,10 @@ type internal ILInterpreter() as this =
         if Types.IsValueType t then
             let v = pop cilState
             if Types.IsNullable t then x.BoxNullable t v cilState
+            elif t.IsEnum then
+                let enum = Types.Cast v t
+                allocateValueTypeInHeap enum cilState
+                [cilState]
             else
                 allocateValueTypeInHeap v cilState
                 [cilState]
@@ -1668,13 +1661,13 @@ type internal ILInterpreter() as this =
                 id
         let y, x = pop2 cilState
         match y, x with
-        | TypeUtils.Float, TypeUtils.Float ->
+        | FloatT, FloatT ->
             push (performAction x y) cilState
             [cilState]
-        | TypeUtils.Int64, _
-        | TypeUtils.UInt64, _
-        | _, TypeUtils.Int64
-        | _, TypeUtils.UInt64 -> integerCase cilState x y TypeUtils.Int64.MinusOne TypeUtils.Int64.MinValue
+        | Int64T, _
+        | UInt64T, _
+        | _, Int64T
+        | _, UInt64T -> integerCase cilState x y TypeUtils.Int64.MinusOne TypeUtils.Int64.MinValue
         | _ -> integerCase cilState x y TypeUtils.Int32.MinusOne TypeUtils.Int32.MinValue
         | _ -> __unreachable__()
     member private this.Div (cilState : cilState) =
@@ -1688,7 +1681,7 @@ type internal ILInterpreter() as this =
     member private this.CommonUnsignedDivRem isRem performAction (cilState : cilState) =
         let y, x = pop2 cilState
         match y, x with
-        | _ when TypeUtils.isInteger x && TypeUtils.isInteger y ->
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
             StatedConditionalExecutionCIL cilState
@@ -1698,8 +1691,8 @@ type internal ILInterpreter() as this =
                     push (performAction x y) cilState
                     k [cilState])
                 id
-        | TypeUtils.Float, _
-        | _, TypeUtils.Float when isRem -> internalfailf "Rem.Un is unspecified for Floats"
+        | FloatT, _
+        | _, FloatT when isRem -> internalfailf "Rem.Un is unspecified for Floats"
         | _ -> internalfailf "incompatible operands for %s" (if isRem then "Rem.Un" else "Div.Un")
 
     member private this.DivUn (cilState : cilState) =
@@ -1713,16 +1706,16 @@ type internal ILInterpreter() as this =
     member private this.UnsignedCheckOverflow checkOverflowForUnsigned (cilState : cilState) =
         let y, x = pop2 cilState
         match y, x with
-        | TypeUtils.Int64, _
-        | _, TypeUtils.Int64
-        | TypeUtils.UInt64, _
-        | _, TypeUtils.UInt64 ->
+        | Int64T, _
+        | _, Int64T
+        | UInt64T, _
+        | _, UInt64T ->
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
             let max = TypeUtils.UInt64.MaxValue
             let zero = TypeUtils.UInt64.Zero
             checkOverflowForUnsigned zero max x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
-        | _ when TypeUtils.isInteger x && TypeUtils.isInteger y ->
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             let x, y = makeUnsignedInteger x id, makeUnsignedInteger y id
             let max = TypeUtils.UInt32.MaxValue
             let zero = TypeUtils.UInt32.Zero
@@ -1731,17 +1724,17 @@ type internal ILInterpreter() as this =
     member private this.SignedCheckOverflow checkOverflow (cilState : cilState) =
         let y, x = pop2 cilState
         match y, x with
-        | TypeUtils.Int64, _
-        | _, TypeUtils.Int64 ->
+        | Int64T, _
+        | _, Int64T ->
             let min = TypeUtils.Int64.MinValue
             let max = TypeUtils.Int64.MaxValue
             let zero = TypeUtils.Int64.Zero
             let minusOne = TypeUtils.Int64.MinusOne
             checkOverflow min max zero minusOne x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
-        | TypeUtils.UInt64, _
-        | _, TypeUtils.UInt64 -> __unreachable__() // instead of add_ovf should be called add_ovf_un
-        | TypeUtils.Float, _
-        | _, TypeUtils.Float -> __unreachable__() // only integers
+        | UInt64T, _
+        | _, UInt64T -> __unreachable__() // instead of add_ovf should be called add_ovf_un
+        | FloatT, _
+        | _, FloatT -> __unreachable__() // only integers
         | _ ->
             let min = TypeUtils.Int32.MinValue
             let max = TypeUtils.Int32.MaxValue
@@ -2128,7 +2121,7 @@ type internal ILInterpreter() as this =
                 let method = location.method
                 let ehcs = method.ExceptionHandlers
                 let filter = ehcs |> Seq.filter isFilterClause // TODO: use
-                let exceptionType = MostConcreteTypeOfHeapRef cilState.state (cilState.state.exceptionsRegister.GetError())
+                let exceptionType = MostConcreteTypeOfRef cilState.state (cilState.state.exceptionsRegister.GetError())
                 let isSuitable ehc =
                     match ehc.ehcType with
                     | Catch t -> TypeUtils.isSubtypeOrEqual exceptionType t
@@ -2307,9 +2300,9 @@ type internal ILInterpreter() as this =
             | OpCodeValues.Ldind_U4 -> (fun _ _ -> x.Ldind TypeUtils.uint32Type reportError) |> forkThrough m offset cilState
             | OpCodeValues.Ldind_R4 -> (fun _ _ -> x.Ldind TypeUtils.float32Type reportError) |> forkThrough m offset cilState
             | OpCodeValues.Ldind_R8 -> (fun _ _ -> x.Ldind TypeUtils.float64Type reportError) |> forkThrough m offset cilState
-            | OpCodeValues.Ldind_Ref -> (fun _ _ -> x.Ldind TypeUtils.nativeint reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_Ref -> (fun _ _ -> x.Ldind TypeUtils.intPtr reportError) |> forkThrough m offset cilState
             // TODO: need to cast to nativeint? #do
-            | OpCodeValues.Ldind_I -> (fun _ _ -> x.Ldind TypeUtils.nativeint reportError) |> forkThrough m offset cilState
+            | OpCodeValues.Ldind_I -> (fun _ _ -> x.Ldind TypeUtils.intPtr reportError) |> forkThrough m offset cilState
             | OpCodeValues.Isinst -> isinst |> forkThrough m offset cilState
             | OpCodeValues.Stobj -> (stobj reportError) |> forkThrough m offset cilState
             | OpCodeValues.Ldobj -> ldobj |> fallThrough m offset cilState

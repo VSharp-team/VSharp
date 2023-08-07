@@ -20,7 +20,7 @@ module Unsafe =
 
     let internal ObjectAsT (_ : state) (args : term list) : term =
         assert(List.length args = 2)
-        let typ, ref = args.[0], args.[1]
+        let typ, ref = args[0], args[1]
         let typ = getTypeFromTerm typ
         Types.Cast ref typ
 
@@ -43,12 +43,12 @@ module Unsafe =
 
     let internal IsNullRef (_ : state) (args : term list) : term =
         assert(List.length args = 2)
-        let ref = args.[1]
+        let ref = args[1]
         IsNullReference ref
 
     let internal AddByteOffset (_ : state) (args : term list) : term =
         assert(List.length args = 3)
-        let ref, offset = args.[1], args.[2]
+        let ref, offset = args[1], args[2]
         PerformBinaryOperation OperationType.Add ref offset id
 
     let private CommonAdd typ ref offset =
@@ -68,14 +68,22 @@ module Unsafe =
 
     let internal ReadUnaligned (state : state) (args : term list) : term =
         assert(List.length args = 2)
-        let typ, ref = args.[0], args.[1]
+        let typ, ref = args[0], args[1]
         let typ = getTypeFromTerm typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
         Memory.Read state castedPtr
 
+    let WriteUnaligned (state : state) (args : term list) : (term * state) list =
+        assert(List.length args = 3)
+        let typ, ref, value = args[0], args[1], args[2]
+        let typ = getTypeFromTerm typ
+        let castedPtr = Types.Cast ref (typ.MakePointerType())
+        let states = Memory.Write state castedPtr value
+        List.map (withFst Nop) states
+
     let internal SizeOf (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = getTypeFromTerm args.[0]
+        let typ = getTypeFromTerm args[0]
         Types.SizeOf typ |> MakeNumber
 
     let internal AreSame (_ : state) (args : term list) : term =
@@ -88,7 +96,7 @@ module Unsafe =
         let ref = args[0]
         match ref.term with
         | HeapRef(address, _) ->
-            let t = MostConcreteTypeOfHeapRef state ref
+            let t = MostConcreteTypeOfRef state ref
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | Ref(BoxedLocation(address, t)) ->
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)

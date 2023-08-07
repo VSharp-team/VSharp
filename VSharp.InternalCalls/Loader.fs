@@ -123,6 +123,12 @@ module Loader =
             "System.Reflection.CorElementType System.RuntimeTypeHandle.GetCorElementType(System.RuntimeType)"
             "System.Reflection.CorElementType System.Enum.InternalGetCorElementType(this)"
             "System.String System.RuntimeType.ToString(this)"
+            "System.Boolean System.RuntimeType.IsDefined(this, System.Type, System.Boolean)"
+            "System.Reflection.CustomAttribute.IsDefined(System.RuntimeType, System.RuntimeType, System.Boolean)"
+            "System.Void System.RuntimeType.set_GenericCache(this, System.Object)"
+            "System.Enum+EnumInfo System.Enum.GetEnumInfo(System.RuntimeType, System.Boolean)"
+            "System.Collections.Generic.IArraySortHelper`1[T] System.Collections.Generic.ArraySortHelper`1[T].CreateArraySortHelper()"
+            "System.Void System.Buffers.ArrayPoolEventSource..ctor(this)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -132,6 +138,7 @@ module Loader =
             // Thread
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
+            "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
 
             // Interop
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
@@ -149,6 +156,9 @@ module Loader =
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
+
+            // Buffers
+            "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
