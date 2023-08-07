@@ -12,7 +12,6 @@
         <PackageReference Include="Appveyor.TestLogger" Version="2.0.0" />
         <PackageReference Include="ConsoleTables" Version="2.5.0" />
         <PackageReference Include="CsvHelper" Version="30.0.1" />
-        <PackageReference Include="JetBrains.Profiler.Api" Version="1.4.0" />
         <PackageReference Include="nunit" Version="3.12.0" />
         <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
         <PackageReference Include="Microsoft.NET.Test.Sdk" Version="16.3.0" />

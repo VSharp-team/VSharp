@@ -235,7 +235,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
 
             UnitTest(method, ti, mockStorage, createCompactRepr)
         with child ->
-            let exn = InvalidDataException("FInput test is incorrect", child)
+            let exn = InvalidDataException("Input test is incorrect", child)
             raise exn
 
     static member Deserialize(stream : FileStream) =

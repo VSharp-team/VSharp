@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace VSharp;
 
 /// <summary>
@@ -26,7 +28,7 @@ public enum SearchStrategy
     /// </summary>
     ContributedCoverage,
     /// <summary>
-    /// Picks the next state by descending from root to leaf in symbolic execution tree.
+    /// Picks the next state by randomly descending from root to leaf in symbolic execution tree.
     /// </summary>
     ExecutionTree,
     /// <summary>
@@ -76,6 +78,7 @@ public enum Verbosity
 /// <param name="Timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
 /// <param name="SolverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
 /// <param name="OutputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
+/// <param name="RenderedTestsDirectory">Directory to place the project with rendered NUnit tests (if <see cref="RenderTests"/> is enabled). If null or empty, parent of process working directory is used.</param>
 /// <param name="RenderTests">If true, NUnit tests are rendered.</param>
 /// <param name="SearchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
 /// <param name="Verbosity">Determines which messages are displayed in output.</param>
@@ -87,10 +90,18 @@ public readonly record struct VSharpOptions(
     int Timeout = -1,
     int SolverTimeout = -1,
     string OutputDirectory = "",
+    string RenderedTestsDirectory = "",
     bool RenderTests = false,
     SearchStrategy SearchStrategy = SearchStrategy.BFS,
     Verbosity Verbosity = Verbosity.Quiet,
     uint RecursionThreshold = 0u,
     bool ReleaseBranches = true,
     int RandomSeed = -1,
-    uint StepsLimit = 0);
+    uint StepsLimit = 0)
+{
+    /// <summary>
+    /// <seealso cref="RenderedTestsDirectory"/>
+    /// </summary>
+    public DirectoryInfo RenderedTestsDirectoryInfo =>
+        Directory.Exists(RenderedTestsDirectory) ? new DirectoryInfo(RenderedTestsDirectory) : null;
+}

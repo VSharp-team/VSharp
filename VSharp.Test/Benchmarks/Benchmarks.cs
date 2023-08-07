@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -11,6 +12,25 @@ namespace VSharp.Test.Benchmarks;
 
 internal static class Benchmarks
 {
+    private static readonly DirectoryInfo RenderedTestsDirectory = new(Path.Combine(Directory.GetCurrentDirectory(), "RenderedTests"));
+
+    private static bool TryBuildGeneratedTests()
+    {
+
+        var testsDir = RenderedTestsDirectory.GetDirectories("*.Tests").Single();
+        var info = new ProcessStartInfo
+        {
+            WorkingDirectory = testsDir.FullName,
+            FileName = "dotnet",
+            Arguments = "build"
+        };
+        var process = new Process();
+        process.StartInfo = info;
+        process.Start();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
     public static bool RunBenchmark(
         BenchmarkTarget target,
         VSharp.SearchStrategy searchStrategy,
@@ -18,58 +38,82 @@ internal static class Benchmarks
         int timeoutS = -1,
         uint stepsLimit = 0,
         bool releaseBranches = true,
-        int randomSeed = -1)
+        int randomSeed = -1,
+        bool renderAndBuildTests = false)
     {
+        if (RenderedTestsDirectory.Exists)
+        {
+            Directory.Delete(RenderedTestsDirectory.FullName, true);
+        }
+
+        Directory.CreateDirectory(RenderedTestsDirectory.FullName);
+
         var options = new VSharpOptions(
             Timeout: timeoutS,
             SearchStrategy: searchStrategy,
             ReleaseBranches: releaseBranches,
             Verbosity: Verbosity.Warning,
             RandomSeed: randomSeed,
-            StepsLimit: stepsLimit);
+            StepsLimit: stepsLimit,
+            RenderTests: renderAndBuildTests,
+            RenderedTestsDirectory: RenderedTestsDirectory.FullName);
+
+        bool testRunnerResult;
 
         if (target.Method is not null)
         {
-            return TestGenerator.CoverAndRun(target.Method, out statistics, options);
+            testRunnerResult = TestGenerator.CoverAndRun(target.Method, out statistics, options);
         }
-
-        if (target.Types.Count == 1)
+        else if (target.Types.Count == 1)
         {
-            return TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
+            testRunnerResult = TestGenerator.CoverAndRun(target.Types.Single(), out statistics, options);
         }
-
-        if (target.Types.Count > 1)
+        else if (target.Types.Count > 1)
         {
-            return TestGenerator.CoverAndRun(target.Types, out statistics, options);
+            testRunnerResult = TestGenerator.CoverAndRun(target.Types, out statistics, options);
+        }
+        else
+        {
+            testRunnerResult = TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
         }
 
-        return TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
+        bool renderResult = true;
+        if (renderAndBuildTests)
+        {
+            renderResult = TryBuildGeneratedTests();
+        }
+
+        return statistics is { TestsCount: 0u, ErrorsCount: 0u } || testRunnerResult || renderResult;
     }
 
-    public static void PrintStatisticsComparison(List<(string Title, Statistics Stats)> statistics)
+    public static void PrintStatisticsComparison(List<(string Title, Statistics Stats, int coverage)> statistics)
     {
         var infos = statistics.SelectMany(ts => ts.Stats.GeneratedTestInfos.Where(i => !i.IsError).Select(ti => (ts.Title, ti)))
             .OrderBy(ti => ti.Item2.StepsCount);
 
         var header = new List<string> { "" };
-        header.AddRange(statistics.Select(ts => ts.Title));
+        header.AddRange(statistics.Select(s => s.Title));
         var totalStatsTable = new ConsoleTable(header.ToArray());
 
         var timeRow = new List<string> { "Elapsed time" };
-        timeRow.AddRange(statistics.Select(ts => ts.Stats.TestGenerationTime.ToString()));
+        timeRow.AddRange(statistics.Select(s => s.Stats.TestGenerationTime.ToString()));
         totalStatsTable.AddRow(timeRow.ToArray());
 
         var stepsRow = new List<string> { "Steps count" };
-        stepsRow.AddRange(statistics.Select(ts => ts.Stats.StepsCount.ToString()));
+        stepsRow.AddRange(statistics.Select(s => s.Stats.StepsCount.ToString()));
         totalStatsTable.AddRow(stepsRow.ToArray());
 
         var testsCountRow = new List<string> { "Tests generated" };
-        testsCountRow.AddRange(statistics.Select(ts => ts.Stats.TestsCount.ToString()));
+        testsCountRow.AddRange(statistics.Select(s => s.Stats.TestsCount.ToString()));
         totalStatsTable.AddRow(testsCountRow.ToArray());
 
         var errorsCountRow = new List<string> { "Errors found" };
-        errorsCountRow.AddRange(statistics.Select(ts => ts.Stats.ErrorsCount.ToString()));
+        errorsCountRow.AddRange(statistics.Select(s => s.Stats.ErrorsCount.ToString()));
         totalStatsTable.AddRow(errorsCountRow.ToArray());
+
+        var coverageRow = new List<string> { "Total coverage (with tool)" };
+        coverageRow.AddRange(statistics.Select(s => $"{s.coverage}%"));
+        totalStatsTable.AddRow(coverageRow.ToArray());
 
         totalStatsTable.Write();
 
@@ -80,7 +124,7 @@ internal static class Benchmarks
         foreach (var (title, info) in infos)
         {
             var row = new List<string> { info.StepsCount.ToString() };
-            foreach (var (columnHeader, _) in statistics)
+            foreach (var (columnHeader, _, _) in statistics)
             {
                 row.Add(title == columnHeader ? info.Coverage.ToString("0.##") : "");
             }

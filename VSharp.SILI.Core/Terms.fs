@@ -278,7 +278,7 @@ module internal Terms =
 
 // --------------------------------------- Primitives ---------------------------------------
 
-    let Nop () = HashMap.addTerm Nop
+    let Nop() = HashMap.addTerm Nop
     let Concrete obj typ = HashMap.addTerm (Concrete(obj, typ))
     let Constant name source typ = HashMap.addTerm (Constant({v=name}, source, typ))
     let Expression op args typ = HashMap.addTerm (Expression(op, args, typ))
@@ -431,7 +431,7 @@ module internal Terms =
         | Union gvs -> List.forall (snd >> isRefOrPtr) gvs
         | _ -> false
 
-    let zeroAddress () =
+    let zeroAddress() =
         Concrete VectorTime.zero addressType
 
     let makeNumber n =
@@ -476,10 +476,10 @@ module internal Terms =
             let actualTypeName = Reflection.getFullTypeName actualType
             raise (InvalidCastException $"Cannot cast {actualTypeName} to {tName}!")
 
-    let True () =
+    let True() =
         Concrete (box true) typeof<bool>
 
-    let False () =
+    let False() =
         Concrete (box false) typeof<bool>
 
     let makeBool predicate =

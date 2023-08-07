@@ -27,7 +27,7 @@ type public SILI(options : SiliOptions) =
         if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then timeout
         else timeout * 80.0 / 100.0
-        
+
     let hasStepsLimit = options.stepsLimit > 0u
 
     do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
@@ -172,7 +172,7 @@ type public SILI(options : SiliOptions) =
             action.Invoke(method, e)
 
     let wrapOnCrash (action : Action<Exception>) (e : Exception) = action.Invoke e
-    
+
     let isTimeoutReached() = hasTimeout && statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
     let shouldReleaseBranches() = options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout
     let isStepsLimitReached() = hasStepsLimit && statistics.StepsCount >= options.stepsLimit
@@ -365,6 +365,7 @@ type public SILI(options : SiliOptions) =
             | _ -> ())
 
     member x.Reset entryMethods =
+        HashMap.clear()
         API.Reset()
         SolverPool.reset()
         (statistics :> IDisposable).Dispose()
@@ -390,8 +391,6 @@ type public SILI(options : SiliOptions) =
                        (onException : Action<UnitTest>) (onIIE : Action<InsufficientInformationException>)
                        (onInternalFail : Action<Method, Exception>) (onCrash : Action<Exception>): unit =
         try
-            HashMap.clear()
-            
             reportInternalFail <- wrapOnInternalFail onInternalFail
             reportStateInternalFail <- wrapOnStateInternalFail onInternalFail
             reportCrash <- wrapOnCrash onCrash

@@ -911,8 +911,8 @@ module internal Arithmetics =
 // ------------------------------- Simplification of "=", "!=", "<", ">", ">=", "<=" -------------------------------
 
     and fastNumericCompare n m =
-        if n = m then True ()
-        elif isConcrete n && isConcrete m then False ()
+        if n = m then True()
+        elif isConcrete n && isConcrete m then False()
         else makeBinary OperationType.Equal n m bool
 
     and private simplifyConcreteComparison operator _ x y =

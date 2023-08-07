@@ -11,7 +11,7 @@ type private executionTreeNode<'a> =
     }
 
 type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
-    
+
     let stateToNode = Dictionary<'a, executionTreeNode<'a>>()
     let initialStateNode =
         {
@@ -20,11 +20,11 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
             depth = 0
             states = List<'a>()
         }
-    
+
     do
         initialStateNode.states.Add initialState
         stateToNode[initialState] <- initialStateNode
-        
+
     let rec remove node =
         match node.parent with
         | Some parent ->
@@ -33,7 +33,7 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
             if parent.children.Count = 0 then
                 remove parent
         | _ -> ()
-        
+
     let rec pick current (randomNonNegIntFunc : unit -> int) =
         let randomInt = randomNonNegIntFunc()
         if randomInt < 0 then
@@ -42,14 +42,13 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
             assert(current.states.Count > 0)
             current.states[randomInt % current.states.Count]
         else
-            pick current.children[randomInt % current.children.Count] randomNonNegIntFunc        
-        
+            pick current.children[randomInt % current.children.Count] randomNonNegIntFunc
+
     member x.States with get() = stateToNode.Keys |> seq
-        
+
     member x.StatesCount with get() = stateToNode.Count
-    
+
     member x.AddFork parent children =
-        // TODO: should we consider fork with only parent as fork?
         let parentNode = ref initialStateNode
         if not <| stateToNode.TryGetValue(parent, parentNode) then
             false
@@ -83,7 +82,7 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
                     parentNode.children.Add childNode
                     stateToNode[child] <- childNode
                 true
-    
+
     member x.Remove state =
         let node = ref initialStateNode
         if not <| stateToNode.TryGetValue(state, node) then
@@ -94,7 +93,7 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
             let wasRemoved = stateToNode.Remove state
             assert wasRemoved
             true
-            
+
     member x.RandomPick randomNonNegIntFunc =
         if stateToNode.Count = 0 then
             None

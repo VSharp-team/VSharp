@@ -492,8 +492,8 @@ module internal Memory =
         let nullableType = Nullable.GetUnderlyingType t
         let valueField, hasValueField = Reflection.fieldsOfNullable t
         let value, hasValue =
-            if box obj <> null then objToTerm state nullableType obj, True ()
-            else objToTerm state nullableType (Reflection.createObject nullableType), False ()
+            if box obj <> null then objToTerm state nullableType obj, True()
+            else objToTerm state nullableType (Reflection.createObject nullableType), False()
         let fields = PersistentDict.ofSeq <| seq [(valueField, value); (hasValueField, hasValue)]
         Struct fields t
 

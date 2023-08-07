@@ -241,7 +241,7 @@ type public SILIStatistics(entryMethods : Method seq) =
 
     member x.GetCurrentCoverage (method : Method) =
         x.GetCurrentCoverage(Seq.singleton method)
-        
+
     member x.GetCurrentCoverage() = x.GetCurrentCoverage(entryMethods)
 
     member x.OnBranchesReleased() =
@@ -313,7 +313,7 @@ type public SILIStatistics(entryMethods : Method seq) =
     member x.InternalFails with get() = internalFails
 
     member x.StepsCount with get() = stepsCount
-    
+
     member x.DumpStatistics() =
         let topN = 5
         let topVisitedByMethods =

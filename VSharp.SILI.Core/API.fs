@@ -67,7 +67,7 @@ module API =
 
     [<AutoOpen>]
     module public Terms =
-        let Nop () = Nop ()
+        let Nop() = Nop()
         let Concrete obj typ = Concrete obj typ
         let Constant name source typ = Constant name source typ
         let Expression op args typ = Expression op args typ
@@ -77,8 +77,8 @@ module API =
         let HeapRef address baseType = HeapRef address baseType
         let Union gvs = Union gvs
 
-        let True () = True ()
-        let False () = False ()
+        let True() = True()
+        let False() = False()
         let NullRef t = nullRef t
         let MakeNullPtr t = makeNullPtr t
         let ConcreteHeapAddress (address : concreteHeapAddress) = ConcreteHeapAddress address

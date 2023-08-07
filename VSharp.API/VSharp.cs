@@ -53,7 +53,7 @@ namespace VSharp
         /// The amount of errors found.
         /// </summary>
         public uint ErrorsCount { get; }
-        
+
         /// <summary>
         /// The amount of symbolic machine steps.
         /// </summary>
@@ -63,7 +63,7 @@ namespace VSharp
         /// Some program branches might be failed to investigate. This enumerates the reasons of such failures.
         /// </summary>
         public IEnumerable<string> IncompleteBranches { get; }
-        
+
         /// <summary>
         /// Generated tests statistics.
         /// </summary>
@@ -111,7 +111,7 @@ namespace VSharp
             string[]? mainArguments = null)
         {
             Logger.currentLogLevel = options.Verbosity.ToLoggerLevel();
-            
+
             var unitTests = new UnitTests(options.OutputDirectory);
             var baseSearchMode = options.SearchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
@@ -231,7 +231,7 @@ namespace VSharp
             return statistics;
         }
 
-        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false)
+        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false, DirectoryInfo? outputDir = null)
         {
             TestRenderer.Renderer.Render(
                 statistics.Results(),
@@ -239,7 +239,7 @@ namespace VSharp
                 singleFile,
                 declaringType,
                 // Getting parent directory of tests: "VSharp.tests.*/.."
-                statistics.OutputDir.Parent
+                outputDir ?? statistics.OutputDir.Parent
             );
         }
 
@@ -289,8 +289,10 @@ namespace VSharp
             AssemblyManager.LoadCopy(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
             var statistics = StartExploration(methods, coverageZone.MethodZone, options);
+
             if (options.RenderTests)
-                Render(statistics, method.DeclaringType);
+                Render(statistics, method.DeclaringType, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -335,7 +337,7 @@ namespace VSharp
             var statistics = StartExploration(methodArray, zone, options);
 
             if (options.RenderTests)
-                Render(statistics, types.SingleOrDefault());
+                Render(statistics, types.SingleOrDefault(), outputDir: options.RenderedTestsDirectoryInfo);
 
             return statistics;
         }
@@ -358,8 +360,10 @@ namespace VSharp
             }
 
             var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
             if (options.RenderTests)
-                Render(statistics, type);
+                Render(statistics, type, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -394,8 +398,10 @@ namespace VSharp
             }
 
             var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
             if (options.RenderTests)
-                Render(statistics);
+                Render(statistics, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -420,7 +426,7 @@ namespace VSharp
 
             var statistics = StartExploration(methods, coverageZone.ModuleZone, options);
             if (options.RenderTests)
-                Render(statistics, singleFile: renderSingleFile);
+                Render(statistics, singleFile: renderSingleFile, outputDir: options.RenderedTestsDirectoryInfo);
             return statistics;
         }
 
