@@ -1,3 +1,4 @@
+import logging
 import time
 from contextlib import contextmanager, suppress
 
@@ -12,7 +13,8 @@ from .requests import acquire_instance, return_instance
 def wait_for_connection(url: WSUrl):
     ws = websocket.WebSocket()
 
-    retries_left = 60
+    max_retries = 60
+    retries_left = max_retries
 
     while retries_left:
         with suppress(ConnectionRefusedError, ConnectionResetError):
@@ -23,6 +25,7 @@ def wait_for_connection(url: WSUrl):
         if ws.connected:
             return ws
         time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT)
+        logging.info(f"Try connecting, did {max_retries - retries_left} attempts")
         retries_left -= 1
     raise RuntimeError("Retries exsausted")
 
