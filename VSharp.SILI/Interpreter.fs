@@ -32,7 +32,7 @@ module internal TypeUtils =
     let intPtr = typedefof<IntPtr>
     let uintPtr = typedefof<UIntPtr>
 
-    let isInteger term = Terms.TypeOf term |> TypeUtils.isIntegral
+    let isIntegralTerm term = Terms.TypeOf term |> TypeUtils.isIntegral
     let isLong term = TypeOf term |> TypeUtils.isLongTypes
     let isBool term = Terms.TypeOf term |> IsBool
 
@@ -321,7 +321,7 @@ module internal InstructionsSet =
         | _ -> k term
     let performUnsignedIntegerOperation op (cilState : cilState) =
         let arg2, arg1 = peek2 cilState
-        if TypeUtils.isInteger arg1 && TypeUtils.isInteger arg2 then
+        if TypeUtils.isIntegralTerm arg1 && TypeUtils.isIntegralTerm arg2 then
             performCILBinaryOperation op makeUnsignedInteger makeUnsignedInteger idTransformation cilState
         else internalfailf "arguments for %O are not Integers!" op
     let ldstr (m : Method) offset (cilState : cilState) =
@@ -1681,7 +1681,7 @@ type internal ILInterpreter() as this =
     member private this.CommonUnsignedDivRem isRem performAction (cilState : cilState) =
         let y, x = pop2 cilState
         match y, x with
-        | _ when TypeUtils.isInteger x && TypeUtils.isInteger y ->
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
             StatedConditionalExecutionCIL cilState
@@ -1715,7 +1715,7 @@ type internal ILInterpreter() as this =
             let max = TypeUtils.UInt64.MaxValue
             let zero = TypeUtils.UInt64.Zero
             checkOverflowForUnsigned zero max x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
-        | _ when TypeUtils.isInteger x && TypeUtils.isInteger y ->
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             let x, y = makeUnsignedInteger x id, makeUnsignedInteger y id
             let max = TypeUtils.UInt32.MaxValue
             let zero = TypeUtils.UInt32.Zero

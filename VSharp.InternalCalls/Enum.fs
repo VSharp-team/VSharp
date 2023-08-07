@@ -35,7 +35,7 @@ module internal Enum =
                 | _ when underlyingType = typeof<IntPtr> -> 0x18
                 | _ when underlyingType = typeof<UIntPtr> -> 0x19
                 | _ -> internalfail $"InternalGetCorElementType: unexpected underlying type {underlyingType}"
-            let corType = typeof<int>.Assembly.GetType("System.Reflection.CorElementType")
+            let corType = Reflection.mscorlibAssembly.GetType("System.Reflection.CorElementType")
             Enum.ToObject(corType, value) |> MakeNumber
 
     let internal GetEnumValuesAndNames (state : state) (args : term list) : (term * state) list =
@@ -44,7 +44,7 @@ module internal Enum =
         let valuesRef = args[1]
         let namesRef = args[2]
         let getNamesFlag = args[3]
-        let assembly = typeof<int>.Assembly
+        let assembly = Reflection.mscorlibAssembly
         let handleType = assembly.GetType("System.Runtime.CompilerServices.QCallTypeHandle")
         let refOnStackType = assembly.GetType("System.Runtime.CompilerServices.ObjectHandleOnStack")
         let handleFields = Reflection.fieldsOf false handleType

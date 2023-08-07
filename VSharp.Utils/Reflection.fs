@@ -54,6 +54,8 @@ module public Reflection =
         | Some a -> a
         | None -> AssemblyManager.LoadFromAssemblyName assemblyName
 
+    let mscorlibAssembly = typeof<int>.Assembly
+
     // --------------------------- Metadata Resolving ---------------------------
 
     let resolveModule (assemblyName : string) (moduleName : string) =
@@ -545,3 +547,7 @@ module public Reflection =
             let result = isReferenceOrContainsReferencesHelper t
             cachedTypes.Add(t, result)
             result
+
+    let isBuiltInType (t: Type) =
+        let builtInAssembly = mscorlibAssembly
+        t.Assembly = builtInAssembly

@@ -345,7 +345,7 @@ and
         }
 
         new(types : seq<Type> , mock: ITypeMock option, userAssembly : Reflection.Assembly) =
-            let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && TypeUtils.isBuiltInType t
+            let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && Reflection.isBuiltInType t
             let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
             let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
             let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
@@ -368,7 +368,7 @@ and
             }
 
         static member Empty() =
-            candidates(Seq.empty, None, typeof<int>.Assembly)
+            candidates(Seq.empty, None, Reflection.mscorlibAssembly)
 
         member x.Copy(changeMock: ITypeMock -> ITypeMock) =
             let newMock =

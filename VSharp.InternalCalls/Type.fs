@@ -48,8 +48,8 @@ module internal Type =
 
     let GetAssembly (state : state) (args : term list) : (term * state) list =
         assert (List.length args = 1)
-        let runtimeType = typeof<Object>.Assembly.GetType()
-        allocateType state runtimeType
+        let assemblyType = Reflection.mscorlibAssembly.GetType()
+        allocateType state assemblyType
 
     let GetType (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)

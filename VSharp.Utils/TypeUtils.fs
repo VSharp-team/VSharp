@@ -524,7 +524,3 @@ module TypeUtils =
         elif isInt x || isUInt x || isLong x || isULong x then x
         elif isIntegral x then typeof<int32>
         else fail()
-
-    let isBuiltInType (t: Type) =
-        let builtInAssembly = typeof<int>.Assembly
-        t.Assembly = builtInAssembly
