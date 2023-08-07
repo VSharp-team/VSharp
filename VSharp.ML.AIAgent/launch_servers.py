@@ -24,7 +24,9 @@ async def dequeue_instance(request):
             print(f"issued {server_info}")
             return web.json_response(server_info.to_json())
         except Empty:
-            print(f"{os.getpid()} tried to dequeue an empty queue. Waiting...")
+            print(
+                f"{os.getpid()} tried to dequeue an empty queue. Retrying {retry_count}'s time..."
+            )
         retry_count -= 1
 
 
