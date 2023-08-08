@@ -23,8 +23,8 @@ def wait_for_connection(server_instance: ServerInstanceInfo):
                 server_instance.ws_url,
                 skip_utf8_validation=GameServerConnectorConfig.SKIP_UTF_VALIDATION,
             )
-        # if ws.connected:
-        #     return ws
+        if ws.connected:
+            return ws
         time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
         logging.info(
             f"Try connecting to {server_instance.ws_url}, {retries_left} attempts left; {psutil.Process(server_instance.pid)}"
