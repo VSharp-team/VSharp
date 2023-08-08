@@ -6,7 +6,7 @@ import signal
 import subprocess
 from contextlib import contextmanager
 from queue import Empty, Queue
-
+import psutil
 from aiohttp import web
 
 from common.constants import SERVER_WORKING_DIR
@@ -49,7 +49,9 @@ async def enqueue_instance(request):
 
     if FeatureConfig.ON_GAME_SERVER_RESTART:
         kill_server(returned_instance_info.pid, forget=True)
-        logging.info(f"killing {returned_instance_info.pid}")
+        logging.info(
+            f"killing {returned_instance_info.pid}, its status: {psutil.Process(returned_instance_info.pid).status()}"
+        )
         returned_instance_info = run_server_instance(
             port=returned_instance_info.port, start_server=START_SERVERS
         )
