@@ -55,7 +55,7 @@ async def enqueue_instance(request):
         wait_for_reset_retries = 60
         while wait_for_reset_retries:
             wait_for_reset_retries -= 1
-            logging.log(
+            logging.info(
                 f"Waiting for server to die, {wait_for_reset_retries} retries left"
             )
             if (
