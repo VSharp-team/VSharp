@@ -4,8 +4,10 @@ import logging
 import os
 import signal
 import subprocess
+import time
 from contextlib import contextmanager
 from queue import Empty, Queue
+
 import psutil
 from aiohttp import web
 
@@ -49,6 +51,19 @@ async def enqueue_instance(request):
 
     if FeatureConfig.ON_GAME_SERVER_RESTART:
         kill_server(returned_instance_info.pid, forget=True)
+
+        wait_for_reset_retries = 60
+        while wait_for_reset_retries:
+            wait_for_reset_retries -= 1
+            logging.log(
+                f"Waiting for server to die, {wait_for_reset_retries} retries left"
+            )
+            if (
+                psutil.Process(returned_instance_info.pid).status()
+                != psutil.STATUS_RUNNING
+            ):
+                break
+            time.sleep(1)
         logging.info(
             f"killing {returned_instance_info.pid}, its status: {psutil.Process(returned_instance_info.pid).status()}"
         )
