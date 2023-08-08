@@ -17,6 +17,7 @@ type ehcType =
     | Filter of offset
     | Catch of Type
     | Finally
+    | Fault
 
 type public ExceptionHandlingClause = { tryOffset : offset; tryLength : offset; handlerOffset : offset; handlerLength : offset; ehcType : ehcType }
 
@@ -85,7 +86,8 @@ type MethodWithBody internal (m : MethodBase) =
                 let oldEH = ehcs.[int eh.matcher]
                 let ehcType =
                     if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (eh.matcher |> int |> Offset.from)
-                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault || oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
+                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
+                    elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault then Fault
                     else Catch oldEH.CatchType
                 {tryOffset = eh.tryOffset |> int |> Offset.from
                  tryLength = eh.tryLength |> int |> Offset.from
@@ -320,6 +322,8 @@ module MethodBody =
         isCallOpCode opCode || isNewObjOpCode opCode
     let isFinallyClause (ehc : ExceptionHandlingClause) =
         match ehc.ehcType with Finally -> true | _ -> false
+    let isFaultClause (ehc : ExceptionHandlingClause) =
+        match ehc.ehcType with Fault -> true | _ -> false
     let isFilterClause (ehc : ExceptionHandlingClause) =
         match ehc.ehcType with ehcType.Filter _ -> true | _ -> false
     let isCatchClause (ehc : ExceptionHandlingClause) =
