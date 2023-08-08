@@ -70,9 +70,7 @@ async def enqueue_instance(request):
         if wait_for_reset_retries == 0:
             raise RuntimeError(f"{returned_instance_info} could not be killed")
 
-        logging.info(
-            f"killed {returned_instance_info.pid}, its status: {psutil.Process(returned_instance_info.pid).status()}"
-        )
+        logging.info(f"killed {psutil.Process(returned_instance_info.pid)}")
         returned_instance_info = run_server_instance(
             port=returned_instance_info.port, start_server=START_SERVERS
         )
