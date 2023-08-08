@@ -78,6 +78,26 @@ async def enqueue_instance(request):
         )
         logging.info(f"running new instance: {returned_instance_info}")
 
+        wait_for_alive_retries = (
+            FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+        )
+        while wait_for_alive_retries:
+            logging.info(
+                f"Waiting for server to die, {wait_for_alive_retries} retries left"
+            )
+            if (
+                psutil.Process(returned_instance_info.pid).status()
+                == psutil.STATUS_RUNNING
+            ):
+                break
+            time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
+            wait_for_alive_retries -= 1
+
+        if wait_for_alive_retries == 0:
+            raise RuntimeError(f"{returned_instance_info} could not be killed")
+
+        logging.info(f"{returned_instance_info} is run")
+
     SERVER_INSTANCES.put(returned_instance_info)
     logging.info(f"enqueue {returned_instance_info}")
     return web.HTTPOk()
