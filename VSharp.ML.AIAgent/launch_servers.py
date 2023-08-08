@@ -1,5 +1,6 @@
 import argparse
 import json
+import logging
 import os
 import signal
 import subprocess
@@ -13,6 +14,12 @@ from config import BrokerConfig, FeatureConfig, GeneralConfig, ServerConfig
 from connection.broker_conn.classes import ServerInstanceInfo, Undefined, WSUrl
 
 routes = web.RouteTableDef()
+logging.basicConfig(
+    level=GeneralConfig.LOGGER_LEVEL,
+    filename="instance_manager.log",
+    filemode="w",
+    format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
+)
 
 
 @routes.get("/get_ws")
@@ -21,13 +28,14 @@ async def dequeue_instance(request):
     while retry_count:
         try:
             server_info = SERVER_INSTANCES.get(timeout=1)
-            print(f"issued {server_info}")
+            logging.info(f"issued {server_info}")
             return web.json_response(server_info.to_json())
         except Empty:
-            print(
-                f"{os.getpid()} tried to dequeue an empty queue. Retrying {retry_count}'s time..."
+            logging.warning(
+                f"{os.getpid()} tried to dequeue an empty queue. {retry_count} retries left"
             )
         retry_count -= 1
+    logging.error("Couldn't dequeue instance, the queue is not replenishing")
     raise RuntimeError("Couldn't dequeue instance, the queue is not replenishing")
 
 
@@ -37,15 +45,18 @@ async def enqueue_instance(request):
     returned_instance_info = ServerInstanceInfo.from_json(
         returned_instance_info_raw.decode("utf-8")
     )
+    logging.info(f"got {returned_instance_info} from client")
 
-    print(f"put back {returned_instance_info}")
     if FeatureConfig.ON_GAME_SERVER_RESTART:
         kill_server(returned_instance_info.pid, forget=True)
+        logging.info(f"killing {returned_instance_info.pid}")
         returned_instance_info = run_server_instance(
             port=returned_instance_info.port, start_server=START_SERVERS
         )
+        logging.info(f"running new instance: {returned_instance_info}")
 
     SERVER_INSTANCES.put(returned_instance_info)
+    logging.info(f"enqueue {returned_instance_info}")
     return web.HTTPOk()
 
 
@@ -88,7 +99,7 @@ def run_server_instance(port: int, start_server: bool) -> ServerInstanceInfo:
         )
         server_pid = proc.pid
         PROCS.append(server_pid)
-        print(f"{server_pid}: " + " ".join(launch_server + [str(port)]))
+        logging.info(f"{server_pid}: " + " ".join(launch_server + [str(port)]))
 
     ws_url = get_socket_url(port)
     return ServerInstanceInfo(port, ws_url, server_pid)
@@ -109,7 +120,6 @@ def kill_server(pid: int, forget):
     os.kill(pid, signal.SIGKILL)
     if forget:
         PROCS.remove(pid)
-    print(f"killed {pid}")
 
 
 @contextmanager
