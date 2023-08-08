@@ -83,7 +83,7 @@ async def enqueue_instance(request):
         )
         while wait_for_alive_retries:
             logging.info(
-                f"Waiting for server to die, {wait_for_alive_retries} retries left"
+                f"Waiting for server to start, {wait_for_alive_retries} retries left"
             )
             if (
                 psutil.Process(returned_instance_info.pid).status()
@@ -94,7 +94,7 @@ async def enqueue_instance(request):
             wait_for_alive_retries -= 1
 
         if wait_for_alive_retries == 0:
-            raise RuntimeError(f"{returned_instance_info} could not be killed")
+            raise RuntimeError(f"{returned_instance_info} has not resurrected")
 
         logging.info(f"{returned_instance_info} is run")
 
