@@ -26,7 +26,9 @@ def wait_for_connection(url: WSUrl):
         time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
         logging.info(f"Try connecting to {url}, {retries_left} attempts left")
         retries_left -= 1
-    raise RuntimeError("Retries exsausted")
+    raise RuntimeError(
+        f"Retries exsausted wnen trying to connect to {url}: {retries_left} left"
+    )
 
 
 @contextmanager
