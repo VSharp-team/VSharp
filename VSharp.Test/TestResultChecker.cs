@@ -7,7 +7,7 @@ namespace VSharp.Test;
 
 public static class TestResultChecker
 {
-    public static readonly string TestRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
+    private static readonly string TestRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
 
     public static bool Check(DirectoryInfo testDir)
     {

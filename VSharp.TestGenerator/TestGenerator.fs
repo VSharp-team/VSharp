@@ -102,7 +102,7 @@ module TestGenerator =
                         assert(lengths.Length = 1 && i.Length = 1)
                         List.head i < lengths[0])
                 else
-                    List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < l)
+                    List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < lb + l)
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with

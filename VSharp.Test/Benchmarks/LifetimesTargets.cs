@@ -24,7 +24,7 @@ internal class LifetimesTargets
         "ViewableProperty",
         "ViewableSet"
     };
-    
+
     private static readonly List<string> UtilClasses = new()
     {
         "BitHacks",
@@ -40,13 +40,19 @@ internal class LifetimesTargets
         "Statics",
         "Types"
     };
-    
+
     public static IEnumerable<BenchmarkTarget> Collections()
     {
         var assembly = Benchmarks.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
         return BenchmarkTarget.ForAllMethods(assembly, CollectionsClasses);
     }
-    
+
+    public static IEnumerable<BenchmarkTarget> CompactList()
+    {
+        var assembly = Benchmarks.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);
+        return new List<BenchmarkTarget> { new BenchmarkTarget(assembly, "CompactList") };
+    }
+
     public static IEnumerable<BenchmarkTarget> Util()
     {
         var assembly = Benchmarks.LoadBenchmarkAssembly(LifetimesSuiteName, LifetimesDllName);

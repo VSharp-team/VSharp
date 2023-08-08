@@ -269,7 +269,7 @@ module HashMap =
                 let term = { term = node; hc = hc }
                 hashMap.Add(node, term)
                 term
-    let clear() = hashMap.Free()
+    let clear() = hashMap.Clear()
 
 [<AutoOpen>]
 module internal Terms =

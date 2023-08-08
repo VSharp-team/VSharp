@@ -16,7 +16,7 @@ public class ExecutionTreeTests
     {
         _nextRandom = FuncConvert.FromFunc(() => _random.Next(0, int.MaxValue));
     }
-    
+
     [Test]
     [Timeout(5000)]
     public void PickTest()
@@ -37,6 +37,11 @@ public class ExecutionTreeTests
         {
             pickedValues.Add(tree.RandomPick(_nextRandom).Value);
         }
+
+        for (var i = 0; i < 11; i++)
+        {
+            Assert.True(pickedValues.Contains(i));
+        }
     }
 
     [Test]
@@ -51,7 +56,7 @@ public class ExecutionTreeTests
             Assert.That(picked, Is.EqualTo(FSharpOption<int>.Some(0)));
         }
     }
-    
+
     [Test]
     public void RemoveTest2()
     {

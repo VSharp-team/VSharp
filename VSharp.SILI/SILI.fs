@@ -35,7 +35,7 @@ type public SILI(options : SiliOptions) =
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let mutable statistics = new SILIStatistics(Seq.empty)
+    let statistics = new SILIStatistics(Seq.empty)
 
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
@@ -70,13 +70,15 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
 
-    let rec mkForwardSearcher = function
+    let rec mkForwardSearcher mode =
+        let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
+        match mode with
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
-        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(statistics, if options.randomSeed < 0 then None else Some options.randomSeed) :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(statistics, getRandomSeedOption()) :> IForwardSearcher
         | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
-        | ExecutionTreeMode -> ExecutionTreeSearcher(if options.randomSeed < 0 then None else Some options.randomSeed)
+        | ExecutionTreeMode -> ExecutionTreeSearcher(getRandomSeedOption())
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
@@ -361,15 +363,14 @@ type public SILI(options : SiliOptions) =
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
             | pobStatus.Unknown ->
-                Logger.warning "Unknown status for pob at %O" pob.loc
+                Logger.warning $"Unknown status for pob at {pob.loc}"
             | _ -> ())
 
     member x.Reset entryMethods =
         HashMap.clear()
         API.Reset()
         SolverPool.reset()
-        (statistics :> IDisposable).Dispose()
-        statistics <- new SILIStatistics(entryMethods)
+        statistics.Reset entryMethods
         searcher.Reset()
         isStopped <- false
         branchesReleased <- false

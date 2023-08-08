@@ -8,10 +8,10 @@ namespace VSharp.Test.Benchmarks;
 public class SearcherBenchmarks
 {
     [Test]
-    [TestCaseSource(typeof(BizHawkTargets), nameof(BizHawkTargets.LR35902))]
+    [TestCaseSource(typeof(VSharpTargets), nameof(VSharpTargets.LoanExam))]
     public void SearchersEvaluation(BenchmarkTarget target)
     {
-        var stepsLimit = 15000u;
+        var stepsLimit = 40000u;
         TestContext.Out.WriteLine("Running BFS...");
         Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.BFS, out var bfsResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
         TestContext.Out.WriteLine("Running DFS...");

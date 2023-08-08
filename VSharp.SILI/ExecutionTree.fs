@@ -10,6 +10,7 @@ type private executionTreeNode<'a> =
         states : List<'a>
     }
 
+[<AllowNullLiteral>]
 type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
 
     let stateToNode = Dictionary<'a, executionTreeNode<'a>>()
@@ -28,9 +29,10 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
     let rec remove node =
         match node.parent with
         | Some parent ->
-            let wasRemoved = parent.children.Remove node
+            let children = parent.children
+            let wasRemoved = children.Remove node
             assert wasRemoved
-            if parent.children.Count = 0 then
+            if children.Count = 0 then
                 remove parent
         | _ -> ()
 
@@ -40,9 +42,11 @@ type ExecutionTree<'a when 'a : equality>(initialState : 'a) =
             invalidArg (nameof randomNonNegIntFunc) "Random function returned a negative number"
         if current.children.Count = 0 then
             assert(current.states.Count > 0)
-            current.states[randomInt % current.states.Count]
+            let stateIndex = randomInt % current.states.Count
+            current.states[stateIndex]
         else
-            pick current.children[randomInt % current.children.Count] randomNonNegIntFunc
+            let childIndex = randomInt % current.children.Count
+            pick current.children[childIndex] randomNonNegIntFunc
 
     member x.States with get() = stateToNode.Keys |> seq
 

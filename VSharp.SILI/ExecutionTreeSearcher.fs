@@ -23,15 +23,13 @@ type internal ExecutionTreeSearcher(randomSeed : int option) =
             invalidOp "Trying to init non-empty execution tree searcher"
         for method, methodStates in initialStates |> Seq.groupBy CilStateOperations.entryMethodOf do
             methods.Add method
-            let methodStates = methodStates |> Seq.toList
-            if List.length methodStates > 1 then
+            if Seq.length methodStates > 1 then
                 invalidOp "Cannot init execution tree searcher with more than 1 initial state for method"
-            trees[method] <- ExecutionTree(methodStates.Head)
+            trees[method] <- ExecutionTree(Seq.head methodStates)
 
     let pick() =
         let method = methods[getRandomInt() % methods.Count]
-        let picked = trees[method].RandomPick getRandomInt
-        picked
+        trees[method].RandomPick getRandomInt
 
     // This function is optimized for selector based on entry method of state (like in fair searcher)
     let pickWithSelector selector =
@@ -49,23 +47,28 @@ type internal ExecutionTreeSearcher(randomSeed : int option) =
             getAllStates() |> Seq.tryFind selector
 
     let remove state =
-        match Seq.tryFind (fun (KeyValue(_, t : ExecutionTree<cilState>)) -> t.Remove state) trees with
-        | Some(KeyValue(method, tree)) ->
+        let entryMethod = CilStateOperations.entryMethodOf state
+        let tree = ref null
+        let treeFound = trees.TryGetValue(entryMethod, tree)
+        if treeFound then
+            let tree = tree.Value
+            tree.Remove state |> ignore
             if tree.StatesCount = 0 then
-                let wasRemoved = trees.Remove method
+                let wasRemoved = trees.Remove entryMethod
                 assert wasRemoved
-                let wasRemoved = methods.Remove method
+                let wasRemoved = methods.Remove entryMethod
                 assert wasRemoved
-        | _ -> ()
 
     let reset() =
         trees.Clear()
         methods.Clear()
 
     let update parent newStates =
-        match Seq.tryFind (fun (t : ExecutionTree<cilState>) -> t.AddFork parent newStates) trees.Values with
-        | Some _ -> ()
-        | _ -> invalidOp "Cannot update execution tree searcher: parent not found in none of trees"
+        let entryMethod = CilStateOperations.entryMethodOf parent
+        let tree = ref null
+        let treeFound = trees.TryGetValue(entryMethod, tree)
+        if treeFound then
+            tree.Value.AddFork parent newStates |> ignore
 
     interface IForwardSearcher with
         member this.Init initialStates = init initialStates

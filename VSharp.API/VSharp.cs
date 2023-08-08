@@ -135,6 +135,7 @@ namespace VSharp
                 );
 
             using var explorer = new SILI(siliOptions);
+            var statistics = explorer.Statistics;
 
             void HandleInternalFail(Method? method, Exception exception)
             {
@@ -182,13 +183,10 @@ namespace VSharp
 
             var isolated = new List<MethodBase>();
             var entryPoints = new List<Tuple<MethodBase, string[]?>>();
-            var normalizedMethods = new List<MethodBase>();
 
             foreach (var method in methods)
             {
                 var normalizedMethod = AssemblyManager.NormalizeMethod(method);
-                normalizedMethods.Add(normalizedMethod);
-
                 if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
                     entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
@@ -203,32 +201,32 @@ namespace VSharp
 
             void OnTest(UnitTest test)
             {
-                var coverage = explorer.Statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(false, explorer.Statistics.CurrentExplorationTime, explorer.Statistics.StepsCount, coverage));
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(false, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
                 unitTests.GenerateTest(test);
             }
 
             void OnError(UnitTest test)
             {
-                var coverage = explorer.Statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(true, explorer.Statistics.CurrentExplorationTime, explorer.Statistics.StepsCount, coverage));
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(true, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
                 unitTests.GenerateError(test);
             }
 
             explorer.Interpret(isolated, entryPoints, OnTest, OnError, _ => { },
                 HandleInternalFail, HandleCrash);
 
-            var statistics = new Statistics(
-                explorer.Statistics.CurrentExplorationTime,
+            var result = new Statistics(
+                statistics.CurrentExplorationTime,
                 unitTests.TestDirectory,
                 unitTests.UnitTestsCount,
                 unitTests.ErrorsCount,
-                explorer.Statistics.StepsCount,
-                explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
+                statistics.StepsCount,
+                statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
                 testInfos);
-            unitTests.WriteReport(explorer.Statistics.PrintStatistics);
+            unitTests.WriteReport(statistics.PrintStatistics);
 
-            return statistics;
+            return result;
         }
 
         private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false, DirectoryInfo? outputDir = null)

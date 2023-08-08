@@ -12,6 +12,7 @@ namespace VSharp.Test.Benchmarks;
 
 internal static class Benchmarks
 {
+    private static readonly string TestRunnerPath = typeof(TestRunner.TestRunner).Assembly.Location;
     private static readonly DirectoryInfo RenderedTestsDirectory = new(Path.Combine(Directory.GetCurrentDirectory(), "RenderedTests"));
 
     private static bool TryBuildGeneratedTests()
@@ -77,19 +78,23 @@ internal static class Benchmarks
             testRunnerResult = TestGenerator.CoverAndRun(target.Assembly, out statistics, options);
         }
 
-        bool renderResult = true;
+        var renderResult = true;
         if (renderAndBuildTests)
         {
             renderResult = TryBuildGeneratedTests();
         }
 
-        return statistics is { TestsCount: 0u, ErrorsCount: 0u } || testRunnerResult || renderResult;
+        return statistics is { TestsCount: 0u, ErrorsCount: 0u } || (testRunnerResult && renderResult);
     }
 
     public static void PrintStatisticsComparison(List<(string Title, Statistics Stats, int coverage)> statistics)
     {
-        var infos = statistics.SelectMany(ts => ts.Stats.GeneratedTestInfos.Where(i => !i.IsError).Select(ti => (ts.Title, ti)))
-            .OrderBy(ti => ti.Item2.StepsCount);
+        var infos = statistics.SelectMany(ts =>
+            ts.Stats.GeneratedTestInfos
+                .Where(i => !i.IsError)
+                .Select(ti => (ts.Title, ti)))
+                .OrderBy(ti => ti.Item2.StepsCount
+        );
 
         var header = new List<string> { "" };
         header.AddRange(statistics.Select(s => s.Title));
@@ -142,7 +147,7 @@ internal static class Benchmarks
             throw new Exception("Cannot get coverage of BenchmarkTarget without single method");
         }
 
-        var runnerWithArgs = $"{TestResultChecker.TestRunnerPath} {result.OutputDir.FullName}";
+        var runnerWithArgs = $"{TestRunnerPath} {result.OutputDir.FullName}";
         return CoverageRunner.CoverageRunner.RunAndGetCoverage(runnerWithArgs, result.OutputDir, target.Method);
     }
 

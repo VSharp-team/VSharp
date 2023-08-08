@@ -44,6 +44,9 @@ type statisticsDump =
 
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics(entryMethods : Method seq) =
+
+    let entryMethods = List<Method>(entryMethods)
+
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string>()
@@ -275,7 +278,10 @@ type public SILIStatistics(entryMethods : Method seq) =
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
-    member x.Reset() =
+    member x.Reset (newEntryMethods : Method seq) =
+        entryMethods.Clear()
+        entryMethods.AddRange newEntryMethods
+
         totalVisited.Clear()
         unansweredPobs.Clear()
         internalFails.Clear()
