@@ -1,6 +1,6 @@
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Diagnostics;
 using static VSharp.CoverageRunner.CoverageRunner;
 
 namespace VSharp.Test;
