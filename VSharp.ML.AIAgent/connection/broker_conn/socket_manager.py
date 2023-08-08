@@ -2,7 +2,6 @@ import logging
 import time
 from contextlib import contextmanager, suppress
 
-import psutil
 import websocket
 
 from config import GameServerConnectorConfig
@@ -27,7 +26,7 @@ def wait_for_connection(server_instance: ServerInstanceInfo):
             return ws
         time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
         logging.info(
-            f"Try connecting to {server_instance.ws_url}, {retries_left} attempts left; {psutil.Process(server_instance.pid)}"
+            f"Try connecting to {server_instance.ws_url}, {retries_left} attempts left; {server_instance}"
         )
         retries_left -= 1
     raise RuntimeError(
