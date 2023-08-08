@@ -416,6 +416,14 @@ and Method internal (m : MethodBase) as this =
         else res <- value
         res
 
+    member x.InstrsToString() =
+        let mutable sb = System.Text.StringBuilder()
+        for b in x.BasicBlocks do
+            for instr in b.ToString() do
+                sb <- sb.AppendLine(instr)
+            sb <- sb.AppendLine()
+        sb.ToString()
+
 and
     [<CustomEquality; CustomComparison>]
     public codeLocation = {offset : offset; method : Method}

@@ -40,7 +40,7 @@ type MethodWithBody internal (m : MethodBase) =
     let genericArguments = lazy(if m.IsGenericMethod && not m.IsConstructor then m.GetGenericArguments() else Array.empty)
     let attributes = m.Attributes
     let customAttributes = m.CustomAttributes
-    let methodImplementationFlags = lazy(m.GetMethodImplementationFlags())
+    let methodImplementationFlags = lazy m.GetMethodImplementationFlags()
     let isDelegateConstructor = lazy(Reflection.isDelegateConstructor m)
     let isDelegate = lazy(Reflection.isDelegate m)
     let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
@@ -83,7 +83,7 @@ type MethodWithBody internal (m : MethodBase) =
             rewriter.Import()
             let result = rewriter.Export()
             let parseEH (eh : rawExceptionHandler) =
-                let oldEH = ehcs.[int eh.matcher]
+                let oldEH = ehcs[int eh.matcher]
                 let ehcType =
                     if oldEH.Flags = ExceptionHandlingClauseOptions.Filter then ehcType.Filter (eh.matcher |> int |> Offset.from)
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
@@ -258,7 +258,7 @@ module MethodBody =
                                              1<offsets>; 1<offsets>; 4<offsets>; 1<offsets>|]
 
     let private jumpTargetsForNext (opCode : OpCode) _ (pos : offset) =
-        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize[int opCode.OperandType]
         FallThrough nextInstruction
 
     let private jumpTargetsForBranch (opCode : OpCode) ilBytes (pos : offset) =
@@ -268,7 +268,7 @@ module MethodBody =
             | OperandType.InlineBrTarget -> NumberCreator.extractInt32 ilBytes (pos + opcodeSize)
             | _ -> NumberCreator.extractInt8 ilBytes (pos + opcodeSize)
 
-        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize.[int opCode.OperandType]
+        let nextInstruction = pos + Offset.from opCode.Size + operandType2operandSize[int opCode.OperandType]
         if offset = 0 && opCode <> OpCodes.Leave && opCode <> OpCodes.Leave_S
         then UnconditionalBranch nextInstruction
         else UnconditionalBranch <| Offset.from offset + nextInstruction

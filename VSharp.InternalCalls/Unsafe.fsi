@@ -61,6 +61,7 @@ module internal Unsafe =
     val internal AreSame : state -> term list -> term
 
     [<Implements("System.Byte& System.Runtime.CompilerServices.RuntimeHelpers.GetRawData(System.Object)")>]
+    [<Implements("System.Byte& Internal.Runtime.CompilerServices.RuntimeHelpers.GetRawData(System.Object)")>]
     val internal GetRawData : state -> term list -> term
 
     [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.SkipInit(T&)")>]
