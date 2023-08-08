@@ -28,6 +28,7 @@ async def dequeue_instance(request):
                 f"{os.getpid()} tried to dequeue an empty queue. Retrying {retry_count}'s time..."
             )
         retry_count -= 1
+    raise RuntimeError("Couldn't dequeue instance, the queue is not replenishing")
 
 
 @routes.post("/post_ws")
