@@ -13,19 +13,18 @@ from .requests import acquire_instance, return_instance
 def wait_for_connection(url: WSUrl):
     ws = websocket.WebSocket()
 
-    max_retries = 60
-    retries_left = 60
+    retries_left = GameServerConnectorConfig.WAIT_FOR_SOCKET_RECONNECTION_MAX_RETRIES
 
     while retries_left:
         with suppress(ConnectionRefusedError, ConnectionResetError):
-            ws.settimeout(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT)
+            ws.settimeout(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
             ws.connect(
                 url, skip_utf8_validation=GameServerConnectorConfig.SKIP_UTF_VALIDATION
             )
         if ws.connected:
             return ws
-        time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT)
-        logging.info(f"Try connecting, did {max_retries - retries_left} attempts")
+        time.sleep(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
+        logging.info(f"Try connecting, {retries_left} attempts left")
         retries_left -= 1
     raise RuntimeError("Retries exsausted")
 
