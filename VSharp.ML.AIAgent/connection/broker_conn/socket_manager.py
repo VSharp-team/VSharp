@@ -33,10 +33,9 @@ def wait_for_connection(url: WSUrl):
 @contextmanager
 def game_server_socket_manager():
     server_instance = acquire_instance()
+    socket = wait_for_connection(server_instance.ws_url)
 
-    socket = None
     try:
-        socket = wait_for_connection(server_instance.ws_url)
         socket.settimeout(GameServerConnectorConfig.RESPONCE_TIMEOUT_SEC)
         yield socket
     finally:
