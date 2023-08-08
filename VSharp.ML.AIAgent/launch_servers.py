@@ -59,9 +59,9 @@ async def enqueue_instance(request):
             logging.info(
                 f"Waiting for server to die, {wait_for_reset_retries} retries left"
             )
-            if (
-                psutil.Process(returned_instance_info.pid).status()
-                != psutil.STATUS_RUNNING
+            if psutil.Process(returned_instance_info.pid).status() in (
+                psutil.STATUS_DEAD,
+                psutil.STATUS_ZOMBIE,
             ):
                 break
             time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
