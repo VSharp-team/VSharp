@@ -2094,7 +2094,7 @@ type internal ILInterpreter() as this =
                 clearEvaluationStackLastFrame cilState
                 k [cilState]
             | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
-                assert(isFinallyClause ehc)
+                assert(isFinallyClause ehc || isFaultClause ehc)
                 let ip' = ipOperations.leave (instruction m ehc.handlerOffset) ehcs dst m
                 setCurrentIp ip' cilState
                 clearEvaluationStackLastFrame cilState
@@ -2160,7 +2160,7 @@ type internal ILInterpreter() as this =
                 k states)
             | SecondBypass(None, location :: otherLocations, codeLocation) ->
                 let ehcs = location.method.ExceptionHandlers
-                let finallyBlocks = ehcs |> Seq.filter isFinallyClause
+                let finallyBlocks = ehcs |> Seq.filter (fun ehc -> isFinallyClause ehc || isFaultClause ehc)
                 let isWider (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
                     x.handlerOffset < y.handlerOffset && x.handlerOffset + x.handlerLength > y.handlerOffset + y.handlerLength
                 let neededBlock = x.FindNeededEHCBlock location.offset isWider finallyBlocks
