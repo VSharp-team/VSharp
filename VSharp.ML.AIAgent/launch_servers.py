@@ -52,7 +52,7 @@ async def enqueue_instance(request):
     if FeatureConfig.ON_GAME_SERVER_RESTART:
         kill_server(returned_instance_info.pid, forget=True)
 
-        wait_for_reset_retries = 60
+        wait_for_reset_retries = 100
         while wait_for_reset_retries:
             wait_for_reset_retries -= 1
             logging.info(
@@ -63,7 +63,7 @@ async def enqueue_instance(request):
                 != psutil.STATUS_RUNNING
             ):
                 break
-            time.sleep(1)
+            time.sleep(0.1)
         logging.info(
             f"killing {returned_instance_info.pid}, its status: {psutil.Process(returned_instance_info.pid).status()}"
         )
