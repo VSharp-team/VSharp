@@ -30,7 +30,7 @@ async def dequeue_instance(request):
     while retry_count:
         try:
             server_info = SERVER_INSTANCES.get(timeout=1)
-            logging.info(f"issued {server_info}")
+            logging.info(f"issued {server_info}: {psutil.Process(server_info.pid)}")
             return web.json_response(server_info.to_json())
         except Empty:
             logging.warning(
