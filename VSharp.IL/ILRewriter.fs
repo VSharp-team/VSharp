@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System.Collections.Generic
+open System.Reflection
 open global.System
 open System.Reflection.Emit
 open VSharp
@@ -192,7 +193,7 @@ type probes = {
 }
 with
     member private x.Probe2str =
-        let map = System.Collections.Generic.Dictionary<uint64, string>()
+        let map = Dictionary<uint64, string>()
         typeof<probes>.GetFields() |> Seq.iter (fun fld -> map.Add(fld.GetValue x |> unbox, fld.Name))
         map
     member x.AddressToString (address : int64) =
@@ -292,7 +293,7 @@ type signatureTokens = {
 }
 with
     member private x.SigToken2str =
-        let map = System.Collections.Generic.Dictionary<uint32, string>()
+        let map = Dictionary<uint32, string>()
         typeof<signatureTokens>.GetFields() |> Seq.iter (fun fld ->
             let token : uint32 = fld.GetValue x |> unbox
             if not <| map.ContainsKey token then map.Add(token, fld.Name))
@@ -443,6 +444,8 @@ with
         match x.arg with
         | Target v -> v
         | _ -> internalfailf "Requesting target arg of instruction %O with arg %O" x.opcode x.arg
+    override x.ToString() =
+        x.opcode.ToString()
 
 type ehClauseMatcher =
     | ClassToken of uint32
@@ -469,9 +472,9 @@ module NumberCreator =
     let public extractInt64 (ilBytes : byte []) (pos : offset) =
         BitConverter.ToInt64(ilBytes, int pos)
     let public extractInt8 (ilBytes : byte []) (pos : offset) =
-        ilBytes.[int pos] |> sbyte |> int
+        ilBytes[int pos] |> sbyte |> int
     let public extractUnsignedInt8 (ilBytes : byte []) (pos : offset) =
-        ilBytes.[int pos]
+        ilBytes[int pos]
     let public extractFloat64 (ilBytes : byte []) (pos : offset) =
         BitConverter.ToDouble(ilBytes, int pos)
     let public extractFloat32 (ilBytes : byte []) (pos : offset) =
@@ -482,7 +485,7 @@ module EvaluationStackTyper =
     let fail() = internalfail "Stack typer validation failed!"
 
     let typeAbstraction =
-        let result = System.Collections.Generic.Dictionary<int32 *int32, evaluationStackCellType>()
+        let result = Dictionary<int32 *int32, evaluationStackCellType>()
         result.Add((typeof<int8>.Module.MetadataToken, typeof<int8>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<uint8>.Module.MetadataToken, typeof<uint8>.MetadataToken), evaluationStackCellType.I1)
         result.Add((typeof<char>.Module.MetadataToken, typeof<char>.MetadataToken), evaluationStackCellType.I2)
@@ -532,15 +535,15 @@ module EvaluationStackTyper =
 
     let mergeStackStates s1 s2 = List.map2 mergeAbstraction s1 s2
 
-    let typeLdarg (m : Reflection.MethodBase) (s : stackState) idx =
-        let hasThis = m.CallingConvention.HasFlag(System.Reflection.CallingConventions.HasThis)
+    let typeLdarg (m : MethodBase) (s : stackState) idx =
+        let hasThis = m.CallingConvention.HasFlag(CallingConventions.HasThis)
         if hasThis && idx = 0 then
             Stack.push s evaluationStackCellType.Ref
         else
             let idx = if hasThis then idx - 1 else idx
             m.GetParameters().[idx].ParameterType |> push s
 
-    let typeLdloc (m : Reflection.MethodBase) (s : stackState) idx =
+    let typeLdloc (m : MethodBase) (s : stackState) idx =
         m.GetMethodBody().LocalVariables.[idx].LocalType |> push s
 
     let typeBinop (s : stackState) =
@@ -610,7 +613,7 @@ module EvaluationStackTyper =
 //            | SwitchArg -> "<SwitchArg>", ""
 //        instr + " " + arg
 
-    let typeInstruction (m : Reflection.MethodBase) (instr : ilInstr) =
+    let typeInstruction (m : MethodBase) (instr : ilInstr) =
         let s =
             match instr.stackState with
             | Some s -> s
@@ -847,7 +850,7 @@ module EvaluationStackTyper =
             | OpCodeValues.Callvirt
             | OpCodeValues.Newobj ->
                 let callee = Reflection.resolveMethod m instr.Arg32
-                let hasThis = callee.CallingConvention.HasFlag(System.Reflection.CallingConventions.HasThis)
+                let hasThis = callee.CallingConvention.HasFlag(CallingConventions.HasThis)
                 let pops = callee.GetParameters().Length
                 let pops =
                     if hasThis && opcodeValue <> OpCodeValues.Newobj then pops + 1
@@ -871,8 +874,8 @@ module EvaluationStackTyper =
 //       Logger.trace "typer after: %O" res.Length
 //       res
 
-    let private createStackState (m : Reflection.MethodBase) (startInstr : ilInstr) =
-        let q = System.Collections.Generic.Queue<ilInstr>()
+    let private createStackState (m : MethodBase) (startInstr : ilInstr) =
+        let q = Queue<ilInstr>()
         q.Enqueue(startInstr)
         while q.Count > 0 do
             let instr = q.Dequeue()
@@ -903,22 +906,20 @@ module EvaluationStackTyper =
                 | Some s' ->
                     nxt.stackState <- Some (mergeStackStates s s'))
 
-    let createBodyStackState (m : Reflection.MethodBase) (startInstr : ilInstr) =
+    let createBodyStackState (m : MethodBase) (startInstr : ilInstr) =
         assert(startInstr.stackState = None)
         startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
-    let createEHStackState (m : Reflection.MethodBase) (flags : int) (startInstr : ilInstr) =
-        let catchFlags = LanguagePrimitives.EnumToValue System.Reflection.ExceptionHandlingClauseOptions.Clause
+    let createEHStackState (m : MethodBase) (flags : int) (startInstr : ilInstr) =
+        let catchFlags = LanguagePrimitives.EnumToValue ExceptionHandlingClauseOptions.Clause
         if flags = catchFlags then // NOTE: is catch
             startInstr.stackState <- Some [evaluationStackCellType.Ref] // TODO: finially and filter! #do
         else startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
 [<AllowNullLiteral>]
-type ILRewriter(body : rawMethodBody) =
-    // If this line throws exception, we should improve resolving assemblies by names. Probably we should track assemblies from the directory of executed assembly
-    let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
+type ILRewriter(body : rawMethodBody, m : MethodBase) =
     let code = body.il
     let codeSize = Array.length code
     let mutable instrCount = 0u
@@ -934,7 +935,13 @@ type ILRewriter(body : rawMethodBody) =
     let adjustState (instr : ilInstr) =
         maxStackSize <- maxStackSize + instr.opcode.StackBehaviourPush
 
-    static member PrintILInstr (tokens : signatureTokens option) (probes : probes option) (m : System.Reflection.MethodBase) (instr : ilInstr) =
+    new (body : rawMethodBody) =
+        // If this line throws exception, we should improve resolving assemblies by names.
+        // Probably we should track assemblies from the directory of executed assembly
+        let m = Reflection.resolveMethodBase body.assembly body.moduleName (int body.properties.token)
+        ILRewriter(body, m)
+
+    static member PrintILInstr (tokens : signatureTokens option) (probes : probes option) (m : MethodBase) (instr : ilInstr) =
         let opcode, arg =
             match instr.opcode with
             | OpCode op ->
@@ -1007,7 +1014,7 @@ type ILRewriter(body : rawMethodBody) =
     member x.InstrFromOffset offset =
         if offset > codeSize then
             invalidProgram (sprintf "Too large offset %d requested!" offset)
-        offsetToInstr.[offset]
+        offsetToInstr[offset]
 
     member x.InsertBefore(where : ilInstr, what : ilInstr) =
         what.next <- where
@@ -1161,7 +1168,8 @@ type ILRewriter(body : rawMethodBody) =
                         instr.arg <- Target <| x.InstrFromOffset offset
                     | _ -> invalidProgram "Wrong operand of branching instruction!")
 
-        EvaluationStackTyper.createBodyStackState m il.next
+        // TODO: improve 'EvaluationStackTyper'
+        // EvaluationStackTyper.createBodyStackState m il.next
 
     member private x.RecalculateOffsets() =
         let mutable branch = false
@@ -1215,7 +1223,8 @@ type ILRewriter(body : rawMethodBody) =
             tryEnd = (x.InstrFromOffset <| int (raw.tryOffset + raw.tryLength)).prev
             handlerBegin =
                 let start = x.InstrFromOffset <| int raw.handlerOffset
-                EvaluationStackTyper.createEHStackState m raw.flags start
+                // TODO: improve 'EvaluationStackTyper'
+                // EvaluationStackTyper.createEHStackState m raw.flags start
                 start
             handlerEnd = (x.InstrFromOffset <| int (raw.handlerOffset + raw.handlerLength)).prev
             matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else Filter (x.InstrFromOffset <| int raw.matcher)

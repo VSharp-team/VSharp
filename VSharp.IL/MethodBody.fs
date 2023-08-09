@@ -79,7 +79,7 @@ type MethodWithBody internal (m : MethodBase) =
             let ehs = methodBodyBytes.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
             let body : rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
-            let rewriter = ILRewriter(body)
+            let rewriter = ILRewriter(body, actualMethod)
             rewriter.Import()
             let result = rewriter.Export()
             let parseEH (eh : rawExceptionHandler) =
