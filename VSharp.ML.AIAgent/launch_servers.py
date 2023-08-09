@@ -94,7 +94,7 @@ async def enqueue_instance(request):
         if wait_for_alive_retries == 0:
             raise RuntimeError(f"{returned_instance_info} has not resurrected")
 
-        logging.info(f"{returned_instance_info} is run")
+        logging.info(f"we should have run {psutil.Process(returned_instance_info.pid)}")
 
     SERVER_INSTANCES.put(returned_instance_info)
     logging.info(f"enqueue {returned_instance_info}")
