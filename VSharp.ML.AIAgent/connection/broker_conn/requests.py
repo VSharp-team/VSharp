@@ -12,7 +12,7 @@ def acquire_instance() -> ServerInstanceInfo:
     response, content = httplib2.Http().request(WebsocketSourceLinks.GET_WS)
     if response.status != 200:
         logging.error(f"{response.status} with {content=} on acuire_instance call")
-        raise RuntimeError(f"Not ok response: {response.status}")
+        raise RuntimeError(f"Not ok response: {response}, {content}")
     aquired_instance = ServerInstanceInfo.from_json(json.loads(content.decode("utf-8")))
     logging.info(f"acquired ws: {aquired_instance}")
     return aquired_instance
