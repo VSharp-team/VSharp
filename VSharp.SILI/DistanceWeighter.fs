@@ -19,9 +19,9 @@ type ShortestDistanceWeighter(target : codeLocation) =
     // Returns the number proportional to distance from the offset in frameOffset of frameMethod to target. Uses both
     // call graph for interprocedural and CFG for intraprocedural distance approximation.
     let frameWeight (frameMethod : Method) frameOffset frameNumber =
-        let frameMethodCFG = frameMethod.ForceCFG
+        let frameMethodCFG = frameMethod.CFG
         let frameDist = frameMethodCFG.DistancesFrom frameOffset
-        let checkDist() = Dict.tryGetValue frameDist target.ForceBasicBlock infinity <> infinity
+        let checkDist() = Dict.tryGetValue frameDist target.BasicBlock infinity <> infinity
         let callWeight callMethod =
             let callGraphDistance = Dict.tryGetValue callGraphDistanceToTarget callMethod infinity
             if callGraphDistance = infinity then infinity
@@ -56,11 +56,11 @@ type ShortestDistanceWeighter(target : codeLocation) =
             if w = infinity then None else Some (w, n)
 
     // Returns the number proportional to distance from loc to target in CFG.
-    let localWeight loc (tagets : codeLocation seq) =
-        let localCFG = loc.method.ForceCFG
+    let localWeight loc (targets : codeLocation seq) =
+        let localCFG = loc.method.CFG
         let dist = localCFG.DistancesFrom loc.offset
-        tagets
-        |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.ForceBasicBlock infinity)) infinity
+        targets
+        |> Seq.fold (fun m l -> min m (Dict.tryGetValue dist l.BasicBlock infinity)) infinity
         |> handleInfinity
         |> Option.map logarithmicScale
 
@@ -69,18 +69,22 @@ type ShortestDistanceWeighter(target : codeLocation) =
 
     // Returns the number proportional to distance from loc to relevant calls in this method
     let preTargetWeight currLoc =
-        let localCFG = currLoc.method.ForceCFG
+        let localCFG = currLoc.method.CFG
         let targets =
             localCFG.Calls
             |> Seq.filter (fun kv -> callGraphDistanceToTarget.ContainsKey kv.Value.Callee)
             |> Seq.map (fun kv -> { offset = kv.Key.StartOffset; method = currLoc.method })
-        localWeight currLoc targets |> Option.map ((+) 32u)
+        match localWeight currLoc targets with
+        | Some w -> Some(w + 32u)
+        | None -> Some 63u
 
     // Returns the number proportional to distance from loc to return of this method
     let postTargetWeight currLoc =
-        let localCFG = currLoc.method.ForceCFG
+        let localCFG = currLoc.method.CFG
         let targets = localCFG.Sinks |> Seq.map (fun basicBlock -> { offset = basicBlock.StartOffset; method = currLoc.method })
-        localWeight currLoc targets |> Option.map ((+) 32u)
+        match localWeight currLoc targets with
+        | Some w -> Some(w + 32u)
+        | None -> Some 63u
 
     interface IWeighter with
         override x.Weight(state) =
@@ -96,33 +100,25 @@ type ShortestDistanceWeighter(target : codeLocation) =
                     return weight * logarithmicScale state.stepsNumber
                 | None -> return 1u
             }
-        override x.Next() = 0u
 
 type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatistics) =
 
     let minDistance (method : Method) fromLoc =
         let infinity = UInt32.MaxValue
-        match method.CFG with
-        | Some cfg ->
-            let minDistance =
-                cfg.DistancesFrom fromLoc
-                |> Seq.fold (fun min kvp ->
-                    let loc = { offset = kvp.Key.Offset; method = method }
-                    let distance = kvp.Value
-                    if distance < min && distance <> 0u && not <| statistics.IsCovered loc then distance
-                    else min) infinity
-            Some minDistance
-        | None -> None
+        method.CFG.DistancesFrom fromLoc
+        |> Seq.fold (fun min kvp ->
+            let loc = { offset = kvp.Key.Offset; method = method }
+            let distance = kvp.Value
+            if distance < min && distance <> 0u && not <| statistics.IsCovered loc then distance
+            else min) infinity
 
     interface IWeighter with
         override x.Weight(state) =
             let calculateWeight ip =
                 match ip2codeLocation ip, ip with
-                | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset
+                | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset |> Some
                 | Some _, _-> None
                 | None, SearchingForHandler(toObserve, _) ->
                     List.length toObserve |> uint |> Some
-                | None, _ -> Some 1u
+                | _ -> Some 1u
             state.ipStack |> Seq.tryPick calculateWeight
-
-        override x.Next() = 0u

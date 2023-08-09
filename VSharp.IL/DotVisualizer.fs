@@ -93,11 +93,11 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
     interface IVisualizer with
         override x.DrawInterproceduralEdges = drawInterproceduralEdges
         override x.AddState state =
-            Option.iter visit state.CodeLocation.BasicBlock
+            visit state.CodeLocation.BasicBlock
             states.Add state
 
         override x.TerminateState state =
-            Option.iter leave state.CodeLocation.BasicBlock
+            leave state.CodeLocation.BasicBlock
             states.Remove state |> ignore
 
         override x.VisualizeGraph () =
@@ -112,15 +112,14 @@ type DotVisualizer(drawInterproceduralEdges: bool, outputDirectory : DirectoryIn
             x.Compile()
 
         override x.VisualizeStep fromLoc toState newStates =
-            match fromLoc.BasicBlock, toState.CodeLocation.BasicBlock with
-            | Some fromLoc, Some toLoc ->
-                let transited = fromLoc <> toLoc
-                if transited then
-                    leave fromLoc
-                    move fromLoc toLoc
-                for state in newStates do
-                    Option.iter (move fromLoc) state.CodeLocation.BasicBlock
-                    states.Add state
-                if transited || not <| Seq.isEmpty newStates then
-                    (x :> IVisualizer).VisualizeGraph()
-            | _ -> ()
+            let fromLoc = fromLoc.BasicBlock
+            let toLoc = toState.CodeLocation.BasicBlock
+            let transited = fromLoc <> toLoc
+            if transited then
+                leave fromLoc
+                move fromLoc toLoc
+            for state in newStates do
+                move fromLoc state.CodeLocation.BasicBlock
+                states.Add state
+            if transited || not <| Seq.isEmpty newStates then
+                (x :> IVisualizer).VisualizeGraph()

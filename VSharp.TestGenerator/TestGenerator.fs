@@ -11,7 +11,7 @@ open System.Linq;
 module TestGenerator =
 
     let mutable private maxBufferSize = 128
-    let internal setMaxBufferSize size = maxBufferSize <- size
+    let public setMaxBufferSize size = maxBufferSize <- size
 
     let private addMockToMemoryGraph (indices : Dictionary<concreteHeapAddress, int>) encodeMock evalField (test : UnitTest) addr (mock : ITypeMock) =
         let index = test.MemoryGraph.ReserveRepresentation()
@@ -68,9 +68,11 @@ module TestGenerator =
                     let repr = memoryGraph.AddBoxed content index
                     repr :> obj
                 | _ when typ = typeof<string> ->
+                    let index = memoryGraph.ReserveRepresentation()
+                    indices.Add(addr, index)
                     let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
                     let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
-                    String(contents) |> memoryGraph.RepresentString
+                    String(contents) |> memoryGraph.AddString index
                 | _ ->
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
@@ -91,6 +93,16 @@ module TestGenerator =
                 |> Array.mapToOneDArray test.MemoryGraph.Encode
             test.MemoryGraph.AddArray typ contents lengths lowerBounds index
         else
+            // Solver may return models with unused values with indices out of
+            // legal range. This code throws such values away to avoid IndexOutOfRange's
+            // while running tests.
+            let checkArrayIndex =
+                if lowerBounds = null then
+                    (fun (i : int list) ->
+                        assert(lengths.Length = 1 && i.Length = 1)
+                        List.head i < lengths[0])
+                else
+                    List.toSeq >> Seq.zip3 lowerBounds lengths >> Seq.forall (fun (lb, l, i) -> i >= lb && i < lb + l)
             let arrays =
                 if VectorTime.less cha VectorTime.zero then
                     match model with
@@ -116,7 +128,8 @@ module TestGenerator =
                             | {term = ConcreteHeapAddress(cha')} when cha' = cha ->
                                 let i = keyIndices |> List.map (encode >> unbox)
                                 let v = encode value
-                                indicesWithValues[i] <- v
+                                if checkArrayIndex i then
+                                    indicesWithValues[i] <- v
                             | _ -> ()
                         | RangeArrayIndexKey(address, fromIndices, toIndices) ->
                             let heapAddress = model.Eval address
@@ -131,11 +144,13 @@ module TestGenerator =
                                         let index = List.map MakeNumber i
                                         let key = OneArrayIndexKey(heapAddress, index)
                                         let v = SpecializeWithKey value key k.key |> encode
-                                        indicesWithValues[i] <- v
+                                        if checkArrayIndex i then
+                                            indicesWithValues[i] <- v
                                 | _ ->
                                     for i in allIndices do
                                         let v = encode value
-                                        indicesWithValues[i] <- v
+                                        if checkArrayIndex i then
+                                            indicesWithValues[i] <- v
                             | _ -> ()
                     updates |> RegionTree.foldr addOneKey ()
                     let indices = indicesWithValues.Keys.ToArray()
@@ -169,30 +184,42 @@ module TestGenerator =
         | NullRef _
         | NullPtr -> null
         | DetachedPtr offset -> internalfail $"term2obj: got detached pointer with offset {offset}"
-        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} when VectorTime.less addr VectorTime.zero ->
+        | {term = Ptr(HeapLocation({term = ConcreteHeapAddress(addr)}, _), sightType, offset)} ->
+            let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
+            let obj = address2obj model state indices mockCache implementations test addr
+            assert(obj :? referenceRepr)
+            let index = (obj :?> referenceRepr).index
+            test.MemoryGraph.RepresentPtr index sightType offset
+        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
+            address2obj model state indices mockCache implementations test addr
+        | CombinedTerm(terms, t) ->
+            let slices = List.map model.Eval terms
+            ReinterpretConcretes slices t
+        | term -> internalfailf "creating object from term: unexpected term %O" term
+
+    and private address2obj (model : model) state indices mockCache implementations (test : UnitTest) (address : concreteHeapAddress) : obj =
+        let term2obj = term2obj model state indices mockCache implementations test
+        match address with
+        | _ when VectorTime.less address VectorTime.zero ->
             match model with
             | StateModel modelState ->
-                match PersistentDict.tryFind modelState.allocatedTypes addr with
+                match PersistentDict.tryFind modelState.allocatedTypes address with
                 | Some typ ->
                     let eval address =
                         address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj
                     let arr2Obj = encodeArrayCompactly state model term2obj
                     let encodeMock = encodeTypeMock model state indices mockCache implementations test
-                    obj2test eval arr2Obj indices encodeMock test addr typ
+                    obj2test eval arr2Obj indices encodeMock test address typ
                 // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
                 | None -> null
             | PrimitiveModel _ -> __unreachable__()
-        | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
+        | _ ->
             let term2Obj = model.Eval >> term2obj
             let eval address = Ref address |> Memory.Read state |> term2Obj
             let arr2Obj = encodeArrayCompactly state model term2Obj
-            let typ = state.allocatedTypes[addr]
+            let typ = state.allocatedTypes[address]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
-            obj2test eval arr2Obj indices encodeMock test addr typ
-        | CombinedTerm(terms, t) ->
-            let slices = List.map model.Eval terms
-            ReinterpretConcretes slices t
-        | term -> internalfailf "creating object from term: unexpected term %O" term
+            obj2test eval arr2Obj indices encodeMock test address typ
 
     and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock : Mocking.Type =
         let mockedType = ref Mocking.Type.Empty
@@ -208,7 +235,7 @@ module TestGenerator =
                     let values = methodMock.Value
                     let methodType = method.ReflectedType
                     let mockedBaseInterface() =
-                        t.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
+                        methodType.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
                     if methodType = t || mockedBaseInterface() then
                         freshMock.AddMethod(method, Array.map eval values)
             freshMock
@@ -219,8 +246,7 @@ module TestGenerator =
         let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
         test.AddExternMock extMock
 
-    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (cilState : cilState) message =
-        let state = cilState.state
+    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (state : state) message =
         let suitableState state =
             let methodHasByRefParameter = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             if m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter then
@@ -288,14 +314,14 @@ module TestGenerator =
 
                 let hasException, message =
                     match state.exceptionsRegister with
-                    | Unhandled(e, _) ->
-                        let t = MostConcreteTypeOfHeapRef state e
+                    | Unhandled(e, _, _) ->
+                        let t = MostConcreteTypeOfRef state e
                         test.Exception <- t
                         let message =
                             if isError && String.IsNullOrEmpty message then
                                 let messageReference = Memory.ReadField state e Reflection.exceptionMessageField |> model.Eval
-                                let encoded = term2obj model state indices mockCache implementations test messageReference :?> stringRepr
-                                encoded.Decode()
+                                let encoded = term2obj model state indices mockCache implementations test messageReference
+                                test.MemoryGraph.DecodeString encoded
                             else message
                         true, message
                     | _ -> false, message
@@ -303,14 +329,18 @@ module TestGenerator =
                 test.ErrorMessage <- message
 
                 if not isError && not hasException then
-                    let retVal = model.Eval cilState.Result
+                    let retVal = Memory.StateResult state |> model.Eval
                     test.Expected <- term2obj model state indices mockCache implementations test retVal
                 Some test
         | _ -> __unreachable__()
 
-    let internal state2test isError (m : Method) (cilState : cilState) message =
+    let public state2test isError (m : Method) (state : state) message =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
+        model2test test isError indices mockCache m state.model state message
 
-        model2test test isError indices mockCache m cilState.state.model cilState message
+    let public state2testWithMockingCache isError (m : Method) (state : state) mockCache message =
+        let indices = Dictionary<concreteHeapAddress, int>()
+        let test = UnitTest((m :> IMethod).MethodBase)
+        model2test test isError indices mockCache m state.model state message

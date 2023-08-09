@@ -146,12 +146,6 @@ internal class TypeRenderer : CodeRenderer
         return AddMethod(methodId, attributes, modifiers, resultType, null, null, args);
     }
 
-    private enum AccessorType
-    {
-        Get,
-        Set
-    }
-
     // Adds to rendering type property or indexer
     private MethodRenderer AddPropertyMethod(
         string propertyName,
@@ -232,8 +226,7 @@ internal class TypeRenderer : CodeRenderer
         {
             modifiers.Add(Public);
             if (method.IsStatic) modifiers.Add(Static);
-            var methodOverrides =
-                method.IsVirtual && !method.IsAbstract && !TypeUtils.isDelegate(method.DeclaringType);
+            var methodOverrides = method.IsVirtual && !TypeUtils.isDelegate(method.DeclaringType);
             if (methodOverrides) modifiers.Add(Override);
         }
         var resultType = RenderType(Reflection.getMethodReturnType(method));
@@ -244,19 +237,17 @@ internal class TypeRenderer : CodeRenderer
             method.GetParameters()
                 .Select(p => new ParameterRenderInfo(p.Name ?? "arg", RenderType(p.ParameterType), p))
                 .ToArray();
-        var modifiersArray = modifiers.ToArray();
 
         if (method.IsConstructor)
-            return AddConstructor(null, modifiersArray, args);
+            return AddConstructor(null, modifiers.ToArray(), args);
 
         var methodId = RenderMethodName(method);
-        if (IsGetPropertyMethod(method, out var propertyName))
-            return AddPropertyMethod(propertyName, AccessorType.Get, method, methodId, modifiersArray, interfaceName, args);
-
-        if (IsSetPropertyMethod(method, out propertyName))
-            return AddPropertyMethod(propertyName, AccessorType.Set, method, methodId, modifiersArray, interfaceName, args);
-
-        return AddMethod(methodId, null, modifiersArray, resultType, generics, interfaceName, args);
+        if (IsPropertyMethod(method, out var propertyName, out var accessorType))
+        {
+            modifiers.Remove(Override);
+            return AddPropertyMethod(propertyName, accessorType, method, methodId, modifiers.ToArray(), interfaceName, args);
+        }
+        return AddMethod(methodId, null, modifiers.ToArray(), resultType, generics, interfaceName, args);
     }
 
     public MethodRenderer AddConstructor(

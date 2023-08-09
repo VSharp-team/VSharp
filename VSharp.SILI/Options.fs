@@ -1,4 +1,4 @@
-﻿namespace VSharp.Interpreter.IL
+namespace VSharp.Interpreter.IL
 
 open System.Diagnostics
 open System.IO
@@ -12,9 +12,9 @@ type searchMode =
     | ShortestDistanceBasedMode
     | RandomShortestDistanceBasedMode
     | ContributedCoverageMode
+    | ExecutionTreeMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
-    | GuidedMode of searchMode
     | AIMode
 
 type coverageZone =
@@ -35,7 +35,7 @@ type Oracle =
 type SiliOptions = {
     explorationMode : explorationMode
     outputDirectory : DirectoryInfo
-    recThreshold : uint32
+    recThreshold : uint
     timeout : int
     solverTimeout : int
     visualize : bool
@@ -48,4 +48,6 @@ type SiliOptions = {
     stepsToPlay: uint
     serialize: bool
     pathToSerialize: string
+    randomSeed : int
+    stepsLimit : uint
 }

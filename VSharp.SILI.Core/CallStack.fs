@@ -53,7 +53,7 @@ module internal CallStack =
         PersistentDict.fold folder acc frame.entries
 
     let rec private findFrameAndRead (frames : frame stack) key k =
-        if Stack.isEmpty frames then internalfailf "stack does not contain key %O!" key
+        if Stack.isEmpty frames then internalfailf $"Stack does not contain key {key}!"
         let frame, frames = Stack.pop frames
         let entry = tryFindEntryOnFrame frame key
         match entry with
@@ -77,7 +77,7 @@ module internal CallStack =
             | None -> makeSymbolic entry.typ
 
     let rec private findFrameAndWrite (frames : frame stack) key entry k =
-        if Stack.isEmpty frames then internalfailf "stack does not contain key %O!" key
+        if Stack.isEmpty frames then internalfailf $"Stack does not contain key {key}!"
         let frame, frames = Stack.pop frames
         if PersistentDict.contains key frame.entries then
             let frame' = writeFrameLocation frame key entry

@@ -158,7 +158,7 @@ namespace IntegrationTests
             return p.MakeMove(c);
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm(0)]
         public static IMovable MakeNullMove(Coord c)
         {
             IMovable p = null;
@@ -182,7 +182,6 @@ namespace IntegrationTests
                 return 1;
             }
 
-            [TestSvm]
             public virtual int VirtualTest() {
                 return 1;
             }
@@ -193,7 +192,6 @@ namespace IntegrationTests
                 return 2;
             }
 
-            [TestSvm]
             public override int VirtualTest() {
                 return 2;
             }
@@ -204,7 +202,6 @@ namespace IntegrationTests
                 return 3;
             }
 
-            [TestSvm]
             public override int VirtualTest() {
                 return 3;
             }
@@ -306,7 +303,7 @@ namespace IntegrationTests
             return a.F<float, int>();
         }
 
-        [Ignore("Exceptions handling")]
+        [TestSvm(100)]
         public static int VirtualCall9(A a)
         {
             if (a is B)

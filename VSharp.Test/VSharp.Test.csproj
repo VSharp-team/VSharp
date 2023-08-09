@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <PackageReference Include="Appveyor.TestLogger" Version="2.0.0" />
+        <PackageReference Include="ConsoleTables" Version="2.5.0" />
         <PackageReference Include="CsvHelper" Version="30.0.1" />
         <PackageReference Include="nunit" Version="3.12.0" />
         <PackageReference Include="NUnit3TestAdapter" Version="3.15.1" />
@@ -17,6 +18,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\VSharp.API\VSharp.API.csproj" />
       <ProjectReference Include="..\VSharp.CoverageRunner\VSharp.CoverageRunner.csproj" />
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
       <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
