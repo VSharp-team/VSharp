@@ -49,6 +49,11 @@ internal class ProgramRenderer
         _referenceManager.AddNUnit();
     }
 
+    public Assembly[] UsedAssemblies()
+    {
+        return _referenceManager.UsedAssemblies();
+    }
+
     public TypeRenderer AddType(
         string name,
         bool isStruct,
@@ -128,7 +133,8 @@ internal class ProgramRenderer
 
         public void AddAssembly(Assembly assembly)
         {
-            _assemblies.Add(assembly);
+            if (assembly != Reflection.mscorlibAssembly)
+                _assemblies.Add(assembly);
         }
 
         public void AddNUnit()
@@ -147,7 +153,6 @@ internal class ProgramRenderer
             var name = typeof(ObjectsComparer).FullName;
             Debug.Assert(name != null);
             _staticUsings.Add(name);
-            _assemblies.Add(typeof(ObjectsComparer).Assembly);
             _objectsComparerAdded = true;
         }
 
@@ -160,7 +165,6 @@ internal class ProgramRenderer
             return nonStaticElems.Concat(staticElems).ToArray();
         }
 
-        // TODO: Use this as references for test project
         public Assembly[] UsedAssemblies()
         {
             return _assemblies.ToArray();
