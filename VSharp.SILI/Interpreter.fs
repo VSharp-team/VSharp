@@ -37,32 +37,32 @@ module internal TypeUtils =
     let isBool term = Terms.TypeOf term |> IsBool
 
     module Char =
-        let Zero = MakeNumber Unchecked.defaultof<char>
+        let Zero() = MakeNumber Unchecked.defaultof<char>
     module Int8 =
-        let Zero = MakeNumber 0y
+        let Zero() = MakeNumber 0y
     module UInt8 =
-        let Zero = MakeNumber 0uy
+        let Zero() = MakeNumber 0uy
     module Int16 =
-        let Zero = MakeNumber 0s
+        let Zero() = MakeNumber 0s
     module UInt16 =
-        let Zero = MakeNumber 0us
+        let Zero() = MakeNumber 0us
     module Int32 =
-        let Zero = MakeNumber 0
-        let One = MakeNumber 1
-        let MinusOne = MakeNumber -1
-        let MinValue = MakeNumber System.Int32.MinValue
-        let MaxValue = MakeNumber System.Int32.MaxValue
+        let Zero() = MakeNumber 0
+        let One() = MakeNumber 1
+        let MinusOne() = MakeNumber -1
+        let MinValue() = MakeNumber System.Int32.MinValue
+        let MaxValue() = MakeNumber System.Int32.MaxValue
     module UInt32 =
-        let Zero = MakeNumber 0u
-        let MaxValue = MakeNumber UInt32.MaxValue
+        let Zero() = MakeNumber 0u
+        let MaxValue() = MakeNumber UInt32.MaxValue
     module Int64 =
-        let Zero = MakeNumber 0L
-        let MinusOne = MakeNumber -1L
-        let MinValue = MakeNumber System.Int64.MinValue
-        let MaxValue = MakeNumber System.Int64.MaxValue
+        let Zero() = MakeNumber 0L
+        let MinusOne() = MakeNumber -1L
+        let MinValue() = MakeNumber System.Int64.MinValue
+        let MaxValue() = MakeNumber System.Int64.MaxValue
     module UInt64 =
-        let Zero = MakeNumber 0UL
-        let MaxValue = MakeNumber UInt64.MaxValue
+        let Zero() = MakeNumber 0UL
+        let MaxValue() = MakeNumber UInt64.MaxValue
 
 module internal InstructionsSet =
 
@@ -79,7 +79,7 @@ module internal InstructionsSet =
     let resolveTokenFromMetadata (m : Method) offset = m.ResolveTokenFromMetadata offset
 
     let (|EndFinally|_|) = function
-        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some ()
+        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some()
         | _ -> None
 
     let rec (|InstructionEndingIp|_|) = function
@@ -177,8 +177,8 @@ module internal InstructionsSet =
         let states = Memory.Write cilState.state location value
         states |> List.map (changeState cilState)
     let private simplifyConditionResult state res k =
-        if Contradicts state !!res then k True
-        elif Contradicts state res then k False
+        if Contradicts state !!res then k (True())
+        elif Contradicts state res then k (False())
         else k res
     let performCILUnaryOperation op (cilState : cilState) =
         let x = pop cilState
@@ -222,15 +222,15 @@ module internal InstructionsSet =
             match TypeOf term with
             | _ when IsRefOrPtr term -> !!(IsNullReference term)
             | Types.Bool -> term
-            | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero
-            | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero
-            | t when t = TypeUtils.uint8Type -> term !== TypeUtils.UInt8.Zero
-            | t when t = TypeUtils.int16Type -> term !== TypeUtils.Int16.Zero
-            | t when t = TypeUtils.uint16Type -> term !== TypeUtils.UInt16.Zero
-            | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero
-            | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero
-            | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero
-            | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero
+            | t when t = TypeUtils.charType -> term !== TypeUtils.Char.Zero()
+            | t when t = TypeUtils.int8Type -> term !== TypeUtils.Int8.Zero()
+            | t when t = TypeUtils.uint8Type -> term !== TypeUtils.UInt8.Zero()
+            | t when t = TypeUtils.int16Type -> term !== TypeUtils.Int16.Zero()
+            | t when t = TypeUtils.uint16Type -> term !== TypeUtils.UInt16.Zero()
+            | t when t = TypeUtils.int32Type -> term !== TypeUtils.Int32.Zero()
+            | t when t = TypeUtils.uint32Type -> term !== TypeUtils.UInt32.Zero()
+            | t when t = TypeUtils.int64Type -> term !== TypeUtils.Int64.Zero()
+            | t when t = TypeUtils.uint64Type -> term !== TypeUtils.UInt64.Zero()
             | t when t = TypeUtils.intPtr -> term !== MakeNumber IntPtr.Zero
             | t when t = TypeUtils.uintPtr -> term !== MakeNumber UIntPtr.Zero
             | t when t.IsEnum -> term !== MakeNumber (Activator.CreateInstance t)
@@ -275,7 +275,7 @@ module internal InstructionsSet =
         additionalFunction cilState
         brtrueFunction m offset cilState
     let boolToInt b =
-        BranchExpressions (fun k -> k b) (fun k -> k TypeUtils.Int32.One) (fun k -> k TypeUtils.Int32.Zero) id
+        BranchExpressions (fun k -> k b) (fun k -> k <| TypeUtils.Int32.One()) (fun k -> k <| TypeUtils.Int32.Zero()) id
     let bitwiseOrBoolOperation bitwiseOp boolOp (cilState : cilState) =
         let arg2, arg1 = peek2 cilState
         let typ1, typ2 = TypeOf arg1, TypeOf arg2
@@ -568,7 +568,7 @@ type internal ILInterpreter() as this =
                 acc &&& notTooSmall &&& notTooLarge
             assert(List.length upperBounds = List.length indices)
             let upperBoundsAndIndices = List.zip upperBounds indices
-            List.fold checkOneBound True upperBoundsAndIndices
+            List.fold checkOneBound (True()) upperBoundsAndIndices
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (checkArrayBounds lengths indices, state))
             accessor
@@ -667,7 +667,7 @@ type internal ILInterpreter() as this =
         let (>>=) = API.Arithmetics.(>>=)
         let (<<) = API.Arithmetics.(<<)
         let add = Arithmetics.Add
-        let zero = TypeUtils.Int32.Zero
+        let zero = TypeUtils.Int32.Zero()
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
         let dstLB = Memory.ArrayLowerBoundByDimension state dst zero
         let srcNumOfAllElements = Memory.CountOfArrayElements state src
@@ -689,9 +689,9 @@ type internal ILInterpreter() as this =
                 defaultCase
         let indicesCheck (cilState : cilState) =
             // TODO: extended form needs
-            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue else False)
-            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False)
-            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False)
+            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue() else False())
+            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False())
+            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False())
 
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
@@ -701,7 +701,7 @@ type internal ILInterpreter() as this =
             let srcElemType = Types.ElementType srcType
             let dstElemType = Types.ElementType dstType
             let condition =
-                if Types.IsValueType srcElemType then True
+                if Types.IsValueType srcElemType then True()
                 else Types.TypeIsType srcElemType dstElemType
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (condition, state))
@@ -730,7 +730,7 @@ type internal ILInterpreter() as this =
         assert(List.length args = 3)
         let src, dst, length = args[0], args[1], args[2]
         let state = cilState.state
-        let zero = TypeUtils.Int32.Zero
+        let zero = TypeUtils.Int32.Zero()
         let srcLB = Memory.ArrayLowerBoundByDimension state src zero
         let dstLB = Memory.ArrayLowerBoundByDimension state src zero
         x.CommonCopyArray cilState src srcLB dst dstLB length
@@ -758,13 +758,13 @@ type internal ILInterpreter() as this =
                 push char cilState
                 List.singleton cilState |> k
             x.AccessArray getChar cilState length index id
-        | None -> internalfailf "String.GetChars: unexpected this %O" this
+        | None -> internalfailf $"String.GetChars: unexpected this {this}"
 
     member private x.MonitorReliableEnter (cilState : cilState) this (args : term list) =
         assert(List.length args = 2 && Option.isNone this)
         let obj, resultRef = args[0], args[1]
         let success cilState k =
-            Memory.Write cilState.state resultRef True |> List.map (changeState cilState) |> k
+            Memory.Write cilState.state resultRef (True()) |> List.map (changeState cilState) |> k
         BranchOnNullCIL cilState obj
             (x.Raise x.ArgumentNullException)
             success
@@ -1166,7 +1166,7 @@ type internal ILInterpreter() as this =
             let (<<=) = API.Arithmetics.(<<=)
             assert(Terms.TypeOf term |> Types.IsNumeric)
             let t = Terms.TypeOf term
-            if isSubset t targetType then True
+            if isSubset t targetType then True()
             elif t = TypeUtils.int64Type && targetType = TypeUtils.uint64Type then
                 let int64Zero = MakeNumber (0 |> int64)
                 int64Zero <<= term
@@ -1441,7 +1441,7 @@ type internal ILInterpreter() as this =
                 Memory.WriteArrayIndex cilState.state arrayRef indices value typ |> List.map (changeState cilState) |> k
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
-                    if Types.IsValueType typeOfValue then True
+                    if Types.IsValueType typeOfValue then True()
                     else Types.RefIsAssignableToType cilState.state value baseType
                 StatedConditionalExecutionCIL cilState
                     (fun state k -> k (condition, state))
@@ -1485,7 +1485,7 @@ type internal ILInterpreter() as this =
     member private x.CheckInd ptr invoke cilState =
         let isBadPointer state k =
             match ptr with
-            | DetachedPtr _ -> k (True, state)
+            | DetachedPtr _ -> k (True(), state)
             | _ -> k (IsNullReference ptr, state)
         StatedConditionalExecutionCIL cilState
             isBadPointer
@@ -1667,8 +1667,8 @@ type internal ILInterpreter() as this =
         | Int64T, _
         | UInt64T, _
         | _, Int64T
-        | _, UInt64T -> integerCase cilState x y TypeUtils.Int64.MinusOne TypeUtils.Int64.MinValue
-        | _ -> integerCase cilState x y TypeUtils.Int32.MinusOne TypeUtils.Int32.MinValue
+        | _, UInt64T -> integerCase cilState x y (TypeUtils.Int64.MinusOne()) (TypeUtils.Int64.MinValue())
+        | _ -> integerCase cilState x y (TypeUtils.Int32.MinusOne()) (TypeUtils.Int32.MinValue())
         | _ -> __unreachable__()
     member private this.Div (cilState : cilState) =
         let div x y = API.PerformBinaryOperation OperationType.Divide x y id
@@ -1712,13 +1712,13 @@ type internal ILInterpreter() as this =
         | _, UInt64T ->
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
-            let max = TypeUtils.UInt64.MaxValue
-            let zero = TypeUtils.UInt64.Zero
+            let max = TypeUtils.UInt64.MaxValue()
+            let zero = TypeUtils.UInt64.Zero()
             checkOverflowForUnsigned zero max x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
         | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             let x, y = makeUnsignedInteger x id, makeUnsignedInteger y id
-            let max = TypeUtils.UInt32.MaxValue
-            let zero = TypeUtils.UInt32.Zero
+            let max = TypeUtils.UInt32.MaxValue()
+            let zero = TypeUtils.UInt32.Zero()
             checkOverflowForUnsigned zero max x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
         | _ -> internalfailf "incompatible operands for UnsignedCheckOverflow"
     member private this.SignedCheckOverflow checkOverflow (cilState : cilState) =
@@ -1726,20 +1726,20 @@ type internal ILInterpreter() as this =
         match y, x with
         | Int64T, _
         | _, Int64T ->
-            let min = TypeUtils.Int64.MinValue
-            let max = TypeUtils.Int64.MaxValue
-            let zero = TypeUtils.Int64.Zero
-            let minusOne = TypeUtils.Int64.MinusOne
+            let min = TypeUtils.Int64.MinValue()
+            let max = TypeUtils.Int64.MaxValue()
+            let zero = TypeUtils.Int64.Zero()
+            let minusOne = TypeUtils.Int64.MinusOne()
             checkOverflow min max zero minusOne x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
         | UInt64T, _
         | _, UInt64T -> __unreachable__() // instead of add_ovf should be called add_ovf_un
         | FloatT, _
         | _, FloatT -> __unreachable__() // only integers
         | _ ->
-            let min = TypeUtils.Int32.MinValue
-            let max = TypeUtils.Int32.MaxValue
-            let zero = TypeUtils.Int32.Zero
-            let minusOne = TypeUtils.Int32.MinusOne
+            let min = TypeUtils.Int32.MinValue()
+            let max = TypeUtils.Int32.MaxValue()
+            let zero = TypeUtils.Int32.Zero()
+            let minusOne = TypeUtils.Int32.MinusOne()
             checkOverflow min max zero minusOne x y cilState // TODO: maybe rearrange x and y if y is concrete and x is symbolic
     member private this.Add_ovf (cilState : cilState) =
         // min <= x + y <= max
@@ -1924,14 +1924,14 @@ type internal ILInterpreter() as this =
             with
             | :? OutOfMemoryException -> x.Raise x.OutOfMemoryException cilState k
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero, state))
+            (fun state k -> k (numElements >>= TypeUtils.Int32.Zero(), state))
             allocate
             (this.Raise this.OverflowException)
             id
 
     member x.CreateException (exceptionType : Type) arguments cilState =
         assert (not <| exceptionType.IsValueType)
-        Logger.printLog Logger.Info "%O!\nStack trace:\n%O" exceptionType (Memory.StackTrace cilState.state.stack)
+        Logger.printLog Logger.Info $"{exceptionType}!\nStack trace:\n{Memory.StackTrace cilState.state.stack}"
         clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments

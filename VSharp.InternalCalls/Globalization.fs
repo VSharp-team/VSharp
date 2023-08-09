@@ -25,4 +25,4 @@ module internal Globalization =
 
     let get_Invariant (_ : state) (args : term list) : term =
         assert(List.length args = 0)
-        True
+        True()

@@ -26,6 +26,8 @@ namespace VSharp.Test
         ShortestDistance,
         RandomShortestDistance,
         ContributedCoverage,
+        ExecutionTree,
+        ExecutionTreeContributedCoverage,
         Interleaved
     }
 
@@ -101,6 +103,8 @@ namespace VSharp.Test
         private readonly bool _checkAttributes;
         private readonly bool _hasExternMocking;
         private readonly OsType _supportedOs;
+        private readonly int _randomSeed;
+        private readonly uint _stepsLimit;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
@@ -113,7 +117,9 @@ namespace VSharp.Test
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
             bool checkAttributes = true,
             bool hasExternMocking = false,
-            OsType supportedOs = OsType.All)
+            OsType supportedOs = OsType.All,
+            int randomSeed = 0,
+            uint stepsLimit = 0)
         {
             if (expectedCoverage < 0)
                 _expectedCoverage = null;
@@ -130,6 +136,8 @@ namespace VSharp.Test
             _checkAttributes = checkAttributes;
             _hasExternMocking = hasExternMocking;
             _supportedOs = supportedOs;
+            _randomSeed = randomSeed;
+            _stepsLimit = stepsLimit;
         }
 
         public virtual TestCommand Wrap(TestCommand command)
@@ -146,7 +154,9 @@ namespace VSharp.Test
                 _testsCheckerMode,
                 _checkAttributes,
                 _hasExternMocking,
-                _supportedOs
+                _supportedOs,
+                _randomSeed,
+                _stepsLimit
             );
         }
 
@@ -166,6 +176,8 @@ namespace VSharp.Test
             private readonly bool _checkAttributes;
             private readonly bool _hasExternMocking;
             private readonly OsType _supportedOs;
+            private readonly int _randomSeed;
+            private readonly uint _stepsLimit;
 
             public TestSvmCommand(
                 TestCommand innerCommand,
@@ -179,7 +191,9 @@ namespace VSharp.Test
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
                 bool hasExternMocking,
-                OsType supportedOs) : base(innerCommand)
+                OsType supportedOs,
+                int randomSeed,
+                uint stepsLimit) : base(innerCommand)
             {
                 _baseCoverageZone = coverageZone;
                 _baseSearchStrat = TestContext.Parameters[SearchStrategyParameterName] == null ?
@@ -206,6 +220,8 @@ namespace VSharp.Test
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                     SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                     SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                    SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
+                    SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
@@ -220,9 +236,10 @@ namespace VSharp.Test
 
                 _renderTests = testsCheckerMode == TestsCheckerMode.RenderAndRun;
                 _checkAttributes = checkAttributes;
-
                 _hasExternMocking = hasExternMocking;
                 _supportedOs = supportedOs;
+                _randomSeed = randomSeed;
+                _stepsLimit = stepsLimit;
             }
 
             private TestResult IgnoreTest(TestExecutionContext context)
@@ -286,7 +303,9 @@ namespace VSharp.Test
                         releaseBranches: _releaseBranches,
                         maxBufferSize: 128,
                         checkAttributes: _checkAttributes,
-                        stopOnCoverageAchieved: _expectedCoverage ?? -1
+                        stopOnCoverageAchieved: _expectedCoverage ?? -1,
+                        randomSeed: _randomSeed,
+                        stepsLimit: _stepsLimit
                     );
                     using var explorer = new SILI(_options);
 

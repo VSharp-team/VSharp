@@ -71,7 +71,7 @@ module ReadOnlySpan =
         let spanWithPtrField = Memory.WriteStructField span ptrField initializedByRef
         let lengthField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
         let initializedSpan = Memory.WriteStructField spanWithPtrField lengthField length
-        Memory.Write state this initializedSpan |> List.map (withFst Nop)
+        Memory.Write state this initializedSpan |> List.map (withFst (Nop()))
 
     let internal CtorFromFromArray (state : state) this arrayRef =
         let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None

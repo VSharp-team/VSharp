@@ -79,5 +79,5 @@ module internal Enum =
                 (fun state k -> k (needNames, state))
                 namesAndValuesCase
                 valuesCase
-                (List.map (withFst Nop))
+                (List.map (withFst <| Nop()))
         | _ -> internalfail $"GetEnumValuesAndNames: unexpected type {enumType}"

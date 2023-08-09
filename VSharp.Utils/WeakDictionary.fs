@@ -29,8 +29,7 @@ and public weakdict<'key, 'value when 'key : not struct and 'key : equality and 
     let dict = Dictionary<autoref<'key,'value>, 'value WeakReference>()
     member private this.dict = dict
 
-    member private this.Free _ =
-        ()
+    member this.Clear() = dict.Clear()
 
     member internal this.InvokeOrFree<'a> (key : autoref<'key,'value>) (alive : 'key -> 'a) (dead : 'a) : 'a =
         let target = ref defaultKey

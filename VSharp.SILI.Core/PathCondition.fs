@@ -14,22 +14,23 @@ module internal PC =
 
     let public toSeq pc = PersistentSet.toSeq pc
 
-    let private falsePC = PersistentSet.add empty False
+    let private falsePC() = PersistentSet.add empty (False())
+
     let public isFalse pc =
-        let isFalsePC = PersistentSet.contains False pc
+        let isFalsePC = PersistentSet.contains (False()) pc
         if isFalsePC then assert(toSeq pc |> Seq.length = 1)
         isFalsePC
 
     let rec public add pc cond : pathCondition =
         match cond with
         | True -> pc
-        | False -> falsePC
-        | _ when isFalse pc -> falsePC
-        | _ when PersistentSet.contains !!cond pc -> falsePC
+        | False -> falsePC()
+        | _ when isFalse pc -> falsePC()
+        | _ when PersistentSet.contains !!cond pc -> falsePC()
         | {term = Disjunction xs} ->
             let xs' = xs |> List.filter (fun x -> PersistentSet.contains !!x pc |> not)
             match xs' with
-            | _ when List.isEmpty xs' -> falsePC
+            | _ when List.isEmpty xs' -> falsePC()
             | _ when List.length xs' = List.length xs -> PersistentSet.add pc cond
             | _ -> add pc (disjunction xs')
         | _ ->
@@ -45,7 +46,7 @@ module internal PC =
     let public mapPC mapper (pc : pathCondition) : pathCondition =
         let mapAndAdd acc cond k =
             let acc' = mapper cond |> add acc
-            if isFalse acc' then falsePC else k acc'
+            if isFalse acc' then falsePC() else k acc'
         Cps.Seq.foldlk mapAndAdd empty (toSeq pc) id
     let public mapSeq mapper (pc : pathCondition) = toSeq pc |> Seq.map mapper
 

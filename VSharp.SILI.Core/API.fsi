@@ -42,7 +42,7 @@ module API =
 
     [<AutoOpen>]
     module Terms =
-        val Nop : term
+        val Nop : unit ->term
         val Concrete : 'a -> Type -> term
         val Constant : string -> ISymbolicConstantSource -> Type -> term
         val Expression : operation -> term list -> Type -> term
@@ -52,8 +52,8 @@ module API =
         val HeapRef : heapAddress -> Type -> term
         val Union : (term * term) list -> term
 
-        val True : term
-        val False : term
+        val True : unit -> term
+        val False : unit -> term
         val NullRef : Type -> term
         val MakeNullPtr : Type -> term
         val ConcreteHeapAddress : concreteHeapAddress -> term

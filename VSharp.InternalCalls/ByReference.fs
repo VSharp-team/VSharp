@@ -18,7 +18,7 @@ module ByReference =
         assert(List.length args = 3)
         let this, ref = List.item 0 args, List.item 2 args
         let fieldRef = referenceValueField state this
-        Memory.Write state fieldRef ref |> List.map (withFst Nop)
+        Memory.Write state fieldRef ref |> List.map (withFst (Nop()))
 
     let internal getValue (state : state) (args : term list) : term =
         assert(List.length args = 2)

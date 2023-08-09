@@ -492,8 +492,8 @@ module internal Memory =
         let nullableType = Nullable.GetUnderlyingType t
         let valueField, hasValueField = Reflection.fieldsOfNullable t
         let value, hasValue =
-            if box obj <> null then objToTerm state nullableType obj, True
-            else objToTerm state nullableType (Reflection.createObject nullableType), False
+            if box obj <> null then objToTerm state nullableType obj, True()
+            else objToTerm state nullableType (Reflection.createObject nullableType), False()
         let fields = PersistentDict.ofSeq <| seq [(valueField, value); (hasValueField, hasValue)]
         Struct fields t
 
@@ -541,8 +541,8 @@ module internal Memory =
         let value = PersistentDict.find fields valueField
         let hasValue = PersistentDict.find fields hasValueField
         match tryTermToObj state value with
-        | Some obj when hasValue = True -> Some obj
-        | _ when hasValue = False -> Some null
+        | Some obj when hasValue = True() -> Some obj
+        | _ when hasValue = False() -> Some null
         | _ -> None
 
     // ------------------------------- Merging -------------------------------
@@ -1016,7 +1016,7 @@ module internal Memory =
         let key : symbolicTypeKey = {typ=typ}
         let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
         match matchingTypes with
-        | [x] when x = key -> True
+        | [x] when x = key -> True()
         | _ ->
             let name = sprintf "%O_initialized" typ
             let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
@@ -1561,7 +1561,7 @@ module internal Memory =
                         let effect = MemoryRegion.map substTerm substType substTime x.memoryObject
                         let before = x.picker.extract state
                         MemoryRegion.compose before effect
-                    else List.singleton (True, x.memoryObject)
+                    else List.singleton (True(), x.memoryObject)
                 let read region =
                     let inst = makeArraySymbolicHeapRead state x.picker key state.startingTime
                     MemoryRegion.read region key (x.picker.isDefaultKey state) inst
@@ -1589,7 +1589,7 @@ module internal Memory =
                     let x = x :> ISymbolicConstantSource
                     match state.model with
                     | PrimitiveModel subst when state.complete ->
-                        let value = ref Nop
+                        let value = ref (Nop())
                         if subst.TryGetValue(x, value) then value.Value
                         else makeDefaultValue x.TypeOfLocation
                     | _ ->
@@ -1605,7 +1605,7 @@ module internal Memory =
                     | src ->
                         match state.model with
                         | PrimitiveModel subst when state.complete ->
-                            let value = ref Nop
+                            let value = ref (Nop())
                             if subst.TryGetValue(x, value) then value.Value
                             else makeDefaultValue src.TypeOfLocation
                         | _ ->
@@ -1654,7 +1654,7 @@ module internal Memory =
             }
         dict'
             |> PersistentDict.map id (MemoryRegion.map substTerm substType substTime)
-            |> PersistentDict.fold composeOneRegion [(True, dict)]
+            |> PersistentDict.fold composeOneRegion [(True(), dict)]
 
     let private composeTypeVariablesOf state state' =
         let ms, s = state.typeVariables

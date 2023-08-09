@@ -43,7 +43,10 @@ type statisticsDump =
     }
 
 // TODO: move statistics into (unique) instances of code location!
-type public SILIStatistics() =
+type public SILIStatistics(entryMethods : Method seq) =
+
+    let entryMethods = List<Method>(entryMethods)
+
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string>()
@@ -236,11 +239,13 @@ type public SILIStatistics() =
         let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.CFG.MethodSize)
         let coveredInstructionsCount = methodsInZone |> Seq.sumBy getCoveredInstructionsCount
         if totalInstructionsCount <> 0 then
-            uint <| floor (double coveredInstructionsCount / double totalInstructionsCount * 100.0)
-        else 0u
+            double coveredInstructionsCount / double totalInstructionsCount * 100.0
+        else 0.0
 
     member x.GetCurrentCoverage (method : Method) =
         x.GetCurrentCoverage(Seq.singleton method)
+
+    member x.GetCurrentCoverage() = x.GetCurrentCoverage(entryMethods)
 
     member x.OnBranchesReleased() =
         branchesReleased <- true
@@ -273,7 +278,10 @@ type public SILIStatistics() =
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
-    member x.Reset() =
+    member x.Reset (newEntryMethods : Method seq) =
+        entryMethods.Clear()
+        entryMethods.AddRange newEntryMethods
+
         totalVisited.Clear()
         unansweredPobs.Clear()
         internalFails.Clear()

@@ -10,6 +10,7 @@ on:
 jobs:
   run_integration_tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
     - name: Checkout VSharp
       uses: actions/checkout@v3

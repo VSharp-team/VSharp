@@ -1,6 +1,6 @@
-using NUnit.Framework;
 using System;
 using System.Text;
+using NUnit.Framework;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -145,7 +145,7 @@ namespace IntegrationTests
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage, randomSeed: 10)]
         public static string FormatUInt32(UInt32 x)
         {
             var ret = new StringBuilder();
@@ -173,7 +173,7 @@ namespace IntegrationTests
             return string.Format("{0}: {1}, {2}: {3}, {4}: {5}", "Kind", c.Kind, "X", c.X, "Y", c.Y);
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.ShortestDistance)]
         public static string StringFormat2(ClassToString c)
         {
             if (c.Kind == Kind.First)

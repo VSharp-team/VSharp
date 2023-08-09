@@ -9,6 +9,7 @@ type searchMode =
     | ShortestDistanceBasedMode
     | RandomShortestDistanceBasedMode
     | ContributedCoverageMode
+    | ExecutionTreeMode
     | FairMode of searchMode
     | InterleavedMode of searchMode * int * searchMode * int
 
@@ -24,7 +25,7 @@ type explorationMode =
 type SiliOptions = {
     explorationMode : explorationMode
     outputDirectory : DirectoryInfo
-    recThreshold : uint32
+    recThreshold : uint
     timeout : int
     solverTimeout : int
     visualize : bool
@@ -32,4 +33,6 @@ type SiliOptions = {
     maxBufferSize : int
     checkAttributes : bool
     stopOnCoverageAchieved : int
+    randomSeed : int
+    stepsLimit : uint
 }

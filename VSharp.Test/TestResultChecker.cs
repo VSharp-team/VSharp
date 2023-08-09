@@ -1,11 +1,7 @@
-using System;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.IO;
+using System.Reflection;
 using static VSharp.CoverageRunner.CoverageRunner;
-using static VSharp.TestRunner.TestRunner;
 
 namespace VSharp.Test;
 

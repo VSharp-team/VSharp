@@ -8,7 +8,6 @@ using System.Reflection;
 using System.Text;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
-using VSharp.Solver;
 
 namespace VSharp
 {
@@ -17,13 +16,22 @@ namespace VSharp
     /// </summary>
     public sealed class Statistics
     {
-        internal Statistics(TimeSpan time, DirectoryInfo outputDir, uint tests, uint errors, IEnumerable<string> iies)
+        internal Statistics(
+            TimeSpan time,
+            DirectoryInfo outputDir,
+            uint testsCount,
+            uint errorsCount,
+            uint stepsCount,
+            IEnumerable<string> iies,
+            IEnumerable<GeneratedTestInfo> generatedTestInfos)
         {
             TestGenerationTime = time;
             OutputDir = outputDir;
-            TestsCount = tests;
-            ErrorsCount = errors;
+            TestsCount = testsCount;
+            ErrorsCount = errorsCount;
+            StepsCount = stepsCount;
             IncompleteBranches = iies;
+            GeneratedTestInfos = generatedTestInfos;
         }
 
         /// <summary>
@@ -47,9 +55,19 @@ namespace VSharp
         public uint ErrorsCount { get; }
 
         /// <summary>
+        /// The amount of symbolic machine steps.
+        /// </summary>
+        public uint StepsCount { get; }
+
+        /// <summary>
         /// Some program branches might be failed to investigate. This enumerates the reasons of such failures.
         /// </summary>
         public IEnumerable<string> IncompleteBranches { get; }
+
+        /// <summary>
+        /// Generated tests statistics.
+        /// </summary>
+        public IEnumerable<GeneratedTestInfo> GeneratedTestInfos { get; }
 
         /// <summary>
         /// Writes textual summary of test generation process.
@@ -93,7 +111,7 @@ namespace VSharp
             string[]? mainArguments = null)
         {
             Logger.currentLogLevel = options.Verbosity.ToLoggerLevel();
-            
+
             var unitTests = new UnitTests(options.OutputDirectory);
             var baseSearchMode = options.SearchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
@@ -108,13 +126,16 @@ namespace VSharp
                     timeout: options.Timeout,
                     solverTimeout: options.SolverTimeout,
                     visualize: false,
-                    releaseBranches: true,
+                    releaseBranches: options.ReleaseBranches,
                     maxBufferSize: 128,
                     checkAttributes: true,
-                    stopOnCoverageAchieved: 100
+                    stopOnCoverageAchieved: 100,
+                    randomSeed: options.RandomSeed,
+                    stepsLimit: options.StepsLimit
                 );
 
             using var explorer = new SILI(siliOptions);
+            var statistics = explorer.Statistics;
 
             void HandleInternalFail(Method? method, Exception exception)
             {
@@ -166,7 +187,6 @@ namespace VSharp
             foreach (var method in methods)
             {
                 var normalizedMethod = AssemblyManager.NormalizeMethod(method);
-
                 if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
                     entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
@@ -177,18 +197,39 @@ namespace VSharp
                 }
             }
 
-            explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+            var testInfos = new List<GeneratedTestInfo>();
+
+            void OnTest(UnitTest test)
+            {
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(false, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
+                unitTests.GenerateTest(test);
+            }
+
+            void OnError(UnitTest test)
+            {
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(true, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
+                unitTests.GenerateError(test);
+            }
+
+            explorer.Interpret(isolated, entryPoints, OnTest, OnError, _ => { },
                 HandleInternalFail, HandleCrash);
 
-            var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
-                unitTests.UnitTestsCount, unitTests.ErrorsCount,
-                explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct());
-            unitTests.WriteReport(explorer.Statistics.PrintStatistics);
+            var result = new Statistics(
+                statistics.CurrentExplorationTime,
+                unitTests.TestDirectory,
+                unitTests.UnitTestsCount,
+                unitTests.ErrorsCount,
+                statistics.StepsCount,
+                statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
+                testInfos);
+            unitTests.WriteReport(statistics.PrintStatistics);
 
-            return statistics;
+            return result;
         }
 
-        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false)
+        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false, DirectoryInfo? outputDir = null)
         {
             TestRenderer.Renderer.Render(
                 statistics.Results(),
@@ -196,7 +237,7 @@ namespace VSharp
                 singleFile,
                 declaringType,
                 // Getting parent directory of tests: "VSharp.tests.*/.."
-                statistics.OutputDir.Parent
+                outputDir ?? statistics.OutputDir.Parent
             );
         }
 
@@ -209,6 +250,8 @@ namespace VSharp
                 SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                 SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                 SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
+                SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                 _ => throw new UnreachableException("Unknown search strategy")
             };
@@ -223,6 +266,7 @@ namespace VSharp
                 Verbosity.Error => Logger.Error,
                 Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
+                Verbosity.Trace => Logger.Trace,
                 _ => throw new UnreachableException("Unknown verbosity level")
             };
         }
@@ -243,8 +287,10 @@ namespace VSharp
             AssemblyManager.LoadCopy(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
             var statistics = StartExploration(methods, coverageZone.MethodZone, options);
+
             if (options.RenderTests)
-                Render(statistics, method.DeclaringType);
+                Render(statistics, method.DeclaringType, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -289,7 +335,7 @@ namespace VSharp
             var statistics = StartExploration(methodArray, zone, options);
 
             if (options.RenderTests)
-                Render(statistics, types.SingleOrDefault());
+                Render(statistics, types.SingleOrDefault(), outputDir: options.RenderedTestsDirectoryInfo);
 
             return statistics;
         }
@@ -312,8 +358,10 @@ namespace VSharp
             }
 
             var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
             if (options.RenderTests)
-                Render(statistics, type);
+                Render(statistics, type, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -348,8 +396,10 @@ namespace VSharp
             }
 
             var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
             if (options.RenderTests)
-                Render(statistics);
+                Render(statistics, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -374,7 +424,7 @@ namespace VSharp
 
             var statistics = StartExploration(methods, coverageZone.ModuleZone, options);
             if (options.RenderTests)
-                Render(statistics, singleFile: renderSingleFile);
+                Render(statistics, singleFile: renderSingleFile, outputDir: options.RenderedTestsDirectoryInfo);
             return statistics;
         }
 
@@ -409,64 +459,69 @@ namespace VSharp
         /// Generates test coverage for the specified method and runs all tests.
         /// </summary>
         /// <param name="method">Method to be covered with tests.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(MethodBase method, VSharpOptions options = new())
+        public static bool CoverAndRun(MethodBase method, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(method, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(method, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified methods and runs all tests.
         /// </summary>
         /// <param name="methods">Methods to be covered with tests.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(IEnumerable<MethodBase> methods, VSharpOptions options = new())
+        public static bool CoverAndRun(IEnumerable<MethodBase> methods, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(methods, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(methods, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified type and runs all tests.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static bool CoverAndRun(Type type, VSharpOptions options = new())
+        public static bool CoverAndRun(Type type, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(type, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(type, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified types and runs all tests.
         /// </summary>
         /// <param name="types">Types to be covered with tests.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods.</exception>
-        public static bool CoverAndRun(IEnumerable<Type> types, VSharpOptions options = new())
+        public static bool CoverAndRun(IEnumerable<Type> types, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(types, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(types, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for all public methods of all public classes of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(Assembly assembly, VSharpOptions options = new())
+        public static bool CoverAndRun(Assembly assembly, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(assembly, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(assembly, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
@@ -474,13 +529,14 @@ namespace VSharp
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
         /// <param name="args">Command line arguments of entry point.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
         /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(Assembly assembly, string[]? args, VSharpOptions options = new())
+        public static bool CoverAndRun(Assembly assembly, string[]? args, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(assembly, args, options);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(assembly, args, options);
+            return Reproduce(statistics.OutputDir);
         }
     }
 }

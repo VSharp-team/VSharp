@@ -19,21 +19,23 @@ type public SILI(options : SiliOptions) =
         else float options.timeout * 1000.0
     let solverTimeout =
         if options.solverTimeout > 0 then options.solverTimeout * 1000
+        // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+        // stops exactly in timeout. To guarantee that we need to pass timeout
+        // based on remaining time to solver dynamically.
         else options.timeout / 2 * 1000
     let branchReleaseTimeout =
         if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then timeout
         else timeout * 80.0 / 100.0
 
-    // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
-    // stops exactly in timeout. To guarantee that we need to pass timeout
-    // based on remaining time to solver dynamically.
+    let hasStepsLimit = options.stepsLimit > 0u
+
     do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
 
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics = new SILIStatistics()
+    let statistics = new SILIStatistics(Seq.empty)
 
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
@@ -68,12 +70,15 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
 
-    let rec mkForwardSearcher = function
+    let rec mkForwardSearcher mode =
+        let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
+        match mode with
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
-        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher statistics :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(statistics, getRandomSeedOption()) :> IForwardSearcher
         | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
+        | ExecutionTreeMode -> ExecutionTreeSearcher(getRandomSeedOption())
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
@@ -169,6 +174,10 @@ type public SILI(options : SiliOptions) =
             action.Invoke(method, e)
 
     let wrapOnCrash (action : Action<Exception>) (e : Exception) = action.Invoke e
+
+    let isTimeoutReached() = hasTimeout && statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
+    let shouldReleaseBranches() = options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout
+    let isStepsLimitReached() = hasStepsLimit && statistics.StepsCount >= options.stepsLimit
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
@@ -325,8 +334,8 @@ type public SILI(options : SiliOptions) =
             | a -> action <- a; true
         (* TODO: checking for timeout here is not fine-grained enough (that is, we can work significantly beyond the
                  timeout, but we'll live with it for now. *)
-        while not isStopped && pick() && statistics.CurrentExplorationTime.TotalMilliseconds < timeout do
-            if options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout then
+        while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
+            if shouldReleaseBranches() then
                 releaseBranches()
             match action with
             | GoFront s ->
@@ -354,13 +363,14 @@ type public SILI(options : SiliOptions) =
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
             | pobStatus.Unknown ->
-                Logger.warning "Unknown status for pob at %O" pob.loc
+                Logger.warning $"Unknown status for pob at {pob.loc}"
             | _ -> ())
 
     member x.Reset entryMethods =
+        HashMap.clear()
         API.Reset()
         SolverPool.reset()
-        statistics.Reset()
+        statistics.Reset entryMethods
         searcher.Reset()
         isStopped <- false
         branchesReleased <- false
@@ -374,7 +384,7 @@ type public SILI(options : SiliOptions) =
             if options.stopOnCoverageAchieved > 0 then
                 let checkCoverage() =
                     let cov = statistics.GetCurrentCoverage entryMethods
-                    cov >= uint options.stopOnCoverageAchieved
+                    cov >= options.stopOnCoverageAchieved
                 isCoverageAchieved <- checkCoverage
         | StackTraceReproductionMode _ -> __notImplemented__()
 
