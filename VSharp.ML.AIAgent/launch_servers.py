@@ -30,6 +30,10 @@ async def dequeue_instance(request):
     while retry_count:
         try:
             server_info = SERVER_INSTANCES.get(timeout=1)
+            assert server_info.pid is Undefined
+            server_info = run_server_instance(
+                port=server_info.port, start_server=START_SERVERS
+            )
             logging.info(f"issued {server_info}: {psutil.Process(server_info.pid)}")
             return web.json_response(server_info.to_json())
         except Empty:
@@ -50,52 +54,9 @@ async def enqueue_instance(request):
     logging.info(f"got {returned_instance_info} from client")
 
     if FeatureConfig.ON_GAME_SERVER_RESTART.enabled:
-        kill_server(returned_instance_info.pid, forget=True)
-
-        wait_for_reset_retries = (
-            FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
-        )
-        while wait_for_reset_retries:
-            logging.info(
-                f"Waiting for {returned_instance_info} to die, {wait_for_reset_retries} retries left"
-            )
-            if psutil.Process(returned_instance_info.pid).status() in (
-                psutil.STATUS_DEAD,
-                psutil.STATUS_ZOMBIE,
-            ):
-                break
-            time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
-            wait_for_reset_retries -= 1
-
-        if wait_for_reset_retries == 0:
-            raise RuntimeError(f"{returned_instance_info} could not be killed")
-
-        logging.info(f"killed {psutil.Process(returned_instance_info.pid)}")
-        returned_instance_info = run_server_instance(
-            port=returned_instance_info.port, start_server=START_SERVERS
-        )
-        logging.info(f"running new instance: {returned_instance_info}")
-
-        wait_for_alive_retries = (
-            FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
-        )
-        while wait_for_alive_retries:
-            logging.info(
-                f"Waiting for {returned_instance_info} to start, {wait_for_alive_retries} retries left"
-            )
-            if (
-                psutil.Process(returned_instance_info.pid).status()
-                == psutil.STATUS_RUNNING
-            ):
-                break
-            time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
-            wait_for_alive_retries -= 1
-
-        if wait_for_alive_retries == 0:
-            raise RuntimeError(f"{returned_instance_info} has not resurrected")
-
-        logging.info(
-            f"we should have run {returned_instance_info} on process: {psutil.Process(returned_instance_info.pid)}"
+        kill_server(returned_instance_info)
+        returned_instance_info = ServerInstanceInfo(
+            returned_instance_info.port, returned_instance_info.ws_url, pid=Undefined
         )
 
     SERVER_INSTANCES.put(returned_instance_info)
@@ -133,16 +94,39 @@ def run_server_instance(port: int, start_server: bool) -> ServerInstanceInfo:
         "--checkactualcoverage",
         "--port",
     ]
-    server_pid = Undefined
-    if start_server:
-        proc = subprocess.Popen(
-            launch_server + [str(port)],
-            start_new_session=True,
-            cwd=SERVER_WORKING_DIR,
+    ws_url = get_socket_url(port)
+    if not start_server:
+        return ServerInstanceInfo(port, ws_url, pid=Undefined)
+
+    proc = subprocess.Popen(
+        launch_server + [str(port)],
+        start_new_session=True,
+        cwd=SERVER_WORKING_DIR,
+    )
+    server_pid = proc.pid
+    PROCS.append(server_pid)
+    logging.info(
+        f"running new instance on {port=} with {server_pid=}:"
+        + f"{server_pid}: "
+        + " ".join(launch_server + [str(port)])
+    )
+
+    wait_for_alive_retries = FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+    while wait_for_alive_retries:
+        logging.info(
+            f"Waiting for {server_pid}:{ws_url} to start, {wait_for_alive_retries} retries left"
         )
-        server_pid = proc.pid
-        PROCS.append(server_pid)
-        logging.info(f"{server_pid}: " + " ".join(launch_server + [str(port)]))
+        if psutil.Process(server_pid).status() == psutil.STATUS_RUNNING:
+            break
+        time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
+        wait_for_alive_retries -= 1
+
+    if wait_for_alive_retries == 0:
+        raise RuntimeError(f"{server_pid}:{ws_url} has not resurrected")
+
+    logging.info(
+        f"we should have run {ws_url} on process: {psutil.Process(server_pid)}"
+    )
 
     ws_url = get_socket_url(port)
     return ServerInstanceInfo(port, ws_url, server_pid)
@@ -159,19 +143,41 @@ def run_servers(
     return servers_info
 
 
-def kill_server(pid: int, forget):
+def kill_server(server_instance: ServerInstanceInfo):
+    os.kill(server_instance.pid, signal.SIGKILL)
+    PROCS.remove(server_instance.pid)
+
+    wait_for_reset_retries = FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+    while wait_for_reset_retries:
+        logging.info(
+            f"Waiting for {server_instance} to die, {wait_for_reset_retries} retries left"
+        )
+        if psutil.Process(server_instance.pid).status() in (
+            psutil.STATUS_DEAD,
+            psutil.STATUS_ZOMBIE,
+        ):
+            break
+        time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
+        wait_for_reset_retries -= 1
+
+    if wait_for_reset_retries == 0:
+        raise RuntimeError(f"{server_instance} could not be killed")
+
+    logging.info(f"killed {psutil.Process(server_instance.pid)}")
+
+
+def kill_process(pid: int):
     os.kill(pid, signal.SIGKILL)
-    if forget:
-        PROCS.remove(pid)
+    PROCS.remove(pid)
 
 
 @contextmanager
-def server_manager(server_queue: Queue[ServerInstanceInfo], start_servers: bool):
+def server_manager(server_queue: Queue[ServerInstanceInfo]):
     global PROCS
     servers_info = run_servers(
         num_inst=GeneralConfig.SERVER_COUNT,
         start_port=ServerConfig.VSHARP_INSTANCES_START_PORT,
-        start_servers=start_servers,
+        start_servers=False,
     )
 
     for server_info in servers_info:
@@ -179,8 +185,8 @@ def server_manager(server_queue: Queue[ServerInstanceInfo], start_servers: bool)
     try:
         yield
     finally:
-        for proc in PROCS:
-            kill_server(proc, forget=False)
+        for proc in list(PROCS):
+            kill_process(proc)
         PROCS = []
 
 
@@ -200,7 +206,7 @@ def main():
     PROCS = []
     RESULTS = []
 
-    with server_manager(SERVER_INSTANCES, start_servers=START_SERVERS):
+    with server_manager(SERVER_INSTANCES):
         app = web.Application()
         app.add_routes(routes)
         web.run_app(app, port=BrokerConfig.BROKER_PORT)
