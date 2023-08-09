@@ -129,6 +129,11 @@ module Loader =
             "System.Enum+EnumInfo System.Enum.GetEnumInfo(System.RuntimeType, System.Boolean)"
             "System.Collections.Generic.IArraySortHelper`1[T] System.Collections.Generic.ArraySortHelper`1[T].CreateArraySortHelper()"
             "System.Void System.Buffers.ArrayPoolEventSource..ctor(this)"
+            "System.Type[] System.RuntimeType.GetGenericArguments(this)"
+            "System.Boolean System.RuntimeType.get_IsGenericType(this)"
+            "System.RuntimeType System.ModuleHandle.GetModuleType(System.Reflection.RuntimeModule)"
+            "System.Type System.RuntimeType.get_DeclaringType(this)"
+            "System.String System.RuntimeType.get_Namespace(this)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
