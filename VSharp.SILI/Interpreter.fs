@@ -1681,8 +1681,7 @@ type internal ILInterpreter() as this =
 
     member private this.CommonUnsignedDivRem isRem performAction (cilState : cilState) =
         let y, x = pop2 cilState
-        match y, x with
-        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
+        let divRem x y =
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
             StatedConditionalExecutionCIL cilState
@@ -1692,8 +1691,14 @@ type internal ILInterpreter() as this =
                     push (performAction x y) cilState
                     k [cilState])
                 id
+        match y, x with
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
+            divRem x y
+        | DetachedPtr offset1, DetachedPtr offset2 ->
+            divRem offset1 offset2
         | FloatT, _
         | _, FloatT when isRem -> internalfailf "Rem.Un is unspecified for Floats"
+        | _ when IsRefOrPtr x || IsRefOrPtr y -> __insufficientInformation__ "trying to div/rem pointers"
         | _ -> internalfailf "incompatible operands for %s" (if isRem then "Rem.Un" else "Div.Un")
 
     member private this.DivUn (cilState : cilState) =
