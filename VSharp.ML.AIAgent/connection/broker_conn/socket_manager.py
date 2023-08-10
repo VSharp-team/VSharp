@@ -1,4 +1,5 @@
 import logging
+import os
 import time
 from contextlib import contextmanager, suppress
 
@@ -34,9 +35,20 @@ def wait_for_connection(server_instance: ServerInstanceInfo):
     )
 
 
+def get_pid_status(pid: int):
+    f = os.popen(f"top -pid {pid} -n 1 -l 1", "r")
+    text = f.read()
+    for potential_status in ("sleeping", "running", "zombie", "dead"):
+        if text.find(potential_status) != -1:
+            return potential_status
+    raise RuntimeError(f"Unknow status for {pid=}")
+
+
 @contextmanager
 def game_server_socket_manager():
     server_instance = acquire_instance()
+
+    logging.info(f"{server_instance} status is {get_pid_status(server_instance.pid)}")
     socket = wait_for_connection(server_instance)
 
     try:
