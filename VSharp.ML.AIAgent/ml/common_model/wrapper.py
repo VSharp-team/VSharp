@@ -10,14 +10,10 @@ from ml.common_model.utils import back_prop
 
 
 class CommonModelWrapper(Predictor):
-    def __init__(
-        self, model: torch.nn.Module, best_models: dict, optimizer, criterion
-    ) -> None:
+    def __init__(self, model: torch.nn.Module, best_models: dict) -> None:
         self.best_models = best_models
         self._model = model
         # self.name = sum(torch.cat([p.view(-1) for p in self.model.parameters()], dim=0))
-        self.optimizer = optimizer
-        self.criterion = criterion
 
     def name(self):
         return "Common model"
@@ -44,13 +40,37 @@ class CommonModelWrapper(Predictor):
             self._model, hetero_input, state_map
         )
 
-        back_prop(
-            self.best_models[map_name][0],
-            self._model,
-            hetero_input,
-            self.optimizer,
-            self.criterion,
+        del hetero_input
+        return next_step_id
+
+
+class BestModelsWrapper(Predictor):
+    def __init__(self, model: torch.nn.Module, best_models: dict, optimizer, criterion) -> None:
+        self.best_models = best_models
+        self._model = model
+        self.optimizer = optimizer
+        self.criterion = criterion
+
+    def name(self):
+        return "Common model"
+
+    def update(self, map_name, map_result):
+        pass
+
+    def model(self):
+        return self._model
+
+    def predict(self, input: GameState, map_name):
+        hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
+            input
         )
+        assert self._model is not None
+
+        next_step_id = PredictStateVectorHetGNN.predict_state_single_out(
+            self.best_models[map_name][0], hetero_input, state_map
+        )
+
+        back_prop(self.best_models[map_name][0], self._model, hetero_input, self.optimizer, self.criterion)
 
         del hetero_input
         return next_step_id
