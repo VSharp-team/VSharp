@@ -172,6 +172,12 @@ module internal Pointers =
         then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
+    let private simplifyPointerComparison op x y k =
+        match x.term, y.term with
+        | DetachedPtr offset1, DetachedPtr offset2 ->
+           simplifyBinaryOperation op offset1 offset2 k
+        | _ -> __notImplemented__()
+
     let simplifyBinaryOperation op x y k =
         match op with
         | OperationType.Subtract ->
@@ -184,6 +190,15 @@ module internal Pointers =
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk x y (fun e ->
             simplifyNegation e k)
+        | OperationType.Less
+        | OperationType.Less_Un
+        | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un
+        | OperationType.Greater
+        | OperationType.Greater_Un
+        | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un ->
+            simplifyPointerComparison op x y k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
     let isPointerOperation op t1 t2 =
@@ -196,4 +211,12 @@ module internal Pointers =
         | OperationType.Subtract -> isRefOrPtr t1 && (isRefOrPtr t2 || isNumeric t2)
         | OperationType.Add -> isRefOrPtr t1 || isRefOrPtr t2
         | OperationType.Multiply -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.Less
+        | OperationType.Less_Un
+        | OperationType.LessOrEqual
+        | OperationType.LessOrEqual_Un
+        | OperationType.Greater
+        | OperationType.Greater_Un
+        | OperationType.GreaterOrEqual
+        | OperationType.GreaterOrEqual_Un -> isRefOrPtr t1 || isRefOrPtr t2
         | _ -> false
