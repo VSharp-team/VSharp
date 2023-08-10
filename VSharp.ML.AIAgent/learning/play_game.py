@@ -83,6 +83,7 @@ def play_map(
         actual_coverage_percent=actual_coverage,
     )
 
+    with_predictor.update(with_connector.map.MapName, model_result)
     return model_result, end_time - start_time
 
 

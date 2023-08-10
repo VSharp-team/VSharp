@@ -13,6 +13,7 @@ from ml.common_model.utils import csv2best_models, euclidean_dist
 from ml.common_model.wrapper import CommonModelWrapper
 from ml.fileop import save_model
 from ml.common_model.paths import common_models_path
+from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model
 
 
