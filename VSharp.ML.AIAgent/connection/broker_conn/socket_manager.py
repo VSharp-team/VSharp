@@ -41,7 +41,7 @@ def get_pid_status(pid: int):
     for potential_status in ("sleeping", "running", "zombie", "dead"):
         if text.find(potential_status) != -1:
             return potential_status
-    raise RuntimeError(f"Unknow status for {pid=}")
+    raise RuntimeError(f"Unknow status for {pid=}: {text}")
 
 
 @contextmanager
