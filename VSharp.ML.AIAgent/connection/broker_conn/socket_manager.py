@@ -17,7 +17,11 @@ def wait_for_connection(server_instance: ServerInstanceInfo):
     retries_left = GameServerConnectorConfig.WAIT_FOR_SOCKET_RECONNECTION_MAX_RETRIES
 
     while retries_left:
-        with suppress(ConnectionRefusedError, ConnectionResetError):
+        with suppress(
+            ConnectionRefusedError,
+            ConnectionResetError,
+            websocket.WebSocketTimeoutException,
+        ):
             ws.settimeout(GameServerConnectorConfig.CREATE_CONNECTION_TIMEOUT_SEC)
             ws.connect(
                 server_instance.ws_url,
