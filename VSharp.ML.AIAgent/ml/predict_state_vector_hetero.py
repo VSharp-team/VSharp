@@ -87,7 +87,7 @@ class PredictStateVectorHetGNN:
         return state_map[int(out["state_vertex"].argmax(dim=0)[0])]
 
     @staticmethod
-    def predict_state_ekaterina(
+    def predict_state_with_dict(
         model: torch.nn.Module, data: HeteroData, state_map: dict[int, int]
     ) -> int:
         """Gets state id from model and heterogeneous graph
