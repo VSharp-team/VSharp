@@ -73,7 +73,10 @@ module internal SR =
     val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_Count()")>]
-    val internal get_ArgumentOutOfRange_BadYearMonthDay : state -> term list -> term
+    val internal get_ArgumentOutOfRange_Count : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_ArgumentOutOfRange_StartIndex()")>]
+    val internal get_ArgumentOutOfRange_StartIndex : state -> term list -> term
 
     [<Implements("System.String System.SR.get_ArgumentOutOfRange_SmallCapacity()")>]
     val internal get_ArgumentOutOfRange_SmallCapacity : state -> term list -> term
@@ -83,3 +86,6 @@ module internal SR =
 
     [<Implements("System.String System.SR.get_ThreadLocal_Disposed()")>]
     val internal get_ThreadLocal_Disposed : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Arg_NotImplementedException()")>]
+    val internal get_Arg_NotImplementedException : state -> term list -> term

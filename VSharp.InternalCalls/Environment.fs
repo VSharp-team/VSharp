@@ -19,3 +19,11 @@ module Environment =
     let internal WriteLine (_ : state) (args : term list) =
         assert(List.length args = 1)
         Nop()
+
+    let internal get_IsOutputRedirected (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        MakeBool false
+
+    let internal consoleClear (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        Nop()
