@@ -1486,7 +1486,8 @@ type internal ILInterpreter() as this =
         let isBadPointer state k =
             match ptr with
             | DetachedPtr _ -> k (True(), state)
-            | _ -> k (IsNullReference ptr, state)
+            | _ when IsRefOrPtr ptr -> k (IsNullReference ptr, state)
+            | _ -> k (True(), state)
         StatedConditionalExecutionCIL cilState
             isBadPointer
             // TODO: may be AccessViolation or NullReference, in general it's undefined behaviour
