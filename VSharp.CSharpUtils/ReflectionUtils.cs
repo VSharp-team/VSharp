@@ -14,7 +14,7 @@ namespace VSharp.CSharpUtils
         /// like default implementations of ToString, GetHashCode etc. However, it is possible that
         /// not all cases are checked with this condition. TODO: check that nothing else is needed
         /// </summary>
-        private static bool DeclaredInType(this MethodBase method, Type type) => method.ReflectedType == type;
+        private static bool DeclaredInType(this MethodBase method, Type type) => method.DeclaringType == type;
 
         public static IEnumerable<MethodBase> EnumerateExplorableMethods(this Type type)
         {
