@@ -167,7 +167,8 @@ CoverageHistory::~CoverageHistory() {
 }
 
 void vsharp::addCoverage(OFFSET offset, CoverageEvents event, int methodId) {
-    if (currentCoverage == nullptr) FAIL_LOUD("adding coverage on uninitialized node!")
+    LOG(tout << "OFFSET: " << offset << std::endl);
+    if (currentCoverage == nullptr) FAIL_LOUD("adding coverage on uninitialized node!");
     currentCoverage->AddCoverage(offset, event, methodId);
 }
 
@@ -260,6 +261,7 @@ void vsharp::mainLeft() {
 }
 
 void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
+    if (!areProbesEnabled) return;
     addCoverage(offset, LeaveMain, methodId);
     if (stackBalanceDown() || !isMainThread()) {
         // first main frame is not yet reached

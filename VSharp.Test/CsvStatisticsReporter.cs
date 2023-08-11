@@ -52,15 +52,11 @@ internal class CsvStatisticsReporter : IStatisticsReporter
 
     private CsvRecord StatisticsToCsvRecord(TestStatistics testStatistics)
     {
-        var searchStrategyString = testStatistics.IsGuidedMode
-            ? $"Guided({testStatistics.SearchStrategy})"
-            : testStatistics.SearchStrategy.ToString();
-
         return new CsvRecord(
             TimeReported: DateTime.Now.ToString(DateFormat),
             RunId: _runId,
             MethodName: testStatistics.TestMethodInfo.Name,
-            SearchStrategy: searchStrategyString,
+            SearchStrategy: testStatistics.SearchStrategy.ToString(),
             CoverageZone: testStatistics.CoverageZone.ToString(),
             ReleaseBranchesEnabled: testStatistics.ReleaseBranchesEnabled.ToString(),
             Timeout: testStatistics.Timeout.ToString(),

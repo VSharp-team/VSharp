@@ -103,7 +103,7 @@ type StateInfoToDump =
 let mutable firstFreeEpisodeNumber = 0
 
 let calculateStateMetrics interproceduralGraphDistanceFrom (state:IGraphTrackableState) =
-    let currentBasicBlock = state.CodeLocation.ForceBasicBlock
+    let currentBasicBlock = state.CodeLocation.BasicBlock
     let distances = 
         let assembly = currentBasicBlock.Method.Module.Assembly
         let callGraphDist = Dict.getValueOrUpdate interproceduralGraphDistanceFrom assembly (fun () -> Dictionary<_, _>())

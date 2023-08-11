@@ -9,6 +9,19 @@ open VSharp.Core
 
 module ReadOnlySpan =
 
+    let private CreateArrayRef address indices (eType : Type, dim, isVector as arrayType) =
+        if isVector && indices = [MakeNumber 0] then
+            HeapRef address (eType.MakeArrayType())
+        elif indices = List.init dim (fun _ -> MakeNumber 0) then
+            HeapRef address (eType.MakeArrayType dim)
+        else ArrayIndex(address, indices, arrayType) |> Ref
+
+    let internal GetLength (state : state) (spanStruct : term) =
+        let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
+        assert(Array.length spanFields = 2)
+        let lenField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
+        Memory.ReadField state spanStruct lenField
+
     let internal GetContentsRef (state : state) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
@@ -25,13 +38,11 @@ module ReadOnlySpan =
         // Case for char span made from string
         | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
             HeapRef address typeof<char[]>
-        | Ref(ArrayIndex(addr, indices, (eType, dim, isVector))) when indices = [MakeNumber 0] ->
-            let t = if isVector then eType.MakeArrayType() else eType.MakeArrayType dim
-            HeapRef addr t
+        | Ref(ArrayIndex(addr, indices, arrayType)) when indices = [MakeNumber 0] ->
+            CreateArrayRef addr indices arrayType
         | Ptr(HeapLocation(address, t), sightType, offset) ->
             match TryPtrToArrayInfo t sightType offset with
-            | Some(index, arrayType) ->
-                ArrayIndex(address, index, arrayType) |> Ref
+            | Some(indices, arrayType) -> CreateArrayRef address indices arrayType
             | None when t.IsSZArray || t = typeof<string> -> ptrToArray
             | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptrToArray}"
         | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptrToArray}"

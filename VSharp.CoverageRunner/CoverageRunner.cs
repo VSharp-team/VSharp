@@ -1,9 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Runtime.Loader;
 using System.Text;
-using Microsoft.FSharp.Core;
 
 namespace VSharp.CoverageRunner
 {
@@ -42,7 +40,7 @@ namespace VSharp.CoverageRunner
                 (_, e) =>
                 {
                     var data = e.Data;
-                    if (String.IsNullOrEmpty(data))
+                    if (string.IsNullOrEmpty(data))
                         return;
                     Logger.printLogString(Logger.Info, data);
                 };
@@ -51,7 +49,7 @@ namespace VSharp.CoverageRunner
                 (_, e) =>
                 {
                     var data = e.Data;
-                    if (String.IsNullOrEmpty(data))
+                    if (string.IsNullOrEmpty(data))
                         return;
                     Logger.printLogString(Logger.Error, data);
                 };
@@ -64,7 +62,7 @@ namespace VSharp.CoverageRunner
             return proc.ExitCode == 0;
         }
 
-        private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodInfo method)
+        private static bool StartCoverageTool(string args, DirectoryInfo workingDirectory, MethodBase method)
         {
             var profilerPath = GetProfilerPath();
 
@@ -110,31 +108,26 @@ namespace VSharp.CoverageRunner
         private static void PrintCoverage(
             IEnumerable<BasicBlock> allBlocks,
             IReadOnlySet<BasicBlock> visited,
-            MethodInfo methodInfo)
+            MethodBase methodInfo)
         {
-            string ToString()
+            var sb = new StringBuilder();
+            sb.AppendLine($"Coverage for method {methodInfo}:");
+            var allCovered = true;
+            foreach (var block in allBlocks)
             {
-                var sb = new StringBuilder();
-                sb.AppendLine($"Coverage for method {methodInfo}:");
-                var allCovered = true;
-                foreach (var block in allBlocks)
+                if (!visited.Contains(block))
                 {
-                    if (!visited.Contains(block))
-                    {
-                        allCovered = false;
-                        sb.AppendLine($"Block [0x{block.StartOffset:X} .. 0x{block.FinalOffset:X}] not covered");
-                    }
+                    allCovered = false;
+                    sb.AppendLine($"Block [0x{block.StartOffset:X} .. 0x{block.FinalOffset:X}] not covered");
                 }
-                if (allCovered)
-                    sb.AppendLine("All blocks are covered");
-
-                return sb.ToString();
             }
+            if (allCovered)
+                sb.AppendLine("All blocks are covered");
 
-            Logger.printLogLazyString(Logger.Trace, ToString);
+            Logger.writeLine(sb.ToString());
         }
 
-        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodInfo methodInfo)
+        private static int ComputeCoverage(CfgInfo cfg, CoverageLocation[][] visited, MethodBase methodInfo)
         {
             // filtering coverage records that are only relevant to this method
             var visitedInMethod =
@@ -158,7 +151,7 @@ namespace VSharp.CoverageRunner
             return (int)Math.Floor(100 * ((double)coveredSize / cfg.MethodSize));
         }
 
-        public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodInfo methodInfo)
+        public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodBase methodInfo)
         {
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
             if (!success)
@@ -168,8 +161,8 @@ namespace VSharp.CoverageRunner
             }
 
             var method = Application.getMethod(methodInfo);
-            var cfg = method.CFG;
-            if (FSharpOption<CfgInfo>.get_IsNone(cfg))
+
+            if (!method.HasBody)
             {
                 Logger.printLogString(Logger.Warning,
                     "CoverageRunner was given a method without body; 100% coverage assumed");
@@ -183,7 +176,7 @@ namespace VSharp.CoverageRunner
                 return -1;
             }
 
-            return ComputeCoverage(cfg.Value, visited, methodInfo);
+            return ComputeCoverage(method.CFG, visited, methodInfo);
         }
     }
 }

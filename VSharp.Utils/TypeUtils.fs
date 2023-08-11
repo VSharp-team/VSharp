@@ -28,6 +28,8 @@ module TypeUtils =
             ]
         )
 
+    let private longTypes = HashSet<Type>([typedefof<int64>; typedefof<uint64>])
+
     let private unsignedTypes =
         HashSet<Type>(
             [typedefof<byte>; typedefof<uint16>; typedefof<uint32>; typedefof<uint64>; typeof<UIntPtr>]
@@ -57,7 +59,8 @@ module TypeUtils =
         (not x.IsGenericType && not x.IsGenericParameter) || x.IsConstructedGenericType
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
-    let isIntegral = integralTypes.Contains
+    let isIntegral x = integralTypes.Contains x || x.IsEnum
+    let isLongTypes = longTypes.Contains
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains
     let isPrimitive = primitiveTypes.Contains
@@ -128,6 +131,9 @@ module TypeUtils =
         Array.contains t2 isWiderForNumericTypesMap.[t1]
 
     let isDelegate typ = typeof<Delegate>.IsAssignableFrom typ
+
+    let isImplementationDetails (t : Type) =
+        t.FullName = "<PrivateImplementationDetails>"
 
     // ---------------------------------- Basic type operations ----------------------------------
 
@@ -236,7 +242,7 @@ module TypeUtils =
         | _ -> None
 
     let (|ClassType|_|) = function
-        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsArray && t <> typeof<Array> ->
+        | (t : Type) when t.IsClass && not t.IsByRef && not t.IsPointer && not t.IsArray && t <> typeof<Array> ->
             Some(getGenericDefinition t, getGenericArguments t)
         | _ -> None
 
@@ -347,6 +353,15 @@ module TypeUtils =
             for b in bases do
                 yield! getBaseInterfaces b
         }
+
+    // [NOTE] there is no enums, because pushing to evaluation stack causes cast
+    let signedToUnsigned = function
+        | typ when typ = typeof<int32> || typ = typeof<uint32> -> typeof<uint32>
+        | typ when typ = typeof<int8> || typ = typeof<uint8> -> typeof<uint8>
+        | typ when typ = typeof<int16> || typ = typeof<uint16> -> typeof<uint16>
+        | typ when typ = typeof<int64> || typ = typeof<uint64> -> typeof<uint64>
+        | typ when typ = typeof<IntPtr> || typ = typeof<UIntPtr> -> typeof<UIntPtr>
+        | typ -> internalfail $"signedToUnsigned: unexpected type {typ}"
 
     // --------------------------------------- Conversions ---------------------------------------
 
@@ -505,7 +520,7 @@ module TypeUtils =
 
     let deduceShiftTargetType x y =
         let fail() = failDeduceBinaryTargetType "{<<, >>}" x y
-        if not <| isInt y then fail()                               // DO NOT REORDER THESE elif's!
+        if not <| isInt y then fail() // DO NOT REORDER THESE elif's!
         elif isInt x || isUInt x || isLong x || isULong x then x
         elif isIntegral x then typeof<int32>
         else fail()

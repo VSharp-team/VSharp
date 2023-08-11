@@ -148,6 +148,15 @@ HRESULT Instrumenter::instrument(FunctionID functionId) {
     WCHAR *assemblyName = new WCHAR[assemblyNameLength];
     IfFailRet(m_profilerInfo.GetAssemblyInfo(assembly, assemblyNameLength, &assemblyNameLength, assemblyName, &appDomainId, &startModuleId));
 
+    // skipping non-main methods
+    if (rewriteMainOnly && !currentMethodIsMain(moduleName, moduleNameLength, m_jittedToken)) {
+        return S_OK;
+    }
+
+    if (rewriteMainOnly) {
+        vsharp::setMainFunctionId(functionId);
+    }
+
     // checking if this method was rewritten before
     if (instrumentedMethods.find({ m_jittedToken, newModuleId }) != instrumentedMethods.end()) {
         LOG(tout << "repeated JIT of " << m_jittedToken << "! skipped" << std::endl);

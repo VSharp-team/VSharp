@@ -43,6 +43,42 @@ namespace IntegrationTests
             return 100;
         }
 
+        [TestSvm(100)]
+        public static int CheckIsEnum(Color c)
+        {
+            var res = 0;
+            if (c is Enum)
+            {
+                res += 10;
+            }
+
+            object o = c;
+            if (o is Enum)
+            {
+                res += 42;
+            }
+
+            if (o is Color)
+            {
+                res += 11;
+            }
+
+            return res;
+        }
+
+        [TestSvm(100)]
+        public static string EnumToString(Color c)
+        {
+            return string.Format("c == Color.Blue, c.ToString() == {0}", Color.Blue);
+        }
+
+        [TestSvm(100)]
+        public static string EnumToString1(Color c)
+        {
+            if (c == Color.Blue)
+                return string.Format("c == Color.Blue, c.ToString() == {0}", c);
+            return string.Format("c != Color.Blue, c.ToString() == {0}", c);
+        }
         [Ignore("GetType() is not implemented")]
         public static Type GetEnumType(Color c)
         {
@@ -52,7 +88,7 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int NonZeroEnumTest(NonZeroEnum e)
         {
-            return 1;
+            return (int) e;
         }
     }
 }
