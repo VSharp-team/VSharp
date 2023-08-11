@@ -78,6 +78,7 @@ namespace VSharp
         {
             writer.WriteLine("Total time: {0:00}:{1:00}:{2:00}.{3}.", TestGenerationTime.Hours,
                 TestGenerationTime.Minutes, TestGenerationTime.Seconds, TestGenerationTime.Milliseconds);
+            writer.WriteLine("Total coverage: {0}", GeneratedTestInfos.LastOrDefault().Coverage);
             var count = IncompleteBranches.Count();
             if (count > 0)
             {
