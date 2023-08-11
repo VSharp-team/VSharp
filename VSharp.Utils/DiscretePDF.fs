@@ -16,12 +16,15 @@ type private node<'a when 'a : equality> =
       mutable SumWeight : uint
     }
 
-type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>) =
+type public DiscretePDF<'a when 'a : equality>(comparer : IComparer<'a>, randomSeed : int option) =
     let less a b = comparer.Compare(a, b) = -1
     let mutable root = None : node<'a> option
     let mutable maxWeight = 0u
     let mutable count = 0u
-    let random = Random()
+    let random =
+        match randomSeed with
+        | Some seed -> Random(seed)
+        | None -> Random()
 
     let mkNode (key : 'a) weight =
         { Left = None

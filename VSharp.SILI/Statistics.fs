@@ -2,10 +2,12 @@ namespace VSharp.Interpreter.IL
 
 open System
 open System.Diagnostics
+open System.Collections.Concurrent
 open System.IO
 open System.Text
 open System.Collections.Generic
 
+open System.Threading
 open System.Timers
 open FSharpx.Collections
 open VSharp
@@ -41,14 +43,18 @@ type statisticsDump =
     }
 
 // TODO: move statistics into (unique) instances of code location!
-type public SILIStatistics() =
+type public SILIStatistics(entryMethods : Method seq) =
+
+    let entryMethods = List<Method>(entryMethods)
+
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string>()
+    let emittedExceptions = HashSet<string * string>()
 
-    let mutable isVisitedBlocksNotCoveredByTestsRelevant = true
+    let mutable isVisitedBlocksNotCoveredByTestsRelevant = 1
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
-    let blocksCoveredByTests = Dictionary<Method, HashSet<offset>>()
+    let blocksCoveredByTests = ConcurrentDictionary<Method, ConcurrentDictionary<offset, unit>>()
 
     let unansweredPobs = List<pob>()
     let stopwatch = Stopwatch()
@@ -76,9 +82,7 @@ type public SILIStatistics() =
 
     let isHeadOfBasicBlock (codeLocation : codeLocation) =
         let method = codeLocation.method
-        match method.CFG with
-        | Some cfg -> cfg.IsBasicBlockStart codeLocation.offset
-        | None -> false
+        method.CFG.IsBasicBlockStart codeLocation.offset
 
     let printDict' placeHolder (d : Dictionary<codeLocation, uint>) sb (m : Method, locs) =
         let sb = PrettyPrinting.appendLine sb $"%s{placeHolder}Method = %s{m.FullName}: ["
@@ -104,14 +108,11 @@ type public SILIStatistics() =
             let numberOfVisit = Dict.getValueOrUpdate totalVisited loc (fun () -> 0u)
             distance <> infinity && distance <> 0u && numberOfVisit = 0u
 
-        match method.CFG with
-        | Some cfg ->
-            cfg.DistancesFrom currentLoc.offset
-            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
-            |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
-        | None -> None
+        method.CFG.DistancesFrom currentLoc.offset
+        |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+        |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
+        |> Seq.tryHead
+        |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
     let pickUnvisitedWithHistoryInCFG (currentLoc : codeLocation) (history : codeLocation seq) : codeLocation option =
         let infinity = UInt32.MaxValue
@@ -125,14 +126,11 @@ type public SILIStatistics() =
             let nontrivialHistory = Seq.exists (fun loc -> hasSiblings loc && not <| totalHistory.Contains loc) history
             validDistance && (emptyHistory || nontrivialHistory)
 
-        match method.CFG with
-        | Some cfg ->
-            cfg.DistancesFrom currentLoc.offset
-            |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
-            |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
-            |> Seq.tryHead
-            |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
-        | None -> None
+        method.CFG.DistancesFrom currentLoc.offset
+        |> Seq.sortBy (fun offsetDistancePair -> offsetDistancePair.Value)
+        |> Seq.filter (fun offsetDistancePair -> suitable offsetDistancePair.Key.Offset offsetDistancePair.Value)
+        |> Seq.tryHead
+        |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
     let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
@@ -161,10 +159,8 @@ type public SILIStatistics() =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
         let setCoveredIfNeed (currentLoc : codeLocation) =
-            match currentLoc.BasicBlock with
-            | Some bb when currentLoc.offset = bb.FinalOffset ->
+            if currentLoc.offset = currentLoc.BasicBlock.FinalOffset then
                 addLocationToHistory s currentLoc
-            | _ -> ()
         let currentLoc = ip2codeLocation ip
         match currentLoc with
         | Some currentLoc when isHeadOfBasicBlock currentLoc ->
@@ -192,7 +188,7 @@ type public SILIStatistics() =
             let isCovered = x.IsBasicBlockCoveredByTest currentLoc
             if currentMethod.InCoverageZone && not isCovered then
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
-                isVisitedBlocksNotCoveredByTestsRelevant <- false
+                Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
             setCoveredIfNeed currentLoc
         | Some currentLoc -> setCoveredIfNeed currentLoc
         | None -> ()
@@ -201,38 +197,56 @@ type public SILIStatistics() =
        Dict.getValueOrUpdate totalVisited loc (fun () -> 0u) > 0u
 
     member x.GetVisitedBlocksNotCoveredByTests (s : cilState) =
-        if not isVisitedBlocksNotCoveredByTestsRelevant then
+        // Statistics can be updated from another thread during the loop, so the resulting statistics
+        // is not guaranteed to be exact (some returned blocks can be already covered)
+        if Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 1) = 0 then
             let currentCilStates = visitedBlocksNotCoveredByTests.Keys |> Seq.toList
             for cilState in currentCilStates do
                 let history = Set.filter (not << x.IsBasicBlockCoveredByTest) cilState.history
                 visitedBlocksNotCoveredByTests[cilState] <- history
-            isVisitedBlocksNotCoveredByTestsRelevant <- true
 
         let blocks = ref Set.empty
         if visitedBlocksNotCoveredByTests.TryGetValue(s, blocks) then blocks.Value
         else Set.empty
 
+    member x.SetBasicBlocksAsCoveredByTest (blocks : codeLocation seq) =
+        let mutable coveredBlocks = ref null
+        let blocks = Seq.distinct blocks
+        for block in blocks do
+            block.BasicBlock.IsCovered <- true
+            if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
+                coveredBlocks.Value.TryAdd(block.offset, ()) |> ignore
+            else
+                let coveredBlocks = ConcurrentDictionary()
+                coveredBlocks.TryAdd(block.offset, ()) |> ignore
+                blocksCoveredByTests[block.method] <- coveredBlocks
+            if block.method.InCoverageZone then
+                Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
+
     member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
         let mutable coveredBlocks = ref null
         if blocksCoveredByTests.TryGetValue(blockStart.method, coveredBlocks) then
-            coveredBlocks.Value.Contains blockStart.offset
+            coveredBlocks.Value.ContainsKey blockStart.offset
         else false
 
-    member x.GetApproximateCoverage (methods : Method seq) =
-        let getCoveredBlocksCount (m : Method) =
-            let mutable coveredBlocks = ref null
-            if blocksCoveredByTests.TryGetValue(m, coveredBlocks) then
-                coveredBlocks.Value.Count
+    member x.GetCurrentCoverage (methods : Method seq) =
+        let getCoveredInstructionsCount (m : Method) =
+            let mutable coveredBlocksOffsets = ref null
+            if blocksCoveredByTests.TryGetValue(m, coveredBlocksOffsets) then
+                let cfg = m.CFG
+                coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o.Key).BlockSize)
             else 0
         let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
-        let totalBlocksCount = methodsInZone |> Seq.sumBy (fun m -> m.BasicBlocksCount)
-        let coveredBlocksCount = methodsInZone |> Seq.sumBy getCoveredBlocksCount
-        if totalBlocksCount <> 0 then
-            uint <| floor (double coveredBlocksCount / double totalBlocksCount * 100.0)
-        else 0u
+        let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.CFG.MethodSize)
+        let coveredInstructionsCount = methodsInZone |> Seq.sumBy getCoveredInstructionsCount
+        if totalInstructionsCount <> 0 then
+            double coveredInstructionsCount / double totalInstructionsCount * 100.0
+        else 0.0
 
-    member x.GetApproximateCoverage (method : Method) =
-        x.GetApproximateCoverage(Seq.singleton method)
+    member x.GetCurrentCoverage (method : Method) =
+        x.GetCurrentCoverage(Seq.singleton method)
+
+    member x.GetCurrentCoverage() = x.GetCurrentCoverage(entryMethods)
 
     member x.OnBranchesReleased() =
         branchesReleased <- true
@@ -240,22 +254,12 @@ type public SILIStatistics() =
     member x.TrackFinished (s : cilState) =
         testsCount <- testsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
-        let mutable coveredBlocks = ref null
-        for block in s.history do
-            block.ForceBasicBlock.IsCovered <- true
-            if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
-                coveredBlocks.Value.Add block.offset |> ignore
-            else
-                let coveredBlocks = HashSet()
-                coveredBlocks.Add block.offset |> ignore
-                blocksCoveredByTests[block.method] <- coveredBlocks
-            if block.method.InCoverageZone then
-                isVisitedBlocksNotCoveredByTestsRelevant <- false            
-
-        visitedBlocksNotCoveredByTests.Remove s |> ignore
-
+        x.SetBasicBlocksAsCoveredByTest s.history
+        
     member x.IsNewError (s : cilState) (errorMessage : string) =
-        emittedErrors.Add(s.ipStack, errorMessage)
+        match s.state.exceptionsRegister with
+        | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage)
+        | _ -> emittedErrors.Add(s.ipStack, errorMessage)
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO
@@ -275,7 +279,10 @@ type public SILIStatistics() =
 
     member x.AddUnansweredPob (p : pob) = unansweredPobs.Add(p)
 
-    member x.Reset() =
+    member x.Reset (newEntryMethods : Method seq) =
+        entryMethods.Clear()
+        entryMethods.AddRange newEntryMethods
+
         totalVisited.Clear()
         unansweredPobs.Clear()
         internalFails.Clear()

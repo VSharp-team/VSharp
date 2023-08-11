@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Runtime.InteropServices
 
 [<CustomEquality; CustomComparison>]
 type methodDescriptor = {
@@ -35,10 +36,10 @@ module public Reflection =
 
     let staticBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Static ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let instanceBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.IgnoreCase ||| BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
+        BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
@@ -52,6 +53,8 @@ module public Reflection =
         match dynamicOption with
         | Some a -> a
         | None -> AssemblyManager.LoadFromAssemblyName assemblyName
+
+    let mscorlibAssembly = typeof<int>.Assembly
 
     // --------------------------- Metadata Resolving ---------------------------
 
@@ -68,6 +71,12 @@ module public Reflection =
 
     let resolveMethodBase (assemblyName : string) (moduleName : string) (token : int32) =
         let m = resolveModule assemblyName moduleName
+        m.ResolveMethod(token)
+
+    let resolveMethodBaseFromAssembly (assembly: Assembly) (moduleName: string) (token: int32) =
+        let m =
+            assembly.Modules
+            |> Seq.find (fun m -> m.FullyQualifiedName = moduleName)
         m.ResolveMethod(token)
 
     let private retrieveMethodsGenerics (method : MethodBase) =
@@ -449,22 +458,6 @@ module public Reflection =
         let extractFieldInfo (field : FieldInfo) = wrapField field, field
         FSharp.Collections.Array.map extractFieldInfo fields
 
-    let fieldIntersects (field : fieldId) =
-        let fieldInfo = getFieldInfo field
-        let fieldType = fieldInfo.FieldType
-        if fieldType.ContainsGenericParameters then false
-        else
-            let offset = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-            let size = TypeUtils.internalSizeOf fieldType
-            let intersects o s = o + s > offset && o < offset + size
-            let fields = fieldsOf false field.declaringType
-            let checkIntersects (_, fieldInfo : FieldInfo) =
-                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
-                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
-                intersects o s
-            let intersectingFields = Array.filter checkIntersects fields
-            Array.length intersectingFields > 1
-
     // Returns pair (valueFieldInfo, hasValueFieldInfo)
     let fieldsOfNullable typ =
         let fs = fieldsOf false typ
@@ -489,9 +482,55 @@ module public Reflection =
         | Some(f, _) -> f
         | None -> internalfailf "System.String has unexpected static fields {%O}! Probably your .NET implementation is not supported :(" (fs |> Array.map (fun (f, _) -> f.name) |> join ", ")
 
-    let getFieldOffset fieldId =
+    let private reinterpretValueTypeAsByteArray (value : obj) size =
+        let rawData = Array.create size Byte.MinValue
+        let handle = GCHandle.Alloc(rawData, GCHandleType.Pinned)
+        try
+            Marshal.StructureToPtr(value, handle.AddrOfPinnedObject(), false)
+        finally
+            handle.Free()
+        rawData
+
+    let byteArrayFromField (fieldInfo : FieldInfo) =
+        let fieldValue : obj = fieldInfo.GetValue null
+        let size = TypeUtils.internalSizeOf fieldInfo.FieldType
+        reinterpretValueTypeAsByteArray fieldValue size
+
+    // ------------------------------ Layout Utils ------------------------------
+
+    let getFieldOffset field =
+        if wrapField field = stringFirstCharField then 0
+        else CSharpUtils.LayoutUtils.GetFieldOffset field
+
+    let getFieldIdOffset fieldId =
         if fieldId = stringFirstCharField then 0
         else getFieldInfo fieldId |> CSharpUtils.LayoutUtils.GetFieldOffset
+
+    let blockSize (t : Type) =
+        if t.IsValueType then TypeUtils.internalSizeOf t
+        else CSharpUtils.LayoutUtils.ClassSize t
+
+    let arrayElementsOffset = CSharpUtils.LayoutUtils.ArrayElementsOffset
+
+    let stringElementsOffset = CSharpUtils.LayoutUtils.StringElementsOffset
+
+    let fieldIntersects (fieldId : fieldId) =
+        let fieldInfo = getFieldInfo fieldId
+        let fieldType = fieldInfo.FieldType
+        if fieldType.ContainsGenericParameters then false
+        else
+            let offset = getFieldIdOffset fieldId
+            let size = TypeUtils.internalSizeOf fieldType
+            let intersects o s = o + s > offset && o < offset + size
+            let fields = fieldsOf false fieldId.declaringType
+            let checkIntersects (_, fieldInfo : FieldInfo) =
+                let o = CSharpUtils.LayoutUtils.GetFieldOffset fieldInfo
+                let s = TypeUtils.internalSizeOf fieldInfo.FieldType
+                intersects o s
+            let intersectingFields = Array.filter checkIntersects fields
+            Array.length intersectingFields > 1
+
+    // -------------------------------- Types --------------------------------
 
     let private cachedTypes = Dictionary<Type, bool>()
 
@@ -508,3 +547,7 @@ module public Reflection =
             let result = isReferenceOrContainsReferencesHelper t
             cachedTypes.Add(t, result)
             result
+
+    let isBuiltInType (t: Type) =
+        let builtInAssembly = mscorlibAssembly
+        t.Assembly = builtInAssembly

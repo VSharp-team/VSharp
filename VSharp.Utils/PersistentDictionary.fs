@@ -11,7 +11,7 @@ type public pdict<'key, 'value> when 'key : equality and 'value : equality =
     private {impl : PersistentHashMap<'key, 'value>; mutable hash : int option}
     static member Empty() = {impl = PersistentHashMap<'key, 'value>.Empty(); hash = None}
     member x.Item
-        with get key = x.impl.[key]
+        with get key = x.impl[key]
 
     override x.GetHashCode() =
         let createHash() =
@@ -22,7 +22,8 @@ type public pdict<'key, 'value> when 'key : equality and 'value : equality =
 
     override x.Equals(o : obj) =
         match o with
-        | :? pdict<'key, 'value> as h -> x.GetHashCode() = h.GetHashCode()
+        | :? pdict<'key, 'value> as h ->
+            x.GetHashCode() = h.GetHashCode() && Seq.forall2 (=) x.impl h.impl
         | _ -> false
 
 module public PersistentDict =

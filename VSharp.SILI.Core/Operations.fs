@@ -159,6 +159,7 @@ module internal Operations =
         | OperationType.LogicalOr -> " | "
         | OperationType.BitwiseNot -> "~%s"
         | OperationType.LogicalNot -> "!%s"
+        | OperationType.BitwiseXor -> " ^^ "
         | OperationType.LogicalXor -> " ^ "
         | OperationType.Multiply -> " * "
         | OperationType.Remainder

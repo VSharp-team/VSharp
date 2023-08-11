@@ -1,6 +1,6 @@
-using NUnit.Framework;
 using System;
 using System.Text;
+using NUnit.Framework;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -110,6 +110,14 @@ namespace IntegrationTests
             return upper == str;
         }
 
+        [TestSvm]
+        public static int Contains(string str)
+        {
+            if (str.Contains("d8"))
+                return 1;
+            return 0;
+        }
+
         [Ignore("takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {
@@ -137,13 +145,35 @@ namespace IntegrationTests
             return string.Format("{0}{1}{2}", c.Kind, c.X, c.Y);
         }
 
-        [Ignore("need to fix StringBuilder.AppendLine")]
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage, randomSeed: 10)]
+        public static string FormatUInt32(UInt32 x)
+        {
+            var ret = new StringBuilder();
+            ret.Append($"{x:X4}");
+            return ret.ToString();
+        }
+
+        [TestSvm(100)]
+        public static string FormatInt(int x)
+        {
+            if (x > 10)
+                return string.Format("int > 10, int = {0}", x);
+            return string.Format("int <= 10, int = {0}", x);
+        }
+
+        [TestSvm(100)]
+        public static string FormatInt1(int x)
+        {
+            return $"int = {x}";
+        }
+
+        [TestSvm(100)]
         public static string StringFormat1(ClassToString c)
         {
             return string.Format("{0}: {1}, {2}: {3}, {4}: {5}", "Kind", c.Kind, "X", c.X, "Y", c.Y);
         }
 
-        [Ignore("need to fix StringBuilder.AppendLine")]
+        [TestSvm(100, strat: SearchStrategy.ShortestDistance)]
         public static string StringFormat2(ClassToString c)
         {
             if (c.Kind == Kind.First)

@@ -722,6 +722,24 @@ namespace IntegrationTests
             return Math.Log(y);
         }
 
+        [TestSvm]
+        public static int LogMethod8(uint x)
+        {
+            var result = System.Numerics.BitOperations.Log2(x);
+            if (result > 2)
+                return result;
+            return -1;
+        }
+
+        [TestSvm]
+        public static int LogMethod9(UInt64 x)
+        {
+            var result = System.Numerics.BitOperations.Log2(x);
+            if (result > 2)
+                return result;
+            return -1;
+        }
+
         // sqrt(x)
         [TestSvm]
         public static double SqrtMethod1(double x)

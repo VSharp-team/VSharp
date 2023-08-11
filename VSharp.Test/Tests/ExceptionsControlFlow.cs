@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using NUnit.Framework;
 using VSharp.Test;
+
 #pragma warning disable CS0162
 
 namespace IntegrationTests
@@ -212,7 +213,5 @@ namespace IntegrationTests
 
             return res;
         }
-
-
     }
 }

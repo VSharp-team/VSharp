@@ -4,6 +4,14 @@
         <TargetFramework>netcoreapp6.0</TargetFramework>
         <OutputType>Exe</OutputType>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+        <Tailcalls>true</Tailcalls>
+        <DebugSymbols>true</DebugSymbols>
+        <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
