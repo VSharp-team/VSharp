@@ -45,6 +45,7 @@ namespace VSharp.CSharpUtils
             return GetFieldDescForFieldInfo(fi)->Offset;
         }
 
+        // Works correctly only for class (value types are boxed)
         public static int ClassSize(Type t)
         {
             return Marshal.ReadInt32(t.TypeHandle.Value, 4);

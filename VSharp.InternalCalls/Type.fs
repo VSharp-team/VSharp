@@ -48,13 +48,13 @@ module internal Type =
 
     let GetAssembly (state : state) (args : term list) : (term * state) list =
         assert (List.length args = 1)
-        let runtimeType = typeof<Object>.Assembly.GetType()
-        allocateType state runtimeType
+        let assemblyType = Reflection.mscorlibAssembly.GetType()
+        allocateType state assemblyType
 
     let GetType (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 1)
         let ref = List.head args
-        let typ = MostConcreteTypeOfHeapRef state ref
+        let typ = MostConcreteTypeOfRef state ref
         allocateType state typ
 
     let GetElementType (state : state) (args : term list) : (term * state) list =

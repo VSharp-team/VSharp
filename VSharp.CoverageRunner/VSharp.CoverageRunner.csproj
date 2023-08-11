@@ -4,19 +4,24 @@
         <TargetFramework>net6.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
     </PropertyGroup>
-    <Choose>
-        <When Condition="$(Configuration) == 'Release'">
-            <PropertyGroup>
-                <CoverageBuildType>Release</CoverageBuildType>
-            </PropertyGroup>
-        </When>
-        <Otherwise>
-            <PropertyGroup>
-                <CoverageBuildType>Debug</CoverageBuildType>
-            </PropertyGroup>
-        </Otherwise>
-    </Choose>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+        <CoverageBuildType>Debug</CoverageBuildType>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+        <Tailcalls>true</Tailcalls>
+        <DebugSymbols>true</DebugSymbols>
+        <DefineConstants>TRACE;DEBUG</DefineConstants>
+        <CoverageBuildType>Debug</CoverageBuildType>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+        <CoverageBuildType>Release</CoverageBuildType>
+    </PropertyGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />

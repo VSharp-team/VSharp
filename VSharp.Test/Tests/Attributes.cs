@@ -122,7 +122,7 @@ namespace IntegrationTests
             return NotNullTest1(obj);
         }
 
-        [TestSvm(guidedMode:false, strat:SearchStrategy.ShortestDistance)]
+        [TestSvm(recThresholdForTest: 0u, strat: SearchStrategy.ShortestDistance)]
         public int ReadAll([NotNull] byte[] buffer)
         {
             int next;

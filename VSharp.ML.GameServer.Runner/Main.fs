@@ -101,7 +101,8 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                         match settings.CoverageZone with
                         | CoverageZone.Method ->
                             let method = RunnerProgram.ResolveMethod(assembly, settings.NameOfObjectToCover)
-                            let statistics = TestGenerator.Cover(method, timeout = 15 * 60, outputDirectory = outputDirectory,  oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2)
+                            let options = VSharpOptions(Timeout = 15 * 60, OutputDirectory = outputDirectory, Oracle = oracle, SearchStrategy = SearchStrategy.AI, CoverageToSwitchToAI = uint settings.CoverageToStart, StepsToPlay = gameStartParams.StepsToPlay, SolverTimeout=2)
+                            let statistics = TestGenerator.Cover(method, options)
                             let actualCOverage = 
                                 if checkActualCoverage
                                 then
@@ -121,13 +122,13 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                             
                         | CoverageZone.Class ->
                             let _type = RunnerProgram.ResolveType(assembly, settings.NameOfObjectToCover)
-                            TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
+                            //TestGenerator.Cover(_type, oracle = oracle, searchStrategy = SearchStrategy.AI, coverageToSwitchToAI = uint settings.CoverageToStart, stepsToPlay = gameStartParams.StepsToPlay, solverTimeout=2) |> ignore
                             System.Nullable(), 0u<test>, 0u<error>
                         | x -> failwithf $"Unexpected coverage zone: %A{x}"
                     
                     Application.reset()
                     API.Reset()
-                    HashMap.hashMap.Free()
+                    HashMap.hashMap.Clear()
                     do! sendResponse (GameOver (actualCoverage, testsCount, errorsCount))
                 | x -> failwithf $"Unexpected message: %A{x}"
                 

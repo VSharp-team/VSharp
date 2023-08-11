@@ -21,7 +21,7 @@ type cilState =
       mutable initialEvaluationStackSize : uint32
       mutable stepsNumber : uint
       mutable suspended : bool
-      mutable targets : Set<codeLocation> option
+      mutable targets : Set<codeLocation>
       mutable lastPushInfo : term option
       /// <summary>
       /// All basic blocks visited by the state.
@@ -42,19 +42,6 @@ type cilState =
       mutable _history: Dictionary<BasicBlock,uint>
       mutable children: list<cilState>
     }
-    with
-    member x.Result with get() =
-//        assert(Memory.CallStackSize x.state = 1)
-        match EvaluationStack.Length x.state.evaluationStack with
-        | _ when Memory.CallStackSize x.state > 2 -> internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
-        | 0 -> Nop()
-        | 1 ->
-            let result = EvaluationStack.Pop x.state.evaluationStack |> fst
-            match x.ipStack with
-            | [Exit m] -> Types.Cast result m.ReturnType
-            | _ when x.state.exceptionsRegister.UnhandledError -> Nop()
-            | _ -> internalfailf "Method is not finished! IpStack = %O" x.ipStack
-        | _ -> internalfail "EvaluationStack size was bigger than 1"
 
     interface IGraphTrackableState with
         override this.CodeLocation = this.currentLoc
@@ -96,7 +83,7 @@ module internal CilStateOperations =
           initialEvaluationStackSize = initialEvaluationStackSize
           stepsNumber = 0u
           suspended = false
-          targets = None
+          targets = Set.empty
           lastPushInfo = None
           history = Set.empty
           entryMethod = Some entryMethod
@@ -151,7 +138,7 @@ module internal CilStateOperations =
 
     let hasRuntimeException (s : cilState) =
         match s.state.exceptionsRegister with
-        | Unhandled(_, isRuntime) -> isRuntime
+        | Unhandled(_, isRuntime, _) -> isRuntime
         | _ -> false
 
     let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
@@ -163,7 +150,7 @@ module internal CilStateOperations =
     let violatesLevel (s : cilState) maxBound =
         match tryCurrentLoc s with
         | Some currLoc when PersistentDict.contains currLoc s.level ->
-            s.level.[currLoc] >= maxBound
+            s.level[currLoc] >= maxBound
         | _ -> false
 
     // [NOTE] Obtaining exploring method
@@ -223,24 +210,27 @@ module internal CilStateOperations =
                             startingIP = cilState1.startingIP; iie = iie; id = getNextStateId()}
         List.map makeResultState states
 
-    let incrementLevel (cilState : cilState) k =
+    let incrementLevel (cilState : cilState) codeLocation =
         let lvl = cilState.level
-        let oldValue = PersistentDict.tryFind lvl k |> Option.defaultValue 0u
-        cilState.level <- PersistentDict.add k (oldValue + 1u) lvl
+        let oldValue = PersistentDict.tryFind lvl codeLocation |> Option.defaultValue 0u
+        cilState.level <- PersistentDict.add codeLocation (oldValue + 1u) lvl
 
-    let decrementLevel (cilState : cilState) k =
+    let decrementLevel (cilState : cilState) codeLocation =
         let lvl = cilState.level
-        let oldValue = PersistentDict.tryFind lvl k
+        let oldValue = PersistentDict.tryFind lvl codeLocation
         match oldValue with
-        | Some value when value > 0u -> cilState.level <- PersistentDict.add k (value - 1u) lvl
+        | Some value when value = 1u ->
+            cilState.level <- PersistentDict.remove codeLocation lvl
+        | Some value when value > 0u ->
+            cilState.level <- PersistentDict.add codeLocation (value - 1u) lvl
         | _ -> ()
 
     let addLocationToHistory (cilState : cilState) (loc : codeLocation) =
         if cilState.history.Contains loc
         then cilState.visitedAgainVertices <- cilState.visitedAgainVertices + 1u
-        elif loc.ForceBasicBlock.IsGoal
-        then if not loc.ForceBasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
-        else if not loc.ForceBasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
+        elif loc.BasicBlock.IsGoal
+        then if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesInZone <- cilState.visitedNotCoveredVerticesInZone + 1u
+        else if not loc.BasicBlock.IsCovered then cilState.visitedNotCoveredVerticesOutOfZone <- cilState.visitedNotCoveredVerticesOutOfZone + 1u
              
         cilState.history <- Set.add loc cilState.history
 
@@ -301,27 +291,18 @@ module internal CilStateOperations =
         push value afterCall
 
     let addTarget (state : cilState) target =
-        match state.targets with
-        | Some targets -> state.targets <- Some (Set.add target targets)
-        | None -> state.targets <- Some (Set.add target Set.empty)
+        let prev = state.targets
+        state.targets <- Set.add target prev
+        prev.Count <> state.targets.Count
 
     let removeTarget (state : cilState) target =
-        match state.targets with
-        | Some targets ->
-            let newTargets = Set.remove target targets
-            if newTargets.Count = 0 then
-                state.targets <- None
-            else
-                state.targets <- Some <| Set.remove target targets
-        | None -> ()
-
-    let checkTargets (state : cilState) =
-        match state.targets with
-        | Some targets -> targets.Count <> 0
-        | None -> true
+        let prev = state.targets
+        state.targets <- Set.remove target prev
+        prev.Count <> state.targets.Count
 
     // ------------------------------- Helper functions for cilState -------------------------------
 
+    // TODO: not used
     let moveIp offset (m : Method) cilState =
         assert m.HasBody
         let opCode = MethodBody.parseInstruction m offset

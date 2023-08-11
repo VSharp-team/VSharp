@@ -69,6 +69,7 @@ module Branching =
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState elsePc
                     elseState.model <- model.mdl
+                    assert(PC.toSeq elsePc |> conjunction |> elseState.model.Eval |> isTrue)
                     thenState.pc <- PC.add pc condition
                     TypeStorage.addTypeConstraint typeStorageCopy.Constraints condition
                     thenState.typeStorage <- typeStorageCopy
@@ -104,6 +105,7 @@ module Branching =
                     let thenState = conditionState
                     let elseState = Memory.copy conditionState (PC.add pc notCondition)
                     thenState.model <- model.mdl
+                    assert(PC.toSeq thenPc |> conjunction |> thenState.model.Eval |> isTrue)
                     TypeStorage.addTypeConstraint typeStorageCopy.Constraints notCondition
                     elseState.typeStorage <- typeStorageCopy
                     TypeSolver.refineTypes elseState

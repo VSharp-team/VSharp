@@ -6,7 +6,6 @@ namespace VSharp.Test;
 
 public record TestStatistics(
     MethodInfo TestMethodInfo,
-    bool IsGuidedMode,
     bool ReleaseBranchesEnabled,
     int Timeout,
     SearchStrategy SearchStrategy,

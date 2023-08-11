@@ -194,11 +194,12 @@ and CfgInfo internal (method : MethodWithBody, getNextBasicBlockGlobalId: unit -
                     found <- true
                     index <- currentIndex
                 | _ -> currentIndex <- currentIndex - 1
+
             found <- false
-            
+            let instructions = method.ParsedInstructions
             while not found do
-                if method.ParsedInstructions.ContainsKey (index *1<offsets>)
-                then found <- true
+                if instructions.ContainsKey (Offset.from index) then
+                    found <- true
                 else index <- index - 1
             Offset.from index
 
@@ -389,22 +390,15 @@ and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
     let cfg = lazy(
         if this.HasBody then
             Logger.trace $"Add CFG for {this}."
-            let cfg = CfgInfo(this, getNextBasicBlockGlobalId) |> Some
+            let cfg = CfgInfo(this, getNextBasicBlockGlobalId)
             Method.ReportCFGLoaded this
             cfg
-        else None)
+        else internalfailf $"Getting CFG of method {this} without body (extern or abstract)")
 
     member x.CFG with get() = cfg.Force()
 
-    member x.ForceCFG with get() =
-        match x.CFG with
-        | Some cfg -> cfg
-        | None -> internalfailf $"Getting CFG of method {x} without body (extern or abstract)"
-
     member x.BasicBlocks with get() =
-        match x.CFG with
-        | Some cfg -> cfg.SortedBasicBlocks
-        | None -> ResizeArray()
+        x.CFG.SortedBasicBlocks
 
     // Helps resolving cyclic dependencies between Application and MethodWithBody
     [<DefaultValue>] static val mutable private cfgReporter : Method -> unit
@@ -412,21 +406,11 @@ and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
     static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
 
     member x.InCoverageZone with get() = Method.CoverageZone x
-            
-    interface IReversedCallGraphNode with
-        member this.OutgoingEdges with get () =
-            let edges = HashSet<_>()
-            match this.CFG with
-            | Some cfg -> 
-                for bb in cfg.EntryPoint.IncomingCallEdges do                
-                    edges.Add bb.Method |> ignore
-            | None -> ()
-            edges |> Seq.cast<IReversedCallGraphNode>
 
     interface ICallGraphNode with
         member this.OutgoingEdges with get () =
             let edges = HashSet<_>()
-            for bb in this.ForceCFG.Sinks do
+            for bb in this.CFG.Sinks do
                 for kvp in bb.OutgoingEdges do
                     if kvp.Key <> CfgInfo.TerminalForCFGEdge
                     then
@@ -435,7 +419,13 @@ and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
                             assert added
             edges |> Seq.cast<ICallGraphNode>
 
-    
+    interface IReversedCallGraphNode with
+        member this.OutgoingEdges with get () =
+            let edges = HashSet<_>()
+            for bb in this.CFG.EntryPoint.IncomingCallEdges do
+                edges.Add bb.Method |> ignore
+            edges |> Seq.cast<IReversedCallGraphNode>
+
     static member val internal AttributesZone : Method -> bool = fun _ -> true with get, set
 
     member x.CheckAttributes with get() = Method.AttributesZone x
@@ -488,13 +478,19 @@ and Method internal (m : MethodBase,getNextBasicBlockGlobalId) as this =
         else res <- value
         res
 
+    member x.InstrsToString() =
+        let mutable sb = System.Text.StringBuilder()
+        for b in x.BasicBlocks do
+            for instr in b.ToString() do
+                sb <- sb.AppendLine(instr)
+            sb <- sb.AppendLine()
+        sb.ToString()
+
 and
     [<CustomEquality; CustomComparison>]
     public codeLocation = {offset : offset; method : Method}
         with
-        member x.BasicBlock =
-            Option.map (fun (cfg : CfgInfo) -> cfg.ResolveBasicBlock x.offset) x.method.CFG
-        member x.ForceBasicBlock with get() = x.method.ForceCFG.ResolveBasicBlock x.offset
+        member x.BasicBlock = x.method.CFG.ResolveBasicBlock x.offset
         override x.Equals y =
             match y with
             | :? codeLocation as y -> x.offset = y.offset && x.method.Equals(y.method)
@@ -524,44 +520,26 @@ and IGraphTrackableState =
 module public CodeLocation =
 
     let hasSiblings (blockStart : codeLocation) =
-        match blockStart.method.CFG with
-        | Some cfg -> cfg.HasSiblings blockStart.offset
-        | None -> false
+        blockStart.method.CFG.HasSiblings blockStart.offset
 
 type ApplicationGraph(getNextBasicBlockGlobalId) =
     
     let dummyTerminalForCallEdge = 1<terminalSymbol>
     let dummyTerminalForReturnEdge = 2<terminalSymbol>
-    
-    let addCallEdge (callSource:codeLocation) (callTarget:codeLocation) =   
-        let callerMethodCfgInfo = callSource.method.ForceCFG
-        let calledMethodCfgInfo = callTarget.method.ForceCFG
-        let callFrom = callSource.ForceBasicBlock
+
+    let addCallEdge (callSource : codeLocation) (callTarget : codeLocation) =
+        let callerMethodCfgInfo = callSource.method.CFG
+        let calledMethodCfgInfo = callTarget.method.CFG
+        let callFrom = callSource.BasicBlock
         let callTo = calledMethodCfgInfo.EntryPoint
-        let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.ForceBasicBlock  
-        let mutable needInvalidate = false
-        if not <| callTo.IncomingCallEdges.Contains callFrom
-        then
-            let returnTo =
-                if callTarget.method.IsStaticConstructor || not exists // if not exists then it should be from exception mechanism
-                then callFrom
-                else
-                    let returnTo = callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
-                    
-                    needInvalidate <-
-                        callFrom.OutgoingEdges.Remove CfgInfo.TerminalForCFGEdge
-                        && returnTo.IncomingCFGEdges.Remove callFrom
-                    if needInvalidate
-                    then
-                        callFrom.OutgoingEdges.Add(CallGraph.dummyTerminalForCallShortcut, HashSet<_>([returnTo]))
-                    returnTo
-                    
-                                        
-            if not (callTarget.method.IsStaticConstructor || not exists)
-            then
-                let exists,callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
-                if exists
-                then
+        let exists, location = callerMethodCfgInfo.Calls.TryGetValue callSource.BasicBlock
+        if not <| callTo.IncomingCallEdges.Contains callFrom then
+            let mutable returnTo = callFrom
+            // if not exists then it should be from exception mechanism
+            if not callTarget.method.IsStaticConstructor && exists then
+                returnTo <- callerMethodCfgInfo.ResolveBasicBlock location.ReturnTo
+                let exists, callEdges = callFrom.OutgoingEdges.TryGetValue dummyTerminalForCallEdge
+                if exists then
                     let added = callEdges.Add callTo
                     assert added
                 else
@@ -585,43 +563,47 @@ type ApplicationGraph(getNextBasicBlockGlobalId) =
         else ()
 
     let moveState (initialPosition: codeLocation) (stateWithNewPosition: IGraphTrackableState) =
-        let removed = initialPosition.ForceBasicBlock.AssociatedStates.Remove stateWithNewPosition
+        let removed = initialPosition.BasicBlock.AssociatedStates.Remove stateWithNewPosition
         if removed        
         then
-            let added = stateWithNewPosition.CodeLocation.ForceBasicBlock.AssociatedStates.Add stateWithNewPosition
+            let added = stateWithNewPosition.CodeLocation.BasicBlock.AssociatedStates.Add stateWithNewPosition
             assert added 
-        if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.ForceBasicBlock
+        if stateWithNewPosition.History.ContainsKey stateWithNewPosition.CodeLocation.BasicBlock
         then
              if initialPosition.BasicBlock <> stateWithNewPosition.CodeLocation.BasicBlock
-             then stateWithNewPosition.History[stateWithNewPosition.CodeLocation.ForceBasicBlock]
-                    <- stateWithNewPosition.History[stateWithNewPosition.CodeLocation.ForceBasicBlock] + 1u
-        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.ForceBasicBlock, 1u)
-        stateWithNewPosition.CodeLocation.ForceBasicBlock.VisitedInstructions <-
+             then stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock]
+                    <- stateWithNewPosition.History[stateWithNewPosition.CodeLocation.BasicBlock] + 1u
+        else stateWithNewPosition.History.Add(stateWithNewPosition.CodeLocation.BasicBlock, 1u)
+        stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions <-
             max
-                stateWithNewPosition.CodeLocation.ForceBasicBlock.VisitedInstructions
-                (uint ((stateWithNewPosition.CodeLocation.ForceBasicBlock.GetInstructions()
+                stateWithNewPosition.CodeLocation.BasicBlock.VisitedInstructions
+                (uint ((stateWithNewPosition.CodeLocation.BasicBlock.GetInstructions()
                       |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = stateWithNewPosition.CodeLocation.offset)) + 1))       
-        stateWithNewPosition.CodeLocation.ForceBasicBlock.IsVisited <-
-            stateWithNewPosition.CodeLocation.ForceBasicBlock.IsVisited
-            || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.ForceBasicBlock.FinalOffset
+        stateWithNewPosition.CodeLocation.BasicBlock.IsVisited <-
+            stateWithNewPosition.CodeLocation.BasicBlock.IsVisited
+            || stateWithNewPosition.CodeLocation.offset = stateWithNewPosition.CodeLocation.BasicBlock.FinalOffset
     
     let addStates (parentState:Option<IGraphTrackableState>) (states:array<IGraphTrackableState>) =
         for newState in states do
-            newState.CodeLocation.ForceBasicBlock.AssociatedStates.Add newState
-            if newState.History.ContainsKey newState.CodeLocation.ForceBasicBlock
-            then newState.History[newState.CodeLocation.ForceBasicBlock] <- newState.History[newState.CodeLocation.ForceBasicBlock] + 1u
-            else newState.History.Add(newState.CodeLocation.ForceBasicBlock, 1u)
-            newState.CodeLocation.ForceBasicBlock.VisitedInstructions <-
+            newState.CodeLocation.BasicBlock.AssociatedStates.Add newState
+            if newState.History.ContainsKey newState.CodeLocation.BasicBlock
+            then newState.History[newState.CodeLocation.BasicBlock] <- newState.History[newState.CodeLocation.BasicBlock] + 1u
+            else newState.History.Add(newState.CodeLocation.BasicBlock, 1u)
+            newState.CodeLocation.BasicBlock.VisitedInstructions <-
                 max
-                    newState.CodeLocation.ForceBasicBlock.VisitedInstructions
-                    (uint ((newState.CodeLocation.ForceBasicBlock.GetInstructions()
+                    newState.CodeLocation.BasicBlock.VisitedInstructions
+                    (uint ((newState.CodeLocation.BasicBlock.GetInstructions()
                           |> Seq.findIndex (fun instr -> Offset.from (int instr.offset) = newState.CodeLocation.offset)) + 1))
-            newState.CodeLocation.ForceBasicBlock.IsVisited <-
-                newState.CodeLocation.ForceBasicBlock.IsVisited
-                || newState.CodeLocation.offset = newState.CodeLocation.ForceBasicBlock.FinalOffset
+            newState.CodeLocation.BasicBlock.IsVisited <-
+                newState.CodeLocation.BasicBlock.IsVisited
+                || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
+
+    let addStates (parentState : Option<IGraphTrackableState>) (states : array<IGraphTrackableState>) =
+        // Not implemented yet
+        ()
 
     let getShortestDistancesToGoals (states : array<codeLocation>) =
-        __notImplemented__()    
+        __notImplemented__()
 
     member this.RegisterMethod (method: Method) =
         assert method.HasBody

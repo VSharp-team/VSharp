@@ -27,6 +27,8 @@ namespace VSharp.Test
         ShortestDistance,
         RandomShortestDistance,
         ContributedCoverage,
+        ExecutionTree,
+        ExecutionTreeContributedCoverage,
         Interleaved
     }
 
@@ -41,6 +43,13 @@ namespace VSharp.Test
     {
         Run,
         RenderAndRun
+    }
+
+    public enum OsType
+    {
+        All,
+        Windows,
+        Unix
     }
 
     public class TestSvmFixtureAttribute : NUnitAttribute, IFixtureBuilder
@@ -91,25 +100,29 @@ namespace VSharp.Test
         private readonly SearchStrategy _strat;
         private readonly CoverageZone _coverageZone;
         private readonly TestsCheckerMode _testsCheckerMode;
-        private readonly bool _guidedMode;
         private readonly bool _releaseBranches;
         private readonly bool _checkAttributes;
         private readonly bool _hasExternMocking;
         private readonly string _pathToSerialize;
         private readonly bool _serialize;
+        private readonly OsType _supportedOs;
+        private readonly int _randomSeed;
+        private readonly uint _stepsLimit;
 
         public TestSvmAttribute(
             int expectedCoverage = -1,
-            uint recThresholdForTest = 0u,
+            uint recThresholdForTest = 1u,
             int timeout = -1,
             int solverTimeout = -1,
-            bool guidedMode = true,
             bool releaseBranches = true,
             SearchStrategy strat = SearchStrategy.BFS,
             CoverageZone coverageZone = CoverageZone.Class,
             TestsCheckerMode testsCheckerMode = TestsCheckerMode.RenderAndRun,
             bool hasExternMocking = false,
             bool checkAttributes = true,
+            OsType supportedOs = OsType.All,
+            int randomSeed = 0,
+            uint stepsLimit = 0,
             string serialize = null)
         {
             if (expectedCoverage < 0)
@@ -120,13 +133,16 @@ namespace VSharp.Test
             _recThresholdForTest = recThresholdForTest;
             _timeout = timeout;
             _solverTimeout = solverTimeout;
-            _guidedMode = guidedMode;
             _releaseBranches = releaseBranches;
             _strat = strat;
             _coverageZone = coverageZone;
             _testsCheckerMode = testsCheckerMode;
             _hasExternMocking = hasExternMocking;
             _checkAttributes = checkAttributes;
+            _hasExternMocking = hasExternMocking;
+            _supportedOs = supportedOs;
+            _randomSeed = randomSeed;
+            _stepsLimit = stepsLimit;
             if (serialize == null)
             {
                 _serialize = false;
@@ -146,12 +162,14 @@ namespace VSharp.Test
                 _recThresholdForTest,
                 _timeout,
                 _solverTimeout,
-                _guidedMode,
                 _releaseBranches,
                 _strat,
                 _coverageZone,
                 _testsCheckerMode,
                 _checkAttributes,
+                _supportedOs,
+                _randomSeed,
+                _stepsLimit,
                 _hasExternMocking,
                 _serialize,
                 _pathToSerialize
@@ -173,6 +191,9 @@ namespace VSharp.Test
             private readonly bool _renderTests;
             private readonly bool _checkAttributes;
             private readonly bool _hasExternMocking;
+            private readonly OsType _supportedOs;
+            private readonly int _randomSeed;
+            private readonly uint _stepsLimit;
             private readonly string _pathToSerialize;
             private readonly bool _serialize;
 
@@ -182,12 +203,14 @@ namespace VSharp.Test
                 uint recThresholdForTest,
                 int timeout,
                 int solverTimeout,
-                bool guidedMode,
                 bool releaseBranches,
                 SearchStrategy strat,
                 CoverageZone coverageZone,
                 TestsCheckerMode testsCheckerMode,
                 bool checkAttributes,
+                OsType supportedOs,
+                int randomSeed,
+                uint stepsLimit,
                 bool hasExternMocking,
                 bool serialize,
                 string pathToSerialize) : base(innerCommand)
@@ -217,6 +240,8 @@ namespace VSharp.Test
                     SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                     SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                     SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                    SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
+                    SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                     SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                     _ => throw new ArgumentOutOfRangeException(nameof(strat), strat, null)
                 };
@@ -230,25 +255,38 @@ namespace VSharp.Test
                 };
 
                 _renderTests = testsCheckerMode == TestsCheckerMode.RenderAndRun;
-
-                if (guidedMode)
-                {
-                    _searchStrat = searchMode.NewGuidedMode(_searchStrat);
-                }
-
                 _checkAttributes = checkAttributes;
-
                 _hasExternMocking = hasExternMocking;
+                _supportedOs = supportedOs;
+                _randomSeed = randomSeed;
+                _stepsLimit = stepsLimit;
                 _serialize = serialize;
                 _pathToSerialize = pathToSerialize;
+            }
+
+            private TestResult IgnoreTest(TestExecutionContext context)
+            {
+                context.CurrentResult.SetResult(ResultState.Skipped);
+                return context.CurrentResult;
             }
 
             private TestResult Explore(TestExecutionContext context)
             {
                 if (_hasExternMocking && !ExternMocker.ExtMocksSupported)
+                    return IgnoreTest(context);
+
+                switch (_supportedOs)
                 {
-                    context.CurrentResult.SetResult(ResultState.Skipped);
-                    return context.CurrentResult;
+                    case OsType.Windows:
+                        if (!OperatingSystem.IsWindows())
+                            return IgnoreTest(context);
+                        break;
+                    case OsType.Unix:
+                        if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
+                            return IgnoreTest(context);
+                        break;
+                    case OsType.All:
+                        break;
                 }
 
                 IStatisticsReporter reporter = null;
@@ -268,7 +306,6 @@ namespace VSharp.Test
                 var exploredMethodInfo = (MethodInfo) AssemblyManager.NormalizeMethod(originMethodInfo);
                 var stats = new TestStatistics(
                     exploredMethodInfo,
-                    _searchStrat.IsGuidedMode,
                     _releaseBranches,
                     _timeout,
                     _baseSearchStrat,
@@ -277,7 +314,7 @@ namespace VSharp.Test
 
                 try
                 {
-                    UnitTests unitTests = new UnitTests(Directory.GetCurrentDirectory());
+                    var unitTests = new UnitTests(Directory.GetCurrentDirectory());
                     _options = new SiliOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
                         outputDirectory: unitTests.TestDirectory,
@@ -289,6 +326,8 @@ namespace VSharp.Test
                         maxBufferSize: 128,
                         checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
+                        randomSeed: _randomSeed,
+                        stepsLimit: _stepsLimit,
                         oracle:null,
                         coverageToSwitchToAI:0,
                         stepsToPlay:0,
@@ -314,7 +353,7 @@ namespace VSharp.Test
                     }
 
                     explorer.Statistics.PrintDebugStatistics(TestContext.Out);
-                    TestContext.Out.WriteLine("Test results written to {0}", unitTests.TestDirectory.FullName);
+                    TestContext.Out.WriteLine($"Test results written to {unitTests.TestDirectory.FullName}");
                     unitTests.WriteReport(explorer.Statistics.PrintDebugStatistics);
 
                     stats = stats with

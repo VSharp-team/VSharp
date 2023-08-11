@@ -10,81 +10,30 @@ using System.Text;
 using VSharp.CSharpUtils;
 using VSharp.IL;
 using VSharp.Interpreter.IL;
-using VSharp.Solver;
 
 namespace VSharp
 {
-    /// <summary>
-    /// Strategy which symbolic virtual machine uses for branch selection.
-    /// </summary>
-    public enum SearchStrategy
-    {
-        /// <summary>
-        /// Depth-first search strategy.
-        /// </summary>
-        DFS,
-        /// <summary>
-        /// Breadth-first search strategy.
-        /// </summary>
-        BFS,
-        /// <summary>
-        /// Picks the state closest to not covered locations.
-        /// </summary>
-        ShortestDistance,
-        /// <summary>
-        /// With a high probability picks the state closest to not covered locations.
-        /// </summary>
-        RandomShortestDistance,
-        /// <summary>
-        /// Picks a state which has visited the largest number of not covered locations.
-        /// </summary>
-        ContributedCoverage,
-        /// <summary>
-        /// Interleaves <see cref="ShortestDistance"/> and <see cref="ContributedCoverage"/> strategies.
-        /// </summary>
-        Interleaved,
-        AI
-    }
-
-    /// <summary>
-    /// Determines which messages are displayed in output.
-    /// </summary>
-    public enum Verbosity
-    {
-        /// <summary>
-        /// No output messages.
-        /// </summary>
-        Quiet,
-        /// <summary>
-        /// Only critical error messages.
-        /// </summary>
-        Critical,
-        /// <summary>
-        /// Only error messages.
-        /// </summary>
-        Error,
-        /// <summary>
-        /// Error and warning messages.
-        /// </summary>
-        Warning,
-        /// <summary>
-        /// Error, warning and info messages.
-        /// </summary>
-        Info
-    }
-
     /// <summary>
     /// Summary of V# test generation process.
     /// </summary>
     public sealed class Statistics
     {
-        internal Statistics(TimeSpan time, DirectoryInfo outputDir, uint tests, uint errors, IEnumerable<string> iies)
+        internal Statistics(
+            TimeSpan time,
+            DirectoryInfo outputDir,
+            uint testsCount,
+            uint errorsCount,
+            uint stepsCount,
+            IEnumerable<string> iies,
+            IEnumerable<GeneratedTestInfo> generatedTestInfos)
         {
             TestGenerationTime = time;
             OutputDir = outputDir;
-            TestsCount = tests;
-            ErrorsCount = errors;
+            TestsCount = testsCount;
+            ErrorsCount = errorsCount;
+            StepsCount = stepsCount;
             IncompleteBranches = iies;
+            GeneratedTestInfos = generatedTestInfos;
         }
 
         /// <summary>
@@ -108,9 +57,19 @@ namespace VSharp
         public uint ErrorsCount { get; }
 
         /// <summary>
+        /// The amount of symbolic machine steps.
+        /// </summary>
+        public uint StepsCount { get; }
+
+        /// <summary>
         /// Some program branches might be failed to investigate. This enumerates the reasons of such failures.
         /// </summary>
         public IEnumerable<string> IncompleteBranches { get; }
+
+        /// <summary>
+        /// Generated tests statistics.
+        /// </summary>
+        public IEnumerable<GeneratedTestInfo> GeneratedTestInfos { get; }
 
         /// <summary>
         /// Writes textual summary of test generation process.
@@ -125,13 +84,13 @@ namespace VSharp
             if (count > 0)
             {
                 writer.WriteLine();
-                writer.WriteLine("{0} branch(es) with insufficient input information!", count);
+                writer.WriteLine($"{count} branch(es) with insufficient input information!");
                 foreach (var message in IncompleteBranches)
                 {
                     writer.WriteLine(message);
                 }
             }
-            writer.WriteLine("Test results written to {0}", OutputDir.FullName);
+            writer.WriteLine($"Test results written to {OutputDir.FullName}");
             writer.WriteLine($"Tests generated: {TestsCount}");
             writer.WriteLine($"Errors generated: {ErrorsCount}");
         }
@@ -147,29 +106,18 @@ namespace VSharp
 
     public static class TestGenerator
     {
-        public const SearchStrategy DefaultSearchStrategy = SearchStrategy.BFS;
-        public const Verbosity DefaultVerbosity = Verbosity.Quiet;
-
         private static Statistics StartExploration(
             IEnumerable<MethodBase> methods,
-            string resultsFolder,
             coverageZone coverageZone,
-            SearchStrategy searchStrategy,
-            Verbosity verbosity,
-            string[]? mainArguments = null,
-            int timeout = -1,
-            int solverTimeout = -1,
-            Oracle? oracle = null,
-            uint coverageToSwitchToAI = 0,
-            uint stepsToPlay = 0)
+            VSharpOptions options,
+            string[]? mainArguments = null)
         {
-            Logger.currentLogLevel = verbosity.ToLoggerLevel();
+            Logger.currentLogLevel = options.Verbosity.ToLoggerLevel();
 
-            var recThreshold = 0u;
-            var unitTests = new UnitTests(resultsFolder);
-            var baseSearchMode = searchStrategy.ToSiliMode();
+            var unitTests = new UnitTests(options.OutputDirectory);
+            var baseSearchMode = options.SearchStrategy.ToSiliMode();
             // TODO: customize search strategies via console options
-            var options =
+            var siliOptions =
                 new SiliOptions(
                     explorationMode: explorationMode.NewTestCoverageMode(
                         coverageZone,
@@ -177,25 +125,28 @@ namespace VSharp
                         baseSearchMode
                     ),
                     outputDirectory: unitTests.TestDirectory,
-                    recThreshold: recThreshold,
-                    timeout: timeout,
-                    solverTimeout: solverTimeout,
+                    recThreshold: options.RecursionThreshold,
+                    timeout: options.Timeout,
+                    solverTimeout: options.SolverTimeout,
                     visualize: false,
-                    releaseBranches: true,
+                    releaseBranches: options.ReleaseBranches,
                     maxBufferSize: 128,
                     checkAttributes: true,
                     stopOnCoverageAchieved: 100,
-                    oracle:oracle,
-                    coverageToSwitchToAI:coverageToSwitchToAI,
-                    stepsToPlay:stepsToPlay,
+                    randomSeed: options.RandomSeed,
+                    stepsLimit: options.StepsLimit,
+                    oracle: options.Oracle,
+                    coverageToSwitchToAI:options.CoverageToSwitchToAI,
+                    stepsToPlay:options.StepsToPlay,
                     serialize:false,
                     pathToSerialize:"");
 
-            using var explorer = new SILI(options);
+            using var explorer = new SILI(siliOptions);
+            var statistics = explorer.Statistics;
 
             void HandleInternalFail(Method? method, Exception exception)
             {
-                if (verbosity == Verbosity.Quiet)
+                if (options.Verbosity == Verbosity.Quiet)
                 {
                     return;
                 }
@@ -229,7 +180,7 @@ namespace VSharp
 
             void HandleCrash(Exception exception)
             {
-                if (verbosity == Verbosity.Quiet)
+                if (options.Verbosity == Verbosity.Quiet)
                 {
                     return;
                 }
@@ -243,7 +194,6 @@ namespace VSharp
             foreach (var method in methods)
             {
                 var normalizedMethod = AssemblyManager.NormalizeMethod(method);
-
                 if (normalizedMethod == normalizedMethod.Module.Assembly.EntryPoint)
                 {
                     entryPoints.Add(new Tuple<MethodBase, string[]?>(normalizedMethod, mainArguments));
@@ -253,19 +203,40 @@ namespace VSharp
                     isolated.Add(normalizedMethod);
                 }
             }
-            explorer.Stop();
-            explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
+
+            var testInfos = new List<GeneratedTestInfo>();
+
+            void OnTest(UnitTest test)
+            {
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(false, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
+                unitTests.GenerateTest(test);
+            }
+
+            void OnError(UnitTest test)
+            {
+                var coverage = statistics.GetCurrentCoverage();
+                testInfos.Add(new GeneratedTestInfo(true, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
+                unitTests.GenerateError(test);
+            }
+
+            explorer.Interpret(isolated, entryPoints, OnTest, OnError, _ => { },
                 HandleInternalFail, HandleCrash);
 
-            var statistics = new Statistics(explorer.Statistics.CurrentExplorationTime, unitTests.TestDirectory,
-                unitTests.UnitTestsCount, unitTests.ErrorsCount,
-                explorer.Statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct());
-            unitTests.WriteReport(explorer.Statistics.PrintStatistics);
-            explorer.Reset(null);
-            return statistics;
+            var result = new Statistics(
+                statistics.CurrentExplorationTime,
+                unitTests.TestDirectory,
+                unitTests.UnitTestsCount,
+                unitTests.ErrorsCount,
+                statistics.StepsCount,
+                statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
+                testInfos);
+            unitTests.WriteReport(statistics.PrintStatistics);
+
+            return result;
         }
 
-        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false)
+        private static void Render(Statistics statistics, Type? declaringType = null, bool singleFile = false, DirectoryInfo? outputDir = null)
         {
             TestRenderer.Renderer.Render(
                 statistics.Results(),
@@ -273,7 +244,7 @@ namespace VSharp
                 singleFile,
                 declaringType,
                 // Getting parent directory of tests: "VSharp.tests.*/.."
-                statistics.OutputDir.Parent
+                outputDir ?? statistics.OutputDir.Parent
             );
         }
 
@@ -286,6 +257,8 @@ namespace VSharp
                 SearchStrategy.ShortestDistance => searchMode.ShortestDistanceBasedMode,
                 SearchStrategy.RandomShortestDistance => searchMode.RandomShortestDistanceBasedMode,
                 SearchStrategy.ContributedCoverage => searchMode.ContributedCoverageMode,
+                SearchStrategy.ExecutionTree => searchMode.ExecutionTreeMode,
+                SearchStrategy.ExecutionTreeContributedCoverage => searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1),
                 SearchStrategy.Interleaved => searchMode.NewInterleavedMode(searchMode.ShortestDistanceBasedMode, 1, searchMode.ContributedCoverageMode, 9),
                 SearchStrategy.AI => searchMode.AIMode,
                 _ => throw new UnreachableException("Unknown search strategy")
@@ -301,6 +274,7 @@ namespace VSharp
                 Verbosity.Error => Logger.Error,
                 Verbosity.Warning => Logger.Warning,
                 Verbosity.Info => Logger.Info,
+                Verbosity.Trace => Logger.Trace,
                 _ => throw new UnreachableException("Unknown verbosity level")
             };
         }
@@ -314,40 +288,17 @@ namespace VSharp
         /// Generates test coverage for specified method.
         /// </summary>
         /// <param name="method">Method to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
-        public static Statistics Cover(
-            MethodBase method,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity,
-            Oracle? oracle = null,
-            uint coverageToSwitchToAI = 0,
-            uint stepsToPlay = 0)
+        public static Statistics Cover(MethodBase method, VSharpOptions options = new())
         {
             AssemblyManager.LoadCopy(method.Module.Assembly);
             var methods = new List<MethodBase> {method};
-            var statistics = StartExploration(methods,
-                outputDirectory,
-                coverageZone.MethodZone,
-                searchStrategy,
-                verbosity,
-                null,
-                timeout,
-                solverTimeout,
-                oracle,
-                coverageToSwitchToAI,
-                stepsToPlay);
-            if (renderTests)
-                Render(statistics, method.DeclaringType);
+            var statistics = StartExploration(methods, coverageZone.MethodZone, options);
+
+            if (options.RenderTests)
+                Render(statistics, method.DeclaringType, outputDir: options.RenderedTestsDirectoryInfo);
+            
             return statistics;
         }
 
@@ -355,21 +306,9 @@ namespace VSharp
         /// Generates test coverage for specified methods.
         /// </summary>
         /// <param name="methods">Methods to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
-        public static Statistics Cover(
-            IEnumerable<MethodBase> methods,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static Statistics Cover(IEnumerable<MethodBase> methods, VSharpOptions options = new())
         {
             var methodArray = methods as MethodBase[] ?? methods.ToArray();
             var types = new HashSet<Type>();
@@ -401,10 +340,10 @@ namespace VSharp
                 zone = coverageZone.ClassZone;
             }
 
-            var statistics = StartExploration(methodArray, outputDirectory, zone, searchStrategy, verbosity, null, timeout, solverTimeout);
+            var statistics = StartExploration(methodArray, zone, options);
 
-            if (renderTests)
-                Render(statistics, types.SingleOrDefault());
+            if (options.RenderTests)
+                Render(statistics, types.SingleOrDefault(), outputDir: options.RenderedTestsDirectoryInfo);
 
             return statistics;
         }
@@ -413,26 +352,10 @@ namespace VSharp
         /// Generates test coverage for all public methods of specified type.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static Statistics Cover(
-            Type type,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity,
-            Oracle? oracle = null,
-            uint coverageToSwitchToAI = 0,
-            uint stepsToPlay = 0
-            )
+        public static Statistics Cover(Type type, VSharpOptions options = new())
         {
             AssemblyManager.LoadCopy(type.Module.Assembly);
 
@@ -442,9 +365,11 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method or constructor of class " + type.FullName);
             }
 
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout, solverTimeout, oracle, coverageToSwitchToAI, stepsToPlay);
-            if (renderTests)
-                Render(statistics, type);
+            var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
+            if (options.RenderTests)
+                Render(statistics, type, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -452,22 +377,10 @@ namespace VSharp
         /// Generates test coverage for all public methods of specified types.
         /// </summary>
         /// <param name="types">Types to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
-        /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods..</exception>
-        public static Statistics Cover(
-            IEnumerable<Type> types,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods.</exception>
+        public static Statistics Cover(IEnumerable<Type> types, VSharpOptions options = new())
         {
             var methods = new List<MethodBase>();
             var typesArray = types as Type[] ?? types.ToArray();
@@ -481,7 +394,7 @@ namespace VSharp
 
             if (methods.Count == 0)
             {
-                var names = String.Join(", ", typesArray.Select(t => t.FullName));
+                var names = string.Join(", ", typesArray.Select(t => t.FullName));
                 throw new ArgumentException("I've not found any public methods or constructors of classes " + names);
             }
 
@@ -490,9 +403,11 @@ namespace VSharp
                 AssemblyManager.LoadCopy(assembly);
             }
 
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.ClassZone, searchStrategy, verbosity, null, timeout, solverTimeout);
-            if (renderTests)
-                Render(statistics);
+            var statistics = StartExploration(methods, coverageZone.ClassZone, options);
+
+            if (options.RenderTests)
+                Render(statistics, outputDir: options.RenderedTestsDirectoryInfo);
+
             return statistics;
         }
 
@@ -500,25 +415,12 @@ namespace VSharp
         /// Generates test coverage for all public methods of all public classes in the specified assembly.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="renderSingleFile">Forces tests generator to render all NUnit tests to one file</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
+        /// <param name="renderSingleFile">Forces tests generator to render all NUnit tests to one file.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static Statistics Cover(
-            Assembly assembly,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            bool renderSingleFile = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static Statistics Cover(Assembly assembly, VSharpOptions options = new(), bool renderSingleFile = false)
         {
             AssemblyManager.LoadCopy(assembly);
             var methods =
@@ -528,9 +430,9 @@ namespace VSharp
                 throw new ArgumentException("I've not found any public method in assembly");
             }
 
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.ModuleZone, searchStrategy, verbosity, null, timeout, solverTimeout);
-            if (renderTests)
-                Render(statistics, singleFile:renderSingleFile);
+            var statistics = StartExploration(methods, coverageZone.ModuleZone, options);
+            if (options.RenderTests)
+                Render(statistics, singleFile: renderSingleFile, outputDir: options.RenderedTestsDirectoryInfo);
             return statistics;
         }
 
@@ -538,25 +440,12 @@ namespace VSharp
         /// Generates test coverage for the entry point of the specified assembly.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="args">Command line arguments of entry point</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="args">Command line arguments of entry point.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>Summary of tests generation process.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.
         /// </exception>
-        public static Statistics Cover(
-            Assembly assembly,
-            string[]? args,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static Statistics Cover(Assembly assembly, string[]? args, VSharpOptions options = new())
         {
             AssemblyManager.LoadCopy(assembly);
 
@@ -568,8 +457,8 @@ namespace VSharp
 
             var methods = new List<MethodBase> { entryPoint };
 
-            var statistics = StartExploration(methods, outputDirectory, coverageZone.MethodZone, searchStrategy, verbosity, args, timeout, solverTimeout);
-            if (renderTests)
+            var statistics = StartExploration(methods, coverageZone.MethodZone, options, args);
+            if (options.RenderTests)
                 Render(statistics);
             return statistics;
         }
@@ -578,151 +467,84 @@ namespace VSharp
         /// Generates test coverage for the specified method and runs all tests.
         /// </summary>
         /// <param name="method">Method to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(
-            MethodBase method,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(MethodBase method, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(method, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(method, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified methods and runs all tests.
         /// </summary>
         /// <param name="methods">Methods to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
-        public static bool CoverAndRun(
-            IEnumerable<MethodBase> methods,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(IEnumerable<MethodBase> methods, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(methods, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(methods, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified type and runs all tests.
         /// </summary>
         /// <param name="type">Type to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified class does not contain public methods.</exception>
-        public static bool CoverAndRun(
-            Type type,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(Type type, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(type, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(type, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for the specified types and runs all tests.
         /// </summary>
         /// <param name="types">Types to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interuption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if specified classes don't contain public methods.</exception>
-        public static bool CoverAndRun(
-            IEnumerable<Type> types,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(IEnumerable<Type> types, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(types, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(types, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for all public methods of all public classes of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if no public methods found in assembly.
         /// </exception>
-        public static bool CoverAndRun(
-            Assembly assembly,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(Assembly assembly, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(assembly, timeout, solverTimeout, outputDirectory, renderTests, false, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(assembly, options);
+            return Reproduce(statistics.OutputDir);
         }
 
         /// <summary>
         /// Generates test coverage for entry point of the specified assembly and runs all tests.
         /// </summary>
         /// <param name="assembly">Assembly to be covered with tests.</param>
-        /// <param name="args">Command line arguments of entry point</param>
-        /// <param name="timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
-        /// <param name="solverTimeout">Timeout for SMT solver in seconds. Negative value means no timeout.</param>
-        /// <param name="outputDirectory">Directory to place generated *.vst tests. If null or empty, process working directory is used.</param>
-        /// <param name="renderTests">Flag, that identifies whether to render NUnit tests or not</param>
-        /// <param name="searchStrategy">Strategy which symbolic virtual machine uses for branch selection.</param>
-        /// <param name="verbosity">Determines which messages are displayed in output.</param>
+        /// <param name="args">Command line arguments of entry point.</param>
+        /// <param name="statistics">Summary of tests generation process.</param>
+        /// <param name="options"><see cref="VSharpOptions"/>.</param>
         /// <returns>True if all generated tests have passed.</returns>
         /// <exception cref="ArgumentException">Thrown if assembly does not contain entry point.</exception>
-        public static bool CoverAndRun(
-            Assembly assembly,
-            string[]? args,
-            int timeout = -1,
-            int solverTimeout = -1,
-            string outputDirectory = "",
-            bool renderTests = false,
-            SearchStrategy searchStrategy = DefaultSearchStrategy,
-            Verbosity verbosity = DefaultVerbosity)
+        public static bool CoverAndRun(Assembly assembly, string[]? args, out Statistics statistics, VSharpOptions options = new())
         {
-            var stats = Cover(assembly, args, timeout, solverTimeout, outputDirectory, renderTests, searchStrategy, verbosity);
-            return Reproduce(stats.OutputDir);
+            statistics = Cover(assembly, args, options);
+            return Reproduce(statistics.OutputDir);
         }
     }
 }
