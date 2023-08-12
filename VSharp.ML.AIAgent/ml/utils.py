@@ -22,9 +22,8 @@ def load_model(path: Path, model: torch.nn.Module):
 def convert_to_export(
     old_sd: OrderedDict, new_sd: OrderedDict, last_layer_weights: list[float]
 ):
-    for key, value in [(k, v) for k, v in new_sd.items()]:
-        if key in old_sd:
-            new_sd.update({key: value})
+    for key, value in old_sd.items():
+        new_sd.update({key: value})
 
     new_model = GeneralConfig.EXPORT_MODEL_INIT()
     new_model.load_state_dict(new_sd, strict=False)

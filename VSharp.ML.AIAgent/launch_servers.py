@@ -1,11 +1,14 @@
 import argparse
 import json
+import logging
 import os
 import signal
 import subprocess
+import time
 from contextlib import contextmanager
 from queue import Empty, Queue
 
+import psutil
 from aiohttp import web
 
 from common.constants import SERVER_WORKING_DIR
@@ -13,17 +16,27 @@ from config import BrokerConfig, FeatureConfig, GeneralConfig, ServerConfig
 from connection.broker_conn.classes import ServerInstanceInfo, Undefined, WSUrl
 
 routes = web.RouteTableDef()
+logging.basicConfig(
+    level=GeneralConfig.LOGGER_LEVEL,
+    filename="instance_manager.log",
+    filemode="w",
+    format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
+)
 
 
 @routes.get("/get_ws")
 async def dequeue_instance(request):
     try:
-        server_info = SERVER_INSTANCES.get(timeout=0.1)
-        print(f"issued {server_info}")
+        server_info = SERVER_INSTANCES.get(block=False)
+        assert server_info.pid is Undefined
+        server_info = run_server_instance(
+            port=server_info.port, start_server=START_SERVERS
+        )
+        logging.info(f"issued {server_info}: {psutil.Process(server_info.pid)}")
         return web.json_response(server_info.to_json())
-    except Empty as e:
-        print(f"{os.getpid()} tried to dequeue an empty queue. Waiting...")
-        return web.Response(text=str(e))
+    except Empty:
+        logging.error("Couldn't dequeue instance, the queue is not replenishing")
+        raise
 
 
 @routes.post("/post_ws")
@@ -32,15 +45,16 @@ async def enqueue_instance(request):
     returned_instance_info = ServerInstanceInfo.from_json(
         returned_instance_info_raw.decode("utf-8")
     )
+    logging.info(f"got {returned_instance_info} from client")
 
-    print(f"put back {returned_instance_info}")
-    if FeatureConfig.ON_GAME_SERVER_RESTART:
-        kill_server(returned_instance_info.pid, forget=True)
-        returned_instance_info = run_server_instance(
-            port=returned_instance_info.port, start_server=START_SERVERS
+    if FeatureConfig.ON_GAME_SERVER_RESTART.enabled:
+        kill_server(returned_instance_info)
+        returned_instance_info = ServerInstanceInfo(
+            returned_instance_info.port, returned_instance_info.ws_url, pid=Undefined
         )
 
     SERVER_INSTANCES.put(returned_instance_info)
+    logging.info(f"enqueue {returned_instance_info}")
     return web.HTTPOk()
 
 
@@ -74,16 +88,30 @@ def run_server_instance(port: int, start_server: bool) -> ServerInstanceInfo:
         "--checkactualcoverage",
         "--port",
     ]
-    server_pid = Undefined
-    if start_server:
-        proc = subprocess.Popen(
-            launch_server + [str(port)],
-            start_new_session=True,
-            cwd=SERVER_WORKING_DIR,
-        )
-        server_pid = proc.pid
-        PROCS.append(server_pid)
-        print(f"{server_pid}: " + " ".join(launch_server + [str(port)]))
+    ws_url = get_socket_url(port)
+    if not start_server:
+        return ServerInstanceInfo(port, ws_url, pid=Undefined)
+
+    proc = subprocess.Popen(
+        launch_server + [str(port)],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+        cwd=SERVER_WORKING_DIR,
+    )
+
+    while True:
+        out = proc.stdout.readline()
+        if out and "Smooth!" in out.decode("utf-8"):
+            print(out.decode("utf-8"), end="")
+            break
+
+    server_pid = proc.pid
+    PROCS.append(server_pid)
+    logging.info(
+        f"running new instance on {port=} with {server_pid=}:"
+        + f"{server_pid}: "
+        + " ".join(launch_server + [str(port)])
+    )
 
     ws_url = get_socket_url(port)
     return ServerInstanceInfo(port, ws_url, server_pid)
@@ -100,20 +128,41 @@ def run_servers(
     return servers_info
 
 
-def kill_server(pid: int, forget):
+def kill_server(server_instance: ServerInstanceInfo):
+    os.kill(server_instance.pid, signal.SIGKILL)
+    PROCS.remove(server_instance.pid)
+
+    wait_for_reset_retries = FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+    while wait_for_reset_retries:
+        logging.info(
+            f"Waiting for {server_instance} to die, {wait_for_reset_retries} retries left"
+        )
+        if psutil.Process(server_instance.pid).status() in (
+            psutil.STATUS_DEAD,
+            psutil.STATUS_ZOMBIE,
+        ):
+            break
+        time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
+        wait_for_reset_retries -= 1
+
+    if wait_for_reset_retries == 0:
+        raise RuntimeError(f"{server_instance} could not be killed")
+
+    logging.info(f"killed {psutil.Process(server_instance.pid)}")
+
+
+def kill_process(pid: int):
     os.kill(pid, signal.SIGKILL)
-    if forget:
-        PROCS.remove(pid)
-    print(f"killed {pid}")
+    PROCS.remove(pid)
 
 
 @contextmanager
-def server_manager(server_queue: Queue[ServerInstanceInfo], start_servers: bool):
+def server_manager(server_queue: Queue[ServerInstanceInfo]):
     global PROCS
     servers_info = run_servers(
         num_inst=GeneralConfig.SERVER_COUNT,
         start_port=ServerConfig.VSHARP_INSTANCES_START_PORT,
-        start_servers=start_servers,
+        start_servers=False,
     )
 
     for server_info in servers_info:
@@ -121,8 +170,8 @@ def server_manager(server_queue: Queue[ServerInstanceInfo], start_servers: bool)
     try:
         yield
     finally:
-        for proc in PROCS:
-            kill_server(proc, forget=False)
+        for proc in list(PROCS):
+            kill_process(proc)
         PROCS = []
 
 
@@ -142,7 +191,7 @@ def main():
     PROCS = []
     RESULTS = []
 
-    with server_manager(SERVER_INSTANCES, start_servers=START_SERVERS):
+    with server_manager(SERVER_INSTANCES):
         app = web.Application()
         app.add_routes(routes)
         web.run_app(app, port=BrokerConfig.BROKER_PORT)

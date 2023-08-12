@@ -61,6 +61,13 @@ class SaveEpochsCoveragesFeature:
             self.save_path.mkdir()
 
 
+@dataclass(slots=True, frozen=True)
+class OnGameServerRestartFeature:
+    enabled: bool
+    wait_for_reset_retries: int
+    wait_for_reset_time: float
+
+
 class FeatureConfig:
     VERBOSE_TABLES = True
     SHOW_SUCCESSORS = True
@@ -72,11 +79,14 @@ class FeatureConfig:
     SAVE_EPOCHS_COVERAGES = SaveEpochsCoveragesFeature(
         enabled=True, save_path=Path("./report/epochs_tables/")
     )
-    ON_GAME_SERVER_RESTART = True
+    ON_GAME_SERVER_RESTART = OnGameServerRestartFeature(
+        enabled=True, wait_for_reset_retries=10 * 60, wait_for_reset_time=0.1
+    )
 
 
 class GameServerConnectorConfig:
-    CREATE_CONNECTION_TIMEOUT = 1
+    CREATE_CONNECTION_TIMEOUT_SEC = 1
+    WAIT_FOR_SOCKET_RECONNECTION_MAX_RETRIES = 10 * 60
     RESPONCE_TIMEOUT_SEC = (
         FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec + 1
         if FeatureConfig.DUMP_BY_TIMEOUT.enabled
