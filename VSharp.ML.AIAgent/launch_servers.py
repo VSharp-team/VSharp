@@ -30,7 +30,8 @@ async def dequeue_instance(request):
         server_info = SERVER_INSTANCES.get(block=False)
         assert server_info.pid is Undefined
         server_info = run_server_instance(
-            port=server_info.port, start_server=START_SERVERS
+            port=server_info.port,
+            start_server=FeatureConfig.ON_GAME_SERVER_RESTART.enabled,
         )
         logging.info(f"issued {server_info}: {psutil.Process(server_info.pid)}")
         return web.json_response(server_info.to_json())
@@ -117,12 +118,10 @@ def run_server_instance(port: int, start_server: bool) -> ServerInstanceInfo:
     return ServerInstanceInfo(port, ws_url, server_pid)
 
 
-def run_servers(
-    num_inst: int, start_port: int, start_servers: bool
-) -> list[ServerInstanceInfo]:
+def run_servers(num_inst: int, start_port: int) -> list[ServerInstanceInfo]:
     servers_info = []
     for i in range(num_inst):
-        server_info = run_server_instance(start_port + i, start_server=start_servers)
+        server_info = run_server_instance(start_port + i, False)
         servers_info.append(server_info)
 
     return servers_info
@@ -132,23 +131,20 @@ def kill_server(server_instance: ServerInstanceInfo):
     os.kill(server_instance.pid, signal.SIGKILL)
     PROCS.remove(server_instance.pid)
 
+    proc_info = psutil.Process(server_instance.pid)
     wait_for_reset_retries = FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+
     while wait_for_reset_retries:
         logging.info(
             f"Waiting for {server_instance} to die, {wait_for_reset_retries} retries left"
         )
-        if psutil.Process(server_instance.pid).status() in (
-            psutil.STATUS_DEAD,
-            psutil.STATUS_ZOMBIE,
-        ):
-            break
+        if proc_info.status() in (psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE):
+            logging.info(f"killed {proc_info}")
+            return
         time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
         wait_for_reset_retries -= 1
 
-    if wait_for_reset_retries == 0:
-        raise RuntimeError(f"{server_instance} could not be killed")
-
-    logging.info(f"killed {psutil.Process(server_instance.pid)}")
+    raise RuntimeError(f"{server_instance} could not be killed")
 
 
 def kill_process(pid: int):
@@ -162,7 +158,6 @@ def server_manager(server_queue: Queue[ServerInstanceInfo]):
     servers_info = run_servers(
         num_inst=GeneralConfig.SERVER_COUNT,
         start_port=ServerConfig.VSHARP_INSTANCES_START_PORT,
-        start_servers=False,
     )
 
     for server_info in servers_info:
@@ -176,15 +171,13 @@ def server_manager(server_queue: Queue[ServerInstanceInfo]):
 
 
 def main():
-    global SERVER_INSTANCES, PROCS, RESULTS, START_SERVERS
+    global SERVER_INSTANCES, PROCS, RESULTS
     parser = argparse.ArgumentParser(description="V# instances launcher")
     parser.add_argument(
         "--debug",
         action=argparse.BooleanOptionalAction,
         help="dont launch servers if set",
     )
-    args = parser.parse_args()
-    START_SERVERS = not args.debug
 
     # Queue[ServerInstanceInfo]
     SERVER_INSTANCES = Queue()
