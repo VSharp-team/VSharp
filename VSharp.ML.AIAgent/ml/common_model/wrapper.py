@@ -13,10 +13,16 @@ class CommonModelWrapper(Predictor):
     def __init__(self, model: torch.nn.Module, best_models: dict) -> None:
         self.best_models = best_models
         self._model = model
+        self.model_copy = model
+        self._name = "1"
         # self.name = sum(torch.cat([p.view(-1) for p in self.model.parameters()], dim=0))
 
     def name(self):
         return "Common model"
+
+    def make_copy(self, model_name: str):
+        self.model_copy = copy.deepcopy(self._model)
+        self._name = model_name
 
     def update(self, map_name, map_result):
         map_result = map_result.actual_coverage_percent
@@ -25,7 +31,10 @@ class CommonModelWrapper(Predictor):
                 f"The model with result = {self.best_models[map_name][1]} was replaced with the model with "
                 f"result = {map_result} on the map {map_name}"
             )
-            self.best_models[map_name] = (copy.deepcopy(self._model), map_result)
+            self.best_models[map_name] = (
+                self.model_copy,
+                map_result,
+            )
 
     def model(self):
         return self._model
@@ -45,7 +54,9 @@ class CommonModelWrapper(Predictor):
 
 
 class BestModelsWrapper(Predictor):
-    def __init__(self, model: torch.nn.Module, best_models: dict, optimizer, criterion) -> None:
+    def __init__(
+        self, model: torch.nn.Module, best_models: dict, optimizer, criterion
+    ) -> None:
         self.best_models = best_models
         self._model = model
         self.optimizer = optimizer
@@ -70,7 +81,13 @@ class BestModelsWrapper(Predictor):
             self.best_models[map_name][0], hetero_input, state_map
         )
 
-        back_prop(self.best_models[map_name][0], self._model, hetero_input, self.optimizer, self.criterion)
+        back_prop(
+            self.best_models[map_name][0],
+            self._model,
+            hetero_input,
+            self.optimizer,
+            self.criterion,
+        )
 
         del hetero_input
         return next_step_id

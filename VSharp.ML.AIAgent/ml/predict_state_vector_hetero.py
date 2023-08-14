@@ -123,7 +123,8 @@ class PredictStateVectorHetGNN:
             out = model.forward(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
 
         remapped = []
-
+        if type(out) is dict:
+            out = out["state_vertex"]
         for index, vector in enumerate(out):
             state_vector_mapping = StateVectorMapping(
                 state=reversed_state_map[index],
