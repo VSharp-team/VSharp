@@ -58,12 +58,10 @@ def play_map(
             logging.warning(
                 f"<{with_predictor.name()}>: immediate GameOver on {with_connector.map.MapName}"
             )
-            return GameResult(
-                steps_count=steps,
-                tests_count=0,
-                errors_count=0,
-                actual_coverage_percent=0,
-            ), perf_counter() - start_time
+            return (
+                GameResult(steps, 0, 0, 0),
+                perf_counter() - start_time,
+            )
         if gameover.actual_coverage is not None:
             actual_coverage = gameover.actual_coverage
 
