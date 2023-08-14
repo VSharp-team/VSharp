@@ -22,23 +22,24 @@ public static class Renderer
 
     private static void ManuallyAddReferences(FileInfo testProject, IEnumerable<Assembly> assemblies)
     {
+        var text = File.ReadAllText(testProject.FullName);
         foreach (var assembly in assemblies)
         {
-            var text = File.ReadAllText(testProject.FullName);
             var location = $"<HintPath>{assembly.Location}</HintPath>";
 
             if (text.Contains(location)) continue;
 
+            // TODO: add ItemGroup if need
             var reference = $"<Reference Include=\"{assembly.FullName}\">{NewLine}{location}{NewLine}</Reference>";
             text = text.Replace("</ItemGroup>", $"{reference}{NewLine}</ItemGroup>");
-            File.WriteAllText(testProject.FullName, text);
         }
+        File.WriteAllText(testProject.FullName, text);
     }
 
     private static void AddUnderTestProjectReferences(
         FileInfo testProject,
         FileInfo testingProject,
-        List<Assembly> usedAssemblies)
+        IEnumerable<Assembly> usedAssemblies)
     {
         if (testingProject.Extension == ".csproj")
         {
@@ -54,8 +55,7 @@ public static class Renderer
             // TODO: try to add reference via 'dotnet add reference' (like with '.csproj' reference)
             Debug.Assert(testingProject.Extension == ".dll");
             var assembly = AssemblyManager.LoadFromAssemblyPath(testingProject.FullName);
-            var references = new List<Assembly>(usedAssemblies);
-            references.Add(assembly);
+            var references = new List<Assembly>(usedAssemblies) { assembly };
             ManuallyAddReferences(testProject, references);
         }
     }
@@ -167,7 +167,7 @@ public static class Renderer
         DirectoryInfo outputDir,
         FileInfo testingProject,
         FileInfo? solution,
-        List<Assembly> references,
+        IEnumerable<Assembly> references,
         string? targetFramework = null,
         bool singleFile = false)
     {
@@ -497,7 +497,7 @@ public static class Renderer
         return deserializedTests;
     }
 
-    private static (TestsRenderer.RenderResults, Assembly) RunTestsRenderer(
+    private static (TestsRenderer.ProgramsBuilder, Assembly) RunTestsRenderer(
         IEnumerable<FileInfo> tests,
         Type? declaringType,
         string? testProjectName,

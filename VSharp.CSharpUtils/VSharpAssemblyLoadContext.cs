@@ -93,7 +93,7 @@ namespace VSharp.CSharpUtils
             {
                 if (t.FullName is null)
                 {
-                    // Case for generic parameters
+                    // Case for types, that contains open generic parameters
                     continue;
                 }
 

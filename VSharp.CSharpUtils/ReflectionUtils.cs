@@ -93,7 +93,7 @@ namespace VSharp.CSharpUtils
                 BindingFlags.IgnoreCase | BindingFlags.Static | BindingFlags.Instance
                 | BindingFlags.NonPublic | BindingFlags.Public;
 
-            var methods = t.GetConstructors().Concat<MethodBase>(t.GetMethods(flags));
+            var methods = t.GetConstructors(flags).Concat<MethodBase>(t.GetMethods(flags));
             return methods.Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t));
         }
 

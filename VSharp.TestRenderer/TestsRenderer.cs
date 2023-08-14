@@ -652,16 +652,10 @@ public static class TestsRenderer
         return typeName;
     }
 
-    internal class RenderResults
+    internal class ProgramsBuilder
     {
-        private readonly List<(CompilationUnitSyntax, string)> _programs;
-        private readonly List<Assembly> _references;
-
-        internal RenderResults()
-        {
-            _programs = new List<(CompilationUnitSyntax, string)>();
-            _references = new List<Assembly>();
-        }
+        private readonly List<(CompilationUnitSyntax, string)> _programs = new();
+        private readonly HashSet<Assembly> _references = new();
 
         internal void AddProgram(ProgramRenderer program, string fileName)
         {
@@ -670,23 +664,23 @@ public static class TestsRenderer
             if (rendered == null) return;
 
             _programs.Add((rendered, fileName));
-            _references.AddRange(program.UsedAssemblies());
+            _references.UnionWith(program.UsedAssemblies());
         }
 
         internal bool IsEmpty => _programs.Count == 0;
 
-        internal void Union(RenderResults other)
+        internal void Union(ProgramsBuilder other)
         {
             _programs.AddRange(other._programs);
-            _references.AddRange(other._references);
+            _references.UnionWith(other._references);
         }
 
         internal List<(CompilationUnitSyntax, string)> Programs => _programs;
 
-        internal List<Assembly> References => _references;
+        internal IEnumerable<Assembly> References => _references;
     }
 
-    private static RenderResults RenderOneProgramPerType(
+    private static ProgramsBuilder RenderProgramForType(
         IEnumerable<UnitTest> tests,
         string namespaceName,
         ProgramRenderer mocksProgram,
@@ -697,18 +691,18 @@ public static class TestsRenderer
         var testsProgram = new ProgramRenderer(namespaceName);
 
         // Adding NUnit namespace to usings
-        testsProgram.AddNUnitToUsigns();
+        testsProgram.AddNUnitToUsings();
 
         var typeName = RenderTestsForType(tests, testsProgram, mocksProgram, declaringType, wrapErrors);
 
-        var results = new RenderResults();
+        var results = new ProgramsBuilder();
 
         results.AddProgram(testsProgram, typeName);
 
         return results;
     }
 
-    private static RenderResults RenderSingleFile(
+    private static ProgramsBuilder RenderSingleFile(
         List<UnitTest> tests,
         string namespaceName,
         string testProjectName,
@@ -716,7 +710,7 @@ public static class TestsRenderer
         Type? declaringType = null)
     {
         var program = new ProgramRenderer(namespaceName);
-        program.AddNUnitToUsigns();
+        program.AddNUnitToUsings();
 
         if (declaringType != null)
         {
@@ -733,7 +727,7 @@ public static class TestsRenderer
             }
         }
 
-        var renderedPrograms = new RenderResults();
+        var renderedPrograms = new ProgramsBuilder();
 
         renderedPrograms.AddProgram(program, testProjectName);
 
@@ -743,18 +737,18 @@ public static class TestsRenderer
         return renderedPrograms;
     }
 
-    private static RenderResults RenderMultipleFiles(
+    private static ProgramsBuilder RenderMultipleFiles(
         List<UnitTest> tests,
         string namespaceName,
         bool wrapErrors = false,
         Type? declaringType = null)
     {
         var mocks = new ProgramRenderer(namespaceName);
-        var renderedPrograms = new RenderResults();
+        var renderedPrograms = new ProgramsBuilder();
 
         if (declaringType != null)
         {
-            renderedPrograms = RenderOneProgramPerType(tests, namespaceName, mocks, declaringType, wrapErrors);
+            renderedPrograms = RenderProgramForType(tests, namespaceName, mocks, declaringType, wrapErrors);
         }
         else
         {
@@ -764,7 +758,7 @@ public static class TestsRenderer
                 Debug.Assert(declaringType != null);
 
                 var renderedTestsProgram =
-                    RenderOneProgramPerType(unitTests, namespaceName, mocks, declaringType, wrapErrors);
+                    RenderProgramForType(unitTests, namespaceName, mocks, declaringType, wrapErrors);
                 if (!renderedTestsProgram.IsEmpty)
                     renderedPrograms.Union(renderedTestsProgram);
             }
@@ -778,7 +772,7 @@ public static class TestsRenderer
         return renderedPrograms;
     }
 
-    internal static RenderResults RenderTests(
+    internal static ProgramsBuilder RenderTests(
         List<UnitTest> tests,
         string testProjectName,
         bool wrapErrors = false,

@@ -44,7 +44,7 @@ internal class ProgramRenderer
         _namespace = FileScopedNamespaceDeclaration(namespaceId);
     }
 
-    public void AddNUnitToUsigns()
+    public void AddNUnitToUsings()
     {
         _referenceManager.AddNUnit();
     }

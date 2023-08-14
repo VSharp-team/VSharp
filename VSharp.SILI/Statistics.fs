@@ -319,7 +319,7 @@ type public SILIStatistics(entryMethods : Method seq) =
             topVisitedLocationsOutOfZone = topVisitedByMethodsOutOfZone |> Seq.map (|KeyValue|) |> List.ofSeq
         }
 
-    member x.CommonPintStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
+    member x.CommonPrintStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
         writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
         writer.WriteLine($"Total coverage: {x.GetCurrentCoverage()}")
         if not <| List.isEmpty statisticsDump.internalFails then
@@ -344,11 +344,11 @@ type public SILIStatistics(entryMethods : Method seq) =
             statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
 
     member x.PrintStatistics (writer : TextWriter) =
-        x.CommonPintStatistics writer <| x.DumpStatistics()
+        x.CommonPrintStatistics writer <| x.DumpStatistics()
 
     member x.PrintDebugStatistics (writer : TextWriter) =
         let dump = x.DumpStatistics()
-        x.CommonPintStatistics writer dump
+        x.CommonPrintStatistics writer dump
         let solverTimePercent = float dump.solverTime.TotalMilliseconds / float dump.time.TotalMilliseconds * 100.0
         writer.WriteLine($"Solver time percent: {solverTimePercent:F1}%% ({formatTimeSpan dump.solverTime})")
         writer.WriteLine("Covering steps inside coverage zone: {0}", dump.coveringStepsInsideZone)

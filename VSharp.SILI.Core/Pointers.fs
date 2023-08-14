@@ -175,8 +175,6 @@ module internal Pointers =
 
     let private simplifyPointerComparison op x y k =
         match x.term, y.term with
-        | DetachedPtr offset1, DetachedPtr offset2 ->
-            simplifyBinaryOperation op offset1 offset2 k
         | Ptr(pointerBase1, _, offset1), Ptr(pointerBase2, _, offset2) when pointerBase1 = pointerBase2 ->
             simplifyBinaryOperation op offset1 offset2 k
         | Ptr(HeapLocation({term = ConcreteHeapAddress a1}, _), _, o1), Ptr(HeapLocation({term = ConcreteHeapAddress a2}, _), _, o2) ->
