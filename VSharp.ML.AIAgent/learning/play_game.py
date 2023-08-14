@@ -2,6 +2,7 @@ import logging
 from statistics import StatisticsError
 from time import perf_counter
 from typing import TypeAlias
+import random
 
 import tqdm
 from func_timeout import FunctionTimedOut, func_set_timeout
@@ -119,6 +120,7 @@ def play_map_with_timeout(
 def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
     with game_server_socket_manager() as ws:
         maps = get_maps(websocket=ws, type=maps_type)
+    random.shuffle(maps)
     with tqdm.tqdm(
         total=len(maps),
         desc=f"{with_predictor.name():20}: {maps_type.value}",
