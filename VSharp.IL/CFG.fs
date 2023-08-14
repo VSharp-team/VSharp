@@ -598,10 +598,6 @@ type ApplicationGraph(getNextBasicBlockGlobalId) =
                 newState.CodeLocation.BasicBlock.IsVisited
                 || newState.CodeLocation.offset = newState.CodeLocation.BasicBlock.FinalOffset
 
-    let addStates (parentState : Option<IGraphTrackableState>) (states : array<IGraphTrackableState>) =
-        // Not implemented yet
-        ()
-
     let getShortestDistancesToGoals (states : array<codeLocation>) =
         __notImplemented__()
 

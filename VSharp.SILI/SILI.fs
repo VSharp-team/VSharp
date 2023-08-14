@@ -358,9 +358,7 @@ type public SILI(options : SiliOptions) =
             if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher && ((searcher :?> BidirectionalSearcher).ForwardSearcher :?> AISearcher).InAIMode
             then stepsPlayed <- stepsPlayed + 1u
             if statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
-            then x.Stop()
-            
-        while not isStopped && not <| isStepsLimitReached() && not <| isTimeoutReached() && pick() do
+            then x.Stop()                   
             if shouldReleaseBranches() then
                 releaseBranches()
             match action with
