@@ -122,3 +122,4 @@ def load_best_models_dict(path):
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
                 best_models[row[0]][0] = ref_model
+    return best_models

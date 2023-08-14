@@ -99,6 +99,7 @@ def main():
         average_result = np.average(
             list(map(lambda x: x.game_result.actual_coverage_percent, result))
         )
+        result = sorted(result, key=lambda x: x.map.MapName)
         table, _, _ = create_pivot_table({cmwrapper: result})
         table = table_to_string(table)
         append_to_file(
