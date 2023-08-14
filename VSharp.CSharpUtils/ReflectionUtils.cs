@@ -87,14 +87,23 @@ namespace VSharp.CSharpUtils
             return null;
         }
 
+        private static IEnumerable<MethodBase> FindMethodInType(Type t, string methodName)
+        {
+            const BindingFlags flags =
+                BindingFlags.IgnoreCase | BindingFlags.Static | BindingFlags.Instance
+                | BindingFlags.NonPublic | BindingFlags.Public;
+
+            var methods = t.GetConstructors(flags).Concat<MethodBase>(t.GetMethods(flags));
+            return methods.Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t));
+        }
+
         public static MethodBase? ResolveMethod(this Assembly assembly, string methodName)
         {
-            const BindingFlags flags = BindingFlags.IgnoreCase | BindingFlags.Static | BindingFlags.Instance | BindingFlags.NonPublic |
-                                       BindingFlags.Public;
-
-            var methods = assembly.GetTypes()
-                .SelectMany(t => t.GetMethods(flags).Where(m => $"{t.FullName ?? t.Name}.{m.Name}".Contains(methodName) && m.DeclaredInType(t)))
-                .ToArray();
+            var methods =
+                assembly
+                    .GetTypes()
+                    .SelectMany(t => FindMethodInType(t, methodName))
+                    .ToArray();
 
             return methods.Length != 0 ? methods.MinBy(m => m.Name.Length) : null;
         }

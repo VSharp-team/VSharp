@@ -23,6 +23,12 @@ internal class CodeRenderer
         Set
     }
 
+    internal enum EventMethodType
+    {
+        Add,
+        Remove
+    }
+
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
@@ -152,6 +158,28 @@ internal class CodeRenderer
     public static bool IsIndexer(MethodBase method)
     {
         return IsGetItem(method) || IsSetItem(method);
+    }
+
+    public static bool IsEventMethod(MethodBase method, out string eventName, out EventMethodType eventMethodType)
+    {
+        var name = method.Name;
+        if (method.IsSpecialName && name.StartsWith("add_"))
+        {
+            eventName = name[(name.IndexOf('_') + 1)..];
+            eventMethodType = EventMethodType.Add;
+            return true;
+        }
+
+        if (method.IsSpecialName && name.StartsWith("remove_"))
+        {
+            eventName = name[(name.IndexOf('_') + 1)..];
+            eventMethodType = EventMethodType.Remove;
+            return true;
+        }
+
+        eventName = string.Empty;
+        eventMethodType = default;
+        return false;
     }
 
     public static bool NumericWithoutSuffix(Type? type)
@@ -344,6 +372,7 @@ internal class CodeRenderer
             { IsGenericMethod : true } => GenericName(method.Name),
             { IsConstructor : true } when type != null => RenderSimpleTypeName(type),
             _ when IsPropertyMethod(method, out var propertyName, out _) => IdentifierName(propertyName),
+            _ when IsEventMethod(method, out var eventName, out _) => IdentifierName(eventName),
             _ => IdentifierName(method.Name)
         };
     }
@@ -541,6 +570,16 @@ internal class CodeRenderer
     public static AssignmentExpressionSyntax RenderAssignment(ExpressionSyntax left, ExpressionSyntax right)
     {
         return AssignmentExpression(SyntaxKind.SimpleAssignmentExpression, left, right);
+    }
+
+    public static AssignmentExpressionSyntax RenderAddAssignment(ExpressionSyntax left, ExpressionSyntax right)
+    {
+        return AssignmentExpression(SyntaxKind.AddAssignmentExpression, left, right);
+    }
+
+    public static AssignmentExpressionSyntax RenderSubAssignment(ExpressionSyntax left, ExpressionSyntax right)
+    {
+        return AssignmentExpression(SyntaxKind.SubtractAssignmentExpression, left, right);
     }
 
     public static VariableDeclarationSyntax RenderVarDecl(TypeSyntax? type, SyntaxToken var, ExpressionSyntax? init = null)
@@ -881,6 +920,21 @@ internal class CodeRenderer
                 case AccessorType.Set:
                     Debug.Assert(args.Length == 1);
                     return RenderAssignment(function, args[0]);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
+        if (IsEventMethod(method, out _, out EventMethodType methodType))
+        {
+            Debug.Assert(args.Length == 1);
+            var value = args.First();
+            switch (methodType)
+            {
+                case EventMethodType.Add:
+                    return RenderAddAssignment(function, value);
+                case EventMethodType.Remove:
+                    return RenderSubAssignment(function, value);
                 default:
                     throw new ArgumentOutOfRangeException();
             }

@@ -1486,7 +1486,8 @@ type internal ILInterpreter() as this =
         let isBadPointer state k =
             match ptr with
             | DetachedPtr _ -> k (True(), state)
-            | _ -> k (IsNullReference ptr, state)
+            | _ when IsRefOrPtr ptr -> k (IsNullReference ptr, state)
+            | _ -> k (True(), state)
         StatedConditionalExecutionCIL cilState
             isBadPointer
             // TODO: may be AccessViolation or NullReference, in general it's undefined behaviour
@@ -1680,8 +1681,7 @@ type internal ILInterpreter() as this =
 
     member private this.CommonUnsignedDivRem isRem performAction (cilState : cilState) =
         let y, x = pop2 cilState
-        match y, x with
-        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
+        let divRem x y =
             let x = makeUnsignedInteger x id
             let y = makeUnsignedInteger y id
             StatedConditionalExecutionCIL cilState
@@ -1691,8 +1691,14 @@ type internal ILInterpreter() as this =
                     push (performAction x y) cilState
                     k [cilState])
                 id
+        match y, x with
+        | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
+            divRem x y
+        | DetachedPtr offset2, DetachedPtr offset1 ->
+            divRem offset1 offset2
         | FloatT, _
         | _, FloatT when isRem -> internalfailf "Rem.Un is unspecified for Floats"
+        | _ when IsRefOrPtr x || IsRefOrPtr y -> __insufficientInformation__ "trying to div/rem pointers"
         | _ -> internalfailf "incompatible operands for %s" (if isRem then "Rem.Un" else "Div.Un")
 
     member private this.DivUn (cilState : cilState) =

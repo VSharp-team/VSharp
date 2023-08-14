@@ -204,8 +204,8 @@ type public SILI(options : SiliOptions) =
                 let methodParams = methodParams |> Array.choose getConcreteType
                 if classParams.Length = methodBase.DeclaringType.GetGenericArguments().Length &&
                     (methodBase.IsConstructor || methodParams.Length = methodBase.GetGenericArguments().Length) then
-                    let declaringType = Reflection.concretizeTypeParameters methodBase.DeclaringType classParams
-                    let method = Reflection.concretizeMethodParameters declaringType methodBase methodParams
+                    let reflectedType = Reflection.concretizeTypeParameters methodBase.ReflectedType classParams
+                    let method = Reflection.concretizeMethodParameters reflectedType methodBase methodParams
                     Some method
                 else
                     None

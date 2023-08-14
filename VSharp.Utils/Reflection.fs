@@ -159,9 +159,9 @@ module public Reflection =
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
     let getMethodDescriptor (m : MethodBase) =
-        let declaringType = m.DeclaringType
+        let reflectedType = m.ReflectedType
         let declaringTypeVars =
-            if declaringType.IsGenericType then declaringType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
+            if reflectedType.IsGenericType then reflectedType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
@@ -169,7 +169,7 @@ module public Reflection =
         { methodHandle = m.MethodHandle.Value
           declaringTypeVarHandles = declaringTypeVars
           methodVarHandles = methodVars
-          typeHandle = m.ReflectedType.TypeHandle.Value }
+          typeHandle = reflectedType.TypeHandle.Value }
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)

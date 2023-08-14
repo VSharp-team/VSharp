@@ -4,7 +4,7 @@ open global.System
 open VSharp
 open VSharp.Core
 
-// ------------------------------- mscorlib.System.Math -------------------------------
+// ------------------------------- mscorlib.System.Environment -------------------------------
 
 module Environment =
 
@@ -19,3 +19,9 @@ module Environment =
 
     [<Implements("System.Void System.Console.WriteLine(System.String)")>]
     val internal WriteLine : state -> term list -> term
+
+    [<Implements("System.Boolean System.Console.get_IsOutputRedirected()")>]
+    val internal get_IsOutputRedirected : state -> term list -> term
+
+    [<Implements("System.Void System.Console.Clear()")>]
+    val internal consoleClear : state -> term list -> term

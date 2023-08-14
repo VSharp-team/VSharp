@@ -132,29 +132,6 @@ type public SILIStatistics(entryMethods : Method seq) =
         |> Seq.tryHead
         |> Option.map (fun offsetDistancePair -> { offset = offsetDistancePair.Key.Offset; method = method })
 
-    let printStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
-        writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
-        if not <| List.isEmpty statisticsDump.internalFails then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} error(s) occured!", statisticsDump.internalFails.Length)
-            let sortedInternalFails = Dictionary<string, int>()
-            statisticsDump.internalFails |> List.iter (fun e ->
-                let failMessage = e.Message
-                let count = ref 1
-                if sortedInternalFails.TryGetValue(failMessage, count) then
-                   sortedInternalFails.[failMessage] <- count.Value + 1
-                else
-                    sortedInternalFails.Add(failMessage, 1))
-            sortedInternalFails |> Seq.sortByDescending (fun kvp -> kvp.Value) |> Seq.iter (fun kvp ->
-                writer.WriteLine("---------------------- {0} time(s): ----------------------", kvp.Value)
-                writer.WriteLine(kvp.Key))
-        if not <| List.isEmpty statisticsDump.iies then
-            writer.WriteLine()
-            writer.WriteLine()
-            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
-            statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
-
     member x.TrackStepForward (s : cilState) ip =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
@@ -342,12 +319,36 @@ type public SILIStatistics(entryMethods : Method seq) =
             topVisitedLocationsOutOfZone = topVisitedByMethodsOutOfZone |> Seq.map (|KeyValue|) |> List.ofSeq
         }
 
+    member x.CommonPrintStatistics (writer : TextWriter) (statisticsDump : statisticsDump) =
+        writer.WriteLine($"Total time: {formatTimeSpan statisticsDump.time}.")
+        writer.WriteLine($"Total coverage: {x.GetCurrentCoverage()}")
+        if not <| List.isEmpty statisticsDump.internalFails then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} error(s) occured!", statisticsDump.internalFails.Length)
+            let sortedInternalFails = Dictionary<string, int>()
+            statisticsDump.internalFails |> List.iter (fun e ->
+                let failMessage = e.Message
+                let count = ref 1
+                if sortedInternalFails.TryGetValue(failMessage, count) then
+                   sortedInternalFails[failMessage] <- count.Value + 1
+                else
+                    sortedInternalFails.Add(failMessage, 1))
+            sortedInternalFails |> Seq.sortByDescending (fun kvp -> kvp.Value) |> Seq.iter (fun kvp ->
+                writer.WriteLine("---------------------- {0} time(s): ----------------------", kvp.Value)
+                writer.WriteLine(kvp.Key))
+        if not <| List.isEmpty statisticsDump.iies then
+            writer.WriteLine()
+            writer.WriteLine()
+            writer.WriteLine("{0} branch(es) with insufficient input information!", iies.Count)
+            statisticsDump.iies |> List.iter (fun iie -> writer.WriteLine iie.Message)
+
     member x.PrintStatistics (writer : TextWriter) =
-        printStatistics writer <| x.DumpStatistics()
+        x.CommonPrintStatistics writer <| x.DumpStatistics()
 
     member x.PrintDebugStatistics (writer : TextWriter) =
         let dump = x.DumpStatistics()
-        printStatistics writer dump
+        x.CommonPrintStatistics writer dump
         let solverTimePercent = float dump.solverTime.TotalMilliseconds / float dump.time.TotalMilliseconds * 100.0
         writer.WriteLine($"Solver time percent: {solverTimePercent:F1}%% ({formatTimeSpan dump.solverTime})")
         writer.WriteLine("Covering steps inside coverage zone: {0}", dump.coveringStepsInsideZone)

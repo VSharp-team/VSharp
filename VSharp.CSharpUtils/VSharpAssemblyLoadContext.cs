@@ -88,10 +88,12 @@ namespace VSharp.CSharpUtils
             }
 
             var asm = base.LoadFromAssemblyPath(path);
+
             foreach (var t in asm.GetTypesChecked())
             {
                 if (t.FullName is null)
                 {
+                    // Case for types, that contains open generic parameters
                     continue;
                 }
 
@@ -111,25 +113,25 @@ namespace VSharp.CSharpUtils
                 return t.GetGenericTypeDefinition().MakeGenericType(fixedGenericTypes);
             }
 
-            return _types.GetValueOrDefault(t.FullName, t);
+            return _types.GetValueOrDefault(t.FullName ?? t.Name, t);
         }
 
         public MethodBase NormalizeMethod(MethodBase originMethod)
         {
             const BindingFlags bindingFlags =
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-            // Moving this loading into 'if (reflectedType is null)' causes KeyNotFoundException (on integration tests)
-            var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
             var reflectedType = originMethod.ReflectedType;
             if (reflectedType is null)
             {
+                // Case for dynamic methods
+                var asm = LoadFromAssemblyPath(originMethod.Module.Assembly.Location);
                 return asm.Modules
                     .SelectMany(m => m.GetMethods(bindingFlags))
                     .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken, originMethod);
             }
 
-            Debug.Assert(reflectedType.FullName != null);
-            var type = _types[reflectedType.FullName];
+            LoadFromAssemblyPath(reflectedType.Assembly.Location);
+            var type = NormalizeType(reflectedType);
             var method = type.GetMethods(bindingFlags)
                 .FirstOrDefault(m => m.MetadataToken == originMethod.MetadataToken,
                     type.GetConstructors(bindingFlags)

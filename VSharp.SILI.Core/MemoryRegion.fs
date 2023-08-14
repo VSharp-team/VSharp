@@ -366,7 +366,7 @@ module MemoryRegion =
 
     let validateWrite value cellType =
         let typ = typeOf value
-        canCastImplicitly typ cellType
+        canCastImplicitly typ cellType || isPointer typ && isIntegral cellType
 
     let memset mr keysAndValues =
         {typ = mr.typ; updates = UpdateTree.memset keysAndValues mr.updates; defaultValue = mr.defaultValue}

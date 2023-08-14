@@ -6,7 +6,7 @@ open System.Reflection
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
-open System.Linq;
+open System.Linq
 
 module TestGenerator =
 

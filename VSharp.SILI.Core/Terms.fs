@@ -176,9 +176,12 @@ type termNode =
             | HeapRef({term = Concrete(obj, AddressType)}, _) when (obj :?> int32 list) = [0] -> k "NullRef"
             | HeapRef(address, baseType) -> sprintf "(HeapRef %O to %O)" address baseType |> k
             | Ref address -> sprintf "(%sRef %O)" (address.Zone()) address |> k
-            | Ptr(address, typ, shift) ->
-                let offset = ", offset = " + shift.ToString()
-                sprintf "(%sPtr %O as %O%s)" (address.Zone()) address typ offset |> k
+            | Ptr(HeapLocation(address, _), typ, shift) ->
+                $"(HeapPtr {address} as {typ}, offset = {shift})" |> k
+            | Ptr(StackLocation loc, typ, shift) ->
+                $"(StackPtr {loc} as {typ}, offset = {shift})" |> k
+            | Ptr(StaticLocation t, typ, shift) ->
+                $"(StaticsPtr {t} as {typ}, offset = {shift})" |> k
             | Slice(term, slices) ->
                 let slices = List.map (fun (s, e, _) -> $"[{s} .. {e}]") slices |> join ", "
                 $"Slice({term}, {slices})" |> k
@@ -356,23 +359,23 @@ module internal Terms =
         | StackBufferIndex _ -> typeof<int8>
         | PrimitiveStackLocation loc -> loc.TypeOfLocation
 
-    let typeOfRef =
-        let getTypeOfRef = term >> function
-            | HeapRef(_, t) -> t
-            | Ref address -> typeOfAddress address
-            | Ptr(_, sightType, _) -> sightType
-            | term -> internalfailf "expected reference, but got %O" term
-        commonTypeOf getTypeOfRef
-
     let sightTypeOfPtr =
         let getTypeOfPtr = term >> function
             | Ptr(_, typ, _) -> typ
             | term -> internalfailf "expected pointer, but got %O" term
         commonTypeOf getTypeOfPtr
 
-    let baseTypeOfPtr = typeOfRef
+    let rec typeOfRef term =
+        let getTypeOfRef term =
+            match term.term with
+            | HeapRef(_, t) -> t
+            | Ref address -> typeOfAddress address
+            | Ptr(_, sightType, _) -> sightType
+            | _ when typeOf term |> isNative -> typeof<byte>
+            | term -> internalfailf "expected reference, but got %O" term
+        commonTypeOf getTypeOfRef term
 
-    let typeOf =
+    and typeOf term =
         let getType term =
             match term.term with
             | Concrete(_, t)
@@ -383,7 +386,7 @@ module internal Terms =
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
             | _ -> internalfailf "getting type of unexpected term %O" term
-        commonTypeOf getType
+        commonTypeOf getType term
 
     let symbolicTypeToArrayType = function
         | ArrayType(elementType, dim) ->

@@ -64,6 +64,7 @@ module TypeUtils =
     let isReal = realTypes.Contains
     let isUnsigned = unsignedTypes.Contains
     let isPrimitive = primitiveTypes.Contains
+    let isNative x = x = typeof<IntPtr> || x = typeof<UIntPtr>
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
     // returns false, if "t" is value type or if we have no information about "t" type from constraints
@@ -146,7 +147,7 @@ module TypeUtils =
     let private sizeOfs = Dictionary<Type, sizeOfType>()
 
     let private createSizeOf (typ : Type) =
-        assert(not typ.ContainsGenericParameters)
+        assert(not typ.ContainsGenericParameters && typ <> typeof<Void>)
         let m = DynamicMethod("GetManagedSizeImpl", typeof<uint32>, null);
         let gen = m.GetILGenerator()
         gen.Emit(OpCodes.Sizeof, typ)

@@ -1,5 +1,3 @@
-using System.Linq;
-
 namespace VSharp.CSharpUtils
 {
     public class StringUtils

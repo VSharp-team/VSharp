@@ -28,7 +28,7 @@ type ICfgNode =
 [<Struct>]
 type internal temporaryCallInfo = {callee: MethodWithBody; callFrom: offset; returnTo: offset}
 
-type BasicBlock (method: MethodWithBody, startOffset: offset) as this =
+type BasicBlock (method: MethodWithBody, startOffset: offset) =
     let mutable finalOffset = startOffset
     let mutable startOffset = startOffset
     let mutable isGoal = false
