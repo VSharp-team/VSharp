@@ -2,12 +2,14 @@ import ast
 import csv
 import os
 import re
+from pathlib import Path
 
 import torch
 
 from config import GeneralConfig
-from ml.common_model.paths import csv_path, models_path
+from ml.common_model.paths import csv_path, models_path, common_models_path
 from ml.models import SAGEConvModel
+from ml.utils import load_model
 
 
 def euclidean_dist(y_pred, y_true):
@@ -61,7 +63,11 @@ def csv2best_models():
                 )
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
-                best_models[map_name] = (ref_model, best_model_score[map_name])
+                best_models[map_name] = (
+                    ref_model,
+                    best_model_score[map_name],
+                    best_model_name,
+                )
             return best_models
 
 
@@ -84,3 +90,35 @@ def back_prop(best_model, model, data, optimizer, criterion):
     loss.backward()
     optimizer.step()
     return loss
+
+
+def save_best_models2csv(best_models: dict, path):
+    values_for_csv = []
+    for map_name in best_models.keys:
+        values_for_csv.append(
+            {
+                "map_name": map_name,
+                "best_model_name": best_models[map_name][2],
+                "result": best_models[map_name][1],
+            }
+        )
+    with open(path, "w") as csv_file:
+        writer = csv.DictWriter(
+            csv_file, fieldnames=["map_name", "best_model_name", "result"]
+        )
+
+
+def load_best_models_dict(path):
+    best_models = csv2best_models()
+    with open(path, "r") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            if row[1] != best_models[row[0]][2]:
+                path_to_model = os.path.join(common_models_path, row[1])
+                ref_model = load_model(
+                    Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
+                )
+
+                ref_model.load_state_dict(torch.load(path_to_model))
+                ref_model.to(GeneralConfig.DEVICE)
+                best_models[row[0]][0] = ref_model
