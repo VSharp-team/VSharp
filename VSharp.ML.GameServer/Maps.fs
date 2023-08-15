@@ -17,7 +17,6 @@ let trainMaps, validationMaps =
    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"    
     add 50u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "BinarySearch"
-        
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches1"    
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches2"
@@ -26,6 +25,7 @@ let trainMaps, validationMaps =
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches3"
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches4"
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "Switches5"
+    
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "NestedFors"    
     
     add 0u<percent>  "VSharp.ML.GameMaps.dll" CoverageZone.Method "SearchKMP"
@@ -236,7 +236,7 @@ let trainMaps, validationMaps =
 
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "TI83LinkPort.Update"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.ClockCycle"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.OnHSYNC"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.OnHSYNC"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradGateArray.GetVideoBuffer"
     
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CRCT_6845.ClockCycle"
@@ -250,31 +250,31 @@ let trainMaps, validationMaps =
     add 0u<percent> "Virtu.dll" CoverageZone.Method "DiskIIController.WriteIoRegionC0C0"
 
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "MC68000.Disassemble"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CP1610.Disassemble"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CP1610.Execute"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "F3850.FetchInstruction"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.DisassembleExt"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.Execute"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.DisassembleCDL"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CP1610.Disassemble"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CP1610.Execute"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "F3850.FetchInstruction"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.DisassembleExt"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.Execute"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "HuC6280.DisassembleCDL"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "I8048.Disassemble"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "I8048.ExecuteOne"
     
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.BuildInstructionTable"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ExecuteOne"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.Disassemble"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ADDS_Func"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.DA_Func"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.BuildInstructionTable"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ExecuteOne"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.Disassemble"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.ADDS_Func"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "LR35902.DA_Func"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "MC6800.ExecuteOne"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "MC6800.DA_Func"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "MOS6502X.State"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "x86.Execute"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "x86.Execute"
 
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Emu83.LoadStateBinary"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "NECUPD765.ReadPort"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "NECUPD765.SetUnitSelect"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AY38912.PortWrite"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPCBase.PollInput"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPCBase.LoadAllMedia"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPCBase.LoadAllMedia"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPCBase.DecodeINPort"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "GateArrayBase.SetupScreenMapping"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "GateArrayBase.ClockCycle"
@@ -282,7 +282,7 @@ let trainMaps, validationMaps =
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPC6128.WriteBus"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPC6128.InitROM"
     
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPC6128.ReadPort"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPC6128.ReadPort"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CPC6128.WritePort"
     //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradCPC.AmstradCPC"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradCPC.GetFirmware"
@@ -293,34 +293,34 @@ let trainMaps, validationMaps =
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradCPC.OSD_ShowTapeStatus"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "AmstradCPC.CheckMessageSettings"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "SoundProviderMixer.GetSamplesSync"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CartridgeDevice.Load"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "CartridgeDevice.Load"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Mapper0000.Mapper0000"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Mapper000F.Mapper000F"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Mapper0005.Mapper0005"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Mapper0013.Mapper0013"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Mapper0020.Mapper0020"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "D64.Read" 
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "DiskBuilder.Build" 
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "G64.Read" 
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "D64.Read" 
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "DiskBuilder.Build" 
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "G64.Read" 
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "G64.Write"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Prg.Load"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Tape.ExecuteCycle"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Tape.Load"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Tape.Load"
 
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Chip6510.Read" 
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Chip6510.Write" 
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Chip6526.CreateCia1"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Chip90611401.Write"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Cia.ExecutePhase"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Cia.ExecutePhase"
     // add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Cia.Write"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.Flush"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.filter_operator"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.filter_operator"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Envelope.ExecutePhase2"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.Write"
 
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.GetSamplesSync"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Via.ExecutePhase"
-    add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Via.SyncState"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Sid.GetSamplesSync"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Via.ExecutePhase"
+    //add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Via.SyncState"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Via.Write"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Vic.ExecutePhase1"
     add 0u<percent> "BizHawk.Emulation.Cores.dll" CoverageZone.Method "Vic.Read" 
@@ -337,12 +337,11 @@ let trainMaps, validationMaps =
     //add 0u<percent> "Algorithms.dll" CoverageZone.Method "BellmanFordShortestPaths.ShortestPathTo"
     
     
-    
     //add 0u  "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 20u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 40u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
     //add 60u "VSharp.ML.GameMaps.dll" CoverageZone.Method "KruskalMST"
-    
+
     let add = add' validationMaps
         
     //!!!add 1000u<step>  0u<percent> "VSharp.ML.GameMaps.dll" CoverageZone.Method "mergeSort"
@@ -361,5 +360,4 @@ let trainMaps, validationMaps =
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseUntil"
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "ReactiveEx.AdviseOnce"
     add 5000u<step> 0u<percent> "JetBrains.Lifetimes.dll" CoverageZone.Method "Types.ToString"
-
     trainMaps, validationMaps
