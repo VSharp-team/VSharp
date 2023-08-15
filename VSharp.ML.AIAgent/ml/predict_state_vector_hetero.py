@@ -7,7 +7,7 @@ from torch_geometric.data import HeteroData
 from torch_geometric.loader import DataLoader
 from torch_geometric.nn import to_hetero
 
-from common.constants import DEVICE
+from config import GeneralConfig
 from ml import data_loader_compact
 from ml.models import GNN_Het
 
@@ -87,24 +87,24 @@ class PredictStateVectorHetGNN:
         return state_map[int(out["state_vertex"].argmax(dim=0)[0])]
 
     @staticmethod
-    def predict_state_weighted(
-        model: torch.nn.Module, weights, data: HeteroData, state_map: dict[int, int]
+    def predict_state_ekaterina(
+        model: torch.nn.Module, data: HeteroData, state_map: dict[int, int]
     ) -> int:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
-        data.to(DEVICE)
+        data.to(GeneralConfig.DEVICE)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
         with torch.no_grad():
-            out = model.forward(data.x_dict, data.edge_index_dict)
+            out = model.forward(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
 
         remapped = []
 
         for index, vector in enumerate(out["state_vertex"]):
             state_vector_mapping = StateVectorMapping(
                 state=reversed_state_map[index],
-                vector=(vector.detach().cpu().numpy() * weights).tolist(),
+                vector=(vector.detach().cpu().numpy()).tolist(),
             )
             remapped.append(state_vector_mapping)
 
@@ -116,7 +116,7 @@ class PredictStateVectorHetGNN:
         """Gets state id from model and heterogeneous graph
         data.state_map - maps real state id to state index"""
 
-        data.to(DEVICE)
+        data.to(GeneralConfig.DEVICE)
         reversed_state_map = {v: k for k, v in state_map.items()}
 
         with torch.no_grad():

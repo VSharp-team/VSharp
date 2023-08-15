@@ -17,9 +17,9 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Prelude.fs" />
         <Compile Include="Logger.fs" />
         <Compile Include="WeakDictionary.fs" />
-        <Compile Include="Prelude.fs" />
         <Compile Include="Collections.fs" />
         <Compile Include="MappedStack.fs" />
         <Compile Include="PersistentDictionary.fs" />
@@ -44,6 +44,7 @@
         <Compile Include="MemoryGraph.fs" />
         <Compile Include="UnitTest.fs" />
         <Compile Include="UnitTests.fs" />
+        <Compile Include="Copier.fs" />
         <Compile Include="NumericUtils.fs" />
         <Compile Include="CoverageDeserializer.fs" />
     </ItemGroup>

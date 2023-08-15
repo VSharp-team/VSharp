@@ -2,7 +2,6 @@ namespace VSharp.Interpreter.IL
 
 open System
 open VSharp.Interpreter.IL
-open VSharp.Interpreter.IL.TypeUtils
 
 /// <summary>
 /// Combines two weighters using the given combinator function.
@@ -14,13 +13,11 @@ type internal CombinedWeighter(one : IWeighter, another : IWeighter, maxPriority
             let oneWeight = one.Weight state
             let anotherWeight = another.Weight state
             combinator oneWeight anotherWeight
-        override x.Next() = maxPriority
 
 type internal AugmentedWeighter(baseWeighter : IWeighter, mapping : uint option -> uint option) =
 
         interface IWeighter with
             override x.Weight(state) = baseWeighter.Weight state |> mapping
-            override x.Next() = baseWeighter.Next()
 
 module internal WeightOperations =
 

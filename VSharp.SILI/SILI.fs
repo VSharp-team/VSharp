@@ -1,8 +1,8 @@
 namespace VSharp.Interpreter.IL
 
 open System
-open System.Reflection
 open System.Collections.Generic
+open System.Reflection
 open System.Threading.Tasks
 open FSharpx.Collections
 
@@ -22,23 +22,24 @@ type public SILI(options : SiliOptions) =
         else float options.timeout * 1000.0
     let solverTimeout =
         if options.solverTimeout > 0 then options.solverTimeout * 1000
+        // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
+        // stops exactly in timeout. To guarantee that we need to pass timeout
+        // based on remaining time to solver dynamically.
         else options.timeout / 2 * 1000
     let branchReleaseTimeout =
         if not hasTimeout then Double.PositiveInfinity
         elif not options.releaseBranches then timeout
         else timeout * 80.0 / 100.0
 
-    // Setting timeout / 2 as solver's timeout doesn't guarantee that SILI
-    // stops exactly in timeout. To guarantee that we need to pass timeout
-    // based on remaining time to solver dynamically.
+    let hasStepsLimit = options.stepsLimit > 0u
+
     do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
 
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics = new SILIStatistics()
+    let statistics = new SILIStatistics(Seq.empty)
 
-    let infty = UInt32.MaxValue
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
 
@@ -72,25 +73,29 @@ type public SILI(options : SiliOptions) =
         | SolverInteraction.SmtUnknown _ -> true
         | _ -> false
 
-    let rec mkForwardSearcher = function
+    let rec mkForwardSearcher mode =
+        let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
+        match mode with
         | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value) :> IForwardSearcher
-        | BFSMode -> BFSSearcher(infty) :> IForwardSearcher
-        | DFSMode -> DFSSearcher(infty) :> IForwardSearcher
-        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
-        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(infty, statistics) :> IForwardSearcher
-        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+        | BFSMode -> BFSSearcher() :> IForwardSearcher
+        | DFSMode -> DFSSearcher() :> IForwardSearcher
+        | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
+        | RandomShortestDistanceBasedMode -> RandomShortestDistanceBasedSearcher(statistics, getRandomSeedOption()) :> IForwardSearcher
+        | ContributedCoverageMode -> DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
+        | ExecutionTreeMode -> ExecutionTreeSearcher(getRandomSeedOption())
         | FairMode baseMode ->
             FairSearcher((fun _ -> mkForwardSearcher baseMode), uint branchReleaseTimeout, statistics) :> IForwardSearcher
         | InterleavedMode(base1, stepCount1, base2, stepCount2) ->
             InterleavedSearcher([mkForwardSearcher base1, stepCount1; mkForwardSearcher base2, stepCount2]) :> IForwardSearcher
-        | GuidedMode baseMode ->
-            let baseSearcher = mkForwardSearcher baseMode
-            GuidedSearcher(infty, options.recThreshold, baseSearcher, StatisticsTargetCalculator(statistics)) :> IForwardSearcher
 
     let mutable searcher : IBidirectionalSearcher =
         match options.explorationMode with
         | TestCoverageMode(_, searchMode) ->
-            let baseSearcher = mkForwardSearcher searchMode
+            let baseSearcher =
+                if options.recThreshold > 0u then
+                    GuidedSearcher(mkForwardSearcher searchMode, RecursionBasedTargetManager(statistics, options.recThreshold)) :> IForwardSearcher
+                else
+                    mkForwardSearcher searchMode
             BidirectionalSearcher(baseSearcher, BackwardSearcher(), DummyTargetedSearcher.DummyTargetedSearcher()) :> IBidirectionalSearcher
         | StackTraceReproductionMode _ -> __notImplemented__()
 
@@ -99,15 +104,16 @@ type public SILI(options : SiliOptions) =
             branchesReleased <- true
             statistics.OnBranchesReleased()
             ReleaseBranches()
-            let dfsSearcher = DFSSortedByContributedCoverageSearcher(infty, statistics) :> IForwardSearcher
+            let dfsSearcher = DFSSortedByContributedCoverageSearcher statistics :> IForwardSearcher
             let bidirectionalSearcher = OnlyForwardSearcher(dfsSearcher)
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
 
     let reportState reporter isError cilState message =
         try
-            searcher.Remove cilState
-            let isNewHistory() = cilState.history |> Set.exists (not << statistics.IsBasicBlockCoveredByTest)
+            let isNewHistory() =
+                let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
+                Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
             let suitableHistory = Set.isEmpty cilState.history || isNewHistory()
             if suitableHistory && not isError || isError && statistics.IsNewError cilState message then
                 let callStackSize = Memory.CallStackSize cilState.state
@@ -119,7 +125,7 @@ type public SILI(options : SiliOptions) =
                     if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod then
                         Memory.ForcePopFrames (callStackSize - 2) cilState.state
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                match TestGenerator.state2test isError entryMethod cilState message with
+                match TestGenerator.state2test isError entryMethod cilState.state message with
                 | Some test ->
                     statistics.TrackFinished cilState
                     reporter test
@@ -131,20 +137,21 @@ type public SILI(options : SiliOptions) =
             reportStateIncomplete cilState
 
     let wrapOnTest (action : Action<UnitTest>) (state : cilState) =
-        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName state.Result
+        let result = Memory.StateResult state.state
+        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName result
         Application.terminateState state
         reportState action.Invoke false state null
 
     let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage =
         if not <| String.IsNullOrWhiteSpace errorMessage then
-            Logger.info "Error in %s: %s" (entryMethodOf state).FullName errorMessage
+            Logger.info $"Error in {(entryMethodOf state).FullName}: {errorMessage}"
         Application.terminateState state
         reportState action.Invoke true state errorMessage
 
     let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
+        searcher.Remove state
         statistics.IncompleteStates.Add(state)
         Application.terminateState state
-        searcher.Remove state
         action.Invoke state.iie.Value
 
     let wrapOnIIE (action : Action<InsufficientInformationException>) (iie: InsufficientInformationException) =
@@ -157,9 +164,9 @@ type public SILI(options : SiliOptions) =
                 state.iie <- Some e
             reportStateIncomplete state
         | _ ->
+            searcher.Remove state
             statistics.InternalFails.Add(e)
             Application.terminateState state
-            searcher.Remove state
             action.Invoke(entryMethodOf state, e)
 
     let wrapOnInternalFail (action : Action<Method, Exception>) (method : Method) (e : Exception) =
@@ -174,6 +181,10 @@ type public SILI(options : SiliOptions) =
     
 
     let wrapOnCrash (action : Action<Exception>) (e : Exception) = action.Invoke e
+
+    let isTimeoutReached() = hasTimeout && statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
+    let shouldReleaseBranches() = options.releaseBranches && statistics.CurrentExplorationTime.TotalMilliseconds >= branchReleaseTimeout
+    let isStepsLimitReached() = hasStepsLimit && statistics.StepsCount >= options.stepsLimit
 
     static member private AllocateByRefParameters initialState (method : Method) =
         let allocateIfByRef (pi : ParameterInfo) =
@@ -227,8 +238,8 @@ type public SILI(options : SiliOptions) =
                     !!(IsNullReference this) |> AddConstraint initialState
                     Some this
             let parameters = SILI.AllocateByRefParameters initialState method
-            ILInterpreter.InitFunctionFrame initialState method this (Some parameters)
-            let cilStates = ILInterpreter.CheckDisallowNullAssumptions cilState method false
+            Memory.InitFunctionFrame initialState method this (Some parameters)
+            let cilStates = ILInterpreter.CheckDisallowNullAttribute method None cilState false id
             assert (List.length cilStates = 1)
             let [cilState] = cilStates
             interpreter.InitializeStatics cilState method.DeclaringType List.singleton
@@ -248,7 +259,7 @@ type public SILI(options : SiliOptions) =
                 let argsNumber = MakeNumber mainArguments.Length
                 Memory.AllocateConcreteVectorArray state argsNumber stringType args
             let arguments = Option.map (argsToState >> Some >> List.singleton) optionArgs
-            ILInterpreter.InitFunctionFrame state method None arguments
+            Memory.InitFunctionFrame state method None arguments
             if Option.isNone optionArgs then
                 // NOTE: if args are symbolic, constraint 'args != null' is added
                 let parameters = method.Parameters
@@ -262,7 +273,7 @@ type public SILI(options : SiliOptions) =
                     | StateModel modelState -> modelState
                     | _ -> __unreachable__()
                 let argsForModel = Memory.AllocateVectorArray modelState (MakeNumber 0) typeof<String>
-                Memory.WriteLocalVariable modelState (ParameterKey argsParameter) argsForModel
+                Memory.WriteStackLocation modelState (ParameterKey argsParameter) argsForModel
             Memory.InitializeStaticMembers state method.DeclaringType
             let initialState = makeInitialState method state
             [initialState]
@@ -287,16 +298,18 @@ type public SILI(options : SiliOptions) =
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
         toReportIIE |> List.iter reportStateIncomplete
+        let mutable sIsStopped = false
         let newStates =
-            match goodStates with
-            | s'::goodStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
+            match goodStates, iieStates, errors with
+            | s'::goodStates, _, _ when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
+            | _, s'::iieStates, _ when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
+            | _, _, s'::errors when LanguagePrimitives.PhysicalEquality s s' ->
+                goodStates @ iieStates @ errors
             | _ ->
-                match iieStates with
-                | s'::iieStates when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
-                | _ ->
-                    match errors with
-                    | s'::errors when LanguagePrimitives.PhysicalEquality s s' -> goodStates @ iieStates @ errors
-                    | _ -> goodStates @ iieStates @ errors
+                sIsStopped <- true
+                goodStates @ iieStates @ errors
         Application.moveState loc s (Seq.cast<_> newStates)
         for newState in newStates do
             let historyCopy = Dictionary<_,_>()
@@ -305,6 +318,8 @@ type public SILI(options : SiliOptions) =
         s.children <- s.children @ newStates
         statistics.TrackFork s newStates
         searcher.UpdateStates s newStates
+        if sIsStopped then
+            searcher.Remove s
 
     member private x.Backward p' s' =
         assert(currentLoc s' = p'.loc)
@@ -317,7 +332,7 @@ type public SILI(options : SiliOptions) =
             | true ->
                 statistics.TrackStepBackward p' s'
                 let p = {loc = startingLoc s'; lvl = lvl; pc = pc}
-                Logger.trace "Backward:\nWas: %O\nNow: %O\n\n" p' p
+                Logger.trace $"Backward:\nWas: {p'}\nNow: {p}\n\n"
                 Application.addGoal p.loc
                 searcher.UpdatePobs p' p
             | false ->
@@ -344,59 +359,59 @@ type public SILI(options : SiliOptions) =
             then stepsPlayed <- stepsPlayed + 1u
             if statistics.CurrentExplorationTime.TotalMilliseconds >= timeout
             then x.Stop()
-            
-            match action with
-            | GoFront s ->
-                try
-                    let statisticsBeforeStep =
-                        match searcher with                        
-                        | :? BidirectionalSearcher as s ->
-                            match s.ForwardSearcher with
-                            | :? AISearcher as s -> Some s.LastCollectedStatistics
+            else
+                match action with
+                | GoFront s ->
+                    try
+                        let statisticsBeforeStep =
+                            match searcher with                        
+                            | :? BidirectionalSearcher as s ->
+                                match s.ForwardSearcher with
+                                | :? AISearcher as s -> Some s.LastCollectedStatistics
+                                | _ -> None                        
                             | _ -> None                        
-                        | _ -> None                        
-                    let statistics1 =
+                        let statistics1 =
+                            if options.serialize
+                            then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
+                            else None
+                        x.Forward(s)                                        
+                        match searcher with                        
+                        | :? BidirectionalSearcher as searcher ->
+                            match searcher.ForwardSearcher with
+                            | :? AISearcher as searcher ->
+                                let gameState, statisticsAfterStep = collectGameState s.currentLoc
+                                searcher.LastGameState <- gameState
+                                searcher.LastCollectedStatistics <- statisticsAfterStep
+                                let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
+                                if searcher.InAIMode
+                                then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
+                            | _ -> ()
+                        | _ -> ()
                         if options.serialize
-                        then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
-                        else None
-                    x.Forward(s)                                        
-                    match searcher with                        
-                    | :? BidirectionalSearcher as searcher ->
-                        match searcher.ForwardSearcher with
-                        | :? AISearcher as searcher ->
-                            let gameState, statisticsAfterStep,_ = collectGameState s.currentLoc
-                            searcher.LastGameState <- gameState
-                            searcher.LastCollectedStatistics <- statisticsAfterStep
-                            let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
-                            if searcher.InAIMode
-                            then searcher.ProvideOracleFeedback (Feedback.MoveReward reward)                                
+                        then 
+                            let _,statistics2 = collectGameState s.currentLoc
+                            saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
+                    with
+                    | e ->
+                        match searcher with
+                        | :? BidirectionalSearcher as searcher ->                        
+                            match searcher.ForwardSearcher with
+                            | :? AISearcher as searcher ->
+                                if searcher.InAIMode
+                                then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
+                            | _ -> ()
                         | _ -> ()
-                    | _ -> ()
-                    if options.serialize
-                    then 
-                        let _,statistics2,_ = collectGameState s.currentLoc
-                        saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
-                with
-                | e ->
-                    match searcher with
-                    | :? BidirectionalSearcher as searcher ->                        
-                        match searcher.ForwardSearcher with
-                        | :? AISearcher as searcher ->
-                            if searcher.InAIMode
-                            then searcher.ProvideOracleFeedback (Feedback.MoveReward (Reward(0u<coverageReward>,0u<_>,0u<_>)))
-                        | _ -> ()
-                    | _ -> ()
-                    reportStateInternalFail s e
-            | GoBack(s, p) ->
-                try
-                    x.Backward p s
-                with
-                | e -> reportStateInternalFail s e
-            | Stop -> __unreachable__()
-            if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
-            then x.Stop()
+                        reportStateInternalFail s e
+                | GoBack(s, p) ->
+                    try
+                        x.Backward p s
+                    with
+                    | e -> reportStateInternalFail s e
+                | Stop -> __unreachable__()
+                if searcher :? BidirectionalSearcher && (searcher :?> BidirectionalSearcher).ForwardSearcher :? AISearcher &&  (options.stepsToPlay = stepsPlayed)
+                then x.Stop()
             
-        System.IO.File.AppendAllLines ("Steps.out", [sprintf $"Steps: {stepsCount}"])
+        //System.IO.File.AppendAllLines ("Steps.out", [sprintf $"Steps: {stepsCount}"])
 
     member private x.AnswerPobs initialStates =
         statistics.ExplorationStarted()
@@ -411,15 +426,16 @@ type public SILI(options : SiliOptions) =
         searcher.Statuses() |> Seq.iter (fun (pob, status) ->
             match status with
             | pobStatus.Unknown ->
-                Logger.warning "Unknown status for pob at %O" pob.loc
+                Logger.warning $"Unknown status for pob at {pob.loc}"
             | _ -> ())
 
     member x.Reset entryMethods =
+        HashMap.clear()
         API.Reset()
         SolverPool.reset()
+        statistics.Reset entryMethods
         stepsCount <- 0
         currentStateId <- 0u<stateId>
-        statistics.Reset()
         searcher.Reset()
         isStopped <- false
         branchesReleased <- false
@@ -432,8 +448,8 @@ type public SILI(options : SiliOptions) =
             Application.setCoverageZone (inCoverageZone coverageZone entryMethods)
             if options.stopOnCoverageAchieved > 0 then
                 let checkCoverage() =
-                    let cov = statistics.GetApproximateCoverage entryMethods
-                    cov >= uint options.stopOnCoverageAchieved
+                    let cov = statistics.GetCurrentCoverage entryMethods
+                    cov >= options.stopOnCoverageAchieved
                 isCoverageAchieved <- checkCoverage
         | StackTraceReproductionMode _ -> __notImplemented__()
 

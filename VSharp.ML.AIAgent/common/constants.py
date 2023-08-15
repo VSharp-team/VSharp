@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import torch
-
 from config import BrokerConfig
 
 
@@ -14,10 +12,10 @@ def _build_bar_format() -> str:
 
 
 IMPORTED_FULL_MODEL_PATH = Path(
-    "ml/imported/GNN_state_pred_het_full_TAGConv_20e_2xAll_10h"
+    "ml/imported/GNN_state_pred_het_full_StateGNNEncoderConvEdgeAttr_32ch.zip"
 )
 IMPORTED_DICT_MODEL_PATH = Path(
-    "ml/imported/GNN_state_pred_het_dict_TAGConv_20e_2xAll_10h"
+    "ml/imported/GNN_state_pred_het_dict_StateGNNEncoderConvEdgeAttr_32ch.zip"
 )
 
 BASE_REPORT_DIR = Path("./report")
@@ -31,9 +29,6 @@ TQDM_FORMAT_DICT = {
     "bar_format": _build_bar_format(),
     "dynamic_ncols": True,
 }
-
-DEVICE = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-BASE_NN_OUT_FEATURES_NUM = 8
 
 
 class WebsocketSourceLinks:
@@ -49,3 +44,7 @@ class ResultsHandlerLinks:
 DUMMY_INPUT_PATH = Path("ml/onnx/dummy_input.json")
 BEST_MODEL_ONNX_SAVE_PATH = Path("ml/onnx/StateModelEncoder.onnx")
 TEMP_EPOCH_INFERENCE_TIMES_DIR = Path(".epoch_inference_times/")
+BASE_NN_OUT_FEATURES_NUM = 8
+
+# assuming we start from /VSharp/VSharp.ML.AIAgent
+SERVER_WORKING_DIR = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"

@@ -456,7 +456,8 @@ internal class MethodRenderer : CodeRenderer
             }
 
             // TODO: handle recursive array case
-            var allowImplicit = elemType is { IsValueType: true } && rank == 1;
+            var allowImplicit =
+                elemType is { IsValueType: true } && !NumericWithoutSuffix(elemType) && rank == 1;
             if (allowImplicit || TypeUtils.isPublic(elemType))
                 return RenderArrayCreation(type, initializer, allowImplicit);
 
@@ -478,6 +479,23 @@ internal class MethodRenderer : CodeRenderer
             return RenderArray(type, obj, preferredName);
         }
 
+        private ExpressionSyntax[] RenderArrayElements(
+            int[][] indices,
+            object[] values,
+            Type elemType,
+            string arrayPreferredName)
+        {
+            var renderedValues = new ExpressionSyntax[indices.Length];
+            for (int i = 0; i < indices.Length; i++)
+            {
+                var elementPreferredName = arrayPreferredName + "_Elem" + i;
+                var value = values[i];
+                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                renderedValues[i] = RenderObject(value, elementPreferredName, explicitType);
+            }
+
+            return renderedValues;
+        }
         private ExpressionSyntax RenderCompactZeroLb(
             ArrayTypeSyntax type,
             System.Array array,
@@ -490,20 +508,15 @@ internal class MethodRenderer : CodeRenderer
             var elemType = array.GetType().GetElementType();
             Debug.Assert(elemType != null);
             var arrayPreferredName = preferredName ?? "array";
-
-            var renderedValues = new ExpressionSyntax[indices.Length];
-            for (int i = 0; i < indices.Length; i++)
-            {
-                var elementPreferredName = arrayPreferredName + "_Elem" + i;
-                var value = values[i];
-                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
-                renderedValues[i] = RenderObject(value, elementPreferredName, explicitType);
-            }
+            ExpressionSyntax[] renderedValues;
 
             if (TypeUtils.isPublic(elemType))
             {
                 var createArray = RenderArrayCreation(type, lengths);
                 var arrayId = AddDecl(arrayPreferredName, type, createArray);
+                var physAddress = new physicalAddress(array);
+                _renderedObjects[physAddress] = arrayId;
+
                 if (defaultValue != null)
                 {
                     var explicitType = NeedExplicitType(defaultValue, typeof(object)) ? typeof(object) : null;
@@ -513,14 +526,20 @@ internal class MethodRenderer : CodeRenderer
                         RenderCall(AllocatorType(), AllocatorFill, arrayId, defaultId);
                     AddExpression(call);
                 }
+
+                renderedValues = RenderArrayElements(indices, values, elemType, arrayPreferredName);
                 for (int i = 0; i < indices.Length; i++)
                     AddAssignment(RenderArrayAssignment(arrayId, renderedValues[i], indices[i]));
                 return arrayId;
             }
 
             var elems = new (int[], ExpressionSyntax)[indices.Length];
+            renderedValues = RenderArrayElements(indices, values, elemType, arrayPreferredName);
             for (int i = 0; i < indices.Length; i++)
+            {
                 elems[i] = (indices[i], renderedValues[i]);
+            }
+
             return RenderPrivateElemArray(array, elems, lengths, preferredName, defaultValue);
         }
 

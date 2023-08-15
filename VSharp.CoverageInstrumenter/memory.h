@@ -2,6 +2,7 @@
 #define MEMORY_H_
 
 #include "cor.h"
+#include "corprof.h"
 
 #include <map>
 #include <set>
@@ -20,7 +21,11 @@ namespace vsharp {
 extern std::function<ThreadID()> currentThread;
 extern std::map<ThreadID, int> stackBalances;
 extern ThreadID mainThread;
+static const FunctionID incorrectFunctionId = -1;
 
+void setMainFunctionId(FunctionID id);
+bool isMainFunction(FunctionID id);
+void assertCorrectFunctionId(FunctionID id);
 void stackBalanceUp();
 
 // returns true if the stack is not empty

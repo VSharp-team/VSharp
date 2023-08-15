@@ -59,7 +59,14 @@ def create_pivot_table(
         for mutable2result in mutable2result_list:
             name_results_dict[map_obj.Id].append(convert_to_view_model(mutable2result))
             epoch_percents_dict[map_obj.Id].append(
-                mutable2result.game_result.actual_coverage_percent
+                str(
+                    (
+                        mutable2result.game_result.actual_coverage_percent,
+                        mutable2result.game_result.tests_count,
+                        mutable2result.game_result.errors_count,
+                        mutable2result.game_result.steps_count,
+                    )
+                )
             )
 
     mutable_names = get_model_names_in_order(name_results_dict)

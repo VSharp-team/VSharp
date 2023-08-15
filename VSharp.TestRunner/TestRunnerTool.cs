@@ -114,13 +114,13 @@ namespace VSharp.TestRunner
             catch (Exception e)
             {
                 Console.ForegroundColor = ConsoleColor.Red;
-                Console.Error.WriteLine($"Error ({fileInfo.Name}): {e}");
+                Console.Error.WriteLine($"Error ({fileInfo.FullName}): {e}");
                 Console.ResetColor();
                 return false;
             }
 
             Console.ForegroundColor = ConsoleColor.Green;
-            Console.Out.WriteLine("{0} passed!", fileInfo.Name);
+            Console.Out.WriteLine($"{fileInfo.Name} passed!");
             Console.ResetColor();
 
             return true;

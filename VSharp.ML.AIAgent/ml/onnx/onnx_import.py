@@ -57,21 +57,12 @@ def create_torch_dummy_input():
 def export_onnx_model(model: torch.nn.Module, save_path: str):
     torch.onnx.export(
         model=model,
-        args=create_onnx_dummy_input(),
+        args=(*create_torch_dummy_input(), {}),
         f=save_path,
         verbose=False,
         export_params=True,
-        input_names=["x_dict", "edge_index_dict"],
-        # input_names=[
-        #     "game_vertex",
-        #     "state_vertex",
-        #     "gv2gv",
-        #     "sv_in_gv",
-        #     "gv_in_sv",
-        #     "sv_his_gv",
-        #     "gv_his_sv",
-        #     "sv_parentof_sv",
-        # ],
+        input_names=["x_dict", "edge_index_dict", "edge_attr_dict"],
+        opset_version=16,
     )
 
     torch_model_out = model(*create_torch_dummy_input())

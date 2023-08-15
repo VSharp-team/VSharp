@@ -1,77 +1,72 @@
 import copy
 import random
+from pathlib import Path
+from typing import OrderedDict
 
 import numpy
 import pygad.torchga
 import torch
+from numpy import typing as npt
 from torch import nn
 
-import ml.models
-from common.constants import BASE_NN_OUT_FEATURES_NUM, DEVICE, IMPORTED_DICT_MODEL_PATH
+from common.constants import BASE_NN_OUT_FEATURES_NUM
+from config import GeneralConfig
 
 
-def load_full_model(path: str):
-    return torch.load(path)
-
-
-def load_model(path: str) -> torch.nn.Module:
-    model = ml.models.StateModelEncoder(hidden_channels=64, out_channels=8)
-    model.load_state_dict(torch.load(path), strict=False)
-    model.to(DEVICE)
+def load_model(path: Path, model: torch.nn.Module):
+    model.load_state_dict(torch.load(path))
     model.eval()
     return model
 
 
-def load_model_with_last_layer(
-    path: str, last_layer_weights: list[float]
-) -> torch.nn.Module:
+def convert_to_export(
+    old_sd: OrderedDict, new_sd: OrderedDict, last_layer_weights: list[float]
+):
+    for key, value in old_sd.items():
+        new_sd.update({key: value})
+
+    new_model = GeneralConfig.EXPORT_MODEL_INIT()
+    new_model.load_state_dict(new_sd, strict=False)
+    new_model.state_encoder.lin_last.weight.data = torch.Tensor([last_layer_weights])
+    new_model.state_encoder.lin_last.bias.data = torch.Tensor([0])
+    return new_model
+
+
+def model_weights_with_last_layer(
+    old_sd: OrderedDict, new_sd: OrderedDict, last_layer_weights: list[float]
+) -> npt.NDArray:
     assert len(last_layer_weights) == BASE_NN_OUT_FEATURES_NUM
-    model = ml.models.StateModelEncoder(
-        hidden_channels=64, out_channels=BASE_NN_OUT_FEATURES_NUM
-    )
-    model.load_state_dict(torch.load(path), strict=False)
-    last = model.state_encoder.lin
-    new_layer = nn.Linear(in_features=BASE_NN_OUT_FEATURES_NUM, out_features=1)
-    new_layer.weight.data = torch.Tensor([last_layer_weights])
-    modified_last = nn.Sequential(last, new_layer)
-    model.state_encoder.lin = modified_last
-    model.to(DEVICE)
-    model.eval()
-    return model
+    model_2_export = convert_to_export(old_sd, new_sd, last_layer_weights)
+    return pygad.torchga.model_weights_as_vector(model_2_export)
 
 
 def model_weights_with_random_last_layer(
-    low, hi, model_load_path=IMPORTED_DICT_MODEL_PATH
-):
-    model = load_model_with_last_layer(
-        model_load_path,
-        [random.uniform(low, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)],
+    lo: float, hi: float, old_sd: OrderedDict, new_sd: OrderedDict
+) -> npt.NDArray:
+    weights = model_weights_with_last_layer(
+        old_sd,
+        new_sd,
+        last_layer_weights=[
+            random.uniform(lo, hi) for _ in range(BASE_NN_OUT_FEATURES_NUM)
+        ],
     )
-    model_weights_vector = pygad.torchga.model_weights_as_vector(model=model)
-    return model_weights_vector
+    return weights
 
 
-def random_model_weights(low, hi, model_load_path=IMPORTED_DICT_MODEL_PATH):
-    init_model = load_model_with_last_layer(
-        model_load_path, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
-    )
-    model_weights_vector = pygad.torchga.model_weights_as_vector(model=init_model)
-    net_weights = copy.deepcopy(model_weights_vector)
-    net_weights = numpy.array(net_weights) + numpy.random.uniform(
-        low=low, high=hi, size=model_weights_vector.size
-    )
+def create_population(
+    lo: float, hi: float, model: nn.Module, population_size: int
+) -> list[npt.NDArray]:
+    model_weights_vector = pygad.torchga.model_weights_as_vector(model)
 
-    return net_weights
+    net_population_weights = []
+    net_population_weights.append(model_weights_vector)
 
+    for idx in range(population_size - 1):
+        net_weights = copy.deepcopy(model_weights_vector)
+        net_weights = numpy.array(net_weights) + numpy.random.uniform(
+            low=lo, high=hi, size=model_weights_vector.size
+        )
 
-def create_model_from_weights_vector(weights: list[float]):
-    model = load_model_with_last_layer(
-        IMPORTED_DICT_MODEL_PATH, [1 for _ in range(BASE_NN_OUT_FEATURES_NUM)]
-    )
+        net_population_weights.append(net_weights)
 
-    state_dict = pygad.torchga.model_weights_as_dict(
-        model=model, weights_vector=weights
-    )
-    model.load_state_dict(state_dict)
-
-    return model
+    return net_population_weights

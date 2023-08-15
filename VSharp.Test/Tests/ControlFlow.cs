@@ -40,7 +40,7 @@ namespace IntegrationTests
         }
 
         // x * (x + 1) * (x + 2) / 6
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int NestedFors2(int x)
         {
             int sum = 0;
@@ -273,7 +273,7 @@ namespace IntegrationTests
         // NOTE: this test works fine with configuration Debug and Release, but DebugTailRec
         //       doesn't work, because dotnet generates non optimized IL, so there appears
         //       target on unreachable code, and test is explored infinitely, so setting timeout
-        [TestSvm(100, timeout: 10)]
+        [TestSvm(100, timeout: 10, strat: SearchStrategy.BFS)]
         public static int ForsWithContinueAndBreak(int x)
         {
             int sum = 0;
@@ -361,7 +361,7 @@ namespace IntegrationTests
             return res;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int NestedForsSimple(int x)
         {
             int res = 0;
@@ -411,7 +411,7 @@ namespace IntegrationTests
             return -1;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int BinarySearch(int[] a, int x, int lo, int hi)
         {
             if (a == null) throw new ArgumentException("a == null");
@@ -444,7 +444,7 @@ namespace IntegrationTests
             return sum;
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public static int IncomingCallGraphEdgesTest(int x)
         {
             if (F(x) > 0 & F(x + 1) > 0)

@@ -1,37 +1,61 @@
 import argparse
 import json
+import logging
 import os
 import signal
 import subprocess
-from contextlib import contextmanager, nullcontext
+import time
+from contextlib import contextmanager
 from queue import Empty, Queue
 
+import psutil
 from aiohttp import web
 
-from config import GeneralConfig, BrokerConfig, ServerConfig
+from common.constants import SERVER_WORKING_DIR
+from config import BrokerConfig, FeatureConfig, GeneralConfig, ServerConfig
+from connection.broker_conn.classes import ServerInstanceInfo, Undefined, WSUrl
 
 routes = web.RouteTableDef()
+logging.basicConfig(
+    level=GeneralConfig.LOGGER_LEVEL,
+    filename="instance_manager.log",
+    filemode="w",
+    format="%(asctime)s - p%(process)d: %(name)s - [%(levelname)s]: %(message)s",
+)
 
 
 @routes.get("/get_ws")
-async def dequeue_ws(request):
+async def dequeue_instance(request):
     try:
-        ws = WS_URLS.get(timeout=0.1)
-        print(f"issued {ws}")
-        return web.Response(text=ws)
-    except Empty as e:
-        print(
-            "Exception occured when trying to get socket! Make sure that server count is the same as in main.py"
+        server_info = SERVER_INSTANCES.get(block=False)
+        assert server_info.pid is Undefined
+        server_info = run_server_instance(
+            port=server_info.port,
+            start_server=FeatureConfig.ON_GAME_SERVER_RESTART.enabled,
         )
-        return web.Response(text=str(e))
+        logging.info(f"issued {server_info}: {psutil.Process(server_info.pid)}")
+        return web.json_response(server_info.to_json())
+    except Empty:
+        logging.error("Couldn't dequeue instance, the queue is not replenishing")
+        raise
 
 
 @routes.post("/post_ws")
-async def enqueue_ws(request):
-    returning_ws_raw = await request.read()
-    returning_ws = returning_ws_raw.decode("utf-8")
-    print(f"put back {returning_ws}")
-    WS_URLS.put(returning_ws)
+async def enqueue_instance(request):
+    returned_instance_info_raw = await request.read()
+    returned_instance_info = ServerInstanceInfo.from_json(
+        returned_instance_info_raw.decode("utf-8")
+    )
+    logging.info(f"got {returned_instance_info} from client")
+
+    if FeatureConfig.ON_GAME_SERVER_RESTART.enabled:
+        kill_server(returned_instance_info)
+        returned_instance_info = ServerInstanceInfo(
+            returned_instance_info.port, returned_instance_info.ws_url, pid=Undefined
+        )
+
+    SERVER_INSTANCES.put(returned_instance_info)
+    logging.info(f"enqueue {returned_instance_info}")
     return web.HTTPOk()
 
 
@@ -54,68 +78,113 @@ async def send_and_clear_results(request):
     return web.Response(text=rst)
 
 
-def run_servers(num_inst: int, start_port: int) -> list[subprocess.Popen]:
-    # assuming we start from /VSharp/VSharp.ML.AIAgent
-    working_dir = "../VSharp.ML.GameServer.Runner/bin/Release/net6.0/"
+def get_socket_url(port: int) -> WSUrl:
+    return f"ws://0.0.0.0:{port}/gameServer"
+
+
+def run_server_instance(port: int, start_server: bool) -> ServerInstanceInfo:
     launch_server = [
         "dotnet",
         "VSharp.ML.GameServer.Runner.dll",
         "--checkactualcoverage",
         "--port",
     ]
+    ws_url = get_socket_url(port)
+    if not start_server:
+        return ServerInstanceInfo(port, ws_url, pid=Undefined)
 
-    procs = []
+    proc = subprocess.Popen(
+        launch_server + [str(port)],
+        stdout=subprocess.PIPE,
+        start_new_session=True,
+        cwd=SERVER_WORKING_DIR,
+    )
+
+    while True:
+        out = proc.stdout.readline()
+        if out and "Smooth!" in out.decode("utf-8"):
+            print(out.decode("utf-8"), end="")
+            break
+
+    server_pid = proc.pid
+    PROCS.append(server_pid)
+    logging.info(
+        f"running new instance on {port=} with {server_pid=}:"
+        + f"{server_pid}: "
+        + " ".join(launch_server + [str(port)])
+    )
+
+    ws_url = get_socket_url(port)
+    return ServerInstanceInfo(port, ws_url, server_pid)
+
+
+def run_servers(num_inst: int, start_port: int) -> list[ServerInstanceInfo]:
+    servers_info = []
     for i in range(num_inst):
-        proc = subprocess.Popen(
-            launch_server + [str(start_port + i)],
-            start_new_session=True,
-            cwd=working_dir,
+        server_info = run_server_instance(start_port + i, False)
+        servers_info.append(server_info)
+
+    return servers_info
+
+
+def kill_server(server_instance: ServerInstanceInfo):
+    os.kill(server_instance.pid, signal.SIGKILL)
+    PROCS.remove(server_instance.pid)
+
+    proc_info = psutil.Process(server_instance.pid)
+    wait_for_reset_retries = FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_retries
+
+    while wait_for_reset_retries:
+        logging.info(
+            f"Waiting for {server_instance} to die, {wait_for_reset_retries} retries left"
         )
-        procs.append(proc)
-        print(f"{proc.pid}: " + " ".join(launch_server + [str(start_port + i)]))
+        if proc_info.status() in (psutil.STATUS_DEAD, psutil.STATUS_ZOMBIE):
+            logging.info(f"killed {proc_info}")
+            return
+        time.sleep(FeatureConfig.ON_GAME_SERVER_RESTART.wait_for_reset_time)
+        wait_for_reset_retries -= 1
 
-    return procs
+    raise RuntimeError(f"{server_instance} could not be killed")
 
 
-def kill_servers(procs: list[subprocess.Popen]):
-    for proc in procs:
-        os.kill(proc.pid, signal.SIGTERM)
-        print(f"killed {proc.pid}")
+def kill_process(pid: int):
+    os.kill(pid, signal.SIGKILL)
+    PROCS.remove(pid)
 
 
 @contextmanager
-def process_manager(num_inst: int):
-    procs = run_servers(num_inst, ServerConfig.VSHARP_INSTANCES_START_PORT)
+def server_manager(server_queue: Queue[ServerInstanceInfo]):
+    global PROCS
+    servers_info = run_servers(
+        num_inst=GeneralConfig.SERVER_COUNT,
+        start_port=ServerConfig.VSHARP_INSTANCES_START_PORT,
+    )
+
+    for server_info in servers_info:
+        server_queue.put(server_info)
     try:
         yield
     finally:
-        kill_servers(procs)
+        for proc in list(PROCS):
+            kill_process(proc)
+        PROCS = []
 
 
 def main():
-    global WS_URLS, RESULTS
+    global SERVER_INSTANCES, PROCS, RESULTS
     parser = argparse.ArgumentParser(description="V# instances launcher")
     parser.add_argument(
         "--debug",
         action=argparse.BooleanOptionalAction,
         help="dont launch servers if set",
     )
-    args = parser.parse_args()
 
-    SOCKET_URLS = [
-        f"ws://0.0.0.0:{ServerConfig.VSHARP_INSTANCES_START_PORT + i}/gameServer"
-        for i in range(GeneralConfig.SERVER_COUNT)
-    ]
-
-    WS_URLS = Queue()
+    # Queue[ServerInstanceInfo]
+    SERVER_INSTANCES = Queue()
+    PROCS = []
     RESULTS = []
 
-    for ws_url in SOCKET_URLS:
-        WS_URLS.put(ws_url)
-
-    with process_manager(
-        GeneralConfig.SERVER_COUNT
-    ) if not args.debug else nullcontext():
+    with server_manager(SERVER_INSTANCES):
         app = web.Application()
         app.add_routes(routes)
         web.run_app(app, port=BrokerConfig.BROKER_PORT)

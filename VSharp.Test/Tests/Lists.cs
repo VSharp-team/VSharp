@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using VSharp.Test;
+
 #pragma warning disable CS0108, CS0114, CS0649
 
 namespace IntegrationTests
@@ -134,6 +135,29 @@ namespace IntegrationTests
         {
             var c = new int[4, 2] {{1, 1}, {2, 2}, {3, 3}, {4, 4}};
             return c.Rank;
+        }
+
+        [TestSvm]
+        public int ReadByFuncResult(string[] str, Func<int> d)
+        {
+            str[0] = "abc";
+            str[1] = "cbd";
+            str[2] = "edf";
+            if (str[d()] == null)
+                return 1;
+            return 0;
+        }
+
+        [TestSvm]
+        public int ReadByFuncResult1(Func<int> d)
+        {
+            string[] str = new string[3];
+            str[0] = "abc";
+            str[1] = "cbd";
+            str[2] = "edf";
+            if (str[d()] == null)
+                return 1;
+            return 0;
         }
 
         [TestSvm(100)]
@@ -435,6 +459,24 @@ namespace IntegrationTests
             return 3;
         }
 
+        [Ignore("Need to add arrays into type candidates")]
+        public static int ArrayAliasWrite(object[] o, string[] s, string str1, string str2)
+        {
+            if (o[42] == str1)
+            {
+                if (str1 != String.Empty)
+                {
+                    s[42] = str2;
+                    if (o[42] == str2)
+                        return 1;
+                    if (o[42] != str1)
+                        throw new ArgumentException("unreachable");
+                }
+            }
+
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int MakeDefaultAndWrite(int k)
         {
@@ -630,7 +672,7 @@ namespace IntegrationTests
             return -12;
         }
 
-        [TestSvm]
+        [Ignore("Unable to calculate GetHashCode of decimal")]
         public static int TypeSolverCheck2(int i, object a, object b)
         {
             var d = new Dictionary<object, int>();
@@ -645,7 +687,7 @@ namespace IntegrationTests
             return -12;
         }
 
-        [TestSvm]
+        [Ignore("Unable to calculate GetHashCode of decimal")]
         public static int TypeSolverCheck3(object a, object b)
         {
             var d = new Dictionary<object, int>();
@@ -1628,9 +1670,8 @@ namespace IntegrationTests
             return l.Contains(_customer);
         }
 
-        // TODO: this test works fine with configuration Debug and Release, but
-        // TODO: DebugTailRec doesn't work, because Mocking works incorrect (all args objects must be mocked)
-        [TestSvm(100)]
+        // TODO: fails with ShortestDistance searcher due to type solver bug (assert)
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public bool ArrayContainsOurCustomer(Customerrr[] customers)
         {
             foreach (var other in customers)

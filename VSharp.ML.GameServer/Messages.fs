@@ -16,6 +16,8 @@ type IRawOutgoingMessageBody = interface end
 type [<Measure>] test
 type [<Measure>] error
 
+type [<Measure>] basicBlockGlobalId
+
 [<Struct>]
 type GameOverMessageBody =    
      interface IRawOutgoingMessageBody
@@ -57,7 +59,7 @@ type InputMessage =
 
 [<Struct>]
 type StateHistoryElem =
-    val GraphVertexId: uint
+    val GraphVertexId: uint<basicBlockGlobalId>
     val NumOfVisits: uint
     new (graphVertexId, numOfVisits) =
         {
@@ -66,7 +68,6 @@ type StateHistoryElem =
         }
 
 type [<Measure>] stateId
-type [<Measure>] graphVertexId
 
 [<Struct>]
 type State =
@@ -103,7 +104,7 @@ type State =
 [<Struct>]    
 type GameMapVertex =
     val Uid: uint
-    val Id: uint<graphVertexId>
+    val Id: uint<basicBlockGlobalId>
     val InCoverageZone: bool
     val BasicBlockSize: uint
     val CoveredByTest: bool
@@ -136,8 +137,8 @@ type GameEdgeLabel =
 
 [<Struct>]
 type GameMapEdge =
-    val VertexFrom: uint<graphVertexId>
-    val VertexTo: uint<graphVertexId>
+    val VertexFrom: uint<basicBlockGlobalId>
+    val VertexTo: uint<basicBlockGlobalId>
     val Label: GameEdgeLabel
     new (vFrom, vTo, label) = {VertexFrom = vFrom; VertexTo = vTo; Label = label}
     

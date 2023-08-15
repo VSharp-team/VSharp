@@ -56,8 +56,12 @@ module Substitution =
             Struct contents' typ'
         | ConcreteHeapAddress addr -> ConcreteHeapAddress (timeSubst addr)
         | Ref address -> substituteAddress recur typeSubst address |> Ref
-        | Ptr(address, typ, shift) -> Ptr (substitutePointerBase recur typeSubst address) (typeSubst typ) (recur shift)
-        | Slice(term, s, e, pos) -> Slice (recur term) (recur s) (recur e) (recur pos)
+        | Ptr(address, typ, shift) ->
+            let address' = substitutePointerBase recur typeSubst address
+            Ptr address' (typeSubst typ) (recur shift)
+        | Slice(part, slices) ->
+            let slices' = List.map (fun (s, e, pos) -> recur s, recur e, recur pos) slices
+            createSlice (recur part) slices'
         | _ -> termSubst term
 
     and private substituteMany termSubst typeSubst timeSubst terms ctor =

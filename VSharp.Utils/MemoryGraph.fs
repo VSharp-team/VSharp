@@ -316,7 +316,12 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let shift = decodeValue repr.shift :?> int64 |> uint64
             UIntPtr(shift) :> obj
         | :? pointerRepr as repr ->
-            internalfail $"decoding pointer is not implemented {repr}"
+            let obj = sourceObjects[repr.index]
+            let shift = decodeValue repr.shift :?> int64 |> nativeint
+            let sightType = sourceTypes[repr.sightType]
+            let refWithOffset = System.Runtime.CompilerServices.Unsafe.AddByteOffset(ref obj, shift)
+            let pointer = System.Runtime.CompilerServices.Unsafe.AsPointer(ref refWithOffset)
+            Pointer.Box(pointer, sightType.MakePointerType())
         | :? structureRepr as repr when repr.typ >= 0 ->
             // Case for structs or classes of .NET type
             let t = sourceTypes[repr.typ]
@@ -399,6 +404,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             decodeMockedStructure repr obj
         | :? arrayRepr as repr ->
             decodeArray repr obj
+        | :? stringRepr -> ()
         | :? ValueType -> ()
         | _ -> internalfail $"decodeObject: unexpected object {obj}"
 
@@ -524,6 +530,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = uintPtrIndex}
         repr :> obj
 
+    member x.RepresentPtr (index : int) (sightType : Type) (shift : int64) =
+        let repr : pointerRepr = {index = index; shift = shift; sightType = x.RegisterType sightType}
+        repr :> obj
+
     member x.RepresentStruct (typ : Type) (fields : obj array) =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
         repr :> obj
@@ -532,29 +542,41 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         let repr : structureRepr = {typ = mockStorage.RegisterMockedType typ; fields = fields}
         repr :> obj
 
-    member x.RepresentString (str : string) =
-        stringRepr.Encode str :> obj
+    member x.AddString index (str : string) =
+        objReprs[index] <- stringRepr.Encode str
+        { index = index } :> obj
+
+    // Must be used only for decoding of exception message
+    member x.DecodeString (repr : obj) : string =
+        match repr with
+        | :? referenceRepr as repr ->
+            let stringRepr = objReprs[repr.index]
+            assert(stringRepr :? stringRepr)
+            (stringRepr :?> stringRepr).Decode()
+        | :? stringRepr as repr ->
+            repr.Decode()
+        | _ -> internalfail $"DecodeString: unexpected representation {repr}"
 
     member x.ReserveRepresentation() = x.Bind null null
 
     member x.AddClass (typ : Type) (fields : obj array) index =
         let repr : structureRepr = {typ = x.RegisterType typ; fields = fields}
-        objReprs.[index] <- repr
+        objReprs[index] <- repr
         { index = index }
 
     member x.AddMockedClass (typ : Mocking.Type) (fields : obj array) index =
         let repr : structureRepr = {typ = mockStorage.RegisterMockedType typ; fields = fields}
-        objReprs.[index] <- repr
+        objReprs[index] <- repr
         { index = index }
 
     member x.AddArray (typ : Type) (contents : obj array) (lengths : int array) (lowerBounds : int array) index =
         let repr : arrayRepr = {typ = x.RegisterType typ; defaultValue = null; indices = null; values = contents; lengths = lengths; lowerBounds = lowerBounds}
-        objReprs.[index] <- repr
+        objReprs[index] <- repr
         { index = index }
 
     member x.AddCompactArrayRepresentation (typ : Type) (defaultValue : obj) (indices : int array array) (values : obj array) (lengths : int array) (lowerBounds : int array) index =
         let repr : arrayRepr = {typ = x.RegisterType typ; defaultValue = defaultValue; indices = indices; values = values; lengths = lengths; lowerBounds = lowerBounds}
-        objReprs.[index] <- repr
+        objReprs[index] <- repr
         { index = index }
 
     member x.AddBoxed (content : obj) index =

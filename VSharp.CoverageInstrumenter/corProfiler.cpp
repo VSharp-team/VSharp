@@ -11,6 +11,7 @@
 using namespace vsharp;
 
 static std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t> conv16;
+static FunctionID unwindFunctionId = incorrectFunctionId;
 
 void ConvertToWCHAR(const char *str, std::u16string &result) {
     result = conv16.from_bytes(str);
@@ -524,22 +525,23 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR ptr)
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionEnter(FunctionID functionId)
 {
     LOG(tout << "EXCEPTION UNWIND FUNCTION ENTER!" << std::endl);
-    UNUSED(functionId);
+    unwindFunctionId = functionId;
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionLeave()
 {
-    // the process was finished, ignoring all firther requests
-    if (isFinished) return S_OK;
-
     LOG(tout << "EXCEPTION UNWIND FUNCTION LEAVE!" << std::endl);
-    if (areProbesEnabled) {
+    // the process was finished, ignoring all firther requests
+    if (isFinished || !areProbesEnabled) return S_OK;
+    if (!rewriteMainOnly || vsharp::isMainFunction(unwindFunctionId)) {
+        assertCorrectFunctionId(unwindFunctionId);
         if (!stackBalanceDown() && isMainThread()) {
             // stack is empty; main left
             mainLeft();
         }
     }
+    unwindFunctionId = incorrectFunctionId;
     return S_OK;
 }
 
