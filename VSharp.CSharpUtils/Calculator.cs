@@ -8,14 +8,6 @@ namespace VSharp.CSharpUtils
     /// </summary>
     public static class Calculator // TODO: use opcode emit for all concrete operations
     {
-        /// <summary>
-        /// Returns true if <paramref name="x"/> is fuzzy equal to zero with the given precision <paramref name="eps"/>.
-        /// </summary>
-        private static bool IsZero(object x, double eps = 1e-8)
-        {
-            dynamic val = x;
-            return val < eps && val > -eps;
-        }
 
         /// <summary>
         /// Returns which power of two value <paramref name="x"/> is.
@@ -40,14 +32,6 @@ namespace VSharp.CSharpUtils
                 Enum e => (uint)Math.Log2((double)Convert.ChangeType(e, typeof(double))),
                 _ => throw new ArgumentException($"WhatPowerOf2: unexpected argument {x}")
             };
-        }
-
-        /// <summary>
-        /// Returns true if numeric value <paramref name="x"/> is fuzzy equal to numeric value <paramref name="y"/> with the given precision <paramref name="eps"/>.
-        /// </summary>
-        public static bool FuzzyEqual(object x, object y, double eps = 1e-8)
-        {
-            return IsZero((dynamic) x - (dynamic) y, eps);
         }
 
         public static int GetDeterministicHashCode(this string str)

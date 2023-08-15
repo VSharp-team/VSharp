@@ -73,7 +73,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [TestSvm(hasExternMocking: true)]
+        [TestSvm(hasExternMocking: true, supportedOs: OsType.Unix)]
         public static int LibcRand()
         {
             var x = libc_rand();
@@ -82,7 +82,7 @@ namespace IntegrationTests
             return x;
         }
 
-        [TestSvm(hasExternMocking: true)]
+        [TestSvm(hasExternMocking: true, supportedOs: OsType.Unix)]
         public static bool LibcRandCmp()
         {
             var x = libc_rand();
@@ -93,6 +93,27 @@ namespace IntegrationTests
 
         [DllImport("libc", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)]
         static extern int libc_rand();
+
+        [TestSvm(hasExternMocking: true, supportedOs: OsType.Windows)]
+        public static int MsvcrtRand()
+        {
+            var x = msvcrt_rand();
+            var y = msvcrt_rand();
+
+            return x;
+        }
+
+        [TestSvm(hasExternMocking: true, supportedOs: OsType.Windows)]
+        public static bool MsvcrtRandCmp()
+        {
+            var x = msvcrt_rand();
+            var y = msvcrt_rand();
+
+            return x < y;
+        }
+
+        [DllImport("msvcrt", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int msvcrt_rand();
 
         [Ignore("Writing to out arguments is not implemented")]
         public static int DotnetRand()

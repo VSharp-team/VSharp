@@ -80,7 +80,7 @@ class FeatureConfig:
         enabled=True, save_path=Path("./report/epochs_tables/")
     )
     ON_GAME_SERVER_RESTART = OnGameServerRestartFeature(
-        enabled=True, wait_for_reset_retries=10 * 60 * 10, wait_for_reset_time=0.1
+        enabled=True, wait_for_reset_retries=10 * 60, wait_for_reset_time=0.1
     )
 
 

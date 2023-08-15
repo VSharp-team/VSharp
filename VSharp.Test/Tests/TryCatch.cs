@@ -195,7 +195,7 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm(100)]
+        [TestSvm(100, strat: SearchStrategy.BFS)]
         public int FactResult(int n)
         {
             try

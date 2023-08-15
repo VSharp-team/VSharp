@@ -39,15 +39,10 @@ def wait_for_connection(server_instance: ServerInstanceInfo):
     )
 
 
-def get_pid_status(pid: int):
-    return "Unknown"
-
-
 @contextmanager
 def game_server_socket_manager():
     server_instance = acquire_instance()
 
-    logging.info(f"{server_instance} status is {get_pid_status(server_instance.pid)}")
     socket = wait_for_connection(server_instance)
 
     try:

@@ -17,6 +17,12 @@ internal class CodeRenderer
         _referenceManager = referenceManager;
     }
 
+    internal enum AccessorType
+    {
+        Get,
+        Set
+    }
+
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
@@ -101,10 +107,10 @@ internal class CodeRenderer
         return MocksInfo[id];
     }
 
-    public static bool IsGetPropertyMethod(MethodBase method, out string propertyName)
+    private static bool IsPropertyMethod(MethodBase method, out string propertyName, string prefix)
     {
         var name = method.Name;
-        if (method.IsSpecialName && method.DeclaringType != null && name.Contains("get_"))
+        if (method.IsSpecialName && method.DeclaringType != null && name.Contains(prefix))
         {
             propertyName = name.Substring(name.IndexOf('_') + 1);
             return method.DeclaringType.GetProperty(propertyName, Reflection.allBindingFlags) != null;
@@ -114,16 +120,22 @@ internal class CodeRenderer
         return false;
     }
 
-    public static bool IsSetPropertyMethod(MethodBase method, out string propertyName)
+    public static bool IsPropertyMethod(MethodBase method, out string propertyName, out AccessorType accessorType)
     {
-        var name = method.Name;
-        if (method.IsSpecialName && method.DeclaringType != null && name.Contains("set_"))
+        if (IsPropertyMethod(method, out var propertyNameValue, "get_"))
         {
-            propertyName = name.Substring(name.IndexOf('_') + 1);
-            return method.DeclaringType.GetProperty(propertyName, Reflection.allBindingFlags) != null;
+            accessorType = AccessorType.Get;
+            propertyName = propertyNameValue;
+            return true;
         }
-
+        if (IsPropertyMethod(method, out propertyNameValue, "set_"))
+        {
+            accessorType = AccessorType.Set;
+            propertyName = propertyNameValue;
+            return true;
+        }
         propertyName = String.Empty;
+        accessorType = default;
         return false;
     }
 
@@ -140,6 +152,16 @@ internal class CodeRenderer
     public static bool IsIndexer(MethodBase method)
     {
         return IsGetItem(method) || IsSetItem(method);
+    }
+
+    public static bool NumericWithoutSuffix(Type? type)
+    {
+        return
+            type != null &&
+            (type == typeof(byte)
+                || type == typeof(sbyte)
+                || type == typeof(short)
+                || type == typeof(ushort));
     }
 
     public static bool NeedExplicitType(object? obj, Type? containerType)
@@ -321,8 +343,7 @@ internal class CodeRenderer
         {
             { IsGenericMethod : true } => GenericName(method.Name),
             { IsConstructor : true } when type != null => RenderSimpleTypeName(type),
-            _ when IsGetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
-            _ when IsSetPropertyMethod(method, out var propertyName) => IdentifierName(propertyName),
+            _ when IsPropertyMethod(method, out var propertyName, out _) => IdentifierName(propertyName),
             _ => IdentifierName(method.Name)
         };
     }
@@ -850,16 +871,19 @@ internal class CodeRenderer
             function = RenderMemberAccess(thisArg, (SimpleNameSyntax) rendered);
         }
 
-        if (IsGetPropertyMethod(method, out _))
+        if (IsPropertyMethod(method, out _, out var accessorType))
         {
-            Debug.Assert(args.Length == 0);
-            return function;
-        }
-
-        if (IsSetPropertyMethod(method, out _))
-        {
-            Debug.Assert(args.Length == 1);
-            return RenderAssignment(function, args[0]);
+            switch (accessorType)
+            {
+                case AccessorType.Get:
+                    Debug.Assert(args.Length == 0);
+                    return function;
+                case AccessorType.Set:
+                    Debug.Assert(args.Length == 1);
+                    return RenderAssignment(function, args[0]);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
         }
 
         return RenderCall(function, functionArgs);
@@ -1004,6 +1028,19 @@ internal class CodeRenderer
 
 internal static class CorrectNameGenerator
 {
+    private class EmptyReferenceManager : IReferenceManager
+    {
+        public void AddUsing(string name) { }
+
+        public void AddStaticUsing(string name) { }
+
+        public void AddAssembly(Assembly assembly) { }
+
+        public void AddTestExtensions() { }
+
+        public void AddObjectsComparer() { }
+    }
+
     public static string GetTypeName(Type type)
     {
         var typeName = type.Name;
@@ -1047,6 +1084,34 @@ internal static class CorrectNameGenerator
             correctName.Insert(0, '@');
         }
 
+        Debug.Assert(correctName.Length > 0);
         return correctName.ToString();
+    }
+
+    public static string GetVariableName(MethodBase method)
+    {
+        var codeRenderer = new CodeRenderer(new EmptyReferenceManager());
+        string varName;
+        var renderedName = codeRenderer.RenderMethodName(method);
+        switch (renderedName)
+        {
+            case GenericNameSyntax g:
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.Append(g.Identifier.ToString());
+                foreach (var t in method.GetGenericArguments())
+                {
+                    sb.Append($"_{t}");
+                }
+
+                varName = sb.ToString();
+                break;
+            }
+            default:
+                varName = renderedName.ToString();
+                break;
+        }
+
+        return GetVariableName(varName);
     }
 }

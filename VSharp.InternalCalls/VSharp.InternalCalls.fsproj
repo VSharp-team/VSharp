@@ -29,6 +29,8 @@
         <Compile Include="Volatile.fs" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fsi" />
         <Compile Include="Runtime.CompilerServices.RuntimeHelpers.fs" />
+        <Compile Include="Enum.fsi" />
+        <Compile Include="Enum.fs" />
         <Compile Include="Type.fsi" />
         <Compile Include="Type.fs" />
         <Compile Include="IntPtr.fsi" />
