@@ -493,8 +493,10 @@ type public SILI(options : SiliOptions) =
                         x.AnswerPobs initialStates
                 let explorationTask = Task.Run(initializeAndStart)
                 let finished =
-                    if hasTimeout then explorationTask.Wait(int (timeout * 1.5))
-                    else explorationTask.Wait(); true
+                    //if hasTimeout then explorationTask.Wait(int (timeout * 1.5))
+                    //else 
+                    explorationTask.Wait()
+                    true
                 if not finished then Logger.warning "Execution was cancelled due to timeout"
             with
             | :? AggregateException as e ->

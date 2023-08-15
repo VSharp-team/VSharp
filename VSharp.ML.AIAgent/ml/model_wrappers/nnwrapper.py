@@ -26,7 +26,7 @@ class NNWrapper(Predictor):
         )
         assert self._model is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_ekaterina(
+        next_step_id = PredictStateVectorHetGNN.predict_state_with_dict(
             self._model, hetero_input, state_map
         )
         del hetero_input
