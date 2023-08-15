@@ -1,6 +1,7 @@
 # python cache and venv
 .env
 __pycache__/
-report/
+report**/
+ml/pretrained_models/
 *.pkl
 *.onnx
