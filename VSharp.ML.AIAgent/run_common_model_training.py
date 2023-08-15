@@ -60,19 +60,18 @@ def main():
     #     common_models_path,
     #     "1",
     # )
-    # path_to_model = os.path.join(
-    #      "ml",
-    #      "pretrained_models",
-    #     "-262.75775990410693.pth",
-    # )
     path_to_model = os.path.join(
-        "report",
-        "common_models",
-        "10",
+        "ml",
+        "pretrained_models",
+        "-262.75775990410693.pth",
     )
 
     model = load_model(Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT())
     model.to(GeneralConfig.DEVICE)
+
+    for name, param in model.named_parameters():
+        if "lin_last" not in name:
+            param.requires_grad = False
 
     create_file(TABLES_PATH)
     create_file(LOG_PATH)

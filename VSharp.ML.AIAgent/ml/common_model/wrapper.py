@@ -25,7 +25,12 @@ class CommonModelWrapper(Predictor):
         self._name = model_name
 
     def update(self, map_name, map_result):
-        map_result = map_result.actual_coverage_percent
+        map_result = (
+            map_result.actual_coverage_percent,
+            -map_result.tests_count,
+            map_result.errors_count,
+            -map_result.steps_count,
+        )
         if self.best_models[map_name][1] <= map_result:
             logging.info(
                 f"The model with result = {self.best_models[map_name][1]} was replaced with the model with "
@@ -34,6 +39,7 @@ class CommonModelWrapper(Predictor):
             self.best_models[map_name] = (
                 self.model_copy,
                 map_result,
+                self._name,
             )
 
     def model(self):

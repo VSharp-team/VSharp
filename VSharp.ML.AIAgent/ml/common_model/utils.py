@@ -30,9 +30,10 @@ def get_last_epoch_num(path):
 
 
 def get_tuple_for_max(t):
-    t[1] *= -1
-    t[3] *= -1
-    return t
+    values_list = list(t)
+    values_list[1] *= -1
+    values_list[3] *= -1
+    return tuple(values_list)
 
 
 def csv2best_models():
@@ -46,7 +47,9 @@ def csv2best_models():
             for row in csv_reader:
                 models_stat = dict()
                 # int_row = list(map(lambda x: tuple(map(lambda y: int(y), x[1:-1].split(", "))), row[1:]))
-                int_row = list(map(lambda x: ast.literal_eval(x), row[1:]))
+                int_row = list(
+                    map(lambda x: get_tuple_for_max(ast.literal_eval(x)), row[1:])
+                )
                 for i in range(len(int_row)):
                     models_stat[map_names[i]] = int_row[i]
                 models.append((row[0], models_stat))
@@ -55,13 +58,17 @@ def csv2best_models():
                 best_model = max(models, key=(lambda m: m[1][map_name]))
                 best_model_name = best_model[0]
                 best_model_score = best_model[1]
-                ref_model = SAGEConvModel(16)
+                # ref_model = SAGEConvModel(16)
                 path_to_model = os.path.join(
                     models_path,
                     "epoch_" + str(epoch_num),
                     best_model_name + ".pth",
                 )
-                ref_model.load_state_dict(torch.load(path_to_model))
+                # ref_model.load_state_dict(torch.load(path_to_model))
+                ref_model = load_model(
+                    Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
+                )
+
                 ref_model.to(GeneralConfig.DEVICE)
                 best_models[map_name] = (
                     ref_model,
@@ -94,7 +101,7 @@ def back_prop(best_model, model, data, optimizer, criterion):
 
 def save_best_models2csv(best_models: dict, path):
     values_for_csv = []
-    for map_name in best_models.keys:
+    for map_name in best_models.keys():
         values_for_csv.append(
             {
                 "map_name": map_name,
@@ -106,6 +113,7 @@ def save_best_models2csv(best_models: dict, path):
         writer = csv.DictWriter(
             csv_file, fieldnames=["map_name", "best_model_name", "result"]
         )
+        writer.writerows(values_for_csv)
 
 
 def load_best_models_dict(path):
