@@ -20,13 +20,13 @@ class NNWrapper(Predictor):
     def model(self) -> list:
         return self._model
 
-    def predict(self, input: GameState):
+    def predict(self, input: GameState, map_name):
         hetero_input, state_map = ServerDataloaderHeteroVector.convert_input_to_tensor(
             input
         )
         assert self._model is not None
 
-        next_step_id = PredictStateVectorHetGNN.predict_state_single_out(
+        next_step_id = PredictStateVectorHetGNN.predict_state_ekaterina(
             self._model, hetero_input, state_map
         )
         del hetero_input

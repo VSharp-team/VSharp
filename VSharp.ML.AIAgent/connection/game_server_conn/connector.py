@@ -103,20 +103,21 @@ class Connector:
         self._sent_state_id = next_state_id
 
     def recv_reward_or_throw_gameover(self) -> Reward:
-        data = RewardServerMessage.from_json_handle(
-            self._raise_if_gameover(self.ws.recv()),
+        received = self.ws.recv()
+        decoded = RewardServerMessage.from_json_handle(
+            self._raise_if_gameover(received),
             expected=RewardServerMessage,
         )
-        logging.debug(f"<-- MoveReward    : {data.MessageBody}")
+        logging.debug(f"<-- MoveReward    : {decoded.MessageBody}")
 
-        return self._process_reward_server_message(data)
+        return self._process_reward_server_message(decoded)
 
     def _process_reward_server_message(self, msg):
         match msg.MessageType:
             case ServerMessageType.INCORRECT_PREDICTED_STATEID:
                 raise Connector.IncorrectSentStateError(
-                    f"Sending state_id={self._sent_state_id} \
-                    at step #{self._current_step} resulted in {msg.MessageType}"
+                    f"Sending state_id={self._sent_state_id} "
+                    f"at step #{self._current_step} resulted in {msg.MessageType}"
                 )
 
             case ServerMessageType.MOVE_REVARD:
