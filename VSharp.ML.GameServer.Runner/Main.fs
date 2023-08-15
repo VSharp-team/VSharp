@@ -111,7 +111,7 @@ let ws checkActualCoverage outputDirectory (webSocket : WebSocket) (context: Htt
                                         let _expectedCoverage = 100
                                         let exploredMethodInfo = AssemblyManager.NormalizeMethod method
                                         let status,actualCoverage,message = VSharp.Test.TestResultChecker.Check(testsDir, exploredMethodInfo :?> MethodInfo, _expectedCoverage)
-                                        printfn $"Actual coverage: {actualCoverage}"
+                                        printfn $"Actual coverage for {settings.MapName}: {actualCoverage}"
                                         System.Nullable (if actualCoverage < 0 then 0u else uint actualCoverage)
                                     with
                                     e ->
