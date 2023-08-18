@@ -46,7 +46,6 @@ def csv2best_models():
             models = []
             for row in csv_reader:
                 models_stat = dict()
-                # int_row = list(map(lambda x: tuple(map(lambda y: int(y), x[1:-1].split(", "))), row[1:]))
                 int_row = list(
                     map(lambda x: get_tuple_for_max(ast.literal_eval(x)), row[1:])
                 )
@@ -58,23 +57,21 @@ def csv2best_models():
                 best_model = max(models, key=(lambda m: m[1][map_name]))
                 best_model_name = best_model[0]
                 best_model_score = best_model[1]
-                # ref_model = SAGEConvModel(16)
                 path_to_model = os.path.join(
                     models_path,
                     "epoch_" + str(epoch_num),
                     best_model_name + ".pth",
                 )
-                # ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model = load_model(
                     Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
                 )
 
                 ref_model.to(GeneralConfig.DEVICE)
-                best_models[map_name] = (
+                best_models[map_name] = [
                     ref_model,
                     best_model_score[map_name],
                     best_model_name,
-                )
+                ]
             return best_models
 
 
@@ -84,16 +81,13 @@ def back_prop(best_model, model, data, optimizer, criterion):
     optimizer.zero_grad()
     out = model(data.x_dict, data.edge_index_dict, data.edge_attr_dict)["state_vertex"]
     y_true = best_model(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
-    # print(y_true, "\n", out)
     if type(y_true) is dict:
         y_true = y_true["state_vertex"]
     if abs(torch.min(y_true)) > 1:
         y_true = 1 / y_true
-    # print(out, "\n", y_true)
     loss = criterion(out, y_true)
     if loss == 0:
         return 0
-    # print('loss:', loss)
     loss.backward()
     optimizer.step()
     return loss
@@ -126,8 +120,8 @@ def load_best_models_dict(path):
                 ref_model = load_model(
                     Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT()
                 )
-
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
                 best_models[row[0]][0] = ref_model
+                best_models[row[0]][2] = row[1]
     return best_models

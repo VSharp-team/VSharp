@@ -10,7 +10,12 @@ from connection.game_server_conn.utils import MapsType
 from epochs_statistics.tables import create_pivot_table, table_to_string
 from learning.play_game import play_game
 from ml.common_model.models import CommonModel
-from ml.common_model.utils import csv2best_models, euclidean_dist, save_best_models2csv
+from ml.common_model.utils import (
+    csv2best_models,
+    euclidean_dist,
+    save_best_models2csv,
+    load_best_models_dict,
+)
 from ml.common_model.wrapper import CommonModelWrapper, BestModelsWrapper
 from ml.fileop import save_model
 from ml.common_model.paths import common_models_path, best_models_dict_path
@@ -60,24 +65,33 @@ def main():
     #     common_models_path,
     #     "1",
     # )
+    # path_to_model = os.path.join(
+    #     "ml",
+    #     "pretrained_models",
+    #     "-262.75775990410693.pth",
+    # )
     path_to_model = os.path.join(
-        "ml",
-        "pretrained_models",
-        "-262.75775990410693.pth",
+        common_models_path,
+        "1",
     )
 
     model = load_model(Path(path_to_model), model=GeneralConfig.EXPORT_MODEL_INIT())
     model.to(GeneralConfig.DEVICE)
 
-    for name, param in model.named_parameters():
-        if "lin_last" not in name:
-            param.requires_grad = False
+    # for name, param in model.named_parameters():
+    #     if "lin_last" not in name:
+    #         param.requires_grad = False
 
     create_file(TABLES_PATH)
     create_file(LOG_PATH)
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
     criterion = euclidean_dist
-    best_models_dict = csv2best_models()
+    # best_models_dict = csv2best_models()
+    path_to_best_models_dict = os.path.join(
+        best_models_dict_path,
+        "1",
+    )
+    best_models_dict = load_best_models_dict(path_to_best_models_dict)
     bmwrapper = BestModelsWrapper(model, best_models_dict, optimizer, criterion)
     cmwrapper = CommonModelWrapper(model, best_models_dict)
 
@@ -109,7 +123,9 @@ def main():
 
         path_to_model = os.path.join(common_models_path, str(epoch + 1))
         save_model(model=cmwrapper.model(), to=Path(path_to_model))
-        path_to_best_models_dict = os.path.join(best_models_dict_path, str(epoch + 1))
+        path_to_best_models_dict = os.path.join(
+            best_models_dict_path, str(epoch + 1) + ".csv"
+        )
         save_best_models2csv(best_models_dict, path_to_best_models_dict)
 
 
