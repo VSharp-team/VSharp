@@ -30,9 +30,9 @@
         <Compile Include="EnumUtils.fs" />
         <Compile Include="TypeUtils.fs" />
         <Compile Include="AssemblyManager.fs" />
-        <Compile Include="Reflection.fs" />
         <Compile Include="Persistent.fs" />
         <Compile Include="IdGenerator.fs" />
+        <Compile Include="Reflection.fs" />
         <Compile Include="VectorTime.fs" />
         <Compile Include="Regions.fs" />
         <Compile Include="RegionTree.fs" />

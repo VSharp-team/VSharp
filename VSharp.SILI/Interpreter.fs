@@ -1,6 +1,7 @@
 namespace VSharp.Interpreter.IL
 
 open System
+open System.Collections.Generic
 open System.Diagnostics
 open System.Reflection
 open System.Reflection.Emit
@@ -548,7 +549,10 @@ type internal ILInterpreter() as this =
             "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)", this.RunStaticCtor
             "System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)", this.RunStaticCtor
+            "System.Delegate System.Delegate.Combine(System.Delegate, System.Delegate)", this.DelegateCombine
+            "System.Delegate System.Delegate.Remove(System.Delegate, System.Delegate)", this.DelegateRemove
         ]
+
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
 
@@ -811,6 +815,80 @@ type internal ILInterpreter() as this =
         assert(List.length args = 1 && Option.isNone this)
         // TODO: initialize statics of argument
         List.singleton cilState
+
+    member private x.DelegateCombine cilState _ args =
+        assert(List.length args = 2)
+        let d1 = args[0]
+        let d2 = args[1]
+        assert(IsReference d1 && IsReference d2)
+        let combine t cilState k =
+            let d = Memory.CombineDelegates cilState.state args t
+            push d cilState
+            List.singleton cilState |> k
+        let typesCheck cilState k =
+            let state = cilState.state
+            let d1Type = MostConcreteTypeOfRef state d1
+            let d2Type = MostConcreteTypeOfRef state d2
+            let t = TypeUtils.mostConcreteType d1Type d2Type
+            let secondCheck cilState k =
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.RefIsType state d2 t, state))
+                    (combine t)
+                    (x.Raise x.ArgumentException)
+                    k
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (Types.RefIsType state d1 t, state))
+                secondCheck
+                (x.Raise x.ArgumentException)
+                k
+        let nullCheck cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (IsNullReference d2, state))
+                (fun cilState k -> push d1 cilState; List.singleton cilState |> k)
+                typesCheck
+                k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference d1, state))
+            (fun cilState k -> push d2 cilState; List.singleton cilState |> k)
+            nullCheck
+            id
+
+    member private x.DelegateRemove cilState _ args =
+        assert(List.length args = 2)
+        let source = args[0]
+        let toRemove = args[1]
+        assert(IsReference source && IsReference toRemove)
+        let remove t cilState k =
+            let d = Memory.RemoveDelegate cilState.state source toRemove t
+            push d cilState
+            List.singleton cilState |> k
+        let typesCheck cilState k =
+            let state = cilState.state
+            let sourceType = MostConcreteTypeOfRef cilState.state source
+            let toRemoveType = MostConcreteTypeOfRef state toRemove
+            let t = TypeUtils.mostConcreteType sourceType toRemoveType
+            let secondCheck cilState k =
+                StatedConditionalExecutionCIL cilState
+                    (fun state k -> k (Types.RefIsType state toRemove t, state))
+                    (remove t)
+                    (x.Raise x.ArgumentException)
+                    k
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (Types.RefIsType state source t, state))
+                secondCheck
+                (x.Raise x.ArgumentException)
+                k
+        let nullCheck cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (IsNullReference source, state))
+                (fun cilState k -> push (TypeOf source |> NullRef) cilState; List.singleton cilState |> k)
+                typesCheck
+                k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference toRemove, state))
+            (fun cilState k -> push source cilState; List.singleton cilState |> k)
+            nullCheck
+            id
 
     member private x.TrustedIntrinsics =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
@@ -1220,37 +1298,52 @@ type internal ILInterpreter() as this =
             | None -> x.CommonCall calledMethod args thisOpt cilState id
         x.InitializeStatics cilState calledMethod.DeclaringType getArgsAndCall
 
-    member x.CallVirt (m : Method) offset (cilState : cilState) =
-        let retrieveMethodInfo methodPtr =
-            match methodPtr.term with
-            | Concrete(:? Tuple<MethodInfo, term> as tuple, _) -> snd tuple, (fst tuple :> MethodBase)
-            | _ -> __unreachable__()
-        let ancestorMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Call.Size) |> Application.getMethod
-        let thisOption, args = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
-        let this =
-            match thisOption with
-            | Some this -> this
-            | None -> internalfailf "None this in callvirt"
+    member private x.CallDelegate this args (ancestorMethod : Method) (cilState : cilState) =
+        assert ancestorMethod.IsDelegate
+        match this with
+        | NonNullRef as this ->
+            match Memory.ReadDelegate cilState.state this with
+            | Some (ConcreteDelegate info) ->
+                let mi = Application.getMethod info.methodInfo
+                // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
+                let this =
+                    match info.target with
+                    | NullRef _ -> this
+                    | target -> target
+                x.CommonCallVirt mi this args cilState
+            | Some (CombinedDelegate delegates) ->
+                assert(List.length delegates > 1)
+                let argTypes = List.map TypeOf args
+                let targets = List<term>()
+                let methods = List<MethodInfo>()
+                for d in delegates do
+                    match d with
+                    | ConcreteDelegate {target = NonNullRef as target; methodInfo = mi} ->
+                        targets.Add target
+                        methods.Add mi
+                    | ConcreteDelegate {methodInfo = mi} ->
+                        targets.Add this
+                        methods.Add mi
+                    | _ ->
+                        assert(IsReference d)
+                        targets.Add d
+                        let mi = (ancestorMethod :> IMethod).MethodBase :?> MethodInfo
+                        methods.Add mi
+                let method = Reflection.createCombinedDelegate methods argTypes |> Application.getMethod
+                let args = Seq.append args targets |> Seq.toList
+                x.CommonCall method args None cilState id
+            | Some ref ->
+                assert(IsReference ref)
+                x.CommonCallVirt ancestorMethod ref args cilState
+            | _ -> x.CommonCallVirt ancestorMethod this args cilState
+        | _ -> x.Raise x.NullReferenceException cilState id
 
-        let isDelegate = ancestorMethod.IsDelegate
-        let actualThis, ancestorMethod =
-            match this with
-            | NonNullRef as this when isDelegate ->
-                match Memory.ReadDelegate cilState.state this with
-                | Some deleg ->
-                    let target, mi = retrieveMethodInfo deleg
-                    let mi = Application.getMethod mi
-                    // [NOTE] target is ref to closure: when we have it, 'this' = target, otherwise 'this' = thisOption
-                    match target with
-                    | NullRef _ -> this, mi
-                    | _ -> target, mi
-                | _ -> this, ancestorMethod
-            | _ -> this, ancestorMethod
-
+    member x.CommonCallVirt (ancestorMethod : Method) this args cilState =
         let callVirtual (cilState : cilState) this k =
             let baseType = MostConcreteTypeOfRef cilState.state this
             // Forcing CallAbstract for delegates to generate mocks
-            if baseType.IsAbstract || ancestorMethod.CanBeOverriden baseType && not baseType.IsSealed || isDelegate then
+            let canBeOverriden() = ancestorMethod.CanBeOverriden baseType && not baseType.IsSealed
+            if baseType.IsAbstract || canBeOverriden() || ancestorMethod.IsDelegate then
                 x.CallAbstract baseType ancestorMethod this args cilState k
             else
                 let targetMethod = x.ResolveVirtualMethod baseType ancestorMethod
@@ -1263,12 +1356,23 @@ type internal ILInterpreter() as this =
         // NOTE: there is no need to initialize statics, because they were initialized before ``newobj'' execution
         let call (cilState : cilState) k =
             if ancestorMethod.IsVirtual && not ancestorMethod.IsFinal then
-                GuardedApplyCIL cilState actualThis callVirtual k
+                GuardedApplyCIL cilState this callVirtual k
             else
-                let actualThis = Types.Cast actualThis ancestorMethod.ReflectedType
+                let actualThis = Types.Cast this ancestorMethod.ReflectedType
                 x.CommonCall ancestorMethod args (Some actualThis) cilState k
 
-        x.NpeOrInvokeStatementCIL cilState actualThis call id
+        x.NpeOrInvokeStatementCIL cilState this call id
+
+    member x.CallVirt (m : Method) offset (cilState : cilState) =
+        let ancestorMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Call.Size) |> Application.getMethod
+        let thisOption, args = x.RetrieveCalledMethodAndArgs OpCodes.Callvirt ancestorMethod cilState
+        let this =
+            match thisOption with
+            | Some this -> this
+            | None -> internalfailf "None this in callvirt"
+
+        if ancestorMethod.IsDelegate then x.CallDelegate this args ancestorMethod cilState
+        else x.CommonCallVirt ancestorMethod this args cilState
 
     member x.ReduceArrayCreation (arrayType : Type) (cilState : cilState) (lengths : term list) k =
         Memory.AllocateDefaultArray cilState.state lengths arrayType |> k
@@ -1278,15 +1382,15 @@ type internal ILInterpreter() as this =
         ILInterpreter.CheckNotNullAttribute m cilState true id
 
     member x.CommonCreateDelegate (ctor : Method) (cilState : cilState) (args : term list) k =
-        let target, methodPtr =
-            assert(List.length args = 2)
-            args.[0], args.[1]
+        assert(List.length args = 2)
+        let target, methodPtr = args[0], args[1]
         let retrieveMethodInfo methodPtr =
             match methodPtr.term with
             | Concrete(:? MethodInfo as mi, _) -> mi
             | _ -> __unreachable__()
-        let lambda = Concrete (retrieveMethodInfo methodPtr, target) ctor.DeclaringType
-        Memory.AllocateDelegate cilState.state lambda |> k
+        let methodInfo = retrieveMethodInfo methodPtr
+        let delegateType = ctor.DeclaringType
+        Memory.AllocateDelegate cilState.state methodInfo target delegateType |> k
 
     member x.NewObj (m : Method) offset (cilState : cilState) =
         let calledMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Newobj.Size) |> Application.getMethod

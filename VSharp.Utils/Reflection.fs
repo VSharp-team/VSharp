@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Reflection.Emit
 open System.Runtime.InteropServices
 
 [<CustomEquality; CustomComparison>]
@@ -316,6 +317,45 @@ module public Reflection =
         method.DeclaringType <> null && method.DeclaringType.IsByRefLike ||
             method.GetParameters() |> Seq.exists (fun pi -> pi.ParameterType.IsByRefLike) ||
             method.ReturnType.IsByRefLike;
+
+    let private delegatesModule =
+        lazy(
+            let dynamicAssemblyName = $"VSharpCombinedDelegates.{Guid.NewGuid()}"
+            let assemblyBuilder = AssemblyManager.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
+            assemblyBuilder.DefineDynamicModule dynamicAssemblyName
+        )
+
+    let private delegatesType() =
+        let typeName = $"CombinedDelegates.{Guid.NewGuid()}"
+        let flags =
+            TypeAttributes.Class ||| TypeAttributes.NotPublic
+            ||| TypeAttributes.Sealed ||| TypeAttributes.Abstract
+        delegatesModule.Value.DefineType(typeName, flags)
+
+    let createCombinedDelegate (methods : MethodInfo seq) (argTypes : Type seq) =
+        let methodsCount = Seq.length methods
+        assert(methodsCount > 1)
+        let argsCount = Seq.length argTypes
+        let args = Array.append (Array.ofSeq argTypes) (Array.init methodsCount (fun _ -> typeof<obj>))
+        let returnType = (Seq.last methods).ReturnType
+        let declaringType = delegatesType()
+        let methodName = "CombinedDelegate"
+        let flags = MethodAttributes.Static ||| MethodAttributes.Private ||| MethodAttributes.HideBySig
+        let methodBuilder = declaringType.DefineMethod(methodName, flags, returnType, args)
+        let il = methodBuilder.GetILGenerator()
+        let mutable i = 0
+        for m in methods do
+            il.Emit(OpCodes.Ldarg, argsCount + i)
+            for j = 0 to argsCount - 1 do
+                il.Emit(OpCodes.Ldarg, j)
+            il.Emit(OpCodes.Callvirt, m)
+            i <- i + 1
+            // Popping each result, except last
+            if i <> methodsCount && returnType <> typeof<Void> then
+                il.Emit(OpCodes.Pop)
+        il.Emit(OpCodes.Ret)
+        let t = declaringType.CreateType()
+        t.GetMethod(methodName, BindingFlags.Static ||| BindingFlags.NonPublic)
 
     // ----------------------------------- Creating objects ----------------------------------
 
