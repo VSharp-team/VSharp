@@ -281,6 +281,13 @@ internal class CodeRenderer
             return PointerType(RenderType(elemType));
         }
 
+        if (type.IsByRef)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return RenderType(elemType);
+        }
+
         if (PredefinedTypes.TryGetValue(type, out var name))
             return ParseTypeName(name);
 
@@ -290,6 +297,13 @@ internal class CodeRenderer
     public SimpleNameSyntax RenderSimpleTypeName(Type type)
     {
         Debug.Assert(type != null);
+
+        if (type.IsByRef)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return RenderSimpleTypeName(elemType);
+        }
 
         _referenceManager.AddAssembly(type.Assembly);
 
@@ -322,6 +336,13 @@ internal class CodeRenderer
     private (NameSyntax, int) RenderTypeNameRec(Type type, TypeSyntax[]? typeArgs = null)
     {
         Debug.Assert(type != null);
+
+        if (type.IsByRef)
+        {
+            var elemType = type.GetElementType();
+            Debug.Assert(elemType != null);
+            return RenderTypeNameRec(elemType, typeArgs);
+        }
 
         string typeName = CorrectNameGenerator.GetTypeName(type);
 
