@@ -113,7 +113,6 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.Contains address =
             virtToPhys.ContainsKey address
 
-        // TODO: leave only one function #refactor
         override x.VirtToPhys virtAddress =
             x.ReadObject virtAddress |> x.HandleBoxed
 

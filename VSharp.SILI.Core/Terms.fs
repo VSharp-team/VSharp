@@ -668,8 +668,9 @@ module internal Terms =
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
 
-    and getConcreteHeapAddress = term >> function
-        | ConcreteHeapAddress(addr) -> addr
+    and getConcreteHeapAddress term =
+        match term.term with
+        | ConcreteHeapAddress(address) -> address
         | _ -> __unreachable__()
 
     and tryPtrToArrayInfo (typeOfBase : Type) sightType offset =

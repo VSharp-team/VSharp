@@ -123,7 +123,8 @@ module public Reflection =
 
     let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)
 
-    let getFullTypeName (typ : Type) = typ.ToString()
+    let getFullTypeName (typ : Type) =
+        if typ <> null then typ.ToString() else String.Empty
 
     let getFullMethodName (methodBase : MethodBase) =
         let returnType = getMethodReturnType methodBase |> getFullTypeName
@@ -148,7 +149,8 @@ module public Reflection =
         TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate> && methodBase.Name = "Invoke"
 
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
-        methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
+        let declaringType = methodBase.DeclaringType
+        methodBase.IsGenericMethod || declaringType <> null && declaringType.IsGenericType
 
     let isStaticConstructor (m : MethodBase) =
         m.IsStatic && m.Name = ".cctor"
@@ -160,16 +162,25 @@ module public Reflection =
 
     let getMethodDescriptor (m : MethodBase) =
         let reflectedType = m.ReflectedType
+        let typeHandle =
+            if reflectedType <> null then reflectedType.TypeHandle.Value
+            else IntPtr.Zero
         let declaringTypeVars =
-            if reflectedType.IsGenericType then reflectedType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
+            if reflectedType <> null && reflectedType.IsGenericType then
+                reflectedType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
-        { methodHandle = m.MethodHandle.Value
-          declaringTypeVarHandles = declaringTypeVars
-          methodVarHandles = methodVars
-          typeHandle = reflectedType.TypeHandle.Value }
+        let methodHandle =
+            if m :? DynamicMethod then m.GetHashCode() |> nativeint
+            else m.MethodHandle.Value
+        {
+            methodHandle = methodHandle
+            declaringTypeVarHandles = declaringTypeVars
+            methodVarHandles = methodVars
+            typeHandle = typeHandle
+        }
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
@@ -357,7 +368,7 @@ module public Reflection =
     // --------------------------------- Generalization ---------------------------------
 
     let getGenericTypeDefinition (typ : Type) =
-        if typ.IsGenericType then
+        if typ <> null && typ.IsGenericType then
             let args = typ.GetGenericArguments()
             let genericType = typ.GetGenericTypeDefinition()
             let parameters = genericType.GetGenericArguments()
