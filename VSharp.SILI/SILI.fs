@@ -123,7 +123,7 @@ type public SILI(options : SiliOptions) =
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 match TestGenerator.state2test isError entryMethod cilState.state message with
                 | Some test ->
-                    statistics.TrackFinished cilState
+                    statistics.TrackFinished(cilState, test)
                     reporter test
                     if isCoverageAchieved() then
                         isStopped <- true

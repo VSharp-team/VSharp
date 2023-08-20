@@ -198,24 +198,17 @@ namespace VSharp
                 }
             }
 
-            var testInfos = new List<GeneratedTestInfo>();
-
-            void OnTest(UnitTest test)
-            {
-                var coverage = statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(false, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
-                unitTests.GenerateTest(test);
-            }
-
-            void OnError(UnitTest test)
-            {
-                var coverage = statistics.GetCurrentCoverage();
-                testInfos.Add(new GeneratedTestInfo(true, statistics.CurrentExplorationTime, statistics.StepsCount, coverage));
-                unitTests.GenerateError(test);
-            }
-
-            explorer.Interpret(isolated, entryPoints, OnTest, OnError, _ => { },
+            explorer.Interpret(isolated, entryPoints, unitTests.GenerateTest, unitTests.GenerateError, _ => { },
                 HandleInternalFail, HandleCrash);
+
+            var generatedTestInfos = statistics.GeneratedTestInfos.Select(i =>
+                new GeneratedTestInfo(
+                    IsError: i.isError,
+                    ExecutionTime: i.executionTime,
+                    StepsCount: i.stepsCount,
+                    Coverage: i.coverage
+                )
+            );
 
             var result = new Statistics(
                 statistics.CurrentExplorationTime,
@@ -224,7 +217,7 @@ namespace VSharp
                 unitTests.ErrorsCount,
                 statistics.StepsCount,
                 statistics.IncompleteStates.Select(e => e.iie.Value.Message).Distinct(),
-                testInfos);
+                generatedTestInfos);
             unitTests.WriteReport(statistics.PrintStatistics);
 
             return result;

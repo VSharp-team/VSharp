@@ -42,6 +42,14 @@ type statisticsDump =
         topVisitedLocationsOutOfZone : (codeLocation * uint) list
     }
 
+type generatedTestInfo =
+    {
+        isError : bool
+        executionTime : TimeSpan
+        stepsCount : uint
+        coverage : double
+    }
+
 // TODO: move statistics into (unique) instances of code location!
 type public SILIStatistics(entryMethods : Method seq) =
 
@@ -51,6 +59,8 @@ type public SILIStatistics(entryMethods : Method seq) =
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
     let emittedErrors = HashSet<ipStack * string>()
     let emittedExceptions = HashSet<string * string>()
+
+    let generatedTestInfos = List<generatedTestInfo>()
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = 1
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
@@ -227,9 +237,18 @@ type public SILIStatistics(entryMethods : Method seq) =
     member x.OnBranchesReleased() =
         branchesReleased <- true
 
-    member x.TrackFinished (s : cilState) =
+    member x.TrackFinished (s : cilState, test : UnitTest) =
         testsCount <- testsCount + 1u
+        let generatedTestInfo =
+            {
+                isError = test.IsError
+                executionTime = x.CurrentExplorationTime
+                stepsCount = x.StepsCount
+                coverage = x.GetCurrentCoverage()
+            }
+        generatedTestInfos.Add generatedTestInfo
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
+
         x.SetBasicBlocksAsCoveredByTest s.history
 
     member x.IsNewError (s : cilState) (errorMessage : string) =
@@ -296,6 +315,8 @@ type public SILIStatistics(entryMethods : Method seq) =
     member x.InternalFails with get() = internalFails
 
     member x.StepsCount with get() = stepsCount
+
+    member x.GeneratedTestInfos with get() : IReadOnlyCollection<generatedTestInfo> = generatedTestInfos
 
     member x.DumpStatistics() =
         let topN = 5
