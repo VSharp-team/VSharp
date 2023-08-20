@@ -30,6 +30,7 @@
         <Compile Include="MemoryRegion.fs" />
         <Compile Include="EvaluationStack.fs" />
         <Compile Include="CallStack.fs" />
+        <Compile Include="GenericUtils.fs" />
         <Compile Include="State.fs" />
         <Compile Include="ConcreteMemory.fs" />
         <Compile Include="Memory.fs" />

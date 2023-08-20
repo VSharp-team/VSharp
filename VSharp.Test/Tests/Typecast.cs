@@ -318,6 +318,14 @@ namespace IntegrationTests.Typecast
         IMovable MakeMove(Coord c);
     }
 
+    // public class XPiece : IMovable
+    // {
+    //     public IMovable MakeMove(Coord c)
+    //     {
+    //         return this;
+    //     }
+    // }
+
     [TestSvmFixture]
     public class Piece : IMovable
     {

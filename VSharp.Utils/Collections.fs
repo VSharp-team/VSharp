@@ -7,7 +7,7 @@ open System.Runtime.CompilerServices
 
 module public Seq =
     let foldi f st xs =
-        let i = ref (-1)
+        let i = ref -1
         Seq.fold (fun s t ->
             i := !i + 1
             f s !i t) st xs
@@ -29,19 +29,19 @@ module public List =
             | Some m -> mappedPartitionAcc f (m::left) right xs
             | None -> mappedPartitionAcc f left (x::right) xs
 
-    let public mappedPartition f xs =
+    let mappedPartition f xs =
         mappedPartitionAcc f [] [] xs
 
-    let rec public map2Different f xs1 xs2 =
+    let rec map2Different f xs1 xs2 =
         match xs1, xs2 with
         | Seq.Empty, [] -> []
         | Seq.Empty, x2::xs2' -> f None (Some x2) :: map2Different f xs1 xs2'
         | Seq.Cons(x1, xs1'), [] -> f (Some x1) None :: map2Different f xs1' xs2
         | Seq.Cons(x1, xs1'), x2::xs2' -> f (Some x1) (Some x2) :: map2Different f xs1' xs2'
 
-    let public append3 xs ys zs = List.append xs (List.append ys zs)
+    let append3 xs ys zs = List.append xs (List.append ys zs)
 
-    let rec public filterMap2 mapper xs ys =
+    let rec filterMap2 mapper xs ys =
         match xs, ys with
         | [], [] -> []
         | x::xs, y::ys ->
@@ -49,23 +49,25 @@ module public List =
             optCons (filterMap2 mapper xs ys) z
         | _ -> internalfail "filterMap2 expects lists of equal lengths"
 
-    let public unique = function
+    let unique = function
         | [] -> internalfail "unexpected non-empty list"
         | x::xs ->
             assert(List.forall ((=)x) xs)
             x
 
-    let rec public cartesian = function
+    let rec cartesian = function
         | [xs] -> Seq.map List.singleton xs
         | xs::xss ->
             seq {
-                for x in xs do
-                    for xs' in cartesian xss do
-                        yield x::xs'
+                let xssCartesian = cartesian xss
+                if Seq.isEmpty xssCartesian |> not then
+                    for x in xs do
+                        for xs' in xssCartesian do
+                            yield x::xs'
             }
         | [] -> Seq.empty
 
-    let public cartesianMap mapper = cartesian >> Seq.map mapper
+    let cartesianMap mapper = cartesian >> Seq.map mapper
 
     let lastAndRest xs =
         assert(List.isEmpty xs |> not)
@@ -91,6 +93,17 @@ module public List =
             x :: result
         let list = List.foldBack folder list List.empty
         removed, list
+
+    let rec sequenceOption f list =
+        match list with
+        | [] -> Some List.empty
+        | h :: t ->
+            match f h with
+            | Some h ->
+                match sequenceOption f t with
+                | Some t -> Some (h :: t)
+                | None -> None
+            | None -> None
 
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)

@@ -34,7 +34,7 @@ namespace VSharp.Runner
         public static int Main(string[] args)
         {
             var defaultOptions = new VSharpOptions();
-            
+
             var assemblyPathArgument =
                 new Argument<FileInfo>("assembly-path", description: "Path to the target assembly");
             var timeoutOption = new Option<int>(
@@ -52,11 +52,11 @@ namespace VSharp.Runner
             var concreteArguments =
                 new Argument<string[]>("args", description: "Command line arguments");
             var unknownArgsOption =
-                new Option("--unknown-args", description: "Force engine to generate various input console arguments");
+                new System.CommandLine.Option("--unknown-args", description: "Force engine to generate various input console arguments");
             var renderTestsOption =
-                new Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
+                new System.CommandLine.Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
             var singleFileOption =
-                new Option("--single-file") { IsHidden = true };
+                new System.CommandLine.Option("--single-file") { IsHidden = true };
             var searchStrategyOption = new Option<SearchStrategy>(
                 aliases: new[] { "--strat" },
                 () => defaultOptions.SearchStrategy,
@@ -188,7 +188,7 @@ namespace VSharp.Runner
                         Console.Error.WriteLine($"Cannot find type with name {className} in assembly {assembly.Location}");
                         return;
                     }
-                    
+
                     var options = new VSharpOptions
                     {
                         Timeout = timeout,

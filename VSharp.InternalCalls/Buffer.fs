@@ -48,7 +48,6 @@ module internal Buffer =
                     cilState.iie <- Some iie
                     None, cilState
             List.map createArrayRef cases
-
         | _ -> internalfail $"Memmove: unexpected reference {ref}"
 
     let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state elemCount =
