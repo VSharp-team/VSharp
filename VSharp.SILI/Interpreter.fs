@@ -1078,43 +1078,32 @@ type internal ILInterpreter() as this =
 
     member x.CallAbstract targetType (ancestorMethod : Method) (this : term) (arguments : term list) cilState k =
         let thisType = MostConcreteTypeOfRef cilState.state this
-        let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod
-        let candidateTypes = List.ofSeq candidateTypes |> List.distinct
-        let candidateMethods = seq {
-            for t in candidateTypes do
-                match t with
-                | ConcreteType t ->
-                    let overriden = x.ResolveVirtualMethod t ancestorMethod
-                    if overriden.InCoverageZone || t.IsAssignableTo targetType && targetType.Assembly = t.Assembly then
-                        yield (t, overriden)
-                | _ -> ()
-        }
-        let candidateMethods = candidateMethods |> Seq.toList |> List.distinctBy snd
-        let typeMocks = seq {
-            for t in candidateTypes do
-                match t with
-                | MockType mock -> yield mock
-                | _ -> ()
-        }
+        let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod |> List.ofSeq
+        let getMethods t (concreteMethods, mockTypes) =
+            match t with
+            | ConcreteType t ->
+                let overriden = x.ResolveVirtualMethod t ancestorMethod
+                if overriden.InCoverageZone || t.IsAssignableTo targetType && targetType.Assembly = t.Assembly then
+                    (t, overriden) :: concreteMethods, mockTypes
+                else concreteMethods, mockTypes
+            | MockType m -> concreteMethods, (m :: mockTypes)
+        let candidateMethods, typeMocks = List.foldBack getMethods candidateTypes (List.empty, List.empty)
+        assert(List.length typeMocks = 1)
+        let candidateMethods = List.distinctBy snd candidateMethods
         let invokeMock cilState k =
-            match typeMocks with
-            | _ when Seq.isEmpty typeMocks ->
-                __insufficientInformation__ $"Trying to callvirt method {ancestorMethod} without mocks"
-            | _ when Seq.length typeMocks = 1 ->
-                let overriden =
-                    if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
-                    else x.ResolveVirtualMethod targetType ancestorMethod
-                let mockMethod = MethodMockAndCall cilState.state overriden (Some this) []
-                match mockMethod with
-                | Some symVal ->
-                    push symVal cilState
-                | None -> ()
-                match tryCurrentLoc cilState with
-                | Some loc ->
-                    // Moving ip to next instruction after mocking method result
-                    fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
-                | _ -> __unreachable__()
-            | _ -> internalfail "Got more than one mock for callvirt!"
+            let overriden =
+                if ancestorMethod.DeclaringType.IsInterface then ancestorMethod
+                else x.ResolveVirtualMethod targetType ancestorMethod
+            let mockMethod = MethodMockAndCall cilState.state overriden (Some this) []
+            match mockMethod with
+            | Some symVal ->
+                push symVal cilState
+            | None -> ()
+            match tryCurrentLoc cilState with
+            | Some loc ->
+                // Moving ip to next instruction after mocking method result
+                fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
+            | _ -> __unreachable__()
         let rec dispatch candidates cilState k =
             match candidates with
             | [] -> invokeMock cilState k

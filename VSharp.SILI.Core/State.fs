@@ -344,16 +344,17 @@ and
             yield! rest
         }
 
-        new(types : seq<Type> , mock: ITypeMock option, userAssembly : Reflection.Assembly) =
-            let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && Reflection.isBuiltInType t
-            let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
-            let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
-            let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
-            let publicUserTypes = types |> Seq.filter isPublicUser
-            let privateUserTypes = types |> Seq.filter isPrivateUser
-            let predicates = [isPublicBuiltIn; isPublicUser; isPrivateUser]
-            let rest = List.fold (fun types predicate -> Seq.filter (predicate >> not) types) types predicates
-            candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
+    new(types : Type seq, mock: ITypeMock option, userAssembly : Reflection.Assembly) =
+        let types = Seq.distinct types
+        let isPublicBuiltIn (t : Type) = TypeUtils.isPublic t && Reflection.isBuiltInType t
+        let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
+        let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
+        let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
+        let publicUserTypes = types |> Seq.filter isPublicUser
+        let privateUserTypes = types |> Seq.filter isPrivateUser
+        let predicates = [isPublicBuiltIn; isPublicUser; isPrivateUser]
+        let rest = List.fold (fun types predicate -> Seq.filter (predicate >> not) types) types predicates
+        candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
         member x.IsEmpty
             with get() =
