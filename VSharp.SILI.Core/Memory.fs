@@ -185,6 +185,15 @@ module internal Memory =
                 Logger.trace "mostConcreteTypeOfHeapRef: Sight type (%O) of address %O differs from type in heap (%O)" sightType address locationType
             sightType
 
+    let mostConcreteTypeOfRef state ref =
+        let getType ref =
+            match ref.term with
+            | HeapRef(address, sightType) -> mostConcreteTypeOfHeapRef state address sightType
+            | Ref address -> typeOfAddress address
+            | Ptr(_, t, _) -> t
+            | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
+        commonTypeOf getType ref
+
     let baseTypeOfAddress state address =
         match address with
         | BoxedLocation(addr, _) -> typeOfHeapLocation state addr
@@ -441,7 +450,7 @@ module internal Memory =
         concreteAddress
 
     let allocateConcreteType state (typ : Type) =
-        assert(not typ.IsAbstract)
+        assert(not typ.IsAbstract || isDelegate typ)
         allocateType state (ConcreteType typ)
 
     let allocateMockType state mock =
@@ -514,6 +523,8 @@ module internal Memory =
 
     let rec tryTermToObj (state : state) term =
         match term.term with
+        | ConcreteDelegate _
+        | CombinedDelegate _ -> None
         | Concrete(obj, _) -> Some obj
         | Struct(fields, typ) when isNullable typ -> tryNullableTermToObj state fields typ
         | Struct(fields, typ) when not typ.IsByRefLike -> tryStructTermToObj state fields typ
@@ -544,6 +555,13 @@ module internal Memory =
         | Some obj when hasValue = True() -> Some obj
         | _ when hasValue = False() -> Some null
         | _ -> None
+
+    let tryTermListToObjects state (terms : term list) =
+        let toObj (t : term) acc k =
+            match tryTermToObj state t with
+            | Some o -> o :: acc |> k
+            | None -> None
+        Cps.List.foldrk toObj List.empty terms Some
 
     // ------------------------------- Merging -------------------------------
 
@@ -779,18 +797,6 @@ module internal Memory =
             let value = cm.VirtToPhys address
             objToTerm state typ value
         | _ -> readBoxedSymbolic state address typ
-
-    let rec readDelegate state reference =
-        match reference.term with
-        | HeapRef(address, _) ->
-            match address.term with
-            | ConcreteHeapAddress address -> Some state.delegates.[address]
-            | _ -> None
-        | Union gvs ->
-            let delegates = gvs |> List.choose (fun (g, v) ->
-                Option.bind (fun d -> Some(g, d)) (readDelegate state v))
-            if delegates.Length = gvs.Length then delegates |> Merging.merge |> Some else None
-        | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
 
     let rec readStruct (structTerm : term) (field : fieldId) =
         match structTerm.term with
@@ -1451,14 +1457,6 @@ module internal Memory =
             writeArrayIndex state address [Concrete 0 indexType] (typeof<char>, 1, true) char
             HeapRef address typeof<string>
 
-    let allocateDelegate state delegateTerm =
-        let typ = typeOf delegateTerm
-        let concreteAddress = allocateConcreteType state typ
-        let address = ConcreteHeapAddress concreteAddress
-        // TODO: create real Delegate objects and use concrete memory
-        state.delegates <- PersistentDict.add concreteAddress delegateTerm state.delegates
-        HeapRef address typ
-
     let allocateBoxedLocation state value =
         let typ = typeOf value
         let concreteAddress = allocateConcreteType state typ
@@ -1498,6 +1496,136 @@ module internal Memory =
             let reference = allocateString state ""
             writeStaticField state typeof<string> Reflection.emptyStringField reference
         state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
+
+// ------------------------------- Delegates -------------------------------
+
+    let private objToDelegate state (d : Delegate) =
+        let delegateType = d.GetType()
+        let target = d.Target
+        let target =
+            if target <> null then
+                let targetType = target.GetType()
+                objToTerm state targetType d.Target
+            else nullRef typeof<obj>
+        concreteDelegate d.Method target delegateType
+
+    let rec readDelegate state reference =
+        let cm = state.concreteMemory
+        match reference.term with
+        | HeapRef({term = ConcreteHeapAddress address}, _) when cm.Contains address ->
+            let d = cm.VirtToPhys address
+            assert(d :? Delegate && d <> null)
+            let d = d :?> Delegate
+            let delegateType = d.GetType()
+            let invokeList = d.GetInvocationList()
+            if invokeList <> null then
+                let delegates = Array.map (objToDelegate state) invokeList
+                if Array.length delegates = 1 then Array.head delegates |> Some
+                else createCombinedDelegate (Array.toList delegates) delegateType |> Some
+            else objToDelegate state d |> Some
+        | HeapRef({term = ConcreteHeapAddress address}, _) -> state.delegates[address] |> Some
+        | HeapRef _ -> None
+        | Union gvs ->
+            let delegates = gvs |> List.choose (fun (g, v) ->
+                Option.bind (fun d -> Some(g, d)) (readDelegate state v))
+            if delegates.Length = gvs.Length then delegates |> Merging.merge |> Some else None
+        | _ -> internalfailf "Reading delegate: expected heap reference, but got %O" reference
+
+    and private simplifyDelegateRec state acc d =
+        match d.term with
+        | CombinedDelegate delegates -> List.append delegates acc
+        | ConcreteDelegate _ -> d :: acc
+        | _ ->
+            assert(isReference d)
+            linearizeDelegateRec state d acc
+
+    and private linearizeDelegateRec state d acc =
+        if isReference d then
+            match readDelegate state d with
+            | Some d -> simplifyDelegateRec state acc d
+            | None -> d :: acc
+        else simplifyDelegateRec state acc d
+
+    and private simplifyDelegate state d =
+        simplifyDelegateRec state List.empty d
+
+    let private linearizeDelegate state ref =
+        linearizeDelegateRec state ref List.empty
+
+    let private getDelegates state address =
+        match PersistentDict.tryFind state.delegates address with
+        | Some d -> simplifyDelegate state d
+        | None -> List.empty
+
+    let allocateDelegate state (methodInfo : System.Reflection.MethodInfo) target delegateType =
+        let concreteAddress = allocateConcreteType state delegateType
+        let address = ConcreteHeapAddress concreteAddress
+        match memoryMode, tryTermToObj state target with
+        | ConcreteMemory, Some target ->
+            let d = methodInfo.CreateDelegate(delegateType, target)
+            state.concreteMemory.Allocate concreteAddress d
+            HeapRef address delegateType
+        | _ ->
+            let d = concreteDelegate methodInfo target delegateType
+            state.delegates <- PersistentDict.add concreteAddress d state.delegates
+            HeapRef address delegateType
+
+    let rec private allocateCombinedDelegateSymbolic state concreteAddress delegateRefs t =
+        let delegates = List.collect (linearizeDelegate state) delegateRefs
+        let combined = createCombinedDelegate delegates t
+        state.delegates <- PersistentDict.add concreteAddress combined state.delegates
+
+    let allocateCombinedDelegate state concreteAddress (delegateRefs : term list) t =
+        let concreteDelegates = tryTermListToObjects state delegateRefs
+        match memoryMode, concreteDelegates with
+        | ConcreteMemory, Some list ->
+            assert(List.isEmpty list |> not)
+            if List.length list = 1 then
+                state.concreteMemory.Allocate concreteAddress (List.head list)
+            else
+                let delegates = Seq.cast list
+                let combined = Delegate.Combine (Seq.toArray delegates)
+                state.concreteMemory.Allocate concreteAddress combined
+        | _ -> allocateCombinedDelegateSymbolic state concreteAddress delegateRefs t
+
+    let combineDelegates state (delegateRefs : term list) typ =
+        assert(List.isEmpty delegateRefs |> not)
+        let concreteAddress = allocateConcreteType state typ
+        let address = ConcreteHeapAddress concreteAddress
+        allocateCombinedDelegate state concreteAddress delegateRefs typ
+        HeapRef address typ
+
+    let private delegatesMatch ref1 ref2 =
+        match ref1.term, ref2.term with
+        | HeapRef(address1, _), HeapRef(address2, _) -> address1 = address2
+        | _ -> internalfail $"delegatesMatch: unexpected references {ref1}, {ref2}"
+
+    let removeDelegate state (sourceRef : term) (toRemoveRef : term) typ =
+        let cm = state.concreteMemory
+        let toRemove = tryTermToObj state toRemoveRef
+        match memoryMode, sourceRef.term, toRemove with
+        | ConcreteMemory, HeapRef({term = ConcreteHeapAddress a}, _), Some toRemove when cm.Contains a ->
+            let source = cm.VirtToPhys a
+            assert(source :? Delegate && toRemove :? Delegate)
+            let source = source :?> Delegate
+            let result = Delegate.Remove(source, toRemove :?> Delegate)
+            if Object.ReferenceEquals(result, source) then sourceRef
+            else
+                let concreteAddress = allocateConcreteType state typ
+                state.concreteMemory.Allocate concreteAddress result
+                HeapRef (ConcreteHeapAddress concreteAddress) typ
+        | _, HeapRef({term = ConcreteHeapAddress a}, _), _ ->
+            let sourceDelegates = getDelegates state a
+            let removeDelegates = simplifyDelegate state toRemoveRef
+            let removed, result = List.removeSubList sourceDelegates removeDelegates
+            if removed then
+                if List.isEmpty result then nullRef typ
+                else
+                    let concreteAddress = allocateConcreteType state typ
+                    allocateCombinedDelegate state concreteAddress result typ
+                    HeapRef (ConcreteHeapAddress concreteAddress) typ
+            else sourceRef
+        | _ -> sourceRef
 
 // ------------------------------- Composition -------------------------------
 

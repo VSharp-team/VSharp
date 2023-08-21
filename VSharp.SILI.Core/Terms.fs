@@ -258,6 +258,15 @@ and
         abstract Time : vectorTime
         abstract TypeOfLocation : Type
 
+and delegateInfo =
+    {
+        methodInfo : System.Reflection.MethodInfo
+        target : term
+        delegateType : Type
+    }
+    static member Create(methodInfo, target, t) =
+        { methodInfo = methodInfo; target = target; delegateType = t }
+
 type INonComposableSymbolicConstantSource =
     inherit ISymbolicConstantSource
 
@@ -587,6 +596,14 @@ module internal Terms =
         assert(isBool term)
         makeUnary OperationType.LogicalNot term typeof<bool>
 
+    and createCombinedDelegate (delegates : term list) typ =
+        assert(List.isEmpty delegates |> not)
+        if List.length delegates = 1 then List.head delegates
+        else Concrete delegates typ
+
+    and concreteDelegate methodInfo target delegateType =
+        Concrete (delegateInfo.Create(methodInfo, target, delegateType)) delegateType
+
     and (|True|_|) term = if isTrue term then Some True else None
     and (|False|_|) term = if isFalse term then Some False else None
 
@@ -664,12 +681,26 @@ module internal Terms =
 
     and (|CombinedTerm|_|) = term >> (|Combined|_|)
 
+    and (|CombinedDelegate|_|) = function
+        | Concrete(:? list<term> as delegates, t) ->
+            assert(t.IsAssignableTo typeof<Delegate>)
+            CombinedDelegate delegates |> Some
+        | _ -> None
+
+    and (|ConcreteDelegate|_|) (termNode : termNode) =
+        match termNode with
+        | Concrete(:? delegateInfo as d, t) ->
+            assert(t.IsAssignableTo typeof<Delegate>)
+            ConcreteDelegate d |> Some
+        | _ -> None
+
     and (|ConcreteHeapAddress|_|) = function
         | Concrete(:? concreteHeapAddress as a, AddressType) -> ConcreteHeapAddress a |> Some
         | _ -> None
 
-    and getConcreteHeapAddress = term >> function
-        | ConcreteHeapAddress(addr) -> addr
+    and getConcreteHeapAddress term =
+        match term.term with
+        | ConcreteHeapAddress(address) -> address
         | _ -> __unreachable__()
 
     and tryPtrToArrayInfo (typeOfBase : Type) sightType offset =

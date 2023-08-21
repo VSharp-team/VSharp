@@ -99,14 +99,7 @@ module API =
         let TypeOf term = typeOf term
         // NOTE: returns type of location, referenced by 'ref'
         let TypeOfLocation ref = typeOfRef ref
-        let rec MostConcreteTypeOfRef state ref =
-            let getType ref =
-                match ref.term with
-                | HeapRef(address, sightType) -> Memory.mostConcreteTypeOfHeapRef state address sightType
-                | Ref address -> typeOfAddress address
-                | Ptr(_, t, _) -> t
-                | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
-            commonTypeOf getType ref
+        let MostConcreteTypeOfRef state ref = Memory.mostConcreteTypeOfRef state ref
         let TypeOfAddress state address = Memory.typeOfHeapLocation state address
 
         let IsStruct term = isStruct term
@@ -132,6 +125,9 @@ module API =
 
         let (|Combined|_|) t = (|Combined|_|) t
         let (|CombinedTerm|_|) t = (|CombinedTerm|_|) t
+
+        let (|CombinedDelegate|_|) t = (|CombinedDelegate|_|) t.term
+        let (|ConcreteDelegate|_|) t = (|ConcreteDelegate|_|) t.term
 
         let (|True|_|) t = (|True|_|) t
         let (|False|_|) t = (|False|_|) t
@@ -415,6 +411,11 @@ module API =
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
 
+        let CombineDelegates state delegates t =
+            Memory.combineDelegates state delegates t
+        let RemoveDelegate state source toRemove t =
+            Memory.removeDelegate state source toRemove t
+
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteStackLocation state location value = Memory.writeStackLocation state location value
@@ -522,7 +523,8 @@ module API =
         let AllocateArrayFromFieldInfo state fieldInfo =
             ArrayInitialization.allocateOptimizedArray state fieldInfo
 
-        let AllocateDelegate state delegateTerm = Memory.allocateDelegate state delegateTerm
+        let AllocateDelegate state methodInfo target delegateType =
+            Memory.allocateDelegate state methodInfo target delegateType
 
         let AllocateString string state = Memory.allocateString state string
         let AllocateEmptyString state length = Memory.allocateEmptyString state length

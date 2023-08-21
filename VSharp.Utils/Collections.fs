@@ -81,6 +81,20 @@ module public List =
         | x::xs -> x::(mapLast f xs)
         | [] -> []
 
+    let removeSubList list sublist =
+        let count = List.length sublist
+        let mutable removed = false
+        let folder x result =
+            let length = List.length result
+            let result =
+                if not removed && length >= count && List.take count result = sublist then
+                    removed <- true
+                    List.skip count result
+                else result
+            x :: result
+        let list = List.foldBack folder list List.empty
+        removed, list
+
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

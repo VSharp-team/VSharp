@@ -167,6 +167,16 @@ namespace IntegrationTests
             return $"int = {x}";
         }
 
+        [Ignore("fix composition with concrete memory regions")]
+        public int LengthOfIntToString(int x)
+        {
+            if (x == 0)
+                return x.ToString().Length;
+            if (x > 0)
+                return x.ToString().Length;
+            return x.ToString().Length;
+        }
+
         [TestSvm(100)]
         public static string StringFormat1(ClassToString c)
         {

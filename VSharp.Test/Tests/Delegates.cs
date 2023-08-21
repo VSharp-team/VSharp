@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using VSharp.Test;
 
 namespace IntegrationTests
@@ -83,6 +84,135 @@ namespace IntegrationTests
     {
         public int Value1 { get; set; }
         public char Value2 { get; set; }
+    }
+
+    [TestSvmFixture]
+    public class Events
+    {
+        public struct IRQContext
+        {
+            public uint UserESP;
+        }
+
+        private int _x = 0;
+
+        public delegate int IRQDelegate(ref IRQContext aContext);
+
+        public event IRQDelegate Interrupt30;
+
+        public int? RaiseHandler(ref IRQContext aContext)
+        {
+            if (aContext.UserESP > 0)
+            {
+                return Interrupt30?.Invoke(ref aContext);
+            }
+
+            // return Interrupt30?.Invoke(ref aContext).ToString().Length;
+            return Interrupt30?.Invoke(ref aContext) + 10;
+        }
+
+        [TestSvm(100)]
+        public int AddEventHandler(IRQDelegate interrupt1, IRQDelegate interrupt2, IRQContext aContext)
+        {
+            var d = new IRQDelegate((ref IRQContext context) =>
+            {
+                _x += 10;
+                return (int)context.UserESP;
+            });
+            var d1 = new IRQDelegate((ref IRQContext context) =>
+            {
+                _x *= 10;
+                return (int)context.UserESP + _x;
+            });
+            Interrupt30 += d;
+            Interrupt30 += interrupt2;
+            Interrupt30 += interrupt1;
+            Interrupt30 += d1;
+            var a = RaiseHandler(ref aContext);
+            return a.Value;
+        }
+
+        [TestSvm(100)]
+        public int? RemoveEventHandler(IRQDelegate interrupt1, IRQDelegate interrupt2, IRQContext aContext)
+        {
+            var d = new IRQDelegate((ref IRQContext context) =>
+            {
+                _x += 10;
+                return (int)context.UserESP;
+            });
+            var d1 = new IRQDelegate((ref IRQContext context) =>
+            {
+                _x *= 10;
+                return (int)context.UserESP + _x;
+            });
+            Interrupt30 += d;
+            Interrupt30 += interrupt2;
+            Interrupt30 -= interrupt1;
+            Interrupt30 += d;
+            Interrupt30 += d1;
+            Interrupt30 -= (IRQDelegate) Delegate.Combine(interrupt2, d);
+            return Interrupt30.Invoke(ref aContext);
+        }
+
+        [TestSvm(100)]
+        public int ConcreteEventHandler(IRQContext aContext)
+        {
+            Interrupt30 = null;
+            var i = 0;
+            var d = new IRQDelegate((ref IRQContext context) =>
+            {
+                i += 1;
+                _x += 10;
+                return (int)context.UserESP;
+            });
+            var d1 = new IRQDelegate((ref IRQContext context) =>
+            {
+                if (i == 2)
+                    return _x;
+                _x *= 10;
+                return (int)context.UserESP + _x;
+            });
+            Interrupt30 += d;
+            Interrupt30 += d;
+            Interrupt30 -= d1;
+            Interrupt30 += d1;
+            Interrupt30 += d;
+            Interrupt30 += d;
+            Interrupt30 -= (IRQDelegate) Delegate.Combine(d, d);
+            var a = RaiseHandler(ref aContext);
+            return a.Value;
+        }
+
+        [TestSvm(100)]
+        public int ConcreteEventHandler1()
+        {
+            Interrupt30 = null;
+            var ctx = new IRQContext();
+            var i = 0;
+            var x = 0;
+            var d = new IRQDelegate((ref IRQContext context) =>
+            {
+                i += 1;
+                x += 10;
+                return (int)context.UserESP;
+            });
+            var d1 = new IRQDelegate((ref IRQContext context) =>
+            {
+                if (i == 2)
+                    return x;
+                x *= 10;
+                return (int)context.UserESP + x;
+            });
+            Interrupt30 += d;
+            Interrupt30 += d;
+            Interrupt30 -= d1;
+            Interrupt30 += d1;
+            Interrupt30 += d;
+            Interrupt30 += d;
+            Interrupt30 -= (IRQDelegate) Delegate.Combine(d, d);
+            var a = RaiseHandler(ref ctx);
+            return a.Value;
+        }
     }
 
     [TestSvmFixture]

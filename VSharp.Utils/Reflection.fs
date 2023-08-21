@@ -3,6 +3,7 @@ namespace VSharp
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Reflection.Emit
 open System.Runtime.InteropServices
 
 [<CustomEquality; CustomComparison>]
@@ -123,7 +124,8 @@ module public Reflection =
 
     let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)
 
-    let getFullTypeName (typ : Type) = typ.ToString()
+    let getFullTypeName (typ : Type) =
+        if typ <> null then typ.ToString() else String.Empty
 
     let getFullMethodName (methodBase : MethodBase) =
         let returnType = getMethodReturnType methodBase |> getFullTypeName
@@ -148,7 +150,8 @@ module public Reflection =
         TypeUtils.isSubtypeOrEqual methodBase.DeclaringType typedefof<Delegate> && methodBase.Name = "Invoke"
 
     let isGenericOrDeclaredInGenericType (methodBase : MethodBase) =
-        methodBase.IsGenericMethod || methodBase.DeclaringType.IsGenericType
+        let declaringType = methodBase.DeclaringType
+        methodBase.IsGenericMethod || declaringType <> null && declaringType.IsGenericType
 
     let isStaticConstructor (m : MethodBase) =
         m.IsStatic && m.Name = ".cctor"
@@ -160,16 +163,25 @@ module public Reflection =
 
     let getMethodDescriptor (m : MethodBase) =
         let reflectedType = m.ReflectedType
+        let typeHandle =
+            if reflectedType <> null then reflectedType.TypeHandle.Value
+            else IntPtr.Zero
         let declaringTypeVars =
-            if reflectedType.IsGenericType then reflectedType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
+            if reflectedType <> null && reflectedType.IsGenericType then
+                reflectedType.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
         let methodVars =
             if m.IsGenericMethod then m.GetGenericArguments() |> Array.map (fun t -> t.TypeHandle.Value)
             else [||]
-        { methodHandle = m.MethodHandle.Value
-          declaringTypeVarHandles = declaringTypeVars
-          methodVarHandles = methodVars
-          typeHandle = reflectedType.TypeHandle.Value }
+        let methodHandle =
+            if m :? DynamicMethod then m.GetHashCode() |> nativeint
+            else m.MethodHandle.Value
+        {
+            methodHandle = methodHandle
+            declaringTypeVarHandles = declaringTypeVars
+            methodVarHandles = methodVars
+            typeHandle = typeHandle
+        }
 
     let compareMethods (m1 : MethodBase) (m2 : MethodBase) =
         compare (getMethodDescriptor m1) (getMethodDescriptor m2)
@@ -306,6 +318,45 @@ module public Reflection =
             method.GetParameters() |> Seq.exists (fun pi -> pi.ParameterType.IsByRefLike) ||
             method.ReturnType.IsByRefLike;
 
+    let private delegatesModule =
+        lazy(
+            let dynamicAssemblyName = $"VSharpCombinedDelegates.{Guid.NewGuid()}"
+            let assemblyBuilder = AssemblyManager.DefineDynamicAssembly(AssemblyName dynamicAssemblyName, AssemblyBuilderAccess.Run)
+            assemblyBuilder.DefineDynamicModule dynamicAssemblyName
+        )
+
+    let private delegatesType() =
+        let typeName = $"CombinedDelegates.{Guid.NewGuid()}"
+        let flags =
+            TypeAttributes.Class ||| TypeAttributes.NotPublic
+            ||| TypeAttributes.Sealed ||| TypeAttributes.Abstract
+        delegatesModule.Value.DefineType(typeName, flags)
+
+    let createCombinedDelegate (methods : MethodInfo seq) (argTypes : Type seq) =
+        let methodsCount = Seq.length methods
+        assert(methodsCount > 1)
+        let argsCount = Seq.length argTypes
+        let args = Array.append (Array.ofSeq argTypes) (Array.init methodsCount (fun _ -> typeof<obj>))
+        let returnType = (Seq.last methods).ReturnType
+        let declaringType = delegatesType()
+        let methodName = "CombinedDelegate"
+        let flags = MethodAttributes.Static ||| MethodAttributes.Private ||| MethodAttributes.HideBySig
+        let methodBuilder = declaringType.DefineMethod(methodName, flags, returnType, args)
+        let il = methodBuilder.GetILGenerator()
+        let mutable i = 0
+        for m in methods do
+            il.Emit(OpCodes.Ldarg, argsCount + i)
+            for j = 0 to argsCount - 1 do
+                il.Emit(OpCodes.Ldarg, j)
+            il.Emit(OpCodes.Callvirt, m)
+            i <- i + 1
+            // Popping each result, except last
+            if i <> methodsCount && returnType <> typeof<Void> then
+                il.Emit(OpCodes.Pop)
+        il.Emit(OpCodes.Ret)
+        let t = declaringType.CreateType()
+        t.GetMethod(methodName, BindingFlags.Static ||| BindingFlags.NonPublic)
+
     // ----------------------------------- Creating objects ----------------------------------
 
     let createObject (t : Type) =
@@ -357,7 +408,7 @@ module public Reflection =
     // --------------------------------- Generalization ---------------------------------
 
     let getGenericTypeDefinition (typ : Type) =
-        if typ.IsGenericType then
+        if typ <> null && typ.IsGenericType then
             let args = typ.GetGenericArguments()
             let genericType = typ.GetGenericTypeDefinition()
             let parameters = genericType.GetGenericArguments()

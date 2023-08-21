@@ -43,7 +43,6 @@ module Loader =
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.GC")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DateTimeUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.ThreadUtils")
-            CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DelegateUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DiagnosticsUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.CultureInfoUtils")
             CSharpUtilsAssembly.GetType("VSharp.CSharpUtils.DebugProviderUtils")

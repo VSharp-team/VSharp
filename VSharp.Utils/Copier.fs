@@ -58,6 +58,17 @@ type Copier () =
             let phys' = {object = String(s)}
             copiedObjects.Add(phys, phys')
             phys'
+        | _ when TypeUtils.isDelegate typ ->
+            assert(obj :? Delegate)
+            let obj = obj :?> Delegate
+            let obj' = obj.Clone()
+            let phys' = {object = obj'}
+            copiedObjects.Add(phys, phys')
+            let target' = deepCopyObject {object = obj.Target}
+            let targetField = typ.GetField("_target", Reflection.instanceBindingFlags)
+            assert(targetField <> null)
+            targetField.SetValue(obj', target')
+            phys'
         | _ when typ.IsClass || typ.IsValueType ->
             let obj' = FormatterServices.GetUninitializedObject typ
             let phys' = {object = obj'}

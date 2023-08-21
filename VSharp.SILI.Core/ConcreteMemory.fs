@@ -2,9 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
-open System.Runtime.Serialization
 open System.Runtime.CompilerServices
-open System.Threading
 open VSharp
 
 type private Box(v : ValueType) =
@@ -113,7 +111,6 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.Contains address =
             virtToPhys.ContainsKey address
 
-        // TODO: leave only one function #refactor
         override x.VirtToPhys virtAddress =
             x.ReadObject virtAddress |> x.HandleBoxed
 

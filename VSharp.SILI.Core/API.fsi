@@ -90,6 +90,9 @@ module API =
         val (|Combined|_|) : termNode -> (term list * Type) option
         val (|CombinedTerm|_|) : term -> (term list * Type) option
 
+        val (|CombinedDelegate|_|) : term -> term list option
+        val (|ConcreteDelegate|_|) : term -> delegateInfo option
+
         val (|True|_|) : term -> unit option
         val (|False|_|) : term -> unit option
         val (|Negation|_|) : term -> term option
@@ -254,6 +257,9 @@ module API =
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
 
+        val CombineDelegates : state -> term list -> Type -> term
+        val RemoveDelegate : state -> term -> term -> Type -> term
+
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list
@@ -287,7 +293,7 @@ module API =
         val AllocateArrayFromFieldInfo : state -> FieldInfo -> term
         val AllocateString : string -> state -> term
         val AllocateEmptyString : state -> term -> term
-        val AllocateDelegate : state -> term -> term
+        val AllocateDelegate : state -> MethodInfo -> term -> Type -> term
         val CreateStringFromChar : state -> term -> term
 
         val AllocateConcreteObject : state -> obj -> Type -> term
