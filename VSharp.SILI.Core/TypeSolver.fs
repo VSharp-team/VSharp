@@ -503,7 +503,7 @@ module TypeSolver =
                 let optionMock m = Some m
                 let filtered = candidates.Filter(checkOverrides, optionMock)
                 let truncated = filtered.Take(5)
-                typeStorage[thisAddress] <- truncated
+                typeStorage[thisAddress] <- truncated.Eval()
                 truncated.Types
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->

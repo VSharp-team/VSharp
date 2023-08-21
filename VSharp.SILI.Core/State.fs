@@ -349,10 +349,11 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
         let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
         let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
         let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
-        let publicUserTypes = types |> Seq.filter isPublicUser
-        let privateUserTypes = types |> Seq.filter isPrivateUser
-        let predicates = [isPublicBuiltIn; isPublicUser; isPrivateUser]
-        let rest = List.fold (fun types predicate -> Seq.filter (predicate >> not) types) types predicates
+        let rest = types |> Seq.filter (isPublicBuiltIn >> not)
+        let publicUserTypes = rest |> Seq.filter isPublicUser
+        let rest = rest |> Seq.filter (isPublicUser >> not)
+        let privateUserTypes = rest |> Seq.filter isPrivateUser
+        let rest = rest |> Seq.filter (isPrivateUser >> not)
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
     member x.IsEmpty
@@ -397,6 +398,13 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
             | Some _ -> Seq.truncate (count - 1) orderedTypes
             | None -> Seq.truncate count orderedTypes
         candidates(types, mock, userAssembly)
+
+    member x.Eval() =
+        let publicBuiltInTypes = Seq.toList publicBuiltInTypes
+        let publicUserTypes = Seq.toList publicUserTypes
+        let privateUserTypes = Seq.toList privateUserTypes
+        let rest = Seq.toList rest
+        candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
 and
     [<ReferenceEquality>]
