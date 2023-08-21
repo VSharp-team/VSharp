@@ -15,13 +15,21 @@ from ml.common_model.utils import (
     euclidean_dist,
     save_best_models2csv,
     load_best_models_dict,
+    back_prop,
 )
 from ml.common_model.wrapper import CommonModelWrapper, BestModelsWrapper
 from ml.fileop import save_model
-from ml.common_model.paths import common_models_path, best_models_dict_path
+from ml.common_model.paths import (
+    common_models_path,
+    best_models_dict_path,
+    dataset_root_path,
+)
 from ml.model_wrappers.protocols import Predictor
 from ml.utils import load_model
 import numpy as np
+from ml.common_model.dataset import FullDataset
+from torch_geometric.loader import DataLoader
+import tqdm
 
 
 LOG_PATH = Path("./ml_app.log")
@@ -95,19 +103,53 @@ def main():
     bmwrapper = BestModelsWrapper(model, best_models_dict, optimizer, criterion)
     cmwrapper = CommonModelWrapper(model, best_models_dict)
 
+    dataset = FullDataset(dataset_root_path, best_models=best_models_dict)
+    # creating dataset
+    # play_game(
+    #         with_predictor=bmwrapper,
+    #         max_steps=GeneralConfig.MAX_STEPS,
+    #         maps_type=MapsType.TRAIN,
+    #         with_dataset=dataset
+    #     )
     for epoch in range(epochs):
+        dataset = FullDataset(dataset_root_path, best_models=best_models_dict)
+        data_list = []
+
+        for single_method_data in tqdm.tqdm(dataset, desc="loading data"):
+            data_list += single_method_data
+
+        data_loader = DataLoader(data_list, batch_size=32, shuffle=True)
+        print("Dataset size", len(data_loader))
+
         # training
-        play_game(
-            with_predictor=bmwrapper,
-            max_steps=GeneralConfig.MAX_STEPS,
-            maps_type=MapsType.TRAIN,
-        )
+        # play_game(
+        #     with_predictor=bmwrapper,
+        #     max_steps=GeneralConfig.MAX_STEPS,
+        #     maps_type=MapsType.TRAIN,
+        #     with_dataset=dataset
+        # )
+        for batch in tqdm.tqdm(data_loader, desc="training"):
+            batch.to(GeneralConfig.DEVICE)
+            model.train()
+            optimizer.zero_grad()
+            out = model(batch.x_dict, batch.edge_index_dict, batch.edge_attr_dict)[
+                "state_vertex"
+            ]
+            y_true = batch.y_true["state_vertex"]
+            if abs(torch.min(y_true)) > 1:
+                y_true = 1 / y_true
+            loss = criterion(out, y_true)
+            if loss != 0:
+                loss.backward()
+                optimizer.step()
+
         # validation
         cmwrapper.make_copy(str(epoch + 1))
         result = play_game(
             with_predictor=cmwrapper,
             max_steps=GeneralConfig.MAX_STEPS,
             maps_type=MapsType.TRAIN,
+            with_dataset=dataset,
         )
         average_result = np.average(
             list(map(lambda x: x.game_result.actual_coverage_percent, result))

@@ -19,12 +19,14 @@ from learning.timer.stats import compute_statistics
 from learning.timer.utils import get_map_inference_times
 from ml.fileop import save_model
 from ml.model_wrappers.protocols import Predictor
+from torch_geometric.data import Dataset
+
 
 TimeDuration: TypeAlias = float
 
 
 def play_map(
-    with_connector: Connector, with_predictor: Predictor
+    with_connector: Connector, with_predictor: Predictor, with_dataset
 ) -> tuple[GameResult, TimeDuration]:
     steps_count = 0
     game_state = None
@@ -39,6 +41,12 @@ def play_map(
             predicted_state_id = with_predictor.predict(
                 game_state, with_connector.map.MapName
             )
+
+            if with_dataset is not None:
+                with_dataset.process_single_input(
+                    with_connector.map.MapName, game_state
+                )
+
             logging.debug(
                 f"<{with_predictor.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
             )
@@ -84,14 +92,14 @@ def play_map(
         actual_coverage_percent=actual_coverage,
     )
 
-    with_predictor.update(with_connector.map.MapName, model_result)
+    with_predictor.update(with_connector.map.MapName, model_result, with_dataset)
     return model_result, end_time - start_time
 
 
 def play_map_with_stats(
-    with_connector: Connector, with_predictor: Predictor
+    with_connector: Connector, with_predictor: Predictor, with_dataset
 ) -> tuple[GameResult, TimeDuration]:
-    model_result, time_duration = play_map(with_connector, with_predictor)
+    model_result, time_duration = play_map(with_connector, with_predictor, with_dataset)
 
     with manage_map_inference_times_array():
         try:
@@ -110,15 +118,17 @@ def play_map_with_stats(
 
 @func_set_timeout(FeatureConfig.DUMP_BY_TIMEOUT.timeout_sec)
 def play_map_with_timeout(
-    with_connector: Connector, with_predictor: Predictor
+    with_connector: Connector, with_predictor: Predictor, with_dataset
 ) -> tuple[GameResult, TimeDuration]:
-    return play_map_with_stats(with_connector, with_predictor)
+    return play_map_with_stats(with_connector, with_predictor, with_dataset)
 
 
-def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
+def play_game(
+    with_predictor: Predictor, max_steps: int, maps_type: MapsType, with_dataset=None
+):
     with game_server_socket_manager() as ws:
         maps = get_maps(websocket=ws, type=maps_type)
-    random.shuffle(maps)
+    # random.shuffle(maps)
     with tqdm.tqdm(
         total=len(maps),
         desc=f"{with_predictor.name():20}: {maps_type.value}",
@@ -138,6 +148,7 @@ def play_game(with_predictor: Predictor, max_steps: int, maps_type: MapsType):
                     game_result, time = play_func(
                         with_connector=Connector(ws, game_map, max_steps),
                         with_predictor=with_predictor,
+                        with_dataset=with_dataset,
                     )
                 logging.info(
                     f"<{with_predictor.name()}> finished map {game_map.MapName} "

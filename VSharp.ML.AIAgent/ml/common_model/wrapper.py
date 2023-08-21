@@ -25,7 +25,7 @@ class CommonModelWrapper(Predictor):
         self.model_copy = copy.deepcopy(self._model)
         self._name = model_name
 
-    def update(self, map_name, map_result):
+    def update(self, map_name, map_result, dataset):
         map_result = (
             map_result.actual_coverage_percent,
             -map_result.tests_count,
@@ -42,6 +42,8 @@ class CommonModelWrapper(Predictor):
                 map_result,
                 self._name,
             )
+            dataset.save_map_data(map_name)
+        dataset.single_map_data = []
 
     def model(self):
         return self._model
@@ -70,8 +72,8 @@ class BestModelsWrapper(Predictor):
     def name(self):
         return "Common model"
 
-    def update(self, map_name, map_result):
-        pass
+    def update(self, map_name, map_result, dataset):
+        dataset.save_map_data(map_name)
 
     def model(self):
         return self._model
