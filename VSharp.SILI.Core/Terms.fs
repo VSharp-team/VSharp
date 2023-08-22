@@ -304,7 +304,7 @@ module internal Terms =
         HashMap.addTerm (Ref address)
     let Ptr baseAddress typ offset = HashMap.addTerm (Ptr(baseAddress, typ, offset))
     let Slice term slices = HashMap.addTerm (Slice(term, slices))
-    let ConcreteHeapAddress addr = Concrete addr addressType
+    let ConcreteHeapAddress (addr : concreteHeapAddress) = Concrete addr addressType
     let Union gvs =
         if List.length gvs < 2 then internalfail "Empty and one-element unions are forbidden!"
         HashMap.addTerm (Union gvs)

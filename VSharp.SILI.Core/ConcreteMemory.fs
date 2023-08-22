@@ -5,14 +5,35 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 open VSharp
 
-type private Box(v : ValueType) =
-    member internal x.Value = v
+[<CustomEquality; NoComparison>]
+type private concreteMemoryKey =
+    | RefKey of physicalAddress
+    | ValueKey of concreteMemorySource * physicalAddress
+    with
+    override x.GetHashCode() =
+        match x with
+        | RefKey phys -> phys.GetHashCode()
+        | ValueKey(source, _) -> source.GetHashCode()
+
+    override x.Equals(other) =
+        match other, x with
+        | :? concreteMemoryKey as RefKey otherPhys, RefKey phys -> otherPhys.Equals phys
+        | :? concreteMemoryKey as ValueKey(otherSource, _), ValueKey(source, _) -> otherSource.Equals source
+        | _ -> false
+
+    member x.ToPhysicalAddress() =
+        match x with
+        | RefKey phys -> phys
+        | ValueKey(_, phys) -> phys
+
+    member x.FromPhysicalAddress (phys : physicalAddress) =
+        match x with
+        | RefKey _ -> RefKey phys
+        | ValueKey(source, _) -> ValueKey(source, phys)
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
 // ----------------------------- Helpers -----------------------------
-
-    let boxValue (v : ValueType) = Box(v)
 
     let indexedArrayElemsCommon (arr : Array) =
         let ubs = Array.init arr.Rank arr.GetUpperBound
@@ -62,20 +83,15 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 // ----------------------------- Constructor -----------------------------
 
     new () =
-        let physToVirt = Dictionary<physicalAddress, concreteHeapAddress>()
+        let physToVirt = Dictionary<concreteMemoryKey, concreteHeapAddress>()
         let virtToPhys = Dictionary<concreteHeapAddress, physicalAddress>()
         ConcreteMemory(physToVirt, virtToPhys)
 
 // ----------------------------- Primitives -----------------------------
 
-    member private x.HandleBoxed (obj : obj) : obj =
-        match obj with
-        | :? Box as b -> b.Value
-        | obj -> obj
-
     member private x.ReadObject address =
         assert(virtToPhys.ContainsKey address)
-        virtToPhys[address].object |> x.HandleBoxed
+        virtToPhys[address].object
 
     member private x.WriteObject address obj =
         assert(virtToPhys.ContainsKey address)
@@ -87,7 +103,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     interface IConcreteMemory with
 
         override x.Copy() =
-            let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
+            let physToVirt' = Dictionary<concreteMemoryKey, concreteHeapAddress>()
             let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
             // Need to copy all addresses from physToVirt, because:
             // 1. let complex object (A) contains another object (B),
@@ -97,13 +113,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             // So, reading from object (A) object (B) will result in HeapRef (addr),
             // which will be read from symbolic memory
             let copier = Utils.Copier()
-            for kvp in physToVirt do
-                let phys, virt = kvp.Key, kvp.Value
+            for KeyValue(key, virt) in physToVirt do
+                let phys = key.ToPhysicalAddress()
                 let phys' = copier.DeepCopy phys
                 let exists, oldPhys = virtToPhys.TryGetValue(virt)
                 if exists && oldPhys = phys then
                     virtToPhys'.Add(virt, phys')
-                physToVirt'.Add(phys', virt)
+                let key' = key.FromPhysicalAddress phys'
+                physToVirt'.Add(key', virt)
             ConcreteMemory(physToVirt', virtToPhys')
 
 // ----------------------------- Primitives -----------------------------
@@ -112,11 +129,11 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             virtToPhys.ContainsKey address
 
         override x.VirtToPhys virtAddress =
-            x.ReadObject virtAddress |> x.HandleBoxed
+            x.ReadObject virtAddress
 
         override x.TryVirtToPhys virtAddress =
             let exists, result = virtToPhys.TryGetValue(virtAddress)
-            if exists then x.HandleBoxed result.object |> Some
+            if exists then Some result.object
             else None
 
         override x.PhysToVirt physAddress =
@@ -125,30 +142,43 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             | Some address -> address
             | None -> internalfailf "PhysToVirt: unable to get virtual address for object %O" physAddress
 
-        override x.TryPhysToVirt physAddress =
+        override x.TryPhysToVirt (physAddress : obj) =
+            assert(physAddress :? ValueType |> not)
             let result = ref List.empty
-            if physToVirt.TryGetValue({object = physAddress}, result) then
+            if physToVirt.TryGetValue(RefKey {object = physAddress}, result) then
+                Some result.Value
+            else None
+
+        override x.TryPhysToVirt (source : concreteMemorySource) =
+            let result = ref List.empty
+            let key = ValueKey(source, physicalAddress.Empty)
+            if physToVirt.TryGetValue(key, result) then
                 Some result.Value
             else None
 
 // ----------------------------- Allocation -----------------------------
 
-        override x.Allocate address (obj : obj) =
+        override x.AllocateRefType address (obj : obj) =
             assert(obj <> null)
+            assert(obj :? ValueType |> not)
             assert(virtToPhys.ContainsKey address |> not)
-            let obj =
-                match obj with
-                // Creating object of type 'Box' to avoid interning of boxed value types
-                | :? ValueType as v -> boxValue v :> obj
-                | _ -> obj
             // Suppressing finalize, because 'obj' may implement 'Dispose()' method, which should not be invoked,
             // because object may be in incorrect state (statics, for example)
             GC.SuppressFinalize(obj)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
             if obj = String.Empty then
-                physToVirt[physicalAddress] <- address
-            else physToVirt.Add(physicalAddress, address)
+                physToVirt[RefKey physicalAddress] <- address
+            else physToVirt.Add(RefKey physicalAddress, address)
+
+        override x.AllocateValueType address source (obj : obj) =
+            assert(obj <> null)
+            assert(obj :? ValueType)
+            GC.SuppressFinalize(obj)
+            let physicalAddress = {object = obj}
+            virtToPhys.Add(address, physicalAddress)
+            // Rewriting old unmarshalled values
+            physToVirt[ValueKey(source, physicalAddress)] <- address
 
 // ------------------------------- Reading -------------------------------
 
@@ -256,14 +286,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let string = new string(array) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[physAddress] <- stringAddress
+            physToVirt[RefKey physAddress] <- stringAddress
 
         override x.CopyCharArrayToStringLen arrayAddress stringAddress length =
             let array = x.ReadObject arrayAddress :?> char array
             let string = new string(array[0..(length - 1)]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[physAddress] <- stringAddress
+            physToVirt[RefKey physAddress] <- stringAddress
 
     // ------------------------------- Remove -------------------------------
 

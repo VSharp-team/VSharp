@@ -38,8 +38,8 @@ module internal Pointers =
             HeapLocation(heapAddress, typ), mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
-        | BoxedLocation(concreteHeapAddress, typ) ->
-            let baseAddress = HeapLocation(ConcreteHeapAddress concreteHeapAddress, typ)
+        | BoxedLocation(heapAddress, typ) ->
+            let baseAddress = HeapLocation(heapAddress, typ)
             baseAddress, makeNumber 0
         | StackBufferIndex _ -> internalfail "addressToBaseAndOffset: StackBufferIndex case is not implemented"
         | PrimitiveStackLocation loc ->

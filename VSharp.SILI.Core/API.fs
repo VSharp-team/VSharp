@@ -591,7 +591,7 @@ module API =
                     assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
                     let string = String(c, len)
                     cm.Remove a
-                    cm.Allocate a string
+                    cm.AllocateRefType a string
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
                 when cm.Contains a ->
@@ -681,7 +681,7 @@ module API =
             | BoxedSort typ ->
                 state.boxedLocations <- PersistentDict.update state.boxedLocations typ (MemoryRegion.empty typ) (MemoryRegion.fillRegion value)
 
-        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state HeapSource typ o
 
         let StateResult (state : state) =
             let callStackSize = CallStackSize state

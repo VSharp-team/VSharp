@@ -390,10 +390,10 @@ module internal Memory =
             let addressSource : heapAddressSource = {baseSource = source}
             let address = makeSymbolicValue addressSource name addressType
             HeapRef address typ
-        | ValueType -> __insufficientInformation__ "Can't instantiate symbolic value of unknown value type %O" typ
-        | ByRef _ -> __insufficientInformation__ "Can't instantiate symbolic value of ByRef type %O" typ
-        | Pointer _ -> __insufficientInformation__ "Can't instantiate symbolic value of pointer type %O" typ
-        | _ -> __insufficientInformation__ "Not sure which value to instantiate, because it's unknown if %O is a reference or a value type" typ
+        | ValueType -> __insufficientInformation__ $"Can't instantiate symbolic value of unknown value type {typ}"
+        | ByRef _ -> __insufficientInformation__ $"Can't instantiate symbolic value of ByRef type {typ}"
+        | Pointer _ -> __insufficientInformation__ $"Can't instantiate symbolic value of pointer type {typ}"
+        | _ -> __insufficientInformation__ $"Not sure which value to instantiate, because it's unknown if {typ} is a reference or a value type"
 
     let private makeSymbolicStackRead key typ time =
         let source = {key = key; time = time}
@@ -461,48 +461,67 @@ module internal Memory =
 
     // ------------------ Object to term ------------------
 
-    let private allocateObjectIfNeed state (obj : obj) t =
+    let private allocateObjectIfNeed state source (obj : obj) t =
         assert(memoryMode = ConcreteMemory)
         let cm = state.concreteMemory
         let address =
-            match cm.TryPhysToVirt obj with
-            | Some address -> address
-            | None when obj = null -> VectorTime.zero
-            | None ->
-                let typ = mostConcreteType (obj.GetType()) t
-                if typ.IsValueType then Logger.trace "allocateObjectIfNeed: boxing concrete struct %O" obj
+            match obj, source with
+            | :? ValueType as v, HeapSource ->
+                assert(cm.TryPhysToVirt v |> Option.isNone)
+                let typ = obj.GetType()
                 let concreteAddress = allocateConcreteType state typ
-                cm.Allocate concreteAddress obj
+                let source = BoxedLocationSource concreteAddress
+                cm.AllocateValueType concreteAddress source obj
                 concreteAddress
+            | :? ValueType, _ ->
+                match cm.TryPhysToVirt source with
+                | Some address -> address
+                | None ->
+                    let typ = obj.GetType()
+                    let concreteAddress = allocateConcreteType state typ
+                    cm.AllocateValueType concreteAddress source obj
+                    concreteAddress
+            | _ ->
+                match cm.TryPhysToVirt obj with
+                | Some address -> address
+                | None when obj = null -> VectorTime.zero
+                | None ->
+                    let typ = mostConcreteType (obj.GetType()) t
+                    assert(not typ.IsValueType)
+                    let concreteAddress = allocateConcreteType state typ
+                    cm.AllocateRefType concreteAddress obj
+                    concreteAddress
         ConcreteHeapAddress address
 
-    let private referenceTypeToTerm state (obj : obj) t =
-        let address = allocateObjectIfNeed state obj t
+    let private referenceTypeToTerm state source (obj : obj) t =
+        let address = allocateObjectIfNeed state source obj t
         let objType = typeOfHeapLocation state address
         HeapRef address objType
 
-    let rec objToTerm (state : state) (t : Type) (obj : obj) =
+    let rec objToTerm (state : state) (source : concreteMemorySource) (t : Type) (obj : obj) =
         match obj with
-        | _ when isNullable t -> nullableToTerm state t obj
+        | _ when isNullable t -> nullableToTerm state source t obj
         | null -> nullRef t
         | :? bool as b -> makeBool b
         | _ when isNumeric t -> makeNumber obj
         // TODO: need pointer?
         | _ when isPointer t -> Concrete obj t
-        | _ when t.IsValueType -> structToTerm state obj t
-        | _ -> referenceTypeToTerm state obj t
+        | _ when t.IsValueType -> structToTerm state source obj t
+        | _ -> referenceTypeToTerm state source obj t
 
-    and private structToTerm state (obj : obj) t =
-        let makeField (fieldInfo : Reflection.FieldInfo) _ _ =
-           fieldInfo.GetValue(obj) |> objToTerm state fieldInfo.FieldType
+    and private structToTerm state source (obj : obj) t =
+        let makeField (fieldInfo : Reflection.FieldInfo) (fieldId : fieldId) _ =
+           let source = source.StructField fieldId
+           fieldInfo.GetValue(obj) |> objToTerm state source fieldInfo.FieldType
         makeStruct false makeField t
 
-    and private nullableToTerm state t (obj : obj) =
+    and private nullableToTerm state source t (obj : obj) =
         let nullableType = Nullable.GetUnderlyingType t
         let valueField, hasValueField = Reflection.fieldsOfNullable t
+        let source = source.StructField valueField
         let value, hasValue =
-            if box obj <> null then objToTerm state nullableType obj, True()
-            else objToTerm state nullableType (Reflection.createObject nullableType), False()
+            if box obj <> null then objToTerm state source nullableType obj, True()
+            else objToTerm state source nullableType (Reflection.createObject nullableType), False()
         let fields = PersistentDict.ofSeq <| seq [(valueField, value); (hasValueField, hasValue)]
         Struct fields t
 
@@ -641,7 +660,8 @@ module internal Memory =
         let cm = state.concreteMemory
         match address.term, dimension.term with
         | ConcreteHeapAddress address, Concrete(:? int as dim, _) when cm.Contains address ->
-            cm.ReadArrayLowerBound address dim |> objToTerm state typeof<int>
+            let source = ArrayLowerBoundSource(address, dim)
+            cm.ReadArrayLowerBound address dim |> objToTerm state source typeof<int>
         | _ -> readLowerBoundSymbolic state address dimension arrayType
 
     let private readLengthSymbolic state address dimension arrayType =
@@ -659,7 +679,8 @@ module internal Memory =
         let cm = state.concreteMemory
         match address.term, dimension.term with
         | ConcreteHeapAddress address, Concrete(:? int as dim, _) when cm.Contains address ->
-            cm.ReadArrayLength address dim |> objToTerm state typeof<int>
+            let source = ArrayLowerBoundSource(address, dim)
+            cm.ReadArrayLength address dim |> objToTerm state source typeof<int>
         | _ -> readLengthSymbolic state address dimension arrayType
 
     let private readArrayRegion state arrayType extractor region (isDefaultRegion : bool) key =
@@ -688,17 +709,20 @@ module internal Memory =
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayKeySymbolic state key arrayType
 
-    let private regionFromData state address data regionType =
+    let private regionFromData state concreteAddress data regionType =
+        let address = ConcreteHeapAddress concreteAddress
         let prepareData (index, value) =
             let key = OneArrayIndexKey(address, List.map (int >> makeNumber) index)
-            let value = objToTerm state regionType value
+            let source = ArrayIndexSource(concreteAddress, index)
+            let value = objToTerm state source regionType value
             key, value
         Seq.map prepareData data |> MemoryRegion.memset (MemoryRegion.empty regionType)
 
-    let private readRangeFromConcreteArray state address arrayData fromIndices toIndices arrayType =
+    let private readRangeFromConcreteArray state concreteAddress arrayData fromIndices toIndices arrayType =
+        let address = ConcreteHeapAddress concreteAddress
         let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
         let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
-        let region = regionFromData state address arrayData (fst3 arrayType)
+        let region = regionFromData state concreteAddress arrayData (fst3 arrayType)
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayRegion state arrayType (always region) region true key
 
@@ -707,11 +731,12 @@ module internal Memory =
         match address.term with
         | ConcreteHeapAddress concreteAddress when cm.Contains concreteAddress ->
             let data = cm.GetAllArrayData concreteAddress
-            readRangeFromConcreteArray state address data fromIndices toIndices arrayType
+            readRangeFromConcreteArray state concreteAddress data fromIndices toIndices arrayType
         | _ -> readArrayRangeSymbolic state address fromIndices toIndices arrayType
 
-    let private readSymbolicIndexFromConcreteArray state address arrayData indices arrayType =
-        let region = regionFromData state address arrayData (fst3 arrayType)
+    let private readSymbolicIndexFromConcreteArray state concreteAddress arrayData indices arrayType =
+        let address = ConcreteHeapAddress concreteAddress
+        let region = regionFromData state concreteAddress arrayData (fst3 arrayType)
         let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayRegion state arrayType (always region) region true key
@@ -721,10 +746,11 @@ module internal Memory =
         let concreteIndices = tryIntListFromTermList indices
         match address.term, concreteIndices with
         | ConcreteHeapAddress address, Some concreteIndices when cm.Contains address ->
-            cm.ReadArrayIndex address concreteIndices |> objToTerm state (fst3 arrayType)
+            let source = ArrayIndexSource(address, concreteIndices)
+            cm.ReadArrayIndex address concreteIndices |> objToTerm state source (fst3 arrayType)
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             let data = cm.GetAllArrayData concreteAddress
-            readSymbolicIndexFromConcreteArray state address data indices arrayType
+            readSymbolicIndexFromConcreteArray state concreteAddress data indices arrayType
         | _ -> readArrayIndexSymbolic state address indices arrayType
 
     let private readClassFieldSymbolic state address (field : fieldId) =
@@ -750,7 +776,8 @@ module internal Memory =
         let cm = state.concreteMemory
         match address.term with
         | ConcreteHeapAddress address when cm.Contains address ->
-            cm.ReadClassField address field |> objToTerm state field.typ
+            let source = ClassFieldSource(address, field)
+            cm.ReadClassField address field |> objToTerm state source field.typ
         | _ -> readClassFieldSymbolic state address field
 
     let readStaticField state typ (field : fieldId) =
@@ -795,7 +822,8 @@ module internal Memory =
         match memoryMode, address.term with
         | ConcreteMemory, ConcreteHeapAddress address when cm.Contains address ->
             let value = cm.VirtToPhys address
-            objToTerm state typ value
+            let source = BoxedLocationSource(address)
+            objToTerm state source typ value
         | _ -> readBoxedSymbolic state address typ
 
     let rec readStruct (structTerm : term) (field : fieldId) =
@@ -1133,9 +1161,11 @@ module internal Memory =
         match memoryMode, address.term, tryTermToObj state value with
         | ConcreteMemory, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
             cm.Remove a
-            cm.Allocate a value
+            let source = BoxedLocationSource(a)
+            cm.AllocateValueType a source value
         | ConcreteMemory, ConcreteHeapAddress a, Some value ->
-            cm.Allocate a value
+            let source = BoxedLocationSource(a)
+            cm.AllocateValueType a source value
         | ConcreteMemory, ConcreteHeapAddress a, None when cm.Contains(a) ->
             cm.Remove a
             typeOf value |> writeBoxedLocationSymbolic state address value
@@ -1143,28 +1173,39 @@ module internal Memory =
 
 // ----------------- Unmarshalling: from concrete to symbolic memory -----------------
 
-    let private unmarshallClass (state : state) address obj =
+    let private unmarshallClass (state : state) concreteAddress obj =
+        let address = ConcreteHeapAddress concreteAddress
         let writeField state (fieldId, fieldInfo : Reflection.FieldInfo) =
-            let value = fieldInfo.GetValue obj |> objToTerm state fieldInfo.FieldType
+            let source = ClassFieldSource(concreteAddress, fieldId)
+            let value = fieldInfo.GetValue obj |> objToTerm state source fieldInfo.FieldType
             writeClassFieldSymbolic state address fieldId value
         let fields = obj.GetType() |> Reflection.fieldsOf false
         Array.iter (writeField state) fields
 
-    let private unmarshallArray (state : state) address (array : Array) =
+    let private unmarshallArray (state : state) concreteAddress (array : Array) =
+        let address = ConcreteHeapAddress concreteAddress
         let elemType, dim, _ as arrayType = array.GetType() |> symbolicTypeToArrayType
         let lbs = List.init dim array.GetLowerBound
         let lens = List.init dim array.GetLength
         let writeIndex state (indices : int list) =
-            let value = array.GetValue(Array.ofList indices) |> objToTerm state elemType
+            let source = ArrayIndexSource(concreteAddress, indices)
+            let value = array.GetValue(Array.ofList indices) |> objToTerm state source elemType
             let termIndices = List.map makeNumber indices
             writeArrayIndexSymbolic state address termIndices arrayType value
         let allIndices = Array.allIndicesViaLens lbs lens
         Seq.iter (writeIndex state) allIndices
-        let termLBs = List.map (objToTerm state typeof<int>) lbs
-        let termLens = List.map (objToTerm state typeof<int>) lens
+        let lbToObj i lb =
+            let source = ArrayLowerBoundSource(concreteAddress, i)
+            objToTerm state source typeof<int> lb
+        let lenToObj i len =
+            let source = ArrayLengthSource(concreteAddress, i)
+            objToTerm state source typeof<int> len
+        let termLBs = List.mapi lbToObj lbs
+        let termLens = List.mapi lenToObj lens
         fillArrayBoundsSymbolic state address termLens termLBs arrayType
 
-    let private unmarshallString (state : state) address (string : string) =
+    let private unmarshallString (state : state) concreteAddress (string : string) =
+        let address = ConcreteHeapAddress concreteAddress
         let concreteStringLength = string.Length
         let stringLength = makeNumber concreteStringLength
         let arrayLength = makeNumber (concreteStringLength + 1)
@@ -1180,14 +1221,13 @@ module internal Memory =
         writeClassFieldSymbolic state address Reflection.stringLengthField stringLength
 
     let unmarshall (state : state) concreteAddress =
-        let address = ConcreteHeapAddress concreteAddress
         let cm = state.concreteMemory
         let obj = cm.VirtToPhys concreteAddress
         assert(box obj <> null)
         match obj with
-        | :? Array as array -> unmarshallArray state address array
-        | :? String as string -> unmarshallString state address string
-        | _ -> unmarshallClass state address obj
+        | :? Array as array -> unmarshallArray state concreteAddress array
+        | :? String as string -> unmarshallString state concreteAddress string
+        | _ -> unmarshallClass state concreteAddress obj
         cm.Remove concreteAddress
 
 // ------------------------------- Writing -------------------------------
@@ -1381,7 +1421,13 @@ module internal Memory =
         match memoryMode with
         // TODO: it's hack for reflection, remove it after concolic will be implemented
         | _ when isSubtypeOrEqual typ typeof<Type> -> ()
-        | ConcreteMemory -> Reflection.createObject typ |> state.concreteMemory.Allocate concreteAddress
+        | ConcreteMemory when typ.IsValueType ->
+            let object = Reflection.createObject typ
+            let source = BoxedLocationSource(concreteAddress)
+            state.concreteMemory.AllocateValueType concreteAddress source object
+        | ConcreteMemory ->
+            let object = Reflection.createObject typ
+            state.concreteMemory.AllocateRefType concreteAddress object
         | SymbolicMemory -> ()
         HeapRef (ConcreteHeapAddress concreteAddress) typ
 
@@ -1397,7 +1443,7 @@ module internal Memory =
         | ConcreteMemory, Some concreteLengths, Some concreteLBs ->
             let elementDotNetType = elementType typ
             let array = Array.CreateInstance(elementDotNetType, Array.ofList concreteLengths, Array.ofList concreteLBs) :> obj
-            state.concreteMemory.Allocate concreteAddress array
+            state.concreteMemory.AllocateRefType concreteAddress array
         | _ -> fillArrayBoundsSymbolic state address lengths lowerBounds arrayType
         address
 
@@ -1411,7 +1457,7 @@ module internal Memory =
             let concreteAddress = allocateConcreteType state (elementType.MakeArrayType())
             let array = Array.CreateInstance(elementType, intLength)
             Seq.iteri (fun i value -> array.SetValue(value, i)) contents
-            state.concreteMemory.Allocate concreteAddress (array :> obj)
+            state.concreteMemory.AllocateRefType concreteAddress (array :> obj)
             ConcreteHeapAddress concreteAddress
         | _ ->
             let address = allocateVector state elementType length
@@ -1430,7 +1476,7 @@ module internal Memory =
             let charArray : char array = Array.create intLength '\000'
             Seq.iteri (fun i char -> charArray.SetValue(char, i)) contents
             let string = new string(charArray) :> obj
-            allocateObjectIfNeed state string typeof<string>
+            allocateObjectIfNeed state HeapSource string typeof<string>
         | _ ->
             let arrayLength = add length (Concrete 1 lengthType)
             let address = allocateConcreteVector state typeof<char> arrayLength contents
@@ -1464,7 +1510,9 @@ module internal Memory =
         match memoryMode, tryTermToObj state value with
         // 'value' may be null, if it's nullable value type
         | ConcreteMemory, Some value when value <> null ->
-            state.concreteMemory.Allocate concreteAddress value
+            assert(value :? ValueType)
+            let source = BoxedLocationSource(concreteAddress)
+            state.concreteMemory.AllocateValueType concreteAddress source value
         | _ -> writeBoxedLocationSymbolic state address value typ
         HeapRef address typeof<obj>
 
@@ -1472,7 +1520,7 @@ module internal Memory =
         assert(not typ.IsAbstract)
         match memoryMode with
         | ConcreteMemory ->
-            let address = allocateObjectIfNeed state obj typ
+            let address = allocateObjectIfNeed state HeapSource obj typ
             HeapRef address typ
         | SymbolicMemory -> internalfailf "allocateConcreteObject: allocating concrete object %O in symbolic memory is not implemented" obj
 
@@ -1505,7 +1553,7 @@ module internal Memory =
         let target =
             if target <> null then
                 let targetType = target.GetType()
-                objToTerm state targetType d.Target
+                objToTerm state HeapSource targetType d.Target
             else nullRef typeof<obj>
         concreteDelegate d.Method target delegateType
 
@@ -1563,7 +1611,7 @@ module internal Memory =
         match memoryMode, tryTermToObj state target with
         | ConcreteMemory, Some target ->
             let d = methodInfo.CreateDelegate(delegateType, target)
-            state.concreteMemory.Allocate concreteAddress d
+            state.concreteMemory.AllocateRefType concreteAddress d
             HeapRef address delegateType
         | _ ->
             let d = concreteDelegate methodInfo target delegateType
@@ -1581,11 +1629,11 @@ module internal Memory =
         | ConcreteMemory, Some list ->
             assert(List.isEmpty list |> not)
             if List.length list = 1 then
-                state.concreteMemory.Allocate concreteAddress (List.head list)
+                state.concreteMemory.AllocateRefType concreteAddress (List.head list)
             else
                 let delegates = Seq.cast list
                 let combined = Delegate.Combine (Seq.toArray delegates)
-                state.concreteMemory.Allocate concreteAddress combined
+                state.concreteMemory.AllocateRefType concreteAddress combined
         | _ -> allocateCombinedDelegateSymbolic state concreteAddress delegateRefs t
 
     let combineDelegates state (delegateRefs : term list) typ =
@@ -1612,7 +1660,7 @@ module internal Memory =
             if Object.ReferenceEquals(result, source) then sourceRef
             else
                 let concreteAddress = allocateConcreteType state typ
-                state.concreteMemory.Allocate concreteAddress result
+                state.concreteMemory.AllocateRefType concreteAddress result
                 HeapRef (ConcreteHeapAddress concreteAddress) typ
         | _, HeapRef({term = ConcreteHeapAddress a}, _), _ ->
             let sourceDelegates = getDelegates state a

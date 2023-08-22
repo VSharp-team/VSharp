@@ -488,7 +488,7 @@ module TypeUtils =
         elif rightType = null then leftType
         elif rightType.IsAssignableFrom(leftType) then leftType
         else
-            assert(leftType.IsAssignableFrom(rightType))
+            assert leftType.IsAssignableFrom(rightType)
             rightType
     // --------------------------------------- Operation target type ---------------------------------------
 

@@ -15,3 +15,4 @@ type physicalAddress = {object : obj}
             Object.ReferenceEquals(x.object, other.object)
         | _ -> false
     override x.ToString() = PrettyPrinting.printConcrete x.object
+    static member Empty = {object = null}
