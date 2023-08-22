@@ -390,9 +390,14 @@ module internal Memory =
             let addressSource : heapAddressSource = {baseSource = source}
             let address = makeSymbolicValue addressSource name addressType
             HeapRef address typ
+        | Pointer t ->
+            let addressSource : heapAddressSource = {baseSource = source}
+            let address = makeSymbolicValue addressSource $"address of {name}" addressType
+            let offset = makeSymbolicValue source $"offset of {name}" typeof<int>
+            let pointerBase = HeapLocation(address, t.MakeArrayType())
+            Ptr pointerBase t offset
         | ValueType -> __insufficientInformation__ $"Can't instantiate symbolic value of unknown value type {typ}"
         | ByRef _ -> __insufficientInformation__ $"Can't instantiate symbolic value of ByRef type {typ}"
-        | Pointer _ -> __insufficientInformation__ $"Can't instantiate symbolic value of pointer type {typ}"
         | _ -> __insufficientInformation__ $"Not sure which value to instantiate, because it's unknown if {typ} is a reference or a value type"
 
     let private makeSymbolicStackRead key typ time =
