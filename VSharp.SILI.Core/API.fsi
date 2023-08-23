@@ -31,6 +31,7 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveGenericMethodParameters : typeStorage -> IMethod -> (symbolicType[] * symbolicType[]) option
+    val SolveThisType : state -> term -> unit
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
 
     val ConfigureErrorReporter : (state -> string -> unit) -> unit

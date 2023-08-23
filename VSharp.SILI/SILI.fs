@@ -219,7 +219,7 @@ type public SILI(options : SiliOptions) =
         try
             initialState.model <- Memory.EmptyModel method
             let cilState = makeInitialState method initialState
-            let this(*, isMethodOfStruct*) =
+            let this =
                 if method.IsStatic then None // *TODO: use hasThis flag from Reflection
                 else
                     let this =
@@ -232,6 +232,10 @@ type public SILI(options : SiliOptions) =
                     Some this
             let parameters = SILI.AllocateByRefParameters initialState method
             Memory.InitFunctionFrame initialState method this (Some parameters)
+            match this with
+            | Some this when Types.IsValueType method.DeclaringType |> not ->
+                SolveThisType initialState this
+            | _ -> ()
             let cilStates = ILInterpreter.CheckDisallowNullAttribute method None cilState false id
             assert (List.length cilStates = 1)
             let [cilState] = cilStates

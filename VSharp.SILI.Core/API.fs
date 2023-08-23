@@ -44,6 +44,18 @@ module API =
 
     let SolveGenericMethodParameters (typeStorage : typeStorage) (method : IMethod) =
         TypeSolver.solveMethodParameters typeStorage method
+
+    let SolveThisType state thisRef =
+        let thisAddress, declaringType =
+            match thisRef.term with
+            | HeapRef(address, t) -> address, t
+            | _ -> internalfail $"unexpected this {ref}"
+        let constraints = List.singleton declaringType |> typeConstraints.FromSuperTypes
+        state.typeStorage.AddConstraint thisAddress constraints
+        match TypeSolver.solveTypes state.model state with
+        | TypeSat -> ()
+        | TypeUnsat -> __insufficientInformation__ "MakeSymbolicThis: cannot find non-abstract type for 'this'"
+
     let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
 
     let mutable private reportError = fun _ _ -> ()

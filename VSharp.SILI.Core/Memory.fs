@@ -436,7 +436,6 @@ module internal Memory =
                 let t = method.DeclaringType
                 let addr = [-1]
                 let thisRef = HeapRef (ConcreteHeapAddress addr) t
-                state.allocatedTypes <- PersistentDict.add addr (ConcreteType t) state.allocatedTypes
                 state.startingTime <- [-2]
                 (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
             else parameters
