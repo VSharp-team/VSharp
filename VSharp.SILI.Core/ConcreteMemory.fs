@@ -33,53 +33,6 @@ type private concreteMemoryKey =
 
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
-// ----------------------------- Helpers -----------------------------
-
-    let indexedArrayElemsCommon (arr : Array) =
-        let ubs = Array.init arr.Rank arr.GetUpperBound
-        let lbs = Array.init arr.Rank arr.GetLowerBound
-        let idx = Array.copy lbs
-        let rec incrementIdx d =
-            if d >= 0 then
-                if idx[d] = ubs[d] then
-                    idx[d] <- lbs[d]
-                    incrementIdx (d - 1)
-                else
-                    idx[d] <- idx[d] + 1
-        seq {
-            for element in arr do
-                yield idx |> Array.toList, element
-                incrementIdx <| arr.Rank - 1
-        }
-
-    let indexedArrayElemsLin (arr : Array) =
-        let mutable idx = arr.GetLowerBound(0)
-        seq {
-            for element in arr do
-                yield idx |> List.singleton, element
-                idx <- idx + 1
-        }
-
-    let getArrayIndicesWithValues (array : Array) =
-        assert(array <> null)
-        match array with
-        // Any T[] when T is reference type is matched with 'array<obj>'
-        | :? array<obj> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<bool> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<single> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | _ when array.GetType().IsSZArray -> indexedArrayElemsLin array
-        | _ -> indexedArrayElemsCommon array
-
-
 // ----------------------------- Constructor -----------------------------
 
     new () =
@@ -201,8 +154,8 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
 
         override x.GetAllArrayData address =
             match x.ReadObject address with
-            | :? Array as array -> getArrayIndicesWithValues array
-            | :? String as string -> string.ToCharArray() |> getArrayIndicesWithValues
+            | :? Array as array -> Array.getArrayIndicesWithValues array
+            | :? String as string -> string.ToCharArray() |> Array.getArrayIndicesWithValues
             | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
 
         override x.ReadArrayLowerBound address dimension =

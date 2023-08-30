@@ -483,7 +483,8 @@ module public Reflection =
                 method :> MethodBase
         | :? ConstructorInfo as ci ->
             assert(values.Length = 0)
-            declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
+            declaringType.GetConstructors(allBindingFlags)
+            |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
         | _ -> __notImplemented__()
 
     // --------------------------------- Fields ---------------------------------
