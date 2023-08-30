@@ -120,6 +120,8 @@ module API =
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
         val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
+        val (|PointerAddressSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource>
+        val (|PointerOffsetSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource>
 
         val (|Int8T|_|) : term -> option<unit>
         val (|UInt8T|_|) : term -> option<unit>
@@ -247,6 +249,9 @@ module API =
 
         val ReferenceArrayIndex : state -> term -> term list -> Type option -> term
         val ReferenceField : state -> term -> fieldId -> term
+
+        val ExtractAddress : term -> term
+        val ExtractPointerOffset : term -> term
 
         val Read : state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term

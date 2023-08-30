@@ -129,7 +129,8 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
-        let TryPtrToArrayInfo pointerBase sightType offset = tryPtrToArrayInfo pointerBase sightType offset
+        let TryPtrToArrayInfo pointerBase sightType offset =
+            Memory.tryPtrToArrayInfo pointerBase sightType offset
 
         let TryTermToObj state term = Memory.tryTermToObj state term
 
@@ -176,7 +177,7 @@ module API =
                 | Memory.StructFieldSource(baseSource, field) ->
                     structFieldChainRec (field::acc) baseSource
                 | src -> Some(acc, src)
-            structFieldChainRec [ ] src
+            structFieldChainRec List.empty src
         let (|HeapAddressSource|_|) src = Memory.(|HeapAddressSource|_|) src
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
         let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src
@@ -184,6 +185,8 @@ module API =
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
         let (|GetHashCodeSource|_|) s = Memory.(|GetHashCodeSource|_|) s
+        let (|PointerAddressSource|_|) s = Memory.(|PointerAddressSource|_|) s
+        let (|PointerOffsetSource|_|) s = Memory.(|PointerOffsetSource|_|) s
 
         let (|Int8T|_|) t = if typeOf t = typeof<int8> then Some() else None
         let (|UInt8T|_|) t = if typeOf t = typeof<uint8> then Some() else None
@@ -372,7 +375,7 @@ module API =
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
                 ClassField(address, fieldId) |> Ref
-            | Ref address when declaringType.IsAssignableFrom(typeOfAddress address) ->
+            | Ref address when declaringType.IsAssignableFrom(address.TypeOfLocation) ->
                 assert declaringType.IsValueType
                 StructField(address, fieldId) |> Ref
             | Ref address ->
@@ -390,6 +393,9 @@ module API =
             match ref.term with
             | HeapRef _ -> HeapReferenceToBoxReference ref
             | _ -> ref
+
+        let ExtractAddress ref = Memory.extractAddress ref
+        let ExtractPointerOffset ptr = Memory.extractPointerOffset ptr
 
         let Read state reference =
             transformBoxedRef reference |> Memory.read state (UnspecifiedErrorReporter())
@@ -506,7 +512,8 @@ module API =
             Memory.allocateOnStack state tmpKey term
             ref
 
-        let AllocateTemporaryLocalVariableOfType state name index typ = Memory.allocateTemporaryLocalVariableOfType state name index typ
+        let AllocateTemporaryLocalVariableOfType state name index typ =
+            Memory.allocateTemporaryLocalVariableOfType state name index typ
 
         let AllocateDefaultClass state typ =
             if typ = typeof<string> then

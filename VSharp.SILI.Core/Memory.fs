@@ -84,6 +84,20 @@ module internal Memory =
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length]
 
+    let tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
+        assert(typeOf offset = typeof<int>)
+        let checkType() =
+            typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
+            || typeOfBase = typeof<string> && sightType = typeof<char>
+        let mutable elemSize = Nop()
+        let checkOffset() =
+            elemSize <- makeNumber (internalSizeOf sightType)
+            rem offset elemSize = makeNumber 0
+        if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
+            let arrayType = (sightType, 1, true)
+            let index = div offset elemSize
+            Some ([index], arrayType)
+        else None
 // ------------------------------- Stack -------------------------------
 
     let newStackFrame (s : state) m frame =
@@ -189,7 +203,7 @@ module internal Memory =
         let getType ref =
             match ref.term with
             | HeapRef(address, sightType) -> mostConcreteTypeOfHeapRef state address sightType
-            | Ref address -> typeOfAddress address
+            | Ref address -> address.TypeOfLocation
             | Ptr(_, t, _) -> t
             | _ -> internalfailf "reading type token: expected heap reference, but got %O" ref
         commonTypeOf getType ref
@@ -197,7 +211,7 @@ module internal Memory =
     let baseTypeOfAddress state address =
         match address with
         | BoxedLocation(addr, _) -> typeOfHeapLocation state addr
-        | _ -> typeOfAddress address
+        | _ -> address.TypeOfLocation
 
 // -------------------------------- GetHashCode --------------------------------
 
@@ -340,7 +354,7 @@ module internal Memory =
     [<StructuralEquality;NoComparison>]
     type private structField =
         {baseSource : ISymbolicConstantSource; field : fieldId}
-        interface IMemoryAccessConstantSource  with
+        interface IMemoryAccessConstantSource with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.field.typ
@@ -353,7 +367,7 @@ module internal Memory =
     [<StructuralEquality;NoComparison>]
     type private heapAddressSource =
         {baseSource : ISymbolicConstantSource}
-        interface IMemoryAccessConstantSource  with
+        interface IMemoryAccessConstantSource with
             override x.SubTerms = x.baseSource.SubTerms
             override x.Time = x.baseSource.Time
             override x.TypeOfLocation = x.baseSource.TypeOfLocation
@@ -361,6 +375,32 @@ module internal Memory =
     let (|HeapAddressSource|_|) (src : ISymbolicConstantSource) =
         match src with
         | :? heapAddressSource as heapAddress -> Some(heapAddress.baseSource)
+        | _ -> None
+
+    [<StructuralEquality;NoComparison>]
+    type private pointerAddressSource =
+        {baseSource : ISymbolicConstantSource; locationType : Type}
+        interface IMemoryAccessConstantSource with
+            override x.SubTerms = x.baseSource.SubTerms
+            override x.Time = x.baseSource.Time
+            override x.TypeOfLocation = x.locationType
+
+    let (|PointerAddressSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? pointerAddressSource as address -> Some(address.baseSource)
+        | _ -> None
+
+    [<StructuralEquality;NoComparison>]
+    type private pointerOffsetSource =
+        {baseSource : ISymbolicConstantSource}
+        interface IMemoryAccessConstantSource with
+            override x.SubTerms = x.baseSource.SubTerms
+            override x.Time = x.baseSource.Time
+            override x.TypeOfLocation = typeof<int>
+
+    let (|PointerOffsetSource|_|) (src : ISymbolicConstantSource) =
+        match src with
+        | :? pointerOffsetSource as address -> Some(address.baseSource)
         | _ -> None
 
     [<StructuralEquality;NoComparison>]
@@ -391,10 +431,14 @@ module internal Memory =
             let address = makeSymbolicValue addressSource name addressType
             HeapRef address typ
         | Pointer t ->
-            let addressSource : heapAddressSource = {baseSource = source}
+            let locationType =
+                if t = typeof<Void> then typeof<byte>.MakeArrayType()
+                else t.MakeArrayType()
+            let addressSource : pointerAddressSource = {baseSource = source; locationType = locationType}
             let address = makeSymbolicValue addressSource $"address of {name}" addressType
-            let offset = makeSymbolicValue source $"offset of {name}" typeof<int>
-            let pointerBase = HeapLocation(address, t.MakeArrayType())
+            let offsetSource : pointerOffsetSource = {baseSource = source}
+            let offset = makeSymbolicValue offsetSource $"offset of {name}" typeof<int>
+            let pointerBase = HeapLocation(address, locationType)
             Ptr pointerBase t offset
         | ValueType -> __insufficientInformation__ $"Can't instantiate symbolic value of unknown value type {typ}"
         | ByRef _ -> __insufficientInformation__ $"Can't instantiate symbolic value of ByRef type {typ}"
@@ -426,7 +470,9 @@ module internal Memory =
     let makeSymbolicThis (m : IMethod) =
         let declaringType = m.DeclaringType
         assert(isValueType declaringType |> not)
-        HeapRef (Constant "this" {baseSource = {key = ThisKey m; time = VectorTime.zero}} addressType) declaringType
+        let source : heapAddressSource = {baseSource = {key = ThisKey m; time = VectorTime.zero}}
+        let address = Constant "this" source addressType
+        HeapRef address declaringType
 
     let fillModelWithParametersAndThis state (method : IMethod) =
         let parameters = method.Parameters |> Seq.map (fun param ->
@@ -434,10 +480,12 @@ module internal Memory =
         let parametersAndThis =
             if method.HasThis then
                 let t = method.DeclaringType
-                let addr = [-1]
-                let thisRef = HeapRef (ConcreteHeapAddress addr) t
-                state.startingTime <- [-2]
-                (ThisKey method, Some thisRef, t) :: parameters // TODO: incorrect type when ``this'' is Ref to stack
+                if not t.IsValueType then
+                    let addr = [-1]
+                    let thisRef = HeapRef (ConcreteHeapAddress addr) t
+                    state.startingTime <- [-2]
+                    (ThisKey method, Some thisRef, t) :: parameters
+                else (ThisKey method, None, t) :: parameters
             else parameters
         newStackFrame state None parametersAndThis
 
@@ -630,8 +678,17 @@ module internal Memory =
     let rec extractAddress reference =
         match reference.term with
         | HeapRef(address, _) -> address
+        | Ptr(HeapLocation(address, _), _, _) -> address
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, extractAddress v)) |> Merging.merge
-        | _ -> internalfail "Extracting heap address: expected heap reference, but got %O" reference
+        | _ -> internalfail $"Extracting heap address: expected heap reference or pointer, but got {reference}"
+
+    let rec extractPointerOffset ptr =
+        match ptr.term with
+        | Ptr(_, _, offset) -> offset
+        | Ref address -> Pointers.addressToBaseAndOffset address |> snd
+        | HeapRef _ -> makeNumber 0
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, extractPointerOffset v)) |> Merging.merge
+        | _ -> internalfail $"Extracting pointer offset: expected reference or pointer, but got {ptr}"
 
     let isConcreteHeapAddress = term >> function
         | ConcreteHeapAddress _ -> true
@@ -699,7 +756,9 @@ module internal Memory =
         MemoryRegion.read region key (isDefault state) instantiate
 
     let private readArrayKeySymbolic state key arrayType =
-        let extractor state = accessRegion state.arrays (substituteTypeVariablesIntoArrayType state arrayType) (fst3 arrayType)
+        let extractor state =
+            let arrayType = substituteTypeVariablesIntoArrayType state arrayType
+            accessRegion state.arrays arrayType (fst3 arrayType)
         readArrayRegion state arrayType extractor (extractor state) false key
 
     let private readArrayIndexSymbolic state address indices arrayType =
@@ -1032,6 +1091,7 @@ module internal Memory =
                 | StringType -> readStringUnsafe state reportError loc offset viewSize
                 | ClassType _ -> readClassUnsafe state reportError loc typ offset viewSize
                 | ArrayType _ -> readArrayUnsafe state reportError loc typ offset viewSize
+                | _ when typ = typeof<Void> -> internalfail $"readUnsafe: reading from 'Void' by reference {baseAddress}"
                 | StructType _ -> readBoxedUnsafe state loc typ offset viewSize
                 | _ when isPrimitive typ || typ.IsEnum ->
                     readBoxedUnsafe state loc typ offset viewSize
@@ -1064,9 +1124,11 @@ module internal Memory =
     let rec read state reportError reference =
         match reference.term with
         | Ref address -> readSafe state address
+        | DetachedPtr _ -> __insufficientInformation__ $"Reading: cannot read by detached pointer {reference}"
         | Ptr(baseAddress, sightType, offset) -> readUnsafe state reportError baseAddress offset sightType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, read state reportError v)) |> Merging.merge
-        | _ -> internalfailf $"Safe reading: expected reference, but got {reference}"
+        | _ when typeOf reference |> isNative -> __insufficientInformation__ $"Reading: cannot read by IntPtr/UIntPtr {reference}"
+        | _ -> internalfailf $"Reading: expected reference, but got {reference}"
 
 // ------------------------------- Writing -------------------------------
 
@@ -1775,22 +1837,33 @@ module internal Memory =
                     | _ ->
                         makeSymbolicValue x (x.ToString()) x.TypeOfLocation
 
+    let composeBaseSource state source (baseSource : ISymbolicConstantSource) =
+        match baseSource with
+        | :? IStatedSymbolicConstantSource as baseSource ->
+            baseSource.Compose state
+        | src ->
+            match state.model with
+            | PrimitiveModel subst when state.complete ->
+                let value = ref (Nop())
+                if subst.TryGetValue(source, value) then value.Value
+                else makeDefaultValue src.TypeOfLocation
+            | _ ->
+                makeSymbolicValue src (src.ToString()) src.TypeOfLocation
+
     type private heapAddressSource with
-        interface IMemoryAccessConstantSource  with
+        interface IMemoryAccessConstantSource with
             override x.Compose state =
-                let refTerm =
-                    match x.baseSource with
-                    | :? IStatedSymbolicConstantSource as baseSource ->
-                        baseSource.Compose state
-                    | src ->
-                        match state.model with
-                        | PrimitiveModel subst when state.complete ->
-                            let value = ref (Nop())
-                            if subst.TryGetValue(x, value) then value.Value
-                            else makeDefaultValue src.TypeOfLocation
-                        | _ ->
-                            makeSymbolicValue src (src.ToString()) src.TypeOfLocation
-                extractAddress refTerm
+                composeBaseSource state x x.baseSource |> extractAddress
+
+    type private pointerAddressSource with
+        interface IMemoryAccessConstantSource with
+            override x.Compose state =
+                composeBaseSource state x x.baseSource |> extractAddress
+
+    type private pointerOffsetSource with
+        interface IMemoryAccessConstantSource with
+            override x.Compose state =
+                composeBaseSource state x x.baseSource |> extractPointerOffset
 
     // state is untouched. It is needed because of this situation:
     // Effect: x' <- y + 5, y' <- x + 10

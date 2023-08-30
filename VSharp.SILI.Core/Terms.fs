@@ -240,6 +240,17 @@ and address =
         | ArrayLowerBound  _ -> "Heap"
         | StaticField _ -> "Statics"
         | StructField(addr, _) -> addr.Zone()
+    member x.TypeOfLocation with get() =
+        match x with
+        | ClassField(_, field)
+        | StructField(_, field)
+        | StaticField(_, field) -> field.typ
+        | ArrayIndex(_, _, (elementType, _, _)) -> elementType
+        | BoxedLocation(_, typ) -> typ
+        | ArrayLength _
+        | ArrayLowerBound  _ -> lengthType
+        | StackBufferIndex _ -> typeof<int8>
+        | PrimitiveStackLocation loc -> loc.TypeOfLocation
 
 and
     [<CustomEquality;NoComparison>]
@@ -357,17 +368,6 @@ module internal Terms =
         | Union gvs -> typeOfUnion getType gvs
         | _ -> getType term
 
-    let typeOfAddress = function
-        | ClassField(_, field)
-        | StructField(_, field)
-        | StaticField(_, field) -> field.typ
-        | ArrayIndex(_, _, (elementType, _, _)) -> elementType
-        | BoxedLocation(_, typ) -> typ
-        | ArrayLength _
-        | ArrayLowerBound  _ -> lengthType
-        | StackBufferIndex _ -> typeof<int8>
-        | PrimitiveStackLocation loc -> loc.TypeOfLocation
-
     let sightTypeOfPtr =
         let getTypeOfPtr = term >> function
             | Ptr(_, typ, _) -> typ
@@ -378,7 +378,7 @@ module internal Terms =
         let getTypeOfRef term =
             match term.term with
             | HeapRef(_, t) -> t
-            | Ref address -> typeOfAddress address
+            | Ref address -> address.TypeOfLocation
             | Ptr(_, sightType, _) -> sightType
             | _ when typeOf term |> isNative -> typeof<byte>
             | term -> internalfailf "expected reference, but got %O" term
@@ -702,23 +702,6 @@ module internal Terms =
         match term.term with
         | ConcreteHeapAddress(address) -> address
         | _ -> __unreachable__()
-
-    and tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
-        match offset.term with
-        | Concrete(:? int as offset, _) ->
-            let checkType() =
-                typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
-                || typeOfBase = typeof<string> && sightType = typeof<char>
-            let mutable elemSize = 0
-            let checkOffset() =
-                elemSize <- internalSizeOf sightType
-                (offset % elemSize) = 0
-            if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
-                let arrayType = (sightType, 1, true)
-                let index = int (offset / elemSize)
-                Some ([makeNumber index], arrayType)
-            else None
-        | _ -> None
 
     and tryIntListFromTermList (termList : term list) =
         let addElement term concreteList k =
