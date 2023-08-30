@@ -8,8 +8,7 @@ open VSharp.Core
 
 module Buffer =
 
-    let internal Memmove (state : state) (args : term list) : term =
-        let dst, src, elemCount = args[1], args[2], args[3]
+    let private Memmove (state : state) dst src elemCount =
         let elemCount = Types.Cast elemCount typeof<int>
         let getArrayInfo ref =
             match ref.term with
@@ -31,4 +30,20 @@ module Buffer =
         let dstLinearIndex = Memory.LinearizeArrayIndex state dstAddr dstIndices dstArrayType
         let srcLinearIndex = Memory.LinearizeArrayIndex state srcAddr srcIndices srcArrayType
         Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
+
+    let internal GenericMemmove (state : state) (args : term list) : term =
+        let dst, src, elemCount = args[1], args[2], args[3]
+        Memmove state dst src elemCount
+        Nop()
+
+    let internal ByteMemmove (state : state) (args : term list) : term =
+        let dst, src, elemCount = args[0], args[1], args[2]
+        Memmove state dst src elemCount
+        Nop()
+
+    let internal MemoryCopy (state : state) (args : term list) : term =
+        assert(List.length args = 4)
+        let dst, src, dstSize, count = args[0], args[1], args[2], args[3]
+        // TODO: use 'dstSize' to check for exception
+        Memmove state dst src count
         Nop()

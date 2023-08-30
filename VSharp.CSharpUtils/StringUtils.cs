@@ -9,6 +9,7 @@ namespace VSharp.CSharpUtils
         }
 
         [Implements("System.Boolean System.String.EqualsHelper(System.String, System.String)")]
+        [Implements("System.Boolean System.String.Equals(System.String, System.String)")]
         public static bool Equals(string str1, string str2)
         {
             if (str1.Length != str2.Length)

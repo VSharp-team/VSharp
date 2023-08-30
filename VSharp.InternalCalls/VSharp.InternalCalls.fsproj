@@ -17,6 +17,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <Compile Include="Helpers.fs" />
         <Compile Include="SystemArray.fsi" />
         <Compile Include="SystemArray.fs" />
         <Compile Include="Math.fsi" />
@@ -59,6 +60,8 @@
         <Compile Include="PlatformHelper.fs" />
         <Compile Include="InteropServices.fsi" />
         <Compile Include="InteropServices.fs" />
+        <Compile Include="Activator.fsi" />
+        <Compile Include="Activator.fs" />
         <Compile Include="Loader.fs" />
     </ItemGroup>
 

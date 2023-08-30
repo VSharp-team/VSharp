@@ -18,6 +18,10 @@ module internal Unsafe =
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.AsRef(T&)")>]
     val internal AsRef : state -> term list -> term
 
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AsRef(System.Void*)")>]
+    [<Implements("T& System.Runtime.CompilerServices.Unsafe.AsRef(System.Void*)")>]
+    val internal PointerAsRef : state -> term list -> term
+
     [<Implements("TTo& Internal.Runtime.CompilerServices.Unsafe.As(TFrom&)")>]
     [<Implements("TTo& System.Runtime.CompilerServices.Unsafe.As(TFrom&)")>]
     val internal TFromAsTTo : state -> term list -> term
@@ -35,6 +39,10 @@ module internal Unsafe =
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
     val internal AddByteOffset : state -> term list -> term
+
+    [<Implements("System.IntPtr Internal.Runtime.CompilerServices.Unsafe.ByteOffset(System.Byte&, System.Byte&)")>]
+    [<Implements("System.IntPtr System.Runtime.CompilerServices.Unsafe.ByteOffset(System.Byte&, System.Byte&)")>]
+    val internal ByteOffset : state -> term list -> term
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]

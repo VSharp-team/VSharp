@@ -8,10 +8,14 @@ open VSharp.Core
 
 module ByReference =
 
+    let internal isValueField fieldId =
+        fieldId.name = "_value"
+
     let private referenceValueField state this =
         let fields = Terms.TypeOfLocation this |> Reflection.fieldsOf false
         assert(Array.length fields = 1)
         let field = Array.head fields |> fst
+        assert(isValueField field)
         Memory.ReferenceField state this field
 
     let internal ctor (state : state) (args : term list) : (term * state) list =

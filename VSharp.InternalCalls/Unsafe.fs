@@ -8,11 +8,6 @@ open VSharp.Core
 
 module Unsafe =
 
-    let private getTypeFromTerm typ =
-        match typ.term with
-        | Concrete(:? Type as t, _) -> t
-        | _ -> __unreachable__()
-
     let internal AsPointer (_ : state) (args : term list) : term =
         assert(List.length args = 2)
 //        Types.Cast (List.item 1 args) (Pointer Void)
@@ -21,16 +16,22 @@ module Unsafe =
     let internal ObjectAsT (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let typ, ref = args[0], args[1]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         Types.Cast ref typ
 
     let internal AsRef (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        let t = Helpers.unwrapType args[0]
+        let ptr = args[1]
+        Types.Cast ptr (t.MakePointerType())
+
+    let internal PointerAsRef (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         args.[1]
 
     let internal TFromAsTTo (_ : state) (args : term list) : term =
         assert(List.length args = 3)
-        let toType = getTypeFromTerm args[1]
+        let toType = Helpers.unwrapType args[1]
         let pointerType = toType.MakePointerType()
         let ref = args[2]
         assert(IsReference ref || IsPtr ref)
@@ -51,8 +52,14 @@ module Unsafe =
         let ref, offset = args[1], args[2]
         PerformBinaryOperation OperationType.Add ref offset id
 
+    let internal ByteOffset (_ : state) (args : term list) : term =
+        assert(List.length args = 2)
+        let src, dst = args[0], args[1]
+        let offset = PerformBinaryOperation OperationType.Subtract src dst id
+        Types.Cast offset typeof<IntPtr>
+
     let private CommonAdd typ ref offset =
-        let size = getTypeFromTerm typ |> Types.SizeOf |> MakeNumber
+        let size = Helpers.unwrapType typ |> Types.SizeOf |> MakeNumber
         let byteOffset = Arithmetics.Mul offset size
         PerformBinaryOperation OperationType.Add ref byteOffset id
 
@@ -69,21 +76,21 @@ module Unsafe =
     let internal ReadUnaligned (state : state) (args : term list) : term =
         assert(List.length args = 2)
         let typ, ref = args[0], args[1]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
         Memory.Read state castedPtr
 
     let WriteUnaligned (state : state) (args : term list) : (term * state) list =
         assert(List.length args = 3)
         let typ, ref, value = args[0], args[1], args[2]
-        let typ = getTypeFromTerm typ
+        let typ = Helpers.unwrapType typ
         let castedPtr = Types.Cast ref (typ.MakePointerType())
         let states = Memory.Write state castedPtr value
         List.map (withFst <| Nop()) states
 
     let internal SizeOf (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = getTypeFromTerm args[0]
+        let typ = Helpers.unwrapType args[0]
         Types.SizeOf typ |> MakeNumber
 
     let internal AreSame (_ : state) (args : term list) : term =
