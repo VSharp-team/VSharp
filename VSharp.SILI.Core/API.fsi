@@ -196,6 +196,7 @@ module API =
         val (>>=) : term -> term -> term
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
+        val GreaterOrEqualUn : term -> term -> term
         val Mul : term -> term -> term
         val Sub : term -> term -> term
         val Add : term -> term -> term

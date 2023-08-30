@@ -267,6 +267,7 @@ module API =
         let (>>) x y = simplifyGreater x y id
         let (>>=) x y = simplifyGreaterOrEqual x y id
         let (%%%) x y = simplifyRemainder true (TypeOf x) x y id
+        let GreaterOrEqualUn x y = simplifyGreaterOrEqualUn x y id
 
         let Mul x y = mul x y
         let Sub x y = sub x y

@@ -363,7 +363,8 @@ module internal InstructionsSet =
             match conditionalBranchTarget m offset with
             | fall, rests -> instruction m fall, List.map (instruction m) rests
         let casesAndOffsets = List.mapi (fun i offset -> value === MakeNumber i, offset) restIps
-        let fallThroughGuard = Arithmetics.(>>=) value (makeUnsignedInteger (List.length restIps |> MakeNumber) id)
+        let bound = makeUnsignedInteger (List.length restIps |> MakeNumber) id
+        let fallThroughGuard = Arithmetics.GreaterOrEqualUn value bound
         Cps.List.foldrk checkOneCase cilState ((fallThroughGuard, fallThroughIp)::casesAndOffsets) (fun _ k -> k []) id
     let ldtoken (m : Method) offset (cilState : cilState) =
         let memberInfo = resolveTokenFromMetadata m (offset + Offset.from OpCodes.Ldtoken.Size)
