@@ -772,20 +772,24 @@ module internal Memory =
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayKeySymbolic state key arrayType
 
-    let private regionFromData state concreteAddress data regionType =
+    let private arrayRegionMemsetData state concreteAddress data regionType region =
         let address = ConcreteHeapAddress concreteAddress
         let prepareData (index, value) =
             let key = OneArrayIndexKey(address, List.map (int >> makeNumber) index)
             let source = ArrayIndexSource(concreteAddress, index)
             let value = objToTerm state source regionType value
             key, value
-        Seq.map prepareData data |> MemoryRegion.memset (MemoryRegion.empty regionType)
+        Seq.map prepareData data |> MemoryRegion.memset region
+
+    let private arrayRegionFromData state concreteAddress data regionType =
+        let region = MemoryRegion.empty regionType
+        arrayRegionMemsetData state concreteAddress data regionType region
 
     let private readRangeFromConcreteArray state concreteAddress arrayData fromIndices toIndices arrayType =
         let address = ConcreteHeapAddress concreteAddress
         let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
         let toIndices = List.map (fun i -> primitiveCast i typeof<int>) toIndices
-        let region = regionFromData state concreteAddress arrayData (fst3 arrayType)
+        let region = arrayRegionFromData state concreteAddress arrayData (fst3 arrayType)
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         readArrayRegion state arrayType (always region) region true key
 
@@ -799,7 +803,7 @@ module internal Memory =
 
     let private readSymbolicIndexFromConcreteArray state concreteAddress arrayData indices arrayType =
         let address = ConcreteHeapAddress concreteAddress
-        let region = regionFromData state concreteAddress arrayData (fst3 arrayType)
+        let region = arrayRegionFromData state concreteAddress arrayData (fst3 arrayType)
         let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
         let key = OneArrayIndexKey(address, indices)
         readArrayRegion state arrayType (always region) region true key
@@ -1168,6 +1172,14 @@ module internal Memory =
         let key = RangeArrayIndexKey(address, fromIndices, toIndices)
         writeArrayKeySymbolic state key arrayType value
 
+    let private arrayMemsetData state concreteAddress data arrayType =
+        let arrayType = substituteTypeVariablesIntoArrayType state arrayType
+        let elemType = fst3 arrayType
+        ensureConcreteType elemType
+        let region = accessRegion state.arrays arrayType elemType
+        let region' = arrayRegionMemsetData state concreteAddress data elemType region
+        state.arrays <- PersistentDict.add arrayType region' state.arrays
+
     let initializeArray state address indicesAndValues arrayType =
         let elementType = fst3 arrayType
         ensureConcreteType elementType
@@ -1250,16 +1262,11 @@ module internal Memory =
 
     let private unmarshallArray (state : state) concreteAddress (array : Array) =
         let address = ConcreteHeapAddress concreteAddress
-        let elemType, dim, _ as arrayType = array.GetType() |> symbolicTypeToArrayType
+        let _, dim, _ as arrayType = array.GetType() |> symbolicTypeToArrayType
         let lbs = List.init dim array.GetLowerBound
         let lens = List.init dim array.GetLength
-        let writeIndex state (indices : int list) =
-            let source = ArrayIndexSource(concreteAddress, indices)
-            let value = array.GetValue(Array.ofList indices) |> objToTerm state source elemType
-            let termIndices = List.map makeNumber indices
-            writeArrayIndexSymbolic state address termIndices arrayType value
-        let allIndices = Array.allIndicesViaLens lbs lens
-        Seq.iter (writeIndex state) allIndices
+        let indicesWithValues = Array.getArrayIndicesWithValues array
+        arrayMemsetData state concreteAddress indicesWithValues arrayType
         let lbToObj i lb =
             let source = ArrayLowerBoundSource(concreteAddress, i)
             objToTerm state source typeof<int> lb
