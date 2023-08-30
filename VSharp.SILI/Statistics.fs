@@ -163,7 +163,7 @@ type public SILIStatistics(entryMethods : Method seq) =
             elif currentMethod.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
             else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
 
-            totalVisited.[currentLoc] <- totalRef.Value + 1u
+            totalVisited[currentLoc] <- totalRef.Value + 1u
 
             let mutable historyRef = ref null
             if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
@@ -216,15 +216,16 @@ type public SILIStatistics(entryMethods : Method seq) =
         else false
 
     member x.GetCurrentCoverage (methods : Method seq) =
+        let methods = List.ofSeq methods
         let getCoveredInstructionsCount (m : Method) =
             let mutable coveredBlocksOffsets = ref null
             if blocksCoveredByTests.TryGetValue(m, coveredBlocksOffsets) then
                 let cfg = m.CFG
                 coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o.Key).BlockSize)
             else 0
-        let methodsInZone = methods |> Seq.filter (fun m -> m.InCoverageZone)
-        let totalInstructionsCount = methodsInZone |> Seq.sumBy (fun m -> m.CFG.MethodSize)
-        let coveredInstructionsCount = methodsInZone |> Seq.sumBy getCoveredInstructionsCount
+        let methodsInZone = methods |> List.filter (fun m -> m.InCoverageZone)
+        let totalInstructionsCount = methodsInZone |> List.sumBy (fun m -> m.CFG.MethodSize)
+        let coveredInstructionsCount = methodsInZone |> List.sumBy getCoveredInstructionsCount
         if totalInstructionsCount <> 0 then
             double coveredInstructionsCount / double totalInstructionsCount * 100.0
         else 0.0
@@ -239,6 +240,7 @@ type public SILIStatistics(entryMethods : Method seq) =
 
     member x.TrackFinished (s : cilState, test : UnitTest) =
         testsCount <- testsCount + 1u
+        x.SetBasicBlocksAsCoveredByTest s.history
         let generatedTestInfo =
             {
                 isError = test.IsError
@@ -248,8 +250,6 @@ type public SILIStatistics(entryMethods : Method seq) =
             }
         generatedTestInfos.Add generatedTestInfo
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
-
-        x.SetBasicBlocksAsCoveredByTest s.history
 
     member x.IsNewError (s : cilState) (errorMessage : string) =
         match s.state.exceptionsRegister with
