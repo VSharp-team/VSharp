@@ -1035,7 +1035,6 @@ type internal ILInterpreter() as this =
     //       but at that moment statics will be already initialized
 
     member x.InitializeStatics (cilState : cilState) (t : Type) whenInitializedCont =
-        let fields = t.GetFields(Reflection.staticBindingFlags)
         match t with
         | _ when t.IsGenericParameter -> whenInitializedCont cilState
         | _ ->
@@ -1043,6 +1042,7 @@ type internal ILInterpreter() as this =
             match typeInitialized with
             | True -> whenInitializedCont cilState
             | _ ->
+                let fields = t.GetFields(Reflection.staticBindingFlags)
                 let staticConstructor = t.GetConstructors(Reflection.staticBindingFlags) |> Array.tryHead
                 Seq.iter (x.InitStaticFieldWithDefaultValue cilState.state) fields
                 Memory.InitializeStaticMembers cilState.state t

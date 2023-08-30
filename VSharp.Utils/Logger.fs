@@ -19,12 +19,12 @@ module Logger =
     let mutable currentLogLevel = Error
     let mutable currentTextWriter = Console.Out
     let mutable writeTimestamps = true
-    let mutable tagFilter : string -> bool = fun s -> s <> stateTraceTag
 
     let private enabledTags = System.Collections.Generic.HashSet([
-        stateTraceTag
         defaultTag
     ])
+
+    let tagFilter = enabledTags.Contains
 
     let public configureWriter writer = currentTextWriter <- writer
     let public enableTimestamps value = writeTimestamps <- value

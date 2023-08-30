@@ -212,6 +212,7 @@ module internal TypeCasting =
             Logger.trace $"Unsafe cast in safe context: address {term}, type {targetType}"
             term
 //            Ptr (HeapLocation addr) typ (makeNumber 0)
+        | Struct(_ , t), _ when t = targetType -> term
         | Struct _, _ -> internalfailf $"Casting struct to {targetType}"
         | _ -> internalfailf $"Can't cast {term} to type {targetType}"
 
