@@ -416,9 +416,15 @@ module internal InstructionsSet =
     let ldobj (m : Method) offset (cilState : cilState) =
         let address = pop cilState
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Ldobj.Size)
-        let value = Memory.Read cilState.state address
-        let typedValue = Types.Cast value typ
-        push typedValue cilState
+        let value =
+            if IsPtr address then
+                let address = Types.Cast address (typ.MakePointerType())
+                Memory.Read cilState.state address
+            else
+                // TODO: try always cast reference, instead of value
+                let value = Memory.Read cilState.state address
+                Types.Cast value typ
+        push value cilState
     let stobj reportError (m : Method) offset (cilState : cilState) =
         let src, dest = pop2 cilState
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Stobj.Size)
