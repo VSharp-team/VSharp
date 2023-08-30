@@ -287,6 +287,7 @@ module API =
         val BoxValueType : state -> term -> term
 
         val InitializeStaticMembers : state -> Type -> unit
+        val MarkTypeInitialized : state -> Type -> unit
 
         val InitFunctionFrame : state -> IMethod -> term option -> term option list option -> unit
         val AllocateTemporaryLocalVariable : state -> int -> Type -> term -> term

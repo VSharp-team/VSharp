@@ -198,18 +198,27 @@ type public SILI(options : SiliOptions) =
         | ConcreteType t -> Some t
         | _ -> None
         try
-            match SolveGenericMethodParameters state.typeStorage method with
-            | Some(classParams, methodParams) ->
-                let classParams = classParams |> Array.choose getConcreteType
-                let methodParams = methodParams |> Array.choose getConcreteType
-                if classParams.Length = methodBase.DeclaringType.GetGenericArguments().Length &&
-                    (methodBase.IsConstructor || methodParams.Length = methodBase.GetGenericArguments().Length) then
-                    let reflectedType = Reflection.concretizeTypeParameters methodBase.ReflectedType classParams
-                    let method = Reflection.concretizeMethodParameters reflectedType methodBase methodParams
-                    Some method
-                else
-                    None
-            | _ -> None
+            if method.ContainsGenericParameters then
+                match SolveGenericMethodParameters state.typeStorage method with
+                | Some(classParams, methodParams) ->
+                    let classParams = classParams |> Array.choose getConcreteType
+                    let methodParams = methodParams |> Array.choose getConcreteType
+                    let declaringType = methodBase.DeclaringType
+                    let checkType() =
+                        not declaringType.IsGenericType
+                        || classParams.Length = declaringType.GetGenericArguments().Length
+                    let checkMethod() =
+                        methodBase.IsConstructor
+                        || not methodBase.IsGenericMethod
+                        || methodParams.Length = methodBase.GetGenericArguments().Length
+                    if checkType() && checkMethod() then
+                        let reflectedType = Reflection.concretizeTypeParameters methodBase.ReflectedType classParams
+                        let method = Reflection.concretizeMethodParameters reflectedType methodBase methodParams
+                        Some method
+                    else
+                        None
+                | _ -> None
+            else Some methodBase
         with
         | e ->
             reportInternalFail method e
@@ -218,28 +227,31 @@ type public SILI(options : SiliOptions) =
     member private x.FormIsolatedInitialStates (method : Method, initialState : state) =
         try
             initialState.model <- Memory.EmptyModel method
+            let declaringType = method.DeclaringType
             let cilState = makeInitialState method initialState
             let this =
-                if method.IsStatic then None // *TODO: use hasThis flag from Reflection
-                else
-                    let this =
-                        if Types.IsValueType method.DeclaringType then
-                            Memory.NewStackFrame initialState None []
-                            Memory.AllocateTemporaryLocalVariableOfType initialState "this" 0 method.DeclaringType
-                        else
-                            Memory.MakeSymbolicThis method
-                    !!(IsNullReference this) |> AddConstraint initialState
-                    Some this
+                if method.HasThis then
+                    if Types.IsValueType declaringType then
+                        Memory.NewStackFrame initialState None []
+                        Memory.AllocateTemporaryLocalVariableOfType initialState "this" 0 declaringType |> Some
+                    else
+                        let this = Memory.MakeSymbolicThis method
+                        !!(IsNullReference this) |> AddConstraint initialState
+                        Some this
+                else None
             let parameters = SILI.AllocateByRefParameters initialState method
             Memory.InitFunctionFrame initialState method this (Some parameters)
             match this with
-            | Some this when Types.IsValueType method.DeclaringType |> not ->
-                SolveThisType initialState this
+            | Some this -> SolveThisType initialState this
             | _ -> ()
             let cilStates = ILInterpreter.CheckDisallowNullAttribute method None cilState false id
-            assert (List.length cilStates = 1)
-            let [cilState] = cilStates
-            interpreter.InitializeStatics cilState method.DeclaringType List.singleton
+            assert(List.length cilStates = 1)
+            if not method.IsStaticConstructor then
+                let cilState = List.head cilStates
+                interpreter.InitializeStatics cilState declaringType List.singleton
+            else
+                Memory.MarkTypeInitialized initialState declaringType
+                cilStates
         with
         | e ->
             reportInternalFail method e

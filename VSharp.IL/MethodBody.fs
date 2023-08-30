@@ -26,6 +26,7 @@ type MethodWithBody internal (m : MethodBase) =
     let name = m.Name
     let fullName = Reflection.getFullMethodName m
     let fullGenericMethodName = lazy(Reflection.fullGenericMethodName m)
+    let declaringType = m.DeclaringType
     let returnType = Reflection.getMethodReturnType m
     let parameters = m.GetParameters()
     let hasThis = Reflection.hasThis m
@@ -103,7 +104,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.Id = desc.GetHashCode()
     member x.ReturnType = returnType
     member x.Module = m.Module
-    member x.DeclaringType = m.DeclaringType
+    member x.DeclaringType = declaringType
     member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters
     member x.LocalVariables = localVariables
@@ -115,6 +116,8 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsFinal = isFinal
     member x.IsStaticConstructor with get() = isStaticConstructor.Force()
 
+    member x.ContainsGenericParameters =
+        declaringType.ContainsGenericParameters || m.ContainsGenericParameters
     member x.IsGenericMethod = isGenericMethod
     member x.GenericArguments with get() = genericArguments.Force()
     member x.GetGenericMethodDefinition() =
@@ -207,6 +210,7 @@ type MethodWithBody internal (m : MethodBase) =
         override x.HasThis = hasThis
         override x.IsConstructor = isConstructor
         override x.IsExternalMethod with get() = x.IsExternalMethod
+        override x.ContainsGenericParameters with get() = x.ContainsGenericParameters
         override x.GenericArguments with get() = genericArguments.Value
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod

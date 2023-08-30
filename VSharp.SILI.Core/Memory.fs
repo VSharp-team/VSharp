@@ -1611,6 +1611,8 @@ module internal Memory =
             writeStaticField state typeof<string> Reflection.emptyStringField reference
         state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
 
+    let markTypeInitialized state typ =
+        state.initializedTypes <- SymbolicSet.add {typ=typ} state.initializedTypes
 // ------------------------------- Delegates -------------------------------
 
     let private objToDelegate state (d : Delegate) =

@@ -19,6 +19,7 @@ type IMethod =
     abstract HasThis : bool
     abstract IsConstructor : bool
     abstract IsExternalMethod : bool
+    abstract ContainsGenericParameters : bool
     abstract GenericArguments : Type[]
     abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
     abstract MethodBase : System.Reflection.MethodBase
