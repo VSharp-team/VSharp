@@ -48,7 +48,8 @@ module TestGenerator =
                         match dim with
                         | Vector ->
                             let arrayType = (elemType, 1, true)
-                            arrayType, [| ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox |], null
+                            let len = ArrayLength(cha, MakeNumber 0, arrayType) |> eval |> unbox
+                            arrayType, [| len |], null
                         | ConcreteDimension rank ->
                             let arrayType = (elemType, rank, false)
                             arrayType,
@@ -183,19 +184,22 @@ module TestGenerator =
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef _
         | NullPtr -> null
-        | DetachedPtr offset -> internalfail $"term2obj: got detached pointer with offset {offset}"
+        | DetachedPtr offset ->
+            let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
+            test.MemoryGraph.RepresentDetachedPtr typeof<Void> offset
         | {term = Ptr(HeapLocation({term = ConcreteHeapAddress(addr)}, _), sightType, offset)} ->
             let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
             let obj = address2obj model state indices mockCache implementations test addr
-            assert(obj :? referenceRepr)
-            let index = (obj :?> referenceRepr).index
-            test.MemoryGraph.RepresentPtr index sightType offset
+            if obj :? referenceRepr then
+                let index = (obj :?> referenceRepr).index
+                test.MemoryGraph.RepresentPtr index sightType offset
+            else test.MemoryGraph.RepresentDetachedPtr sightType offset
         | {term = HeapRef({term = ConcreteHeapAddress(addr)}, _)} ->
             address2obj model state indices mockCache implementations test addr
         | CombinedTerm(terms, t) ->
             let slices = List.map model.Eval terms
             ReinterpretConcretes slices t
-        | term -> internalfailf "creating object from term: unexpected term %O" term
+        | term -> internalfailf "term2obj: creating object from term: unexpected term %O" term
 
     and private address2obj (model : model) state indices mockCache implementations (test : UnitTest) (address : concreteHeapAddress) : obj =
         let term2obj = term2obj model state indices mockCache implementations test
