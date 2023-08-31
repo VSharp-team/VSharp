@@ -214,6 +214,8 @@ module internal TypeCasting =
 //            Ptr (HeapLocation addr) typ (makeNumber 0)
         | Struct(_ , t), _ when t = targetType -> term
         | Struct _, _ -> internalfailf $"Casting struct to {targetType}"
+        | Combined(slices, t), _ when isPointer t && isPointer targetType ->
+            combine slices targetType
         | _ -> internalfailf $"Can't cast {term} to type {targetType}"
 
     let canCast state term targetType =
