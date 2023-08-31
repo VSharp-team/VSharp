@@ -103,6 +103,18 @@ module internal Pointers =
     let isNull heapReference =
         simplifyReferenceEqualityk heapReference (nullRef (typeOf heapReference)) id
 
+    let rec isBadRef ref =
+        match ref.term with
+        | Ptr(HeapLocation(address, _), _, _) ->
+            simplifyEqual address (zeroAddress()) id
+        | Ptr _ -> False()
+        | _ when isReference ref -> isNull ref
+        | _ when typeOf ref |> isNative -> True()
+        | Union gvs ->
+            let gvs = List.map (fun (g, v) -> (g, isBadRef v)) gvs
+            Merging.merge gvs
+        | _ -> False()
+
 // -------------------------- Address arithmetic --------------------------
 
     // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
@@ -116,7 +128,7 @@ module internal Pointers =
             let ptr = Ptr baseAddress typ offset
             shift ptr bytesToShift |> k
         | HeapRef(address, t) ->
-            assert(t.IsArray)
+            assert t.IsArray
             let ptrType = t.GetElementType().MakePointerType()
             Ptr (HeapLocation(address, t)) ptrType bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr

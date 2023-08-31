@@ -237,6 +237,10 @@ module TypeUtils =
         | typ when typ = typeof<string> -> Some()
         | _ -> None
 
+    let (|Native|_|) = function
+        | typ when isNative typ -> Some()
+        | _ -> None
+
     let private getGenericDefinition (dotNetType : Type) =
         if dotNetType.IsGenericType then
             dotNetType.GetGenericTypeDefinition()

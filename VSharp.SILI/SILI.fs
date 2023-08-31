@@ -41,7 +41,7 @@ type public SILI(options : SiliOptions) =
     let interpreter = ILInterpreter()
 
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportError : cilState -> string -> bool -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : InsufficientInformationException -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
@@ -105,13 +105,17 @@ type public SILI(options : SiliOptions) =
             dfsSearcher.Init <| searcher.States()
             searcher <- bidirectionalSearcher
 
-    let reportState reporter isError cilState message =
+    let reportState reporter (suite : testSuite) cilState =
         try
             let isNewHistory() =
                 let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
                 Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
-            let suitableHistory = Set.isEmpty cilState.history || isNewHistory()
-            if suitableHistory && not isError || isError && statistics.IsNewError cilState message then
+            let isError = suite.IsErrorSuite
+            let isNewTest =
+                match suite with
+                | Test -> Set.isEmpty cilState.history || isNewHistory()
+                | Error(msg, isFatal) -> statistics.IsNewError cilState msg isFatal
+            if isNewTest then
                 let callStackSize = Memory.CallStackSize cilState.state
                 let methodHasByRefParameter (m : Method) =
                     m.Parameters |> Array.exists (fun pi -> pi.ParameterType.IsByRef)
@@ -121,7 +125,7 @@ type public SILI(options : SiliOptions) =
                     if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod then
                         Memory.ForcePopFrames (callStackSize - 2) cilState.state
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
-                match TestGenerator.state2test isError entryMethod cilState.state message with
+                match TestGenerator.state2test suite entryMethod cilState.state with
                 | Some test ->
                     statistics.TrackFinished(cilState, test)
                     reporter test
@@ -136,13 +140,14 @@ type public SILI(options : SiliOptions) =
         let result = Memory.StateResult state.state
         Logger.info "Result of method %s is %O" (entryMethodOf state).FullName result
         Application.terminateState state
-        reportState action.Invoke false state null
+        reportState action.Invoke Test state
 
-    let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage =
+    let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage isFatal =
         if not <| String.IsNullOrWhiteSpace errorMessage then
             Logger.info $"Error in {(entryMethodOf state).FullName}: {errorMessage}"
         Application.terminateState state
-        reportState action.Invoke true state errorMessage
+        let testSuite = Error(errorMessage, isFatal)
+        reportState action.Invoke testSuite state
 
     let wrapOnStateIIE (action : Action<InsufficientInformationException>) (state : cilState) =
         searcher.Remove state
@@ -303,7 +308,7 @@ type public SILI(options : SiliOptions) =
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter (fun state -> reportError state null)
+        runtimeExceptions |> List.iter (fun state -> reportError state null false)
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
         toReportIIE |> List.iter reportStateIncomplete

@@ -57,8 +57,8 @@ type public SILIStatistics(entryMethods : Method seq) =
 
     let totalVisited = Dictionary<codeLocation, uint>()
     let visitedWithHistory = Dictionary<codeLocation, HashSet<codeLocation>>()
-    let emittedErrors = HashSet<ipStack * string>()
-    let emittedExceptions = HashSet<string * string>()
+    let emittedErrors = HashSet<ipStack * string * bool>()
+    let emittedExceptions = HashSet<string * string * bool>()
 
     let generatedTestInfos = List<generatedTestInfo>()
 
@@ -251,10 +251,10 @@ type public SILIStatistics(entryMethods : Method seq) =
         generatedTestInfos.Add generatedTestInfo
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
 
-    member x.IsNewError (s : cilState) (errorMessage : string) =
+    member x.IsNewError (s : cilState) (errorMessage : string) isFatal =
         match s.state.exceptionsRegister with
-        | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage)
-        | _ -> emittedErrors.Add(s.ipStack, errorMessage)
+        | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage, isFatal)
+        | _ -> emittedErrors.Add(s.ipStack, errorMessage, isFatal)
 
     member x.TrackStepBackward (pob : pob) (cilState : cilState) =
         // TODO

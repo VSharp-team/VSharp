@@ -34,10 +34,6 @@ module API =
     val SolveThisType : state -> term -> unit
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
 
-    val ConfigureErrorReporter : (state -> string -> unit) -> unit
-    val ErrorReporter : string -> (state -> term -> unit)
-    val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
-
     val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
     val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
 
@@ -85,6 +81,7 @@ module API =
         val IsRefOrPtr : term -> bool
         val IsConcrete : term -> bool
         val IsNullReference : term -> term
+        val IsBadRef : term -> term
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
@@ -255,11 +252,14 @@ module API =
         val ExtractPointerOffset : term -> term
 
         val Read : state -> term -> term
+        val ReadUnsafe : IErrorReporter -> state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> IMethod -> term
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
+        val ReadFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> Type option -> term
+        val ReadArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> Type option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
@@ -270,10 +270,13 @@ module API =
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list
+        val WriteUnsafe : IErrorReporter -> state -> term -> term -> state list
         val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
+        val WriteStructFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> Type option -> state list
+        val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> state list
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
 
         val DefaultOf : Type -> term

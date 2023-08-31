@@ -8,6 +8,23 @@ open VSharp
 open VSharp.Core
 open System.Linq
 
+type public testSuite =
+    | Test
+    | Error of string * bool
+    with
+    member x.IsErrorSuite with get() =
+        match x with
+        | Error _ -> true
+        | Test -> false
+    member x.IsFatalError with get() =
+        match x with
+        | Error(_, isFatal) -> isFatal
+        | Test -> false
+    member x.ErrorMessage with get() =
+        match x with
+        | Error(msg, _) -> msg
+        | Test -> null
+
 module TestGenerator =
 
     let mutable private maxBufferSize = 128
@@ -250,7 +267,83 @@ module TestGenerator =
         let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
         test.AddExternMock extMock
 
-    let private model2test (test : UnitTest) isError indices mockCache (m : Method) model (state : state) message =
+    let private modelState2test (test : UnitTest) suite indices mockCache (m : Method) model modelState (state : state) =
+        match SolveGenericMethodParameters state.typeStorage m with
+        | None -> None
+        | Some(classParams, methodParams) ->
+            let implementations = Dictionary<MethodInfo, term[]>()
+            for entry in state.methodMocks do
+                let mock = entry.Value
+                match mock.MockingType with
+                | Default ->
+                    let values = mock.GetImplementationClauses()
+                    implementations.Add(mock.BaseMethod, values)
+                | Extern ->
+                    encodeExternMock model state indices mockCache implementations test mock
+
+            let concreteClassParams = Array.zeroCreate classParams.Length
+            let mockedClassParams = Array.zeroCreate classParams.Length
+            let concreteMethodParams = Array.zeroCreate methodParams.Length
+            let mockedMethodParams = Array.zeroCreate methodParams.Length
+            let encodeMock = encodeTypeMock model state indices mockCache implementations test
+            let processSymbolicType (concreteArr : Type array) (mockArr : Mocking.Type option array) i = function
+                | ConcreteType t -> concreteArr[i] <- t
+                | MockType m -> mockArr[i] <- Some (encodeMock m)
+            classParams |> Seq.iteri (processSymbolicType concreteClassParams mockedClassParams)
+            methodParams |> Seq.iteri (processSymbolicType concreteMethodParams mockedMethodParams)
+            test.SetTypeGenericParameters concreteClassParams mockedClassParams
+            test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
+
+            let parametersInfo = m.Parameters
+            if state.complete then
+                for pi in parametersInfo do
+                    let arg = Memory.ReadArgument state pi
+                    let concreteArg = term2obj model state indices mockCache implementations test arg
+                    test.AddArg (Array.head parametersInfo) concreteArg
+            else
+                for pi in parametersInfo do
+                    let value =
+                        if pi.ParameterType.IsByRef then
+                            let key = ParameterKey pi
+                            let stackRef = Memory.ReadLocalVariable state key
+                            Memory.Read modelState stackRef
+                        else
+                            Memory.ReadArgument modelState pi |> model.Complete
+                    let concreteValue : obj = term2obj model state indices mockCache implementations test value
+                    test.AddArg pi concreteValue
+
+            if m.HasThis then
+                let thisTerm =
+                    if m.DeclaringType.IsValueType then
+                        let stackRef = Memory.ReadThis state m
+                        Memory.Read modelState stackRef
+                    else
+                        Memory.ReadThis modelState m |> model.Complete
+                let concreteThis = term2obj model state indices mockCache implementations test thisTerm
+                test.ThisArg <- concreteThis
+
+            match state.exceptionsRegister, suite with
+            | Unhandled(e, _, _), Error(msg, isFatal) ->
+                test.Exception <- MostConcreteTypeOfRef state e
+                test.IsError <- true
+                if String.IsNullOrEmpty msg then
+                    let messageReference = Memory.ReadField state e Reflection.exceptionMessageField |> model.Eval
+                    let encoded = term2obj model state indices mockCache implementations test messageReference
+                    test.ErrorMessage <- test.MemoryGraph.DecodeString encoded
+                else test.ErrorMessage <- msg
+                test.IsFatalError <- isFatal
+            | Unhandled(e, _, _), _ ->
+                test.Exception <- MostConcreteTypeOfRef state e
+            | _, Error(msg, isFatal) ->
+                test.IsError <- true
+                test.ErrorMessage <- msg
+                test.IsFatalError <- isFatal
+            | _ ->
+                let retVal = Memory.StateResult state |> model.Eval
+                test.Expected <- term2obj model state indices mockCache implementations test retVal
+            Some test
+
+    let private model2test (test : UnitTest) suite indices mockCache (m : Method) model (state : state) =
         let suitableState state =
             let methodHasByRefParameter = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
             if m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter then
@@ -261,90 +354,16 @@ module TestGenerator =
             then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
 
         match model with
-        | StateModel modelState ->
-            match SolveGenericMethodParameters state.typeStorage m with
-            | None -> None
-            | Some(classParams, methodParams) ->
-                let implementations = Dictionary<MethodInfo, term[]>()
-                for entry in state.methodMocks do
-                    let mock = entry.Value
-                    match mock.MockingType with
-                    | Default ->
-                        let values = mock.GetImplementationClauses()
-                        implementations.Add(mock.BaseMethod, values)
-                    | Extern ->
-                        encodeExternMock model state indices mockCache implementations test mock
-
-                let concreteClassParams = Array.zeroCreate classParams.Length
-                let mockedClassParams = Array.zeroCreate classParams.Length
-                let concreteMethodParams = Array.zeroCreate methodParams.Length
-                let mockedMethodParams = Array.zeroCreate methodParams.Length
-                let encodeMock = encodeTypeMock model state indices mockCache implementations test
-                let processSymbolicType (concreteArr : Type array) (mockArr : Mocking.Type option array) i = function
-                    | ConcreteType t -> concreteArr[i] <- t
-                    | MockType m -> mockArr[i] <- Some (encodeMock m)
-                classParams |> Seq.iteri (processSymbolicType concreteClassParams mockedClassParams)
-                methodParams |> Seq.iteri (processSymbolicType concreteMethodParams mockedMethodParams)
-                test.SetTypeGenericParameters concreteClassParams mockedClassParams
-                test.SetMethodGenericParameters concreteMethodParams mockedMethodParams
-
-                let parametersInfo = m.Parameters
-                if state.complete then
-                    for pi in parametersInfo do
-                        let arg = Memory.ReadArgument state pi
-                        let concreteArg = term2obj model state indices mockCache implementations test arg
-                        test.AddArg (Array.head parametersInfo) concreteArg
-                else
-                    for pi in parametersInfo do
-                        let value =
-                            if pi.ParameterType.IsByRef then
-                                let key = ParameterKey pi
-                                let stackRef = Memory.ReadLocalVariable state key
-                                Memory.Read modelState stackRef
-                            else
-                                Memory.ReadArgument modelState pi |> model.Complete
-                        let concreteValue : obj = term2obj model state indices mockCache implementations test value
-                        test.AddArg pi concreteValue
-
-                if m.HasThis then
-                    let thisTerm =
-                        if m.DeclaringType.IsValueType then
-                            let stackRef = Memory.ReadThis state m
-                            Memory.Read modelState stackRef
-                        else
-                            Memory.ReadThis modelState m |> model.Complete
-                    let concreteThis = term2obj model state indices mockCache implementations test thisTerm
-                    test.ThisArg <- concreteThis
-
-                let hasException, message =
-                    match state.exceptionsRegister with
-                    | Unhandled(e, _, _) ->
-                        let t = MostConcreteTypeOfRef state e
-                        test.Exception <- t
-                        let message =
-                            if isError && String.IsNullOrEmpty message then
-                                let messageReference = Memory.ReadField state e Reflection.exceptionMessageField |> model.Eval
-                                let encoded = term2obj model state indices mockCache implementations test messageReference
-                                test.MemoryGraph.DecodeString encoded
-                            else message
-                        true, message
-                    | _ -> false, message
-                test.IsError <- isError
-                test.ErrorMessage <- message
-
-                if not isError && not hasException then
-                    let retVal = Memory.StateResult state |> model.Eval
-                    test.Expected <- term2obj model state indices mockCache implementations test retVal
-                Some test
+        | StateModel modelState -> modelState2test test suite indices mockCache m model modelState state
         | _ -> __unreachable__()
 
-    let public state2test isError (m : Method) (state : state) message =
+    let public state2test testSuite (m : Method) (state : state) =
         let indices = Dictionary<concreteHeapAddress, int>()
         let mockCache = Dictionary<ITypeMock, Mocking.Type>()
         let test = UnitTest((m :> IMethod).MethodBase)
-        model2test test isError indices mockCache m state.model state message
+        model2test test testSuite indices mockCache m state.model state
 
-    let public state2testWithMockingCache isError (m : Method) (state : state) mockCache message =
+    let public state2testWithMockingCache testSuite (m : Method) (state : state) mockCache =
         let indices = Dictionary<concreteHeapAddress, int>()
         let test = UnitTest((m :> IMethod).MethodBase)
-        model2test test isError indices mockCache m state.model state message
+        model2test test testSuite indices mockCache m state.model state

@@ -422,6 +422,10 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
         let rest = Seq.toList rest
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
+and IErrorReporter =
+    abstract ConfigureState : state -> unit
+    abstract Report : string -> term -> bool -> unit
+
 and
     [<ReferenceEquality>]
     state = {

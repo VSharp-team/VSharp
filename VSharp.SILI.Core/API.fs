@@ -58,22 +58,6 @@ module API =
 
     let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
 
-    let mutable private reportError = fun _ _ -> ()
-    let reportUnspecifiedError state = reportError state "Unspecified"
-    let ConfigureErrorReporter errorReporter =
-        reportError <- errorReporter
-    let ErrorReporter(message : string) =
-        let result = fun state failCondition ->
-            Branching.commonStatedConditionalExecutionk state
-                (fun state k -> k (!!failCondition, state))
-                (fun _ k -> k ())
-                (fun state k -> k (reportError state message))
-                (fun _ _ -> [])
-                ignore
-        reportError <- fun _ _ -> ()
-        result
-    let UnspecifiedErrorReporter() = ErrorReporter "Unspecified"
-
     let MethodMockAndCall state method this args = MethodMocking.mockAndCall state method this args Default
     let ExternMockAndCall state method this args = MethodMocking.mockAndCall state method this args Extern
 
@@ -124,6 +108,7 @@ module API =
             | HeapRef(address, _) when isConcreteHeapAddress address -> true
             | _ -> false
         let IsNullReference term = Pointers.isNull term
+        let IsBadRef term = Pointers.isBadRef term
 
         let GetHashCode term = Memory.getHashCode term
 
@@ -315,6 +300,7 @@ module API =
         let EmptyStack = EvaluationStack.empty
 
     module public Memory =
+
         let EmptyState() = Memory.makeEmpty false
         let EmptyModel method =
             let modelState = Memory.makeEmpty true
@@ -399,27 +385,45 @@ module API =
         let ExtractPointerOffset ptr = Memory.extractPointerOffset ptr
 
         let Read state reference =
-            transformBoxedRef reference |> Memory.read state (UnspecifiedErrorReporter())
+            transformBoxedRef reference |> Memory.read Memory.emptyReporter state
+        let ReadUnsafe (reporter : IErrorReporter) state reference =
+            reporter.ConfigureState state
+            transformBoxedRef reference |> Memory.read reporter state
         let ReadLocalVariable state location = Memory.readStackLocation state location
         let ReadThis state method = Memory.readStackLocation state (ThisKey method)
         let ReadArgument state parameterInfo = Memory.readStackLocation state (ParameterKey parameterInfo)
-        let ReadField state term field =
+
+        let CommonReadField reporter state term field =
             let doRead target =
                 match target.term with
                 | HeapRef _
                 | Ptr _
-                | Ref _ -> ReferenceField state target field |> Memory.read state (UnspecifiedErrorReporter())
-                | Struct _ -> Memory.readStruct target field
-                | Combined _ -> Memory.readFieldUnsafe target field
+                | Ref _ -> ReferenceField state target field |> Memory.read reporter state
+                | Struct _ -> Memory.readStruct reporter target field
+                | Combined _ -> Memory.readFieldUnsafe reporter target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 
-        let ReadArrayIndex state reference indices valueType =
+        let ReadField state term field =
+            CommonReadField Memory.emptyReporter state term field
+
+        let ReadFieldUnsafe (reporter : IErrorReporter) state term field =
+            reporter.ConfigureState state
+            CommonReadField reporter state term field
+
+        let CommonReadArrayIndex reporter state reference indices valueType =
             let ref = ReferenceArrayIndex state reference indices valueType
-            let value = Read state ref
+            let value = ReadUnsafe reporter state ref
             match valueType with
             | Some valueType when isReference ref -> Types.Cast value valueType
             | _ -> value
+
+        let ReadArrayIndex state reference indices valueType =
+            CommonReadArrayIndex Memory.emptyReporter state reference indices valueType
+
+        let ReadArrayIndexUnsafe (reporter : IErrorReporter) state reference indices valueType =
+            reporter.ConfigureState state
+            CommonReadArrayIndex reporter state reference indices valueType
 
         let rec ReadStringChar state reference index =
             match reference.term with
@@ -438,10 +442,22 @@ module API =
         let InitializeArray state arrayRef handleTerm = ArrayInitialization.initializeArray state arrayRef handleTerm
 
         let WriteStackLocation state location value = Memory.writeStackLocation state location value
+
         let Write state reference value =
-            let errorReporter = UnspecifiedErrorReporter()
-            Branching.guardedStatedMap (fun state reference -> Memory.write state errorReporter reference value) state reference
+            let write state reference = Memory.write Memory.emptyReporter state reference value
+            Branching.guardedStatedMap write state reference
+
+        let WriteUnsafe (reporter : IErrorReporter) state reference value =
+            reporter.ConfigureState state
+            let write state reference = Memory.write reporter state reference value
+            Branching.guardedStatedMap write state reference
+
         let WriteStructField structure field value = Memory.writeStruct structure field value
+
+        let WriteStructFieldUnsafe (reporter : IErrorReporter) state structure field value =
+            reporter.ConfigureState state
+            Memory.writeStruct structure field value
+
         let WriteClassField state reference field value =
             Branching.guardedStatedMap
                 (fun state reference ->
@@ -450,12 +466,21 @@ module API =
                     | _ -> internalfailf "Writing field of class: expected reference, but got %O" reference
                     state)
                 state reference
-        let WriteArrayIndex state reference indices value valueType =
+
+        let CommonWriteArrayIndex reporter state reference indices value valueType =
             let ref = ReferenceArrayIndex state reference indices valueType
             let value =
                 if isPtr ref then Option.fold (fun _ -> Types.Cast value) value valueType
                 else MostConcreteTypeOfRef state reference |> symbolicTypeToArrayType |> fst3 |> Types.Cast value
-            Write state ref value
+            WriteUnsafe reporter state ref value
+
+        let WriteArrayIndex state reference indices value valueType =
+            CommonWriteArrayIndex Memory.emptyReporter state reference indices value valueType
+
+        let WriteArrayIndexUnsafe (reporter : IErrorReporter) state reference indices value valueType =
+            reporter.ConfigureState state
+            CommonWriteArrayIndex reporter state reference indices value valueType
+
         let WriteStaticField state typ field value = Memory.writeStaticField state typ field value
 
         let DefaultOf typ = makeDefaultValue typ
