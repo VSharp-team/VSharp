@@ -4,7 +4,8 @@ from torch_geometric.nn import Linear
 
 from learning.timer.wrapper import timeit
 
-from .models import StateGNNEncoderConvEdgeAttr
+from .models import StateGNNEncoderConvEdgeAttr, StateGNNEncoderConvEdgeAttrCompact
+from torch.nn.functional import softmax
 
 
 class StateGNNEncoderConvEdgeAttrExport(StateGNNEncoderConvEdgeAttr):
@@ -13,13 +14,41 @@ class StateGNNEncoderConvEdgeAttrExport(StateGNNEncoderConvEdgeAttr):
         self.lin_last = Linear(out_channels, 1)
 
     def forward(self, x_dict, edge_index_dict, edge_attr=None):
-        return self.lin_last(super().forward(x_dict, edge_index_dict, edge_attr))
+        return softmax(
+            self.lin_last(super().forward(x_dict, edge_index_dict, edge_attr)), dim=0
+        )
 
 
 class StateModelEncoderExport(torch.nn.Module):
     def __init__(self, hidden_channels, out_channels):
         super().__init__()
         self.state_encoder = StateGNNEncoderConvEdgeAttrExport(
+            hidden_channels, out_channels
+        )
+
+    @timeit
+    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+        z_dict = {}
+        z_dict["state_vertex"] = self.state_encoder(x_dict, edge_index_dict, edge_attr)
+        z_dict["game_vertex"] = x_dict["game_vertex"]
+        return z_dict
+
+
+class StateGNNEncoderConvEdgeAttrExportCompact(StateGNNEncoderConvEdgeAttrCompact):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__(hidden_channels, out_channels)
+        self.lin_last = Linear(out_channels, 1)
+
+    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+        return softmax(
+            self.lin_last(super().forward(x_dict, edge_index_dict, edge_attr)), dim=0
+        )
+
+
+class StateModelEncoderExportCompact(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
+        super().__init__()
+        self.state_encoder = StateGNNEncoderConvEdgeAttrExportCompact(
             hidden_channels, out_channels
         )
 
