@@ -7,7 +7,12 @@ from pathlib import Path
 import torch
 
 from config import GeneralConfig
-from ml.common_model.paths import csv_path, models_path, common_models_path
+from ml.common_model.paths import (
+    csv_path,
+    models_path,
+    common_models_path,
+    dataset_state_path,
+)
 from ml.models import SAGEConvModel
 from ml.utils import load_model
 
@@ -123,5 +128,29 @@ def load_best_models_dict(path):
                 ref_model.load_state_dict(torch.load(path_to_model))
                 ref_model.to(GeneralConfig.DEVICE)
                 best_models[row[0]][0] = ref_model
+                best_models[row[0]][1] = ast.literal_eval(row[2])
                 best_models[row[0]][2] = row[1]
     return best_models
+
+
+def load_dataset_state_dict(path):
+    dataset_state_dict = {}
+    with open(path, "r") as csv_file:
+        csv_reader = csv.reader(csv_file)
+        for row in csv_reader:
+            dataset_state_dict[row[0]] = ast.literal_eval(row[1])
+    return dataset_state_dict
+
+
+def save_dataset_state_dict(dataset_state_dict: dict, path):
+    values_for_csv = []
+    for map_name in dataset_state_dict.keys():
+        values_for_csv.append(
+            {
+                "map_name": map_name,
+                "result": dataset_state_dict[map_name],
+            }
+        )
+    with open(path, "w") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=["map_name", "result"])
+        writer.writerows(values_for_csv)
