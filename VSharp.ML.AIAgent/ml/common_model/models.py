@@ -87,3 +87,22 @@ class CommonModel(torch.nn.Module):
             ).relu()
         x = self.mlp(in_x)
         return x
+
+
+class ParallelBlocks(torch.nn.Module):
+    def __init__(self, models_list, mlp_list):
+        super().__init__()
+        self.models_list = models_list
+        self.mlp = MLP(len(models_list), mlp_list)
+
+    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+        results_list = []
+        for model in self.models_list:
+            results_list.append(
+                model(x_dict, edge_index_dict, edge_attr)["state_vertex"]
+            )
+        z_dict = {}
+        results_tensor = torch.cat(results_list, dim=1)
+        z_dict["state_vertex"] = self.mlp(results_tensor)
+        z_dict["game_vertex"] = x_dict["game_vertex"]
+        return z_dict
