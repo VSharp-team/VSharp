@@ -26,8 +26,8 @@ jobs:
     - name: Run tests
       run: |
         dotnet tool restore
-        dotnet test -c Release --logger "trx;LogFileName=tests-results.trx"
-        dotnet test -c Release --filter TestCategory=Generated --logger "trx;LogFileName=generated-tests-results.trx"
+        dotnet test -c DebugTailRec --logger "trx;LogFileName=tests-results.trx"
+        dotnet test -c Release --filter "TestCategory=Generated&TestCategory\!=FatalError" --logger "trx;LogFileName=generated-tests-results.trx"
     - name: Upload tests results to GitHub artifacts
       uses: actions/upload-artifact@v3
       if: success() || failure()

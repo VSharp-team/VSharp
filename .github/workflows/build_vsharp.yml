@@ -20,12 +20,12 @@ jobs:
           ${{ runner.os }}-nuget-
     - name: Build VSharp
       run:
-        dotnet build -c Release
+        dotnet build -c DebugTailRec
     - uses: actions/upload-artifact@v3
       with:
         name: runner
-        path: ./VSharp.Runner/bin/Release/netcoreapp6.0
+        path: ./VSharp.Runner/bin/DebugTailRec/netcoreapp6.0
     - uses: actions/upload-artifact@v3
       with:
         name: test_runner
-        path: ./VSharp.TestRunner/bin/Release/netcoreapp6.0
+        path: ./VSharp.TestRunner/bin/DebugTailRec/netcoreapp6.0
