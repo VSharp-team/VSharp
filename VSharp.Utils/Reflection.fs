@@ -233,15 +233,24 @@ module public Reflection =
         assert interfaceType.IsInterface
         if interfaceType = targetType then interfaceMethod
         else
-            let sign = createSignature interfaceMethod
+            let isGeneric = interfaceMethod.IsGenericMethod
+            let genericMethod, genericArgs =
+                if isGeneric then
+                    interfaceMethod.GetGenericMethodDefinition(), interfaceMethod.GetGenericArguments()
+                else interfaceMethod, Array.empty
+            let sign = createSignature genericMethod
             let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
-            match targetType with
-            | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
-            | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
-            | _ ->
-                let interfaceMap = targetType.GetInterfaceMap(interfaceType)
-                let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
-                interfaceMap.TargetMethods[targetMethodIndex]
+            let method =
+                match targetType with
+                | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
+                | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
+                | _ ->
+                    let interfaceMap = targetType.GetInterfaceMap(interfaceType)
+                    let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
+                    interfaceMap.TargetMethods[targetMethodIndex]
+            if isGeneric then
+                method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs)
+            else method
 
     let private virtualBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
