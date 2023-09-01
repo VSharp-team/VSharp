@@ -46,6 +46,8 @@ module internal Unsafe =
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.Add(T&, System.IntPtr)")>]
+    [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.UIntPtr)")>]
+    [<Implements("T& System.Runtime.CompilerServices.Unsafe.Add(T&, System.UIntPtr)")>]
     val internal AddIntPtr : state -> term list -> term
 
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.Add(T&, System.Int32)")>]
