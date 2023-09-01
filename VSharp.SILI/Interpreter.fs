@@ -494,12 +494,21 @@ module internal InstructionsSet =
 
     // '.constrained' is prefix, which is used before 'callvirt' instruction
     let constrained (m : Method) offset (cilState : cilState) =
-        match findNextInstructionOffsetAndEdges OpCodes.Constrained m.ILBytes offset with
-        | FallThrough offset ->
-            let method = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Callvirt.Size)
-            // Method can not be constructor, because it's called via 'callvirt'
-            assert(method :? MethodInfo)
-            let method = method :?> MethodInfo
+        let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Constrained.Size)
+        let method =
+            match findNextInstructionOffsetAndEdges OpCodes.Constrained m.ILBytes offset with
+            | FallThrough offset ->
+                let method = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Callvirt.Size)
+                // Method can not be constructor, because it's called via 'callvirt'
+                assert(method :? MethodInfo)
+                method :?> MethodInfo
+            | _ -> __unreachable__()
+        // IL specification is silent about this case, but 'method' may be static
+        if method.IsStatic then
+            // In this case, next called static method will be called via type 'typ'
+            assert(List.isEmpty cilState.prefixContext)
+            pushPrefixContext cilState (Constrained typ)
+        else
             let n = method.GetParameters().Length
             let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
             setEvaluationStack evaluationStack cilState
@@ -520,7 +529,6 @@ module internal InstructionsSet =
                 push this cilState
                 pushMany args cilState
             | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
-        | _ -> __unreachable__()
     let localloc (cilState : cilState) =
         // [NOTE] localloc usually is used for Span
         // So, pushing nullptr, because array will be allocated in Span constructor
@@ -651,8 +659,7 @@ type internal ILInterpreter() as this =
             let initArray (cilState : cilState) k =
                 Memory.InitializeArray cilState.state arrayRef handleTerm
                 k [cilState]
-            x.NpeOrInvokeStatementCIL cilState arrayRef (fun cilState k ->
-            x.NpeOrInvokeStatementCIL cilState handleTerm initArray k) id
+            x.NpeOrInvokeStatementCIL cilState arrayRef initArray id
         | _ -> internalfail "unexpected number of arguments"
 
     member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
@@ -1323,7 +1330,16 @@ type internal ILInterpreter() as this =
         this, args
 
     member x.Call (m : Method) offset (cilState : cilState) =
-        let calledMethod = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Call.Size) |> Application.getMethod
+        let prefixContext = popPrefixContext cilState
+        let calledMethodBase = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Call.Size)
+        let calledMethod =
+            match prefixContext with
+            | Some (Constrained t) ->
+                assert(calledMethodBase :? MethodInfo)
+                let methodInfo = calledMethodBase :?> MethodInfo
+                let m = Reflection.resolveOverridingMethod t methodInfo
+                Application.getMethod m
+            | _ -> Application.getMethod calledMethodBase
         let getArgsAndCall cilState =
             let thisOpt, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             match thisOpt with
@@ -1678,7 +1694,8 @@ type internal ILInterpreter() as this =
         let hasValueFieldInfo = t.GetField("hasValue", Reflection.instanceBindingFlags)
         let hasValueResults =
             push v cilState
-            x.LdFldWithFieldInfo hasValueFieldInfo false cilState  |> List.map (fun cilState -> (pop cilState, cilState))
+            x.LdFldWithFieldInfo hasValueFieldInfo false cilState
+            |> List.map (fun cilState -> (pop cilState, cilState))
         Cps.List.mapk boxNullable hasValueResults List.concat
 
     member x.Box (m : Method) offset (cilState : cilState) =

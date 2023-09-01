@@ -7,34 +7,40 @@ open VSharp.Core
 open VSharp.Interpreter.IL
 open ipOperations
 
+type prefix =
+    | Constrained of System.Type
+
 [<ReferenceEquality>]
 type cilState =
-    { mutable ipStack : ipStack
-      // TODO: get rid of currentLoc!
-      mutable currentLoc : codeLocation // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
-      state : state
-      mutable filterResult : term option
-      //TODO: #mb frames list #mb transfer to Core.State
-      mutable iie : InsufficientInformationException option
-      mutable level : level
-      startingIP : ip
-      mutable initialEvaluationStackSize : uint32
-      mutable stepsNumber : uint
-      mutable suspended : bool
-      mutable targets : Set<codeLocation>
-      mutable lastPushInfo : term option
-      /// <summary>
-      /// All basic blocks visited by the state.
-      /// </summary>
-      mutable history : Set<codeLocation>
-      /// <summary>
-      /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
-      /// </summary>
-      entryMethod : Method option
-      /// <summary>
-      /// Deterministic state id.
-      /// </summary>
-      id : uint
+    {
+        mutable ipStack : ipStack
+        mutable prefixContext : prefix list
+        // TODO: get rid of currentLoc!
+        // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
+        mutable currentLoc : codeLocation
+        state : state
+        mutable filterResult : term option
+        //TODO: #mb frames list #mb transfer to Core.State
+        mutable iie : InsufficientInformationException option
+        mutable level : level
+        startingIP : ip
+        mutable initialEvaluationStackSize : uint32
+        mutable stepsNumber : uint
+        mutable suspended : bool
+        mutable targets : Set<codeLocation>
+        mutable lastPushInfo : term option
+        /// <summary>
+        /// All basic blocks visited by the state.
+        /// </summary>
+        mutable history : Set<codeLocation>
+        /// <summary>
+        /// If the state is not isolated (produced during forward execution), Some of it's entry point method, else None.
+        /// </summary>
+        entryMethod : Method option
+        /// <summary>
+        /// Deterministic state id.
+        /// </summary>
+        id : uint
     }
 
     interface IGraphTrackableState with
@@ -56,21 +62,23 @@ module internal CilStateOperations =
 
     let makeCilState entryMethod curV initialEvaluationStackSize state =
         let currentLoc = ip2codeLocation curV |> Option.get
-        { ipStack = [curV]
-          currentLoc = currentLoc
-          state = state
-          filterResult = None
-          iie = None
-          level = PersistentDict.empty
-          startingIP = curV
-          initialEvaluationStackSize = initialEvaluationStackSize
-          stepsNumber = 0u
-          suspended = false
-          targets = Set.empty
-          lastPushInfo = None
-          history = Set.empty
-          entryMethod = Some entryMethod
-          id = getNextStateId()
+        {
+            ipStack = [curV]
+            prefixContext = List.empty
+            currentLoc = currentLoc
+            state = state
+            filterResult = None
+            iie = None
+            level = PersistentDict.empty
+            startingIP = curV
+            initialEvaluationStackSize = initialEvaluationStackSize
+            stepsNumber = 0u
+            suspended = false
+            targets = Set.empty
+            lastPushInfo = None
+            history = Set.empty
+            entryMethod = Some entryMethod
+            id = getNextStateId()
         }
 
     let makeInitialState m state = makeCilState m (instruction m 0<offsets>) 0u state
@@ -161,6 +169,16 @@ module internal CilStateOperations =
 
     let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
     let startingIpOf (cilState : cilState) = cilState.startingIP
+
+    let pushPrefixContext (cilState : cilState) (prefix : prefix) =
+        cilState.prefixContext <- prefix :: cilState.prefixContext
+
+    let popPrefixContext (cilState : cilState) =
+        match cilState.prefixContext with
+        | prefix :: context ->
+            cilState.prefixContext <- context
+            Some prefix
+        | _ -> None
 
     let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
 
