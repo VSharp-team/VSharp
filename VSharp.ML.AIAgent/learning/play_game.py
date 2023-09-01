@@ -38,14 +38,12 @@ def play_map(
     try:
         for _ in range(steps):
             game_state = with_connector.recv_state_or_throw_gameover()
-            predicted_state_id = with_predictor.predict(
+            predicted_state_id, nn_output = with_predictor.predict(
                 game_state, with_connector.map.MapName
             )
 
             if with_dataset is not None:
-                with_dataset.process_single_input(
-                    with_connector.map.MapName, game_state
-                )
+                with_dataset.process_single_input(game_state, nn_output)
 
             logging.debug(
                 f"<{with_predictor.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
