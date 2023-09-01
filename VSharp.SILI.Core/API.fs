@@ -313,32 +313,52 @@ module API =
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
+        let private IsSafeContext actualType neededType =
+            neededType = actualType ||
+            TypeUtils.canCastImplicitly neededType actualType &&
+            TypeUtils.internalSizeOf actualType = TypeUtils.internalSizeOf neededType
+
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
             | HeapRef(addr, typ) ->
-                let elemType, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
+                let elemType, dim, _ as arrayType =
+                    Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
                 assert(dim = List.length indices)
-                let safeContext valueType =
-                    valueType = elemType ||
-                    TypeUtils.canCastImplicitly valueType elemType &&
-                    TypeUtils.internalSizeOf elemType = TypeUtils.internalSizeOf valueType
                 match valueType with
-                | Some valueType when not (safeContext valueType) ->
+                | Some valueType when not (IsSafeContext elemType valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
-            | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType))) ->
+            | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType)) as ref) ->
                 assert(List.length indices = List.length innerIndices)
                 match valueType with
-                | Some typ when typ <> elemType -> internalfail "ReferenceArrayIndex: unsupported case"
-                | _ -> ()
-                let indices = List.map2 add indices innerIndices
-                ArrayIndex(address, indices, arrayType) |> Ref
-            | Ptr(HeapLocation(address, _) as baseAddress, t, offset) ->
+                | None ->
+                    let indices = List.map2 add indices innerIndices
+                    ArrayIndex(address, indices, arrayType) |> Ref
+                | Some typ when IsSafeContext elemType typ ->
+                    let indices = List.map2 add indices innerIndices
+                    ArrayIndex(address, indices, arrayType) |> Ref
+                | Some typ ->
+                    assert(List.length indices = 1)
+                    let index = indices[0]
+                    let pointerBase, refOffset = Pointers.addressToBaseAndOffset ref
+                    let indexOffset = mul index (TypeUtils.internalSizeOf typ |> makeNumber)
+                    let offset = add refOffset indexOffset
+                    Ptr pointerBase typ offset
+            | Ptr(HeapLocation(address, t) as baseAddress, _, offset) ->
                 assert(TypeUtils.isArrayType t)
                 let elemType, _, _ as arrayType = symbolicTypeToArrayType t
-                let indexOffset = Memory.arrayIndicesToOffset state address arrayType indices
-                Ptr baseAddress elemType (add offset indexOffset)
+                let sightType, indexOffset =
+                    match valueType with
+                    | None ->
+                        elemType, Memory.arrayIndicesToOffset state address arrayType indices
+                    | Some t when IsSafeContext elemType t ->
+                        t, Memory.arrayIndicesToOffset state address arrayType indices
+                    | Some t ->
+                        assert(List.length indices = 1)
+                        let index = indices[0]
+                        t, mul index (TypeUtils.internalSizeOf t |> makeNumber)
+                Ptr baseAddress sightType (add offset indexOffset)
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex state v indices valueType)) |> Merging.merge
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
 

@@ -19,6 +19,9 @@ module ReadOnlySpan =
     let ptrFieldIsByRef (ptrFieldType : Type) =
         ptrFieldType.FullName.Contains("System.ByReference")
 
+    let readOnlySpanType() =
+        typeof<int>.Assembly.GetType("System.ReadOnlySpan`1")
+
     let private CreateArrayRef address indices (eType : Type, dim, isVector as arrayType) =
         if isVector && indices = [MakeNumber 0] then
             HeapRef address (eType.MakeArrayType())
@@ -37,8 +40,8 @@ module ReadOnlySpan =
         assert(Array.length spanFields = 2)
         let ptrField = spanFields |> Array.find (fst >> isContentReferenceField) |> fst
         // TODO: throw ThrowIndexOutOfRangeException if len is less or equal to index
-        // let lenField = spanFields |> Array.find (fun (fieldId, _) -> fieldId.name = "_length") |> fst
-        // let len = Memory.ReadField state span lenField
+        let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
+        let len = Memory.ReadField state spanStruct lenField
         let ptrFieldValue = Memory.ReadField state spanStruct ptrField
         let ptrFieldType = ptrField.typ
         let ptr =
@@ -62,21 +65,34 @@ module ReadOnlySpan =
             | Some(indices, arrayType) -> CreateArrayRef address indices arrayType
             | None when t.IsSZArray || t = typeof<string> -> ptr
             | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptr}"
+        | Ptr _ when len = MakeNumber 1 -> ptr
         | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptr}"
 
     let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
         assert(List.length args = 3)
-        let this, index = List.item 0 args, List.item 2 args
+        let this, wrappedType, index = args[0], args[1], args[2]
+        let t = Helpers.unwrapType wrappedType
         let span = Memory.Read state this
         let ref = GetContentsRef state span
-        Memory.ReferenceArrayIndex state ref [index] None
+        let isArrayContents =
+            match ref.term with
+            | HeapRef(_, t)
+            | Ptr(HeapLocation(_, t), _, _) ->
+                TypeUtils.isArrayType t || t = typeof<string>
+            | Ref(ArrayIndex _) -> true
+            | _ -> false
+        if isArrayContents then
+            Memory.ReferenceArrayIndex state ref [index] (Some t)
+        elif index = MakeNumber 0 then
+            assert(TypeOfLocation ref = t)
+            ref
+        else internalfail $"GetItemFromReadOnlySpan: unexpected contents ref {ref}"
 
     let internal GetItemFromSpan (state : state) (args : term list) : term =
         GetItemFromReadOnlySpan state args
 
-    let private CommonCtor (state : state) this refToFirst length =
-        let span = Memory.Read state this
-        let spanFields = Terms.TypeOf span |> Reflection.fieldsOf false
+    let private InitSpanStruct spanStruct refToFirst length =
+        let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let ptrField, ptrFieldInfo = spanFields |> Array.find (fst >> isContentReferenceField)
         let ptrFieldType = ptrFieldInfo.FieldType
@@ -88,12 +104,16 @@ module ReadOnlySpan =
                 assert(Array.length byRefFields = 1)
                 let valueField = byRefFields |> Array.find (fst >> ByReference.isValueField) |> fst
                 let initializedByRef = Memory.WriteStructField byRef valueField refToFirst
-                Memory.WriteStructField span ptrField initializedByRef
+                Memory.WriteStructField spanStruct ptrField initializedByRef
             else
                 // Case for .NET 7, where Span contains 'Byte&' field
-                Memory.WriteStructField span ptrField refToFirst
+                Memory.WriteStructField spanStruct ptrField refToFirst
         let lengthField = spanFields |> Array.find (fst >> isLengthField) |> fst
-        let initializedSpan = Memory.WriteStructField spanWithPtrField lengthField length
+        Memory.WriteStructField spanWithPtrField lengthField length
+
+    let private CommonCtor (state : state) this refToFirst length =
+        let span = Memory.Read state this
+        let initializedSpan = InitSpanStruct span refToFirst length
         Memory.Write state this initializedSpan |> List.map (withFst (Nop()))
 
     let internal CtorFromFromArray (state : state) this arrayRef =
@@ -119,3 +139,17 @@ module ReadOnlySpan =
         assert(List.length args = 3)
         let this, arrayRef = args[0], args[2]
         CtorFromFromArray state this arrayRef
+
+    let ReadOnlySpanCreateFromString (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        let string = args[0]
+        let spanType = readOnlySpanType().MakeGenericType(typeof<char>)
+        let span = Memory.DefaultOf spanType
+        let arrayType = typeof<char>, 1, true
+        let refToFirst =
+            match string.term with
+            | HeapRef(address, t) when t = typeof<string> ->
+                Ref (ArrayIndex(address, [MakeNumber 0], arrayType))
+            | _ -> internalfail $"Span.CreateFromString: unexpected string ref {string}"
+        let length = Memory.StringLength state string
+        InitSpanStruct span refToFirst length
