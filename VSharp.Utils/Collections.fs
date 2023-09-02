@@ -240,27 +240,49 @@ module Array =
         let mutable idx = arr.GetLowerBound(0)
         seq {
             for element in arr do
-                yield idx |> List.singleton, element
+                yield List.singleton idx, element
                 idx <- idx + 1
         }
 
     let getArrayIndicesWithValues (array : Array) =
         assert(array <> null)
+        let arrayType = array.GetType()
+        let isLinear = arrayType.IsSZArray
+        let elemType = arrayType.GetElementType()
         match array with
         // Any T[] when T is reference type is matched with 'array<obj>'
         | :? array<obj> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | :? array<bool> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint8> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint16> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<int64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | :? array<uint64> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<char> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | :? array<single> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
         | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
-        | _ when array.GetType().IsSZArray -> indexedArrayElemsLin array
+        | _ when isLinear ->
+            match array with
+            | _ when elemType = typeof<int8> ->
+                let a = array :?> array<int8>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint8> ->
+                let a = array :?> array<uint8>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int16> ->
+                let a = array :?> array<int16>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint16> ->
+                let a = array :?> array<uint16>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int> ->
+                let a = array :?> array<int>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint> ->
+                let a = array :?> array<uint>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int64> ->
+                let a = array :?> array<int64>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint64> ->
+                let a = array :?> array<uint64>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ -> indexedArrayElemsLin array
         | _ -> indexedArrayElemsCommon array
 
     let fillFast<'a> (arr : Array) (value : 'a) =
