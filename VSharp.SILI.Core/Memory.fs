@@ -834,6 +834,9 @@ module internal Memory =
     let private readClassFieldSymbolic state address (field : fieldId) =
         if field = Reflection.stringFirstCharField then
             readArrayIndexSymbolic state address [makeNumber 0] (typeof<char>, 1, true)
+        elif field = Reflection.stringLengthField then
+            let arrayLength = readLength state address (makeNumber 0) (typeof<char>, 1, true)
+            sub arrayLength (makeNumber 1)
         else
             let symbolicType = field.typ
             let extractor state = accessRegion state.classFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
