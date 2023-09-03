@@ -424,7 +424,8 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
 
 and IErrorReporter =
     abstract ConfigureState : state -> unit
-    abstract Report : string -> term -> bool -> unit
+    abstract ReportError : string -> term -> unit
+    abstract ReportFatalError : string -> term -> unit
 
 and
     [<ReferenceEquality>]

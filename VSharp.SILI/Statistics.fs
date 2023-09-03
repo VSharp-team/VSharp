@@ -238,12 +238,12 @@ type public SILIStatistics(entryMethods : Method seq) =
     member x.OnBranchesReleased() =
         branchesReleased <- true
 
-    member x.TrackFinished (s : cilState, test : UnitTest) =
+    member x.TrackFinished (s : cilState, isError) =
         testsCount <- testsCount + 1u
         x.SetBasicBlocksAsCoveredByTest s.history
         let generatedTestInfo =
             {
-                isError = test.IsError
+                isError = isError
                 executionTime = x.CurrentExplorationTime
                 stepsCount = x.StepsCount
                 coverage = x.GetCurrentCoverage()

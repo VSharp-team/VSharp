@@ -41,7 +41,8 @@ type public SILI(options : SiliOptions) =
     let interpreter = ILInterpreter()
 
     let mutable reportFinished : cilState -> unit = fun _ -> internalfail "reporter not configured!"
-    let mutable reportError : cilState -> string -> bool -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportFatalError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
+    let mutable reportError : cilState -> string -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateIncomplete : cilState -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportIncomplete : InsufficientInformationException -> unit = fun _ -> internalfail "reporter not configured!"
     let mutable reportStateInternalFail : cilState -> Exception -> unit = fun _ -> internalfail "reporter not configured!"
@@ -127,7 +128,7 @@ type public SILI(options : SiliOptions) =
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 match TestGenerator.state2test suite entryMethod cilState.state with
                 | Some test ->
-                    statistics.TrackFinished(cilState, test)
+                    statistics.TrackFinished(cilState, isError)
                     reporter test
                     if isCoverageAchieved() then
                         isStopped <- true
@@ -142,7 +143,7 @@ type public SILI(options : SiliOptions) =
         Application.terminateState state
         reportState action.Invoke Test state
 
-    let wrapOnError (action : Action<UnitTest>) (state : cilState) errorMessage isFatal =
+    let wrapOnError (action : Action<UnitTest>) isFatal (state : cilState) errorMessage =
         if not <| String.IsNullOrWhiteSpace errorMessage then
             Logger.info $"Error in {(entryMethodOf state).FullName}: {errorMessage}"
         Application.terminateState state
@@ -209,14 +210,14 @@ type public SILI(options : SiliOptions) =
                     let classParams = classParams |> Array.choose getConcreteType
                     let methodParams = methodParams |> Array.choose getConcreteType
                     let declaringType = methodBase.DeclaringType
-                    let checkType() =
+                    let isSuitableType() =
                         not declaringType.IsGenericType
                         || classParams.Length = declaringType.GetGenericArguments().Length
-                    let checkMethod() =
+                    let isSuitableMethod() =
                         methodBase.IsConstructor
                         || not methodBase.IsGenericMethod
                         || methodParams.Length = methodBase.GetGenericArguments().Length
-                    if checkType() && checkMethod() then
+                    if isSuitableType() && isSuitableMethod() then
                         let reflectedType = Reflection.concretizeTypeParameters methodBase.ReflectedType classParams
                         let method = Reflection.concretizeMethodParameters reflectedType methodBase methodParams
                         Some method
@@ -308,7 +309,7 @@ type public SILI(options : SiliOptions) =
         toReportFinished |> List.iter reportFinished
         let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)
         let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
-        runtimeExceptions |> List.iter (fun state -> reportError state null false)
+        runtimeExceptions |> List.iter (fun state -> reportError state null)
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
         toReportIIE |> List.iter reportStateIncomplete
@@ -419,13 +420,14 @@ type public SILI(options : SiliOptions) =
             reportIncomplete <- wrapOnIIE onIIE
             reportStateIncomplete <- wrapOnStateIIE onIIE
             reportFinished <- wrapOnTest onFinished
-            reportError <- wrapOnError onException
+            reportError <- wrapOnError onException false
+            reportFatalError <- wrapOnError onException true
             try
                 let initializeAndStart () =
                     let trySubstituteTypeParameters method =
                         let emptyState = Memory.EmptyState()
                         (Option.defaultValue method (x.TrySubstituteTypeParameters emptyState method), emptyState)
-                    interpreter.ConfigureErrorReporter reportError
+                    interpreter.ConfigureErrorReporter reportError reportFatalError
                     let isolated =
                         isolated
                         |> Seq.map trySubstituteTypeParameters

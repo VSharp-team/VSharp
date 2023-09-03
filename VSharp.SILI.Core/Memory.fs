@@ -102,9 +102,11 @@ module internal Memory =
 // -------------------------- Error reporter --------------------------
 
     type internal EmptyErrorReporter() =
+        let report failCondition =
+            if failCondition <> False() then internalfail "using 'EmptyErrorReporter'"
         interface IErrorReporter with
-            override x.Report _ failCondition _ =
-                if failCondition <> False() then internalfail "using 'EmptyErrorReporter'"
+            override x.ReportError _ failCondition = report failCondition
+            override x.ReportFatalError _ failCondition = report failCondition
             override x.ConfigureState _ = ()
 
     let emptyReporter = EmptyErrorReporter()
@@ -936,7 +938,7 @@ module internal Memory =
             ||| simplifyGreaterOrEqual startByte blockSize id
             ||| simplifyLessOrEqual endByte zero id
             ||| simplifyGreater endByte blockSize id
-        reporter.Report "reading out of block bounds" failCondition true
+        reporter.ReportFatalError "reading out of block bounds" failCondition
 
     and private readAddressUnsafe (reporter : IErrorReporter) address startByte endByte =
         let size = sizeOf address
@@ -946,7 +948,7 @@ module internal Memory =
             let failCondition =
                 simplifyGreater startByte (makeNumber 0) id
                 ||| simplifyLess endByte (makeNumber size) id
-            reporter.Report "address reinterpretation" failCondition true
+            reporter.ReportFatalError "address reinterpretation" failCondition
             List.singleton address
 
     and sliceTerm term startByte endByte pos stablePos =
@@ -1154,7 +1156,7 @@ module internal Memory =
         match reference.term with
         | Ref address -> readSafe reporter state address
         | DetachedPtr _ ->
-            reporter.Report "reading by detached pointer" (True()) true
+            reporter.ReportFatalError "reading by detached pointer" (True())
             Nop()
         | Ptr(baseAddress, sightType, offset) ->
             readUnsafe reporter state baseAddress offset sightType
@@ -1162,7 +1164,7 @@ module internal Memory =
             let gvs = List.map (fun (g, v) -> (g, read reporter state v)) gvs
             Merging.merge gvs
         | _ when typeOf reference |> isNative ->
-            reporter.Report "reading by detached pointer" (True()) true
+            reporter.ReportFatalError "reading by detached pointer" (True())
             Nop()
         | _ -> internalfailf $"Reading: expected reference, but got {reference}"
 
@@ -1386,9 +1388,9 @@ module internal Memory =
         | Concrete(:? int as s, _) when s = 0 && addressSize = valueSize -> value
         | _ ->
             let failCondition =
-                simplifyGreater startByte (makeNumber 0) id
-                ||| makeBool (valueSize < addressSize)
-            reporter.Report "address reinterpretation" failCondition true
+                simplifyNotEqual startByte (makeNumber 0) id
+                ||| makeBool (valueSize <> addressSize)
+            reporter.ReportFatalError "address reinterpretation" failCondition
             value
 
     let rec writeTermUnsafe reporter term startByte value =
@@ -1513,10 +1515,10 @@ module internal Memory =
     let write (reporter : IErrorReporter) state reference value =
         match reference.term with
         | Ref address -> writeSafe reporter state address value
-        | DetachedPtr _ -> reporter.Report "writing by detached pointer" (True()) true
+        | DetachedPtr _ -> reporter.ReportFatalError "writing by detached pointer" (True())
         | Ptr(address, _, offset) -> writeUnsafe reporter state address offset value
         | _ when typeOf reference |> isNative ->
-            reporter.Report "writing by detached pointer" (True()) true
+            reporter.ReportFatalError "writing by detached pointer" (True())
         | _ -> internalfail $"Writing: expected reference, but got {reference}"
         state
 

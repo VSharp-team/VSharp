@@ -166,17 +166,17 @@ module TypeUtils =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
-        | _ when typ = typeof<int8> -> 1u
-        | _ when typ = typeof<uint8> -> 1u
-        | _ when typ = typeof<int16> -> 2u
-        | _ when typ = typeof<uint16> -> 2u
-        | _ when typ = typeof<char> -> 2u
-        | _ when typ = typeof<int32> -> 4u
-        | _ when typ = typeof<uint32> -> 4u
-        | _ when typ = typeof<float32> -> 4u
-        | _ when typ = typeof<int64> -> 8u
-        | _ when typ = typeof<uint64> -> 8u
-        | _ when typ = typeof<float> -> 8u
+        | _ when typ = typeof<int8> -> uint sizeof<int8>
+        | _ when typ = typeof<uint8> -> uint sizeof<uint8>
+        | _ when typ = typeof<int16> -> uint sizeof<int16>
+        | _ when typ = typeof<uint16> -> uint sizeof<uint16>
+        | _ when typ = typeof<char> -> uint sizeof<char>
+        | _ when typ = typeof<int32> -> uint sizeof<int32>
+        | _ when typ = typeof<uint32> -> uint sizeof<uint32>
+        | _ when typ = typeof<float32> -> uint sizeof<float32>
+        | _ when typ = typeof<int64> -> uint sizeof<int64>
+        | _ when typ = typeof<uint64> -> uint sizeof<uint64>
+        | _ when typ = typeof<float> -> uint sizeof<float>
         | _ when typ = typeof<IntPtr> -> uint nativeSize
         | _ when typ = typeof<UIntPtr> -> uint nativeSize
         | _ -> __unreachable__()

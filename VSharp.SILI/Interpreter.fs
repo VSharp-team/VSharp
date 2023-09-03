@@ -65,17 +65,26 @@ module internal TypeUtils =
         let Zero() = MakeNumber 0UL
         let MaxValue() = MakeNumber UInt64.MaxValue
 
-type internal ErrorReporter(reportError : cilState -> string -> bool -> unit, cilState) =
+type internal ErrorReporter(reportError, reportFatalError, cilState) =
     let mutable cilState = cilState
     let mutable stateConfigured : bool = false
 
     interface IErrorReporter with
-        override x.Report msg failCondition isFatal =
+        override x.ReportError msg failCondition =
             assert stateConfigured
             Branching.commonStatedConditionalExecutionk cilState.state
                 (fun state k -> k (!!failCondition, state))
                 (fun _ k -> k ())
-                (fun state k -> k (reportError (changeState cilState state) msg isFatal))
+                (fun state k -> k (reportError (changeState cilState state) msg))
+                (fun _ _ -> [])
+                ignore
+
+        override x.ReportFatalError msg failCondition =
+            assert stateConfigured
+            Branching.commonStatedConditionalExecutionk cilState.state
+                (fun state k -> k (!!failCondition, state))
+                (fun _ k -> k ())
+                (fun state k -> k (reportFatalError (changeState cilState state) msg))
                 (fun _ _ -> [])
                 ignore
 
@@ -85,11 +94,14 @@ type internal ErrorReporter(reportError : cilState -> string -> bool -> unit, ci
 
 module internal InstructionsSet =
 
-    let mutable reportError : cilState -> string -> bool -> unit =
+    let mutable reportError : cilState -> string -> unit =
+        fun _ _ -> internalfail "'reportError' is not ready"
+
+    let mutable reportFatalError : cilState -> string -> unit =
         fun _ _ -> internalfail "'reportError' is not ready"
 
     let createErrorReporter cilState =
-        ErrorReporter(reportError, cilState)
+        ErrorReporter(reportError, reportFatalError, cilState)
 
     let idTransformation term k = k term
 
@@ -598,8 +610,9 @@ type internal ILInterpreter() as this =
     // NOTE: adding implementation names into Loader
     do Loader.CilStateImplementations <- cilStateImplementations.Keys
 
-    member x.ConfigureErrorReporter reporter =
-        reportError <- reporter
+    member x.ConfigureErrorReporter errorReporter fatalErrorReporter =
+        reportError <- errorReporter
+        reportFatalError <- fatalErrorReporter
 
     member private x.Raise createException (cilState : cilState) k =
         createException cilState
@@ -830,7 +843,7 @@ type internal ILInterpreter() as this =
             (fun state k -> k (condition, state))
             (fun cilState k -> (); k [cilState])
             (fun cilState k ->
-                reportError cilState "Debug.Assert failed" true
+                reportFatalError cilState "Debug.Assert failed"
                 k [])
             id
 
@@ -994,7 +1007,7 @@ type internal ILInterpreter() as this =
                     (fun state k -> k (assumptions, state))
                     (fun cilState k -> k [cilState])
                     (fun cilState k ->
-                        if shouldReportError then reportError cilState message false
+                        if shouldReportError then reportError cilState message
                         k [])
                     k
 
@@ -1025,7 +1038,7 @@ type internal ILInterpreter() as this =
                     (fun state k -> k (assumptions, state))
                     (fun cilState k -> k [cilState])
                     (fun cilState k ->
-                        if shouldReportError then reportError cilState message false
+                        if shouldReportError then reportError cilState message
                         k [])
                     k
 
