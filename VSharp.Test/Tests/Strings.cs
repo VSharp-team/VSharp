@@ -110,7 +110,7 @@ namespace IntegrationTests
             return upper == str;
         }
 
-        [TestSvm]
+        [Ignore("use error reporter in 'Unsafe.ReadUnaligned' internal call")]
         public static int Contains(string str)
         {
             if (str.Contains("d8"))
