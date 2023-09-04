@@ -224,7 +224,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
                     assert(res <> null)
                     res
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
-            let method = mdle.ResolveMethod(ti.token)
+            let method = mdle.ResolveMethod(ti.token) |> AssemblyManager.NormalizeMethod
             let declaringType = method.DeclaringType
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let concreteDeclaringType = Reflection.concretizeTypeParameters method.DeclaringType tp
