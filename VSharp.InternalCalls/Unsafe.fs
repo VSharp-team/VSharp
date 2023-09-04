@@ -54,8 +54,8 @@ module Unsafe =
 
     let internal ByteOffset (_ : state) (args : term list) : term =
         assert(List.length args = 2)
-        let src, dst = args[0], args[1]
-        let offset = PerformBinaryOperation OperationType.Subtract src dst id
+        let origin, target = args[0], args[1]
+        let offset = PerformBinaryOperation OperationType.Subtract target origin id
         Types.Cast offset typeof<IntPtr>
 
     let private CommonAdd typ ref offset =

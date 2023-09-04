@@ -89,8 +89,14 @@ module TestGenerator =
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
                     let length : int = ClassField(cha, Reflection.stringLengthField) |> eval |> unbox
-                    let contents : char array = Array.init length (fun i -> ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox)
-                    String(contents) |> memoryGraph.AddString index
+                    let string =
+                        if length <= 0 then String.Empty
+                        else
+                            let readChar i =
+                                ArrayIndex(cha, [MakeNumber i], (typeof<char>, 1, true)) |> eval |> unbox
+                            let contents : char array = Array.init length readChar
+                            String(contents)
+                    memoryGraph.AddString index string
                 | _ ->
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)

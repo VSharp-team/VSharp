@@ -833,27 +833,83 @@ module internal Memory =
             readSymbolicIndexFromConcreteArray state concreteAddress data indices arrayType
         | _ -> readArrayIndexSymbolic state address indices arrayType
 
+// ------------------------------- Array writting -------------------------------
+
+    let rec private ensureConcreteType typ =
+        if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
+
+    let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
+        ensureConcreteType (fst3 arrayType)
+        let mr = accessRegion state.lowerBounds arrayType lengthType
+        let key = {address = address; index = dimension}
+        let mr' = MemoryRegion.write mr key value
+        state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
+
+    let writeLengthSymbolic (state : state) address dimension arrayType value =
+        ensureConcreteType (fst3 arrayType)
+        let mr = accessRegion state.lengths arrayType lengthType
+        let key = {address = address; index = dimension}
+        let mr' = MemoryRegion.write mr key value
+        state.lengths <- PersistentDict.add arrayType mr' state.lengths
+
+    let private writeArrayKeySymbolic state key arrayType value =
+        let elementType = fst3 arrayType
+        ensureConcreteType elementType
+        let mr = accessRegion state.arrays arrayType elementType
+        let mr' = MemoryRegion.write mr key value
+        state.arrays <- PersistentDict.add arrayType mr' state.arrays
+
+    let private writeArrayIndexSymbolic state address indices arrayType value =
+        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
+        let key = OneArrayIndexKey(address, indices)
+        writeArrayKeySymbolic state key arrayType value
+
+// ------------------------------- Safe reading -------------------------------
+
+    let commonReadClassFieldSymbolic state address (field : fieldId) =
+        let symbolicType = field.typ
+        let extractor state =
+            let field = substituteTypeVariablesIntoField state field
+            let typ = substituteTypeVariables state symbolicType
+            accessRegion state.classFields field typ
+        let region = extractor state
+        let mkname = fun (key : heapAddressKey) -> sprintf "%O.%O" key.address field
+        let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
+        let key = {address = address}
+        let instantiate typ memory =
+            let sort = HeapFieldSort field
+            let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
+            let time =
+                if isValueType typ then state.startingTime
+                else MemoryRegion.maxTime region.updates state.startingTime
+            makeSymbolicHeapRead state picker key time typ memory
+        MemoryRegion.read region key (isDefault state) instantiate
+
+    let stringArrayInfo state stringAddress length =
+        let arrayType = typeof<char>, 1, true
+        match stringAddress.term with
+        | ConcreteHeapAddress cha when state.concreteMemory.Contains cha ->
+            stringAddress, arrayType
+        | _ ->
+            let zero = makeNumber 0
+            let stringLength =
+                match length with
+                | Some len -> len
+                | None -> commonReadClassFieldSymbolic state stringAddress Reflection.stringLengthField
+            let greaterZero = simplifyGreaterOrEqual stringLength zero id
+            addConstraint state greaterZero
+            let arrayLength = add stringLength (makeNumber 1)
+            writeLengthSymbolic state stringAddress zero arrayType arrayLength
+            writeLowerBoundSymbolic state stringAddress zero arrayType zero
+            let zeroChar = makeNumber '\000'
+            writeArrayIndexSymbolic state stringAddress [stringLength] arrayType zeroChar
+            stringAddress, arrayType
+
     let private readClassFieldSymbolic state address (field : fieldId) =
         if field = Reflection.stringFirstCharField then
-            readArrayIndexSymbolic state address [makeNumber 0] (typeof<char>, 1, true)
-        elif field = Reflection.stringLengthField then
-            let arrayLength = readLength state address (makeNumber 0) (typeof<char>, 1, true)
-            sub arrayLength (makeNumber 1)
-        else
-            let symbolicType = field.typ
-            let extractor state = accessRegion state.classFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state symbolicType)
-            let region = extractor state
-            let mkname = fun (key : heapAddressKey) -> sprintf "%O.%O" key.address field
-            let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
-            let key = {address = address}
-            let instantiate typ memory =
-                let sort = HeapFieldSort field
-                let picker = {sort = sort; extract = extractor; mkName = mkname; isDefaultKey = isDefault; isDefaultRegion = false}
-                let time =
-                    if isValueType typ then state.startingTime
-                    else MemoryRegion.maxTime region.updates state.startingTime
-                makeSymbolicHeapRead state picker key time typ memory
-            MemoryRegion.read region key (isDefault state) instantiate
+            let arrayAddress, arrayType = stringArrayInfo state address None
+            readArrayIndexSymbolic state arrayAddress [makeNumber 0] arrayType
+        else commonReadClassFieldSymbolic state address field
 
     let readClassField (state : state) address (field : fieldId) =
         let cm = state.concreteMemory
@@ -1087,7 +1143,8 @@ module internal Memory =
 
     and private readStringUnsafe reporter state address offset viewSize =
          // TODO: handle case, when reading string length
-        let indices = getAffectedIndices reporter state address (typeof<char>, 1, true) offset viewSize
+        let address, arrayType = stringArrayInfo state address None
+        let indices = getAffectedIndices reporter state address arrayType offset viewSize
         let readChar (_, elem, s, e) =
             readTermUnsafe reporter elem s e
         List.collect readChar indices
@@ -1170,9 +1227,6 @@ module internal Memory =
 
 // ------------------------------- Writing -------------------------------
 
-    let rec private ensureConcreteType typ =
-        if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
-
     let writeStackLocation (s : state) key value =
         s.stack <- CallStack.writeStackLocation s.stack key value
 
@@ -1187,18 +1241,6 @@ module internal Memory =
         let key = {address = address}
         let mr' = MemoryRegion.write mr key value
         state.classFields <- PersistentDict.add field mr' state.classFields
-
-    let private writeArrayKeySymbolic state key arrayType value =
-        let elementType = fst3 arrayType
-        ensureConcreteType elementType
-        let mr = accessRegion state.arrays arrayType elementType
-        let mr' = MemoryRegion.write mr key value
-        state.arrays <- PersistentDict.add arrayType mr' state.arrays
-
-    let private writeArrayIndexSymbolic state address indices arrayType value =
-        let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
-        let key = OneArrayIndexKey(address, indices)
-        writeArrayKeySymbolic state key arrayType value
 
     let private writeArrayRangeSymbolic state address fromIndices toIndices arrayType value =
         let fromIndices = List.map (fun i -> primitiveCast i typeof<int>) fromIndices
@@ -1231,20 +1273,6 @@ module internal Memory =
         let key = {typ = typ}
         let mr' = MemoryRegion.write mr key value
         state.staticFields <- PersistentDict.add field mr' state.staticFields
-
-    let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =
-        ensureConcreteType (fst3 arrayType)
-        let mr = accessRegion state.lowerBounds arrayType lengthType
-        let key = {address = address; index = dimension}
-        let mr' = MemoryRegion.write mr key value
-        state.lowerBounds <- PersistentDict.add arrayType mr' state.lowerBounds
-
-    let writeLengthSymbolic (state : state) address dimension arrayType value =
-        ensureConcreteType (fst3 arrayType)
-        let mr = accessRegion state.lengths arrayType lengthType
-        let key = {address = address; index = dimension}
-        let mr' = MemoryRegion.write mr key value
-        state.lengths <- PersistentDict.add arrayType mr' state.lengths
 
     let private fillArrayBoundsSymbolic state address lengths lowerBounds arrayType =
         let d = List.length lengths
@@ -1315,27 +1343,22 @@ module internal Memory =
         let address = ConcreteHeapAddress concreteAddress
         let concreteStringLength = string.Length
         let stringLength = makeNumber concreteStringLength
-        let arrayLength = makeNumber (concreteStringLength + 1)
         let tChar = typeof<char>
-        let arrayType = (tChar, 1, true)
-        let zero = makeNumber 0
+        let address, arrayType = stringArrayInfo state address (Some stringLength)
         let writeChars state i value =
             writeArrayIndexSymbolic state address [Concrete i lengthType] arrayType (Concrete value tChar)
         Seq.iteri (writeChars state) string
-        writeLengthSymbolic state address zero arrayType arrayLength
-        writeLowerBoundSymbolic state address zero arrayType zero
-        writeArrayIndexSymbolic state address [stringLength] (tChar, 1, true) (Concrete '\000' tChar)
         writeClassFieldSymbolic state address Reflection.stringLengthField stringLength
 
     let unmarshall (state : state) concreteAddress =
         let cm = state.concreteMemory
         let obj = cm.VirtToPhys concreteAddress
         assert(box obj <> null)
+        cm.Remove concreteAddress
         match obj with
         | :? Array as array -> unmarshallArray state concreteAddress array
         | :? String as string -> unmarshallString state concreteAddress string
         | _ -> unmarshallClass state concreteAddress obj
-        cm.Remove concreteAddress
 
 // ------------------------------- Writing -------------------------------
 
@@ -1447,7 +1470,7 @@ module internal Memory =
 
     let private writeStringUnsafe reporter state address offset value =
         let size = sizeOf value
-        let arrayType = typeof<char>, 1, true
+        let address, arrayType = stringArrayInfo state address None
         let affectedIndices = getAffectedIndices reporter state address arrayType offset size
         let writeElement (index, element, startByte, _) =
             let updatedElement = writeTermUnsafe reporter element startByte value
@@ -1594,7 +1617,7 @@ module internal Memory =
         | _ ->
             let arrayLength = add length (Concrete 1 lengthType)
             let address = allocateConcreteVector state typeof<char> arrayLength contents
-            writeArrayIndexSymbolic state address [length] (typeof<char>, 1, true) (Concrete '\000' typeof<char>)
+            let address, _ = stringArrayInfo state address (Some length)
             let heapAddress = getConcreteHeapAddress address
             writeClassField state address Reflection.stringLengthField length
             state.allocatedTypes <- PersistentDict.add heapAddress (ConcreteType typeof<string>) state.allocatedTypes
@@ -1613,8 +1636,10 @@ module internal Memory =
             let string = c.ToString()
             allocateString state string
         | _ ->
-            let address = commonAllocateString state (makeNumber 1) " "
-            writeArrayIndex state address [Concrete 0 indexType] (typeof<char>, 1, true) char
+            let len = makeNumber 1
+            let address = commonAllocateString state len " "
+            let address, arrayType = stringArrayInfo state address (Some len)
+            writeArrayIndex state address [Concrete 0 indexType] arrayType char
             HeapRef address typeof<string>
 
     let allocateBoxedLocation state value =

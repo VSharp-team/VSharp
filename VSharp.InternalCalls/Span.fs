@@ -145,11 +145,6 @@ module ReadOnlySpan =
         let string = args[0]
         let spanType = readOnlySpanType().MakeGenericType(typeof<char>)
         let span = Memory.DefaultOf spanType
-        let arrayType = typeof<char>, 1, true
-        let refToFirst =
-            match string.term with
-            | HeapRef(address, t) when t = typeof<string> ->
-                Ref (ArrayIndex(address, [MakeNumber 0], arrayType))
-            | _ -> internalfail $"Span.CreateFromString: unexpected string ref {string}"
+        let refToFirst = Memory.ReferenceField state string Reflection.stringFirstCharField
         let length = Memory.StringLength state string
         InitSpanStruct span refToFirst length

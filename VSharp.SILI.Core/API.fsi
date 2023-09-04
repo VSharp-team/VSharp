@@ -245,6 +245,8 @@ module API =
         val NewStackFrame : state -> IMethod option -> (stackKey * term option * Type) list -> unit
         val NewTypeVariables : state -> (Type * Type) list -> unit
 
+        val StringArrayInfo : state -> term -> term option -> term * arrayType
+
         val ReferenceArrayIndex : state -> term -> term list -> Type option -> term
         val ReferenceField : state -> term -> fieldId -> term
 

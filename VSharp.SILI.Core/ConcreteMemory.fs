@@ -167,7 +167,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.ReadArrayLength address dimension =
             match x.ReadObject address with
             | :? Array as array -> array.GetLength(dimension)
-            | :? String as string when dimension = 0 -> string.Length
+            | :? String as string when dimension = 0 -> (1 + string.Length) :> obj
             | obj -> internalfailf "reading array length from concrete memory: expected to read array, but got %O" obj
 
 // ------------------------------- Writing -------------------------------

@@ -52,7 +52,7 @@ module API =
             state.typeStorage.AddConstraint address constraints
             match TypeSolver.solveTypes state.model state with
             | TypeSat -> ()
-            | TypeUnsat -> __insufficientInformation__ "MakeSymbolicThis: cannot find non-abstract type for 'this'"
+            | TypeUnsat -> __insufficientInformation__ "SolveThisType: cannot find non-abstract type for 'this'"
         | Ref _ -> ()
         | _ -> internalfail $"unexpected this {ref}"
 
@@ -313,6 +313,8 @@ module API =
         let NewStackFrame state method parametersAndThis = Memory.newStackFrame state method parametersAndThis
         let NewTypeVariables state subst = Memory.pushTypeVariablesSubstitution state subst
 
+        let StringArrayInfo state stringAddress length = Memory.stringArrayInfo state stringAddress length
+
         let private IsSafeContext actualType neededType =
             neededType = actualType ||
             TypeUtils.canCastImplicitly neededType actualType &&
@@ -373,6 +375,9 @@ module API =
                 Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
                 let offset = Reflection.getFieldIdOffset fieldId |> MakeNumber
                 Ptr (HeapLocation(address, typ)) fieldId.typ offset
+            | HeapRef(address, typ) when typ = typeof<string> && fieldId = Reflection.stringFirstCharField ->
+                let address, arrayType = Memory.stringArrayInfo state address None
+                ArrayIndex(address, [makeNumber 0], arrayType) |> Ref
             | HeapRef(address, typ) when declaringType.IsValueType ->
                 // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
                 assert(isSuitableField address typ)
@@ -448,7 +453,8 @@ module API =
         let rec ReadStringChar state reference index =
             match reference.term with
             | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = typeof<string> ->
-                Memory.readArrayIndex state addr [index] (typeof<char>, 1, true)
+                let addr, arrayType = Memory.stringArrayInfo state addr None
+                Memory.readArrayIndex state addr [index] arrayType
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadStringChar state v index)) |> Merging.merge
             | _ -> internalfailf "Reading string char: expected reference, but got %O" reference
         let ReadStaticField state typ field = Memory.readStaticField state typ field
@@ -619,8 +625,10 @@ module API =
             | HeapRef(srcAddress, srcSightType), HeapRef(dstAddress, dstSightType) ->
                 assert(Memory.mostConcreteTypeOfHeapRef state srcAddress srcSightType = typeof<string>)
                 assert(Memory.mostConcreteTypeOfHeapRef state dstAddress dstSightType = typeof<string>)
-                let stringArrayType = (typeof<char>, 1, true)
-                Copying.copyArray state srcAddress srcIndex stringArrayType dstAddress dstIndex stringArrayType length
+                let srcAddress, srcType = Memory.stringArrayInfo state srcAddress None
+                let dstAddress, dstType = Memory.stringArrayInfo state dstAddress None
+                assert(srcType = (typeof<char>, 1, true) && dstType = (typeof<char>, 1, true))
+                Copying.copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length
             | _ -> internalfailf "Coping arrays: expected heapRefs, but got %O, %O" src dst
 
         let ClearArray state array index length =
@@ -648,10 +656,8 @@ module API =
             let concreteChar = Memory.tryTermToObj state char
             let concreteLen = Memory.tryTermToObj state length
             let symbolicCase address =
-                let arrayType = typeof<char>, 1, true
+                let address, arrayType = Memory.stringArrayInfo state address (Some length)
                 Copying.fillArray state address arrayType (makeNumber 0) length char
-                Memory.writeLengthSymbolic state address (makeNumber 0) arrayType (add length (makeNumber 1))
-                Memory.writeArrayIndex state address [length] arrayType (Concrete '\000' typeof<char>)
                 Memory.writeClassField state address Reflection.stringLengthField length
             match string.term, concreteChar, concreteLen with
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), Some (:? char as c), Some (:? int as len)

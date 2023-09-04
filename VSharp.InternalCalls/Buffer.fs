@@ -14,11 +14,15 @@ module Buffer =
             match ref.term with
             | Ref(ArrayIndex(address, indices, arrayType)) -> address, indices, arrayType
             | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
-                let stringArrayType = (typeof<char>, 1, true)
+                let address, stringArrayType = Memory.StringArrayInfo state address None
                 address, [MakeNumber 0], stringArrayType
             | Ptr(HeapLocation(address, t), sightType, offset) ->
                 match TryPtrToArrayInfo t sightType offset with
-                | Some(index, arrayType) -> address, index, arrayType
+                | Some(index, arrayType) ->
+                    let address =
+                        if t = typeof<string> then Memory.StringArrayInfo state address None |> fst
+                        else address
+                    address, index, arrayType
                 | None -> internalfail $"Memmove: unexpected pointer {ref}"
             | _ -> internalfail $"Memmove: unexpected reference {ref}"
         let dstAddr, dstIndices, dstArrayType = getArrayInfo dst

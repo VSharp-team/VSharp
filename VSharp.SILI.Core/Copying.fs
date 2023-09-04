@@ -63,12 +63,9 @@ module internal Copying =
         | _ -> copyArrayCommon state srcAddress srcIndex srcType dstAddress dstIndex dstType length
 
     let copyCharArrayToStringSymbolic (state : state) arrayAddress stringConcreteAddress arrayLength =
-        let arrayType = (typeof<char>, 1, true)
-        let lengthPlus1 = add arrayLength (makeNumber 1)
         let stringAddress = ConcreteHeapAddress stringConcreteAddress
+        let stringAddress, arrayType = stringArrayInfo state stringAddress (Some arrayLength)
         copyArray state arrayAddress (makeNumber 0) arrayType stringAddress (makeNumber 0) arrayType arrayLength
-        writeLengthSymbolic state stringAddress (makeNumber 0) arrayType lengthPlus1
-        writeArrayIndex state stringAddress [arrayLength] arrayType (Concrete '\000' typeof<char>)
         writeClassField state stringAddress Reflection.stringLengthField arrayLength
 
     let copyCharArrayToString (state : state) arrayAddress stringConcreteAddress length =
