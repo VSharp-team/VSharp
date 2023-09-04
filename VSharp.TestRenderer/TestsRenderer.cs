@@ -600,10 +600,11 @@ public static class TestsRenderer
                 var methodType = method.DeclaringType;
                 CompactRepresentations = test.CompactRepresentations;
                 BoxedLocations = test.BoxedLocations;
-                Debug.Assert(methodType != null &&
-                    (methodType.IsGenericType && declaringType.IsGenericType &&
-                     methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
-                     methodType == declaringType));
+                Debug.Assert(methodType != null);
+                Debug.Assert(
+                    methodType == declaringType
+                    || methodType.IsGenericType && declaringType.IsGenericType
+                    && methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition());
 
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");
