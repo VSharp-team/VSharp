@@ -1128,9 +1128,14 @@ internal class CodeRenderer
         return attribute;
     }
 
-    public static AttributeListSyntax RenderAttributeList(params AttributeSyntax[] attributes)
+    public static AttributeListSyntax RenderAttributeList(IEnumerable<AttributeSyntax> attributes)
     {
         return AttributeList(SeparatedList(attributes));
+    }
+
+    public static AttributeListSyntax RenderAttributeList(params AttributeSyntax[] attributes)
+    {
+        return RenderAttributeList((IEnumerable<AttributeSyntax>) attributes);
     }
 
     public static AttributeListSyntax RenderAttributeList(params string[] attributeNames)
