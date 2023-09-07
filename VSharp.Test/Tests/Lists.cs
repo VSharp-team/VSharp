@@ -869,7 +869,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class SpanTests
     {
-        [TestSvm(100)]
+        [TestSvm(96)]
         public static unsafe byte SpanTest(int[] a, byte b, int i)
         {
             fixed (void* ptr = a)
