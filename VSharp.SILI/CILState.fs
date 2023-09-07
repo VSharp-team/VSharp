@@ -14,6 +14,7 @@ type prefix =
 type cilState =
     {
         mutable ipStack : ipStack
+        // This field stores information about instruction prefix (for example, '.constrained' prefix)
         mutable prefixContext : prefix list
         // TODO: get rid of currentLoc!
         // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head

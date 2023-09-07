@@ -234,10 +234,9 @@ module public Reflection =
         if interfaceType = targetType then interfaceMethod
         else
             let isGeneric = interfaceMethod.IsGenericMethod
-            let genericMethod, genericArgs =
-                if isGeneric then
-                    interfaceMethod.GetGenericMethodDefinition(), interfaceMethod.GetGenericArguments()
-                else interfaceMethod, Array.empty
+            let genericMethod =
+                if isGeneric then interfaceMethod.GetGenericMethodDefinition()
+                else interfaceMethod
             let sign = createSignature genericMethod
             let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
             let method =
@@ -249,6 +248,7 @@ module public Reflection =
                     let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
                     interfaceMap.TargetMethods[targetMethodIndex]
             if isGeneric then
+                let genericArgs = interfaceMethod.GetGenericArguments()
                 method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs)
             else method
 

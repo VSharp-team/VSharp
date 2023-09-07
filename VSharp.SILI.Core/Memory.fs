@@ -833,9 +833,9 @@ module internal Memory =
             readSymbolicIndexFromConcreteArray state concreteAddress data indices arrayType
         | _ -> readArrayIndexSymbolic state address indices arrayType
 
-// ------------------------------- Array writting -------------------------------
+// ------------------------------- Array writing -------------------------------
 
-    let rec private ensureConcreteType typ =
+    let private ensureConcreteType typ =
         if isOpenType typ then __insufficientInformation__ $"Cannot write value of generic type {typ}"
 
     let private writeLowerBoundSymbolic (state : state) address dimension arrayType value =

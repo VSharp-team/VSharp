@@ -1352,7 +1352,7 @@ type internal ILInterpreter() as this =
                 let methodInfo = calledMethodBase :?> MethodInfo
                 let m = Reflection.resolveOverridingMethod t methodInfo
                 Application.getMethod m
-            | _ -> Application.getMethod calledMethodBase
+            | None -> Application.getMethod calledMethodBase
         let getArgsAndCall cilState =
             let thisOpt, args = x.RetrieveCalledMethodAndArgs OpCodes.Call calledMethod cilState
             match thisOpt with

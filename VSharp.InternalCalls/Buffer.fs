@@ -36,11 +36,13 @@ module Buffer =
         Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
 
     let internal GenericMemmove (state : state) (args : term list) : term =
+        assert(List.length args = 4)
         let dst, src, elemCount = args[1], args[2], args[3]
         Memmove state dst src elemCount
         Nop()
 
     let internal ByteMemmove (state : state) (args : term list) : term =
+        assert(List.length args = 3)
         let dst, src, elemCount = args[0], args[1], args[2]
         Memmove state dst src elemCount
         Nop()
