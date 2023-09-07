@@ -869,7 +869,7 @@ namespace IntegrationTests
     [TestSvmFixture]
     public static class SpanTests
     {
-        [Ignore("check exceptions in 'Span.get_Item' internal call")]
+        [TestSvm(100)]
         public static unsafe byte SpanTest(int[] a, byte b, int i)
         {
             fixed (void* ptr = a)
