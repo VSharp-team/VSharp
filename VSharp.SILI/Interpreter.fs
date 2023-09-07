@@ -408,7 +408,34 @@ module internal InstructionsSet =
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
-    // '.constrained' is prefix, which is used before 'callvirt' instruction
+    let rec private constrainedImpl this method args cilState =
+        let state = cilState.state
+        let thisType = TypeOfLocation this
+        let isValueType = Types.IsValueType thisType
+        let implements = lazy(Reflection.typeImplementsMethod thisType method)
+        match this.term with
+        | Ref _ when isValueType && implements.Value ->
+            push this cilState
+            pushMany args cilState
+        | Ref _ when isValueType ->
+            let thisStruct = read cilState this
+            let heapRef = Memory.BoxValueType state thisStruct
+            push heapRef cilState
+            pushMany args cilState
+        | Ref _ ->
+            let this = read cilState this
+            push this cilState
+            pushMany args cilState
+        | Ptr(pointerBase, sightType, offset) ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some(PrimitiveStackLocation _ as address) ->
+                let this = Ref address
+                constrainedImpl this method args cilState
+            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected ptr as 'this' {this}"
+        | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
+
+    // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction
+    // used before 'call' instruction, only if member is static and declared in interface
     let constrained (m : Method) offset (cilState : cilState) =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Constrained.Size)
         let method =
@@ -426,25 +453,12 @@ module internal InstructionsSet =
             pushPrefixContext cilState (Constrained typ)
         else
             let n = method.GetParameters().Length
-            let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
+            let state = cilState.state
+            let args, evaluationStack = EvaluationStack.PopMany n state.evaluationStack
             setEvaluationStack evaluationStack cilState
             let thisForCallVirt = pop cilState
-            let thisType = TypeOfLocation thisForCallVirt
-            let isValueType = Types.IsValueType thisType
-            match thisForCallVirt.term with
-            | Ref _ when isValueType && Reflection.typeImplementsMethod thisType method ->
-                push thisForCallVirt cilState
-                pushMany args cilState
-            | Ref _ when isValueType ->
-                let thisStruct = read cilState thisForCallVirt
-                let heapRef = Memory.BoxValueType cilState.state thisStruct
-                push heapRef cilState
-                pushMany args cilState
-            | Ref _ ->
-                let this = read cilState thisForCallVirt
-                push this cilState
-                pushMany args cilState
-            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
+            constrainedImpl thisForCallVirt method args cilState
+
     let localloc (cilState : cilState) =
         // [NOTE] localloc usually is used for Span
         // So, pushing nullptr, because array will be allocated in Span constructor
