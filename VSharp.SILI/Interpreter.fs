@@ -957,7 +957,7 @@ type internal ILInterpreter() as this =
         isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
 
     member private x.ShouldMock (method : Method) fullMethodName =
-        Loader.isShimmed fullMethodName
+        Loader.isShimmed fullMethodName && ExternMocker.ShimSupported
         || method.IsExternalMethod && not method.IsQCall
 
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =

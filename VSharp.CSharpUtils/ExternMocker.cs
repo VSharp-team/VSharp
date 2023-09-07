@@ -10,10 +10,12 @@ using System.ComponentModel;
 
 public static class ExternMocker
 {
-    public static bool ExtMocksSupported =
+    public static readonly bool ExtMocksSupported =
         !OperatingSystem.IsMacOS()
         || RuntimeInformation.OSArchitecture == Architecture.X86
         || RuntimeInformation.OSArchitecture == Architecture.X64;
+
+    public static readonly bool ShimSupported = Environment.Version.Major <= 6;
 
     private static List<NativeDetour> _detours = new();
 
