@@ -48,7 +48,9 @@ namespace VSharp.CSharpUtils
         private static bool IsPublic(Type t)
         {
             Debug.Assert(t != null && t != t.DeclaringType);
-            return t.IsPublic || t.IsNestedPublic && IsPublic(t.DeclaringType);
+            return
+                t.IsPublic
+                || t is { IsNestedPublic: true, DeclaringType: not null } && IsPublic(t.DeclaringType);
         }
 
         public static IEnumerable<Type> GetExportedTypesChecked(this Assembly assembly)
