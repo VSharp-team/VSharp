@@ -20,6 +20,7 @@ type cilState =
         // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
         mutable currentLoc : codeLocation
         state : state
+        mutable stackArrays : pset<concreteHeapAddress>
         mutable errorReported : bool
         mutable filterResult : term option
         //TODO: #mb frames list #mb transfer to Core.State
@@ -69,6 +70,7 @@ module CilStateOperations =
             prefixContext = List.empty
             currentLoc = currentLoc
             state = state
+            stackArrays = PersistentSet.empty
             errorReported = false
             filterResult = None
             iie = None
@@ -186,6 +188,17 @@ module CilStateOperations =
             cilState.prefixContext <- context
             Some prefix
         | _ -> None
+
+    let addStackArray (cilState : cilState) (address : concreteHeapAddress) =
+        cilState.stackArrays <- PersistentSet.add cilState.stackArrays address
+
+    let isStackArray cilState ref =
+        match ref.term with
+        | HeapRef({term = ConcreteHeapAddress address}, _)
+        | Ref(ArrayIndex({term = ConcreteHeapAddress address}, _, _))
+        | Ptr(HeapLocation({term = ConcreteHeapAddress address}, _), _, _) ->
+            PersistentSet.contains address cilState.stackArrays
+        | _ -> false
 
     let composeIps (oldIpStack : ipStack) (newIpStack : ipStack) = newIpStack @ oldIpStack
 

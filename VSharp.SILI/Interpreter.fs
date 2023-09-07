@@ -460,10 +460,13 @@ module internal InstructionsSet =
             constrainedImpl thisForCallVirt method args cilState
 
     let localloc (cilState : cilState) =
-        // [NOTE] localloc usually is used for Span
-        // So, pushing nullptr, because array will be allocated in Span constructor
-        pop cilState |> ignore
-        push (MakeNullPtr typeof<Void>) cilState
+        let size = pop cilState
+        let ref = Memory.AllocateVectorArray cilState.state size typeof<byte>
+        match ref.term with
+        | HeapRef({term = ConcreteHeapAddress address}, _) ->
+            addStackArray cilState address
+            push ref cilState
+        | _ -> internalfail $"localloc: unexpected array reference {ref}"
 
     let private fallThroughImpl stackSizeBefore newIp cilState =
         // if not constructing runtime exception
