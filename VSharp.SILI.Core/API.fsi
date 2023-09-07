@@ -71,7 +71,7 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
-        val TryPtrToArrayInfo : Type -> Type -> term -> option<term list * arrayType>
+        val TryPtrToRef : state -> pointerBase -> Type -> term -> option<address>
 
         val TryTermToObj : state -> term -> obj option
 

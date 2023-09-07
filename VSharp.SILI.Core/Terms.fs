@@ -892,7 +892,7 @@ module internal Terms =
         let defaultCase() =
             Expression Combine terms t
         let isSolid term typeOfTerm =
-            typeOfTerm = t || isRefOrPtr term
+            typeOfTerm = t || isRefOrPtr term && (not t.IsValueType || t.IsByRef || isNative t || t.IsPrimitive)
         let simplify p s e pos =
             let typ = typeOf p
             let termSize = lazy (internalSizeOf typ)
