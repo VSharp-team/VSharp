@@ -1007,11 +1007,15 @@ module internal Memory =
     // NOTE: returns list of slices
     // TODO: return empty if every slice is invalid
     and private commonReadTermUnsafe (reporter : IErrorReporter) term startByte endByte pos stablePos sightType =
-        let typ = typeOf term
-        let size = internalSizeOf typ
         match term.term, sightType with
-        | _, Some sightType when startByte = makeNumber 0 && endByte = makeNumber size && typ = sightType ->
-            List.singleton term
+        | Slice _, _ ->
+            sliceTerm term startByte endByte pos stablePos |> List.singleton
+        | _, Some sightType when
+            startByte = makeNumber 0 &&
+            let typ = typeOf term
+            let size = internalSizeOf typ
+            endByte = makeNumber size && typ = sightType ->
+                List.singleton term
         | Struct(fields, t), _ -> commonReadStructUnsafe reporter fields t startByte endByte pos stablePos sightType
         | HeapRef _, _
         | Ref _, _
@@ -1020,7 +1024,6 @@ module internal Memory =
         | Combined(slices, _), _ ->
             let readSlice part = commonReadTermUnsafe reporter part startByte endByte pos stablePos sightType
             List.collect readSlice slices
-        | Slice _, _
         | Concrete _, _
         | Constant _, _
         | Expression _, _ ->
