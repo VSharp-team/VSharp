@@ -1504,7 +1504,7 @@ type ILInterpreter() as this =
         match y, x with
         | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             divRem x y
-        | DetachedPtr offset2, DetachedPtr offset1 ->
+        | DetachedPtrTerm offset2, DetachedPtrTerm offset1 ->
             divRem offset1 offset2
         | FloatT, _
         | _, FloatT when isRem -> internalfailf "Rem.Un is unspecified for Floats"

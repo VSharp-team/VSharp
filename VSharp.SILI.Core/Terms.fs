@@ -35,14 +35,14 @@ type stackKey =
         | ThisKey _ -> "this"
         | ParameterKey pi -> if String.IsNullOrEmpty pi.Name then "#" + toString pi.Position else pi.Name
         | LocalVariableKey (lvi,_) -> "__loc__" + lvi.LocalIndex.ToString()
-        | TemporaryLocalVariableKey (typ, index) -> sprintf "__tmp__%s%d" (Reflection.getFullTypeName typ) index
+        | TemporaryLocalVariableKey (typ, index) -> $"__tmp__%s{Reflection.getFullTypeName typ}%d{index}"
     override x.GetHashCode() =
         let fullname =
             match x with
-            | ThisKey m -> sprintf "%s##this" m.FullName
-            | ParameterKey pi -> sprintf "%O##%O##%d" pi.Member pi pi.Position
-            | LocalVariableKey (lvi, m) -> sprintf "%O##%s" m.FullName (lvi.ToString())
-            | TemporaryLocalVariableKey (typ, index) -> sprintf "temporary##%s%d" (Reflection.getFullTypeName typ) index
+            | ThisKey m -> $"%s{m.FullName}##this"
+            | ParameterKey pi -> $"{pi.Member}##{pi}##%d{pi.Position}"
+            | LocalVariableKey (lvi, m) -> $"{m.FullName}##%s{lvi.ToString()}"
+            | TemporaryLocalVariableKey (typ, index) -> $"temporary##%s{Reflection.getFullTypeName typ}%d{index}"
         fullname.GetDeterministicHashCode()
     interface IComparable with
         override x.CompareTo(other: obj) =
@@ -73,7 +73,7 @@ type stackKey =
         | ParameterKey p -> ParameterKey (Reflection.concretizeParameter p typeSubst)
         | LocalVariableKey(l, m) ->
             let m' = m.SubstituteTypeVariables typeSubst
-            let l' = m.LocalVariables.[l.LocalIndex]
+            let l' = m.LocalVariables[l.LocalIndex]
             LocalVariableKey(l', m')
         | TemporaryLocalVariableKey (typ, index) ->
             // TODO: index may become inconsistent here
@@ -130,7 +130,7 @@ type termNode =
             | Nop -> k "<VOID>"
             | Constant(name, _, _) -> k name.v
             | Concrete(_, (ClassType(t, _) as typ)) when isSubtypeOrEqual t typedefof<Delegate> ->
-                sprintf "<Lambda Expression %O>" typ |> k
+                $"<Lambda Expression {typ}>" |> k
             | Concrete(obj, AddressType) when (obj :?> int32 list) = [0] -> k "null"
             | Concrete(c, Char) when c :?> char = '\000' -> k "'\\000'"
             | Concrete(c, Char) -> sprintf "'%O'" c |> k
@@ -155,7 +155,7 @@ type termNode =
                 | Cast(_, dest) ->
                     assert (List.length operands = 1)
                     toStr operation.priority indent (List.head operands).term (fun term ->
-                    sprintf "(%O %s)" dest term
+                    $"({dest} %s{term})"
                         |> checkExpression operation.priority parentPriority
                         |> k)
                 | Application f ->
@@ -170,7 +170,7 @@ type termNode =
                 let guardedToString (guard, term) k =
                     toStringWithParentIndent indent guard (fun guardString ->
                     toStringWithParentIndent indent term (fun termString ->
-                    sprintf "| %s ~> %s" guardString termString |> k))
+                    $"| %s{guardString} ~> %s{termString}" |> k))
                 Cps.Seq.mapk guardedToString guardedTerms (fun guards ->
                 let printed = guards |> Seq.sort |> join ("\n" + indent)
                 formatIfNotEmpty (formatWithIndent indent) printed |> sprintf "UNION[%s]" |> k)
@@ -222,14 +222,14 @@ and address =
     override x.ToString() =
         match x with
         | PrimitiveStackLocation key -> toString key
-        | ClassField(addr, field) -> sprintf "%O.%O" addr field
+        | ClassField(addr, field) -> $"{addr}.{field}"
         | ArrayIndex(addr, idcs, _) -> sprintf "%O[%s]" addr (List.map toString idcs |> join ", ")
-        | StaticField(typ, field) -> sprintf "%O.%O" typ field
-        | StructField(addr, field) -> sprintf "%O.%O" addr field
-        | ArrayLength(addr, dim, _) -> sprintf "Length(%O, %O)" addr dim
+        | StaticField(typ, field) -> $"{typ}.{field}"
+        | StructField(addr, field) -> $"{addr}.{field}"
+        | ArrayLength(addr, dim, _) -> $"Length({addr}, {dim})"
         | BoxedLocation(addr, typ) -> $"{typ}^{addr}"
-        | StackBufferIndex(key, idx) -> sprintf "%O[%O]" key idx
-        | ArrayLowerBound(addr, dim, _) -> sprintf "LowerBound(%O, %O)" addr dim
+        | StackBufferIndex(key, idx) -> $"{key}[{idx}]"
+        | ArrayLowerBound(addr, dim, _) -> $"LowerBound({addr}, {dim})"
     member x.Zone() =
         match x with
         | PrimitiveStackLocation _
@@ -343,15 +343,15 @@ module internal Terms =
 
     let operationOf = term >> function
         | Expression(op, _, _) -> op
-        | term -> internalfailf "expression expected, %O received" term
+        | term -> internalfail $"expression expected, {term} received"
 
     let argumentsOf = term >> function
         | Expression(_, args, _) -> args
-        | term -> internalfailf "expression expected, %O received" term
+        | term -> internalfail $"expression expected, {term} received"
 
     let fieldsOf = term >> function
         | Struct(fields, _) -> fields
-        | term -> internalfailf "struct or class expected, %O received" term
+        | term -> internalfail $"struct or class expected, {term} received"
 
     let private typeOfUnion getType gvs =
         let types = List.map (snd >> getType) gvs
@@ -361,7 +361,7 @@ module internal Terms =
             let allSame =
                 List.forall ((=) t) ts
             if allSame then t
-            else internalfailf "evaluating type of unexpected union %O!" gvs
+            else internalfail $"evaluating type of unexpected union {gvs}!"
 
     let commonTypeOf getType term =
         match term.term with
@@ -372,7 +372,7 @@ module internal Terms =
     let sightTypeOfPtr =
         let getTypeOfPtr = term >> function
             | Ptr(_, typ, _) -> typ
-            | term -> internalfailf "expected pointer, but got %O" term
+            | term -> internalfail $"expected pointer, but got {term}"
         commonTypeOf getTypeOfPtr
 
     let rec typeOfRef term =
@@ -382,7 +382,7 @@ module internal Terms =
             | Ref address -> address.TypeOfLocation
             | Ptr(_, sightType, _) -> sightType
             | _ when typeOf term |> isNative -> typeof<byte>
-            | term -> internalfailf "expected reference, but got %O" term
+            | term -> internalfail $"expected reference, but got {term}"
         commonTypeOf getTypeOfRef term
 
     and typeOf term =
@@ -395,7 +395,7 @@ module internal Terms =
             | Struct(_, t) -> t
             | Ref _ -> (typeOfRef term).MakeByRefType()
             | Ptr _ -> (sightTypeOfPtr term).MakePointerType()
-            | _ -> internalfailf "getting type of unexpected term %O" term
+            | _ -> internalfail $"getting type of unexpected term {term}"
         commonTypeOf getType term
 
     let symbolicTypeToArrayType = function
@@ -404,7 +404,7 @@ module internal Terms =
             | Vector -> (elementType, 1, true)
             | ConcreteDimension d -> (elementType, d, false)
             | SymbolicDimension -> __insufficientInformation__ "Cannot process array of unknown dimension!"
-        | typ -> internalfailf "symbolicTypeToArrayType: expected array type, but got %O" typ
+        | typ -> internalfail $"symbolicTypeToArrayType: expected array type, but got {typ}"
 
     let arrayTypeToSymbolicType (elemType : Type, dim, isVector) =
         if isVector then elemType.MakeArrayType()

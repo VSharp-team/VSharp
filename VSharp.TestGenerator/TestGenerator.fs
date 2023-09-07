@@ -207,7 +207,7 @@ module TestGenerator =
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef _
         | NullPtr -> null
-        | DetachedPtr offset ->
+        | DetachedPtrTerm offset ->
             let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
             test.MemoryGraph.RepresentDetachedPtr typeof<Void> offset
         | {term = Ptr(HeapLocation({term = ConcreteHeapAddress(addr)}, _), sightType, offset)} ->

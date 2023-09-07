@@ -142,7 +142,8 @@ module API =
             | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress() && offset = makeNumber 0 -> Some()
             | _ -> None
 
-        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term.term
+        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term
+        let (|DetachedPtrTerm|_|) term = (|DetachedPtr|_|) term.term
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
@@ -242,13 +243,19 @@ module API =
 
     module public Arithmetics =
         let (===) x y = simplifyEqual x y id
+        let Equality x y = simplifyEqual x y id
         let (!==) x y = simplifyNotEqual x y id
+        let Inequality x y = simplifyNotEqual x y id
         let (<<) x y = simplifyLess x y id
+        let Less x y = simplifyLess x y id
         let (<<=) x y = simplifyLessOrEqual x y id
+        let LessOrEqual x y = simplifyLessOrEqual x y id
         let (>>) x y = simplifyGreater x y id
+        let Greater x y = simplifyGreater x y id
         let (>>=) x y = simplifyGreaterOrEqual x y id
-        let (%%%) x y = simplifyRemainder true (TypeOf x) x y id
+        let GreaterOrEqual x y = simplifyGreaterOrEqual x y id
         let GreaterOrEqualUn x y = simplifyGreaterOrEqualUn x y id
+        let (%%%) x y = simplifyRemainder true (TypeOf x) x y id
 
         let Mul x y = mul x y
         let Sub x y = sub x y
