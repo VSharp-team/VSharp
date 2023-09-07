@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System.Collections.Generic
 
@@ -50,7 +50,7 @@ type ITargetManager =
     abstract member CalculateTarget : cilState -> codeLocation option
     abstract member IsStuck : cilState -> bool
 
-type RecursionBasedTargetManager(statistics : SILIStatistics, threshold : uint) =
+type RecursionBasedTargetManager(statistics : SVMStatistics, threshold : uint) =
     interface ITargetManager with
         override x.IsStuck state =
             match tryCurrentLoc state with
@@ -197,8 +197,8 @@ type GuidedSearcher(baseSearcher : IForwardSearcher, targetManager : ITargetMana
         override x.StatesCount with get() =
             baseSearcher.StatesCount + (targetedSearchers.Values |> Seq.sumBy (fun s -> int s.Count))
 
-type ShortestDistanceBasedSearcher(statistics : SILIStatistics) =
+type ShortestDistanceBasedSearcher(statistics : SVMStatistics) =
     inherit WeightedSearcher(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), BidictionaryPriorityQueue())
 
-type RandomShortestDistanceBasedSearcher(statistics : SILIStatistics, randomSeed : int option) =
+type RandomShortestDistanceBasedSearcher(statistics : SVMStatistics, randomSeed : int option) =
     inherit WeightedSearcher(AugmentedWeighter(IntraproceduralShortestDistanceToUncoveredWeighter(statistics), (WeightOperations.inverseLogarithmic 7u)), DiscretePDF(mkCilStateHashComparer, randomSeed))

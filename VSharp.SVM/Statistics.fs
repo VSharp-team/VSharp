@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 open System.Diagnostics
@@ -51,7 +51,7 @@ type generatedTestInfo =
     }
 
 // TODO: move statistics into (unique) instances of code location!
-type public SILIStatistics(entryMethods : Method seq) =
+type public SVMStatistics(entryMethods : Method seq) =
 
     let entryMethods = List<Method>(entryMethods)
 

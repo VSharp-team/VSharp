@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System.Diagnostics
 open System.IO
@@ -22,7 +22,7 @@ type explorationMode =
     | TestCoverageMode of coverageZone * searchMode
     | StackTraceReproductionMode of StackTrace
 
-type SiliOptions = {
+type SVMOptions = {
     explorationMode : explorationMode
     outputDirectory : DirectoryInfo
     recThreshold : uint

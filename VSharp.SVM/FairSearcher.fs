@@ -1,9 +1,11 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 open System.Collections.Generic
 open System.Diagnostics
+
 open VSharp
+open VSharp.Interpreter.IL
 
 /// <summary>
 /// Enumerates initial values as follows: when pick() yielded a value for the first time, it will continue to yield it until timeout, then
@@ -61,7 +63,7 @@ type private FairEnumerator<'a>(initialValues : 'a list, getElementTimeoutMs : '
 
     member x.StopCurrent() = stopCurrent()
 
-type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeoutMillis : uint, statistics : SILIStatistics) =
+type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeoutMillis : uint, statistics : SVMStatistics) =
 
     let baseSearcher = baseSearcherFactory()
 
@@ -77,11 +79,11 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
 
     // (method count * 10)ms is hardcoded time minimum to avoid too small timeouts
     // and too frequent switching between methods
-    let shouldStopMethod typ = getTypeTimeout() <= uint methodEnumerators.[typ].Count * 10u
+    let shouldStopMethod typ = getTypeTimeout() <= uint methodEnumerators[typ].Count * 10u
 
-    let getMethodTimeout typ = getTypeTimeout() / uint methodEnumerators.[typ].Count
+    let getMethodTimeout typ = getTypeTimeout() / uint methodEnumerators[typ].Count
 
-    let onTypeTimeout typ _ = elapsedTime <- elapsedTime + methodEnumerators.[typ].StopCurrent()
+    let onTypeTimeout typ _ = elapsedTime <- elapsedTime + methodEnumerators[typ].StopCurrent()
 
     let onMethodTimeout _ elapsed = elapsedTime <- elapsedTime + elapsed
 
@@ -107,7 +109,7 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         let groupedByType = initialStates |> Seq.map CilStateOperations.entryMethodOf |> Seq.distinct |> Seq.groupBy (fun m -> m.DeclaringType)
         typeEnumerator <- FairEnumerator(groupedByType |> Seq.map fst |> Seq.toList, getTypeTimeout, shouldStopType, onTypeRound, onTypeTimeout)
         for typ, methods in groupedByType do
-            methodEnumerators.[typ] <- FairEnumerator(
+            methodEnumerators[typ] <- FairEnumerator(
                 // Heuristics to explore the methods without calls first
                 methods |> Seq.sortBy getCallsCount |> Seq.toList,
                 (fun _ -> getMethodTimeout typ),
@@ -122,14 +124,14 @@ type internal FairSearcher(baseSearcherFactory : unit -> IForwardSearcher, timeo
         match typeEnumerator.Pick() with
         | None -> None
         | Some typ ->
-            match methodEnumerators.[typ].Pick() with
+            match methodEnumerators[typ].Pick() with
             | None ->
                 typeEnumerator.DropCurrent() |> ignore
                 pick selector
             | Some method ->
                 match baseSearcher.Pick (fun s -> CilStateOperations.entryMethodOf s = method && selector s) with
                 | None ->
-                    elapsedTime <- elapsedTime + methodEnumerators.[typ].DropCurrent()
+                    elapsedTime <- elapsedTime + methodEnumerators[typ].DropCurrent()
                     pick selector
                 | Some _ as stateOpt -> stateOpt
 

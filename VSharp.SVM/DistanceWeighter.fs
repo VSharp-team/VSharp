@@ -1,8 +1,9 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 
 open VSharp
+open VSharp.Interpreter.IL
 open VSharp.Interpreter.IL.CilStateOperations
 open VSharp.Interpreter.IL.ipOperations
 
@@ -101,7 +102,7 @@ type ShortestDistanceWeighter(target : codeLocation) =
                 | None -> return 1u
             }
 
-type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SILIStatistics) =
+type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SVMStatistics) =
 
     let minDistance (method : Method) fromLoc =
         let infinity = UInt32.MaxValue

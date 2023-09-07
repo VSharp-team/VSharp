@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 open System.Reflection
@@ -7,11 +7,11 @@ open FSharpx.Collections
 
 open VSharp
 open VSharp.Core
-open CilStateOperations
+open VSharp.Interpreter.IL.CilStateOperations
 open VSharp.Interpreter.IL
 open VSharp.Solver
 
-type public SILI(options : SiliOptions) =
+type public SVM(options : SVMOptions) =
 
     let hasTimeout = options.timeout > 0
     let timeout =
@@ -31,11 +31,12 @@ type public SILI(options : SiliOptions) =
     let hasStepsLimit = options.stepsLimit > 0u
 
     do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
+    do VSharp.System.SetUp.ConfigureInternalCalls()
 
     let mutable branchesReleased = false
     let mutable isStopped = false
 
-    let statistics = new SILIStatistics(Seq.empty)
+    let statistics = new SVMStatistics(Seq.empty)
 
     let emptyState = Memory.EmptyState()
     let interpreter = ILInterpreter()
@@ -118,12 +119,10 @@ type public SILI(options : SiliOptions) =
                 | Error(msg, isFatal) -> statistics.IsNewError cilState msg isFatal
             if isNewTest then
                 let callStackSize = Memory.CallStackSize cilState.state
-                let methodHasByRefParameter (m : Method) =
-                    m.Parameters |> Array.exists (fun pi -> pi.ParameterType.IsByRef)
                 let entryMethod = entryMethodOf cilState
-                let hasException = isUnhandledError cilState
+                let hasException = isUnhandledException cilState
                 if isError && not hasException then
-                    if entryMethod.DeclaringType.IsValueType || methodHasByRefParameter entryMethod then
+                    if entryMethod.HasParameterOnStack then
                         Memory.ForcePopFrames (callStackSize - 2) cilState.state
                     else Memory.ForcePopFrames (callStackSize - 1) cilState.state
                 match TestGenerator.state2test suite entryMethod cilState.state with
@@ -245,7 +244,7 @@ type public SILI(options : SiliOptions) =
                         !!(IsNullReference this) |> AddConstraint initialState
                         Some this
                 else None
-            let parameters = SILI.AllocateByRefParameters initialState method
+            let parameters = SVM.AllocateByRefParameters initialState method
             Memory.InitFunctionFrame initialState method this (Some parameters)
             match this with
             | Some this -> SolveThisType initialState this
@@ -303,12 +302,13 @@ type public SILI(options : SiliOptions) =
         // TODO: update pobs when visiting new methods; use coverageZone
         let goodStates, iieStates, errors = interpreter.ExecuteOneInstruction s
         for s in goodStates @ iieStates @ errors do
-            if hasRuntimeException s |> not then
+            if hasRuntimeExceptionOrError s |> not then
                 statistics.TrackStepForward s ip
         let goodStates, toReportFinished = goodStates |> List.partition (fun s -> isExecutable s || isIsolated s)
         toReportFinished |> List.iter reportFinished
+        let errors, _ = errors |> List.partition (fun s -> hasReportedError s |> not)
         let errors, toReportExceptions = errors |> List.partition (fun s -> isIsolated s || not <| stoppedByException s)
-        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeException
+        let runtimeExceptions, userExceptions = toReportExceptions |> List.partition hasRuntimeExceptionOrError
         runtimeExceptions |> List.iter (fun state -> reportError state null)
         userExceptions |> List.iter reportFinished
         let iieStates, toReportIIE = iieStates |> List.partition isIsolated
