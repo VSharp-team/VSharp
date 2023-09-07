@@ -2,7 +2,7 @@ namespace VSharp.Core
 
 open VSharp
 
-module Branching =
+module internal Branching =
 
     let checkSat state = SolverInteraction.checkSatWithSubtyping state
 

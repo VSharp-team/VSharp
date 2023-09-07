@@ -255,9 +255,16 @@ module CilStateOperations =
     let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
 
     let push v (cilState : cilState) =
-        cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
-        cilState.lastPushInfo <- Some v
-    let pushMany vs (cilState : cilState) = cilState.state.evaluationStack <- EvaluationStack.PushMany vs cilState.state.evaluationStack
+        match v.term with
+        | Nop -> internalfail "pushing 'NOP' value onto evaluation stack"
+        | _ ->
+            cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
+            cilState.lastPushInfo <- Some v
+
+    let pushMany vs (cilState : cilState) =
+        if List.contains (Nop()) vs then
+            internalfail "pushing 'NOP' value onto evaluation stack"
+        cilState.state.evaluationStack <- EvaluationStack.PushMany vs cilState.state.evaluationStack
 
     let peek (cilState : cilState) =
         EvaluationStack.Pop cilState.state.evaluationStack |> fst
