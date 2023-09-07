@@ -60,12 +60,16 @@ module ReadOnlySpan =
             HeapRef address typeof<char[]>
         | Ref(ArrayIndex(addr, indices, arrayType)) when indices = [MakeNumber 0] ->
             CreateArrayRef addr indices arrayType
-        | Ptr(HeapLocation(address, t), sightType, offset) ->
-            match TryPtrToArrayInfo t sightType offset with
-            | Some(indices, arrayType) -> CreateArrayRef address indices arrayType
+        | Ptr(HeapLocation(_, t) as pointerBase, sightType, offset) ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some(ArrayIndex(address, indices, arrayType)) -> CreateArrayRef address indices arrayType
+            | Some address -> Ref address
             | None when t.IsSZArray || t = typeof<string> -> ptr
             | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptr}"
-        | Ptr _ when len = MakeNumber 1 -> ptr
+        | Ptr(pointerBase, sightType, offset) when len = MakeNumber 1 ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some address -> Ref address
+            | _ -> ptr
         | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptr}"
 
     let internal GetItemFromReadOnlySpan (state : state) (args : term list) : term =
