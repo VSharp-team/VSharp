@@ -7,7 +7,7 @@ using System.Linq;
 using System.Reflection;
 using ConsoleTables;
 using NUnit.Framework;
-using VSharp.Interpreter.IL;
+using VSharp.SVM;
 using VSharp.TestRenderer;
 
 namespace VSharp.Test.Benchmarks;
@@ -61,7 +61,7 @@ internal static class Benchmarks
         Logger.currentLogLevel = Logger.Warning;
 
         var unitTests = new UnitTests(Directory.GetCurrentDirectory());
-        var options = new SiliOptions(
+        var options = new SVMOptions(
             explorationMode: explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchStrategy),
             outputDirectory: unitTests.TestDirectory,
             recThreshold: 1,
@@ -75,7 +75,7 @@ internal static class Benchmarks
             randomSeed: randomSeed,
             stepsLimit: stepsLimit
         );
-        using var explorer = new SILI(options);
+        using var explorer = new SVM.SVM(options);
 
         explorer.Interpret(
             new[] { exploredMethodInfo },

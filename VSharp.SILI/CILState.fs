@@ -20,6 +20,7 @@ type cilState =
         // This field stores only approximate information and can't be used for getting the precise location. Instead, use ipStack.Head
         mutable currentLoc : codeLocation
         state : state
+        mutable errorReported : bool
         mutable filterResult : term option
         //TODO: #mb frames list #mb transfer to Core.State
         mutable iie : InsufficientInformationException option
@@ -53,7 +54,7 @@ type cilStateComparer(comparer) =
         override _.Compare(x : cilState, y : cilState) =
             comparer x y
 
-module internal CilStateOperations =
+module CilStateOperations =
 
     let mutable currentStateId = 0u
     let getNextStateId() =
@@ -68,6 +69,7 @@ module internal CilStateOperations =
             prefixContext = List.empty
             currentLoc = currentLoc
             state = state
+            errorReported = false
             filterResult = None
             iie = None
             level = PersistentDict.empty
@@ -101,14 +103,15 @@ module internal CilStateOperations =
         | [ Exit _ ] -> false
         | _ -> true
 
-    let isError (s : cilState) =
-        match s.state.exceptionsRegister with
-        | NoException -> false
-        | _ -> true
-    let isUnhandledError (s : cilState) =
+    let isUnhandledException (s : cilState) =
         match s.state.exceptionsRegister with
         | Unhandled _ -> true
         | _ -> false
+
+    let isUnhandledExceptionOrError (s : cilState) =
+        match s.state.exceptionsRegister with
+        | Unhandled _ -> true
+        | _ -> s.errorReported
 
     let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
     let currentIp (s : cilState) =
@@ -122,10 +125,13 @@ module internal CilStateOperations =
         | SearchingForHandler([], []) -> true
         | _ -> false
 
-    let hasRuntimeException (s : cilState) =
+    let hasRuntimeExceptionOrError (s : cilState) =
         match s.state.exceptionsRegister with
+        | _ when s.errorReported -> true
         | Unhandled(_, isRuntime, _) -> isRuntime
         | _ -> false
+
+    let hasReportedError (s : cilState) = s.errorReported
 
     let isStopped s = isIIEState s || stoppedByException s || not(isExecutable(s))
 
@@ -288,6 +294,94 @@ module internal CilStateOperations =
         let prev = state.targets
         state.targets <- Set.remove target prev
         prev.Count <> state.targets.Count
+
+    // ------------------------------------ Memory Interaction ------------------------------------
+
+    let mutable private reportError : cilState -> string -> unit =
+        fun _ _ -> internalfail "'reportError' is not ready"
+
+    let mutable private reportFatalError : cilState -> string -> unit =
+        fun _ _ -> internalfail "'reportError' is not ready"
+
+    let configureErrorReporter reportErrorFunc reportFatalErrorFunc =
+        reportError <- reportErrorFunc
+        reportFatalError <- reportFatalErrorFunc
+
+    type public ErrorReporter internal (reportError, reportFatalError, cilState) =
+        let mutable cilState = cilState
+        let mutable stateConfigured : bool = false
+
+        static member ReportError cilState message =
+            cilState.errorReported <- true
+            reportError cilState message
+
+        static member ReportFatalError cilState message =
+            cilState.errorReported <- true
+            reportFatalError cilState message
+
+        interface IErrorReporter with
+            override x.ReportError msg failCondition =
+                assert stateConfigured
+                let report state k =
+                    let cilState = changeState cilState state
+                    cilState.errorReported <- true
+                    reportError cilState msg |> k
+                StatedConditionalExecution cilState.state
+                    (fun state k -> k (!!failCondition, state))
+                    (fun _ k -> k ())
+                    report
+                    (fun _ _ -> [])
+                    ignore
+
+            override x.ReportFatalError msg failCondition =
+                assert stateConfigured
+                let report state k =
+                    let cilState = changeState cilState state
+                    cilState.errorReported <- true
+                    reportFatalError cilState msg |> k
+                StatedConditionalExecution cilState.state
+                    (fun state k -> k (!!failCondition, state))
+                    (fun _ k -> k ())
+                    report
+                    (fun _ _ -> [])
+                    ignore
+
+            override x.ConfigureState state =
+                cilState <- changeState cilState state
+                stateConfigured <- true
+
+    let internal createErrorReporter cilState =
+        ErrorReporter(reportError, reportFatalError, cilState)
+
+    let read cilState ref =
+        let reporter = createErrorReporter cilState
+        Memory.ReadUnsafe reporter cilState.state ref
+
+    let readField cilState term field =
+        let reporter = createErrorReporter cilState
+        Memory.ReadFieldUnsafe reporter cilState.state term field
+
+    let readIndex cilState term index valueType =
+        let reporter = createErrorReporter cilState
+        Memory.ReadArrayIndexUnsafe reporter cilState.state term index valueType
+
+    let write cilState ref value =
+        let reporter = createErrorReporter cilState
+        let states = Memory.WriteUnsafe reporter cilState.state ref value
+        List.map (changeState cilState) states
+
+    let writeClassField cilState ref field value =
+        let states = Memory.WriteClassField cilState.state ref field value
+        List.map (changeState cilState) states
+
+    let writeStructField cilState term field value =
+        let reporter = createErrorReporter cilState
+        Memory.WriteStructFieldUnsafe reporter cilState.state term field value
+
+    let writeIndex cilState term index value valueType =
+        let reporter = createErrorReporter cilState
+        let states = Memory.WriteArrayIndexUnsafe reporter cilState.state term index value valueType
+        List.map (changeState cilState) states
 
     // ------------------------------- Helper functions for cilState -------------------------------
 

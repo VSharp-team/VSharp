@@ -14,6 +14,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <Compile Include="Loader.fs" />
       <Compile Include="OpCodes.fs" />
       <Compile Include="ILRewriter.fs" />
       <Compile Include="MethodBody.fs" />
@@ -22,7 +23,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>

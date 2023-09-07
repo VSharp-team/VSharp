@@ -15,6 +15,7 @@ using NUnit.Framework.Internal.Commands;
 using VSharp.CSharpUtils;
 using VSharp.Interpreter.IL;
 using VSharp.Solver;
+using VSharp.SVM;
 using VSharp.TestRenderer;
 
 namespace VSharp.Test
@@ -70,7 +71,7 @@ namespace VSharp.Test
         private const string SolverTimeoutParameterName = "solverTimeout";
         private const string ReleaseBranchesParameterName = "releaseBranches";
 
-        private static SiliOptions _options = null;
+        private static SVMOptions _options;
 
         static TestSvmAttribute()
         {
@@ -228,9 +229,9 @@ namespace VSharp.Test
 
                 _coverageZone = coverageZone switch
                 {
-                    CoverageZone.Method => Interpreter.IL.coverageZone.MethodZone,
-                    CoverageZone.Class => Interpreter.IL.coverageZone.ClassZone,
-                    CoverageZone.Module => Interpreter.IL.coverageZone.ModuleZone,
+                    CoverageZone.Method => SVM.coverageZone.MethodZone,
+                    CoverageZone.Class => SVM.coverageZone.ClassZone,
+                    CoverageZone.Module => SVM.coverageZone.ModuleZone,
                     _ => throw new ArgumentOutOfRangeException(nameof(coverageZone), coverageZone, null)
                 };
 
@@ -293,7 +294,7 @@ namespace VSharp.Test
                 try
                 {
                     var unitTests = new UnitTests(Directory.GetCurrentDirectory());
-                    _options = new SiliOptions(
+                    _options = new SVMOptions(
                         explorationMode: explorationMode.NewTestCoverageMode(_coverageZone, _searchStrat),
                         outputDirectory: unitTests.TestDirectory,
                         recThreshold: _recThresholdForTest,
@@ -307,7 +308,7 @@ namespace VSharp.Test
                         randomSeed: _randomSeed,
                         stepsLimit: _stepsLimit
                     );
-                    using var explorer = new SILI(_options);
+                    using var explorer = new SVM.SVM(_options);
 
                     explorer.Interpret(
                         new [] { exploredMethodInfo },
@@ -330,7 +331,7 @@ namespace VSharp.Test
 
                     stats = stats with
                     {
-                        SiliStatisticsDump = explorer.Statistics.DumpStatistics(),
+                        SvmStatisticsDump = explorer.Statistics.DumpStatistics(),
                         TestsGenerated = unitTests.UnitTestsCount,
                         TestsOutputDirectory = unitTests.TestDirectory.FullName
                     };

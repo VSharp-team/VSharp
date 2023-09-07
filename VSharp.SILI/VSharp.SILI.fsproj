@@ -17,31 +17,14 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Options.fs" />
         <Compile Include="InstructionPointer.fs" />
         <Compile Include="CILState.fs" />
-        <Compile Include="Statistics.fs" />
-        <Compile Include="Searcher.fs" />
         <Compile Include="Interpreter.fs" />
-        <Compile Include="CombinedWeighter.fs" />
-        <Compile Include="DistanceWeighter.fs" />
-        <Compile Include="ContributedCoverageSearcher.fs" />
-        <Compile Include="DFSSortedByContributedCoverageSearcher.fs" />
-        <Compile Include="ExecutionTree.fs" />
-        <Compile Include="ExecutionTreeSearcher.fs" />
-        <Compile Include="InterleavedSearcher.fs" />
-        <Compile Include="GuidedSearcher.fs" />
-        <Compile Include="FairSearcher.fs" />
-        <Compile Include="BidirectionalSearcher.fs" />
-        <Compile Include="SILI.fs" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\VSharp.IL\VSharp.IL.fsproj" />
-        <ProjectReference Include="..\VSharp.InternalCalls\VSharp.InternalCalls.fsproj" />
         <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
-        <ProjectReference Include="..\VSharp.Solver\VSharp.Solver.fsproj" />
-        <ProjectReference Include="..\VSharp.TestGenerator\VSharp.TestGenerator.fsproj" />
     </ItemGroup>
 
     <ItemGroup>

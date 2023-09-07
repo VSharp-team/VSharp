@@ -42,10 +42,10 @@
         <Compile Include="ByReference.fs" />
         <Compile Include="Span.fsi" />
         <Compile Include="Span.fs" />
-        <Compile Include="String.fsi" />
-        <Compile Include="String.fs" />
         <Compile Include="Buffer.fsi" />
         <Compile Include="Buffer.fs" />
+        <Compile Include="String.fsi" />
+        <Compile Include="String.fs" />
         <Compile Include="EqualityComparer.fsi" />
         <Compile Include="EqualityComparer.fs" />
         <Compile Include="ChessDotNet.fsi" />
@@ -56,17 +56,23 @@
         <Compile Include="Interlocked.fs" />
         <Compile Include="Globalization.fsi" />
         <Compile Include="Globalization.fs" />
+        <Compile Include="Diagnostics.fsi" />
+        <Compile Include="Diagnostics.fs" />
+        <Compile Include="HashHelpers.fsi" />
+        <Compile Include="HashHelpers.fs" />
+        <Compile Include="Delegate.fsi" />
+        <Compile Include="Delegate.fs" />
         <Compile Include="PlatformHelper.fsi" />
         <Compile Include="PlatformHelper.fs" />
         <Compile Include="InteropServices.fsi" />
         <Compile Include="InteropServices.fs" />
         <Compile Include="Activator.fsi" />
         <Compile Include="Activator.fs" />
-        <Compile Include="Loader.fs" />
     </ItemGroup>
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
+      <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
     </ItemGroup>
 
     <ItemGroup>
