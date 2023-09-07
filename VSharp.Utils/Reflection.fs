@@ -120,7 +120,8 @@ module public Reflection =
         | :? MethodInfo as m -> m.ReturnType
         | _ -> internalfail "unknown MethodBase"
 
-    let hasNonVoidResult m = (getMethodReturnType m).FullName <> typeof<Void>.FullName
+    let hasNonVoidResult m =
+        getMethodReturnType m <> typeof<Void> && not m.IsConstructor
 
     let hasThis (m : MethodBase) = m.CallingConvention.HasFlag(CallingConventions.HasThis)
 
