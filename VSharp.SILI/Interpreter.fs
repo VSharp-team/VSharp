@@ -1167,7 +1167,7 @@ type internal ILInterpreter() as this =
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet method then
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
-        elif ExternMocker.ExtMocksSupported && x.ShouldMock method fullMethodName then
+        elif ExternMocker.ExtMocksSupported && x.ShouldMock method then
             let mockMethod = ExternMockAndCall cilState.state method None []
             match mockMethod with
             | Some symVal ->
@@ -1521,14 +1521,14 @@ type internal ILInterpreter() as this =
         let address = pop cilState
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Ldobj.Size)
         let readValue cilState k =
+            let actualType = MostConcreteTypeOfRef cilState.state address
             let value =
-                if IsPtr address then
-                    let address = Types.Cast address (typ.MakePointerType())
-                    read cilState address
-                else
-                    // TODO: try always cast reference, instead of value
+                if typ.IsAssignableFrom actualType then
                     let value = read cilState address
                     Types.Cast value typ
+                else
+                    let address = Types.Cast address (typ.MakePointerType())
+                    read cilState address
             push value cilState
             List.singleton cilState |> k
         x.NpeOrInvokeStatementCIL cilState address readValue id
