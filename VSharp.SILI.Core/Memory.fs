@@ -1214,7 +1214,7 @@ module internal Memory =
         assert(typeOf offset = typeof<int>)
         let zero = makeNumber 0
         match pointerBase with
-        | HeapLocation(address, t) ->
+        | HeapLocation(address, t) when address <> zeroAddress() ->
             let typ = typeOfHeapLocation state address |> mostConcreteType t
             let isArray() =
                 typ.IsSZArray && typ.GetElementType() = sightType
@@ -1232,7 +1232,7 @@ module internal Memory =
                         else address, (sightType, 1, true)
                     ArrayIndex(address, [index], arrayType) |> Some
                 else None
-            elif typ.IsValueType && sightType = typ && offset = zero then
+            elif isValueType typ && sightType = typ && offset = zero then
                 BoxedLocation(address, t) |> Some
             else None
         | StackLocation stackKey when stackKey.TypeOfLocation = sightType && offset = zero ->

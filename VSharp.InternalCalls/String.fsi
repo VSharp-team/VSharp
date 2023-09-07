@@ -16,7 +16,7 @@ module internal String =
     val CtorFromReplicatedChar : state -> term list -> term
 
     [<Implements("System.Void System.String..ctor(this, System.ReadOnlySpan`1[System.Char])")>]
-    val CtorFromSpan : state -> term list -> term
+    val CtorFromSpan : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void System.String..ctor(this, System.Char*, System.Int32, System.Int32)")>]
     val CtorFromPtr : IInterpreter -> cilState -> term list -> cilState list

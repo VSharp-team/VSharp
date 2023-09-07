@@ -327,8 +327,11 @@ module API =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
             | HeapRef(addr, typ) ->
-                let elemType, dim, _ as arrayType =
-                    Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
+                let t = Memory.mostConcreteTypeOfHeapRef state addr typ
+                let addr, (elemType, dim, _ as arrayType) =
+                    if TypeUtils.isArrayType t then
+                        addr, symbolicTypeToArrayType t
+                    else StringArrayInfo state addr None
                 assert(dim = List.length indices)
                 match valueType with
                 | Some valueType when not (IsSafeContext elemType valueType) ->

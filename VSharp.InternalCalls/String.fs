@@ -25,15 +25,13 @@ module internal String =
         Memory.StringFromReplicatedChar state this char length
         Nop()
 
-    let CtorFromSpan (state : state) (args : term list) : term =
+    let CtorFromSpan (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
-        let ref = ReadOnlySpan.GetContentsRef state span
+        let ref, len = ReadOnlySpan.GetContents cilState span
         assert(TypeOf ref |> TypeUtils.isArrayType)
-        let len = ReadOnlySpan.GetLength state span
-        match Memory.StringCtorOfCharArrayAndLen state ref this len with
-        | [ _ ] -> Nop()
-        | _ -> internalfail "CtorFromSpan: need to branch execution"
+        let states = Memory.StringCtorOfCharArrayAndLen cilState.state ref this len
+        List.map (changeState cilState) states
 
     let CtorFromPtr (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 4)

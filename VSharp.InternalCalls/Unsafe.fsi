@@ -3,6 +3,7 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 
 module internal Unsafe =
 
@@ -56,11 +57,11 @@ module internal Unsafe =
 
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     [<Implements("T System.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
-    val ReadUnaligned : state -> term list -> term
+    val ReadUnaligned : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
     [<Implements("System.Void System.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]
-    val WriteUnaligned : state -> term list -> (term * state) list
+    val WriteUnaligned : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Int32 Internal.Runtime.CompilerServices.Unsafe.SizeOf()")>]
     [<Implements("System.Int32 System.Runtime.CompilerServices.Unsafe.SizeOf()")>]

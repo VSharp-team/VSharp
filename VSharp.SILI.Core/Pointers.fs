@@ -129,7 +129,7 @@ module internal Pointers =
             shift ptr bytesToShift |> k
         | HeapRef(address, t) ->
             assert t.IsArray
-            let ptrType = t.GetElementType().MakePointerType()
+            let ptrType = t.GetElementType()
             Ptr (HeapLocation(address, t)) ptrType bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
 
