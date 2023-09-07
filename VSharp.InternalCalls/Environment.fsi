@@ -6,22 +6,22 @@ open VSharp.Core
 
 // ------------------------------- mscorlib.System.Environment -------------------------------
 
-module Environment =
+module internal Environment =
 
     [<Implements("System.String System.Environment.GetResourceFromDefault(System.String)")>]
-    val internal GetResourceFromDefault : state -> term list -> term
+    val GetResourceFromDefault : state -> term list -> term
 
     [<Implements("System.Int32 System.Environment.get_CurrentManagedThreadId()")>]
-    val internal GetCurrentManagedThreadId : state -> term list -> term
+    val GetCurrentManagedThreadId : state -> term list -> term
 
     [<Implements("System.Int32 System.Threading.Thread.get_ManagedThreadId(this)")>]
-    val internal GetManagedThreadId : state -> term list -> term
+    val GetManagedThreadId : state -> term list -> term
 
     [<Implements("System.Void System.Console.WriteLine(System.String)")>]
-    val internal WriteLine : state -> term list -> term
+    val WriteLine : state -> term list -> term
 
     [<Implements("System.Boolean System.Console.get_IsOutputRedirected()")>]
-    val internal get_IsOutputRedirected : state -> term list -> term
+    val get_IsOutputRedirected : state -> term list -> term
 
     [<Implements("System.Void System.Console.Clear()")>]
-    val internal consoleClear : state -> term list -> term
+    val consoleClear : state -> term list -> term

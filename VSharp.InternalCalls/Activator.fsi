@@ -5,5 +5,5 @@ open VSharp.Core
 
 module internal Activator =
 
-    [<Implements("System.Object System.Activator.CreateInstance()")>]
-    val internal CreateInstance : state -> term list -> term
+    [<Implements("T System.Activator.CreateInstance()")>]
+    val CreateInstance : state -> term list -> term
