@@ -29,6 +29,17 @@ internal class CodeRenderer
         Remove
     }
 
+    internal enum OperatorType
+    {
+        Equality,
+        Inequality,
+        Greater,
+        GreaterOrEq,
+        Less,
+        LessOrEq,
+        ImplicitConv
+    }
+
     internal class MockInfo
     {
         public readonly SimpleNameSyntax MockName;
@@ -179,6 +190,29 @@ internal class CodeRenderer
 
         eventName = string.Empty;
         eventMethodType = default;
+        return false;
+    }
+
+    public static bool IsOperator(MethodBase method, out OperatorType operatorType)
+    {
+        var name = method.Name;
+        if (method.IsSpecialName && name.StartsWith("op_"))
+        {
+            operatorType = name switch
+            {
+                "op_Equality" => OperatorType.Equality,
+                "op_Inequality" => OperatorType.Inequality,
+                "op_LessThan" => OperatorType.Less,
+                "op_GreaterThan" => OperatorType.Greater,
+                "op_LessThanOrEqual" => OperatorType.LessOrEq,
+                "op_GreaterThanOrEqual" => OperatorType.GreaterOrEq,
+                "op_Implicit" => OperatorType.ImplicitConv,
+                _ => default
+            };
+            return true;
+        }
+
+        operatorType = default;
         return false;
     }
 
@@ -508,10 +542,34 @@ internal class CodeRenderer
         return BinaryExpression(SyntaxKind.EqualsExpression, x, y);
     }
 
-    // TODO: use operators?
     public static ExpressionSyntax RenderNotEq(ExpressionSyntax x, ExpressionSyntax y)
     {
         return BinaryExpression(SyntaxKind.NotEqualsExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderLess(ExpressionSyntax x, ExpressionSyntax y)
+    {
+        return BinaryExpression(SyntaxKind.LessThanExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderLessOrEq(ExpressionSyntax x, ExpressionSyntax y)
+    {
+        return BinaryExpression(SyntaxKind.LessThanOrEqualExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderGreater(ExpressionSyntax x, ExpressionSyntax y)
+    {
+        return BinaryExpression(SyntaxKind.GreaterThanExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderGreaterOrEq(ExpressionSyntax x, ExpressionSyntax y)
+    {
+        return BinaryExpression(SyntaxKind.GreaterThanOrEqualExpression, x, y);
+    }
+
+    public static ExpressionSyntax RenderCastExpression(ExpressionSyntax x, TypeSyntax type)
+    {
+        return CastExpression(type, x);
     }
 
     public static ExpressionSyntax RenderNull()
@@ -918,6 +976,37 @@ internal class CodeRenderer
             return RenderAssignment(access, value);
         }
 
+        if (IsOperator(method, out var operatorType))
+        {
+            switch (operatorType)
+            {
+                case OperatorType.Equality:
+                    Debug.Assert(args.Length == 2);
+                    return RenderEq(args[0], args[1]);
+                case OperatorType.Inequality:
+                    Debug.Assert(args.Length == 2);
+                    return RenderNotEq(args[0], args[1]);
+                case OperatorType.Greater:
+                    Debug.Assert(args.Length == 2);
+                    return RenderGreater(args[0], args[1]);
+                case OperatorType.GreaterOrEq:
+                    Debug.Assert(args.Length == 2);
+                    return RenderGreaterOrEq(args[0], args[1]);
+                case OperatorType.Less:
+                    Debug.Assert(args.Length == 2);
+                    return RenderLess(args[0], args[1]);
+                case OperatorType.LessOrEq:
+                    Debug.Assert(args.Length == 2);
+                    return RenderLessOrEq(args[0], args[1]);
+                case OperatorType.ImplicitConv:
+                    Debug.Assert(args.Length == 1 && method.DeclaringType != null);
+                    var type = RenderType(method.DeclaringType);
+                    return RenderCastExpression(args[0], type);
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+
         ExpressionSyntax function;
         if (thisArg == null)
         {
@@ -1039,9 +1128,14 @@ internal class CodeRenderer
         return attribute;
     }
 
-    public static AttributeListSyntax RenderAttributeList(params AttributeSyntax[] attributes)
+    public static AttributeListSyntax RenderAttributeList(IEnumerable<AttributeSyntax> attributes)
     {
         return AttributeList(SeparatedList(attributes));
+    }
+
+    public static AttributeListSyntax RenderAttributeList(params AttributeSyntax[] attributes)
+    {
+        return RenderAttributeList((IEnumerable<AttributeSyntax>) attributes);
     }
 
     public static AttributeListSyntax RenderAttributeList(params string[] attributeNames)

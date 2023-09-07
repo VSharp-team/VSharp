@@ -28,3 +28,6 @@ module internal PlatformHelper =
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.X86Base.get_IsSupported()")>]
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.X86Base+X64.get_IsSupported()")>]
     val internal x86BaseIsSupported : state -> term list -> term
+
+    [<Implements("System.Boolean System.Runtime.Intrinsics.Vector128.get_IsHardwareAccelerated()")>]
+    val vector128IsHardwareAccelerated : state -> term list -> term

@@ -73,7 +73,8 @@ module TypeStorage =
                 add notSubtypeConstraints address typ |> next
             | Negation({term = Constant(_, TypeCasting.RefSubtypeRefSource _, _)}) ->
                 internalfail "TypeSolver is not fully implemented"
-            | Constant(_, (Memory.HeapAddressSource _ as source), _) ->
+            | Constant(_, (Memory.HeapAddressSource _ as source), _)
+            | Constant(_, (Memory.PointerAddressSource _ as source), _) ->
                 // Adding super types from testing function info
                 add supertypeConstraints term source.TypeOfLocation |> next
             | _ -> into ()
@@ -503,10 +504,10 @@ module TypeSolver =
                 let optionMock m = Some m
                 let filtered = candidates.Filter(checkOverrides, optionMock)
                 let truncated = filtered.Take(5)
-                typeStorage[thisAddress] <- truncated
+                typeStorage[thisAddress] <- truncated.Eval()
                 truncated.Types
             | TypeUnsat -> Seq.empty
         | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
-            assert(thisType = typeOfAddress address)
+            assert(thisType = address.TypeOfLocation)
             ConcreteType thisType |> Seq.singleton
         | _ -> internalfail $"Getting callvirt candidates: unexpected this {thisRef}"

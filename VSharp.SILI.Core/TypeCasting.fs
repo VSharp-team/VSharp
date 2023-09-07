@@ -111,7 +111,7 @@ module internal TypeCasting =
             let rightType = Memory.mostConcreteTypeOfHeapRef state addr sightType
             typeIsAddress typ addr rightType
         | Ref address ->
-            let rightType = typeOfAddress address
+            let rightType = address.TypeOfLocation
             typeIsType typ rightType
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, typeIsRef state typ v)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
@@ -122,7 +122,7 @@ module internal TypeCasting =
             let leftType = Memory.mostConcreteTypeOfHeapRef state addr sightType
             commonAddressIsType addr leftType typ
         | Ref address ->
-            let leftType = typeOfAddress address
+            let leftType = address.TypeOfLocation
             typeIsType leftType typ
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, commonRefIsType state v typ)) |> Merging.merge
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
@@ -137,12 +137,12 @@ module internal TypeCasting =
             let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
             addressIsAddress leftAddr leftType rightAddr rightType
         | Ref leftAddress, HeapRef(rightAddr, rightSightType) ->
-            let leftType = typeOfAddress leftAddress
+            let leftType = leftAddress.TypeOfLocation
             let rightType = Memory.mostConcreteTypeOfHeapRef state rightAddr rightSightType
             typeIsAddress leftType rightAddr rightType
         | HeapRef(leftAddr, leftSightType), Ref rightAddress ->
             let leftType = Memory.mostConcreteTypeOfHeapRef state leftAddr leftSightType
-            let rightType = typeOfAddress rightAddress
+            let rightType = rightAddress.TypeOfLocation
             addressIsType leftAddr leftType rightType
         | Union gvs, _ -> gvs |> List.map (fun (g, v) -> (g, refIsRef state v rightRef)) |> Merging.merge
         | _, Union gvs -> gvs |> List.map (fun (g, v) -> (g, refIsRef state leftRef v)) |> Merging.merge
@@ -202,7 +202,7 @@ module internal TypeCasting =
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress typ' offset
-        | Ref address, _ when typeOfAddress address = targetType -> term
+        | Ref address, _ when address.TypeOfLocation = targetType -> term
         | Ref address, _ ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress targetType offset
@@ -212,7 +212,10 @@ module internal TypeCasting =
             Logger.trace $"Unsafe cast in safe context: address {term}, type {targetType}"
             term
 //            Ptr (HeapLocation addr) typ (makeNumber 0)
+        | Struct(_ , t), _ when t = targetType -> term
         | Struct _, _ -> internalfailf $"Casting struct to {targetType}"
+        | Combined(slices, t), _ when isPointer t && isPointer targetType ->
+            combine slices targetType
         | _ -> internalfailf $"Can't cast {term} to type {targetType}"
 
     let canCast state term targetType =

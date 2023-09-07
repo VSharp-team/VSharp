@@ -12,17 +12,13 @@ module Runtime_CompilerServices_RuntimeHelpers =
     // Example: any value type, because it doesn't have metadata
     let IsBitwiseEquatable (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = List.head args
-        match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool typ.IsValueType
-        | _ -> __unreachable__()
+        let typ = List.head args |> Helpers.unwrapType
+        MakeBool typ.IsValueType
 
     let IsReferenceOrContainsReferences (_ : state) (args : term list) : term =
         assert(List.length args = 1)
-        let typ = List.head args
-        match typ with
-        | {term = Concrete(:? Type as typ, _)} -> MakeBool (Reflection.isReferenceOrContainsReferences typ)
-        | _ -> __unreachable__()
+        let typ = List.head args |> Helpers.unwrapType
+        MakeBool (Reflection.isReferenceOrContainsReferences typ)
 
     let CommonGetHashCode (state : state) (args : term list) : term =
         assert(List.length args = 1)

@@ -68,13 +68,10 @@ module public List =
     let public cartesianMap mapper = cartesian >> Seq.map mapper
 
     let lastAndRest xs =
-        let rec lastAndRest x xs k =
-            match xs with
-            | [] -> k x []
-            | y::ys -> lastAndRest y ys (fun c cs -> k c (x::cs))
-        match xs with
-        | [] -> internalfail "List.last of empty list!"
-        | x::xs -> lastAndRest x xs makePair
+        assert(List.isEmpty xs |> not)
+        let last = List.last xs
+        let len = List.length xs
+        last, List.take (len - 1) xs
 
     let rec mapLast f = function
         | [x] -> [f x]
@@ -221,6 +218,72 @@ module Array =
                         i :: tail
             | _ -> List.empty
         }
+
+    let private indexedArrayElemsCommon (arr : Array) =
+        let ubs = Array.init arr.Rank arr.GetUpperBound
+        let lbs = Array.init arr.Rank arr.GetLowerBound
+        let idx = Array.copy lbs
+        let rec incrementIdx d =
+            if d >= 0 then
+                if idx[d] = ubs[d] then
+                    idx[d] <- lbs[d]
+                    incrementIdx (d - 1)
+                else
+                    idx[d] <- idx[d] + 1
+        seq {
+            for element in arr do
+                yield idx |> Array.toList, element
+                incrementIdx <| arr.Rank - 1
+        }
+
+    let private indexedArrayElemsLin (arr : Array) =
+        let mutable idx = arr.GetLowerBound(0)
+        seq {
+            for element in arr do
+                yield List.singleton idx, element
+                idx <- idx + 1
+        }
+
+    let getArrayIndicesWithValues (array : Array) =
+        assert(array <> null)
+        let arrayType = array.GetType()
+        let isLinear = arrayType.IsSZArray
+        let elemType = arrayType.GetElementType()
+        match array with
+        // Any T[] when T is reference type is matched with 'array<obj>'
+        | :? array<obj> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<bool> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<char> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<single> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | :? array<double> as a -> Array.mapi (fun i x -> (List.singleton i, x :> obj)) a :> seq<int list * obj>
+        | _ when isLinear ->
+            match array with
+            | _ when elemType = typeof<int8> ->
+                let a = array :?> array<int8>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint8> ->
+                let a = array :?> array<uint8>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int16> ->
+                let a = array :?> array<int16>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint16> ->
+                let a = array :?> array<uint16>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int> ->
+                let a = array :?> array<int>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint> ->
+                let a = array :?> array<uint>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<int64> ->
+                let a = array :?> array<int64>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ when elemType = typeof<uint64> ->
+                let a = array :?> array<uint64>
+                (Array.mapi (fun i x -> (List.singleton i, x :> obj)) a) :> seq<int list * obj>
+            | _ -> indexedArrayElemsLin array
+        | _ -> indexedArrayElemsCommon array
 
     let fillFast<'a> (arr : Array) (value : 'a) =
         let bytePtr = &MemoryMarshal.GetArrayDataReference arr

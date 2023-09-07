@@ -25,6 +25,7 @@ module internal String =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
         let ref = ReadOnlySpan.GetContentsRef state span
+        assert(TypeOf ref |> TypeUtils.isArrayType)
         let len = ReadOnlySpan.GetLength state span
         match Memory.StringCtorOfCharArrayAndLen state ref this len with
         | [ _ ] -> Nop()

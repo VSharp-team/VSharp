@@ -600,10 +600,11 @@ public static class TestsRenderer
                 var methodType = method.DeclaringType;
                 CompactRepresentations = test.CompactRepresentations;
                 BoxedLocations = test.BoxedLocations;
-                Debug.Assert(methodType != null &&
-                    (methodType.IsGenericType && declaringType.IsGenericType &&
-                     methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition() ||
-                     methodType == declaringType));
+                Debug.Assert(methodType != null);
+                Debug.Assert(
+                    methodType == declaringType
+                    || methodType.IsGenericType && declaringType.IsGenericType
+                    && methodType.GetGenericTypeDefinition() == declaringType.GetGenericTypeDefinition());
 
                 if (method.IsConstructor)
                     throw new NotImplementedException("rendering constructors not supported yet");
@@ -627,11 +628,15 @@ public static class TestsRenderer
                         .Select(arg => arg.ParameterType)
                         .Any(type => type.IsPointer);
                 var modifiers = isUnsafe ? new[] { Public, Unsafe } : new[] { Public };
-                var attributes =
-                    RenderAttributeList(
-                        RenderAttribute("Test"),
-                        RenderAttribute("Category", "Generated")
-                    );
+
+                var attributeList = new List<AttributeSyntax>
+                {
+                    RenderAttribute("Test"),
+                    RenderAttribute("Category", "Generated")
+                };
+                if (test.IsFatalError)
+                    attributeList.Add(RenderAttribute("Category", "FatalError"));
+                var attributes = RenderAttributeList(attributeList);
 
                 var testRenderer = generatedClass.AddMethod(
                     testName + suiteTypeName,

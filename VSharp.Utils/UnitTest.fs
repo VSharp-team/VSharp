@@ -24,6 +24,7 @@ type testInfo = {
     thisArg : obj
     args : obj array
     isError : bool
+    isFatalError : bool
     expectedResult : obj
     throwsException : typeRepr
     classTypeParameters : typeRepr array
@@ -44,6 +45,7 @@ with
         thisArg = null
         args = null
         isError = false
+        isFatalError = false
         expectedResult = null
         classTypeParameters = Array.empty
         methodTypeParameters = Array.empty
@@ -65,6 +67,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
     let thisArg = memoryGraph.DecodeValue info.thisArg
     let args = if info.args = null then null else info.args |> Array.map memoryGraph.DecodeValue
     let isError = info.isError
+    let isFatalError = info.isFatalError
     let errorMessage = info.errorMessage
     let expectedResult = memoryGraph.DecodeValue info.expectedResult
     let compactRepresentations = memoryGraph.CompactRepresentations()
@@ -91,6 +94,12 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
         and set (e : bool) =
             let t = typeof<testInfo>
             let p = t.GetProperty("isError")
+            p.SetValue(info, e)
+    member x.IsFatalError
+        with get() = isFatalError
+        and set (e : bool) =
+            let t = typeof<testInfo>
+            let p = t.GetProperty("isFatalError")
             p.SetValue(info, e)
     member x.ErrorMessage
         with get() = errorMessage
@@ -215,7 +224,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
                     assert(res <> null)
                     res
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
-            let method = mdle.ResolveMethod(ti.token)
+            let method = mdle.ResolveMethod(ti.token) |> AssemblyManager.NormalizeMethod
             let declaringType = method.DeclaringType
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
             let concreteDeclaringType = Reflection.concretizeTypeParameters method.DeclaringType tp

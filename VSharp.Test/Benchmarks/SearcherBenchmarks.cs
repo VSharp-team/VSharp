@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using VSharp.Interpreter.IL;
 
 namespace VSharp.Test.Benchmarks;
 
@@ -11,39 +12,40 @@ public class SearcherBenchmarks
     [TestCaseSource(typeof(VSharpTargets), nameof(VSharpTargets.LoanExam))]
     public void SearchersEvaluation(BenchmarkTarget target)
     {
+        var executionTreeContributedCoverageMode = searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1);
         var stepsLimit = 40000u;
-        TestContext.Out.WriteLine("Running BFS...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.BFS, out var bfsResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running DFS...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.DFS, out var dfsResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Contributed coverage...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ContributedCoverage, out var contributedCoverageResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Shortest distance...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ShortestDistance, out var shortestDistanceResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Shortest distance (random)...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.RandomShortestDistance, out var randomShortestDistanceResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Shortest distance (random, 2)...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.RandomShortestDistance, out var randomShortestDistanceResults2, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100));
-        TestContext.Out.WriteLine("Running Execution tree interleaved...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ExecutionTreeContributedCoverage, out var executionTreeResultsInterleaved, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Execution tree interleaved (2)...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ExecutionTreeContributedCoverage, out var executionTreeResultsInterleaved2, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100));
-        TestContext.Out.WriteLine("Running Execution tree...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ExecutionTree, out var executionTreeResults, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0));
-        TestContext.Out.WriteLine("Running Execution tree (2)...");
-        Assert.True(Benchmarks.RunBenchmark(target, VSharp.SearchStrategy.ExecutionTree, out var executionTreeResults2, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100));
-        var stats = new List<(string, Statistics, int)>
+        TestContext.Progress.WriteLine("Running BFS...");
+        var bfsResults = Benchmarks.Run(target, searchMode.BFSMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running DFS...");
+        var dfsResults = Benchmarks.Run(target, searchMode.DFSMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Contributed coverage...");
+        var contributedCoverageResults = Benchmarks.Run(target, searchMode.ContributedCoverageMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Shortest distance...");
+        var shortestDistanceResults = Benchmarks.Run(target, searchMode.ShortestDistanceBasedMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Shortest distance (random)...");
+        var randomShortestDistanceResults = Benchmarks.Run(target, searchMode.RandomShortestDistanceBasedMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Shortest distance (random, 2)...");
+        var randomShortestDistanceResults2 = Benchmarks.Run(target, searchMode.RandomShortestDistanceBasedMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Execution tree interleaved...");
+        var executionTreeResultsInterleaved = Benchmarks.Run(target, executionTreeContributedCoverageMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Execution tree interleaved (2)...");
+        var executionTreeResultsInterleaved2 = Benchmarks.Run(target, executionTreeContributedCoverageMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Execution tree...");
+        var executionTreeResults = Benchmarks.Run(target, executionTreeContributedCoverageMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 0, calculateCoverage: true);
+        TestContext.Progress.WriteLine("Running Execution tree (2)...");
+        var executionTreeResults2 = Benchmarks.Run(target, executionTreeContributedCoverageMode, stepsLimit: stepsLimit, releaseBranches: false, randomSeed: 100, calculateCoverage: true);
+        var stats = new List<(string, BenchmarkResult)>
         {
-            ("BFS", bfsResults, Benchmarks.GetMethodCoverage(target, bfsResults)),
-            ("DFS", dfsResults, Benchmarks.GetMethodCoverage(target, dfsResults)),
-            ("Contributed coverage", contributedCoverageResults, Benchmarks.GetMethodCoverage(target, contributedCoverageResults)),
-            ("Shortest distance", shortestDistanceResults, Benchmarks.GetMethodCoverage(target, shortestDistanceResults)),
-            ("Random shortest distance (1)", randomShortestDistanceResults, Benchmarks.GetMethodCoverage(target, randomShortestDistanceResults)),
-            ("Random shortest distance (2)", randomShortestDistanceResults2, Benchmarks.GetMethodCoverage(target, randomShortestDistanceResults2)),
-            ("Execution tree int (1)", executionTreeResultsInterleaved, Benchmarks.GetMethodCoverage(target, executionTreeResultsInterleaved)),
-            ("Execution tree int (2)", executionTreeResultsInterleaved2, Benchmarks.GetMethodCoverage(target, executionTreeResultsInterleaved2)),
-            ("Execution tree (1)", executionTreeResults, Benchmarks.GetMethodCoverage(target, executionTreeResults)),
-            ("Execution tree (2)", executionTreeResults2, Benchmarks.GetMethodCoverage(target, executionTreeResults2)),
+            ("BFS", bfsResults),
+            ("DFS", dfsResults),
+            ("Contributed coverage", contributedCoverageResults),
+            ("Shortest distance", shortestDistanceResults),
+            ("Random shortest distance (1)", randomShortestDistanceResults),
+            ("Random shortest distance (2)", randomShortestDistanceResults2),
+            ("Execution tree int (1)", executionTreeResultsInterleaved),
+            ("Execution tree int (2)", executionTreeResultsInterleaved2),
+            ("Execution tree (1)", executionTreeResults),
+            ("Execution tree (2)", executionTreeResults2)
         };
         Benchmarks.PrintStatisticsComparison(stats);
     }
@@ -51,21 +53,20 @@ public class SearcherBenchmarks
     [Test]
     public void BizHawkLR35902IsCoveredWithExecutionTreeInterleavedSearcher([Values(0, 42, 73)] int randomSeed)
     {
+        var executionTreeContributedCoverageMode = searchMode.NewInterleavedMode(searchMode.ExecutionTreeMode, 1, searchMode.ContributedCoverageMode, 1);
         var target = BizHawkTargets.LR35902().Single(t => t.Method.Name.Contains("ExecuteOne"));
         var stepsLimit = 30000u;
-        Assert.True(
-            Benchmarks.RunBenchmark(
-                target,
-                VSharp.SearchStrategy.ExecutionTreeContributedCoverage,
-                out var statistics,
-                stepsLimit: stepsLimit,
-                releaseBranches: false,
-                randomSeed: randomSeed,
-                renderAndBuildTests: true
-            )
+        var result = Benchmarks.Run(
+            target,
+            executionTreeContributedCoverageMode,
+            stepsLimit: stepsLimit,
+            releaseBranches: false,
+            randomSeed: randomSeed,
+            renderAndBuildTests: true,
+            calculateCoverage: true
         );
-        var coverage = Benchmarks.GetMethodCoverage(target, statistics);
-        TestContext.Out.WriteLine($"Coverage: {coverage}%");
-        Assert.That(coverage, Is.GreaterThan(90));
+        Assert.IsTrue(result.IsSuccessful);
+        TestContext.Out.WriteLine($"Coverage: {result.Coverage}%");
+        Assert.That(result.Coverage, Is.GreaterThan(90));
     }
 }

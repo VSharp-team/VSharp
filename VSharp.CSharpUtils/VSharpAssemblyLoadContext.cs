@@ -13,6 +13,8 @@ namespace VSharp.CSharpUtils
     {
         private readonly Dictionary<string, AssemblyDependencyResolver> _resolvers = new();
 
+        private readonly Dictionary<string, Assembly> _assemblies = new();
+
         private readonly Dictionary<string, Type> _types = new();
 
         public event Func<string, string?>? ExtraResolver;
@@ -82,22 +84,29 @@ namespace VSharp.CSharpUtils
 
         public new Assembly LoadFromAssemblyPath(string path)
         {
+            if (_assemblies.TryGetValue(path, out var assembly))
+            {
+                return assembly;
+            }
+
             if (!_resolvers.ContainsKey(path))
             {
                 _resolvers[path] = new AssemblyDependencyResolver(path);
             }
 
             var asm = base.LoadFromAssemblyPath(path);
+            _assemblies.Add(path, asm);
 
             foreach (var t in asm.GetTypesChecked())
             {
-                if (t.FullName is null)
+                var type = t.IsGenericType ? t.GetGenericTypeDefinition() : t;
+                if (type.FullName is null)
                 {
                     // Case for types, that contains open generic parameters
                     continue;
                 }
 
-                _types[t.FullName] = t;
+                _types[type.FullName] = type;
             }
             return asm;
         }
@@ -107,10 +116,11 @@ namespace VSharp.CSharpUtils
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
-            if (t.IsGenericType)
+            if (t is { IsGenericType: true, IsGenericTypeDefinition: false })
             {
+                var normalized = NormalizeType(t.GetGenericTypeDefinition());
                 var fixedGenericTypes = t.GetGenericArguments().Select(NormalizeType).ToArray();
-                return t.GetGenericTypeDefinition().MakeGenericType(fixedGenericTypes);
+                return normalized.MakeGenericType(fixedGenericTypes);
             }
 
             return _types.GetValueOrDefault(t.FullName ?? t.Name, t);

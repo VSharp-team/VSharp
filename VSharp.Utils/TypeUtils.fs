@@ -162,31 +162,40 @@ module TypeUtils =
             sizeOfs.Add(typ, sizeOf)
             sizeOf
 
-    let internalSizeOf (typ: Type) : int32 =
-        if typ = typeof<IntPtr> || typ = typeof<UIntPtr> then
-            nativeSize
-        else
-            let sizeOf = getSizeOf(typ)
-            sizeOf.Invoke() |> int
-
     let numericSizeOf (typ: Type) : uint32 =
         let typ = if typ.IsEnum then getEnumUnderlyingTypeChecked typ else typ
         assert(isNumeric typ)
         match typ with
-        | _ when typ = typeof<int8> -> 8u
-        | _ when typ = typeof<uint8> -> 8u
-        | _ when typ = typeof<int16> -> 16u
-        | _ when typ = typeof<uint16> -> 16u
-        | _ when typ = typeof<char> -> 16u
-        | _ when typ = typeof<int32> -> 32u
-        | _ when typ = typeof<uint32> -> 32u
-        | _ when typ = typeof<float32> -> 32u
-        | _ when typ = typeof<int64> -> 64u
-        | _ when typ = typeof<uint64> -> 64u
-        | _ when typ = typeof<float> -> 64u
-        | _ when typ = typeof<IntPtr> -> uint (nativeSize * 8)
-        | _ when typ = typeof<UIntPtr> -> uint (nativeSize * 8)
+        | _ when typ = typeof<int8> -> uint sizeof<int8>
+        | _ when typ = typeof<uint8> -> uint sizeof<uint8>
+        | _ when typ = typeof<int16> -> uint sizeof<int16>
+        | _ when typ = typeof<uint16> -> uint sizeof<uint16>
+        | _ when typ = typeof<char> -> uint sizeof<char>
+        | _ when typ = typeof<int32> -> uint sizeof<int32>
+        | _ when typ = typeof<uint32> -> uint sizeof<uint32>
+        | _ when typ = typeof<float32> -> uint sizeof<float32>
+        | _ when typ = typeof<int64> -> uint sizeof<int64>
+        | _ when typ = typeof<uint64> -> uint sizeof<uint64>
+        | _ when typ = typeof<float> -> uint sizeof<float>
+        | _ when typ = typeof<IntPtr> -> uint nativeSize
+        | _ when typ = typeof<UIntPtr> -> uint nativeSize
         | _ -> __unreachable__()
+
+    let internalSizeOf (typ: Type) : int32 =
+        if isNative typ || typ.IsByRef || not typ.IsValueType then nativeSize
+        elif isNumeric typ then numericSizeOf typ |> int
+        elif typ.ContainsGenericParameters then
+            __insufficientInformation__ $"SizeOf: cannot calculate size of generic type {typ}"
+        else
+            let sizeOf = getSizeOf(typ)
+            sizeOf.Invoke() |> int
+
+    let numericBitSizeOf (typ: Type) : uint32 =
+        numericSizeOf typ * 8u
+
+    let bitSizeOfType t (resultingType : Type) =
+        let size = internalSizeOf(t) * 8
+        Convert.ChangeType(size, resultingType)
 
     let isSubtypeOrEqual (t1 : Type) (t2 : Type) = t2.IsAssignableFrom(t1)
     let isPointer (t : Type) = t.IsPointer
@@ -196,7 +205,7 @@ module TypeUtils =
             if isValueTypeParameter t then true
             elif isReferenceTypeParameter t then false
             else __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | t -> t.IsValueType && t <> typeof<AddressTypeAgent>
+        | t -> t.IsValueType && t <> addressType
 
     let isNullable = function
         | (t : Type) when t.IsGenericParameter ->
@@ -226,6 +235,10 @@ module TypeUtils =
 
     let (|StringType|_|) = function
         | typ when typ = typeof<string> -> Some()
+        | _ -> None
+
+    let (|Native|_|) = function
+        | typ when isNative typ -> Some()
         | _ -> None
 
     let private getGenericDefinition (dotNetType : Type) =
@@ -263,7 +276,7 @@ module TypeUtils =
         | _ -> None
 
     let (|ValueType|_|) = function
-        | StructType(t, [||]) when t = typeof<AddressTypeAgent> -> None
+        | StructType(t, [||]) when t = addressType -> None
         | StructType _
         | Numeric _
         | Bool -> Some(ValueType)
@@ -312,8 +325,6 @@ module TypeUtils =
         | InterfaceType(_, parameters) when Array.exists isOpenType parameters -> true
         | ArrayType(t, _) when isOpenType t -> true
         | _ -> false
-
-    let bitSizeOfType t (resultingType : Type) = Convert.ChangeType(internalSizeOf(t) * 8, resultingType)
 
     let rankOf = function
         | ArrayType(_, dim) ->
@@ -488,7 +499,7 @@ module TypeUtils =
         elif rightType = null then leftType
         elif rightType.IsAssignableFrom(leftType) then leftType
         else
-            assert(leftType.IsAssignableFrom(rightType))
+            assert leftType.IsAssignableFrom(rightType)
             rightType
     // --------------------------------------- Operation target type ---------------------------------------
 

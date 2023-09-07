@@ -48,10 +48,10 @@ type Copier () =
             let a' = Array.CreateInstance(typ.GetElementType(), lengths, lowerBounds)
             let phys' = {object = a'}
             copiedObjects.Add(phys, phys')
-            let indices = Array.allIndicesViaLens (Array.toList lowerBounds) (Array.toList lengths)
-            for index in indices do
+            let indicesWithValues = Array.getArrayIndicesWithValues a
+            for index, v in indicesWithValues do
                 let index = List.toArray index
-                let v' = deepCopyObject {object = a.GetValue index}
+                let v' = deepCopyObject {object = v}
                 a'.SetValue(v'.object, index)
             phys'
         | :? String as s ->

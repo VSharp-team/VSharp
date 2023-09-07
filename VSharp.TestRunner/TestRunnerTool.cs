@@ -46,13 +46,11 @@ namespace VSharp.TestRunner
                 try
                 {
                     object? result;
-                    string message = test.ErrorMessage;
-                    var debugAssertFailed = message != null && message.Contains("Debug.Assert failed");
-                    bool shouldInvoke = suiteType switch
+                    var shouldInvoke = suiteType switch
                     {
                         SuiteType.TestsOnly => !test.IsError || fileMode,
                         SuiteType.ErrorsOnly => test.IsError || fileMode,
-                        SuiteType.TestsAndErrors => !debugAssertFailed || fileMode,
+                        SuiteType.TestsAndErrors => !test.IsFatalError || fileMode,
                         _ => false
                     };
                     if (shouldInvoke)

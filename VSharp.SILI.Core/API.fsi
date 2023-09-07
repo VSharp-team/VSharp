@@ -31,11 +31,8 @@ module API =
     val PerformUnaryOperation : OperationType -> term -> (term -> 'a) -> 'a
 
     val SolveGenericMethodParameters : typeStorage -> IMethod -> (symbolicType[] * symbolicType[]) option
+    val SolveThisType : state -> term -> unit
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
-
-    val ConfigureErrorReporter : (state -> string -> unit) -> unit
-    val ErrorReporter : string -> (state -> term -> unit)
-    val UnspecifiedErrorReporter : unit -> (state -> term -> unit)
 
     val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
     val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
@@ -84,6 +81,7 @@ module API =
         val IsRefOrPtr : term -> bool
         val IsConcrete : term -> bool
         val IsNullReference : term -> term
+        val IsBadRef : term -> term
 
         val (|ConcreteHeapAddress|_|) : termNode -> concreteHeapAddress option
 
@@ -119,6 +117,8 @@ module API =
         val (|TypeSubtypeRefSource|_|) : ISymbolicConstantSource -> option<Type * heapAddress>
         val (|RefSubtypeRefSource|_|) : ISymbolicConstantSource -> option<heapAddress * heapAddress>
         val (|GetHashCodeSource|_|) : ISymbolicConstantSource -> option<term>
+        val (|PointerAddressSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource>
+        val (|PointerOffsetSource|_|) : ISymbolicConstantSource -> option<ISymbolicConstantSource>
 
         val (|Int8T|_|) : term -> option<unit>
         val (|UInt8T|_|) : term -> option<unit>
@@ -193,6 +193,7 @@ module API =
         val (>>=) : term -> term -> term
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
+        val GreaterOrEqualUn : term -> term -> term
         val Mul : term -> term -> term
         val Sub : term -> term -> term
         val Add : term -> term -> term
@@ -244,15 +245,23 @@ module API =
         val NewStackFrame : state -> IMethod option -> (stackKey * term option * Type) list -> unit
         val NewTypeVariables : state -> (Type * Type) list -> unit
 
+        val StringArrayInfo : state -> term -> term option -> term * arrayType
+
         val ReferenceArrayIndex : state -> term -> term list -> Type option -> term
         val ReferenceField : state -> term -> fieldId -> term
 
+        val ExtractAddress : term -> term
+        val ExtractPointerOffset : term -> term
+
         val Read : state -> term -> term
+        val ReadUnsafe : IErrorReporter -> state -> term -> term
         val ReadLocalVariable : state -> stackKey -> term
         val ReadThis : state -> IMethod -> term
         val ReadArgument : state -> ParameterInfo -> term
         val ReadField : state -> term -> fieldId -> term
+        val ReadFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term
         val ReadArrayIndex : state -> term -> term list -> Type option -> term
+        val ReadArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> Type option -> term
         val ReadStringChar : state -> term -> term -> term
         val ReadStaticField : state -> Type -> fieldId -> term
         val ReadDelegate : state -> term -> term option
@@ -263,10 +272,13 @@ module API =
         val InitializeArray : state -> term -> term -> unit
 
         val Write : state -> term -> term -> state list
+        val WriteUnsafe : IErrorReporter -> state -> term -> term -> state list
         val WriteStackLocation : state -> stackKey -> term -> unit
         val WriteStructField : term -> fieldId -> term -> term
+        val WriteStructFieldUnsafe : IErrorReporter -> state -> term -> fieldId -> term -> term
         val WriteClassField : state -> term -> fieldId -> term -> state list
         val WriteArrayIndex : state -> term -> term list -> term -> Type option -> state list
+        val WriteArrayIndexUnsafe : IErrorReporter -> state -> term -> term list -> term -> Type option -> state list
         val WriteStaticField : state -> Type -> fieldId -> term -> unit
 
         val DefaultOf : Type -> term
@@ -281,6 +293,7 @@ module API =
         val BoxValueType : state -> term -> term
 
         val InitializeStaticMembers : state -> Type -> unit
+        val MarkTypeInitialized : state -> Type -> unit
 
         val InitFunctionFrame : state -> IMethod -> term option -> term option list option -> unit
         val AllocateTemporaryLocalVariable : state -> int -> Type -> term -> term

@@ -16,7 +16,10 @@ module internal Pointers =
     // NOTE: returns 'ptr', shifted by 'shift' bytes
     let private shift ptr shift =
         match ptr.term with
-        | Ptr(address, typ, shift') -> Ptr address typ (add shift' shift)
+        | Ptr(address, typ, shift') ->
+            assert(typeOf shift' = typeof<int>)
+            let shift = primitiveCast shift typeof<int>
+            Ptr address typ (add shift' shift)
         | _ -> __unreachable__()
 
     let private getFieldOffset fieldId =
@@ -38,8 +41,8 @@ module internal Pointers =
             HeapLocation(heapAddress, typ), mul index sizeOfElement
         // TODO: Address function should use Ptr instead of Ref
         | ArrayIndex _ -> internalfail "ref should not be used for multidimensional array index!"
-        | BoxedLocation(concreteHeapAddress, typ) ->
-            let baseAddress = HeapLocation(ConcreteHeapAddress concreteHeapAddress, typ)
+        | BoxedLocation(heapAddress, typ) ->
+            let baseAddress = HeapLocation(heapAddress, typ)
             baseAddress, makeNumber 0
         | StackBufferIndex _ -> internalfail "addressToBaseAndOffset: StackBufferIndex case is not implemented"
         | PrimitiveStackLocation loc ->
@@ -100,6 +103,18 @@ module internal Pointers =
     let isNull heapReference =
         simplifyReferenceEqualityk heapReference (nullRef (typeOf heapReference)) id
 
+    let rec isBadRef ref =
+        match ref.term with
+        | Ptr(HeapLocation(address, _), _, _) ->
+            simplifyEqual address (zeroAddress()) id
+        | Ptr _ -> False()
+        | _ when isReference ref -> isNull ref
+        | _ when typeOf ref |> isNative -> True()
+        | Union gvs ->
+            let gvs = List.map (fun (g, v) -> (g, isBadRef v)) gvs
+            Merging.merge gvs
+        | _ -> False()
+
 // -------------------------- Address arithmetic --------------------------
 
     // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
@@ -108,12 +123,12 @@ module internal Pointers =
         | _ when bytesToShift = makeNumber 0 -> k ptr
         | Ptr _ -> shift ptr bytesToShift |> k
         | Ref address ->
-            let typ = typeOfAddress address
+            let typ = address.TypeOfLocation
             let baseAddress, offset = addressToBaseAndOffset address
             let ptr = Ptr baseAddress typ offset
             shift ptr bytesToShift |> k
         | HeapRef(address, t) ->
-            assert(t.IsArray)
+            assert t.IsArray
             let ptrType = t.GetElementType().MakePointerType()
             Ptr (HeapLocation(address, t)) ptrType bytesToShift |> k
         | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
@@ -183,8 +198,13 @@ module internal Pointers =
             let number1 = add base1 o1
             let number2 = add base2 o2
             simplifyBinaryOperation op number1 number2 k
-        | _ ->
-            __notImplemented__()
+        | DetachedPtr offset, _ when typeOf y |> isNative ->
+            simplifyBinaryOperation op offset y k
+        | _, DetachedPtr offset when typeOf x |> isNative ->
+            simplifyBinaryOperation op x offset k
+        | Ptr(HeapLocation _, _, _), Ptr(HeapLocation _, _, _) ->
+            __insufficientInformation__ "simplifyPointerComparison: unable to compare symbolic pointers"
+        | _ -> __notImplemented__()
 
     let simplifyBinaryOperation op x y k =
         match op with

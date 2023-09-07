@@ -233,15 +233,24 @@ module public Reflection =
         assert interfaceType.IsInterface
         if interfaceType = targetType then interfaceMethod
         else
-            let sign = createSignature interfaceMethod
+            let isGeneric = interfaceMethod.IsGenericMethod
+            let genericMethod =
+                if isGeneric then interfaceMethod.GetGenericMethodDefinition()
+                else interfaceMethod
+            let sign = createSignature genericMethod
             let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
-            match targetType with
-            | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
-            | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
-            | _ ->
-                let interfaceMap = targetType.GetInterfaceMap(interfaceType)
-                let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
-                interfaceMap.TargetMethods[targetMethodIndex]
+            let method =
+                match targetType with
+                | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
+                | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
+                | _ ->
+                    let interfaceMap = targetType.GetInterfaceMap(interfaceType)
+                    let targetMethodIndex = Array.findIndex hasTargetSignature interfaceMap.InterfaceMethods
+                    interfaceMap.TargetMethods[targetMethodIndex]
+            if isGeneric then
+                let genericArgs = interfaceMethod.GetGenericArguments()
+                method.GetGenericMethodDefinition().MakeGenericMethod(genericArgs)
+            else method
 
     let private virtualBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
@@ -483,7 +492,8 @@ module public Reflection =
                 method :> MethodBase
         | :? ConstructorInfo as ci ->
             assert(values.Length = 0)
-            declaringType.GetConstructors() |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
+            declaringType.GetConstructors(allBindingFlags)
+            |> Array.find (fun x -> x.MetadataToken = ci.MetadataToken) :> MethodBase
         | _ -> __notImplemented__()
 
     // --------------------------------- Fields ---------------------------------

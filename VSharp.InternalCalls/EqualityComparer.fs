@@ -32,10 +32,7 @@ module EqualityComparer =
     let internal get_Default (state : state) (args : term list) : term =
         assert(List.length args = 1)
         let wrappedType = List.head args
-        let typ =
-            match wrappedType with
-            | {term = Concrete(:? Type as typ, _)} -> typ
-            | _ -> __unreachable__()
+        let typ = Helpers.unwrapType wrappedType
         createEqualityComparer state typ
 
     let internal structuralEquality (state : state) block1 block2 =

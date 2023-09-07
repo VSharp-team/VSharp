@@ -484,8 +484,8 @@ type ApplicationGraph() =
                 let added = returnTo.IncomingCallEdges.Add returnFrom
                 assert added
 
-            let added = callTo.IncomingCallEdges.Add callFrom
-            assert added
+            // 'returnFrom' may be equal to 'callFrom'
+            callTo.IncomingCallEdges.Add callFrom |> ignore
 
     let moveState (initialPosition : codeLocation) (stateWithNewPosition : IGraphTrackableState) =
         // Not implemented yet

@@ -10,7 +10,21 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
-// TODO: add empty concrete memory class
+type concreteMemorySource =
+    | HeapSource
+    | StructFieldSource of concreteMemorySource * fieldId
+    | BoxedLocationSource of concreteHeapAddress
+    | ClassFieldSource of concreteHeapAddress * fieldId
+    | ArrayIndexSource of concreteHeapAddress * int list
+    | ArrayLowerBoundSource of concreteHeapAddress * int
+    | ArrayLengthSource of concreteHeapAddress * int
+    | StaticFieldSource of Type * fieldId
+    with
+    member x.StructField fieldId =
+        match x with
+        | HeapSource -> HeapSource
+        | _ -> StructFieldSource(x, fieldId)
+
 type IConcreteMemory =
     abstract Copy : unit -> IConcreteMemory
     abstract Contains : concreteHeapAddress -> bool
@@ -18,7 +32,9 @@ type IConcreteMemory =
     abstract TryVirtToPhys : concreteHeapAddress -> obj option
     abstract PhysToVirt : obj -> concreteHeapAddress
     abstract TryPhysToVirt : obj -> concreteHeapAddress option
-    abstract Allocate : concreteHeapAddress -> obj -> unit
+    abstract TryPhysToVirt : concreteMemorySource -> concreteHeapAddress option
+    abstract AllocateRefType : concreteHeapAddress -> obj -> unit
+    abstract AllocateValueType : concreteHeapAddress -> concreteMemorySource -> obj -> unit
     abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
     // TODO: too expensive! use Seq.iter2 instead with lazy indices sequence
@@ -349,10 +365,11 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
         let isPublicUser (t: Type) = TypeUtils.isPublic t && t.Assembly = userAssembly
         let isPrivateUser (t: Type) = not (TypeUtils.isPublic t) && t.Assembly = userAssembly
         let publicBuiltInTypes = types |> Seq.filter isPublicBuiltIn
-        let publicUserTypes = types |> Seq.filter isPublicUser
-        let privateUserTypes = types |> Seq.filter isPrivateUser
-        let predicates = [isPublicBuiltIn; isPublicUser; isPrivateUser]
-        let rest = List.fold (fun types predicate -> Seq.filter (predicate >> not) types) types predicates
+        let rest = types |> Seq.filter (isPublicBuiltIn >> not)
+        let publicUserTypes = rest |> Seq.filter isPublicUser
+        let rest = rest |> Seq.filter (isPublicUser >> not)
+        let privateUserTypes = rest |> Seq.filter isPrivateUser
+        let rest = rest |> Seq.filter (isPrivateUser >> not)
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
     member x.IsEmpty
@@ -397,6 +414,18 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
             | Some _ -> Seq.truncate (count - 1) orderedTypes
             | None -> Seq.truncate count orderedTypes
         candidates(types, mock, userAssembly)
+
+    member x.Eval() =
+        let publicBuiltInTypes = Seq.toList publicBuiltInTypes
+        let publicUserTypes = Seq.toList publicUserTypes
+        let privateUserTypes = Seq.toList privateUserTypes
+        let rest = Seq.toList rest
+        candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
+
+and IErrorReporter =
+    abstract ConfigureState : state -> unit
+    abstract ReportError : string -> term -> unit
+    abstract ReportFatalError : string -> term -> unit
 
 and
     [<ReferenceEquality>]

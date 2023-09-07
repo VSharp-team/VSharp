@@ -859,6 +859,8 @@ internal class MethodRenderer : CodeRenderer
                 double.PositiveInfinity => RenderPosInfinity(RenderType(typeof(double))),
                 float.NegativeInfinity => RenderNegInfinity(RenderType(typeof(float))),
                 double.NegativeInfinity => RenderNegInfinity(RenderType(typeof(double))),
+                // Using 'Literal($"{n}F", n)' to get data type suffix for float (for default it has not)
+                float n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal($"{n}F", n)),
                 // Using 'Literal($"{n}D", n)' to get data type suffix for double (for default it has not)
                 double n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal($"{n}D", n)),
                 decimal n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),

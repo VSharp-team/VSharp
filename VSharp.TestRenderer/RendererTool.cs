@@ -255,6 +255,8 @@ public static class Renderer
             {
                 return namespaceDecl.Name.ToString();
             }
+            case IncompleteMemberSyntax syntax:
+                return syntax.ToString();
             default:
             {
                 Logger.printLogString(Logger.Error, $"NameOfMember: unexpected case {member}");
