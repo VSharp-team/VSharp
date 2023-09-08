@@ -31,7 +31,6 @@ type cilState =
         mutable stepsNumber : uint
         mutable suspended : bool
         mutable targets : Set<codeLocation>
-        mutable lastPushInfo : term option
         /// <summary>
         /// All basic blocks visited by the state.
         /// </summary>
@@ -80,7 +79,6 @@ module CilStateOperations =
             stepsNumber = 0u
             suspended = false
             targets = Set.empty
-            lastPushInfo = None
             history = Set.empty
             entryMethod = Some entryMethod
             id = getNextStateId()
@@ -272,7 +270,6 @@ module CilStateOperations =
         | Nop -> internalfail "pushing 'NOP' value onto evaluation stack"
         | _ ->
             cilState.state.evaluationStack <- EvaluationStack.Push v cilState.state.evaluationStack
-            cilState.lastPushInfo <- Some v
 
     let pushMany vs (cilState : cilState) =
         if List.contains (Nop()) vs then
