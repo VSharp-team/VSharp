@@ -599,10 +599,18 @@ type ILInterpreter() as this =
         x.AccessArray (accessor this dimension) cilState upperBound dimension id
 
     member x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
+        let additionalCheck cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (!!(IsBadRef this), state))
+                statement
+                (fun cilState k ->
+                    ErrorReporter.ReportFatalError cilState "access violation"
+                    k [])
+                k
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsBadRef this, state))
+            (fun state k -> k (!!(IsNullReference this), state))
+            additionalCheck
             (x.Raise x.NullReferenceException)
-            statement
             k
 
     member private x.ShouldMock (method : Method) =
