@@ -10,3 +10,8 @@ module internal Helpers =
         match term.term with
         | Concrete(:? Type as t, _) -> t
         | _ -> internalfail $"InternalCalls: unexpected wrapped type {term}"
+
+module SetUp =
+
+    let ConfigureInternalCalls() =
+        Loader.SetInternalCallsAssembly (System.Reflection.Assembly.GetExecutingAssembly())

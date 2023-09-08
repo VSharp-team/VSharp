@@ -1,8 +1,10 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System.Collections.Generic
 open FSharpx.Collections
+
 open VSharp
+open VSharp.Interpreter.IL
 
 type BidirectionalSearcher(forward : IForwardSearcher, backward : IBackwardSearcher, targeted : ITargetedSearcher) =
 
@@ -123,7 +125,7 @@ type BackwardSearcher() =
     let addPob parent child =
         if not <| ancestorOf.ContainsKey(child) then
             ancestorOf.Add(child, List<_>())
-        ancestorOf.[child].Add(parent)
+        ancestorOf[child].Add(parent)
         doAddPob child
 
     let updateQBack s : pob list =
@@ -143,7 +145,7 @@ type BackwardSearcher() =
         if (not <| loc2pob.ContainsKey(p'.loc)) then
             assert(mainPobs.Contains p')
         else
-            let list = loc2pob.[p'.loc]
+            let list = loc2pob[p'.loc]
             list.Remove(p') |> ignore
             if list.Count = 0 then loc2pob.Remove(p'.loc) |> ignore
         currentPobs.Remove(p') |> ignore
@@ -151,14 +153,14 @@ type BackwardSearcher() =
         if Seq.contains p' mainPobs then
             mainPobs.Remove(p') |> ignore
         if not(answeredPobs.ContainsKey p') then answeredPobs.Add(p', Witnessed s')
-        else answeredPobs.[p'] <- Witnessed s'
+        else answeredPobs[p'] <- Witnessed s'
         Application.removeGoal p'.loc
         if ancestorOf.ContainsKey p' then
 //            assert(ancestorOf.[p'] <> null)
             Seq.iter (fun (ancestor : pob) ->
                 assert(p' <> ancestor)
                 if currentPobs.Contains(ancestor) || mainPobs.Contains(ancestor) then
-                    answerYes s' ancestor) ancestorOf.[p']
+                    answerYes s' ancestor) ancestorOf[p']
 
     let clear() =
         mainPobs.Clear()
@@ -185,7 +187,7 @@ type BackwardSearcher() =
 
         override x.Pick() =
             if qBack.Count > 0 then
-                let ps = qBack.[0]
+                let ps = qBack[0]
                 qBack.RemoveAt(0)
                 Propagate ps
             else NoAction
@@ -226,18 +228,18 @@ module DummyTargetedSearcher =
             assert(targets.ContainsKey from)
             let current = currentIp s
 
-            if isIIEState s || isUnhandledError s || not(isExecutable(s)) then
-                finished.[from].Add(s); Seq.empty
-            elif targets.[from].Contains(current) then addReached from s
+            if isIIEState s || isUnhandledExceptionOrError s || not(isExecutable(s)) then
+                finished[from].Add(s); Seq.empty
+            elif targets[from].Contains(current) then addReached from s
             else
-                let list = forPropagation.[from]
+                let list = forPropagation[from]
                 if not <| list.Contains s then list.Add(s)
                 Seq.empty
 
         interface ITargetedSearcher with
             override x.SetTargets from tos =
                 if not (targets.ContainsKey from) then targets.Add(from, List<ip>())
-                targets.[from].AddRange(tos)
+                targets[from].AddRange(tos)
 
             override x.Update parent children =
                 let from = parent.startingIP
@@ -245,7 +247,7 @@ module DummyTargetedSearcher =
                 Seq.map add (Seq.cons parent children) |> Seq.concat
 
             override x.Pick () =
-                targets.Keys |> Seq.tryPick (fun ip -> forPropagation.[ip] |> Seq.tryHead)
+                targets.Keys |> Seq.tryPick (fun ip -> forPropagation[ip] |> Seq.tryHead)
 
             override x.Reset () =
                 forPropagation.Clear()

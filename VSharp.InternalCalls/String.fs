@@ -2,8 +2,12 @@ namespace VSharp.System
 
 open FSharpx.Collections
 open global.System
+
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilStateOperations
+open VSharp.Core.API.Arithmetics
 
 // ------------------------------- mscorlib.System.Array -------------------------------
 
@@ -17,19 +21,52 @@ module internal String =
 
     let CtorFromReplicatedChar state args =
         assert(List.length args = 3)
-        let this, char, length = args.[0], args.[1], args.[2]
+        let this, char, length = args[0], args[1], args[2]
         Memory.StringFromReplicatedChar state this char length
         Nop()
 
-    let CtorFromSpan (state : state) (args : term list) : term =
+    let CtorFromSpan (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
-        let ref = ReadOnlySpan.GetContentsRef state span
+        let ref, len = ReadOnlySpan.GetContents cilState span
         assert(TypeOf ref |> TypeUtils.isArrayType)
-        let len = ReadOnlySpan.GetLength state span
-        match Memory.StringCtorOfCharArrayAndLen state ref this len with
-        | [ _ ] -> Nop()
-        | _ -> internalfail "CtorFromSpan: need to branch execution"
+        let states = Memory.StringCtorOfCharArrayAndLen cilState.state ref this len
+        List.map (changeState cilState) states
+
+    let CtorFromPtr (i : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 4)
+        let this = args[0]
+        let ptr = args[1]
+        let startIndex = args[2]
+        let length = args[3]
+        let zero = MakeNumber 0
+        let rangeCheck() =
+            (length >>= zero)
+            &&& (startIndex >>= zero)
+        let copy cilState k =
+            let cilStates = writeClassField cilState this Reflection.stringLengthField length
+            for cilState in cilStates do
+                Buffer.CommonMemmove cilState.state this None ptr (Some startIndex) length
+            k cilStates
+        let checkPtr cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (!!(IsBadRef ptr), state))
+                copy
+                (i.Raise i.ArgumentOutOfRangeException)
+                k
+        let emptyStringCase cilState k =
+            writeClassField cilState this Reflection.stringLengthField zero |> k
+        let checkLength cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (length === zero, state))
+                emptyStringCase
+                checkPtr
+                k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (rangeCheck(), state))
+            checkLength
+            (i.Raise i.ArgumentOutOfRangeException)
+            id
 
     let GetLength (state : state) (args : term list) =
         assert(List.length args = 1)
@@ -93,3 +130,32 @@ module internal String =
         assert(List.length args = 1)
         let length = List.head args
         Memory.AllocateEmptyString state length
+
+    let FillStringChecked (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 3)
+        let state = cilState.state
+        let dest, destPos, src = args[0], args[1], args[2]
+        let srcPos = MakeNumber 0
+        let srcLength = Memory.StringLength state src
+        let destLength = Memory.StringLength state dest
+        let (<<=) = Arithmetics.(<<=)
+        let check = srcLength <<= (Arithmetics.Sub destLength destPos)
+        let copy (cilState : cilState) k =
+            Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
+            k [cilState]
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (check, state))
+            copy
+            (interpreter.Raise interpreter.IndexOutOfRangeException)
+            id
+
+    let GetChars (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let this = args[0]
+        let index = args[1]
+        let length = Memory.StringLength cilState.state this
+        let getChar cilState k =
+            let char = Memory.ReadStringChar cilState.state this index
+            push char cilState
+            List.singleton cilState |> k
+        interpreter.AccessArray getChar cilState length index id

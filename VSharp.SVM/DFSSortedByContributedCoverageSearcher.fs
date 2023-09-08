@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System.Collections.Generic
 open Microsoft.FSharp.Core
@@ -24,12 +24,12 @@ type DFSSortedByContributedCoverageSearcher(statistics) =
 
     let comparer = Comparer.Create(compareWeightOpts)
     let getWeight = contributedCoverageWeighter.Weight
-    
+
     let update newStates =
         states.AddRange newStates
         // Stable sorting
         states <- states.OrderBy(getWeight, comparer).ToList()
-        
+
     interface IForwardSearcher with
         override x.Init initialStates = initialStates.OrderBy(getWeight, comparer) |> states.AddRange
         override x.Pick selector = Seq.tryFindBack selector states

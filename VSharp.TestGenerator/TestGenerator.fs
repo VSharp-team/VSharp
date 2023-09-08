@@ -207,7 +207,7 @@ module TestGenerator =
             test.MemoryGraph.RepresentStruct t fieldReprs
         | NullRef _
         | NullPtr -> null
-        | DetachedPtr offset ->
+        | DetachedPtrTerm offset ->
             let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
             test.MemoryGraph.RepresentDetachedPtr typeof<Void> offset
         | {term = Ptr(HeapLocation({term = ConcreteHeapAddress(addr)}, _), sightType, offset)} ->
@@ -351,13 +351,11 @@ module TestGenerator =
 
     let private model2test (test : UnitTest) suite indices mockCache (m : Method) model (state : state) =
         let suitableState state =
-            let methodHasByRefParameter = m.Parameters |> Seq.exists (fun pi -> pi.ParameterType.IsByRef)
-            if m.DeclaringType.IsValueType && not m.IsStatic || methodHasByRefParameter then
-                Memory.CallStackSize state = 2
+            if m.HasParameterOnStack then Memory.CallStackSize state = 2
             else Memory.CallStackSize state = 1
 
-        if not <| suitableState state
-            then internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
+        if not <| suitableState state then
+            internalfail "Finished state has many frames on stack! (possibly unhandled exception)"
 
         match model with
         | StateModel modelState -> modelState2test test suite indices mockCache m model modelState state

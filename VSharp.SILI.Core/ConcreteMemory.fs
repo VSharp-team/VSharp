@@ -73,7 +73,9 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 if exists && oldPhys = phys then
                     virtToPhys'.Add(virt, phys')
                 let key' = key.FromPhysicalAddress phys'
-                physToVirt'.Add(key', virt)
+                // Empty string is interned
+                if key' = RefKey {object = String.Empty} then physToVirt'[key'] <- virt
+                else physToVirt'.Add(key', virt)
             ConcreteMemory(physToVirt', virtToPhys')
 
 // ----------------------------- Primitives -----------------------------

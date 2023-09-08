@@ -205,7 +205,7 @@ module TypeUtils =
             if isValueTypeParameter t then true
             elif isReferenceTypeParameter t then false
             else __insufficientInformation__ "Can't determine if %O is a value type or not!" t
-        | t -> t.IsValueType && t <> addressType
+        | t -> t.IsValueType && t <> addressType && t <> typeof<Void>
 
     let isNullable = function
         | (t : Type) when t.IsGenericParameter ->
@@ -495,9 +495,13 @@ module TypeUtils =
     /// 'mostConcreteType' will return 'leftType'
     /// Example: mostConcreteType typeof<uint array> typeof<int array> == typeof<uint array>
     let inline mostConcreteType (leftType : Type) (rightType : Type) =
+        let isStringCase() =
+            rightType = typeof<string> && leftType = typeof<char[]>
+            || leftType = typeof<string> && rightType = typeof<char[]>
         if leftType = null then rightType
         elif rightType = null then leftType
         elif rightType.IsAssignableFrom(leftType) then leftType
+        elif isStringCase() then typeof<string>
         else
             assert leftType.IsAssignableFrom(rightType)
             rightType

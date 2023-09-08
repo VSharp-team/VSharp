@@ -1,8 +1,10 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 open System.Collections.Generic
+
 open VSharp
+open VSharp.Interpreter.IL
 
 type internal ExecutionTreeSearcher(randomSeed : int option) =
 

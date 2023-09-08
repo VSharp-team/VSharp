@@ -6,7 +6,7 @@ open VSharp.Core
 
 // ------------------------------ mscorlib.System.Threading.Volatile --------------------------------
 
-module Volatile =
+module internal Volatile =
 
     [<Implements("T System.Threading.Volatile.Read(T&)")>]
-    val internal Read : state -> term list -> term
+    val Read : state -> term list -> term

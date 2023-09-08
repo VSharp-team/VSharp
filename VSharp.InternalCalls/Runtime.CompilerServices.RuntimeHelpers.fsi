@@ -3,8 +3,9 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 
-module Runtime_CompilerServices_RuntimeHelpers =
+module internal Runtime_CompilerServices_RuntimeHelpers =
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsBitwiseEquatable()")>]
     val IsBitwiseEquatable : state -> term list -> term
@@ -23,3 +24,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.Equals(System.Object, System.Object)")>]
     val Equals : state -> term list -> term
+
+    [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)")>]
+    [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)")>]
+    val RunStaticCtor : IInterpreter -> cilState -> term list -> cilState list

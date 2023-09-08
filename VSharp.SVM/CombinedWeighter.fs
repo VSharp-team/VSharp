@@ -1,7 +1,6 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
-open VSharp.Interpreter.IL
 
 /// <summary>
 /// Combines two weighters using the given combinator function.

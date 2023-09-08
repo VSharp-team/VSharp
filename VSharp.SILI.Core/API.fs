@@ -114,8 +114,8 @@ module API =
 
         let ReinterpretConcretes terms t = reinterpretConcretes terms t
 
-        let TryPtrToArrayInfo pointerBase sightType offset =
-            Memory.tryPtrToArrayInfo pointerBase sightType offset
+        let TryPtrToRef state pointerBase sightType offset =
+            Memory.tryPtrToRef state pointerBase sightType offset
 
         let TryTermToObj state term = Memory.tryTermToObj state term
 
@@ -142,7 +142,8 @@ module API =
             | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress() && offset = makeNumber 0 -> Some()
             | _ -> None
 
-        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term.term
+        let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term
+        let (|DetachedPtrTerm|_|) term = (|DetachedPtr|_|) term.term
 
         let (|StackReading|_|) src = Memory.(|StackReading|_|) src
         let (|HeapReading|_|) src = Memory.(|HeapReading|_|) src
@@ -190,11 +191,7 @@ module API =
 
         let SpecializeWithKey constant key writeKey = Memory.specializeWithKey constant key writeKey
 
-        let rec HeapReferenceToBoxReference reference =
-            match reference.term with
-            | HeapRef(address, typ) -> Ref (BoxedLocation(address, typ))
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, HeapReferenceToBoxReference v)) |> Merging.merge
-            | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
+        let HeapReferenceToBoxReference reference = Memory.heapReferenceToBoxReference reference
 
         let AddConstraint conditionState condition =
             Memory.addConstraint conditionState condition
@@ -246,13 +243,19 @@ module API =
 
     module public Arithmetics =
         let (===) x y = simplifyEqual x y id
+        let Equality x y = simplifyEqual x y id
         let (!==) x y = simplifyNotEqual x y id
+        let Inequality x y = simplifyNotEqual x y id
         let (<<) x y = simplifyLess x y id
+        let Less x y = simplifyLess x y id
         let (<<=) x y = simplifyLessOrEqual x y id
+        let LessOrEqual x y = simplifyLessOrEqual x y id
         let (>>) x y = simplifyGreater x y id
+        let Greater x y = simplifyGreater x y id
         let (>>=) x y = simplifyGreaterOrEqual x y id
-        let (%%%) x y = simplifyRemainder true (TypeOf x) x y id
+        let GreaterOrEqual x y = simplifyGreaterOrEqual x y id
         let GreaterOrEqualUn x y = simplifyGreaterOrEqualUn x y id
+        let (%%%) x y = simplifyRemainder true (TypeOf x) x y id
 
         let Mul x y = mul x y
         let Sub x y = sub x y
@@ -324,8 +327,11 @@ module API =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
             match arrayRef.term with
             | HeapRef(addr, typ) ->
-                let elemType, dim, _ as arrayType =
-                    Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType
+                let t = Memory.mostConcreteTypeOfHeapRef state addr typ
+                let addr, (elemType, dim, _ as arrayType) =
+                    if TypeUtils.isArrayType t then
+                        addr, symbolicTypeToArrayType t
+                    else StringArrayInfo state addr None
                 assert(dim = List.length indices)
                 match valueType with
                 | Some valueType when not (IsSafeContext elemType valueType) ->
@@ -364,42 +370,8 @@ module API =
             | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex state v indices valueType)) |> Merging.merge
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
 
-        let rec ReferenceField state reference fieldId =
-            let declaringType = fieldId.declaringType
-            let isSuitableField address typ =
-                let typ = Memory.mostConcreteTypeOfHeapRef state address typ
-                declaringType.IsAssignableFrom typ
-            match reference.term with
-            | HeapRef(address, typ) when isSuitableField address typ |> not ->
-                // TODO: check this case with casting via "is"
-                Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
-                let offset = Reflection.getFieldIdOffset fieldId |> MakeNumber
-                Ptr (HeapLocation(address, typ)) fieldId.typ offset
-            | HeapRef(address, typ) when typ = typeof<string> && fieldId = Reflection.stringFirstCharField ->
-                let address, arrayType = Memory.stringArrayInfo state address None
-                ArrayIndex(address, [makeNumber 0], arrayType) |> Ref
-            | HeapRef(address, typ) when declaringType.IsValueType ->
-                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
-                assert(isSuitableField address typ)
-                let ref = HeapReferenceToBoxReference reference
-                ReferenceField state ref fieldId
-            | HeapRef(address, typ) ->
-                // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
-                assert(isSuitableField address typ)
-                ClassField(address, fieldId) |> Ref
-            | Ref address when declaringType.IsAssignableFrom(address.TypeOfLocation) ->
-                assert declaringType.IsValueType
-                StructField(address, fieldId) |> Ref
-            | Ref address ->
-                assert declaringType.IsValueType
-                let pointerBase, offset = AddressToBaseAndOffset address
-                let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
-                Ptr pointerBase fieldId.typ (add offset fieldOffset)
-            | Ptr(baseAddress, _, offset) ->
-                let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
-                Ptr baseAddress fieldId.typ (add offset fieldOffset)
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceField state v fieldId)) |> Merging.merge
-            | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
+        let ReferenceField state reference fieldId =
+            Memory.referenceField state reference fieldId
 
         let private transformBoxedRef ref =
             match ref.term with
@@ -424,8 +396,8 @@ module API =
                 | HeapRef _
                 | Ptr _
                 | Ref _ -> ReferenceField state target field |> Memory.read reporter state
-                | Struct _ -> Memory.readStruct reporter target field
-                | Combined _ -> Memory.readFieldUnsafe reporter target field
+                | Struct _ -> Memory.readStruct reporter state target field
+                | Combined _ -> Memory.readFieldUnsafe reporter state target field
                 | _ -> internalfailf "Reading field of %O" term
             Merging.guardedApply doRead term
 

@@ -71,7 +71,7 @@ module API =
 
         val ReinterpretConcretes : term list -> Type -> obj
 
-        val TryPtrToArrayInfo : Type -> Type -> term -> option<term list * arrayType>
+        val TryPtrToRef : state -> pointerBase -> Type -> term -> option<address>
 
         val TryTermToObj : state -> term -> obj option
 
@@ -99,7 +99,8 @@ module API =
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
         val (|NullPtr|_|) : term -> unit option
-        val (|DetachedPtr|_|) : term -> term option
+        val (|DetachedPtr|_|) : termNode -> term option
+        val (|DetachedPtrTerm|_|) : term -> term option
 
         val (|StackReading|_|) : ISymbolicConstantSource -> option<stackKey>
         val (|HeapReading|_|) : ISymbolicConstantSource -> option<heapAddressKey * memoryRegion<heapAddressKey, vectorTime intervals>>
@@ -194,6 +195,12 @@ module API =
         // Lightweight version: divide by zero exceptions are ignored!
         val (%%%) : term -> term -> term
         val GreaterOrEqualUn : term -> term -> term
+        val Equality : term -> term -> term
+        val Inequality : term -> term -> term
+        val Less : term -> term -> term
+        val LessOrEqual : term -> term -> term
+        val Greater : term -> term -> term
+        val GreaterOrEqual : term -> term -> term
         val Mul : term -> term -> term
         val Sub : term -> term -> term
         val Add : term -> term -> term

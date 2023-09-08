@@ -61,13 +61,13 @@ internal class CsvStatisticsReporter : IStatisticsReporter
             ReleaseBranchesEnabled: testStatistics.ReleaseBranchesEnabled.ToString(),
             Timeout: testStatistics.Timeout.ToString(),
             Exception: (testStatistics.Exception?.InnerException ?? testStatistics.Exception)?.GetType().Name ?? "",
-            Duration: testStatistics.SiliStatisticsDump?.time.ToString() ?? "",
+            Duration: testStatistics.SvmStatisticsDump?.time.ToString() ?? "",
             TestsGenerated: testStatistics.TestsGenerated.ToString() ?? "",
             Coverage: testStatistics.Coverage?.ToString() ?? "",
-            CoveringStepsInsideZone: testStatistics.SiliStatisticsDump?.coveringStepsInsideZone.ToString() ?? "",
-            NonCoveringStepsInsideZone: testStatistics.SiliStatisticsDump?.nonCoveringStepsInsideZone.ToString() ?? "",
-            CoveringStepsOutsideZone: testStatistics.SiliStatisticsDump?.coveringStepsOutsideZone.ToString() ?? "",
-            NonCoveringStepsOutsideZone: testStatistics.SiliStatisticsDump?.nonCoveringStepsOutsideZone.ToString() ?? "",
+            CoveringStepsInsideZone: testStatistics.SvmStatisticsDump?.coveringStepsInsideZone.ToString() ?? "",
+            NonCoveringStepsInsideZone: testStatistics.SvmStatisticsDump?.nonCoveringStepsInsideZone.ToString() ?? "",
+            CoveringStepsOutsideZone: testStatistics.SvmStatisticsDump?.coveringStepsOutsideZone.ToString() ?? "",
+            NonCoveringStepsOutsideZone: testStatistics.SvmStatisticsDump?.nonCoveringStepsOutsideZone.ToString() ?? "",
             TestsOutputDirectory: testStatistics.TestsOutputDirectory ?? ""
         );
     }

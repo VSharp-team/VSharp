@@ -1062,117 +1062,119 @@ module internal Z3 =
                 term.Value <- x.WriteByPath term.Value value path.parts
 
         member x.MkModel (m : Model) =
-            let subst = Dictionary<ISymbolicConstantSource, term>()
-            let stackEntries = Dictionary<stackKey, term ref>()
-            let state = {Memory.EmptyState() with complete = true}
+            try
+                let subst = Dictionary<ISymbolicConstantSource, term>()
+                let stackEntries = Dictionary<stackKey, term ref>()
+                let state = {Memory.EmptyState() with complete = true}
 
-            for KeyValue(key, value) in encodingCache.t2e do
-                match key with
-                | {term = Constant(_, Path.Path(path, StackReading(key)), t)} as constant ->
-                    let refinedExpr = m.Eval(value.expr, false)
-                    let decoded = x.Decode t refinedExpr
-                    if decoded <> constant then
-                        x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation decoded
-                | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
-                    match ms with
-                    | HeapAddressSource(Path.Path(path, StackReading(key))) ->
+                for KeyValue(key, value) in encodingCache.t2e do
+                    match key with
+                    | {term = Constant(_, Path.Path(path, StackReading(key)), t)} as constant ->
                         let refinedExpr = m.Eval(value.expr, false)
-                        let t = if path.IsEmpty then key.TypeOfLocation else path.TypeOfLocation
-                        let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
-                        let value = HeapRef address t
-                        x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation value
-                    | HeapAddressSource(Path.Path(_, (:? functionResultConstantSource as frs)))
-                    | Path.Path(_, (:? functionResultConstantSource as frs)) ->
+                        let decoded = x.Decode t refinedExpr
+                        if decoded <> constant then
+                            x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation decoded
+                    | {term = Constant(_, (:? IMemoryAccessConstantSource as ms), _)} as constant ->
+                        match ms with
+                        | HeapAddressSource(Path.Path(path, StackReading(key))) ->
+                            let refinedExpr = m.Eval(value.expr, false)
+                            let t = if path.IsEmpty then key.TypeOfLocation else path.TypeOfLocation
+                            let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
+                            let value = HeapRef address t
+                            x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation value
+                        | HeapAddressSource(Path.Path(_, (:? functionResultConstantSource as frs)))
+                        | Path.Path(_, (:? functionResultConstantSource as frs)) ->
+                            let refinedExpr = m.Eval(value.expr, false)
+                            let t = (frs :> ISymbolicConstantSource).TypeOfLocation
+                            let term = x.Decode t refinedExpr
+                            assert(not (constant = term) || value.expr = refinedExpr)
+                            if constant <> term then subst.Add(ms, term)
+                        | _ -> ()
+                    | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
+                    | {term = Constant(_, source, t)} as constant ->
                         let refinedExpr = m.Eval(value.expr, false)
-                        let t = (frs :> ISymbolicConstantSource).TypeOfLocation
                         let term = x.Decode t refinedExpr
                         assert(not (constant = term) || value.expr = refinedExpr)
-                        if constant <> term then subst.Add(ms, term)
+                        if constant <> term then subst.Add(source, term)
                     | _ -> ()
-                | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
-                | {term = Constant(_, source, t)} as constant ->
-                    let refinedExpr = m.Eval(value.expr, false)
-                    let term = x.Decode t refinedExpr
-                    assert(not (constant = term) || value.expr = refinedExpr)
-                    if constant <> term then subst.Add(source, term)
-                | _ -> ()
 
-            let frame = stackEntries |> Seq.map (fun kvp ->
-                let key = kvp.Key
-                let term = kvp.Value.Value
-                let typ = TypeOf term
-                (key, Some term, typ))
-            Memory.NewStackFrame state None (List.ofSeq frame)
+                let frame = stackEntries |> Seq.map (fun kvp ->
+                    let key = kvp.Key
+                    let term = kvp.Value.Value
+                    let typ = TypeOf term
+                    (key, Some term, typ))
+                Memory.NewStackFrame state None (List.ofSeq frame)
 
-            let pointers = Dictionary<address, term>()
-            let defaultValues = Dictionary<regionSort, term ref>()
-            for kvp in encodingCache.regionConstants do
-                let region, path = kvp.Key
-                let constant = kvp.Value
-                let arr = m.Eval(constant, false)
-                let typeOfLocation =
-                    if path.IsEmpty then region.TypeOfLocation
-                    else path.TypeOfLocation
-                let rec parseArray (arr : Expr) =
-                    if arr.IsConstantArray then
-                        assert(arr.Args.Length = 1)
-                        let constantValue = x.Decode typeOfLocation arr.Args[0]
-                        x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation constantValue
-                    elif arr.IsDefaultArray then
-                        assert(arr.Args.Length = 1)
-                    elif arr.IsStore then
-                        assert(arr.Args.Length >= 3)
-                        parseArray arr.Args[0]
-                        let address = x.DecodeMemoryKey region arr.Args[1..arr.Args.Length - 2]
-                        let value = Array.last arr.Args |> x.Decode typeOfLocation
-                        let address, ptrPart = path.ToAddress address
-                        match ptrPart with
-                        | Some kind ->
-                            let exists, ptr = pointers.TryGetValue(address)
-                            let ptr =
-                                if exists then ptr
-                                else Memory.DefaultOf address.TypeOfLocation
-                            match kind, ptr.term with
-                            | PointerAddress, Ptr(HeapLocation(_, t), s, o) ->
-                                pointers[address] <- Ptr (HeapLocation(value, t)) s o
-                            | PointerOffset, Ptr(HeapLocation(a, t), s, _) ->
-                                pointers[address] <- Ptr (HeapLocation(a, t)) s value
-                            | _ -> internalfail $"MkModel: unexpected path {kind}"
-                        | None ->
-                            let states = Memory.Write state (Ref address) value
-                            assert(states.Length = 1 && states[0] = state)
-                    elif arr.IsConst then ()
-                    elif arr.IsQuantifier then
-                        let quantifier = arr :?> Quantifier
-                        let body = quantifier.Body
-                        // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
-                        if body.IsApp && body.IsEq && body.Args.Length = 2 then
-                            // Firstly, setting all values to 'false'
-                            x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation (MakeBool false)
-                            let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
+                let pointers = Dictionary<address, term>()
+                let defaultValues = Dictionary<regionSort, term ref>()
+                for kvp in encodingCache.regionConstants do
+                    let region, path = kvp.Key
+                    let constant = kvp.Value
+                    let arr = m.Eval(constant, false)
+                    let typeOfLocation =
+                        if path.IsEmpty then region.TypeOfLocation
+                        else path.TypeOfLocation
+                    let rec parseArray (arr : Expr) =
+                        if arr.IsConstantArray then
+                            assert(arr.Args.Length = 1)
+                            let constantValue = x.Decode typeOfLocation arr.Args[0]
+                            x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation constantValue
+                        elif arr.IsDefaultArray then
+                            assert(arr.Args.Length = 1)
+                        elif arr.IsStore then
+                            assert(arr.Args.Length >= 3)
+                            parseArray arr.Args[0]
+                            let address = x.DecodeMemoryKey region arr.Args[1..arr.Args.Length - 2]
+                            let value = Array.last arr.Args |> x.Decode typeOfLocation
                             let address, ptrPart = path.ToAddress address
-                            assert(Option.isNone ptrPart)
-                            // Secondly, setting 'true' value for concrete address from predicate
-                            let states = Memory.Write state (Ref address) (MakeBool true)
-                            assert(states.Length = 1 && states[0] = state)
-                        else internalfailf "Unexpected quantifier expression in model: %O" arr
-                    else internalfailf "Unexpected array expression in model: %O" arr
-                parseArray arr
+                            match ptrPart with
+                            | Some kind ->
+                                let exists, ptr = pointers.TryGetValue(address)
+                                let ptr =
+                                    if exists then ptr
+                                    else Memory.DefaultOf address.TypeOfLocation
+                                match kind, ptr.term with
+                                | PointerAddress, Ptr(HeapLocation(_, t), s, o) ->
+                                    pointers[address] <- Ptr (HeapLocation(value, t)) s o
+                                | PointerOffset, Ptr(HeapLocation(a, t), s, _) ->
+                                    pointers[address] <- Ptr (HeapLocation(a, t)) s value
+                                | _ -> internalfail $"MkModel: unexpected path {kind}"
+                            | None ->
+                                let states = Memory.Write state (Ref address) value
+                                assert(states.Length = 1 && states[0] = state)
+                        elif arr.IsConst then ()
+                        elif arr.IsQuantifier then
+                            let quantifier = arr :?> Quantifier
+                            let body = quantifier.Body
+                            // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
+                            if body.IsApp && body.IsEq && body.Args.Length = 2 then
+                                // Firstly, setting all values to 'false'
+                                x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation (MakeBool false)
+                                let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
+                                let address, ptrPart = path.ToAddress address
+                                assert(Option.isNone ptrPart)
+                                // Secondly, setting 'true' value for concrete address from predicate
+                                let states = Memory.Write state (Ref address) (MakeBool true)
+                                assert(states.Length = 1 && states[0] = state)
+                            else internalfailf "Unexpected quantifier expression in model: %O" arr
+                        else internalfailf "Unexpected array expression in model: %O" arr
+                    parseArray arr
 
-            for KeyValue(address, ptr) in pointers do
-                let states = Memory.Write state (Ref address) ptr
-                assert(states.Length = 1 && states[0] = state)
+                for KeyValue(address, ptr) in pointers do
+                    let states = Memory.Write state (Ref address) ptr
+                    assert(states.Length = 1 && states[0] = state)
 
-            for kvp in defaultValues do
-                let region = kvp.Key
-                let constantValue = kvp.Value.Value
-                Memory.FillRegion state constantValue region
+                for kvp in defaultValues do
+                    let region = kvp.Key
+                    let constantValue = kvp.Value.Value
+                    Memory.FillRegion state constantValue region
 
-            state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
+                state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
-            encodingCache.heapAddresses.Clear()
-            state.model <- PrimitiveModel subst
-            StateModel state
+                encodingCache.heapAddresses.Clear()
+                state.model <- PrimitiveModel subst
+                StateModel state
+            with e -> internalfail $"MkModel: caught exception {e}"
 
 
     let private ctx = new Context()

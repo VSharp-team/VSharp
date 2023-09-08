@@ -7,7 +7,7 @@ open VSharp.Core
 module internal ChessDotNet =
 
     [<Implements("System.Boolean ChessDotNet.Position.Equals(this, System.Object)")>]
-    val internal PositionEquals : state -> term list -> term
+    val PositionEquals : state -> term list -> term
 
     [<Implements("System.Boolean ChessDotNet.Piece.Equals(this, System.Object)")>]
-    val internal PieceEquals : state -> term list -> term
+    val PieceEquals : state -> term list -> term

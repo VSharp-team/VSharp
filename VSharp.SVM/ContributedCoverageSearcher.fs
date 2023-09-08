@@ -1,4 +1,4 @@
-namespace VSharp.Interpreter.IL
+namespace VSharp.SVM
 
 open System
 open VSharp.Utils
@@ -6,7 +6,7 @@ open VSharp.Utils
 /// <summary>
 /// Considers the number of visited basic blocks not covered yet by tests as a state's weight.
 /// </summary>
-type internal ContributedCoverageWeighter(statistics : SILIStatistics) =
+type internal ContributedCoverageWeighter(statistics : SVMStatistics) =
 
     let weight state = Some(statistics.GetVisitedBlocksNotCoveredByTests(state).Count |> uint)
 

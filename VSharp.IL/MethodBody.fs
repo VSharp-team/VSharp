@@ -30,6 +30,7 @@ type MethodWithBody internal (m : MethodBase) =
     let returnType = Reflection.getMethodReturnType m
     let parameters = m.GetParameters()
     let hasThis = Reflection.hasThis m
+    let hasNonVoidResult = lazy(Reflection.hasNonVoidResult m)
     let isDynamic = m :? DynamicMethod
     let metadataToken = if isDynamic then m.GetHashCode() else m.MetadataToken
     let isStatic = m.IsStatic
@@ -45,11 +46,22 @@ type MethodWithBody internal (m : MethodBase) =
     let methodImplementationFlags = lazy m.GetMethodImplementationFlags()
     let isDelegateConstructor = lazy(Reflection.isDelegateConstructor m)
     let isDelegate = lazy(Reflection.isDelegate m)
-    let isFSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.FSharpImplementations)
+    let tryFSharpInternalCall = lazy(Map.tryFind fullGenericMethodName.Value Loader.FSharpImplementations)
+    let isFSharpInternalCall = lazy(Option.isSome tryFSharpInternalCall.Value)
     let isCSharpInternalCall = lazy(Map.containsKey fullGenericMethodName.Value Loader.CSharpImplementations)
-    let isCilStateInternalCall = lazy(Seq.contains fullGenericMethodName.Value Loader.CilStateImplementations)
+    let isShimmed = lazy(Loader.isShimmed fullGenericMethodName.Value)
+    let isConcreteCall = lazy(Loader.isInvokeInternalCall fullGenericMethodName.Value)
+    let isRuntimeException = lazy(Loader.isRuntimeExceptionsImplementation fullGenericMethodName.Value)
+    let runtimeExceptionImpl = lazy(Map.tryFind fullGenericMethodName.Value Loader.runtimeExceptionsConstructors)
+    let isNotImplementedIntrinsic =
+        lazy(
+            let isIntrinsic =
+                let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
+                customAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
+            isIntrinsic && (Array.contains fullGenericMethodName.Value Loader.trustedIntrinsics |> not)
+        )
     let isImplementedInternalCall =
-        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value || isCilStateInternalCall.Value)
+        lazy(isFSharpInternalCall.Value || isCSharpInternalCall.Value)
     let isInternalCall =
         lazy (
             int (m.GetMethodImplementationFlags() &&& MethodImplAttributes.InternalCall) <> 0
@@ -60,7 +72,7 @@ type MethodWithBody internal (m : MethodBase) =
         if not isCSharpInternalCall.Value then m
         else Loader.CSharpImplementations[fullGenericMethodName.Value]
     let methodBodyBytes =
-        if isFSharpInternalCall.Value || isCilStateInternalCall.Value then null
+        if isFSharpInternalCall.Value then null
         else actualMethod.GetMethodBody()
     let localVariables = if methodBodyBytes = null then null else methodBodyBytes.LocalVariables
     let methodBody = lazy(
@@ -107,6 +119,9 @@ type MethodWithBody internal (m : MethodBase) =
     member x.DeclaringType = declaringType
     member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters
+    member x.HasParameterOnStack =
+        x.DeclaringType.IsValueType && not x.IsStatic
+        || x.Parameters |> Array.exists (fun p -> p.ParameterType.IsByRef)
     member x.LocalVariables = localVariables
     member x.HasThis = hasThis
     member x.MetadataToken = metadataToken
@@ -199,6 +214,8 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsExternalMethod with get() = Reflection.isExternalMethod m
     member x.IsQCall with get() = DllManager.isQCall m
 
+    member x.HasNonVoidResult = hasNonVoidResult.Value
+
     interface VSharp.Core.IMethod with
         override x.Name = name
         override x.FullName = fullName
@@ -234,6 +251,27 @@ type MethodWithBody internal (m : MethodBase) =
 
     member x.IsInternalCall with get() = isInternalCall.Value
     member x.IsImplementedInternalCall with get () = isImplementedInternalCall.Value
+
+    member x.IsShimmed with get() = isShimmed.Value
+
+    member x.CanCallConcrete with get() = x.IsConcretelyInvokable && isConcreteCall.Value
+
+    member x.IsFSharpInternalCall with get() = isFSharpInternalCall.Value
+    member x.IsCSharpInternalCall with get() = isCSharpInternalCall.Value
+
+    member x.GetInternalCall with get() =
+        match tryFSharpInternalCall.Value with
+        | Some method -> method
+        | None -> internalfail $"GetInternalCall: no internal call for method {fullGenericMethodName.Value}"
+
+    member x.IsRuntimeException with get() = isRuntimeException.Value
+    member x.HasRuntimeExceptionImpl with get() = Option.isSome runtimeExceptionImpl.Value
+    member x.RuntimeExceptionImpl with get() =
+        match runtimeExceptionImpl.Value with
+        | Some ctor -> ctor
+        | None -> internalfail $"RuntimeExceptionImpl: no runtime exception implementation for method {fullGenericMethodName.Value}"
+
+    member x.IsNotImplementedIntrinsic with get() = isNotImplementedIntrinsic.Value
 
     member x.CanBeOverriden targetType =
         match m with

@@ -316,18 +316,18 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let shift = decodeValue repr.shift :?> int64 |> uint64
             UIntPtr(shift) :> obj
         | :? pointerRepr as repr ->
-            let shift = decodeValue repr.shift :?> int64 |> nativeint
+            let shift = decodeValue repr.shift :?> int64
             let sightType = sourceTypes[repr.sightType]
             let index = repr.index
             let pointer =
                 if index <> nullSourceIndex then
                     // Case for pointer, attached to address 'index'
                     let obj = sourceObjects[repr.index]
-                    let refWithOffset = System.Runtime.CompilerServices.Unsafe.AddByteOffset(ref obj, shift)
-                    System.Runtime.CompilerServices.Unsafe.AsPointer(ref refWithOffset)
+                    let ptr = System.Runtime.CompilerServices.Unsafe.AsPointer(ref obj)
+                    System.Runtime.CompilerServices.Unsafe.Add<byte>(ptr, int shift)
                 else
                     // Case for detached pointer
-                    shift.ToPointer()
+                    (nativeint shift).ToPointer()
             Pointer.Box(pointer, sightType.MakePointerType())
         | :? structureRepr as repr when repr.typ >= 0 ->
             // Case for structs or classes of .NET type

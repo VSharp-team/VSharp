@@ -1,4 +1,4 @@
-﻿namespace VSharp.Interpreter.IL
+﻿namespace VSharp.SVM
 
 open System.Linq
 

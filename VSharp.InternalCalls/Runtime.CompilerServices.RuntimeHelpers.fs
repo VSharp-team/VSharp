@@ -3,8 +3,7 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
-open System.Runtime.InteropServices
-open System.Reflection
+open VSharp.Interpreter.IL
 
 module Runtime_CompilerServices_RuntimeHelpers =
 
@@ -20,7 +19,7 @@ module Runtime_CompilerServices_RuntimeHelpers =
         let typ = List.head args |> Helpers.unwrapType
         MakeBool (Reflection.isReferenceOrContainsReferences typ)
 
-    let CommonGetHashCode (state : state) (args : term list) : term =
+    let CommonGetHashCode (_ : state) (args : term list) : term =
         assert(List.length args = 1)
         let object = List.head args
         GetHashCode object
@@ -37,7 +36,12 @@ module Runtime_CompilerServices_RuntimeHelpers =
         let enumValue = Memory.Read state boxedThis
         GetHashCode enumValue
 
-    let Equals (state : state) (args : term list) : term =
+    let Equals (_ : state) (args : term list) : term =
         assert(List.length args = 2)
         let x, y = args.[0], args.[1]
         x === y
+
+    let RunStaticCtor (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        // TODO: initialize statics of argument
+        List.singleton cilState

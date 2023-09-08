@@ -2,6 +2,8 @@ namespace VSharp.System
 
 open global.System
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilStateOperations
 
 // ------------------------------ mscorlib.System.Threading.Thread --------------------------------
 
@@ -26,3 +28,21 @@ module Thread =
     let internal SleepInternal (_ : state) (args : term list) =
         assert(List.length args = 1)
         Nop()
+
+    let MonitorReliableEnter (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 2)
+        let obj, resultRef = args[0], args[1]
+        let success cilState k =
+            write cilState resultRef (True()) |> k
+        BranchOnNullCIL cilState obj
+            (interpreter.Raise interpreter.ArgumentNullException)
+            success
+            id
+
+    let MonitorEnter (interpreter : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        let obj = List.head args
+        BranchOnNullCIL cilState obj
+            (interpreter.Raise interpreter.ArgumentNullException)
+            (fun cilState k -> List.singleton cilState |> k)
+            id

@@ -84,21 +84,6 @@ module internal Memory =
             add acc absOffset
         List.fold attachOne (makeNumber 0) [0 .. length]
 
-    let tryPtrToArrayInfo (typeOfBase : Type) sightType offset =
-        assert(typeOf offset = typeof<int>)
-        let checkType() =
-            typeOfBase.IsSZArray && typeOfBase.GetElementType() = sightType
-            || typeOfBase = typeof<string> && sightType = typeof<char>
-        let mutable elemSize = Nop()
-        let checkOffset() =
-            elemSize <- makeNumber (internalSizeOf sightType)
-            rem offset elemSize = makeNumber 0
-        if not typeOfBase.ContainsGenericParameters && checkType() && checkOffset() then
-            let arrayType = (sightType, 1, true)
-            let index = div offset elemSize
-            Some ([index], arrayType)
-        else None
-
 // -------------------------- Error reporter --------------------------
 
     type internal EmptyErrorReporter() =
@@ -965,11 +950,11 @@ module internal Memory =
             objToTerm state source typ value
         | _ -> readBoxedSymbolic state address typ
 
-    let rec readStruct reporter (structTerm : term) (field : fieldId) =
+    let rec readStruct reporter state (structTerm : term) (field : fieldId) =
         match structTerm.term with
         | Struct(fields, _) -> fields[field]
-        | Combined _ -> readFieldUnsafe reporter structTerm field
-        | _ -> internalfailf "Reading field of structure: expected struct, but got %O" structTerm
+        | Combined _ -> readFieldUnsafe reporter state structTerm field
+        | _ -> internalfail $"Reading field of structure: expected struct, but got {structTerm}"
 
     and private readSafe reporter state = function
         | PrimitiveStackLocation key -> readStackLocation state key
@@ -979,7 +964,7 @@ module internal Memory =
         | StaticField(typ, field) -> readStaticField state typ field
         | StructField(address, field) ->
             let structTerm = readSafe reporter state address
-            readStruct reporter structTerm field
+            readStruct reporter state structTerm field
         | ArrayLength(address, dimension, typ) -> readLength state address dimension typ
         | BoxedLocation(address, typ) -> readBoxedLocation state address typ
         | StackBufferIndex(key, index) -> readStackBuffer state key index
@@ -1021,35 +1006,42 @@ module internal Memory =
 
     // NOTE: returns list of slices
     // TODO: return empty if every slice is invalid
-    and private commonReadTermUnsafe (reporter : IErrorReporter) term startByte endByte pos stablePos =
-        match term.term with
-        | Struct(fields, t) -> commonReadStructUnsafe reporter fields t startByte endByte pos stablePos
-        | HeapRef _
-        | Ref _
-        | Ptr _ -> readAddressUnsafe reporter term startByte endByte
-        | Combined([t], _) -> commonReadTermUnsafe reporter t startByte endByte pos stablePos
-        | Combined(slices, _) ->
-            let readSlice part = commonReadTermUnsafe reporter part startByte endByte pos stablePos
+    and private commonReadTermUnsafe (reporter : IErrorReporter) term startByte endByte pos stablePos sightType =
+        match term.term, sightType with
+        | Slice _, _ ->
+            sliceTerm term startByte endByte pos stablePos |> List.singleton
+        | _, Some sightType when
+            startByte = makeNumber 0 &&
+            let typ = typeOf term
+            let size = internalSizeOf typ
+            endByte = makeNumber size && typ = sightType ->
+                List.singleton term
+        | Struct(fields, t), _ -> commonReadStructUnsafe reporter fields t startByte endByte pos stablePos sightType
+        | HeapRef _, _
+        | Ref _, _
+        | Ptr _, _ -> readAddressUnsafe reporter term startByte endByte
+        | Combined([t], _), _ -> commonReadTermUnsafe reporter t startByte endByte pos stablePos sightType
+        | Combined(slices, _), _ ->
+            let readSlice part = commonReadTermUnsafe reporter part startByte endByte pos stablePos sightType
             List.collect readSlice slices
-        | Slice _
-        | Concrete _
-        | Constant _
-        | Expression _ ->
+        | Concrete _, _
+        | Constant _, _
+        | Expression _, _ ->
             sliceTerm term startByte endByte pos stablePos |> List.singleton
         | _ -> internalfailf "readTermUnsafe: unexpected term %O" term
 
-    and private readTermUnsafe reporter term startByte endByte =
-        commonReadTermUnsafe reporter term startByte endByte (neg startByte) false
+    and private readTermUnsafe reporter term startByte endByte sightType =
+        commonReadTermUnsafe reporter term startByte endByte (neg startByte) false sightType
 
-    and private readTermPartUnsafe reporter term startByte endByte =
-        commonReadTermUnsafe reporter term startByte endByte startByte true
+    and private readTermPartUnsafe reporter term startByte endByte sightType =
+        commonReadTermUnsafe reporter term startByte endByte startByte true sightType
 
-    and private commonReadStructUnsafe reporter fields structType startByte endByte pos stablePos =
+    and private commonReadStructUnsafe reporter fields structType startByte endByte pos stablePos sightType =
         let readField fieldId = fields[fieldId]
-        commonReadFieldsUnsafe reporter readField false structType startByte endByte pos stablePos
+        commonReadFieldsUnsafe reporter readField false structType startByte endByte pos stablePos sightType
 
-    and private readStructUnsafe reporter fields structType startByte endByte =
-        commonReadStructUnsafe reporter fields structType startByte endByte (neg startByte) false
+    and private readStructUnsafe reporter fields structType startByte endByte sightType =
+        commonReadStructUnsafe reporter fields structType startByte endByte (neg startByte) false sightType
 
     and private getAffectedFields reporter readField isStatic (blockType : Type) startByte endByte =
         let blockSize = Reflection.blockSize blockType
@@ -1088,23 +1080,23 @@ module internal Memory =
             List.foldBack concreteGetField allFields List.empty
         | _ -> List.map getField allFields
 
-    and private commonReadFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte pos stablePos =
+    and private commonReadFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte pos stablePos sightType =
         let affectedFields = getAffectedFields reporter readField isStatic blockType startByte endByte
         let readField (_, o, v, s, e) =
-            commonReadTermUnsafe reporter v s e (add pos o) stablePos
+            commonReadTermUnsafe reporter v s e (add pos o) stablePos sightType
         List.collect readField affectedFields
 
-    and private readFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte =
-        commonReadFieldsUnsafe reporter readField isStatic blockType startByte endByte (neg startByte) false
+    and private readFieldsUnsafe reporter readField isStatic (blockType : Type) startByte endByte sightType =
+        commonReadFieldsUnsafe reporter readField isStatic blockType startByte endByte (neg startByte) false sightType
 
     // TODO: Add undefined behaviour:
     // TODO: 1. when reading info between fields
     // TODO: 3. when reading info outside block
     // TODO: 3. reinterpreting ref or ptr should return symbolic ref or ptr
-    and private readClassUnsafe reporter state address classType offset (viewSize : int) =
+    and private readClassUnsafe reporter state address classType offset (viewSize : int) sightType =
         let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readClassField state address fieldId
-        readFieldsUnsafe reporter readField false classType offset endByte
+        readFieldsUnsafe reporter readField false classType offset endByte sightType
 
     and arrayIndicesToOffset state address (elementType, dim, _ as arrayType) indices =
         let lens = List.init dim (fun dim -> readLength state address (makeNumber dim) arrayType)
@@ -1135,81 +1127,165 @@ module internal Memory =
             (indices, element, startByte, endByte), add currentOffset elementSize
         List.mapFold getElement (mul firstElement elementSize) [0 .. countToRead - 1] |> fst
 
-    and private readArrayUnsafe reporter state address arrayType offset viewSize =
+    and private readArrayUnsafe reporter state address arrayType offset viewSize sightType =
         let indices = getAffectedIndices reporter state address (symbolicTypeToArrayType arrayType) offset viewSize
         let readIndex (_, elem, s, e) =
-            readTermUnsafe reporter elem s e
+            readTermUnsafe reporter elem s e sightType
         List.collect readIndex indices
 
-    and private readStringUnsafe reporter state address offset viewSize =
+    and private readStringUnsafe reporter state address offset viewSize sightType =
          // TODO: handle case, when reading string length
         let address, arrayType = stringArrayInfo state address None
         let indices = getAffectedIndices reporter state address arrayType offset viewSize
         let readChar (_, elem, s, e) =
-            readTermUnsafe reporter elem s e
+            readTermUnsafe reporter elem s e sightType
         List.collect readChar indices
 
-    and private readStaticUnsafe reporter state t offset (viewSize : int) =
+    and private readStaticUnsafe reporter state t offset (viewSize : int) sightType =
         let endByte = makeNumber viewSize |> add offset
         let readField fieldId = readStaticField state t fieldId
-        readFieldsUnsafe reporter readField true t offset endByte
+        readFieldsUnsafe reporter readField true t offset endByte sightType
 
-    and private readStackUnsafe reporter state loc offset (viewSize : int) =
+    and private readStackUnsafe reporter state loc offset (viewSize : int) sightType =
         let term = readStackLocation state loc
         let locSize = sizeOf term |> makeNumber
         let endByte = makeNumber viewSize |> add offset
         checkBlockBounds reporter locSize offset endByte
-        readTermUnsafe reporter term offset endByte
+        readTermUnsafe reporter term offset endByte sightType
 
-    and private readBoxedUnsafe reporter state loc typ offset viewSize =
+    and private readBoxedUnsafe reporter state loc typ offset viewSize sightType =
         let address = BoxedLocation(loc, typ)
         let endByte = makeNumber viewSize |> add offset
         match readSafe reporter state address with
-        | {term = Struct(fields, _)} -> readStructUnsafe reporter fields typ offset endByte
-        | term when isPrimitive typ || typ.IsEnum -> readTermUnsafe reporter term offset endByte
+        | {term = Struct(fields, _)} -> readStructUnsafe reporter fields typ offset endByte sightType
+        | term when isPrimitive typ || typ.IsEnum -> readTermUnsafe reporter term offset endByte sightType
         | term -> internalfail $"readUnsafe: reading struct resulted in term {term}"
 
     and private readUnsafe reporter state baseAddress offset sightType =
         let viewSize = internalSizeOf sightType
         let slices =
+            let sightType = Some sightType
             match baseAddress with
-            | HeapLocation(loc, sightType) ->
-                let typ = mostConcreteTypeOfHeapRef state loc sightType
+            | HeapLocation(loc, t) ->
+                let typ = mostConcreteTypeOfHeapRef state loc t
                 match typ with
-                | StringType -> readStringUnsafe reporter state loc offset viewSize
-                | ClassType _ -> readClassUnsafe reporter state loc typ offset viewSize
-                | ArrayType _ -> readArrayUnsafe reporter state loc typ offset viewSize
+                | StringType -> readStringUnsafe reporter state loc offset viewSize sightType
+                | ClassType _ -> readClassUnsafe reporter state loc typ offset viewSize sightType
+                | ArrayType _ -> readArrayUnsafe reporter state loc typ offset viewSize sightType
                 | _ when typ = typeof<Void> -> internalfail $"readUnsafe: reading from 'Void' by reference {baseAddress}"
-                | StructType _ -> readBoxedUnsafe reporter state loc typ offset viewSize
+                | StructType _ -> readBoxedUnsafe reporter state loc typ offset viewSize sightType
                 | _ when isPrimitive typ || typ.IsEnum ->
-                    readBoxedUnsafe reporter state loc typ offset viewSize
+                    readBoxedUnsafe reporter state loc typ offset viewSize sightType
                 | _ -> internalfailf $"Expected complex type, but got {typ}"
-            | StackLocation loc -> readStackUnsafe reporter state loc offset viewSize
-            | StaticLocation loc -> readStaticUnsafe reporter state loc offset viewSize
+            | StackLocation loc -> readStackUnsafe reporter state loc offset viewSize sightType
+            | StaticLocation loc -> readStaticUnsafe reporter state loc offset viewSize sightType
         combine slices sightType
 
-    and readFieldUnsafe (reporter : IErrorReporter) block (field : fieldId) =
-        assert(sizeOf block = internalSizeOf field.declaringType)
-        let fieldType = field.typ
-        let startByte = Reflection.getFieldIdOffset field
-        let endByte = startByte + internalSizeOf fieldType
-        let slices = readTermUnsafe reporter block (makeNumber startByte) (makeNumber endByte)
-        combine slices fieldType
+    and readFieldUnsafe (reporter : IErrorReporter) (state : state) (block : term) (field : fieldId) =
+        let declaringType = field.declaringType
+        match block.term with
+        | Combined(_, t) when declaringType.IsAssignableFrom t || sizeOf block = internalSizeOf field.declaringType ->
+            assert(sizeOf block = internalSizeOf field.declaringType)
+            let fieldType = field.typ
+            let startByte = Reflection.getFieldIdOffset field
+            let endByte = startByte + internalSizeOf fieldType
+            let sightType = Some fieldType
+            let slices = readTermUnsafe reporter block (makeNumber startByte) (makeNumber endByte) sightType
+            combine slices fieldType
+        | Combined(slices, _) ->
+            let isSuitableRef slice =
+                match slice.term with
+                | _ when isReference slice -> mostConcreteTypeOfRef state slice |> declaringType.IsAssignableFrom
+                | Ptr(pointerBase, sightType, offset) ->
+                    match tryPtrToRef state pointerBase sightType offset with
+                    | Some address -> declaringType.IsAssignableFrom(address.TypeOfLocation)
+                    | None -> false
+                | _ -> false
+            let refs = List.filter isSuitableRef slices |> List.distinct
+            if List.length refs = 1 then
+                let ref = List.head refs
+                referenceField state ref field |> read reporter state
+            else internalfail $"readFieldUnsafe: unexpected block {block}"
+        | _ -> internalfail $"readFieldUnsafe: unexpected block {block}"
+
+// -------------------------------- Pointer helpers --------------------------------
+
+    and tryPtrToRef state pointerBase sightType offset : address option =
+        assert(typeOf offset = typeof<int>)
+        let zero = makeNumber 0
+        match pointerBase with
+        | HeapLocation(address, t) when address <> zeroAddress() ->
+            let typ = typeOfHeapLocation state address |> mostConcreteType t
+            let isArray() =
+                typ.IsSZArray && typ.GetElementType() = sightType
+                || typ = typeof<string> && sightType = typeof<char>
+            if typ.ContainsGenericParameters then None
+            elif isArray() then
+                let mutable elemSize = Nop()
+                let checkOffset() =
+                    elemSize <- makeNumber (internalSizeOf sightType)
+                    rem offset elemSize = zero
+                if checkOffset() then
+                    let index = div offset elemSize
+                    let address, arrayType =
+                        if t = typeof<string> then stringArrayInfo state address None
+                        else address, (sightType, 1, true)
+                    ArrayIndex(address, [index], arrayType) |> Some
+                else None
+            elif isValueType typ && sightType = typ && offset = zero then
+                BoxedLocation(address, t) |> Some
+            else None
+        | StackLocation stackKey when stackKey.TypeOfLocation = sightType && offset = zero ->
+            PrimitiveStackLocation stackKey |> Some
+        | _ -> None
+
+    and heapReferenceToBoxReference reference =
+        match reference.term with
+        | HeapRef(address, typ) -> Ref (BoxedLocation(address, typ))
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, heapReferenceToBoxReference v)) |> Merging.merge
+        | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
+
+    and referenceField state reference fieldId =
+        let declaringType = fieldId.declaringType
+        let isSuitableField address typ =
+            let typ = mostConcreteTypeOfHeapRef state address typ
+            declaringType.IsAssignableFrom typ
+        match reference.term with
+        | HeapRef(address, typ) when isSuitableField address typ |> not ->
+            // TODO: check this case with casting via "is"
+            Logger.trace "[WARNING] unsafe cast of term %O in safe context" reference
+            let offset = Reflection.getFieldIdOffset fieldId |> makeNumber
+            Ptr (HeapLocation(address, typ)) fieldId.typ offset
+        | HeapRef(address, typ) when typ = typeof<string> && fieldId = Reflection.stringFirstCharField ->
+            let address, arrayType = stringArrayInfo state address None
+            ArrayIndex(address, [makeNumber 0], arrayType) |> Ref
+        | HeapRef(address, typ) when declaringType.IsValueType ->
+            // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+            assert(isSuitableField address typ)
+            let ref = heapReferenceToBoxReference reference
+            referenceField state ref fieldId
+        | HeapRef(address, typ) ->
+            // TODO: Need to check mostConcreteTypeOfHeapRef using pathCondition?
+            assert(isSuitableField address typ)
+            ClassField(address, fieldId) |> Ref
+        | Ref address when declaringType.IsAssignableFrom(address.TypeOfLocation) ->
+            assert declaringType.IsValueType
+            StructField(address, fieldId) |> Ref
+        | Ref address ->
+            assert declaringType.IsValueType
+            let pointerBase, offset = Pointers.addressToBaseAndOffset address
+            let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
+            Ptr pointerBase fieldId.typ (add offset fieldOffset)
+        | Ptr(baseAddress, _, offset) ->
+            let fieldOffset = Reflection.getFieldIdOffset fieldId |> makeNumber
+            Ptr baseAddress fieldId.typ (add offset fieldOffset)
+        | Union gvs -> gvs |> List.map (fun (g, v) -> (g, referenceField state v fieldId)) |> Merging.merge
+        | _ -> internalfailf "Referencing field: expected reference, but got %O" reference
 
 // --------------------------- General reading ---------------------------
 
-    let isTypeInitialized state (typ : Type) =
-        let key : symbolicTypeKey = {typ=typ}
-        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
-        match matchingTypes with
-        | [x] when x = key -> True()
-        | _ ->
-            let name = sprintf "%O_initialized" typ
-            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
-            Constant name source typeof<bool>
-
     // TODO: take type of heap address
-    let rec read (reporter : IErrorReporter) state reference =
+    and read (reporter : IErrorReporter) state reference =
         match reference.term with
         | Ref address -> readSafe reporter state address
         | DetachedPtr _ ->
@@ -1224,6 +1300,16 @@ module internal Memory =
             reporter.ReportFatalError "reading by detached pointer" (True())
             Nop()
         | _ -> internalfailf $"Reading: expected reference, but got {reference}"
+
+    let isTypeInitialized state (typ : Type) =
+        let key : symbolicTypeKey = {typ=typ}
+        let matchingTypes = SymbolicSet.matchingElements key state.initializedTypes
+        match matchingTypes with
+        | [x] when x = key -> True()
+        | _ ->
+            let name = sprintf "%O_initialized" typ
+            let source : typeInitialized = {typ = typ; matchingTypes = SymbolicSet.ofSeq matchingTypes}
+            Constant name source typeof<bool>
 
 // ------------------------------- Writing -------------------------------
 
@@ -1417,7 +1503,10 @@ module internal Memory =
             value
 
     let rec writeTermUnsafe reporter term startByte value =
+        let termType = typeOf term
+        let valueType = typeOf value
         match term.term with
+        | _ when startByte = makeNumber 0 && termType = valueType -> value
         | Struct(fields, t) -> writeStructUnsafe reporter term fields t startByte value
         | HeapRef _
         | Ref _
@@ -1425,9 +1514,8 @@ module internal Memory =
         | Concrete _
         | Constant _
         | Expression _ ->
-            let termType = typeOf term
             let termSize = internalSizeOf termType
-            let valueSize = sizeOf value
+            let valueSize = internalSizeOf valueType
             match startByte.term with
             | Concrete(:? int as startByte, _) when startByte = 0 && valueSize = termSize ->
                 combine (List.singleton value) termType
@@ -1435,9 +1523,9 @@ module internal Memory =
                 let zero = makeNumber 0
                 let termSize = makeNumber termSize
                 let valueSize = makeNumber valueSize
-                let left = readTermPartUnsafe reporter term zero startByte
-                let valueSlices = readTermUnsafe reporter value (neg startByte) (sub termSize startByte)
-                let right = readTermPartUnsafe reporter term (add startByte valueSize) termSize
+                let left = readTermPartUnsafe reporter term zero startByte None
+                let valueSlices = readTermUnsafe reporter value (neg startByte) (sub termSize startByte) None
+                let right = readTermPartUnsafe reporter term (add startByte valueSize) termSize None
                 combine (left @ valueSlices @ right) termType
         | _ -> internalfailf "writeTermUnsafe: unexpected term %O" term
 
@@ -1901,7 +1989,7 @@ module internal Memory =
                 match x.baseSource with
                 | :? IStatedSymbolicConstantSource as baseSource ->
                     let structTerm = baseSource.Compose state
-                    readStruct emptyReporter structTerm x.field
+                    readStruct emptyReporter state structTerm x.field
                 | _ ->
                     let x = x :> ISymbolicConstantSource
                     match state.model with

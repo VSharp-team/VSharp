@@ -3,58 +3,70 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilStateOperations
 
 module internal Interlocked =
 
-    let exchange state location value =
-        let currentValue = Memory.Read state location
-        let state' = Memory.Write state location value
-        List.map (withFst currentValue) state'
+    let exchange (interpreter : IInterpreter) cilState location value =
+        let exchange cilState k =
+            let currentValue = read cilState location
+            let cilStates = write cilState location value
+            for cilState in cilStates do
+                push currentValue cilState
+            k cilStates
+        interpreter.NpeOrInvoke cilState location exchange id
 
-    let compareExchange state location value compared =
-        let currentValue = Memory.Read state location
-        let state' =
-            StatedConditionalExecutionAppendResults state
-                (fun state k -> k (currentValue === compared, state))
-                (fun state k -> k (Memory.Write state location value))
-                (fun state k -> k (List.singleton state))
-                id
-        List.map (withFst currentValue) state'
+    let compareExchange (interpreter : IInterpreter) cilState location value compared =
+        let compareExchange cilState k =
+            let currentValue = read cilState location
+            let cilStates =
+                StatedConditionalExecutionCIL cilState
+                    (fun cilState k -> k (currentValue === compared, cilState))
+                    (fun cilState k -> k (write cilState location value))
+                    (fun cilState k -> k (List.singleton cilState))
+                    id
+            for cilState in cilStates do
+                push currentValue cilState
+            k cilStates
+        interpreter.NpeOrInvoke cilState location compareExchange id
 
-    let genericCompareExchange (state : state) (args : term list) : (term * state) list =
+    let genericCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 4)
         let location, value, compared = args[1], args[2], args[3]
-        compareExchange state location value compared
+        compareExchange interpreter cilState location value compared
 
-    let intCompareExchange (state : state) (args : term list) : (term * state) list =
+    let intCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
         let location, value, compared = args[0], args[1], args[2]
-        compareExchange state location value compared
+        compareExchange interpreter cilState location value compared
 
-    let intPtrCompareExchange (state : state) (args : term list) : (term * state) list =
+    let intPtrCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
         let location, value, compared = args[0], args[1], args[2]
-        compareExchange state location value compared
+        compareExchange interpreter cilState location value compared
 
-    let genericExchange (state : state) (args : term list) : (term * state) list =
+    let genericExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
         let location, value = args[1], args[2]
-        exchange state location value
+        exchange interpreter cilState location value
 
-    let intExchange (state : state) (args : term list) : (term * state) list =
+    let intExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]
-        exchange state location value
+        exchange interpreter cilState location value
 
-    let intExchangeAdd (state : state) (args : term list) : (term * state) list =
+    let intExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]
-        exchange state location (Arithmetics.Add (Memory.Read state location) value)
+        let value = Arithmetics.Add (read cilState location) value
+        exchange interpreter cilState location value
 
-    let longExchangeAdd (state : state) (args : term list) : (term * state) list =
+    let longExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]
-        exchange state location (Arithmetics.Add (Memory.Read state location) value)
+        let value = Arithmetics.Add (read cilState location) value
+        exchange interpreter cilState location value
 
-    let memoryBarrier (state : state) (args : term list) : term =
+    let memoryBarrier (_ : state) (_ : term list) : term =
         Nop()

@@ -16,7 +16,7 @@ open MethodBody
 
 type cfg = CfgInfo
 
-module internal TypeUtils =
+module TypeUtils =
     open Types
 
     let float64Type = typedefof<double>
@@ -65,71 +65,9 @@ module internal TypeUtils =
         let Zero() = MakeNumber 0UL
         let MaxValue() = MakeNumber UInt64.MaxValue
 
-type internal ErrorReporter(reportError, reportFatalError, cilState) =
-    let mutable cilState = cilState
-    let mutable stateConfigured : bool = false
-
-    interface IErrorReporter with
-        override x.ReportError msg failCondition =
-            assert stateConfigured
-            Branching.commonStatedConditionalExecutionk cilState.state
-                (fun state k -> k (!!failCondition, state))
-                (fun _ k -> k ())
-                (fun state k -> k (reportError (changeState cilState state) msg))
-                (fun _ _ -> [])
-                ignore
-
-        override x.ReportFatalError msg failCondition =
-            assert stateConfigured
-            Branching.commonStatedConditionalExecutionk cilState.state
-                (fun state k -> k (!!failCondition, state))
-                (fun _ k -> k ())
-                (fun state k -> k (reportFatalError (changeState cilState state) msg))
-                (fun _ _ -> [])
-                ignore
-
-        override x.ConfigureState state =
-            cilState <- changeState cilState state
-            stateConfigured <- true
-
 module internal InstructionsSet =
 
-    let mutable reportError : cilState -> string -> unit =
-        fun _ _ -> internalfail "'reportError' is not ready"
-
-    let mutable reportFatalError : cilState -> string -> unit =
-        fun _ _ -> internalfail "'reportError' is not ready"
-
-    let createErrorReporter cilState =
-        ErrorReporter(reportError, reportFatalError, cilState)
-
     let idTransformation term k = k term
-
-    // ------------------------------------ Memory Interaction ------------------------------------
-
-    let read cilState ref =
-        let reporter = createErrorReporter cilState
-        Memory.ReadUnsafe reporter cilState.state ref
-
-    let readField cilState term field =
-        let reporter = createErrorReporter cilState
-        Memory.ReadFieldUnsafe reporter cilState.state term field
-
-    let readIndex cilState term index valueType =
-        let reporter = createErrorReporter cilState
-        Memory.ReadArrayIndexUnsafe reporter cilState.state term index valueType
-
-    let write cilState ref value =
-        let reporter = createErrorReporter cilState
-        Memory.WriteUnsafe reporter cilState.state ref value
-
-    let writeStructField cilState term field value =
-        let reporter = createErrorReporter cilState
-        Memory.WriteStructFieldUnsafe reporter cilState.state term field value
-
-    let writeIndex cilState term index value valueType =
-        let reporter = createErrorReporter cilState
-        Memory.WriteArrayIndexUnsafe reporter cilState.state term index value valueType
 
     // ------------------------------------ Metadata Interaction ------------------------------------
 
@@ -147,39 +85,6 @@ module internal InstructionsSet =
         | InFilterHandler(offset, m, _, _) -> Some (offset, m)
         | Leave(ip, _, _, _) -> (|InstructionEndingIp|_|) ip
         | _ -> None
-
-    // ------------------------------- Environment interaction -------------------------------
-
-    let rec internalCall (methodInfo : MethodInfo) (argsAndThis : term list) cilState k =
-        let s = cilState.state
-        let parameters : obj [] =
-            match methodInfo.GetParameters().Length with
-            | 2 -> [| s; argsAndThis |]
-            | _ -> internalfail "Only internal calls with signature 'state * term list -> term | (term * state) list' are supported"
-        let result =
-            try
-                methodInfo.Invoke(null, parameters)
-            with
-            | :? TargetInvocationException as targetException ->
-                Logger.trace $"InternalCall got TargetInvocationException {targetException.Message}"
-                let actualException = targetException.GetBaseException()
-                Logger.trace $"TargetInvocationException.GetBaseException {actualException.Message}"
-                raise actualException
-            | e ->
-                Logger.trace $"InternalCall got exception {e.Message}"
-                reraise()
-
-        let pushOnEvaluationStack (term : term, cilState : cilState) =
-            match term.term with
-            | Nop -> ()
-            | _ -> push term cilState
-        match result with
-        | :? term as r ->
-            let cilState = changeState cilState s
-            pushOnEvaluationStack(r, cilState); k [cilState]
-        | :? ((term * state) list) as r ->
-            r |> List.map (fun (t, s) -> let s' = changeState cilState s in pushOnEvaluationStack(t, s'); s') |> k
-        | _ -> internalfail "Internal call should return 'term' or tuple 'term * state'!"
 
     // ------------------------------- CIL instructions -------------------------------
 
@@ -233,8 +138,7 @@ module internal InstructionsSet =
         let location = referenceLocalVariable variableIndex m
         let typ = TypeOfLocation location
         let value = Types.Cast right typ
-        let states = write cilState location value
-        states |> List.map (changeState cilState)
+        write cilState location value
     let private simplifyConditionResult state res k =
         if Contradicts state !!res then k (True())
         elif Contradicts state res then k (False())
@@ -504,7 +408,34 @@ module internal InstructionsSet =
         let newIp = instruction m (unconditionalBranchTarget m offset)
         setCurrentIp newIp cilState
 
-    // '.constrained' is prefix, which is used before 'callvirt' instruction
+    let rec private constrainedImpl this method args cilState =
+        let state = cilState.state
+        let thisType = TypeOfLocation this
+        let isValueType = Types.IsValueType thisType
+        let implements = lazy(Reflection.typeImplementsMethod thisType method)
+        match this.term with
+        | Ref _ when isValueType && implements.Value ->
+            push this cilState
+            pushMany args cilState
+        | Ref _ when isValueType ->
+            let thisStruct = read cilState this
+            let heapRef = Memory.BoxValueType state thisStruct
+            push heapRef cilState
+            pushMany args cilState
+        | Ref _ ->
+            let this = read cilState this
+            push this cilState
+            pushMany args cilState
+        | Ptr(pointerBase, sightType, offset) ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some(PrimitiveStackLocation _ as address) ->
+                let this = Ref address
+                constrainedImpl this method args cilState
+            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected ptr as 'this' {this}"
+        | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
+
+    // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction
+    // used before 'call' instruction, only if member is static and declared in interface
     let constrained (m : Method) offset (cilState : cilState) =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Constrained.Size)
         let method =
@@ -522,38 +453,28 @@ module internal InstructionsSet =
             pushPrefixContext cilState (Constrained typ)
         else
             let n = method.GetParameters().Length
-            let args, evaluationStack = EvaluationStack.PopMany n cilState.state.evaluationStack
+            let state = cilState.state
+            let args, evaluationStack = EvaluationStack.PopMany n state.evaluationStack
             setEvaluationStack evaluationStack cilState
             let thisForCallVirt = pop cilState
-            let thisType = TypeOfLocation thisForCallVirt
-            let isValueType = Types.IsValueType thisType
-            match thisForCallVirt.term with
-            | Ref _ when isValueType && Reflection.typeImplementsMethod thisType method ->
-                push thisForCallVirt cilState
-                pushMany args cilState
-            | Ref _ when isValueType ->
-                let thisStruct = read cilState thisForCallVirt
-                let heapRef = Memory.BoxValueType cilState.state thisStruct
-                push heapRef cilState
-                pushMany args cilState
-            | Ref _ ->
-                let this = read cilState thisForCallVirt
-                push this cilState
-                pushMany args cilState
-            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {thisForCallVirt}"
+            constrainedImpl thisForCallVirt method args cilState
+
     let localloc (cilState : cilState) =
-        // [NOTE] localloc usually is used for Span
-        // So, pushing nullptr, because array will be allocated in Span constructor
-        pop cilState |> ignore
-        push (MakeNullPtr typeof<Void>) cilState
+        let size = pop cilState
+        let ref = Memory.AllocateVectorArray cilState.state size typeof<byte>
+        match ref.term with
+        | HeapRef({term = ConcreteHeapAddress address}, _) ->
+            addStackArray cilState address
+            push ref cilState
+        | _ -> internalfail $"localloc: unexpected array reference {ref}"
 
     let private fallThroughImpl stackSizeBefore newIp cilState =
         // if not constructing runtime exception
-        if not <| isUnhandledError cilState && Memory.CallStackSize cilState.state = stackSizeBefore then
+        if not <| isUnhandledExceptionOrError cilState && Memory.CallStackSize cilState.state = stackSizeBefore then
             setCurrentIp newIp cilState
 
     let fallThrough (m : Method) offset cilState op =
-        assert(not <| isUnhandledError cilState)
+        assert(not <| isUnhandledExceptionOrError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
         let newIp = instruction m (fallThroughTarget m offset)
         op m offset cilState
@@ -561,7 +482,7 @@ module internal InstructionsSet =
         [cilState]
 
     let forkThrough (m : Method) offset cilState op =
-        assert(not <| isUnhandledError cilState)
+        assert(not <| isUnhandledExceptionOrError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
         let newIp = instruction m (fallThroughTarget m offset)
         let cilStates = op m offset cilState
@@ -583,38 +504,74 @@ type UnknownMethodException(message : string, methodInfo : Method, interpreterSt
     member x.Method with get() = methodInfo
     member x.InterpreterStackTrace with get() = interpreterStackTrace
 
-type internal ILInterpreter() as this =
+// Interface for internal calls interaction
+type IInterpreter =
+    abstract Raise : (cilState -> unit) -> cilState -> (cilState list -> 'a) -> 'a
+    abstract NpeOrInvoke : cilState -> term -> (cilState -> (cilState list -> 'a) -> 'a) -> (cilState list -> 'a) -> 'a
+    abstract InvalidProgramException : cilState -> unit
+    abstract NullReferenceException : cilState -> unit
+    abstract ArgumentException : cilState -> unit
+    abstract ArgumentNullException : cilState -> unit
+    abstract ArgumentOutOfRangeException : cilState -> unit
+    abstract IndexOutOfRangeException : cilState -> unit
+    abstract ArrayTypeMismatchException : cilState -> unit
+    abstract RankException : cilState -> unit
+    abstract DivideByZeroException : cilState -> unit
+    abstract OverflowException : cilState -> unit
+    abstract ArithmeticException : cilState -> unit
+    abstract TypeInitializerException : string -> term -> cilState -> unit
+    abstract InvalidCastException : cilState -> unit
+    abstract OutOfMemoryException : cilState -> unit
+    abstract AccessArrayDimension : (term -> term -> cilState -> (cilState list -> cilState list) -> cilState list) -> cilState -> term -> term -> cilState list
+    abstract AccessArray : (cilState -> (cilState list -> 'a) -> 'a) -> cilState -> term -> term -> (cilState list -> 'a) -> 'a
 
-    let cilStateImplementations : Map<string, cilState -> term option -> term list -> cilState list> =
-        Map.ofList [
-            "System.Int32 System.Array.GetLength(this, System.Int32)", this.CommonGetArrayLength
-            "System.Int32 System.Array.GetLowerBound(this, System.Int32)", this.GetArrayLowerBound
-            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.InitializeArray(System.Array, System.RuntimeFieldHandle)", this.CommonInitializeArray
-            "System.Void System.String.FillStringChecked(System.String, System.Int32, System.String)", this.FillStringChecked
-            "System.Void System.Array.Clear(System.Array, System.Int32, System.Int32)", this.ClearArray
-            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32, System.Boolean)", this.CopyArrayExtendedForm1
-            "System.Void System.Array.Copy(System.Array, System.Int32, System.Array, System.Int32, System.Int32)", this.CopyArrayExtendedForm2
-            "System.Void System.Array.Copy(System.Array, System.Array, System.Int32)", this.CopyArrayShortForm
-            "System.Void System.Array.Fill(T[], T)", this.FillArray
-            "System.Char System.String.get_Chars(this, System.Int32)", this.GetChars
-            "System.Void System.Threading.Monitor.ReliableEnter(System.Object, System.Boolean&)", this.MonitorReliableEnter
-            "System.Void System.Threading.Monitor.Enter(System.Object)", this.MonitorEnter
-            "System.Void System.Diagnostics.Debug.Assert(System.Boolean)", this.DebugAssert
-            "System.UInt32 System.Collections.HashHelpers.FastMod(System.UInt32, System.UInt32, System.UInt64)", this.FastMod
-            "System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)", this.RunStaticCtor
-            "System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)", this.RunStaticCtor
-            "System.Delegate System.Delegate.Combine(System.Delegate, System.Delegate)", this.DelegateCombine
-            "System.Delegate System.Delegate.Remove(System.Delegate, System.Delegate)", this.DelegateRemove
-        ]
+type ILInterpreter() as this =
 
-    // NOTE: adding implementation names into Loader
-    do Loader.CilStateImplementations <- cilStateImplementations.Keys
+    // ------------------------------- Environment interaction -------------------------------
+
+    member x.InternalCall (originMethod : Method) (methodInfo : MethodInfo) (argsAndThis : term list) cilState k =
+        let neededParams = methodInfo.GetParameters() |> Array.map (fun p -> p.ParameterType)
+        let parameters : obj[] =
+            match neededParams with
+            | [| t1; t2; t3 |] when t1 = typeof<IInterpreter> && t2 = typeof<cilState> && t3 = typeof<term list> ->
+                [| x :> IInterpreter; cilState; argsAndThis |]
+            | [| t1; t2 |] when t1 = typeof<state> && t2 = typeof<term list> ->
+                [| cilState.state; argsAndThis |]
+            | _ -> internalfail $"InternalCall: unsupported signature of internal call {neededParams}"
+
+        let result =
+            try
+                methodInfo.Invoke(null, parameters)
+            with
+            | :? TargetInvocationException as targetException ->
+                Logger.error $"InternalCall got TargetInvocationException {targetException.Message}"
+                let actualException = targetException.GetBaseException()
+                Logger.error $"TargetInvocationException.GetBaseException {actualException.Message}"
+                raise actualException
+            | e ->
+                Logger.error $"InternalCall got exception {e.Message}"
+                reraise()
+
+        match result with
+        | :? term as result when not originMethod.HasNonVoidResult ->
+            assert(result = Nop())
+            k [cilState]
+        | :? term as result when originMethod.HasNonVoidResult ->
+            assert(result <> Nop())
+            push result cilState
+            k [cilState]
+        | :? ((term * state) list) as results when originMethod.HasNonVoidResult ->
+            results |> List.map (fun (t, s) -> let s' = changeState cilState s in push t s'; s') |> k
+        | :? ((term * state) list) as results ->
+            results |> List.map (fun (_, s) -> changeState cilState s) |> k
+        | :? (cilState list) as results ->
+            k results
+        | _ -> internalfail "Internal call should return 'term' or tuple 'term * state' or 'cilState list'!"
 
     member x.ConfigureErrorReporter errorReporter fatalErrorReporter =
-        reportError <- errorReporter
-        reportFatalError <- fatalErrorReporter
+        configureErrorReporter errorReporter fatalErrorReporter
 
-    member private x.Raise createException (cilState : cilState) k =
+    member x.Raise createException (cilState : cilState) k =
         createException cilState
         k [cilState]
 
@@ -641,324 +598,15 @@ type internal ILInterpreter() as this =
         let upperBound = Memory.ArrayRank cilState.state this
         x.AccessArray (accessor this dimension) cilState upperBound dimension id
 
-    member private x.CommonGetArrayLength (cilState : cilState) thisOption args =
-        match args with
-        | [dimensionsKey] ->
-            let arrayLengthByDimension arrayRef index cilState (k : cilState list -> 'a) =
-                push (Memory.ArrayLengthByDimension cilState.state arrayRef index) cilState
-                k [cilState]
-            x.AccessArrayDimension arrayLengthByDimension cilState (Option.get thisOption) dimensionsKey
-        | _ -> internalfail "unexpected number of arguments"
-
-    member private x.GetArrayLowerBound (cilState : cilState) (this : term option) args =
-        match args with
-        | [dimension] ->
-            let arrayLowerBoundByDimension arrayRef index (cilState : cilState) k =
-                push (Memory.ArrayLowerBoundByDimension cilState.state arrayRef index) cilState
-                k [cilState]
-            x.AccessArrayDimension arrayLowerBoundByDimension cilState (Option.get this) dimension
-        | _ -> internalfail "unexpected number of arguments"
-
-    member private x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
+    member x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (IsBadRef this, state))
             (x.Raise x.NullReferenceException)
             statement
             k
 
-    member private x.CommonInitializeArray (cilState : cilState) _ (args : term list) =
-        match args with
-        | [arrayRef; handleTerm] ->
-            let initArray (cilState : cilState) k =
-                Memory.InitializeArray cilState.state arrayRef handleTerm
-                k [cilState]
-            x.NpeOrInvokeStatementCIL cilState arrayRef initArray id
-        | _ -> internalfail "unexpected number of arguments"
-
-    member private x.FillStringChecked (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 3)
-        let state = cilState.state
-        let dest, destPos, src = args[0], args[1], args[2]
-        let srcPos = MakeNumber 0
-        let srcLength = Memory.StringLength state src
-        let destLength = Memory.StringLength state dest
-        let (<<=) = Arithmetics.(<<=)
-        let check = srcLength <<= (Arithmetics.Sub destLength destPos)
-        let copy (cilState : cilState) k =
-            Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
-            k [cilState]
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (check, state))
-            copy
-            (x.Raise x.IndexOutOfRangeException)
-            id
-
-    member private x.ClearArray (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 3)
-        let array, index, length = args[0], args[1], args[2]
-        let (>>) = API.Arithmetics.(>>)
-        let (<<) = API.Arithmetics.(<<)
-        let clearCase (cilState : cilState) k =
-            Memory.ClearArray cilState.state array index length
-            k [cilState]
-        let nonNullCase (cilState : cilState) k =
-            let zero = MakeNumber 0
-            let lb = Memory.ArrayLowerBoundByDimension cilState.state array zero
-            let numOfAllElements = Memory.CountOfArrayElements cilState.state array
-            let check = (index << lb) ||| ((Arithmetics.Add index length) >> numOfAllElements) ||| (length << zero)
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (check, state))
-                (x.Raise x.IndexOutOfRangeException)
-                clearCase
-                k
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference array, state))
-            (x.Raise x.ArgumentNullException)
-            nonNullCase
-            id
-
-    member private x.CommonCopyArray (cilState : cilState) src srcIndex dst dstIndex length =
-        let state = cilState.state
-        let srcType = MostConcreteTypeOfRef state src
-        let dstType = MostConcreteTypeOfRef state dst
-        let (>>) = API.Arithmetics.(>>)
-        let (>>=) = API.Arithmetics.(>>=)
-        let (<<) = API.Arithmetics.(<<)
-        let add = Arithmetics.Add
-        let zero = TypeUtils.Int32.Zero()
-        let srcLB = Memory.ArrayLowerBoundByDimension state src zero
-        let dstLB = Memory.ArrayLowerBoundByDimension state dst zero
-        let srcNumOfAllElements = Memory.CountOfArrayElements state src
-        let dstNumOfAllElements = Memory.CountOfArrayElements state dst
-        let defaultCase (cilState : cilState) k =
-            Memory.CopyArray cilState.state src srcIndex srcType dst dstIndex dstType length
-            k [cilState]
-        let lengthCheck (cilState : cilState) =
-            let endSrcIndex = add srcIndex length
-            let srcNumOfAllElements = srcNumOfAllElements
-            let endDstIndex = add dstIndex length
-            let dstNumOfAllElements = dstNumOfAllElements
-            let check =
-                (endSrcIndex >> srcNumOfAllElements) ||| (endSrcIndex << srcLB)
-                ||| (endDstIndex >> dstNumOfAllElements) ||| (endDstIndex << dstLB)
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (check, state))
-                (x.Raise x.ArgumentException)
-                defaultCase
-        let indicesCheck (cilState : cilState) =
-            // TODO: extended form needs
-            let primitiveLengthCheck = (length << zero) ||| (if TypeUtils.isLong length then length >> TypeUtils.Int32.MaxValue() else False())
-            let srcIndexCheck = (srcIndex << srcLB) ||| (if TypeUtils.isLong srcIndex then srcIndex >>= srcNumOfAllElements else False())
-            let dstIndexCheck = (dstIndex << dstLB) ||| (if TypeUtils.isLong dstIndex then dstIndex >>= dstNumOfAllElements else False())
-
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (primitiveLengthCheck ||| srcIndexCheck ||| dstIndexCheck, state))
-                (x.Raise x.ArgumentOutOfRangeException)
-                lengthCheck
-        let assignableCheck (cilState : cilState) =
-            let srcElemType = Types.ElementType srcType
-            let dstElemType = Types.ElementType dstType
-            let condition =
-                if Types.IsValueType srcElemType then True()
-                else Types.TypeIsType srcElemType dstElemType
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (condition, state))
-                indicesCheck
-                (x.Raise x.InvalidCastException)
-        let rankCheck (cilState : cilState) =
-            if Types.RankOf srcType = Types.RankOf dstType then assignableCheck cilState
-            else x.Raise x.RankException cilState
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference src ||| IsNullReference dst, state))
-            (x.Raise x.ArgumentNullException)
-            rankCheck
-            id
-
-    member private x.CopyArrayExtendedForm1 (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 6)
-        let src, srcIndex, dst, dstIndex, length = args[0], args[1], args[2], args[3], args[4]
-        x.CommonCopyArray cilState src srcIndex dst dstIndex length
-
-    member private x.CopyArrayExtendedForm2 (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 5)
-        let src, srcIndex, dst, dstIndex, length = args[0], args[1], args[2], args[3], args[4]
-        x.CommonCopyArray cilState src srcIndex dst dstIndex length
-
-    member private x.CopyArrayShortForm (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 3)
-        let src, dst, length = args[0], args[1], args[2]
-        let state = cilState.state
-        let zero = TypeUtils.Int32.Zero()
-        let srcLB = Memory.ArrayLowerBoundByDimension state src zero
-        let dstLB = Memory.ArrayLowerBoundByDimension state src zero
-        x.CommonCopyArray cilState src srcLB dst dstLB length
-
-    member private x.FillArray (cilState : cilState) _ (args : term list) =
-        assert(List.length args = 3)
-        let array, value = args[1], args[2]
-        let fill cilState k =
-            Memory.FillArray cilState.state array value
-            k [cilState]
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference array, state))
-            (x.Raise x.ArgumentNullException)
-            fill
-            id
-
-    member private x.GetChars (cilState : cilState) this (args : term list) =
-        assert(List.length args = 1)
-        match this with
-        | Some this ->
-            let index = List.item 0 args
-            let length = Memory.StringLength cilState.state this
-            let getChar cilState k =
-                let char = Memory.ReadStringChar cilState.state this index
-                push char cilState
-                List.singleton cilState |> k
-            x.AccessArray getChar cilState length index id
-        | None -> internalfailf $"String.GetChars: unexpected this {this}"
-
-    member private x.MonitorReliableEnter (cilState : cilState) this (args : term list) =
-        assert(List.length args = 2 && Option.isNone this)
-        let obj, resultRef = args[0], args[1]
-        let success cilState k =
-            Memory.Write cilState.state resultRef (True()) |> List.map (changeState cilState) |> k
-        BranchOnNullCIL cilState obj
-            (x.Raise x.ArgumentNullException)
-            success
-            id
-
-    member private x.MonitorEnter (cilState : cilState) this (args : term list) =
-        assert(List.length args = 1 && Option.isNone this)
-        let obj = List.head args
-        BranchOnNullCIL cilState obj
-            (x.Raise x.ArgumentNullException)
-            (fun cilState k -> List.singleton cilState |> k)
-            id
-
-    member private x.DebugAssert (cilState : cilState) this (args : term list) =
-        assert(List.length args = 1 && Option.isNone this)
-        let condition = List.head args
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (condition, state))
-            (fun cilState k -> (); k [cilState])
-            (fun cilState k ->
-                reportFatalError cilState "Debug.Assert failed"
-                k [])
-            id
-
-    member private x.FastMod (cilState : cilState) this (args : term list) =
-        assert(List.length args = 3 && Option.isNone this)
-        let left, right = args[0], args[1]
-        let validCase cilState k =
-            let leftType = TypeOf left
-            let rightType = TypeOf right
-            let result =
-                if TypeUtils.isUnsigned leftType || TypeUtils.isUnsigned rightType then
-                    Arithmetics.RemUn left right
-                else Arithmetics.Rem left right
-            push result cilState
-            k [cilState]
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (right === MakeNumber 0, state))
-            (x.Raise x.DivideByZeroException)
-            validCase
-            id
-
-    member private x.RunStaticCtor (cilState : cilState) this (args : term list) =
-        assert(List.length args = 1 && Option.isNone this)
-        // TODO: initialize statics of argument
-        List.singleton cilState
-
-    member private x.DelegateCombine cilState _ args =
-        assert(List.length args = 2)
-        let d1 = args[0]
-        let d2 = args[1]
-        assert(IsReference d1 && IsReference d2)
-        let combine t cilState k =
-            let d = Memory.CombineDelegates cilState.state args t
-            push d cilState
-            List.singleton cilState |> k
-        let typesCheck cilState k =
-            let state = cilState.state
-            let d1Type = MostConcreteTypeOfRef state d1
-            let d2Type = MostConcreteTypeOfRef state d2
-            let t = TypeUtils.mostConcreteType d1Type d2Type
-            let secondCheck cilState k =
-                StatedConditionalExecutionCIL cilState
-                    (fun state k -> k (Types.RefIsType state d2 t, state))
-                    (combine t)
-                    (x.Raise x.ArgumentException)
-                    k
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (Types.RefIsType state d1 t, state))
-                secondCheck
-                (x.Raise x.ArgumentException)
-                k
-        let nullCheck cilState k =
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (IsNullReference d2, state))
-                (fun cilState k -> push d1 cilState; List.singleton cilState |> k)
-                typesCheck
-                k
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference d1, state))
-            (fun cilState k -> push d2 cilState; List.singleton cilState |> k)
-            nullCheck
-            id
-
-    member private x.DelegateRemove cilState _ args =
-        assert(List.length args = 2)
-        let source = args[0]
-        let toRemove = args[1]
-        assert(IsReference source && IsReference toRemove)
-        let remove t cilState k =
-            let d = Memory.RemoveDelegate cilState.state source toRemove t
-            push d cilState
-            List.singleton cilState |> k
-        let typesCheck cilState k =
-            let state = cilState.state
-            let sourceType = MostConcreteTypeOfRef cilState.state source
-            let toRemoveType = MostConcreteTypeOfRef state toRemove
-            let t = TypeUtils.mostConcreteType sourceType toRemoveType
-            let secondCheck cilState k =
-                StatedConditionalExecutionCIL cilState
-                    (fun state k -> k (Types.RefIsType state toRemove t, state))
-                    (remove t)
-                    (x.Raise x.ArgumentException)
-                    k
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (Types.RefIsType state source t, state))
-                secondCheck
-                (x.Raise x.ArgumentException)
-                k
-        let nullCheck cilState k =
-            StatedConditionalExecutionCIL cilState
-                (fun state k -> k (IsNullReference source, state))
-                (fun cilState k -> push (TypeOf source |> NullRef) cilState; List.singleton cilState |> k)
-                typesCheck
-                k
-        StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsNullReference toRemove, state))
-            (fun cilState k -> push source cilState; List.singleton cilState |> k)
-            nullCheck
-            id
-
-    member private x.TrustedIntrinsics =
-        let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
-        let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
-        let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
-        Array.concat [intPtr; volatile; defaultComparer]
-
-    member private x.IsNotImplementedIntrinsic (method : Method) fullMethodName =
-        let isIntrinsic =
-            let intrinsicAttr = "System.Runtime.CompilerServices.IntrinsicAttribute"
-            method.CustomAttributes |> Seq.exists (fun m -> m.AttributeType.ToString() = intrinsicAttr)
-        isIntrinsic && (Array.contains fullMethodName x.TrustedIntrinsics |> not)
-
-    member private x.ShouldMock (method : Method) fullMethodName =
-        Loader.isShimmed fullMethodName && ExternMocker.ShimSupported
-        || method.IsExternalMethod && not method.IsQCall
+    member private x.ShouldMock (method : Method) =
+        method.IsShimmed && ExternMocker.ShimSupported || method.IsExternalMethod && not method.IsQCall
 
     member private x.InstantiateThisIfNeed state thisOption (method : Method) =
         match thisOption with
@@ -1007,7 +655,7 @@ type internal ILInterpreter() as this =
                     (fun state k -> k (assumptions, state))
                     (fun cilState k -> k [cilState])
                     (fun cilState k ->
-                        if shouldReportError then reportError cilState message
+                        if shouldReportError then ErrorReporter.ReportError cilState message
                         k [])
                     k
 
@@ -1038,7 +686,7 @@ type internal ILInterpreter() as this =
                     (fun state k -> k (assumptions, state))
                     (fun cilState k -> k [cilState])
                     (fun cilState k ->
-                        if shouldReportError then reportError cilState message
+                        if shouldReportError then ErrorReporter.ReportError cilState message
                         k [])
                     k
 
@@ -1105,9 +753,9 @@ type internal ILInterpreter() as this =
         let error = Memory.AllocateConcreteObject state e (e.GetType())
         x.CommonThrow cilState error isRuntime
 
-    member private x.TryConcreteInvoke (method : Method) fullMethodName (args : term list) thisOption (cilState : cilState) =
+    member private x.TryConcreteInvoke (method : Method) (args : term list) thisOption (cilState : cilState) =
         let state = cilState.state
-        if method.IsConcretelyInvokable && Loader.isInvokeInternalCall fullMethodName then
+        if method.CanCallConcrete then
             // Before term args, type args are located
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
             let objArgs = List.choose (TryTermToObj state) termArgs
@@ -1134,7 +782,7 @@ type internal ILInterpreter() as this =
                         push resultTerm cilState
                     | _ -> ()
                 with :? TargetInvocationException as e ->
-                    let isRuntime = Loader.isRuntimeExceptionsImplementation fullMethodName
+                    let isRuntime = method.IsRuntimeException
                     x.ConcreteInvokeCatch e.InnerException cilState isRuntime
                 true
         else false
@@ -1149,25 +797,24 @@ type internal ILInterpreter() as this =
         x.InstantiateThisIfNeed cilState.state thisOption method
 
         let fallThroughCall (cilState : cilState) =
-            if isUnhandledError cilState |> not then
+            if isUnhandledExceptionOrError cilState |> not then
                 ILInterpreter.FallThroughCall cilState
             cilState
 
-        if x.TryConcreteInvoke method fullMethodName typeAndMethodArgs thisOption cilState then
+        if x.TryConcreteInvoke method typeAndMethodArgs thisOption cilState then
             fallThroughCall cilState |> List.singleton |> k
-        elif Map.containsKey fullMethodName cilStateImplementations then
-            cilStateImplementations[fullMethodName] cilState thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
-        elif Map.containsKey fullMethodName Loader.FSharpImplementations then
+        elif method.IsFSharpInternalCall then
             let thisAndArguments = optCons typeAndMethodArgs thisOption
-            internalCall Loader.FSharpImplementations[fullMethodName] thisAndArguments cilState (List.map fallThroughCall >> k)
-        elif Map.containsKey fullMethodName Loader.CSharpImplementations then
+            let internalCall = method.GetInternalCall
+            x.InternalCall method internalCall thisAndArguments cilState (List.map fallThroughCall >> k)
+        elif method.IsCSharpInternalCall then
             assert method.HasBody
             ILInterpreter.InitFunctionFrameCIL cilState method thisOption (Some args)
             [cilState] |> k
         // TODO: add Address function for array and return Ptr #do
         elif x.IsArrayGetOrSet method then
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
-        elif ExternMocker.ExtMocksSupported && x.ShouldMock method fullMethodName then
+        elif ExternMocker.ExtMocksSupported && x.ShouldMock method then
             let mockMethod = ExternMockAndCall cilState.state method None []
             match mockMethod with
             | Some symVal ->
@@ -1183,7 +830,7 @@ type internal ILInterpreter() as this =
             let stackTrace = Memory.StackTraceString cilState.state.stack
             let message = $"Not supported internal call: {fullMethodName}"
             UnknownMethodException(message, method, stackTrace) |> raise
-        elif x.IsNotImplementedIntrinsic method fullMethodName then
+        elif method.IsNotImplementedIntrinsic then
             let stackTrace = Memory.StackTraceString cilState.state.stack
             let message = $"Not supported intrinsic method: {fullMethodName}"
             UnknownMethodException(message, method, stackTrace) |> raise
@@ -1521,14 +1168,14 @@ type internal ILInterpreter() as this =
         let address = pop cilState
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Ldobj.Size)
         let readValue cilState k =
+            let actualType = MostConcreteTypeOfRef cilState.state address
             let value =
-                if IsPtr address then
-                    let address = Types.Cast address (typ.MakePointerType())
-                    read cilState address
-                else
-                    // TODO: try always cast reference, instead of value
+                if typ.IsAssignableFrom actualType then
                     let value = read cilState address
                     Types.Cast value typ
+                else
+                    let address = Types.Cast address (typ.MakePointerType())
+                    read cilState address
             push value cilState
             List.singleton cilState |> k
         x.NpeOrInvokeStatementCIL cilState address readValue id
@@ -1538,8 +1185,7 @@ type internal ILInterpreter() as this =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Stobj.Size)
         let store cilState k =
             let value = Types.Cast value typ
-            let states = write cilState ref value
-            states |> List.map (changeState cilState) |> k
+            write cilState ref value |> k
         x.NpeOrInvokeStatementCIL cilState ref store id
 
     member x.LdFldWithFieldInfo (fieldInfo : FieldInfo) addressNeeded (cilState : cilState) =
@@ -1572,8 +1218,7 @@ type internal ILInterpreter() as this =
             let reference =
                 if TypeUtils.isPointer fieldInfo.DeclaringType then targetRef
                 else Reflection.wrapField fieldInfo |> Memory.ReferenceField cilState.state targetRef
-            let states = write cilState reference value
-            List.map (changeState cilState) states |> k
+            write cilState reference value |> k
         x.NpeOrInvokeStatementCIL cilState targetRef storeWhenTargetIsNotNull id
 
     member private x.LdElemCommon (typ : Type option) (cilState : cilState) arrayRef indices =
@@ -1620,8 +1265,7 @@ type internal ILInterpreter() as this =
         let checkedStElem (cilState : cilState) (k : cilState list -> 'a) =
             let typeOfValue = TypeOf value
             let uncheckedStElem (cilState : cilState) (k : cilState list -> 'a) =
-                let states = writeIndex cilState arrayRef indices value typ
-                List.map (changeState cilState) states |> k
+                writeIndex cilState arrayRef indices value typ |> k
             let checkTypeMismatch (cilState : cilState) (k : cilState list -> 'a) =
                 let condition =
                     if Types.IsValueType typeOfValue then True()
@@ -1680,8 +1324,7 @@ type internal ILInterpreter() as this =
         let value, address = pop2 cilState
         let store cilState k =
             let value = valueCast value
-            let states = write cilState address value
-            states |> List.map (changeState cilState) |> k
+            write cilState address value |> k
         x.NpeOrInvokeStatementCIL cilState address store id
 
     member x.BoxNullable (t : Type) (v : term) (cilState : cilState) : cilState list =
@@ -1781,7 +1424,7 @@ type internal ILInterpreter() as this =
 
     member private x.Throw (cilState : cilState) =
         let error = peek cilState
-        let isRuntime = Loader.isRuntimeExceptionsImplementation (currentMethod cilState).FullName
+        let isRuntime = (currentMethod cilState).IsRuntimeException
         BranchOnNullCIL cilState error
             (x.Raise x.NullReferenceException)
             (fun cilState k ->
@@ -1864,7 +1507,7 @@ type internal ILInterpreter() as this =
         match y, x with
         | _ when TypeUtils.isIntegralTerm x && TypeUtils.isIntegralTerm y ->
             divRem x y
-        | DetachedPtr offset2, DetachedPtr offset1 ->
+        | DetachedPtrTerm offset2, DetachedPtrTerm offset1 ->
             divRem offset1 offset2
         | FloatT, _
         | _, FloatT when isRem -> internalfailf "Rem.Un is unspecified for Floats"
@@ -2119,12 +1762,11 @@ type internal ILInterpreter() as this =
             && parameters |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom p1) argumentsTypes
         let ctors = constructors |> Array.filter suitable
         assert(Array.length ctors = 1)
-        let ctor = ctors[0]
-        let fullConstructorName = Reflection.getFullMethodName ctor
-        assert (Loader.hasRuntimeExceptionsImplementation fullConstructorName)
-        let proxyCtor = Loader.getRuntimeExceptionsImplementation fullConstructorName |> Application.getMethod
+        let ctor = Application.getMethod ctors[0]
+        assert ctor.HasRuntimeExceptionImpl
+        let proxyCtor = ctor.RuntimeExceptionImpl |> Application.getMethod
         ILInterpreter.InitFunctionFrameCIL cilState proxyCtor None (Some arguments)
-        let success = x.TryConcreteInvoke proxyCtor proxyCtor.FullName arguments None cilState
+        let success = x.TryConcreteInvoke proxyCtor arguments None cilState
         assert success
 
     member x.InvalidProgramException cilState =
@@ -2193,7 +1835,7 @@ type internal ILInterpreter() as this =
             let ip = currentIp cilState
             try
                 let allStates = x.MakeStep cilState
-                let newErrors, restStates = List.partition isUnhandledError allStates
+                let newErrors, restStates = List.partition isUnhandledExceptionOrError allStates
                 let errors = errors @ newErrors
                 let newIieStates, goodStates = List.partition isIIEState restStates
                 let incompleteStates = newIieStates @ incompleteStates
@@ -2594,7 +2236,32 @@ type internal ILInterpreter() as this =
             | _ -> __unreachable__()
 
         let renewInstructionsInfo cilState =
-            if not <| isUnhandledError cilState then
+            if not <| isUnhandledExceptionOrError cilState then
                 x.IncrementLevelIfNeeded m offset cilState
         newSts |> List.iter renewInstructionsInfo
         newSts
+
+// ------------------------------------ IExceptionManager implementation ------------------------------------
+
+    interface IInterpreter with
+        override x.Raise createException cilState k =
+            x.Raise createException cilState k
+        override x.NpeOrInvoke cilState ref statement k =
+            x.NpeOrInvokeStatementCIL cilState ref statement k
+        override x.InvalidProgramException cilState = x.InvalidProgramException cilState
+        override x.NullReferenceException cilState = x.NullReferenceException cilState
+        override x.ArgumentException cilState = x.ArgumentException cilState
+        override x.ArgumentNullException cilState = x.ArgumentNullException cilState
+        override x.ArgumentOutOfRangeException cilState = x.ArgumentOutOfRangeException cilState
+        override x.IndexOutOfRangeException cilState = x.IndexOutOfRangeException cilState
+        override x.ArrayTypeMismatchException cilState = x.ArrayTypeMismatchException cilState
+        override x.RankException cilState = x.RankException cilState
+        override x.DivideByZeroException cilState = x.DivideByZeroException cilState
+        override x.OverflowException cilState = x.OverflowException cilState
+        override x.ArithmeticException cilState = x.ArithmeticException cilState
+        override x.TypeInitializerException qualifiedTypeName innerException cilState =
+            x.TypeInitializerException qualifiedTypeName innerException cilState
+        override x.InvalidCastException cilState = x.InvalidCastException cilState
+        override x.OutOfMemoryException cilState = x.OutOfMemoryException cilState
+        override x.AccessArrayDimension accessor cilState this dim = x.AccessArrayDimension accessor cilState this dim
+        override x.AccessArray accessor cilState length index k = x.AccessArray accessor cilState length index k

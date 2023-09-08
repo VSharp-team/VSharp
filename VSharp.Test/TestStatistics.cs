@@ -1,6 +1,7 @@
+#nullable enable
 using System;
 using System.Reflection;
-using VSharp.Interpreter.IL;
+using VSharp.SVM;
 
 namespace VSharp.Test;
 
@@ -10,9 +11,9 @@ public record TestStatistics(
     int Timeout,
     SearchStrategy SearchStrategy,
     CoverageZone CoverageZone,
-    statisticsDump SiliStatisticsDump = null,
+    statisticsDump? SvmStatisticsDump = null,
     uint? Coverage = null,
     uint? TestsGenerated = null,
     string TestsOutputDirectory = "",
-    Exception Exception = null
+    Exception? Exception = null
 );
