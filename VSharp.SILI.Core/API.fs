@@ -26,7 +26,7 @@ module API =
         BranchStatements state (fun state k -> k (Pointers.isNull reference, state)) thenStatement elseStatement k
     let BranchExpressions condition thenBranch elseExpression k =
         Common.statelessConditionalExecutionWithMergek condition thenBranch elseExpression k
-    let StatedConditionalExecutionAppendResults (state : state) conditionInvocation (thenBranch : state -> (state list -> 'a) -> 'a) elseBranch k =
+    let StatedConditionalExecutionAppend (state : state) conditionInvocation thenBranch elseBranch k =
         Branching.commonStatedConditionalExecutionk state conditionInvocation thenBranch elseBranch (fun x y -> [x;y]) (List.concat >> k)
     let StatedConditionalExecution = Branching.commonStatedConditionalExecutionk
 
@@ -116,6 +116,43 @@ module API =
 
         let TryPtrToRef state pointerBase sightType offset =
             Memory.tryPtrToRef state pointerBase sightType offset
+
+        let PtrToRefFork state pointerBase sightType offset =
+            let zero = MakeNumber 0
+            let ptrToRef sightType offset state k =
+                let ref = Memory.tryPtrToRef state pointerBase sightType offset
+                assert(Option.isSome ref)
+                k (ref, state)
+            let fork state condition sightType offset =
+                StatedConditionalExecution state
+                    (fun state k -> k (condition, state))
+                    (ptrToRef sightType offset)
+                    (fun state k -> k (None, state))
+                    (fun x y -> [x;y])
+                    id
+            match pointerBase with
+            | HeapLocation(address, t) when address <> zeroAddress() ->
+                let typ = Memory.typeOfHeapLocation state address |> TypeUtils.mostConcreteType t
+                if TypeUtils.isArrayType typ then
+                    let sightType = if sightType = typeof<Void> then typ.GetElementType() else sightType
+                    let size = TypeUtils.internalSizeOf sightType |> MakeNumber
+                    let condition = rem offset size === zero
+                    let offset = mul (div offset size) size
+                    fork state condition sightType offset
+                elif TypeUtils.isValueType typ then
+                    let sightType = if sightType = typeof<Void> then typ else sightType
+                    let condition = offset === zero
+                    fork state condition sightType zero
+                else List.singleton (None, state)
+            | HeapLocation _ -> List.singleton (None, state)
+            | StackLocation key ->
+                let sightType = if sightType = typeof<Void> then key.TypeOfLocation else sightType
+                let condition = offset === zero
+                fork state condition sightType zero
+            | StaticLocation t ->
+                let sightType = if sightType = typeof<Void> then t else sightType
+                let condition = offset === zero
+                fork state condition sightType zero
 
         let TryTermToObj state term = Memory.tryTermToObj state term
 
@@ -319,6 +356,7 @@ module API =
         let StringArrayInfo state stringAddress length = Memory.stringArrayInfo state stringAddress length
 
         let private IsSafeContext actualType neededType =
+            assert(neededType <> typeof<Void>)
             neededType = actualType ||
             TypeUtils.canCastImplicitly neededType actualType &&
             TypeUtils.internalSizeOf actualType = TypeUtils.internalSizeOf neededType

@@ -431,7 +431,10 @@ module internal InstructionsSet =
             | Some(PrimitiveStackLocation _ as address) ->
                 let this = Ref address
                 constrainedImpl this method args cilState
-            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected ptr as 'this' {this}"
+            | _ ->
+                // Inconsistent pointer, call will fork and filter this state
+                push this cilState
+                pushMany args cilState
         | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
 
     // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction

@@ -75,7 +75,7 @@ module internal Enum =
                 let states = Memory.Write state valuesPtr values
                 List.collect (fun state -> Memory.Write state namesPtr names) states |> k
             let needNames = (Types.Cast getNamesFlag typeof<int>) === (MakeNumber 1)
-            StatedConditionalExecutionAppendResults state
+            StatedConditionalExecutionAppend state
                 (fun state k -> k (needNames, state))
                 namesAndValuesCase
                 valuesCase
