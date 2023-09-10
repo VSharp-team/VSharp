@@ -1213,12 +1213,18 @@ module internal Memory =
     and tryPtrToRef state pointerBase sightType offset : address option =
         assert(typeOf offset = typeof<int>)
         let zero = makeNumber 0
+        let mutable sightType = sightType
+        let suitableType t =
+            if sightType = typeof<Void> then
+                sightType <- t
+                true
+            else t = sightType
         match pointerBase with
         | HeapLocation(address, t) when address <> zeroAddress() ->
             let typ = typeOfHeapLocation state address |> mostConcreteType t
             let isArray() =
-                typ.IsSZArray && typ.GetElementType() = sightType
-                || typ = typeof<string> && sightType = typeof<char>
+                typ.IsSZArray && suitableType (typ.GetElementType())
+                || typ = typeof<string> && suitableType typeof<char>
             if typ.ContainsGenericParameters then None
             elif isArray() then
                 let mutable elemSize = Nop()
@@ -1232,10 +1238,10 @@ module internal Memory =
                         else address, (sightType, 1, true)
                     ArrayIndex(address, [index], arrayType) |> Some
                 else None
-            elif isValueType typ && sightType = typ && offset = zero then
+            elif isValueType typ && suitableType typ && offset = zero then
                 BoxedLocation(address, t) |> Some
             else None
-        | StackLocation stackKey when stackKey.TypeOfLocation = sightType && offset = zero ->
+        | StackLocation stackKey when suitableType stackKey.TypeOfLocation && offset = zero ->
             PrimitiveStackLocation stackKey |> Some
         | _ -> None
 

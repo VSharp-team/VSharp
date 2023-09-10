@@ -139,6 +139,10 @@ module internal Pointers =
         match ptr.term with
         | DetachedPtr offset ->
             mul offset number |> k
+        | Ptr(pointerBase, _, offset) ->
+            let baseNumber = pointerBase.GetHashCode() |> makeNumber
+            let ptrNumber = add baseNumber offset
+            mul ptrNumber number |> k
         | _ -> internalfail $"multiplyPtrByNumber: unexpected pointer {ptr}"
 
     let private simplifyOperands x y =
