@@ -8,6 +8,7 @@ open VSharp.Interpreter.IL
 module internal ReadOnlySpan =
 
     val GetContentsRef : cilState -> term -> term
+    val GetContentsHeapRef : cilState -> term -> term
     val GetLength : cilState -> term -> term
 
     [<Implements("T& System.ReadOnlySpan`1[T].get_Item(this, System.Int32)")>]

@@ -133,8 +133,12 @@ module API =
             match pointerBase with
             | HeapLocation(address, t) when address <> zeroAddress() ->
                 let typ = Memory.typeOfHeapLocation state address |> TypeUtils.mostConcreteType t
-                if TypeUtils.isArrayType typ then
-                    let sightType = if sightType = typeof<Void> then typ.GetElementType() else sightType
+                let isString = typ = typeof<string>
+                if TypeUtils.isArrayType typ || isString then
+                    let sightType =
+                        if sightType = typeof<Void> then
+                            if isString then typeof<char> else typ.GetElementType()
+                        else sightType
                     let size = TypeUtils.internalSizeOf sightType |> MakeNumber
                     let condition = rem offset size === zero
                     let offset = mul (div offset size) size
@@ -357,9 +361,9 @@ module API =
 
         let private IsSafeContext actualType neededType =
             assert(neededType <> typeof<Void>)
-            neededType = actualType ||
-            TypeUtils.canCastImplicitly neededType actualType &&
-            TypeUtils.internalSizeOf actualType = TypeUtils.internalSizeOf neededType
+            neededType = actualType
+            || TypeUtils.canCastImplicitly neededType actualType
+            && TypeUtils.internalSizeOf actualType = TypeUtils.internalSizeOf neededType
 
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices

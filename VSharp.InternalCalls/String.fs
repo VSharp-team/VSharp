@@ -28,7 +28,7 @@ module internal String =
     let CtorFromSpan (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
-        let ref = ReadOnlySpan.GetContentsRef cilState span
+        let ref = ReadOnlySpan.GetContentsHeapRef cilState span
         let len = ReadOnlySpan.GetLength cilState span
         assert(TypeOf ref |> TypeUtils.isArrayType)
         let states = Memory.StringCtorOfCharArrayAndLen cilState.state ref this len

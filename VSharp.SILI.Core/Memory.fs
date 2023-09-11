@@ -940,6 +940,7 @@ module internal Memory =
         MemoryRegion.read region key (isDefault state) instantiate
 
     let readBoxedLocation state (address : term) sightType =
+        assert(sightType = typeof<obj> || sightType.IsInterface || isValueType sightType)
         let cm = state.concreteMemory
         let typeFromMemory = typeOfHeapLocation state address
         let typ = mostConcreteType typeFromMemory sightType
@@ -1247,7 +1248,9 @@ module internal Memory =
 
     and heapReferenceToBoxReference reference =
         match reference.term with
-        | HeapRef(address, typ) -> Ref (BoxedLocation(address, typ))
+        | HeapRef(address, typ) ->
+            assert(typ = typeof<obj> || typ.IsInterface || isValueType typ)
+            Ref (BoxedLocation(address, typ))
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, heapReferenceToBoxReference v)) |> Merging.merge
         | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 
