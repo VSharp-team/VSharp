@@ -305,6 +305,7 @@ module API =
         let Add x y = add x y
         let Rem x y = rem x y
         let RemUn x y = remUn x y
+        let Div x y = div x y
         let IsZero term = checkEqualZero term id
 
         let Acos x = acos x

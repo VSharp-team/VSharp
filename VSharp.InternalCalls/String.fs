@@ -46,8 +46,9 @@ module internal String =
             &&& (startIndex >>= zero)
         let copy cilState k =
             let cilStates = writeClassField cilState this Reflection.stringLengthField length
+            let bytesCount = Mul length (MakeNumber sizeof<char>)
             let memMove cilState =
-                Buffer.CommonMemmove cilState this None ptr (Some startIndex) length
+                Buffer.CommonMemmove cilState this None ptr (Some startIndex) bytesCount
             List.collect memMove cilStates |> k
         let checkPtr cilState k =
             StatedConditionalExecutionCIL cilState

@@ -208,6 +208,7 @@ module API =
         val Add : term -> term -> term
         val Rem : term -> term -> term
         val RemUn : term -> term -> term
+        val Div : term -> term -> term
         val IsZero : term -> term
 
         val Acos : term -> term
