@@ -50,12 +50,11 @@ module internal Buffer =
             List.map createArrayRef cases
         | _ -> internalfail $"Memmove: unexpected reference {ref}"
 
-    let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state elemCount =
-        let srcElemType = fst3 srcArrayType
-        let dstElemType = fst3 dstArrayType
-        let size = TypeUtils.internalSizeOf srcElemType
-        assert(srcElemType = dstElemType || TypeUtils.internalSizeOf dstElemType = size)
-        let elemCount = Arithmetics.Div elemCount (MakeNumber size)
+    let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state bytesCount =
+        if Memory.IsSafeContextCopy srcArrayType dstArrayType |> not then
+            internalfail $"Buffer.Copy: unsafe memory copy is not implemented, src type {srcArrayType}, dst type {dstArrayType}"
+        let size = TypeUtils.internalSizeOf (fst3 srcArrayType)
+        let elemCount = Arithmetics.Div bytesCount (MakeNumber size)
         let dstType = Types.ArrayTypeToSymbolicType dstArrayType
         let srcType = Types.ArrayTypeToSymbolicType srcArrayType
         let dstHeapRef = HeapRef dstAddr dstType
@@ -93,7 +92,9 @@ module internal Buffer =
 
     let GenericMemmove (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 4)
-        let dst, src, bytesCount = args[1], args[2], args[3]
+        let elemType, dst, src, elemCount = args[0], args[1], args[2], args[3]
+        let elemSize = Helpers.unwrapType elemType |> TypeUtils.internalSizeOf
+        let bytesCount = Arithmetics.Mul elemCount (MakeNumber elemSize)
         Memmove cilState dst src bytesCount
 
     let ByteMemmove (_ : IInterpreter) (cilState : cilState) (args : term list) =

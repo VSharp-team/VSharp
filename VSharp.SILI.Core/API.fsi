@@ -323,6 +323,8 @@ module API =
 
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
 
+        val IsSafeContextCopy : arrayType -> arrayType -> bool
+
         val CopyArray : state -> term -> term -> Type -> term -> term -> Type -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit
 

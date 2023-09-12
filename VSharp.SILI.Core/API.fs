@@ -629,6 +629,9 @@ module API =
             let lbs = List.init dim (fun dim -> Memory.readLowerBound state address (makeNumber dim) arrayType)
             Memory.linearizeArrayIndex lens lbs indices
 
+        let IsSafeContextCopy (srcArrayType : arrayType) (dstArrayType : arrayType) =
+            Copying.isSafeContextCopy srcArrayType dstArrayType
+
         let CopyArray state src srcIndex srcType dst dstIndex dstType length =
             match src.term, dst.term with
             | HeapRef(srcAddress, _), HeapRef(dstAddress, _) ->
