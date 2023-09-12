@@ -52,11 +52,11 @@ namespace VSharp.Runner
             var concreteArguments =
                 new Argument<string[]>("args", description: "Command line arguments");
             var unknownArgsOption =
-                new System.CommandLine.Option("--unknown-args", description: "Force engine to generate various input console arguments");
+                new Option("--unknown-args", description: "Force engine to generate various input console arguments");
             var renderTestsOption =
-                new System.CommandLine.Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
+                new Option("--render-tests", description: "Render generated tests as NUnit project to specified output path");
             var singleFileOption =
-                new System.CommandLine.Option("--single-file") { IsHidden = true };
+                new Option("--single-file") { IsHidden = true };
             var searchStrategyOption = new Option<SearchStrategy>(
                 aliases: new[] { "--strat" },
                 () => defaultOptions.SearchStrategy,
