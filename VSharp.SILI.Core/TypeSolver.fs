@@ -101,33 +101,38 @@ module TypeStorage =
 // ------------------------------------------------- Generic Solving Utils --------------------------------------------
 module private CandidateUtils =
 
-    let satisfiesTypeParameterConstraints (subst : parameterSubstitution) (constraints : typeConstraints) (parameter : Type) candidate =
+    let satisfiesTypeParameterConstraints (subst : parameterSubstitution) (constraints : typeConstraints) (parameter : Type) (candidate: candidate) =
         let substitute subst t = substitute t subst
-        match candidate with
-        | Candidate candidate as c ->
-            let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-            let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
-            let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
-            let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
-            let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
-            let isSupertype, isSubtype = substitute subst >> candidate.IsAssignableTo, substitute subst >> candidate.IsAssignableFrom
-            // TODO: check 'managed' constraint
-            let satisfies =
-                (not candidate.ContainsGenericParameters)
-                && (not isReferenceType || not candidate.IsValueType)
-                && (not isNotNullableValueType || (candidate.IsValueType && Nullable.GetUnderlyingType candidate = null))
-                && (not hasDefaultConstructor || candidate.IsValueType || candidate.GetConstructor(Type.EmptyTypes) <> null)
-                && (parameter.GetGenericParameterConstraints() |> Array.forall isSupertype)
-                && constraints.subtypes |> List.forall isSubtype
-                && constraints.supertypes |> List.forall isSupertype
-                && constraints.notSubtypes |> List.forall (isSubtype >> not)
-                && constraints.notSupertypes |> List.forall (isSupertype >> not)
-            if satisfies then Some c else None
-        | GenericCandidate genericCandidate ->
-            let constraints = constraints.Copy()
-            parameter.GetGenericParameterConstraints()
-            |> Array.iter (substitute subst >> constraints.AddSuperType)
-            genericCandidate.AddConstraints constraints |> Option.map GenericCandidate
+        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
+        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
+        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
+        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
+        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
+
+        let typedef = candidate.TypeDef
+        let satisfies =
+            (not isReferenceType || not typedef.IsValueType)
+            && (not isNotNullableValueType || (typedef.IsValueType && Nullable.GetUnderlyingType typedef = null))
+            && (not hasDefaultConstructor || typedef.IsValueType || typedef.GetConstructor(Type.EmptyTypes) <> null)
+        if satisfies then
+            match candidate with
+            | Candidate candidate as c ->
+                // TODO: [style] unify with 'satisfiesTypeParameterConstraints' #SLAVA
+                let isSupertype, isSubtype = substitute subst >> candidate.IsAssignableTo, substitute subst >> candidate.IsAssignableFrom
+                let satisfies =
+                    (not candidate.ContainsGenericParameters)
+                    && (parameter.GetGenericParameterConstraints() |> Array.forall isSupertype)
+                    && constraints.subtypes |> List.forall isSubtype
+                    && constraints.supertypes |> List.forall isSupertype
+                    && constraints.notSubtypes |> List.forall (isSubtype >> not)
+                    && constraints.notSupertypes |> List.forall (isSupertype >> not)
+                if satisfies then Some c else None
+            | GenericCandidate genericCandidate ->
+                let constraints = constraints.Copy()
+                for c in parameter.GetGenericParameterConstraints() do
+                    substitute subst c |> constraints.AddSuperType
+                genericCandidate.AddConstraints constraints |> Option.map GenericCandidate
+        else None
 
     let candidate2types candidate =
         match candidate with
@@ -155,6 +160,7 @@ type typeSolvingResult =
 module TypeSolver =
 
     let mutable private userAssembly = None
+
     let genericSolvingDepth = 1
     type private substitution = pdict<Type, symbolicType>
 
@@ -372,8 +378,7 @@ module TypeSolver =
 
     let private makeGenericCandidate (typedef: Type) depth =
         let satisfiesConstraints constraints = satisfiesConstraints constraints PersistentDict.empty
-        let childDepth _ (maxDepths: Dictionary<_, _>) _ =
-            Seq.max maxDepths.Values |> max genericSolvingDepth
+        let childDepth _ _ _ = Int32.MaxValue
         genericCandidate.Create typedef depth (makeParameterSubstitutions childDepth) satisfiesConstraints
 
     let private refineMock getMock constraints (mock : ITypeMock) =
@@ -446,7 +451,7 @@ module TypeSolver =
             }
         let childDepth param (maxDepths: Dictionary<_, _>) depth = depth - maxDepths[param] - 1
 
-        let paramSubsts = makeParameterSubstitutions childDepth typeParameters genericSolvingDepth makeGenericCandidate
+        let paramSubsts = makeParameterSubstitutions childDepth typeParameters (genericSolvingDepth + 1) makeGenericCandidate
         let substs =
             match paramSubsts with
             | Some substs -> substs.Substitutions |> Seq.map (PersistentDict.map id ConcreteType)

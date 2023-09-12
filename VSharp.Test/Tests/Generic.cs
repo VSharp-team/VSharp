@@ -38,6 +38,11 @@ namespace IntegrationTests
         where T: class
     { }
 
+    public interface IForSpecialConstraints<out T> { }
+
+    public class ForSpecialConstraints<T> : IForSpecialConstraints<T> { }
+    public struct StructForSpecialConstraints<T> : IForSpecialConstraints<T> { }
+
     public sealed class Sealed<T> { }
 
     [TestSvmFixture]
@@ -546,6 +551,18 @@ namespace IntegrationTests
         [TestSvmFixture]
         public static class MethodParameters3<T, U>
             where T : IGenericInterface1<U>, IGenericInterface2<U>
+        {
+            [TestSvm(100)]
+            public static int Method()
+            {
+                return 1;
+            }
+        }
+
+        [TestSvmFixture]
+        public static class MethodParameters4<T1, T2, U>
+            where T1: class, IForSpecialConstraints<U>, new()
+            where T2: struct, IForSpecialConstraints<U>
         {
             [TestSvm(100)]
             public static int Method()
