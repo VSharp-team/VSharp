@@ -265,6 +265,7 @@ module API =
 
         let ElementType arrayType = TypeUtils.elementType arrayType
         let ArrayTypeToSymbolicType arrayType = arrayTypeToSymbolicType arrayType
+        let SymbolicTypeToArrayType typ = symbolicTypeToArrayType typ
 
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
@@ -362,11 +363,8 @@ module API =
 
         let StringArrayInfo state stringAddress length = Memory.stringArrayInfo state stringAddress length
 
-        let private IsSafeContext actualType neededType =
-            assert(neededType <> typeof<Void>)
-            neededType = actualType
-            || TypeUtils.canCastImplicitly neededType actualType
-            && TypeUtils.internalSizeOf actualType = TypeUtils.internalSizeOf neededType
+        let IsSafeContextWrite actualType neededType =
+            Memory.isSafeContextWrite actualType neededType
 
         let rec ReferenceArrayIndex state arrayRef indices (valueType : Type option) =
             let indices = List.map (fun i -> primitiveCast i typeof<int>) indices
@@ -379,7 +377,7 @@ module API =
                     else StringArrayInfo state addr None
                 assert(dim = List.length indices)
                 match valueType with
-                | Some valueType when not (IsSafeContext elemType valueType) ->
+                | Some valueType when not (Memory.isSafeContextWrite elemType valueType) ->
                     Ptr (HeapLocation(addr, typ)) valueType (Memory.arrayIndicesToOffset state addr arrayType indices)
                 | _ -> ArrayIndex(addr, indices, arrayType) |> Ref
             | Ref(ArrayIndex(address, innerIndices, (elemType, _, _ as arrayType)) as ref) ->
@@ -388,7 +386,7 @@ module API =
                 | None ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
-                | Some typ when IsSafeContext elemType typ ->
+                | Some typ when Memory.isSafeContextWrite elemType typ ->
                     let indices = List.map2 add indices innerIndices
                     ArrayIndex(address, indices, arrayType) |> Ref
                 | Some typ ->
@@ -405,7 +403,7 @@ module API =
                     match valueType with
                     | None ->
                         elemType, Memory.arrayIndicesToOffset state address arrayType indices
-                    | Some t when IsSafeContext elemType t ->
+                    | Some t when Memory.isSafeContextWrite elemType t ->
                         t, Memory.arrayIndicesToOffset state address arrayType indices
                     | Some t ->
                         assert(List.length indices = 1)
@@ -417,6 +415,40 @@ module API =
 
         let ReferenceField state reference fieldId =
             Memory.referenceField state reference fieldId
+
+        let private CommonTryAddressFromRef state ref shouldFork =
+            let zero = MakeNumber 0
+            let singleton address = List.singleton (address, state)
+            match ref.term with
+            // Case for char span made from string
+            | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
+                let address, arrayType = StringArrayInfo state address None
+                ArrayIndex(address, [zero], arrayType) |> Some |> singleton
+            | Ref(ArrayIndex _ as address) -> Some address |> singleton
+            | HeapRef(address, typ) ->
+                let t = MostConcreteTypeOfRef state ref
+                if TypeUtils.isArrayType t then
+                    let _, dim, _ as arrayType = Types.SymbolicTypeToArrayType t
+                    let indices = List.init dim (fun _ -> zero)
+                    ArrayIndex(address, indices, arrayType) |> Some |> singleton
+                elif t = typeof<string> then
+                    let address, arrayType = StringArrayInfo state address None
+                    ArrayIndex(address, [zero], arrayType) |> Some |> singleton
+                elif TypeUtils.isValueType t then
+                    BoxedLocation(address, typ) |> Some |> singleton
+                else internalfail $"TryAddressFromRef: unexpected pointer {ref}"
+            | DetachedPtr _ -> None |> singleton
+            | Ptr(pointerBase, sightType, offset) ->
+                if shouldFork then
+                    PtrToRefFork state pointerBase sightType offset
+                else TryPtrToRef state pointerBase sightType offset |> singleton
+            | _ -> internalfail $"TryAddressFromRef: unexpected reference to contents {ref}"
+
+        let TryAddressFromRef state ref =
+            CommonTryAddressFromRef state ref false
+
+        let TryAddressFromRefFork state ref =
+            CommonTryAddressFromRef state ref true
 
         let private transformBoxedRef ref =
             match ref.term with

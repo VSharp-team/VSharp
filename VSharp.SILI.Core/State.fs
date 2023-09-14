@@ -682,8 +682,8 @@ and genericCandidate private (
 
 and IErrorReporter =
     abstract ConfigureState : state -> unit
-    abstract ReportError : string -> term -> unit
-    abstract ReportFatalError : string -> term -> unit
+    abstract ReportError : string -> term -> bool
+    abstract ReportFatalError : string -> term -> bool
 
 and
     [<ReferenceEquality>]

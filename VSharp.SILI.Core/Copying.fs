@@ -51,9 +51,7 @@ module internal Copying =
     let isSafeContextCopy srcArrayType dstArrayType =
         let srcElemType = fst3 srcArrayType
         let dstElemType = fst3 dstArrayType
-        srcElemType = dstElemType
-        || TypeUtils.internalSizeOf srcElemType = TypeUtils.internalSizeOf dstElemType
-        && TypeUtils.canCastImplicitly srcElemType dstElemType
+        isSafeContextWrite srcElemType dstElemType
 
     let copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
         assert(isSafeContextCopy srcType dstType)

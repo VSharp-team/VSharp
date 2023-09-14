@@ -199,10 +199,11 @@ module internal TypeCasting =
             Logger.warning $"Casting pointer {term} to non-pointer type {typ}"
             Ptr address typ indent
         | Ref _, ByRef _ -> term
+        | Ref address, _ when address.TypeOfLocation = targetType -> term
+        | Ref address, Pointer typ' when address.TypeOfLocation = typ' -> term
         | Ref address, Pointer typ' ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress typ' offset
-        | Ref address, _ when address.TypeOfLocation = targetType -> term
         | Ref address, _ ->
             let baseAddress, offset = Pointers.addressToBaseAndOffset address
             Ptr baseAddress targetType offset

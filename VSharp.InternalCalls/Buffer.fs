@@ -10,45 +10,19 @@ open VSharp.Interpreter.IL.CilStateOperations
 
 module internal Buffer =
 
-    // TODO: return address option
-    let private getArrayInfo cilState ref =
+    let private getAddress cilState ref =
         let state = cilState.state
-        let zero = MakeNumber 0
-        match ref.term with
-        | HeapRef(address, _) ->
-            let t = MostConcreteTypeOfRef state ref
-            if TypeUtils.isArrayType t then
-                let elemType = t.GetElementType()
-                let indices, arrayType =
-                    if t.IsSZArray then [zero], (elemType, 1, true)
-                    else
-                        let rank = t.GetArrayRank()
-                        let indices = List.init rank (fun _ -> zero)
-                        let arrayType = (elemType, rank, false)
-                        indices, arrayType
-                (Some (address, indices, arrayType), cilState) |> List.singleton
-            elif t = typeof<string> then
-                let address, stringArrayType = Memory.StringArrayInfo state address None
-                (Some (address, [zero], stringArrayType), cilState) |> List.singleton
-            else internalfail $"Memmove: unexpected HeapRef type {t}"
-        | Ref(ArrayIndex(address, indices, arrayType)) ->
-            (Some (address, indices, arrayType), cilState) |> List.singleton
-        | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
-            let address, stringArrayType = Memory.StringArrayInfo state address None
-            (Some (address, [zero], stringArrayType), cilState) |> List.singleton
-        | Ptr(HeapLocation _ as pointerBase, sightType, offset) ->
-            let cases = PtrToRefFork state pointerBase sightType offset
-            assert(List.isEmpty cases |> not)
-            let createArrayRef (address, state) =
-                let cilState = changeState cilState state
-                match address with
-                | Some(ArrayIndex(address, index, arrayType)) -> Some (address, index, arrayType), cilState
-                | _ ->
-                    let iie = createInsufficientInformation "Memmove: unknown pointer"
-                    cilState.iie <- Some iie
-                    None, cilState
-            List.map createArrayRef cases
-        | _ -> internalfail $"Memmove: unexpected reference {ref}"
+        let cases = Memory.TryAddressFromRefFork state ref
+        assert(List.length cases >= 1)
+        let createArrayRef (address, state) =
+            let cilState = changeState cilState state
+            match address with
+            | Some address -> Some address, cilState
+            | _ ->
+                let iie = createInsufficientInformation "Memmove: unknown pointer"
+                cilState.iie <- Some iie
+                None, cilState
+        List.map createArrayRef cases
 
     let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state bytesCount =
         if Memory.IsSafeContextCopy srcArrayType dstArrayType |> not then
@@ -76,16 +50,49 @@ module internal Buffer =
         let bytesCount = Types.Cast bytesCount typeof<int>
         let checkDst (info, cilState) =
             match info with
-            | Some(dstAddr, dstIndices, dstArrayType) ->
+            | Some (dstAddress : address) ->
                 let checkSrc (info, cilState) =
                     match info with
-                    | Some(srcAddr, srcIndices, srcArrayType) ->
-                        Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state bytesCount
-                        cilState
+                    | Some (srcAddress : address) ->
+                        let dstType = lazy dstAddress.TypeOfLocation
+                        let srcType = lazy srcAddress.TypeOfLocation
+                        let dstSize = lazy(TypeUtils.internalSizeOf dstType.Value)
+                        let srcSize = lazy(TypeUtils.internalSizeOf srcType.Value)
+                        let allSafe() =
+                            let isSafe =
+                                dstType.Value = srcType.Value
+                                || TypeUtils.canCastImplicitly srcType.Value dstType.Value
+                                && dstSize.Value = srcSize.Value
+                            isSafe && MakeNumber srcSize.Value = bytesCount
+                        let dstSafe = lazy(MakeNumber dstSize.Value = bytesCount)
+                        let srcSafe = lazy(MakeNumber srcSize.Value = bytesCount)
+                        match dstAddress, srcAddress with
+                        | _ when allSafe() ->
+                            let value = read cilState (Ref srcAddress)
+                            let cilStates = write cilState (Ref dstAddress) value
+                            assert(List.length cilStates = 1)
+                            List.head cilStates
+                        | _ when dstSafe.Value ->
+                            let ptr = Types.Cast (Ref srcAddress) (dstType.Value.MakePointerType())
+                            let value = read cilState ptr
+                            let cilStates = write cilState (Ref dstAddress) value
+                            assert(List.length cilStates = 1)
+                            List.head cilStates
+                        | _ when srcSafe.Value ->
+                            let value = read cilState (Ref srcAddress)
+                            let ptr = Types.Cast (Ref dstAddress) (srcType.Value.MakePointerType())
+                            let cilStates = write cilState ptr value
+                            assert(List.length cilStates = 1)
+                            List.head cilStates
+                        | ArrayIndex(dstAddress, dstIndices, dstArrayType), ArrayIndex(srcAddress, srcIndices, srcArrayType) ->
+                            Copy dstAddress dstIndex dstIndices dstArrayType srcAddress srcIndex srcIndices srcArrayType state bytesCount
+                            cilState
+                        // TODO: implement unsafe copy
+                        | _ -> internalfail $"CommonMemmove unexpected addresses {srcAddress}, {dstAddress}"
                     | None -> cilState
-                getArrayInfo cilState src |> List.map checkSrc
+                getAddress cilState src |> List.map checkSrc
             | None -> cilState |> List.singleton
-        getArrayInfo cilState dst |> List.collect checkDst
+        getAddress cilState dst |> List.collect checkDst
 
     let Memmove (cilState : cilState) dst src bytesCount =
         CommonMemmove cilState dst None src None bytesCount

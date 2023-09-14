@@ -906,8 +906,10 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
-        assert(List.isEmpty terms |> not)
         match terms with
+        // 'ReportError' case
+        | _ when List.isEmpty terms ->
+            makeDefaultValue t
         | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
         | [{term = Slice(p, cuts)}] ->
             match cuts with
@@ -921,7 +923,7 @@ module internal Terms =
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
 
-    let rec timeOf (address : heapAddress) =
+    and timeOf (address : heapAddress) =
         match address.term with
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
@@ -929,14 +931,14 @@ module internal Terms =
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
         | _ -> internalfailf "timeOf : expected heap address, but got %O" address
 
-    let compareTerms t1 t2 =
+    and compareTerms t1 t2 =
         match t1.term, t2.term with
         | Concrete(:? IComparable as x, _), Concrete(:? IComparable as y, _) -> x.CompareTo y
         | Concrete(:? IComparable, _), _ -> -1
         | _, Concrete(:? IComparable, _) -> 1
         | _ -> compare (toString t1) (toString t2)
 
-    let rec private foldChildren folder state term k =
+    and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
             foldSeq folder source.SubTerms state k
@@ -990,16 +992,16 @@ module internal Terms =
     and private foldSeq folder terms state k =
         Cps.Seq.foldlk (doFold folder) state terms k
 
-    let fold folder state terms =
+    and fold folder state terms =
         foldSeq folder terms state id
 
-    let iter action term =
+    and iter action term =
         doFold action () term id
 
-    let iterSeq action terms =
+    and iterSeq action terms =
         Cps.Seq.foldlk (doFold action) () terms id
 
-    let discoverConstants terms =
+    and discoverConstants terms =
         let result = HashSet<term>()
         let addConstant _ t _ into =
             match t.term with
@@ -1008,23 +1010,23 @@ module internal Terms =
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
 
-    let private foldFields isStatic folder acc typ =
+    and private foldFields isStatic folder acc typ =
         let fields = Reflection.fieldsOf isStatic typ
         let addField heap (fieldId, fieldInfo : Reflection.FieldInfo) =
             folder heap fieldInfo fieldId fieldInfo.FieldType
         FSharp.Collections.Array.fold addField acc fields
 
-    let private makeFields isStatic makeField typ =
+    and private makeFields isStatic makeField typ =
         let folder fields fieldInfo field termType =
             let value = makeField fieldInfo field termType
             PersistentDict.add field value fields
         foldFields isStatic folder PersistentDict.empty typ
 
-    let makeStruct isStatic makeField typ =
+    and makeStruct isStatic makeField typ =
         let fields = makeFields isStatic makeField typ
         Struct fields typ
 
-    let rec makeDefaultValue typ =
+    and makeDefaultValue typ =
         match typ with
         | Bool -> False()
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t

@@ -167,6 +167,7 @@ module API =
 
         val ElementType : Type -> Type
         val ArrayTypeToSymbolicType : arrayType -> Type
+        val SymbolicTypeToArrayType : Type -> arrayType
 
         val TypeIsType : Type -> Type -> term
         val IsNullable : Type -> bool
@@ -259,6 +260,9 @@ module API =
 
         val ReferenceArrayIndex : state -> term -> term list -> Type option -> term
         val ReferenceField : state -> term -> fieldId -> term
+
+        val TryAddressFromRef : state -> term -> list<address option * state>
+        val TryAddressFromRefFork : state -> term -> list<address option * state>
 
         val ExtractAddress : term -> term
         val ExtractPointerOffset : term -> term

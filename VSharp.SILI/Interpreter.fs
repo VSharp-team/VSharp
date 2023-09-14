@@ -466,8 +466,11 @@ module internal InstructionsSet =
         let size = pop cilState
         let ref = Memory.AllocateVectorArray cilState.state size typeof<byte>
         match ref.term with
-        | HeapRef({term = ConcreteHeapAddress address}, _) ->
-            addStackArray cilState address
+        | HeapRef({term = ConcreteHeapAddress concreteAddress} as address, t) ->
+            assert(TypeUtils.isArrayType t)
+            addStackArray cilState concreteAddress
+            let arrayType = Types.SymbolicTypeToArrayType t
+            let ref = Ref (ArrayIndex(address, [MakeNumber 0], arrayType))
             push ref cilState
         | _ -> internalfail $"localloc: unexpected array reference {ref}"
 
@@ -1671,23 +1674,27 @@ type ILInterpreter() as this =
         this.UnsignedCheckOverflow checkOverflowForUnsigned cilState
     member private this.Mul_ovf_un (cilState : cilState) =
         let checkOverflowForUnsigned zero max x y cilState =
-            let (>>=) = API.Arithmetics.(>>=)
             let isZero state k = k ((x === zero) ||| (y === zero), state)
-            StatedConditionalExecutionCIL cilState isZero
-                (fun cilState k ->
-                    push zero cilState
-                    k [cilState])
-                (fun cilState k ->
-                    StatedConditionalExecutionCIL cilState
-                        (fun state k ->
-                            PerformBinaryOperation OperationType.Divide max x (fun quotient ->
-                            k (quotient >>= y, state)))
-                        (fun cilState k ->
-                            PerformBinaryOperation OperationType.Multiply x y (fun res ->
-                                push res cilState
-                                k [cilState]))
-                        (this.Raise this.OverflowException)
-                        k)
+            let zeroCase cilState k =
+                push zero cilState
+                List.singleton cilState |> k
+            let checkOverflow cilState k =
+                let evalCondition state k =
+                    PerformBinaryOperation OperationType.Divide max x (fun quotient ->
+                    k (Arithmetics.GreaterOrEqualUn quotient y, state))
+                let mul cilState k =
+                    PerformBinaryOperation OperationType.Multiply x y (fun res ->
+                    push res cilState
+                    List.singleton cilState |> k)
+                StatedConditionalExecutionCIL cilState
+                    evalCondition
+                    mul
+                    (this.Raise this.OverflowException)
+                    k
+            StatedConditionalExecutionCIL cilState
+                isZero
+                zeroCase
+                checkOverflow
                 id
         this.UnsignedCheckOverflow checkOverflowForUnsigned cilState
     member private this.Sub_ovf_un (cilState : cilState) =

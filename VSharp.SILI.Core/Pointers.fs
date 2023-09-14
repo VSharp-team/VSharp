@@ -193,23 +193,24 @@ module internal Pointers =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
+    let private pointerId ptr =
+        match ptr.term with
+        | DetachedPtr offset -> offset
+        | _ when typeOf ptr |> isNative ->
+            primitiveCast ptr typeof<int>
+        | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, o) ->
+            let pointerBase = convert (List.sum a) typeof<int> |> makeNumber
+            add pointerBase o
+        | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of symbolic pointer {ptr}"
+
     let private simplifyPointerComparison op x y k =
         match x.term, y.term with
         | Ptr(pointerBase1, _, offset1), Ptr(pointerBase2, _, offset2) when pointerBase1 = pointerBase2 ->
             simplifyBinaryOperation op offset1 offset2 k
-        | Ptr(HeapLocation({term = ConcreteHeapAddress a1}, _), _, o1), Ptr(HeapLocation({term = ConcreteHeapAddress a2}, _), _, o2) ->
-            let base1 = convert (List.sum a1) typeof<int> |> makeNumber
-            let base2 = convert (List.sum a2) typeof<int> |> makeNumber
-            let number1 = add base1 o1
-            let number2 = add base2 o2
+        | _ ->
+            let number1 = pointerId x
+            let number2 = pointerId y
             simplifyBinaryOperation op number1 number2 k
-        | DetachedPtr offset, _ when typeOf y |> isNative ->
-            simplifyBinaryOperation op offset y k
-        | _, DetachedPtr offset when typeOf x |> isNative ->
-            simplifyBinaryOperation op x offset k
-        | Ptr(HeapLocation _, _, _), Ptr(HeapLocation _, _, _) ->
-            __insufficientInformation__ "simplifyPointerComparison: unable to compare symbolic pointers"
-        | _ -> __notImplemented__()
 
     let simplifyBinaryOperation op x y k =
         match op with
