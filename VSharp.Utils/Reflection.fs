@@ -292,7 +292,7 @@ module public Reflection =
                     if blocks && (isNewSlot m || not m.IsVirtual) then
                         newSlot <- true
                     blocks
-                Array.forall canNotOverride matchedMethods
+                not <| Array.isEmpty matchedMethods && Array.forall canNotOverride matchedMethods
             match List.tryFindBack cancelsOverride hierarchy with
             | Some t when newSlot -> t.BaseType
             | Some t -> t
