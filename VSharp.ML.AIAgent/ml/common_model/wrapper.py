@@ -8,16 +8,15 @@ from common.game import GameState
 from ml.common_model.utils import back_prop
 from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.model_wrappers.protocols import Predictor
-from ml.common_model.utils import back_prop, save_dataset_state_dict
-from ml.common_model.paths import dataset_state_path
+
 from predict import predict_state_with_dict
+
 
 class CommonModelWrapper(Predictor):
     def __init__(
-        self, model: torch.nn.Module, best_models: dict, dataset_state: dict
+        self,
+        model: torch.nn.Module,
     ) -> None:
-        self.best_models = best_models
-        self.dataset_state = dataset_state
         self._model = model
         self.model_copy = model
         self._name = "1"
@@ -29,29 +28,6 @@ class CommonModelWrapper(Predictor):
     def make_copy(self, model_name: str):
         self.model_copy = copy.deepcopy(self._model)
         self._name = model_name
-
-    def update(self, map_name, map_result, dataset):
-        map_result = (
-            map_result.actual_coverage_percent,
-            -map_result.tests_count,
-            map_result.errors_count,
-            -map_result.steps_count,
-        )
-        if self.dataset_state[map_name] <= map_result:
-            logging.info(
-                f"The model with result = {self.dataset_state[map_name]} was replaced with the model with "
-                f"result = {map_result} on the map {map_name}"
-            )
-            # self.best_models[map_name] = (
-            #     self.model_copy,
-            #     map_result,
-            #     self._name,
-            # )
-            dataset.save_map_data(map_name)
-            self.dataset_state[map_name] = map_result
-            save_dataset_state_dict(self.dataset_state, dataset_state_path)
-
-        dataset.single_map_data = []
 
     def model(self):
         return self._model
@@ -75,15 +51,9 @@ class BestModelsWrapper(Predictor):
         self,
         model: torch.nn.Module,
         best_models: dict,
-        optimizer,
-        criterion,
-        dataset_state,
     ) -> None:
-        self.dataset_state = dataset_state
         self.best_models = best_models
         self._model = model
-        self.optimizer = optimizer
-        self.criterion = criterion
 
     def name(self):
         return "Common model"
@@ -96,8 +66,6 @@ class BestModelsWrapper(Predictor):
             -map_result.steps_count,
         )
         dataset.save_map_data(map_name)
-        self.dataset_state[map_name] = map_result
-        save_dataset_state_dict(self.dataset_state, dataset_state_path)
 
     def model(self):
         return self._model
@@ -111,14 +79,6 @@ class BestModelsWrapper(Predictor):
         next_step_id, nn_output = predict_state_with_dict(
             self.best_models[map_name][0], hetero_input, state_map
         )
-
-        # back_prop(
-        #     self.best_models[map_name][0],
-        #     self._model,
-        #     hetero_input,
-        #     self.optimizer,
-        #     self.criterion,
-        # )
 
         del hetero_input
         return next_step_id, nn_output

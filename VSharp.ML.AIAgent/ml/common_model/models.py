@@ -14,10 +14,12 @@ class CommonModel(torch.nn.Module):
         hidden_channels,
         num_gv_layers=2,
         num_sv_layers=2,
+        num_gv_hops=3,
+        num_sv_hops=3,
     ):
         super().__init__()
-        self.tag_conv1 = TAGConv(5, hidden_channels, 2)
-        self.tag_conv2 = TAGConv(6, hidden_channels, 3)
+        self.tag_conv1 = TAGConv(5, hidden_channels, num_gv_hops)
+        self.tag_conv2 = TAGConv(6, hidden_channels, num_sv_hops)
         self.gv_layers = nn.ModuleList()
         self.gv_layers.append(self.tag_conv1)
         self.gv_layers.append(SAGEConv(-1, hidden_channels))
@@ -85,8 +87,11 @@ class CommonModel(torch.nn.Module):
                 state_x,
                 edge_index_dict[("state_vertex", "parent_of", "state_vertex")],
             ).relu()
-        x = self.mlp(in_x)
-        return x
+        x = self.mlp(state_x)
+        z_dict = {}
+        z_dict["state_vertex"] = x
+        z_dict["game_vertex"] = x_dict["game_vertex"]
+        return z_dict
 
 
 class ParallelBlocks(torch.nn.Module):

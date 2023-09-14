@@ -3,23 +3,31 @@ from statistics import StatisticsError
 from time import perf_counter
 from typing import TypeAlias
 import random
+import copy
 
 import tqdm
 from func_timeout import FunctionTimedOut, func_set_timeout
 
+from torch_geometric.data import HeteroData
+
+
 from common.classes import GameResult, Map2Result
 from common.constants import TQDM_FORMAT_DICT
+from common.game import GameMap
 from common.utils import get_states
-from config import FeatureConfig
+from config import FeatureConfig, GeneralConfig
 from connection.broker_conn.socket_manager import game_server_socket_manager
 from connection.game_server_conn.connector import Connector
 from connection.game_server_conn.utils import MapsType, get_maps
 from learning.timer.resources_manager import manage_map_inference_times_array
 from learning.timer.stats import compute_statistics
 from learning.timer.utils import get_map_inference_times
+from ml.data_loader_compact import ServerDataloaderHeteroVector
 from ml.fileop import save_model
 from ml.model_wrappers.protocols import Predictor
 from torch_geometric.data import Dataset
+
+# from ray.experimental.tqdm_ray import tqdm
 
 
 TimeDuration: TypeAlias = float
@@ -35,6 +43,14 @@ def play_map(
 
     start_time = perf_counter()
 
+    map_steps = []
+
+    def add_single_step(input, output):
+        hetero_input, _ = ServerDataloaderHeteroVector.convert_input_to_tensor(input)
+        hetero_input.to(GeneralConfig.DEVICE)
+        hetero_input["y_true"] = output
+        map_steps.append(hetero_input)
+
     try:
         for _ in range(steps):
             game_state = with_connector.recv_state_or_throw_gameover()
@@ -42,8 +58,7 @@ def play_map(
                 game_state, with_connector.map.MapName
             )
 
-            if with_dataset is not None:
-                with_dataset.process_single_input(game_state, nn_output)
+            add_single_step(game_state, nn_output)
 
             logging.debug(
                 f"<{with_predictor.name()}> step: {steps_count}, available states: {get_states(game_state)}, predicted: {predicted_state_id}"
@@ -89,8 +104,14 @@ def play_map(
         errors_count=errors_count,
         actual_coverage_percent=actual_coverage,
     )
-
-    with_predictor.update(with_connector.map.MapName, model_result, with_dataset)
+    if with_dataset is not None:
+        map_result = (
+            model_result.actual_coverage_percent,
+            -model_result.tests_count,
+            model_result.errors_count,
+            -model_result.steps_count,
+        )
+        with_dataset.update(with_connector.map.MapName, map_result, map_steps)
     return model_result, end_time - start_time
 
 
@@ -122,10 +143,12 @@ def play_map_with_timeout(
 
 
 def play_game(
-    with_predictor: Predictor, max_steps: int, maps_type: MapsType, with_dataset=None
+    with_predictor: Predictor,
+    max_steps: int,
+    maps: list[GameMap],
+    maps_type: MapsType,
+    with_dataset=None,
 ):
-    with game_server_socket_manager() as ws:
-        maps = get_maps(websocket=ws, type=maps_type)
     # random.shuffle(maps)
     with tqdm.tqdm(
         total=len(maps),
@@ -168,4 +191,4 @@ def play_game(
                 )
             list_of_map2result.append(Map2Result(game_map, game_result))
             pbar.update(1)
-    return list_of_map2result
+    return (list_of_map2result, with_dataset.maps_data)
