@@ -28,7 +28,8 @@ module internal String =
     let CtorFromSpan (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 2)
         let this, span = args[0], args[1]
-        let ref, len = ReadOnlySpan.GetContents cilState span
+        let ref = ReadOnlySpan.GetContentsHeapRef cilState span
+        let len = ReadOnlySpan.GetLength cilState span
         assert(TypeOf ref |> TypeUtils.isArrayType)
         let states = Memory.StringCtorOfCharArrayAndLen cilState.state ref this len
         List.map (changeState cilState) states
@@ -45,9 +46,9 @@ module internal String =
             &&& (startIndex >>= zero)
         let copy cilState k =
             let cilStates = writeClassField cilState this Reflection.stringLengthField length
-            for cilState in cilStates do
-                Buffer.CommonMemmove cilState.state this None ptr (Some startIndex) length
-            k cilStates
+            let memMove cilState =
+                Buffer.CommonMemmove cilState this None ptr (Some startIndex) length
+            List.collect memMove cilStates |> k
         let checkPtr cilState k =
             StatedConditionalExecutionCIL cilState
                 (fun state k -> k (!!(IsBadRef ptr), state))
@@ -108,7 +109,7 @@ module internal String =
 
     let Equals (state : state) (args : term list) =
         assert(List.length args = 2)
-        let str1, str2 = args.[0], args.[1]
+        let str1, str2 = args[0], args[1]
         let length1 = Memory.StringLength state str1
         let length2 = Memory.StringLength state str2
         match length1.term, length2.term with
@@ -139,7 +140,7 @@ module internal String =
         let srcLength = Memory.StringLength state src
         let destLength = Memory.StringLength state dest
         let (<<=) = Arithmetics.(<<=)
-        let check = srcLength <<= (Arithmetics.Sub destLength destPos)
+        let check = srcLength <<= (Sub destLength destPos)
         let copy (cilState : cilState) k =
             Memory.CopyStringArray cilState.state src srcPos dest destPos srcLength
             k [cilState]

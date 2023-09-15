@@ -431,7 +431,10 @@ module internal InstructionsSet =
             | Some(PrimitiveStackLocation _ as address) ->
                 let this = Ref address
                 constrainedImpl this method args cilState
-            | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected ptr as 'this' {this}"
+            | _ ->
+                // Inconsistent pointer, call will fork and filter this state
+                push this cilState
+                pushMany args cilState
         | _ -> internalfail $"Calling 'callvirt' with '.constrained': unexpected 'this' {this}"
 
     // '.constrained' is prefix, which is used before 'callvirt' or 'call' instruction
@@ -599,10 +602,18 @@ type ILInterpreter() as this =
         x.AccessArray (accessor this dimension) cilState upperBound dimension id
 
     member x.NpeOrInvokeStatementCIL (cilState : cilState) (this : term) statement (k : cilState list -> 'a) =
+        let additionalCheck cilState k =
+            StatedConditionalExecutionCIL cilState
+                (fun state k -> k (!!(IsBadRef this), state))
+                statement
+                (fun cilState k ->
+                    ErrorReporter.ReportFatalError cilState "access violation"
+                    k [])
+                k
         StatedConditionalExecutionCIL cilState
-            (fun state k -> k (IsBadRef this, state))
+            (fun state k -> k (!!(IsNullReference this), state))
+            additionalCheck
             (x.Raise x.NullReferenceException)
-            statement
             k
 
     member private x.ShouldMock (method : Method) =

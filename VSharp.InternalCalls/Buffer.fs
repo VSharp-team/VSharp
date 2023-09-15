@@ -3,12 +3,15 @@ namespace VSharp.System
 open global.System
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
+open VSharp.Interpreter.IL.CilStateOperations
 
 // ------------------------------ System.Buffer --------------------------------
 
 module internal Buffer =
 
-    let private getArrayInfo state ref =
+    let private getArrayInfo cilState ref =
+        let state = cilState.state
         let zero = MakeNumber 0
         match ref.term with
         | HeapRef(address, _) ->
@@ -22,25 +25,32 @@ module internal Buffer =
                         let indices = List.init rank (fun _ -> zero)
                         let arrayType = (elemType, rank, false)
                         indices, arrayType
-                address, indices, arrayType
+                (Some (address, indices, arrayType), cilState) |> List.singleton
             elif t = typeof<string> then
                 let address, stringArrayType = Memory.StringArrayInfo state address None
-                address, [zero], stringArrayType
+                (Some (address, [zero], stringArrayType), cilState) |> List.singleton
             else internalfail $"Memmove: unexpected HeapRef type {t}"
-        | Ref(ArrayIndex(address, indices, arrayType)) -> address, indices, arrayType
+        | Ref(ArrayIndex(address, indices, arrayType)) ->
+            (Some (address, indices, arrayType), cilState) |> List.singleton
         | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
             let address, stringArrayType = Memory.StringArrayInfo state address None
-            address, [zero], stringArrayType
+            (Some (address, [zero], stringArrayType), cilState) |> List.singleton
         | Ptr(HeapLocation _ as pointerBase, sightType, offset) ->
-            match TryPtrToRef state pointerBase sightType offset with
-            | Some(ArrayIndex(address, index, arrayType)) -> address, index, arrayType
-            | _ -> internalfail $"Memmove: unexpected pointer {ref}"
+            let cases = PtrToRefFork state pointerBase sightType offset
+            assert(List.isEmpty cases |> not)
+            let createArrayRef (address, state) =
+                let cilState = changeState cilState state
+                match address with
+                | Some(ArrayIndex(address, index, arrayType)) -> Some (address, index, arrayType), cilState
+                | _ ->
+                    let iie = createInsufficientInformation "Memmove: unknown pointer"
+                    cilState.iie <- Some iie
+                    None, cilState
+            List.map createArrayRef cases
+
         | _ -> internalfail $"Memmove: unexpected reference {ref}"
 
-    let CommonMemmove (state : state) dst dstIndex src srcIndex elemCount =
-        let elemCount = Types.Cast elemCount typeof<int>
-        let dstAddr, dstIndices, dstArrayType = getArrayInfo state dst
-        let srcAddr, srcIndices, srcArrayType = getArrayInfo state src
+    let private Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state elemCount =
         let dstType = Types.ArrayTypeToSymbolicType dstArrayType
         let srcType = Types.ArrayTypeToSymbolicType srcArrayType
         let dstHeapRef = HeapRef dstAddr dstType
@@ -57,24 +67,46 @@ module internal Buffer =
             | None -> srcLinearIndex
         Memory.CopyArray state srcHeapRef srcLinearIndex srcType dstHeapRef dstLinearIndex dstType elemCount
 
-    let Memmove (state : state) dst src elemCount =
-        CommonMemmove state dst None src None elemCount
+    let CommonMemmove (cilState : cilState) dst dstIndex src srcIndex elemCount =
+        let state = cilState.state
+        let elemCount = Types.Cast elemCount typeof<int>
+        let checkDst (info, cilState) =
+            match info with
+            | Some(dstAddr, dstIndices, dstArrayType) ->
+                let checkSrc (info, cilState) =
+                    match info with
+                    | Some(srcAddr, srcIndices, srcArrayType) ->
+                        Copy dstAddr dstIndex dstIndices dstArrayType srcAddr srcIndex srcIndices srcArrayType state elemCount
+                        cilState
+                    | None -> cilState
+                getArrayInfo cilState src |> List.map checkSrc
+            | None -> cilState |> List.singleton
+        getArrayInfo cilState dst |> List.collect checkDst
 
-    let GenericMemmove (state : state) (args : term list) : term =
+    let Memmove (cilState : cilState) dst src elemCount =
+        CommonMemmove cilState dst None src None elemCount
+
+    let GenericMemmove (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 4)
         let dst, src, elemCount = args[1], args[2], args[3]
-        Memmove state dst src elemCount
-        Nop()
+        Memmove cilState dst src elemCount
 
-    let ByteMemmove (state : state) (args : term list) : term =
+    let ByteMemmove (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 3)
         let dst, src, elemCount = args[0], args[1], args[2]
-        Memmove state dst src elemCount
-        Nop()
+        Memmove cilState dst src elemCount
 
-    let MemoryCopy (state : state) (args : term list) : term =
+    let MemoryCopy (i : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 4)
         let dst, src, dstSize, count = args[0], args[1], args[2], args[3]
-        // TODO: use 'dstSize' to check for exception
-        Memmove state dst src count
-        Nop()
+        let memMove cilState k =
+            Memmove cilState dst src count |> k
+        let checkDst cilState k =
+            i.NpeOrInvoke cilState dst memMove k
+        let checkSrc cilState k =
+            i.NpeOrInvoke cilState src checkDst k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (Arithmetics.LessOrEqual count dstSize, state))
+            checkSrc
+            (i.Raise i.ArgumentOutOfRangeException)
+            id

@@ -940,6 +940,7 @@ module internal Memory =
         MemoryRegion.read region key (isDefault state) instantiate
 
     let readBoxedLocation state (address : term) sightType =
+        assert(sightType = typeof<obj> || sightType.IsInterface || isValueType sightType)
         let cm = state.concreteMemory
         let typeFromMemory = typeOfHeapLocation state address
         let typ = mostConcreteType typeFromMemory sightType
@@ -1213,12 +1214,18 @@ module internal Memory =
     and tryPtrToRef state pointerBase sightType offset : address option =
         assert(typeOf offset = typeof<int>)
         let zero = makeNumber 0
+        let mutable sightType = sightType
+        let suitableType t =
+            if sightType = typeof<Void> then
+                sightType <- t
+                true
+            else t = sightType
         match pointerBase with
         | HeapLocation(address, t) when address <> zeroAddress() ->
             let typ = typeOfHeapLocation state address |> mostConcreteType t
             let isArray() =
-                typ.IsSZArray && typ.GetElementType() = sightType
-                || typ = typeof<string> && sightType = typeof<char>
+                typ.IsSZArray && suitableType (typ.GetElementType())
+                || typ = typeof<string> && suitableType typeof<char>
             if typ.ContainsGenericParameters then None
             elif isArray() then
                 let mutable elemSize = Nop()
@@ -1232,16 +1239,18 @@ module internal Memory =
                         else address, (sightType, 1, true)
                     ArrayIndex(address, [index], arrayType) |> Some
                 else None
-            elif isValueType typ && sightType = typ && offset = zero then
+            elif isValueType typ && suitableType typ && offset = zero then
                 BoxedLocation(address, t) |> Some
             else None
-        | StackLocation stackKey when stackKey.TypeOfLocation = sightType && offset = zero ->
+        | StackLocation stackKey when suitableType stackKey.TypeOfLocation && offset = zero ->
             PrimitiveStackLocation stackKey |> Some
         | _ -> None
 
     and heapReferenceToBoxReference reference =
         match reference.term with
-        | HeapRef(address, typ) -> Ref (BoxedLocation(address, typ))
+        | HeapRef(address, typ) ->
+            assert(typ = typeof<obj> || typ.IsInterface || isValueType typ)
+            Ref (BoxedLocation(address, typ))
         | Union gvs -> gvs |> List.map (fun (g, v) -> (g, heapReferenceToBoxReference v)) |> Merging.merge
         | _ -> internalfailf "Unboxing: expected heap reference, but got %O" reference
 

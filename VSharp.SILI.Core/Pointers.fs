@@ -119,6 +119,7 @@ module internal Pointers =
 
     // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
     let private addNumberToPtr ptr bytesToShift k =
+        let bytesToShift = primitiveCast bytesToShift typeof<int>
         match ptr.term with
         | _ when bytesToShift = makeNumber 0 -> k ptr
         | Ptr _ -> shift ptr bytesToShift |> k
@@ -131,13 +132,17 @@ module internal Pointers =
             assert t.IsArray
             let ptrType = t.GetElementType()
             Ptr (HeapLocation(address, t)) ptrType bytesToShift |> k
-        | _ -> internalfailf "address arithmetic: expected pointer, but got %O" ptr
+        | _ -> internalfailf $"address arithmetic: expected pointer, but got {ptr}"
 
     // NOTE: IL contains number (already in bytes) and pointer, that need to be shifted
     let private multiplyPtrByNumber ptr number k =
         match ptr.term with
         | DetachedPtr offset ->
             mul offset number |> k
+        | Ptr(pointerBase, _, offset) ->
+            let baseNumber = pointerBase.GetHashCode() |> makeNumber
+            let ptrNumber = add baseNumber offset
+            mul ptrNumber number |> k
         | _ -> internalfail $"multiplyPtrByNumber: unexpected pointer {ptr}"
 
     let private simplifyOperands x y =

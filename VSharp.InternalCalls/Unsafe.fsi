@@ -39,6 +39,8 @@ module internal Unsafe =
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.UIntPtr)")>]
     [<Implements("T& Internal.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
     [<Implements("T& System.Runtime.CompilerServices.Unsafe.AddByteOffset(T&, System.IntPtr)")>]
+    [<Implements("System.Void* Internal.Runtime.CompilerServices.Unsafe.Add(System.Void*, System.Int32)")>]
+    [<Implements("System.Void* System.Runtime.CompilerServices.Unsafe.Add(System.Void*, System.Int32)")>]
     val AddByteOffset : state -> term list -> term
 
     [<Implements("System.IntPtr Internal.Runtime.CompilerServices.Unsafe.ByteOffset(System.Byte&, System.Byte&)")>]

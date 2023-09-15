@@ -25,69 +25,42 @@ module internal ReadOnlySpan =
     let readOnlySpanType() =
         typeof<int>.Assembly.GetType("System.ReadOnlySpan`1")
 
-    let private CreateArrayRef address indices (eType : Type, dim, isVector as arrayType) =
-        if isVector && indices = [MakeNumber 0] then
-            HeapRef address (eType.MakeArrayType())
-        elif indices = List.init dim (fun _ -> MakeNumber 0) then
-            HeapRef address (eType.MakeArrayType dim)
-        else ArrayIndex(address, indices, arrayType) |> Ref
+    let private CreateArrayRef address indices arrayType =
+        ArrayIndex(address, indices, arrayType) |> Ref
 
-    let GetLength (state : state) (spanStruct : term) =
+    let GetLength (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
         let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
-        Memory.ReadField state spanStruct lenField
+        readField cilState spanStruct lenField
 
-    let GetContents (cilState : cilState) (spanStruct : term) =
+    let private TryRefToHeapRef ref =
+        let createZeroIndices dim =
+            List.init dim (fun _ -> MakeNumber 0)
+        match ref.term with
+        | Ref(ArrayIndex(address, indices, arrayType)) when indices = createZeroIndices indices.Length ->
+            let t = Types.ArrayTypeToSymbolicType arrayType
+            HeapRef address t
+        | _ -> ref
+
+    let GetContentsRef (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
-        let state = cilState.state
         let ptrField = spanFields |> Array.find (fst >> isContentReferenceField) |> fst
-        let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
-        let len = readField cilState spanStruct lenField
         let ptrFieldValue = readField cilState spanStruct ptrField
         let ptrFieldType = ptrField.typ
-        let ptr =
-            if ptrFieldIsByRef ptrFieldType then
-                // Case for .NET 6, where Span contains 'System.ByReference' field
-                let byRefFields = Terms.TypeOf ptrFieldValue |> Reflection.fieldsOf false
-                assert(Array.length byRefFields = 1)
-                let byRefField = byRefFields |> Array.find (fst >> ByReference.isValueField) |> fst
-                readField cilState ptrFieldValue byRefField
-            else
-                // Case for .NET 7, where Span contains 'Byte&' field
-                ptrFieldValue
-        let ref =
-            match ptr.term with
-            // Case for char span made from string
-            | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
-                let address, arrayType = Memory.StringArrayInfo state address None
-                CreateArrayRef address [MakeNumber 0] arrayType
-            | Ref(ArrayIndex(addr, indices, arrayType)) ->
-                CreateArrayRef addr indices arrayType
-            | HeapRef(address, _) ->
-                let t = MostConcreteTypeOfRef state ptr
-                if TypeUtils.isArrayType t then ptr
-                elif t = typeof<string> then
-                    let address, arrayType = Memory.StringArrayInfo state address None
-                    CreateArrayRef address [MakeNumber 0] arrayType
-                elif TypeUtils.isValueType t && len = MakeNumber 1 then
-                    HeapReferenceToBoxReference ptr
-                else internalfail $"GetContents: unexpected pointer {ptr}"
-            | DetachedPtr _ -> ptr
-            | Ptr(HeapLocation(_, t) as pointerBase, sightType, offset) ->
-                // TODO: add 'TryPtrToRef' to ctor
-                match TryPtrToRef state pointerBase sightType offset with
-                | Some(ArrayIndex(address, indices, arrayType)) -> CreateArrayRef address indices arrayType
-                | Some address -> Ref address
-                | None when t.IsSZArray || t = typeof<string> -> ptr
-                | None -> internalfail $"GetContentsRef: unexpected pointer to contents {ptr}"
-            | Ptr(pointerBase, sightType, offset) when len = MakeNumber 1 ->
-                match TryPtrToRef state pointerBase sightType offset with
-                | Some address -> Ref address
-                | _ -> ptr
-            | _ -> internalfail $"GetContentsRef: unexpected reference to contents {ptr}"
-        ref, len
+        if ptrFieldIsByRef ptrFieldType then
+            // Case for .NET 6, where Span contains 'System.ByReference' field
+            let byRefFields = Terms.TypeOf ptrFieldValue |> Reflection.fieldsOf false
+            assert(Array.length byRefFields = 1)
+            let byRefField = byRefFields |> Array.find (fst >> ByReference.isValueField) |> fst
+            readField cilState ptrFieldValue byRefField
+        else
+            // Case for .NET 7, where Span contains 'Byte&' field
+            ptrFieldValue
+
+    let GetContentsHeapRef (cilState : cilState) (spanStruct : term) =
+        GetContentsRef cilState spanStruct |> TryRefToHeapRef
 
     let private IsArrayContents ref =
         match ref.term with
@@ -101,8 +74,9 @@ module internal ReadOnlySpan =
         assert(List.length args = 3)
         let this, wrappedType, index = args[0], args[1], args[2]
         let t = Helpers.unwrapType wrappedType
-        let span = read cilState this
-        let ref, len = GetContents cilState span
+        let spanStruct = read cilState this
+        let len = GetLength cilState spanStruct
+        let ref = GetContentsRef cilState spanStruct
         let checkIndex cilState k =
             let readIndex cilState k =
                 let ref =
@@ -121,9 +95,40 @@ module internal ReadOnlySpan =
                 k
         i.NpeOrInvoke cilState ref checkIndex id
 
+    let private PrepareRefField state ref len : term =
+        match ref.term with
+        // Case for char span made from string
+        | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
+            let address, arrayType = Memory.StringArrayInfo state address None
+            CreateArrayRef address [MakeNumber 0] arrayType
+        | Ref(ArrayIndex(addr, indices, arrayType)) ->
+            CreateArrayRef addr indices arrayType
+        | HeapRef(address, _) ->
+            let t = MostConcreteTypeOfRef state ref
+            if TypeUtils.isArrayType t then ref
+            elif t = typeof<string> then
+                let address, arrayType = Memory.StringArrayInfo state address None
+                CreateArrayRef address [MakeNumber 0] arrayType
+            elif TypeUtils.isValueType t && len = MakeNumber 1 then
+                HeapReferenceToBoxReference ref
+            else internalfail $"PrepareRefField: unexpected pointer {ref}"
+        | DetachedPtr _ -> ref
+        | Ptr(HeapLocation(_, t) as pointerBase, sightType, offset) ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some(ArrayIndex(address, indices, arrayType)) -> CreateArrayRef address indices arrayType
+            | Some address -> Ref address
+            | None when t.IsSZArray || t = typeof<string> -> ref
+            | None -> internalfail $"PrepareRefField: unexpected pointer to contents {ref}"
+        | Ptr(pointerBase, sightType, offset) when len = MakeNumber 1 ->
+            match TryPtrToRef state pointerBase sightType offset with
+            | Some address -> Ref address
+            | _ -> ref
+        | _ -> internalfail $"PrepareRefField: unexpected reference to contents {ref}"
+
     let private InitSpanStruct cilState spanStruct refToFirst length =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
+        let refToFirst = PrepareRefField cilState.state refToFirst length
         let ptrField, ptrFieldInfo = spanFields |> Array.find (fst >> isContentReferenceField)
         let ptrFieldType = ptrFieldInfo.FieldType
         let spanWithPtrField =
