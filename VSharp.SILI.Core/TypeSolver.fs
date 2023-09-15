@@ -7,7 +7,6 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.CSharpUtils
-open GenericUtils
 
 // ------------------------------------------------- Type mocks -------------------------------------------------
 
@@ -98,59 +97,6 @@ module TypeStorage =
     let addTypeConstraint (typesConstraints : typesConstraints) condition =
         List.singleton condition |> addTypeConstraints typesConstraints
 
-// ------------------------------------------------- Generic Solving Utils --------------------------------------------
-module private CandidateUtils =
-
-    let satisfiesTypeParameterConstraints (subst : parameterSubstitution) (constraints : typeConstraints) (parameter : Type) (candidate: candidate) =
-        let substitute subst t = substitute t subst
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
-        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
-        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
-        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
-
-        let typedef = candidate.TypeDef
-        let satisfies =
-            (not isReferenceType || not typedef.IsValueType)
-            && (not isNotNullableValueType || (typedef.IsValueType && Nullable.GetUnderlyingType typedef = null))
-            && (not hasDefaultConstructor || typedef.IsValueType || typedef.GetConstructor(Type.EmptyTypes) <> null)
-        if satisfies then
-            match candidate with
-            | Candidate candidate as c ->
-                // TODO: [style] unify with 'satisfiesTypeParameterConstraints' #SLAVA
-                let isSupertype, isSubtype = substitute subst >> candidate.IsAssignableTo, substitute subst >> candidate.IsAssignableFrom
-                let satisfies =
-                    (not candidate.ContainsGenericParameters)
-                    && (parameter.GetGenericParameterConstraints() |> Array.forall isSupertype)
-                    && constraints.subtypes |> List.forall isSubtype
-                    && constraints.supertypes |> List.forall isSupertype
-                    && constraints.notSubtypes |> List.forall (isSubtype >> not)
-                    && constraints.notSupertypes |> List.forall (isSupertype >> not)
-                if satisfies then Some c else None
-            | GenericCandidate genericCandidate ->
-                let constraints = constraints.Copy()
-                for c in parameter.GetGenericParameterConstraints() do
-                    substitute subst c |> constraints.AddSuperType
-                genericCandidate.AddConstraints constraints |> Option.map GenericCandidate
-        else None
-
-    let candidate2types candidate =
-        match candidate with
-        | Candidate t -> Seq.singleton t
-        | GenericCandidate genericCandidate -> genericCandidate.Types
-
-    let unrollCandidateSubstitution (substs: pdict<Type, candidate> seq) =
-        seq {
-            for subst in substs do
-                let parameters, tss =
-                    PersistentDict.map id candidate2types subst
-                    |> PersistentDict.toSeq
-                    |> List.ofSeq
-                    |> List.unzip
-                for ts in List.cartesian tss do
-                    yield List.zip parameters ts |> PersistentDict.ofSeq
-        }
-
 // ------------------------------------------------- Type solver core -------------------------------------------------
 
 type typeSolvingResult =
@@ -162,13 +108,31 @@ module TypeSolver =
     let mutable private userAssembly = None
 
     let genericSolvingDepth = 1
-    type private substitution = pdict<Type, symbolicType>
 
     let getAssemblies() =
         seq {
             yield! AssemblyManager.GetAssemblies()
             yield Reflection.mscorlibAssembly
         }
+
+    let private getMock (typeMocks : IDictionary<Type list, ITypeMock>) (current : ITypeMock option) (supertypes : Type list) : ITypeMock =
+        let supertypes = supertypes |> List.sortBy (fun t -> {t=t})
+        let mock = ref (TypeMock.Empty :> ITypeMock)
+        if typeMocks.TryGetValue(supertypes, mock) then mock.Value
+        else
+            match current with
+            | Some (:? TypeMock as currentMock as current) ->
+                let oldSupertypes = current.SuperTypes |> List.ofSeq
+                currentMock.WithSupertypes supertypes
+                let success = typeMocks.Remove(oldSupertypes)
+                assert success
+                typeMocks.Add(supertypes, currentMock)
+                currentMock
+            | None ->
+                let mock = TypeMock(supertypes)
+                typeMocks.Add(supertypes, mock)
+                mock
+            | Some _  -> __unreachable__()
 
     let private enumerateSupertypes predicate (typ : Type) =
         let rec getSupertypes (t : Type) (supertypes : candidate list) =
@@ -235,40 +199,10 @@ module TypeSolver =
     let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
         enumerateTypes supertypes mock (fun t -> if not t.IsAbstract then validate t else None) assemblies
 
-    let rec private substitute (subst : substitution) (t : Type) =
-        let substFunction t =
-            match PersistentDict.tryFind subst t with
-            | Some (ConcreteType t) -> t
-            | _ -> t
-        Reflection.concretizeType substFunction t
-
-    let private satisfiesTypeParameterConstraints (parameter : Type) subst (t : Type) =
-        let t = substitute subst t
-        let subst = PersistentDict.add parameter (ConcreteType t) subst
-        let (&&&) = Microsoft.FSharp.Core.Operators.(&&&)
-        let specialConstraints = parameter.GenericParameterAttributes &&& GenericParameterAttributes.SpecialConstraintMask
-        let isReferenceType = specialConstraints &&& GenericParameterAttributes.ReferenceTypeConstraint = GenericParameterAttributes.ReferenceTypeConstraint
-        let isNotNullableValueType = specialConstraints &&& GenericParameterAttributes.NotNullableValueTypeConstraint = GenericParameterAttributes.NotNullableValueTypeConstraint
-        let hasDefaultConstructor = specialConstraints &&& GenericParameterAttributes.DefaultConstructorConstraint = GenericParameterAttributes.DefaultConstructorConstraint
-        // Byref-like structures can not be generic argument
-        (not t.IsByRefLike)
-        && (not t.ContainsGenericParameters)
-        && (not isReferenceType || not t.IsValueType)
-        && (not isNotNullableValueType || (t.IsValueType && Nullable.GetUnderlyingType t = null))
-        && (not hasDefaultConstructor || t.IsValueType || not t.IsAbstract && t.GetConstructor(Type.EmptyTypes) <> null)
-        && (parameter.GetGenericParameterConstraints() |> Array.forall (substitute subst >> t.IsAssignableTo))
-
-    let private satisfiesConstraints (constraints : typeConstraints) subst (candidate : Type) =
-        // TODO: need to find subst to generic parameters satisfying constraints
-        constraints.subtypes |> List.forall (substitute subst >> candidate.IsAssignableFrom) &&
-        constraints.supertypes |> List.forall (substitute subst >> candidate.IsAssignableTo) &&
-        constraints.notSubtypes |> List.forall (substitute subst >> candidate.IsAssignableFrom >> not) &&
-        constraints.notSupertypes |> List.forall (substitute subst >> candidate.IsAssignableTo >> not)
-
     let private chooseCandidate (constraints : typeConstraints) subst c =
         match c with
         | Candidate t as c ->
-            if satisfiesConstraints constraints subst t then Some c
+            if GroundUtils.satisfiesConstraints constraints subst t then Some c
             else None
         | GenericCandidate gc ->
             gc.AddConstraints constraints |> Option.map GenericCandidate
@@ -300,40 +234,23 @@ module TypeSolver =
                 let assemblies = getAssemblies()
                 enumerateNonAbstractTypes constraints.supertypes (getMock None) validate assemblies
             | t :: _ ->
-                 enumerateNonAbstractSupertypes validate t
+                enumerateNonAbstractSupertypes validate t
 
-    let private typeParameterCandidatesWithGeneric getMock subst (constraints : typeConstraints) makeGenericCandidates =
-        match constraints.supertypes |> List.tryFind (fun t -> t.IsSealed) with
-        | Some t ->
-            if TypeUtils.isDelegate t then
-                candidates(Seq.empty, None, userAssembly.Value)
-            else
-                let types = Candidate t |> Seq.singleton
-                candidates(types, None, userAssembly.Value)
-        | _ ->
-            let makeCandidates (t: Type) =
-                if t.IsGenericTypeDefinition then
-                    makeGenericCandidates t |> Option.map GenericCandidate
-                else Candidate t |> Some
-            let validate t =
-                match makeCandidates t with
-                | Some c -> chooseCandidate constraints subst c
-                | None -> None
+    let private typeParameterCandidates makeGenericCandidates =
+        let getMock _ = EmptyTypeMock() :> ITypeMock
+        let validate (t: Type) =
+            if t.IsGenericTypeDefinition then
+                makeGenericCandidates t |> Option.map GenericCandidate
+            else Candidate t |> Some
+        let assemblies = getAssemblies()
+        enumerateTypes List.empty getMock validate assemblies
 
-            match constraints.subtypes with
-            | [] ->
-                let assemblies = getAssemblies()
-                enumerateTypes constraints.supertypes (getMock None) validate assemblies
-            | t :: _ ->
-                 enumerateSupertypes validate t
-
-    let private typeParameterCandidates getMock subst (parameter : Type, constraints : typeConstraints) =
+    let private typeParameterGroundCandidates getMock subst (parameter : Type, constraints : typeConstraints) =
         let validate (typ: Type) =
-            if not typ.IsGenericTypeDefinition && satisfiesTypeParameterConstraints parameter subst typ then
+            if not typ.IsGenericTypeDefinition && GroundUtils.satisfiesTypeParameterConstraints parameter subst typ then
                 Candidate typ |> Some
             else None
-
-        let supertypes = constraints.supertypes |> List.map (substitute subst)
+        let supertypes = constraints.supertypes |> List.map (GroundUtils.substitute subst)
         enumerateTypes supertypes getMock validate (getAssemblies())
 
     let rec private collectTypeVariables (acc : Type list) (typ : Type) =
@@ -345,41 +262,17 @@ module TypeSolver =
         elif not typ.IsGenericType then acc
         else typ.GetGenericArguments() |> Array.fold collectTypeVariables acc
 
-    let private getMock (typeMocks : IDictionary<Type list, ITypeMock>) (current : ITypeMock option) (supertypes : Type list) : ITypeMock =
-        let supertypes = supertypes |> List.sortBy (fun t -> {t=t})
-        let mock = ref (TypeMock.Empty :> ITypeMock)
-        if typeMocks.TryGetValue(supertypes, mock) then mock.Value
-        else
-            match current with
-            | Some (:? TypeMock as currentMock as current) ->
-                let oldSupertypes = current.SuperTypes |> List.ofSeq
-                currentMock.WithSupertypes supertypes
-                let success = typeMocks.Remove(oldSupertypes)
-                assert success
-                typeMocks.Add(supertypes, currentMock)
-                currentMock
-            | None ->
-                let mock = TypeMock(supertypes)
-                typeMocks.Add(supertypes, mock)
-                mock
-            | Some _  -> __unreachable__()
-
     let private makeParameterSubstitutions childDepth (parameters: Type[]) depth makeGenericCandidate =
-        let getMock = getMock (Dictionary())
-        let getCandidates = typeConstraints.Empty() |> typeParameterCandidatesWithGeneric getMock PersistentDict.empty
-        parameterSubstitutions.Create
+        parameterSubstitutions.TryCreate
             parameters
             depth
-            getCandidates
-            CandidateUtils.unrollCandidateSubstitution
-            CandidateUtils.satisfiesTypeParameterConstraints
+            typeParameterCandidates
             makeGenericCandidate
             childDepth
 
     let private makeGenericCandidate (typedef: Type) depth =
-        let satisfiesConstraints constraints = satisfiesConstraints constraints PersistentDict.empty
         let childDepth _ _ _ = Int32.MaxValue
-        genericCandidate.Create typedef depth (makeParameterSubstitutions childDepth) satisfiesConstraints
+        genericCandidate.TryCreate typedef depth (makeParameterSubstitutions childDepth)
 
     let private refineMock getMock constraints (mock : ITypeMock) =
         let constraintsSuperTypes = constraints.supertypes
@@ -420,19 +313,10 @@ module TypeSolver =
             List.map2 createSubst indTypesConstraints candidatesList
             |> PersistentDict.ofSeq
             |> Some
-        let candidatesList = solveConstraints (typeParameterCandidates getMock subst) indTypesConstraints
+        let candidatesList = solveConstraints (typeParameterGroundCandidates getMock subst) indTypesConstraints
         match candidatesList with
         | Some candidatesList -> refineSubst candidatesList
         | None -> None
-
-    // 'typeParameters' must contain either not generic type or generic parameter
-    let private decodeTypeSubst (subst : substitution) typeParameters =
-        let getSubst (typ : Type) =
-            if typ.IsGenericParameter then PersistentDict.find subst typ
-            else
-                assert(not typ.ContainsGenericParameters)
-                ConcreteType typ
-        Array.map getSubst typeParameters
 
     let private solveParams getMock subst (typeParameters : Type[]) =
         let isConcrete t =
@@ -445,7 +329,7 @@ module TypeSolver =
         let processDependent (substs: substitution seq) (p, _ as parameter) =
             seq {
                 for subst in substs do
-                    let candidates = typeParameterCandidates (getMock None) subst parameter
+                    let candidates = typeParameterGroundCandidates (getMock None) subst parameter
                     for t in candidates.Types do
                         yield PersistentDict.add p t subst
             }
@@ -456,10 +340,10 @@ module TypeSolver =
             match paramSubsts with
             | Some substs -> substs.Substitutions |> Seq.map (PersistentDict.map id ConcreteType)
             | None -> Seq.empty
-        let independent, dependent = splitByDependence typeParameters
+        let independent, dependent = GenericUtils.splitByDependence typeParameters
         let independentGC = independent |> List.ofSeq |> List.map parameterConstraints
         let independentTypes, _ = List.unzip independentGC
-        let candidatesList = solveConstraints (typeParameterCandidates (getMock None) subst) independentGC
+        let candidatesList = solveConstraints (typeParameterGroundCandidates (getMock None) subst) independentGC
         let dependent = Array.map parameterConstraints dependent
         let brutForceSubsts =
             match candidatesList with
@@ -487,7 +371,7 @@ module TypeSolver =
     let rec private solve (getMock : ITypeMock option -> Type list -> ITypeMock) (inputConstraints : typeConstraints list) (typeParameters : Type[]) =
         if inputConstraints |> List.exists (fun c -> c.IsContradicting()) then None
         else
-            let decodeTypeSubst (subst : substitution) = decodeTypeSubst subst typeParameters
+            let decodeTypeSubst (subst : substitution) = CommonUtils.decodeTypeSubst subst typeParameters
             let collectVars acc constraints =
                 let acc = constraints.supertypes |> List.fold collectTypeVariables acc
                 let acc = constraints.subtypes |> List.fold collectTypeVariables acc
@@ -578,7 +462,7 @@ module TypeSolver =
         | _ -> internalfail $"[Type solver] evaluating address in model: unexpected address {address}"
 
     let private mergeConstraints (constraints : typesConstraints) (addresses : term seq) =
-        let resultConstraints = typeConstraints.Empty()
+        let resultConstraints = typeConstraints.Empty
         for address in addresses do
             let constraints = constraints[address]
             resultConstraints.Merge constraints |> ignore
