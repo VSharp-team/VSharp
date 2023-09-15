@@ -94,6 +94,19 @@ public class C : B
     }
 }
 
+public enum MockEnum
+{
+    Foo,
+    Bar,
+    Fizz,
+    Buzz
+}
+
+public interface IEnumMock
+{
+    MockEnum Get();
+}
+
 [TestSvmFixture]
 public class Mocking
 {
@@ -320,5 +333,26 @@ public class Mocking
         }
 
         return 0;
+    }
+
+    [TestSvm(100)]
+    public int EnumMock(IEnumMock enumMock)
+    {
+        if (enumMock.Get() == MockEnum.Bar)
+        {
+            return 1;
+        }
+
+        if (enumMock.Get() == MockEnum.Foo)
+        {
+            return 2;
+        }
+
+        if (enumMock.Get() == MockEnum.Fizz)
+        {
+            return 3;
+        }
+
+        return 4;
     }
 }
