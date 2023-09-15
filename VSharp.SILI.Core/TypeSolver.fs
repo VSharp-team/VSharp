@@ -115,13 +115,13 @@ module TypeSolver =
         }
 
     let private enumerateNonAbstractSupertypes predicate (typ : Type) =
-        let rec getNonAbstractSupertypes predicate (t: Type) =
-            if typ = null || typ.IsAbstract then List.empty
+        let rec getNonAbstractSupertypes (t: Type) (supertypes : Type list) =
+            if t = null then supertypes
             else
-                let supertypes = getNonAbstractSupertypes predicate t.BaseType
-                if predicate typ then typ::supertypes else supertypes
+                let supertypes = if not t.IsAbstract && predicate t then t::supertypes else supertypes
+                getNonAbstractSupertypes t.BaseType supertypes
         assert userAssembly.IsSome
-        let types = getNonAbstractSupertypes predicate typ
+        let types = getNonAbstractSupertypes typ List.empty
         candidates(types, None, userAssembly.Value)
 
     let private hasSubtypes (t : Type) =
