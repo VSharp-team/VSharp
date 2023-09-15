@@ -199,7 +199,7 @@ module internal Pointers =
         | _ when typeOf ptr |> isNative ->
             primitiveCast ptr typeof<int>
         | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, o) ->
-            let pointerBase = convert (List.sum a) typeof<int> |> makeNumber
+            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
             add pointerBase o
         | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of symbolic pointer {ptr}"
 
