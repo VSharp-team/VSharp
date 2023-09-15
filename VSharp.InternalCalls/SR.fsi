@@ -89,3 +89,6 @@ module internal SR =
 
     [<Implements("System.String System.SR.get_Arg_NotImplementedException()")>]
     val get_Arg_NotImplementedException : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Argument_InvalidTypeWithPointersNotSupported()")>]
+    val get_Argument_InvalidTypeWithPointersNotSupported : state -> term list -> term
