@@ -13,3 +13,12 @@ module internal InteropServices =
 
     [<Implements("System.Void* System.Runtime.InteropServices.NativeMemory.AlignedAlloc(System.UIntPtr, System.UIntPtr)")>]
     val AlignedAlloc : state -> term list -> term
+
+    [<Implements("System.Runtime.InteropServices.GCHandle System.Runtime.InteropServices.GCHandle.Alloc(System.Object, System.Runtime.InteropServices.GCHandleType)")>]
+    val AllocWithType : state -> term list -> term
+
+    [<Implements("System.Runtime.InteropServices.GCHandle System.Runtime.InteropServices.GCHandle.Alloc(System.Object)")>]
+    val Alloc : state -> term list -> term
+
+    [<Implements("System.IntPtr System.Runtime.InteropServices.GCHandle.AddrOfPinnedObject(this)")>]
+    val AddrOfPinnedObject : state -> term list -> term

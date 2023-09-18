@@ -5,17 +5,17 @@ open VSharp.Core
 
 module internal InteropServices =
 
-    let internal GetArrayDataReference (state : state) (args : term list) =
+    let GetArrayDataReference (state : state) (args : term list) =
         assert(List.length args = 2)
         let array = args[1]
         Memory.ReferenceArrayIndex state array [MakeNumber 0] None
 
-    let internal Free (_ : state) (args : term list) =
+    let Free (_ : state) (args : term list) =
         assert(List.length args = 1)
         // TODO: add checks
         Nop()
 
-    let internal AlignedAlloc (state : state) (args : term list) =
+    let AlignedAlloc (state : state) (args : term list) =
         assert(List.length args = 2)
         let count = Types.Cast args[0] typeof<int>
         let ref = Memory.AllocateVectorArray state count typeof<byte>
@@ -26,3 +26,36 @@ module internal InteropServices =
             let offset = MakeNumber 0
             Ptr pointerBase t offset
         | _ -> internalfail $"AlignedAlloc: unexpected array reference {ref}"
+
+    let private isHandleField fieldId =
+        fieldId.name = "_handle"
+
+    let private gcHandleType = typeof<System.Runtime.InteropServices.GCHandle>
+
+    let private gcHandleField =
+        lazy(
+            let fields = Reflection.fieldsOf false gcHandleType
+            Array.find (fst >> isHandleField) fields |> fst
+        )
+
+    let private CommonAlloc obj =
+        let gcHandle = Memory.DefaultOf gcHandleType
+        let handleField = gcHandleField.Value
+        Memory.WriteStructField gcHandle handleField obj
+
+    let AllocWithType (_ : state) (args : term list) =
+        assert(List.length args = 2)
+        let obj = args[0]
+        CommonAlloc obj
+
+    let Alloc (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        let obj = args[0]
+        CommonAlloc obj
+
+    let AddrOfPinnedObject (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let this = args[0]
+        let gcHandle = Memory.Read state this
+        let handleField = gcHandleField.Value
+        Memory.ReadField state gcHandle handleField

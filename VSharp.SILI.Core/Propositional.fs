@@ -265,8 +265,11 @@ module internal Propositional =
         | OperationType.LogicalAnd -> simplifyAnd x y k
         | OperationType.LogicalOr -> simplifyOr x y k
         | OperationType.LogicalXor ->
-            simplifyNegation x (fun x' -> simplifyNegation y (fun y' ->
-            simplifyOr x' y' (fun x' -> simplifyOr x y (fun y' -> simplifyAnd x' y' k))))
+            simplifyNegation x (fun x' ->
+            simplifyNegation y (fun y' ->
+            simplifyOr x' y' (fun x' ->
+            simplifyOr x y (fun y' ->
+            simplifyAnd x' y' k))))
         | OperationType.Equal -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' k))
         | OperationType.NotEqual -> simplifyOr !!x y (fun x' -> simplifyOr x !!y (fun y' -> simplifyAnd x' y' (fun res -> simplifyNegation res k)))
         | _ -> internalfailf "%O is not a binary logical operator" op
