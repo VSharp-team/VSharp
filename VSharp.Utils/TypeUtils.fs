@@ -213,6 +213,9 @@ module TypeUtils =
             else __insufficientInformation__ "Can't determine if %O is a nullable type or not!" t
         | t -> Nullable.GetUnderlyingType(t) <> null
 
+    let isBoxedType t =
+        t = typeof<obj> || t.IsInterface || isValueType t || t = typeof<Enum>
+
     let getGenericArgs (t: Type) =
         if t.IsGenericType then t.GetGenericArguments() else [||]
 

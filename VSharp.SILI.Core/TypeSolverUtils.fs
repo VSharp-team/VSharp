@@ -102,14 +102,6 @@ with
         x.notSubtypes <- subtypes
         x.notSupertypes <- supertypes
 
-    member x.MakeInvariant() =
-        let types = x.subtypes @ x.supertypes
-        x.subtypes <- types
-        x.supertypes <- types
-        let notTypes = x.notSubtypes @ x.notSupertypes
-        x.notSubtypes <- notTypes
-        x.notSupertypes <- notTypes
-
     member x.Copy() =
         {
             supertypes = x.supertypes
@@ -352,6 +344,8 @@ type parameterSubstitutions private (
                     && (parameter.GetGenericParameterConstraints() |> Array.forall isSupertype)
                 if satisfies then Some c else None
             | GenericCandidate genericCandidate ->
+                // TODO: This forces propagate of parameter constraints every time #types #bug
+                // TODO: move this to genericCandidate .ctor #SLAVA
                 let constraints = constraints.Copy()
                 for c in parameter.GetGenericParameterConstraints() do
                     substitute subst c |> constraints.AddSuperType
@@ -455,7 +449,9 @@ and genericCandidate private (
     let supertypes = TypeUtils.getSupertypes typedef
     let supertypesDefs = supertypes |> List.map TypeUtils.getTypeDef
 
-    let rec trackIndicesHelper (typ: Type) (supertype: Type) indices =
+    let rec trackIndicesHelper (typ : Type) (supertype : Type) indices =
+        // TODO: use info about constraints and return typeConstraints array option #SLAVA
+        // TODO: this constraints should not be invariant #SLAVA
         if not typ.IsGenericType then Array.empty
         elif not supertype.IsGenericType then Array.replicate (typ.GetGenericArguments().Length) List.empty
         elif typ.GetGenericTypeDefinition() = supertype.GetGenericTypeDefinition() then indices
@@ -552,17 +548,24 @@ and genericCandidate private (
             for i = 0 to parametersIndices.Length - 1 do
                 let indices = parametersIndices[i]
                 let superTypes = List.map (fun i -> supertypeArgs[i]) indices
-                // TODO: check add 'superTypes' as subtypes #types?
-                typeConstraints.FromSuperTypes superTypes |> constraints[i].Merge |> ignore
+                let propagated = typeConstraints.Create superTypes superTypes List.empty List.empty
+                constraints[i].Merge propagated |> ignore
         contains
 
     and propagateSubtype (constraints : typeConstraints array) typedef subtype =
         let subtypeDef = TypeUtils.getTypeDef subtype
         let subtypeArgs = TypeUtils.getGenericArgs subtype
-        let contains =TypeUtils.getSupertypes subtype |> List.map TypeUtils.getTypeDef |> List.contains typedef
+        let contains = TypeUtils.getSupertypes subtype |> List.map TypeUtils.getTypeDef |> List.contains typedef
         if contains then
-            let add i = List.iter (fun j -> constraints[j].AddSubType subtypeArgs[i])
-            trackIndices subtypeDef typedef |> Array.iteri add
+            let indices = trackIndices subtypeDef typedef
+            let mutable i = 0
+            for index in indices do
+                for j in index do
+                    let parameterConstraints = constraints[j]
+                    let t = subtypeArgs[i]
+                    parameterConstraints.AddSubType t
+                    parameterConstraints.AddSuperType t
+                i <- i + 1
         contains
 
     and propagate (typedef : Type) supertypesDefs parameters interfaces (constraints : typeConstraints) : typeConstraints[] option =
@@ -582,10 +585,7 @@ and genericCandidate private (
                 if success then
                     success <- propagateSubtype constraints typedef iSubType
             // TODO: try to propagate 'subtypes'
-            if success then
-                for c in constraints do
-                    c.MakeInvariant()
-                Some constraints
+            if success then Some constraints
             else None
         else
             success <- List.isEmpty sbtInterfaces
@@ -595,9 +595,6 @@ and genericCandidate private (
             for subType in subtypes do
                 if success then
                     success <- propagateSubtype constraints typedef subType
-            if success then
-                for c in constraints do
-                    c.MakeInvariant()
             for iSuperType in sptInterfaces do
                 if success then
                     success <- propagateInterface constraints parameters interfaces iSuperType

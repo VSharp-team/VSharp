@@ -127,3 +127,7 @@ module SR =
     let internal get_InvalidOperation_HandleIsNotInitialized (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "get_InvalidOperation_HandleIsNotInitialized" state
+
+    let internal get_Argument_InvalidPathChars (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "get_Argument_InvalidPathChars" state

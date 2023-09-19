@@ -21,5 +21,10 @@ namespace VSharp.CSharpUtils
         public static void KeepAlive(object ptr)
         {
         }
+
+        [Implements("System.Void System.GC._SuppressFinalize(System.Object)")]
+        public static void SuppressFinalize(object obj)
+        {
+        }
     }
 }

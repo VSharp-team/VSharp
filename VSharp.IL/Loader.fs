@@ -135,6 +135,7 @@ module Loader =
             "System.Type System.RuntimeType.get_DeclaringType(this)"
             "System.String System.RuntimeType.get_Namespace(this)"
             "System.Boolean System.Type.get_IsAbstract(this)"
+            "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -162,6 +163,10 @@ module Loader =
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
+            "System.String System.Environment.GetEnvironmentVariable(System.String)"
+
+            // Guid
+            "System.Guid System.Guid.NewGuid()"
 
             // Buffers
             "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"

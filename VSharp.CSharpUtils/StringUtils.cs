@@ -24,5 +24,11 @@ namespace VSharp.CSharpUtils
 
             return true;
         }
+
+        [Implements("System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)")]
+        public static bool EqualsWithComparison(string str1, string str2, System.StringComparison comparison)
+        {
+            return Equals(str1, str2);
+        }
     }
 }

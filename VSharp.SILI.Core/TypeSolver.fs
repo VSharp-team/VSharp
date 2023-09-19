@@ -162,7 +162,7 @@ module TypeSolver =
         assert userAssembly.IsSome
         let userAssembly = userAssembly.Value
         assert(List.forall (fun t -> t <> typeof<Void>) supertypes)
-        let cands = seq {
+        let types = seq {
             if List.isEmpty supertypes then
                 match validate typeof<obj> with
                 | Some c -> yield c
@@ -185,7 +185,7 @@ module TypeSolver =
                 for assembly in assemblies do
                     let types = assembly.GetExportedTypesChecked()
                     // TODO: in any assembly, there is no array types, so need to generate it manually
-                    yield! types |> Seq.choose makeCandidate
+                    yield! Seq.choose makeCandidate types
         }
 
         let mock =
@@ -194,7 +194,7 @@ module TypeSolver =
                     Some (mock supertypes)
                 with :? InsufficientInformationException -> None
             else None
-        candidates(cands, mock, userAssembly)
+        candidates(types, mock, userAssembly)
 
     let private enumerateNonAbstractTypes supertypes mock validate (assemblies : Assembly seq) =
         enumerateTypes supertypes mock (fun t -> if not t.IsAbstract then validate t else None) assemblies
@@ -207,7 +207,7 @@ module TypeSolver =
         | GenericCandidate gc ->
             gc.AddConstraints constraints |> Option.map GenericCandidate
 
-    let private typeCandidates getMock subst constraints makeGenericCandidates =
+    let private typeCandidates getMock subst constraints (makeGenericCandidates : Type -> genericCandidate option) =
         assert userAssembly.IsSome
         match constraints.supertypes |> List.tryFind (fun t -> t.IsSealed) with
         | Some t ->

@@ -23,5 +23,6 @@ module internal ReadOnlySpan =
     [<Implements("System.Void System.Span`1[T]..ctor(this, T[])")>]
     val CtorFromArray : IInterpreter -> cilState -> term list -> cilState list
 
+    [<Implements("System.ReadOnlySpan`1[System.Char] System.MemoryExtensions.AsSpan(System.String)")>]
     [<Implements("System.ReadOnlySpan`1[System.Char] System.String.op_Implicit(System.String)")>]
     val CreateFromString : IInterpreter -> cilState -> term list -> cilState list

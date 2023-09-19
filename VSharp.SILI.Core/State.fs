@@ -80,7 +80,8 @@ type exceptionRegister =
     member x.TransformToUnhandled () =
         match x with
         | Caught(e, s) -> Unhandled(e, false, s)
-        | _ -> internalfail "unable TransformToUnhandled"
+        | Unhandled _ -> x
+        | NoException -> internalfail "unable TransformToUnhandled"
     member x.UnhandledError =
         match x with
         | Unhandled _ -> true
