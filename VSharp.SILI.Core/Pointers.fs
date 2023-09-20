@@ -76,29 +76,38 @@ module internal Pointers =
         | StaticLocation _, StaticLocation _ -> __unreachable__()
         | _ -> False()
 
+    let simplifyReferenceEqualityExt x y k =
+        match x.term, y.term with
+        | _ when x = y -> k (True())
+        | Ref address1, Ref address2 -> compareAddress (address1, address2) |> k
+        | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
+            let addressEq = comparePointerBase address1 address2
+            addressEq &&& simplifyEqual shift1 shift2 id |> k
+        | Concrete(number, _), other
+        | other, Concrete(number, _) ->
+            let i = convert number typeof<int>
+            match other with
+            | DetachedPtr shift -> simplifyEqual shift (makeNumber i) k
+            | Ptr(HeapLocation(address, _), _, shift) when i = 0 ->
+                simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber 0) id |> k
+            | HeapRef(address, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
+            | _ -> False() |> k
+        | Ref _, Ptr _
+        | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
+        | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
+        | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
+        | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
+            simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
+        | _, DetachedPtr shift
+        | DetachedPtr shift, _ when typeOf x |> isNative || typeOf y |> isNative ->
+            simplifyEqual shift y k
+        | _ -> False() |> k
+
     let rec simplifyReferenceEqualityk x y k =
         simplifyGenericBinary "reference comparison" x y k
             (fun _ _ _ -> __unreachable__())
-            (fun x y k ->
-                match x.term, y.term with
-                | _ when x = y -> k (True())
-                | Ref address1, Ref address2 -> compareAddress (address1, address2) |> k
-                | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
-                    let addressEq = comparePointerBase address1 address2
-                    addressEq &&& simplifyEqual shift1 shift2 id |> k
-                | Concrete(:? int as i, _), Ptr(HeapLocation(address, _), _, shift)
-                | Ptr(HeapLocation(address, _), _, shift), Concrete(:? int as i, _) when i = 0 ->
-                    simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber 0) id |> k
-                | Concrete(:? int as i, _), HeapRef(address, _)
-                | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
-                | Ref _, Ptr _
-                | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
-                | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
-                | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
-                | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
-                    simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
-                | _ -> False() |> k)
-            (fun x y k -> simplifyReferenceEqualityk x y k)
+            simplifyReferenceEqualityExt
+            simplifyReferenceEqualityk
 
     let isNull heapReference =
         simplifyReferenceEqualityk heapReference (nullRef (typeOf heapReference)) id

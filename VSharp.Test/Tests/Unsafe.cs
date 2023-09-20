@@ -23,6 +23,14 @@ namespace IntegrationTests
             return sizeof(char); // sizeof() = 2; Marshal.SizeOf() = 1; we should be 2
         }
 
+        [TestSvm]
+        public static int PointerComparison(int* ptr)
+        {
+            if (ptr == (int*)0)
+                return 1;
+            return 2;
+        }
+
         struct FixedSizedBuffer
         {
             public fixed char buf[20];
