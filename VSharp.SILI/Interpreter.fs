@@ -392,10 +392,6 @@ module internal InstructionsSet =
             | [] -> Instruction(dst, m)
             | e :: ehcs -> leave (Instruction(e.handlerOffset, m)) ehcs dst m
         setCurrentIp currentIp cilState
-    let rethrow (cilState : cilState) =
-        let state = cilState.state
-        assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
-        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
     let endfilter (cilState : cilState) =
         let value, restStack = EvaluationStack.Pop cilState.state.evaluationStack
         if restStack = EvaluationStack.EmptyStack then
@@ -1421,6 +1417,10 @@ type ILInterpreter() as this =
             nonNullCase
             k
 
+    member private x.SetExceptionIP cilState =
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+
     member private x.CommonThrow cilState error isRuntime =
         let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
         let stackTrace = List.map toString codeLocations |> join ","
@@ -1437,6 +1437,14 @@ type ILInterpreter() as this =
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
+
+    member private x.Rethrow (cilState : cilState) =
+        let state = cilState.state
+        assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
+        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
+        x.SetExceptionIP cilState
+        List.singleton cilState
+
     member private x.Unbox (m : Method) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Unbox.Size)
         let obj = pop cilState
@@ -2144,7 +2152,7 @@ type ILInterpreter() as this =
             | OpCodeValues.Leave
             | OpCodeValues.Leave_S -> leave m offset cilState; [cilState]
             | OpCodeValues.Endfinally -> (fun _ _ -> endfinally) |> fallThrough m offset cilState
-            | OpCodeValues.Rethrow -> (fun _ _ -> rethrow) |> fallThrough m offset cilState
+            | OpCodeValues.Rethrow -> x.Rethrow cilState
             | OpCodeValues.Endfilter -> (fun _ _ -> endfilter) |> fallThrough m offset cilState
             | OpCodeValues.Localloc -> (fun _ _ -> localloc) |> fallThrough m offset cilState
             // TODO: notImplemented instructions
