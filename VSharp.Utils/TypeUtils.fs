@@ -60,10 +60,11 @@ module TypeUtils =
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral x = integralTypes.Contains x || x.IsEnum
-    let isLongTypes = longTypes.Contains
-    let isReal = realTypes.Contains
-    let isUnsigned = unsignedTypes.Contains
-    let isPrimitive = primitiveTypes.Contains
+    let isLongTypes x = longTypes.Contains x
+    let isReal x = realTypes.Contains x
+    let isUnsigned x = unsignedTypes.Contains x
+    let isSigned x = unsignedTypes.Contains x |> not
+    let isPrimitive x = primitiveTypes.Contains x
     let isNative x = x = typeof<IntPtr> || x = typeof<UIntPtr>
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)

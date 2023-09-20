@@ -773,6 +773,18 @@ module internal Terms =
         | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
         | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
         | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
+        | _ when t = typeof<IntPtr> ->
+            if sizeof<IntPtr> = sizeof<int> then
+                BitConverter.ToInt32 span |> IntPtr :> obj
+            elif sizeof<IntPtr> = sizeof<int64> then
+                BitConverter.ToInt64 span |> IntPtr :> obj
+            else internalfail "bytesToObj: unexpected IntPtr size"
+        | _ when t = typeof<UIntPtr> ->
+            if sizeof<UIntPtr> = sizeof<uint> then
+                BitConverter.ToUInt32 span |> UIntPtr :> obj
+            elif sizeof<UIntPtr> = sizeof<uint64> then
+                BitConverter.ToUInt64 span |> UIntPtr :> obj
+            else internalfail "bytesToObj: unexpected UIntPtr size"
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
