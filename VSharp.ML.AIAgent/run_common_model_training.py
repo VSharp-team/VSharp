@@ -2,6 +2,7 @@ import copy
 import logging
 from multiprocessing import Pool
 import multiprocessing
+
 import os
 from pathlib import Path
 from datetime import datetime
@@ -138,13 +139,12 @@ def train(config):
 
     with game_server_socket_manager() as ws:
         all_maps = get_maps(websocket=ws, type=MapsType.TRAIN)
-        # maps = np.array_split(all_maps, GeneralConfig.SERVER_COUNT)
-        # random.shuffle(maps)
-        # global tasks
-        # tasks = [
-        #     (maps[i], FullDataset("", ""), cmwrapper)
-        #     for i in range(GeneralConfig.SERVER_COUNT)
-        # ]
+        maps = np.array_split(all_maps, GeneralConfig.SERVER_COUNT)
+        random.shuffle(maps)
+        tasks = [
+            (maps[i], FullDataset("", ""), cmwrapper)
+            for i in range(GeneralConfig.SERVER_COUNT)
+        ]
 
     if GENERATE_DATASET:
         # creating new dataset
@@ -158,13 +158,12 @@ def train(config):
         dataset.save()
     else:
         # loading existing dataset
-        dataset.load()
+        dataset.load()  # GPU 14%
 
-    # multiprocessing.set_start_method("spawn", force=True)
+    multiprocessing.set_start_method("spawn", force=True)
     # p = Pool(GeneralConfig.SERVER_COUNT)
 
     all_average_results = []
-    # with Pool(GeneralConfig.SERVER_COUNT) as p:
     for epoch in range(config["epochs"]):
         data_list = dataset.get_plain_data()
         data_loader = DataLoader(
@@ -175,6 +174,7 @@ def train(config):
         model.train()
         for batch in tqdm.tqdm(data_loader, desc="training"):
             batch.to(GeneralConfig.DEVICE)
+            # maybe pre-save batches? https://discuss.pytorch.org/t/how-to-load-all-data-into-gpu-for-training/27609/22
             optimizer.zero_grad()
 
             out = model(
@@ -186,35 +186,39 @@ def train(config):
                 batch[("game_vertex", "in", "state_vertex")].edge_index,
                 batch[("state_vertex", "parent_of", "state_vertex")].edge_index,
             )["state_vertex"]
-            # out = model(batch["game_vertex"].x, batch.edge_index_dict, batch.edge_attr_dict)[
-            #     "state_vertex"
-            # ]
             y_true = batch.y_true["state_vertex"]
             loss = criterion(out, y_true)
             if loss != 0:
                 loss.backward()
                 optimizer.step()
+            del out
+            del batch
+            torch.cuda.empty_cache()
+
+        # GPU 18%
 
         # validation
         model.eval()
         cmwrapper.make_copy(str(epoch + 1))
+        # with Pool(GeneralConfig.SERVER_COUNT, maxtasksperchild=1) as p:
+        result = list(map(f, tasks))
 
-        # result = p.map(f, tasks)
-        # all_results = []
-        # for maps_result, maps_data in result:
-        #     for map_name in maps_data.keys():
-        #         dataset.update(map_name, maps_data[map_name][0], maps_data[map_name][1])
-        #     all_results += maps_result
+        all_results = []
+        for maps_result, maps_data in result:
+            for map_name in maps_data.keys():
+                dataset.update(map_name, maps_data[map_name][0], maps_data[map_name][1])
+            all_results += maps_result
 
-        # dataset.save()
-        all_results = play_game(
-            with_predictor=cmwrapper,
-            max_steps=GeneralConfig.MAX_STEPS,
-            maps=all_maps,
-            maps_type=MapsType.TRAIN,
-            with_dataset=dataset,
-        )[0]
         dataset.save()
+
+        # all_results = play_game(
+        #     with_predictor=cmwrapper,
+        #     max_steps=GeneralConfig.MAX_STEPS,
+        #     maps=all_maps,
+        #     maps_type=MapsType.TRAIN,
+        #     with_dataset=dataset,
+        # )[0]
+        # dataset.save()
         print(
             "Average dataset_state result",
             np.average(list(map(lambda x: x[0][0], dataset.maps_data.values()))),
@@ -255,36 +259,49 @@ def main():
     print(GeneralConfig.DEVICE)
     best_result = {"average_coverage": 0, "config": dict(), "epoch": 0}
 
-    while True:
-        config = {
-            "hidden_channels": random.choice([i for i in range(16, 256, 20)]),
-            "num_gv_layers": random.choice([i for i in range(1, 9)]),
-            "num_sv_layers": random.choice([i for i in range(1, 9)]),
-            "num_gv_hops": random.choice([i for i in range(1, 9)]),
-            "num_sv_hops": random.choice([i for i in range(1, 9)]),
-            "lr": random.choice([10 ** (-i) for i in range(2, 8)]),
-            "batch_size": random.choice([2**i for i in range(5, 9)]),
-            "epochs": 10,
-        }
-        print("Current hyperparameters")
-        data_frame = pd.DataFrame(
-            data=config.values(), columns=["value"], index=config.keys()
-        )
-        print(data_frame)
-        results = train(config)
-        max_value, ind = torch.max(results)
-        if best_result["average_coverage"] < max_value:
-            best_result["average_coverage"] = max_value
-            best_result["config"] = config
-            best_result["epoch"] = ind + 1
-        print(
-            f"The best result for now: \n Average coverage: {best_result['average_coverage']}"
-        )
-        data_frame = pd.DataFrame(
-            data=best_result["config"].values(),
-            columns=["value"],
-            index=best_result["config"].keys(),
-        )
+    # while True:
+    #     config = {
+    #         # "hidden_channels": random.choice([i for i in range(16, 256, 20)]),
+    #         # "num_gv_layers": random.choice([i for i in range(1, 9)]),
+    #         # "num_sv_layers": random.choice([i for i in range(1, 9)]),
+    #         # "num_gv_hops": random.choice([i for i in range(1, 9)]),
+    #         # "num_sv_hops": random.choice([i for i in range(1, 9)]),
+    #         "lr": random.choice([10 ** (-i) for i in range(2, 8)]),
+    #         "batch_size": random.choice([2**i for i in range(5, 9)]),
+    #         "epochs": 10,
+    #     }
+    #     print("Current hyperparameters")
+    #     data_frame = pd.DataFrame(
+    #         data=[config.values()], columns=config.keys(), index=["value"]
+    #     )
+    #     print(data_frame)
+    #     results = train(config)
+    #     max_value = max(results)
+    #     max_ind = results.index(max_value)
+    #     if best_result["average_coverage"] < max_value:
+    #         best_result["average_coverage"] = max_value
+    #         best_result["config"] = config
+    #         best_result["epoch"] = max_ind + 1
+    #     print(
+    #         f"The best result for now:\nAverage coverage: {best_result['average_coverage']}"
+    #     )
+    #     data_frame = pd.DataFrame(
+    #         data=[best_result["config"].values()],
+    #         columns=best_result["config"].keys(),
+    #         index=["value"],
+    #     )
+    #     print(data_frame)
+    config = {
+        # "hidden_channels": random.choice([i for i in range(16, 256, 20)]),
+        # "num_gv_layers": random.choice([i for i in range(1, 9)]),
+        # "num_sv_layers": random.choice([i for i in range(1, 9)]),
+        # "num_gv_hops": random.choice([i for i in range(1, 9)]),
+        # "num_sv_hops": random.choice([i for i in range(1, 9)]),
+        "lr": 0.00001,
+        "batch_size": 64,
+        "epochs": 10,
+    }
+    train(config)
 
     # path_to_model = os.path.join(
     #     "ml",

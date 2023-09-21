@@ -29,7 +29,7 @@ class FullDataset:
         ):
             map_data = torch.load(
                 os.path.join(self.dataset_root_path, file_with_map_steps),
-                map_location=GeneralConfig.DEVICE,
+                map_location="cpu",  # maybe store on cpu?
             )
             map_name = file_with_map_steps[:-3]
             single_map_steps = []
@@ -68,18 +68,14 @@ class FullDataset:
             writer.writerows(values_for_csv)
 
     def update(self, map_name, map_result: tuple[int, int, int, int], map_steps):
-        # map_result = (
-        #     map_result.actual_coverage_percent,
-        #     -map_result.tests_count,
-        #     map_result.errors_count,
-        #     -map_result.steps_count,
-        # )
+        for x in map_steps:
+            x.to("cpu")
         if map_name in self.maps_data.keys():
             if self.maps_data[map_name][0] <= map_result:
                 logging.info(
                     f"The model with result = {self.maps_data[map_name][0]} was replaced with the model with "
                     f"result = {map_result} on the map {map_name}"
                 )
-                self.maps_data[map_name] = (map_result, map_steps)
+            self.maps_data[map_name] = (map_result, map_steps)
         else:
             self.maps_data[map_name] = (map_result, map_steps)
