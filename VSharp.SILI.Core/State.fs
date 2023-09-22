@@ -384,6 +384,8 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
             if mock.IsSome then yield mock.Value |> MockType
         }
 
+    member x.HasMock = Option.isSome mock
+
     static member Empty() =
         candidates(Seq.empty, None, Reflection.mscorlibAssembly)
 
@@ -407,6 +409,24 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
             | Some typeMock -> refineMock typeMock
             | None -> None
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
+
+    member x.TakeWithDistinctOverrides(
+        resolveOverride : Type -> 'm option,
+        resolveMockOverride : unit -> 'm,
+        count : int
+    ) =
+        let withOverride t = Option.map (fun o -> t, o) (resolveOverride t)
+        let orderedTypesWithOverrides = Seq.choose withOverride orderedTypes |> Seq.distinctBy snd
+        let truncated =
+            match mock with
+            | Some _ -> Seq.truncate (count - 1) orderedTypesWithOverrides
+            | None -> Seq.truncate count orderedTypesWithOverrides
+        let overrides = seq {
+            yield! Seq.map snd truncated
+            if x.HasMock then
+                yield resolveMockOverride()
+        }
+        candidates(Seq.map fst truncated, mock, userAssembly), overrides
 
     member x.Take(count) =
         let types =

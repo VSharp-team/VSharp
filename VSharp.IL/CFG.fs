@@ -1,6 +1,7 @@
 namespace VSharp
 
 open System.Collections.Concurrent
+open VSharp.Core
 open VSharp.GraphUtils
 open global.System
 open System.Reflection
@@ -343,7 +344,10 @@ and Method internal (m : MethodBase) as this =
     static member internal ReportCFGLoaded with get() = Method.cfgReporter and set v = Method.cfgReporter <- v
     static member val internal CoverageZone : Method -> bool = fun _ -> true with get, set
 
-    member x.InCoverageZone with get() = Method.CoverageZone x
+    member x.IsInCoverageZone with get() = Method.CoverageZone x
+
+    interface IMethod with
+        member x.IsInCoverageZone with get() = x.IsInCoverageZone
 
     interface ICallGraphNode with
         member this.OutgoingEdges with get () =

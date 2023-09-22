@@ -110,7 +110,7 @@ type public SVM(options : SVMOptions) =
     let reportState reporter (suite : testSuite) cilState =
         try
             let isNewHistory() =
-                let methodHistory = Set.filter (fun h -> h.method.InCoverageZone) cilState.history
+                let methodHistory = Set.filter (fun h -> h.method.IsInCoverageZone) cilState.history
                 Set.exists (not << statistics.IsBasicBlockCoveredByTest) methodHistory
             let isError = suite.IsErrorSuite
             let isNewTest =

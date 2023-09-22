@@ -56,7 +56,7 @@ module API =
         | Ref _ -> ()
         | _ -> internalfail $"unexpected this {ref}"
 
-    let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
+    let ResolveCallVirt state thisAddress thisType targetType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType targetType ancestorMethod
 
     let MethodMockAndCall state method this args = MethodMocking.mockAndCall state method this args Default
     let ExternMockAndCall state method this args = MethodMocking.mockAndCall state method this args Extern

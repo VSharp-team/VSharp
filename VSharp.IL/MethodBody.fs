@@ -229,12 +229,17 @@ type MethodWithBody internal (m : MethodBase) =
         override x.IsExternalMethod with get() = x.IsExternalMethod
         override x.ContainsGenericParameters with get() = x.ContainsGenericParameters
         override x.GenericArguments with get() = genericArguments.Value
+        override x.IsInCoverageZone = false
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
         override x.CompareTo(y : obj) =
             match y with
             | :? MethodWithBody as y -> Reflection.compareMethods (x :> Core.IMethod).MethodBase (y :> Core.IMethod).MethodBase
             | _ -> -1
+        override x.ResolveOverrideInType t = x.ResolveOverrideInType t
+        override x.CanBeOverriddenInType t = x.CanBeOverriden t
+        override x.IsImplementedInType t = x.IsImplementedInType t
+
         // TODO: make it private!
         override x.MethodBase : MethodBase = m
 
@@ -292,6 +297,23 @@ type MethodWithBody internal (m : MethodBase) =
         let opCode = OpCodeOperations.getOpCode ilBytes pos
         let calledMethod = x.ResolveMethodFromMetadata (pos + Offset.from opCode.Size)
         opCode, calledMethod
+
+    member x.ResolveOverrideInType t =
+        let genericCalledMethod = x.GetGenericMethodDefinition()
+        let genericMethodInfo =
+            Reflection.resolveOverridingMethod t genericCalledMethod
+        let genericMethodWithArgs =
+            if genericMethodInfo.IsGenericMethodDefinition then
+                genericMethodInfo.MakeGenericMethod(x.GetGenericArguments())
+            else
+                genericMethodInfo
+        MethodWithBody.InstantiateNew genericMethodWithArgs
+
+    member x.IsImplementedInType t =
+        match m with
+        | :? ConstructorInfo -> m.DeclaringType = t
+        | :? MethodInfo as mi -> Reflection.typeImplementsMethod t mi
+        | _ -> __unreachable__()
 
 module MethodBody =
 

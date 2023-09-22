@@ -484,30 +484,47 @@ module TypeSolver =
         | TypeSat _ -> ()
         | TypeUnsat -> internalfail "Refining types: branch is unreachable"
 
-    let getCallVirtCandidates state (thisRef : heapAddress) (thisType: Type) (ancestorMethod : IMethod) =
+    let getCallVirtCandidates state (thisRef : heapAddress) (thisType : Type) (targetType : Type) (ancestorMethod : IMethod) =
         userAssembly <- Some ancestorMethod.DeclaringType.Assembly
+        let resolveOverride t =
+            if not <| ancestorMethod.CanBeOverriddenInType t then
+                None
+            else
+                let overridden = ancestorMethod.ResolveOverrideInType t
+                if overridden.IsInCoverageZone || t.IsAssignableTo targetType && targetType.Assembly = t.Assembly then
+                    Some overridden
+                else
+                    None
+        let resolveMockOverride() =
+            if ancestorMethod.DeclaringType.IsInterface then
+                ancestorMethod
+            else
+                ancestorMethod.ResolveOverrideInType targetType
         match thisRef.term with
         | HeapRef({term = ConcreteHeapAddress thisAddress}, _) when VectorTime.less state.startingTime thisAddress ->
-            state.allocatedTypes[thisAddress] |> Seq.singleton
+            let actualThisType = state.allocatedTypes[thisAddress]
+            match actualThisType with
+            | MockType t -> (actualThisType, resolveMockOverride()) |> Seq.singleton
+            | ConcreteType t ->
+                match resolveOverride t with
+                | Some overridden -> (actualThisType, overridden) |> Seq.singleton
+                | None -> internalfailf "Getting callvirt candidates: method override should be resolved, but is wasn't"
         | HeapRef(thisAddress, _) ->
             let thisConstraints = List.singleton thisType |> typeConstraints.FromSuperTypes
             let typeStorage = state.typeStorage
             typeStorage.AddConstraint thisAddress thisConstraints
-            let ancestorMethod = ancestorMethod.MethodBase :?> MethodInfo
-            let checkOverrides t =
-                 Reflection.canOverrideMethod t ancestorMethod
             let getMock = getMock typeStorage.TypeMocks
             let result = refineStorage getMock typeStorage Array.empty Array.empty
             match result with
             | TypeSat ->
                 let candidates = typeStorage[thisAddress].Value
-                let optionMock m = Some m
-                let filtered = candidates.Filter(checkOverrides, optionMock)
-                let truncated = filtered.Take(5)
-                typeStorage[thisAddress] <- truncated.Eval()
-                truncated.Types
+                let filtered, overrides = candidates.TakeWithDistinctOverrides(resolveOverride, resolveMockOverride, 5)
+                typeStorage[thisAddress] <- filtered.Eval()
+                Seq.zip filtered.Types overrides
             | TypeUnsat -> Seq.empty
-        | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
+        | Ref address when ancestorMethod.IsImplementedInType thisType ->
             assert(thisType = address.TypeOfLocation)
-            ConcreteType thisType |> Seq.singleton
+            match resolveOverride thisType with
+            | Some overridden -> (ConcreteType thisType, overridden) |> Seq.singleton
+            | None -> internalfailf "Getting callvirt candidates: method override should be resolved, but is wasn't"
         | _ -> internalfail $"Getting callvirt candidates: unexpected this {thisRef}"
