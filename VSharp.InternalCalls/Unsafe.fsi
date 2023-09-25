@@ -59,6 +59,7 @@ module internal Unsafe =
 
     [<Implements("T Internal.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
     [<Implements("T System.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Byte&)")>]
+    [<Implements("T System.Runtime.CompilerServices.Unsafe.ReadUnaligned(System.Void*)")>]
     val ReadUnaligned : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void Internal.Runtime.CompilerServices.Unsafe.WriteUnaligned(System.Byte&, T)")>]

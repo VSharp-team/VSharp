@@ -25,3 +25,6 @@ module internal Environment =
 
     [<Implements("System.Void System.Console.Clear()")>]
     val consoleClear : state -> term list -> term
+
+    [<Implements("System.IO.DirectoryInfo System.IO.Directory.CreateDirectory(System.String)")>]
+    val CreateDirectory : state -> term list -> term

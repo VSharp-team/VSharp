@@ -139,6 +139,9 @@ module Loader =
             "System.Boolean System.Type.get_IsAbstract(this)"
             "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
 
+            // Assembly
+            "System.String System.Reflection.RuntimeAssembly.get_Location(this)"
+
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultComparer(System.Type)"
@@ -169,6 +172,19 @@ module Loader =
 
             // Guid
             "System.Guid System.Guid.NewGuid()"
+
+            // CultureInfo
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_CurrentCulture()"
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_InvariantCulture()"
+            "System.Globalization.CompareInfo System.Globalization.CultureInfo.get_CompareInfo(this)"
+            "System.Boolean System.Globalization.GlobalizationMode.get_Invariant()"
+            "System.String System.Globalization.CultureInfo.get_Name(this)"
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
+            "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
+
+            // ResourceManager
+            "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
+            "System.String System.Resources.ResourceManager.GetString(this, System.String, System.Globalization.CultureInfo)"
 
             // Buffers
             "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"

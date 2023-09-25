@@ -26,3 +26,7 @@ module internal Globalization =
     let get_Invariant (_ : state) (args : term list) : term =
         assert(List.length args = 0)
         True()
+
+    let get_Name (state : state) (args : term list) : term =
+        assert(List.length args = 1)
+        Memory.AllocateString "Culture" state

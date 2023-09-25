@@ -13,6 +13,15 @@ namespace VSharp.CSharpUtils
         [Implements("System.Boolean System.String.Equals(this, System.String)")]
         public static bool Equals(string str1, string str2)
         {
+            if (string.IsNullOrEmpty(str1) && string.IsNullOrEmpty(str2))
+                return true;
+
+            if (string.IsNullOrEmpty(str1))
+                return false;
+
+            if (string.IsNullOrEmpty(str2))
+                return false;
+
             if (str1.Length != str2.Length)
                 return false;
 
@@ -29,6 +38,24 @@ namespace VSharp.CSharpUtils
         public static bool EqualsWithComparison(string str1, string str2, System.StringComparison comparison)
         {
             return Equals(str1, str2);
+        }
+
+        [Implements("System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)")]
+        public static bool StartsWith(string str1, string str2, System.StringComparison comparison)
+        {
+            var len1 = str1.Length;
+            var len2 = str2.Length;
+
+            if (len2 > len1)
+                return false;
+
+            for (var i = 0; i < len2; i++)
+            {
+                if (str1[i] != str2[i])
+                    return false;
+            }
+
+            return true;
         }
     }
 }

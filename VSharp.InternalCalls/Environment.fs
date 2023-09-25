@@ -1,6 +1,7 @@
 namespace VSharp.System
 
 open global.System
+open VSharp
 open VSharp.Core
 
 // ------------------------------- mscorlib.System.Environment -------------------------------
@@ -27,3 +28,14 @@ module Environment =
     let internal consoleClear (_ : state) (args : term list) =
         assert(List.length args = 0)
         Nop()
+
+    let internal CreateDirectory (state : state) (args : term list) =
+        assert(List.length args = 1)
+        let name = args[0]
+        let t = typeof<System.IO.DirectoryInfo>
+        let dir = Memory.AllocateDefaultClass state t
+        let fields = Reflection.fieldsOf false t
+        let nameField = fields |> Array.find (fun (f, _) -> f.name = "_name") |> fst
+        let states = Memory.WriteClassField state dir nameField name
+        assert(List.length states = 1)
+        dir
