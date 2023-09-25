@@ -302,6 +302,9 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? enumRepr as repr ->
             let t = sourceTypes[repr.typ]
             EnumUtils.getEnumDefaultValue t
+        | :? pointerRepr as repr when repr.sightType = intPtrIndex -> IntPtr.Zero
+        | :? pointerRepr as repr when repr.sightType = uintPtrIndex -> UIntPtr.Zero
+        | :? pointerRepr -> null // TODO
         | _ -> obj
 
     let nullSourceIndex = -1

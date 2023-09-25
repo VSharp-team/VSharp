@@ -107,6 +107,11 @@ public interface IEnumMock
     MockEnum Get();
 }
 
+public interface IIntPtrMock
+{
+    IntPtr Get();
+}
+
 [TestSvmFixture]
 public class Mocking
 {
@@ -354,5 +359,18 @@ public class Mocking
         }
 
         return 4;
+    }
+
+    [TestSvm(100)]
+    public int IntPtrMock(IIntPtrMock mock)
+    {
+        var value = mock.Get();
+
+        if (value == IntPtr.MaxValue)
+        {
+            return 1;
+        }
+
+        return 2;
     }
 }
