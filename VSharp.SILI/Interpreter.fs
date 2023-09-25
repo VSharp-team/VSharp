@@ -1304,7 +1304,7 @@ type ILInterpreter() as this =
             assert(IsReference this)
             let thisType = MostConcreteTypeOfRef cilState.state this
             let ancestorMethod = Application.getMethod ancestorMethodBase
-            let overriden = x.ResolveVirtualMethod thisType ancestorMethod
+            let overriden = ancestorMethod.ResolveOverrideInType thisType
             let methodInfo = (overriden :> IMethod).MethodBase
             let methodInfoType = methodInfo.GetType()
             let methodPtr = Terms.Concrete methodInfo methodInfoType

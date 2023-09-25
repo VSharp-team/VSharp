@@ -162,6 +162,69 @@ module public Reflection =
 
     let getAllMethods (t : Type) = t.GetMethods(allBindingFlags)
 
+    // MethodInfo's GetGenericMethodDefinition erases ReflectedType, this function overcomes that
+    let getGenericMethodDefinition (method : MethodInfo) =
+        let reflectedType = method.ReflectedType
+        let genericDefinition = method.GetGenericMethodDefinition()
+        let foundMember = reflectedType.GetMemberWithSameMetadataDefinitionAs(genericDefinition)
+        foundMember :?> MethodInfo
+
+    // --------------------------------- Substitute generics ---------------------------------
+
+    let private substituteMethod methodType (m : MethodBase) getMethods =
+        let method = getMethods methodType |> Array.tryFind (fun (x : #MethodBase) -> x.MetadataToken = m.MetadataToken)
+        match method with
+        | Some x -> x
+        | None -> internalfailf "unable to find method %s token" m.Name
+
+    let private substituteMethodInfo methodType (mi : MethodInfo) groundK genericK =
+        let getMethods (t : Type) = getAllMethods t
+        let substituteGeneric (mi : MethodInfo) =
+            let args = mi.GetGenericArguments()
+            let genericMethod = getGenericMethodDefinition mi
+            let mi = substituteMethod methodType genericMethod getMethods
+            genericK mi args
+        if mi.IsGenericMethod then substituteGeneric mi
+        else groundK (substituteMethod methodType mi getMethods :> MethodBase)
+
+    let private substituteCtorInfo methodType ci k =
+        let getCtor (t : Type) = t.GetConstructors(allBindingFlags)
+        k (substituteMethod methodType ci getCtor :> MethodBase)
+
+    let private substituteMethodBase<'a> methodType (m : MethodBase) (groundK : MethodBase -> 'a) genericK =
+        match m with
+        | _ when not <| isGenericOrDeclaredInGenericType m -> groundK m
+        | :? MethodInfo as mi ->
+            substituteMethodInfo methodType mi groundK genericK
+        | :? ConstructorInfo as ci ->
+            substituteCtorInfo methodType ci groundK
+        | _ -> __unreachable__()
+
+    // --------------------------------- Generalization ---------------------------------
+
+    let getGenericTypeDefinition (typ : Type) =
+        if typ <> null && typ.IsGenericType then
+            let args = typ.GetGenericArguments()
+            let genericType = typ.GetGenericTypeDefinition()
+            let parameters = genericType.GetGenericArguments()
+            genericType, args, parameters
+        else typ, [||], [||]
+
+    let generalizeMethodBase (methodBase : MethodBase) =
+        let genericType, tArgs, tParams = getGenericTypeDefinition methodBase.DeclaringType
+        let genericCase m args = m :> MethodBase, args, m.GetGenericArguments()
+        let groundCase m = m, [||], [||]
+        let genericMethod, mArgs, mParams = substituteMethodBase genericType methodBase groundCase genericCase
+        let genericArgs = Array.append mArgs tArgs
+        let genericDefs = Array.append mParams tParams
+        genericMethod, genericArgs, genericDefs
+
+    let fullGenericMethodName (methodBase : MethodBase) =
+        let genericMethod = generalizeMethodBase methodBase |> fst3
+        getFullMethodName genericMethod
+
+    // --------------------------------- Methods --------------------------------
+
     let getMethodDescriptor (m : MethodBase) =
         let reflectedType = m.ReflectedType
         let typeHandle =
@@ -234,8 +297,14 @@ module public Reflection =
         assert interfaceType.IsInterface
         if interfaceType = targetType then interfaceMethod
         else
-            let sign = createSignature interfaceMethod
-            let hasTargetSignature (mi : MethodInfo) = createSignature mi = sign
+            let genericMethod, _, _ = generalizeMethodBase interfaceMethod
+            assert(genericMethod :? MethodInfo)
+            let sign = createSignature (genericMethod :?> MethodInfo)
+            let hasTargetSignature (mi : MethodInfo) =
+                let genericMethod, _, _ = generalizeMethodBase mi
+                assert(genericMethod :? MethodInfo)
+                // TODO: try to check this without signatures
+                createSignature (genericMethod :?> MethodInfo) = sign
             match targetType with
             | _ when targetType.IsArray -> getArrayMethods targetType |> Seq.find hasTargetSignature
             | _ when targetType.IsInterface -> getAllMethods targetType |> Seq.find hasTargetSignature
@@ -290,13 +359,6 @@ module public Reflection =
 
     let canOverrideMethod targetType (virtualMethod : MethodInfo) =
         lastCanOverrideType targetType virtualMethod = targetType
-
-    // MethodInfo's GetGenericMethodDefinition erases ReflectedType, this function overcomes that
-    let getGenericMethodDefinition (method : MethodInfo) =
-        let reflectedType = method.ReflectedType
-        let genericDefinition = method.GetGenericMethodDefinition()
-        let foundMember = reflectedType.GetMemberWithSameMetadataDefinitionAs(genericDefinition)
-        foundMember :?> MethodInfo
 
     // TODO: unify with 'lastOverrideType'
     let resolveOverridingMethod targetType (virtualMethod : MethodInfo) =
@@ -390,60 +452,6 @@ module public Reflection =
         if t.IsValueType && Nullable.GetUnderlyingType(t) = null && not t.ContainsGenericParameters
             then Activator.CreateInstance t
             else null
-
-    // --------------------------------- Substitute generics ---------------------------------
-
-    let private substituteMethod methodType (m : MethodBase) getMethods =
-        let method = getMethods methodType |> Array.tryFind (fun (x : #MethodBase) -> x.MetadataToken = m.MetadataToken)
-        match method with
-        | Some x -> x
-        | None -> internalfailf "unable to find method %s token" m.Name
-
-    let private substituteMethodInfo methodType (mi : MethodInfo) groundK genericK =
-        let getMethods (t : Type) = getAllMethods t
-        let substituteGeneric (mi : MethodInfo) =
-            let args = mi.GetGenericArguments()
-            let genericMethod = getGenericMethodDefinition mi
-            let mi = substituteMethod methodType genericMethod getMethods
-            genericK mi args
-        if mi.IsGenericMethod then substituteGeneric mi
-        else groundK (substituteMethod methodType mi getMethods :> MethodBase)
-
-    let private substituteCtorInfo methodType ci k =
-        let getCtor (t : Type) = t.GetConstructors(allBindingFlags)
-        k (substituteMethod methodType ci getCtor :> MethodBase)
-
-    let private substituteMethodBase<'a> methodType (m : MethodBase) (groundK : MethodBase -> 'a) genericK =
-        match m with
-        | _ when not <| isGenericOrDeclaredInGenericType m -> groundK m
-        | :? MethodInfo as mi ->
-            substituteMethodInfo methodType mi groundK genericK
-        | :? ConstructorInfo as ci ->
-            substituteCtorInfo methodType ci groundK
-        | _ -> __unreachable__()
-
-    // --------------------------------- Generalization ---------------------------------
-
-    let getGenericTypeDefinition (typ : Type) =
-        if typ <> null && typ.IsGenericType then
-            let args = typ.GetGenericArguments()
-            let genericType = typ.GetGenericTypeDefinition()
-            let parameters = genericType.GetGenericArguments()
-            genericType, args, parameters
-        else typ, [||], [||]
-
-    let generalizeMethodBase (methodBase : MethodBase) =
-        let genericType, tArgs, tParams = getGenericTypeDefinition methodBase.DeclaringType
-        let genericCase m args = m :> MethodBase, args, m.GetGenericArguments()
-        let groundCase m = m, [||], [||]
-        let genericMethod, mArgs, mParams = substituteMethodBase genericType methodBase groundCase genericCase
-        let genericArgs = Array.append mArgs tArgs
-        let genericDefs = Array.append mParams tParams
-        genericMethod, genericArgs, genericDefs
-
-    let fullGenericMethodName (methodBase : MethodBase) =
-        let genericMethod = generalizeMethodBase methodBase |> fst3
-        getFullMethodName genericMethod
 
     // --------------------------------- Concretization ---------------------------------
 
@@ -620,3 +628,7 @@ module public Reflection =
     let isBuiltInType (t: Type) =
         let builtInAssembly = mscorlibAssembly
         t.Assembly = builtInAssembly
+
+    let rec isUnmanaged (t : Type) =
+        t.IsPrimitive || t = typeof<decimal> || t.IsEnum || t.IsPointer
+        || t.IsValueType && fieldsOf false t |> Array.forall (fun (f, _) -> isUnmanaged f.typ)
