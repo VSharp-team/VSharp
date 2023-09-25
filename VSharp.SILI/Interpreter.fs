@@ -1296,14 +1296,16 @@ type ILInterpreter() as this =
             push length cilState
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState arrayRef ldlen id
+
     member private x.LdVirtFtn (m : Method) offset (cilState : cilState) =
         let ancestorMethodBase = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Ldvirtftn.Size)
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
             let thisType = MostConcreteTypeOfRef cilState.state this
-            let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
-            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
+            let ancestorMethod = Application.getMethod ancestorMethodBase
+            let overriden = x.ResolveVirtualMethod thisType ancestorMethod
+            let methodInfo = (overriden :> IMethod).MethodBase
             let methodInfoType = methodInfo.GetType()
             let methodPtr = Terms.Concrete methodInfo methodInfoType
             push methodPtr cilState
