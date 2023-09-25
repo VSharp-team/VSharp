@@ -112,6 +112,11 @@ public interface IIntPtrMock
     IntPtr Get();
 }
 
+public interface IEnumPtrMock
+{
+    unsafe MockEnum* Get();
+}
+
 [TestSvmFixture]
 public class Mocking
 {
@@ -367,6 +372,19 @@ public class Mocking
         var value = mock.Get();
 
         if (value == IntPtr.MaxValue)
+        {
+            return 1;
+        }
+
+        return 2;
+    }
+
+    [Ignore("Test failed to deserialize due to null value; unsafe mocks are rendered without unsafe modifier")]
+    public unsafe int EnumPtrMock(IEnumPtrMock mock)
+    {
+        var value = mock.Get();
+
+        if (value == (MockEnum*)5)
         {
             return 1;
         }

@@ -255,8 +255,7 @@ module public Reflection =
 
     let private virtualBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
-        BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance |||
-            BindingFlags.InvokeMethod ||| BindingFlags.DeclaredOnly
+        BindingFlags.Public ||| BindingFlags.NonPublic ||| BindingFlags.Instance ||| BindingFlags.InvokeMethod
 
     let isNewSlot (m : MethodInfo) =
         m.Attributes.HasFlag(MethodAttributes.NewSlot)
@@ -307,17 +306,14 @@ module public Reflection =
         match virtualMethod.DeclaringType with
         | i when i.IsInterface -> resolveInterfaceOverride targetType virtualMethod
         | _ ->
-            let rec resolve targetType =
-                assert(targetType <> null)
-                if targetType = virtualMethod.DeclaringType then virtualMethod
-                else
-                    let declaredMethods = targetType.GetMethods(virtualBindingFlags)
-                    let resolvedMethod = declaredMethods |> Seq.tryFind (isOverrideOf virtualMethod)
-                    match resolvedMethod with
-                    | Some resolvedMethod -> resolvedMethod
-                    | None when targetType.BaseType = null -> virtualMethod
-                    | None -> resolve targetType.BaseType
-            resolve targetType
+            assert(targetType <> null)
+            if targetType = virtualMethod.DeclaringType then virtualMethod
+            else
+                let declaredMethods = targetType.GetMethods(virtualBindingFlags)
+                let resolvedMethod = declaredMethods |> Seq.tryFind (isOverrideOf virtualMethod)
+                match resolvedMethod with
+                | Some resolvedMethod -> resolvedMethod
+                | None -> virtualMethod
 
     let typeImplementsMethod targetType (virtualMethod : MethodInfo) =
         let method = resolveOverridingMethod targetType virtualMethod
