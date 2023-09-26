@@ -117,7 +117,7 @@ type IntraproceduralShortestDistanceToUncoveredWeighter(statistics : SVMStatisti
         override x.Weight(state) =
             let calculateWeight ip =
                 match ip2codeLocation ip, ip with
-                | Some loc, _ when loc.method.IsInCoverageZone -> minDistance loc.method loc.offset |> Some
+                | Some loc, _ when loc.method.InCoverageZone -> minDistance loc.method loc.offset |> Some
                 | Some _, _-> None
                 | None, SearchingForHandler(toObserve, _) ->
                     List.length toObserve |> uint |> Some

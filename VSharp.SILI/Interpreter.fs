@@ -856,10 +856,15 @@ type ILInterpreter() as this =
         ILInterpreter.CheckDisallowNullAttribute method (Some args) cilState true (fun states ->
         Cps.List.mapk inlineOrCall states (List.concat >> k))
 
-    member x.CallAbstract targetType (ancestorMethod : Method) (this : term) (arguments : term list) cilState k =
+    member x.CallAbstract targetType (ancestorMethod : MethodWithBody) (this : term) (arguments : term list) cilState k =
         let thisType = MostConcreteTypeOfRef cilState.state this
-        let candidates = ResolveCallVirt cilState.state this thisType targetType ancestorMethod |> List.ofSeq
-        let invokeMock mockMethod cilState k =
+        let candidateTypes = ResolveCallVirt cilState.state this thisType ancestorMethod |> List.ofSeq
+        let invokeMock cilState k =
+            let mockMethod =
+                if ancestorMethod.DeclaringType.IsInterface then
+                    ancestorMethod
+                else
+                    ancestorMethod.ResolveOverrideInType targetType
             let returnValue = MethodMockAndCall cilState.state mockMethod (Some this) []
             match returnValue with
             | Some symVal ->
@@ -870,26 +875,29 @@ type ILInterpreter() as this =
                 // Moving ip to next instruction after mocking method result
                 fallThrough loc.method loc.offset cilState (fun _ _ _ -> ()) |> k
             | _ -> __unreachable__()
-        let mutable wasMockInvoked = false
-        let rec dispatch (candidates : (symbolicType * IMethod) list) cilState k =
+        let rec dispatch (candidates : symbolicType list) cilState k =
             match candidates with
-            | (MockType mockType, mockOverride) :: rest ->
-                wasMockInvoked <- true
-                invokeMock mockOverride cilState k
-            | (ConcreteType candidateType, candidateOverride) :: rest ->
-                assert(candidateOverride :? Method)
-                let candidateOverride = candidateOverride :?> Method
-                StatedConditionalExecutionCIL cilState
-                    (fun cilState k -> k (API.Types.TypeIsRef cilState candidateType this, cilState))
-                    (fun cilState k ->
-                        let this = Types.Cast this candidateOverride.ReflectedType
-                        x.CommonCall candidateOverride arguments (Some this) cilState k)
-                    (dispatch rest)
-                    k
-            | [] when not wasMockInvoked ->
+            | [MockType _] ->
+                KeepOnlyMock cilState.state this
+                invokeMock cilState k
+            | ConcreteType candidateType :: rest ->
+                let overridden =
+                    ancestorMethod.ResolveOverrideInType candidateType :?> Method
+                if overridden.InCoverageZone || candidateType.IsAssignableTo targetType && targetType.Assembly = candidateType.Assembly then
+                    StatedConditionalExecutionCIL cilState
+                        (fun cilState k -> k (API.Types.TypeIsRef cilState candidateType this, cilState))
+                        (fun cilState k ->
+                            let this = Types.Cast this overridden.ReflectedType
+                            x.CommonCall overridden arguments (Some this) cilState k)
+                        (dispatch rest)
+                        k
+                else
+                    dispatch rest cilState k
+            | MockType _ :: _ ->
+                __unreachable__()
+            | [] ->
                 __insufficientInformation__ $"Trying to 'CallVirt' method {ancestorMethod} without mocks"
-            | [] -> __unreachable__()
-        dispatch candidates cilState k
+        dispatch candidateTypes cilState k
 
     member private x.ConvOvf targetType (cilState : cilState) =
         let supersetsOf =

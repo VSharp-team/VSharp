@@ -137,7 +137,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.GenericArguments with get() = genericArguments.Force()
     member x.GetGenericMethodDefinition() =
         match m with
-        | :? MethodInfo as m -> if isGenericMethod then m.GetGenericMethodDefinition() else m
+        | :? MethodInfo as m -> if isGenericMethod then Reflection.getGenericMethodDefinition m else m
         | _ -> internalfailf $"Asking generic method definition for non-method {x}"
     member x.GetGenericArguments() =
         match m with
@@ -229,7 +229,6 @@ type MethodWithBody internal (m : MethodBase) =
         override x.IsExternalMethod with get() = x.IsExternalMethod
         override x.ContainsGenericParameters with get() = x.ContainsGenericParameters
         override x.GenericArguments with get() = genericArguments.Value
-        override x.IsInCoverageZone = false
         override x.SubstituteTypeVariables subst =
             Reflection.concretizeMethodBase m subst |> MethodWithBody.InstantiateNew :> VSharp.Core.IMethod
         override x.CompareTo(y : obj) =
@@ -299,15 +298,11 @@ type MethodWithBody internal (m : MethodBase) =
         opCode, calledMethod
 
     member x.ResolveOverrideInType t =
-        let genericCalledMethod = x.GetGenericMethodDefinition()
-        let genericMethodInfo =
-            Reflection.resolveOverridingMethod t genericCalledMethod
-        let genericMethodWithArgs =
-            if genericMethodInfo.IsGenericMethodDefinition then
-                genericMethodInfo.MakeGenericMethod(x.GetGenericArguments())
-            else
-                genericMethodInfo
-        MethodWithBody.InstantiateNew genericMethodWithArgs
+        match m with
+        | :? ConstructorInfo when m.DeclaringType = t -> x
+        | :? MethodInfo as mi ->
+            (Reflection.resolveOverridingMethod t mi :> MethodBase) |> MethodWithBody.InstantiateNew
+        | _ -> __unreachable__()
 
     member x.IsImplementedInType t =
         match m with

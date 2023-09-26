@@ -404,29 +404,15 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
         let publicUserTypes = Seq.filter typesPredicate publicUserTypes
         let privateUserTypes = Seq.filter typesPredicate privateUserTypes
         let rest = Seq.filter typesPredicate rest
-        let mock =
-            match mock with
-            | Some typeMock -> refineMock typeMock
-            | None -> None
+        let mock = Option.bind refineMock mock
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
 
-    member x.TakeWithDistinctOverrides(
-        resolveOverride : Type -> 'm option,
-        resolveMockOverride : unit -> 'm,
-        count : int
-    ) =
-        let withOverride t = Option.map (fun o -> t, o) (resolveOverride t)
-        let orderedTypesWithOverrides = Seq.choose withOverride orderedTypes |> Seq.distinctBy snd
-        let truncated =
-            match mock with
-            | Some _ -> Seq.truncate (count - 1) orderedTypesWithOverrides
-            | None -> Seq.truncate count orderedTypesWithOverrides
-        let overrides = seq {
-            yield! Seq.map snd truncated
-            if x.HasMock then
-                yield resolveMockOverride()
-        }
-        candidates(Seq.map fst truncated, mock, userAssembly), overrides
+    member x.KeepOnlyMock() =
+        candidates(Seq.empty, Seq.empty, Seq.empty, Seq.empty, mock, userAssembly)
+
+    member x.DistinctBy(keySelector : Type -> 'a) =
+        let distinctOrderedTypes = Seq.distinctBy keySelector orderedTypes
+        candidates(distinctOrderedTypes, mock, userAssembly)
 
     member x.Take(count) =
         let types =

@@ -32,7 +32,8 @@ module API =
 
     val SolveGenericMethodParameters : typeStorage -> IMethod -> (symbolicType[] * symbolicType[]) option
     val SolveThisType : state -> term -> unit
-    val ResolveCallVirt : state -> term -> Type -> Type -> IMethod -> (symbolicType * IMethod) seq
+    val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
+    val KeepOnlyMock : state -> term -> unit
 
     val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
     val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option

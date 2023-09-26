@@ -158,9 +158,9 @@ type public SVMStatistics(entryMethods : Method seq) =
 
             let currentMethod = currentLoc.method
             if totalRef.Value = 0u then
-                if currentMethod.IsInCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
+                if currentMethod.InCoverageZone then coveringStepsInsideZone <- coveringStepsInsideZone + 1u
                 else coveringStepsOutsideZone <- coveringStepsOutsideZone + 1u
-            elif currentMethod.IsInCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
+            elif currentMethod.InCoverageZone then nonCoveringStepsInsideZone <- nonCoveringStepsInsideZone + 1u
             else nonCoveringStepsOutsideZone <- nonCoveringStepsOutsideZone + 1u
 
             totalVisited[currentLoc] <- totalRef.Value + 1u
@@ -173,7 +173,7 @@ type public SVMStatistics(entryMethods : Method seq) =
                 if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
 
             let isCovered = x.IsBasicBlockCoveredByTest currentLoc
-            if currentMethod.IsInCoverageZone && not isCovered then
+            if currentMethod.InCoverageZone && not isCovered then
                 visitedBlocksNotCoveredByTests.TryAdd(s, Set.empty) |> ignore
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
             setCoveredIfNeed currentLoc
@@ -206,7 +206,7 @@ type public SVMStatistics(entryMethods : Method seq) =
                 let coveredBlocks = ConcurrentDictionary()
                 coveredBlocks.TryAdd(block.offset, ()) |> ignore
                 blocksCoveredByTests[block.method] <- coveredBlocks
-            if block.method.IsInCoverageZone then
+            if block.method.InCoverageZone then
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
 
     member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
@@ -223,7 +223,7 @@ type public SVMStatistics(entryMethods : Method seq) =
                 let cfg = m.CFG
                 coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o.Key).BlockSize)
             else 0
-        let methodsInZone = methods |> List.filter (fun m -> m.IsInCoverageZone)
+        let methodsInZone = methods |> List.filter (fun m -> m.InCoverageZone)
         let totalInstructionsCount = methodsInZone |> List.sumBy (fun m -> m.CFG.MethodSize)
         let coveredInstructionsCount = methodsInZone |> List.sumBy getCoveredInstructionsCount
         if totalInstructionsCount <> 0 then
@@ -325,8 +325,8 @@ type public SVMStatistics(entryMethods : Method seq) =
             |> Seq.groupBy (fun kvp -> kvp.Key.method)
             |> Seq.map (snd >> Seq.maxBy (fun kvp -> kvp.Value))
             |> Seq.sortByDescending (fun kvp -> kvp.Value)
-        let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.IsInCoverageZone) |> Seq.truncate topN
-        let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.IsInCoverageZone) |> Seq.truncate topN
+        let topVisitedByMethodsInZone = topVisitedByMethods |> Seq.filter (fun kvp -> kvp.Key.method.InCoverageZone) |> Seq.truncate topN
+        let topVisitedByMethodsOutOfZone = topVisitedByMethods |> Seq.filter (fun kvp -> not kvp.Key.method.InCoverageZone) |> Seq.truncate topN
         {
             time = stopwatch.Elapsed
             solverTime = solverStopwatch.Elapsed
