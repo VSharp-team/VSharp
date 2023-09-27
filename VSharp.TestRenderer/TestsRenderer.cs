@@ -279,7 +279,10 @@ public static class TestsRenderer
     private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter, bool hasOverloads)
     {
         var needExplicitType = NeedExplicitType(obj, parameter.ParameterType) || hasOverloads;
-        var correctName = parameter.Name is null? null: CorrectNameGenerator.GetVariableName(parameter.Name);
+        var correctName =
+            parameter.Name is null
+                ? null
+                : CorrectNameGenerator.GetVariableName(parameter.Name);
         var explicitType = needExplicitType ? parameter.ParameterType : null;
         return block.RenderObject(obj, correctName, explicitType);
     }

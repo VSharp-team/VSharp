@@ -623,7 +623,8 @@ internal class MethodRenderer : CodeRenderer
             bool isPublicType,
             bool isBoxed,
             TypeSyntax typeExpr,
-            string? preferredName)
+            string? preferredName,
+            Type? explicitType = null)
         {
             var physAddress = new physicalAddress(obj);
 
@@ -670,17 +671,26 @@ internal class MethodRenderer : CodeRenderer
                 return renderedId;
             }
 
-            var declType = isBoxed ? ObjectType : typeExpr;
+            var declType =
+                isBoxed
+                    ? explicitType is not null
+                        ? RenderType(explicitType)
+                        : ObjectType
+                    : typeExpr;
             return AddDecl(preferredName ?? "obj", declType, resultObject);
         }
 
-        private ExpressionSyntax RenderFields(object obj, bool isBoxed, string? preferredName)
+        private ExpressionSyntax RenderFields(
+            object obj,
+            bool isBoxed,
+            string? preferredName,
+            Type? explicitType = null)
         {
             var type = obj.GetType();
             var isPublicType = TypeUtils.isPublic(type);
             var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
-            return RenderFields(obj, type, isPublicType, isBoxed, typeExpr, preferredName);
+            return RenderFields(obj, type, isPublicType, isBoxed, typeExpr, preferredName, explicitType);
         }
 
         private ExpressionSyntax RenderNull(Type? explicitType, string? preferredName)
@@ -868,12 +878,13 @@ internal class MethodRenderer : CodeRenderer
                 nint n => RenderIntPtr(n, preferredName),
                 Enum e => RenderEnum(e),
                 _ when HasMockInfo(obj.GetType().Name) => RenderMock(obj, obj.GetType(), isBoxed, preferredName),
-                _ => RenderFields(obj, isBoxed, preferredName),
+                _ => RenderFields(obj, isBoxed, preferredName, explicitType),
             };
 
             if (isBoxed && result is not IdentifierNameSyntax)
             {
-                result = AddDecl(preferredName ?? "boxed", ObjectType, result);
+                var type = explicitType is not null ? RenderType(explicitType) : ObjectType;
+                result = AddDecl(preferredName ?? "boxed", type, result);
             }
 
             // Adding rendered expression to '_renderedObjects'
