@@ -144,6 +144,14 @@ namespace IntegrationTests
             return 0;
         }
 
+        [TestSvm(100)]
+        public static int WriteLineObject(string s)
+        {
+            var nre = new NullReferenceException(s);
+            Console.WriteLine(nre);
+            return 1;
+        }
+
         [Ignore("takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {

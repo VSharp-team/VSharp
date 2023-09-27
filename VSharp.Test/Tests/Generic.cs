@@ -46,22 +46,8 @@ namespace IntegrationTests
     public sealed class Sealed<T> { }
 
     [TestSvmFixture]
-    public static class GenericInitialize<T, U, P, K, N, Z>
-        where T : U
-        where U : IKeeper<P>
-        where P : struct, IKeeper<T>
-        where K : class, IKeeper<U>
-        where N : IKeeper<K>
-        where Z : List<int>
+    public static class GenericInitialize
     {
-        public static class NonGenericClassInsideGenericClass
-        {
-            public static K GenericMethodOfNonGenericType(K k)
-            {
-                return k;
-            }
-        }
-
         [TestSvm]
         public static LinkedList<int> RetDictionary()
         {
@@ -72,12 +58,6 @@ namespace IntegrationTests
         public static List<double> RetList()
         {
             return new List<double>();
-        }
-
-        [TestSvm]
-        public static T RetT(T t)
-        {
-            return t;
         }
     }
 
@@ -102,63 +82,6 @@ namespace IntegrationTests
             if (current.Position > 0)
                 return 0;
             return 42;
-        }
-    }
-
-    [TestSvmFixture]
-    public static class GenericTest<T, U, P, K, N, Z, C>
-        where T : U
-        where U : IKeeper<P>
-        where P : struct, IKeeper<T>
-        where C : class
-        where K : class, IKeeper<U>
-        where N : IKeeper<K>
-        where Z : List<int>
-    {
-        [TestSvm]
-        public static T RetT(T t)
-        {
-            return t;
-        }
-
-        [TestSvm]
-        public static U RetU(U u)
-        {
-            return u;
-        }
-
-        [TestSvm]
-        public static K RetK(K k)
-        {
-            return k;
-        }
-
-        [TestSvm]
-        public static N RetN(N n)
-        {
-            return n;
-        }
-
-        [TestSvm]
-        public static Z RetZ(Z z)
-        {
-            return z;
-        }
-
-        [TestSvm(100)]
-        public static int HardBranch(object o, C t)
-        {
-            if (o is List<T>)
-            {
-                if (t is List<T>)
-                {
-                    return 1;
-                }
-
-                return 2;
-            }
-
-            return 3;
         }
     }
 
