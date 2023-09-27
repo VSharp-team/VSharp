@@ -18,6 +18,7 @@ module internal Environment =
     val GetManagedThreadId : state -> term list -> term
 
     [<Implements("System.Void System.Console.WriteLine(System.String)")>]
+    [<Implements("System.Void System.Console.WriteLine(System.Object)")>]
     val WriteLine : state -> term list -> term
 
     [<Implements("System.Boolean System.Console.get_IsOutputRedirected()")>]
@@ -28,3 +29,6 @@ module internal Environment =
 
     [<Implements("System.IO.DirectoryInfo System.IO.Directory.CreateDirectory(System.String)")>]
     val CreateDirectory : state -> term list -> term
+
+    [<Implements("System.Boolean System.IO.File.Exists(System.String)")>]
+    val FileExists : state -> term list -> term

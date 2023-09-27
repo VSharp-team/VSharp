@@ -833,16 +833,16 @@ type ILInterpreter() as this =
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported extern method: {fullMethodName}"
+            let message = "Not supported extern method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsInternalCall then
             assert(not <| method.IsImplementedInternalCall)
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported internal call: {fullMethodName}"
+            let message = "Not supported internal call"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsNotImplementedIntrinsic then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported intrinsic method: {fullMethodName}"
+            let message = "Not supported intrinsic method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.HasBody then
             ILInterpreter.InitFunctionFrameCIL cilState method thisOption (Some args)

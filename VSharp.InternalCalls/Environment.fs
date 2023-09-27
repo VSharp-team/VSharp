@@ -6,9 +6,9 @@ open VSharp.Core
 
 // ------------------------------- mscorlib.System.Environment -------------------------------
 
-module Environment =
+module internal Environment =
 
-    let internal GetResourceFromDefault (state : state) (_ : term list) =
+    let GetResourceFromDefault (state : state) (_ : term list) =
         Memory.AllocateString "Getting resource strings currently not supported!" state
 
     let GetCurrentManagedThreadId  (_ : state) (_ : term list) =
@@ -17,19 +17,19 @@ module Environment =
     let GetManagedThreadId  (_ : state) (_ : term list) =
         MakeNumber 0
 
-    let internal WriteLine (_ : state) (args : term list) =
+    let WriteLine (_ : state) (args : term list) =
         assert(List.length args = 1)
         Nop()
 
-    let internal get_IsOutputRedirected (_ : state) (args : term list) =
+    let get_IsOutputRedirected (_ : state) (args : term list) =
         assert(List.length args = 0)
         MakeBool false
 
-    let internal consoleClear (_ : state) (args : term list) =
+    let consoleClear (_ : state) (args : term list) =
         assert(List.length args = 0)
         Nop()
 
-    let internal CreateDirectory (state : state) (args : term list) =
+    let CreateDirectory (state : state) (args : term list) =
         assert(List.length args = 1)
         let name = args[0]
         let t = typeof<System.IO.DirectoryInfo>
@@ -39,3 +39,7 @@ module Environment =
         let states = Memory.WriteClassField state dir nameField name
         assert(List.length states = 1)
         dir
+
+    let FileExists (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        False()

@@ -95,8 +95,12 @@ module Loader =
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
         let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
         let string = [|"System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"|]
-        let span = [|"System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"|]
-        Array.concat [intPtr; volatile; defaultComparer; string; span]
+        let span = [|
+            "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
+        |]
+        let vector = [|"System.Int32 System.Numerics.Vector`1[T].get_Count()"|]
+        Array.concat [intPtr; volatile; defaultComparer; string; span; vector]
 
     let private concreteInvocations =
         set [
