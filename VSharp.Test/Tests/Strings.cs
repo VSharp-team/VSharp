@@ -190,5 +190,21 @@ namespace IntegrationTests
                 return $"Kind: {c.Kind}, X: {c.X}, Y: {c.Y}";
             return $"{"Kind"}: {c.Kind}, {"X"}: {c.X + 20}, {"Y"}: {c.Y + 10}";
         }
+
+        [TestSvm(100)]
+        public static int StringEquality(string str, int value)
+        {
+            if (value > 5)
+            {
+                if ("str" == str)
+                {
+                    return 1;
+                }
+
+                return 2;
+            }
+
+            return 3;
+        }
     }
 }
