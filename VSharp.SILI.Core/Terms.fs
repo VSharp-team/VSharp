@@ -785,19 +785,28 @@ module internal Terms =
             elif sizeof<UIntPtr> = sizeof<uint64> then
                 BitConverter.ToUInt64 span |> UIntPtr :> obj
             else internalfail "bytesToObj: unexpected UIntPtr size"
+        | _ when t = typeof<Reflection.Pointer> ->
+            let intPtr =
+                if sizeof<IntPtr> = sizeof<int> then
+                    BitConverter.ToInt32 span |> IntPtr
+                elif sizeof<IntPtr> = sizeof<int64> then
+                    BitConverter.ToInt64 span |> IntPtr
+                else internalfail "bytesToObj: unexpected IntPtr size"
+            Reflection.Pointer.Box(intPtr.ToPointer(), typeof<Void>.MakePointerType())
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
         | StructType _ ->
-            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let size = internalSizeOf t
-            let mutable ptr = IntPtr.Zero
-            try
-                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
-                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
-            finally
-                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+            let fields = Reflection.fieldsOf false t
+            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let obj = Reflection.defaultOf t
+            for _, fi in fields do
+                let offset = LayoutUtils.GetFieldOffset fi
+                let fieldType = fi.FieldType
+                let size = internalSizeOf fieldType
+                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                fi.SetValue(obj, value)
+            obj
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
