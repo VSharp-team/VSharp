@@ -94,6 +94,29 @@ public class C : B
     }
 }
 
+public enum MockEnum
+{
+    Foo,
+    Bar,
+    Fizz,
+    Buzz
+}
+
+public interface IEnumMock
+{
+    MockEnum Get();
+}
+
+public interface IIntPtrMock
+{
+    IntPtr Get();
+}
+
+public interface IEnumPtrMock
+{
+    unsafe MockEnum* Get();
+}
+
 [TestSvmFixture]
 public class Mocking
 {
@@ -320,5 +343,52 @@ public class Mocking
         }
 
         return 0;
+    }
+
+    [TestSvm(100)]
+    public int EnumMock(IEnumMock enumMock)
+    {
+        if (enumMock.Get() == MockEnum.Bar)
+        {
+            return 1;
+        }
+
+        if (enumMock.Get() == MockEnum.Foo)
+        {
+            return 2;
+        }
+
+        if (enumMock.Get() == MockEnum.Fizz)
+        {
+            return 3;
+        }
+
+        return 4;
+    }
+
+    [TestSvm(100)]
+    public int IntPtrMock(IIntPtrMock mock)
+    {
+        var value = mock.Get();
+
+        if (value == IntPtr.MaxValue)
+        {
+            return 1;
+        }
+
+        return 2;
+    }
+
+    [Ignore("Test failed to deserialize due to null value; unsafe mocks are rendered without unsafe modifier")]
+    public unsafe int EnumPtrMock(IEnumPtrMock mock)
+    {
+        var value = mock.Get();
+
+        if (value == (MockEnum*)5)
+        {
+            return 1;
+        }
+
+        return 2;
     }
 }

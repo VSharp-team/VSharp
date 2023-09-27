@@ -1,6 +1,6 @@
 using IntegrationTests.Typecast;
-using NUnit.Framework;
 using VSharp.Test;
+
 #pragma warning disable CS0693
 
 
@@ -124,6 +124,18 @@ namespace IntegrationTests
         }
     }
 
+    public sealed class VirtualL : VirtualI<float>
+    {
+        public override int F()
+        {
+            return 5555;
+        }
+
+        public override int F<_>()
+        {
+            return 77777;
+        }
+    }
 
     [TestSvmFixture]
     public static class VirtualMethod
@@ -270,7 +282,7 @@ namespace IntegrationTests
         [TestSvm(100)]
         public static int VirtualCall6(VirtualI<double> a, int n)
         {
-            if (a == null) return 0;
+            if (a == null) return 3535;
             if (n > 10)
             {
                 return ((VirtualC) a).F<int>();
@@ -311,6 +323,18 @@ namespace IntegrationTests
                 return ((B) a).F();
             }
             return a.F();
+        }
+
+        [TestSvm(100)]
+        public static int VirtualCall10(VirtualI<float> a)
+        {
+            if (a == null) return -1;
+            if (a is VirtualL)
+            {
+                return a.F<float>();
+            }
+
+            return -2;
         }
 
         [TestSvm(100)]

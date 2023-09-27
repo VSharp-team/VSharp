@@ -58,6 +58,8 @@ module API =
 
     let ResolveCallVirt state thisAddress thisType ancestorMethod = TypeSolver.getCallVirtCandidates state thisAddress thisType ancestorMethod
 
+    let KeepOnlyMock state thisAddress = TypeSolver.keepOnlyMock state thisAddress
+
     let MethodMockAndCall state method this args = MethodMocking.mockAndCall state method this args Default
     let ExternMockAndCall state method this args = MethodMocking.mockAndCall state method this args Extern
 

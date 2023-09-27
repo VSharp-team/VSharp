@@ -115,13 +115,13 @@ module TypeSolver =
         }
 
     let private enumerateNonAbstractSupertypes predicate (typ : Type) =
-        let rec getNonAbstractSupertypes predicate (t: Type) =
-            if typ = null || typ.IsAbstract then List.empty
+        let rec getNonAbstractSupertypes (t: Type) (supertypes : Type list) =
+            if t = null then supertypes
             else
-                let supertypes = getNonAbstractSupertypes predicate t.BaseType
-                if predicate typ then typ::supertypes else supertypes
+                let supertypes = if not t.IsAbstract && predicate t then t::supertypes else supertypes
+                getNonAbstractSupertypes t.BaseType supertypes
         assert userAssembly.IsSome
-        let types = getNonAbstractSupertypes predicate typ
+        let types = getNonAbstractSupertypes typ List.empty
         candidates(types, None, userAssembly.Value)
 
     let private hasSubtypes (t : Type) =
@@ -484,7 +484,18 @@ module TypeSolver =
         | TypeSat _ -> ()
         | TypeUnsat -> internalfail "Refining types: branch is unreachable"
 
-    let getCallVirtCandidates state (thisRef : heapAddress) (thisType: Type) (ancestorMethod : IMethod) =
+    let keepOnlyMock state thisRef =
+        match thisRef.term with
+        | HeapRef({term = ConcreteHeapAddress thisAddress}, _) when VectorTime.less state.startingTime thisAddress -> ()
+        | HeapRef(thisAddress, _) ->
+            let typeStorage = state.typeStorage
+            match typeStorage[thisAddress] with
+            | Some candidates ->
+                typeStorage[thisAddress] <- candidates.KeepOnlyMock()
+            | None -> ()
+        | _ -> ()
+
+    let getCallVirtCandidates state (thisRef : heapAddress) (thisType : Type) (ancestorMethod : IMethod) =
         userAssembly <- Some ancestorMethod.DeclaringType.Assembly
         match thisRef.term with
         | HeapRef({term = ConcreteHeapAddress thisAddress}, _) when VectorTime.less state.startingTime thisAddress ->
@@ -493,21 +504,20 @@ module TypeSolver =
             let thisConstraints = List.singleton thisType |> typeConstraints.FromSuperTypes
             let typeStorage = state.typeStorage
             typeStorage.AddConstraint thisAddress thisConstraints
-            let ancestorMethod = ancestorMethod.MethodBase :?> MethodInfo
-            let checkOverrides t =
-                 Reflection.canOverrideMethod t ancestorMethod
             let getMock = getMock typeStorage.TypeMocks
             let result = refineStorage getMock typeStorage Array.empty Array.empty
             match result with
             | TypeSat ->
                 let candidates = typeStorage[thisAddress].Value
-                let optionMock m = Some m
-                let filtered = candidates.Filter(checkOverrides, optionMock)
-                let truncated = filtered.Take(5)
-                typeStorage[thisAddress] <- truncated.Eval()
-                truncated.Types
+                let typeFilter t = ancestorMethod.CanBeOverriddenInType t
+                let resolveOverride t =
+                    let overridden = ancestorMethod.ResolveOverrideInType t
+                    overridden.DeclaringType
+                let filtered = candidates.Filter(typeFilter, Some).DistinctBy(resolveOverride).Take(5).Eval()
+                typeStorage[thisAddress] <- filtered
+                filtered.Types
             | TypeUnsat -> Seq.empty
-        | Ref address when Reflection.typeImplementsMethod thisType (ancestorMethod.MethodBase :?> MethodInfo) ->
+        | Ref address when ancestorMethod.IsImplementedInType thisType ->
             assert(thisType = address.TypeOfLocation)
             ConcreteType thisType |> Seq.singleton
         | _ -> internalfail $"Getting callvirt candidates: unexpected this {thisRef}"

@@ -119,3 +119,7 @@ module SR =
     let internal get_Arg_NotImplementedException (state : state) (args : term list) : term =
         assert(List.length args = 0)
         Memory.AllocateString "get_Arg_NotImplementedException" state
+
+    let internal get_Argument_InvalidTypeWithPointersNotSupported (state : state) (args : term list) : term =
+        assert(List.length args = 0)
+        Memory.AllocateString "get_Argument_InvalidTypeWithPointersNotSupported" state

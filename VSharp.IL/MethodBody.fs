@@ -137,7 +137,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.GenericArguments with get() = genericArguments.Force()
     member x.GetGenericMethodDefinition() =
         match m with
-        | :? MethodInfo as m -> if isGenericMethod then m.GetGenericMethodDefinition() else m
+        | :? MethodInfo as m -> if isGenericMethod then Reflection.getGenericMethodDefinition m else m
         | _ -> internalfailf $"Asking generic method definition for non-method {x}"
     member x.GetGenericArguments() =
         match m with
@@ -235,6 +235,10 @@ type MethodWithBody internal (m : MethodBase) =
             match y with
             | :? MethodWithBody as y -> Reflection.compareMethods (x :> Core.IMethod).MethodBase (y :> Core.IMethod).MethodBase
             | _ -> -1
+        override x.ResolveOverrideInType t = x.ResolveOverrideInType t
+        override x.CanBeOverriddenInType t = x.CanBeOverriden t
+        override x.IsImplementedInType t = x.IsImplementedInType t
+
         // TODO: make it private!
         override x.MethodBase : MethodBase = m
 
@@ -292,6 +296,19 @@ type MethodWithBody internal (m : MethodBase) =
         let opCode = OpCodeOperations.getOpCode ilBytes pos
         let calledMethod = x.ResolveMethodFromMetadata (pos + Offset.from opCode.Size)
         opCode, calledMethod
+
+    member x.ResolveOverrideInType t =
+        match m with
+        | :? ConstructorInfo when m.DeclaringType = t -> x
+        | :? MethodInfo as mi ->
+            (Reflection.resolveOverridingMethod t mi :> MethodBase) |> MethodWithBody.InstantiateNew
+        | _ -> __unreachable__()
+
+    member x.IsImplementedInType t =
+        match m with
+        | :? ConstructorInfo -> m.DeclaringType = t
+        | :? MethodInfo as mi -> Reflection.typeImplementsMethod t mi
+        | _ -> __unreachable__()
 
 module MethodBody =
 

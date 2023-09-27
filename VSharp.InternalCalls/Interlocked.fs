@@ -36,15 +36,19 @@ module internal Interlocked =
         let location, value, compared = args[1], args[2], args[3]
         compareExchange interpreter cilState location value compared
 
-    let intCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
+    let commonCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
         let location, value, compared = args[0], args[1], args[2]
         compareExchange interpreter cilState location value compared
 
+    let intCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
+        commonCompareExchange interpreter cilState args
+
+    let int64CompareExchange (interpreter : IInterpreter) cilState (args : term list) =
+        commonCompareExchange interpreter cilState args
+
     let intPtrCompareExchange (interpreter : IInterpreter) cilState (args : term list) =
-        assert(List.length args = 3)
-        let location, value, compared = args[0], args[1], args[2]
-        compareExchange interpreter cilState location value compared
+        commonCompareExchange interpreter cilState args
 
     let genericExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 3)
@@ -56,17 +60,17 @@ module internal Interlocked =
         let location, value = args[0], args[1]
         exchange interpreter cilState location value
 
-    let intExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
+    let commonExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]
         let value = Arithmetics.Add (read cilState location) value
         exchange interpreter cilState location value
 
+    let intExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
+        commonExchangeAdd interpreter cilState args
+
     let longExchangeAdd (interpreter : IInterpreter) cilState (args : term list) =
-        assert(List.length args = 2)
-        let location, value = args[0], args[1]
-        let value = Arithmetics.Add (read cilState location) value
-        exchange interpreter cilState location value
+        commonExchangeAdd interpreter cilState args
 
     let memoryBarrier (_ : state) (_ : term list) : term =
         Nop()

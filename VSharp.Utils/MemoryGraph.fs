@@ -299,6 +299,12 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             if repr.lowerBounds = null then Array.CreateInstance(elementType, repr.lengths) :> obj
             else Array.CreateInstance(elementType, repr.lengths, repr.lowerBounds) :> obj
         | :? stringRepr as repr -> repr.Decode()
+        | :? enumRepr as repr ->
+            let t = sourceTypes[repr.typ]
+            EnumUtils.getEnumDefaultValue t
+        | :? pointerRepr as repr when repr.sightType = intPtrIndex -> IntPtr.Zero
+        | :? pointerRepr as repr when repr.sightType = uintPtrIndex -> UIntPtr.Zero
+        | :? pointerRepr -> null // TODO
         | _ -> obj
 
     let nullSourceIndex = -1

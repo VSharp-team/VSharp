@@ -384,6 +384,8 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
             if mock.IsSome then yield mock.Value |> MockType
         }
 
+    member x.HasMock = Option.isSome mock
+
     static member Empty() =
         candidates(Seq.empty, None, Reflection.mscorlibAssembly)
 
@@ -402,11 +404,15 @@ and candidates private(publicBuiltInTypes, publicUserTypes, privateUserTypes, re
         let publicUserTypes = Seq.filter typesPredicate publicUserTypes
         let privateUserTypes = Seq.filter typesPredicate privateUserTypes
         let rest = Seq.filter typesPredicate rest
-        let mock =
-            match mock with
-            | Some typeMock -> refineMock typeMock
-            | None -> None
+        let mock = Option.bind refineMock mock
         candidates(publicBuiltInTypes, publicUserTypes, privateUserTypes, rest, mock, userAssembly)
+
+    member x.KeepOnlyMock() =
+        candidates(Seq.empty, Seq.empty, Seq.empty, Seq.empty, mock, userAssembly)
+
+    member x.DistinctBy(keySelector : Type -> 'a) =
+        let distinctOrderedTypes = Seq.distinctBy keySelector orderedTypes
+        candidates(distinctOrderedTypes, mock, userAssembly)
 
     member x.Take(count) =
         let types =

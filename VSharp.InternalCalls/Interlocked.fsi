@@ -13,6 +13,9 @@ module internal Interlocked =
     [<Implements("System.Int32 System.Threading.Interlocked.CompareExchange(System.Int32&, System.Int32, System.Int32)")>]
     val intCompareExchange : IInterpreter -> cilState -> term list -> cilState list
 
+    [<Implements("System.Int64 System.Threading.Interlocked.CompareExchange(System.Int64&, System.Int64, System.Int64)")>]
+    val int64CompareExchange : IInterpreter -> cilState -> term list -> cilState list
+
     [<Implements("System.IntPtr System.Threading.Interlocked.CompareExchange(System.IntPtr&, System.IntPtr, System.IntPtr)")>]
     [<Implements("System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)")>]
     val intPtrCompareExchange : IInterpreter -> cilState -> term list -> cilState list

@@ -22,6 +22,9 @@ type IMethod =
     abstract ContainsGenericParameters : bool
     abstract GenericArguments : Type[]
     abstract SubstituteTypeVariables : (Type -> Type) -> IMethod
+    abstract ResolveOverrideInType : Type -> IMethod
+    abstract CanBeOverriddenInType : Type -> bool
+    abstract IsImplementedInType : Type -> bool
     abstract MethodBase : System.Reflection.MethodBase
 
 [<CustomEquality;CustomComparison>]
