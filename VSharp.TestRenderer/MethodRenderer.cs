@@ -431,28 +431,43 @@ internal class MethodRenderer : CodeRenderer
             return objId;
         }
 
-        private ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array obj, string? preferredName)
+        private unsafe ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array array, string? preferredName)
         {
-            var rank = obj.Rank;
-            var elemType = obj.GetType().GetElementType();
+            var rank = array.Rank;
+            var elemType = array.GetType().GetElementType();
             Debug.Assert(elemType != null);
             var initializer = new List<ExpressionSyntax>();
             if (rank > 1)
                 throw new NotImplementedException("implement rendering for non-vector arrays");
 
-            var lowerBound = obj.GetLowerBound(0);
-            var upperBound = obj.GetUpperBound(0);
+            var lowerBound = array.GetLowerBound(0);
+            var upperBound = array.GetUpperBound(0);
 
             if (lowerBound != 0)
                 // TODO: if lower bound != 0, use Array.CreateInstance
                 throw new NotImplementedException("implement rendering for non zero lower bound arrays");
 
-            for (int i = lowerBound; i <= upperBound; i++)
+            if (elemType.IsPointer)
             {
-                var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
-                var value = obj.GetValue(i);
-                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
-                initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                var unsafeArray = array as void*[];
+                Debug.Assert(unsafeArray != null);
+                for (int i = lowerBound; i <= upperBound; i++)
+                {
+                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                    var value = Pointer.Box(unsafeArray[i], typeof(void).MakePointerType());
+                    var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                    initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                }
+            }
+            else
+            {
+                for (int i = lowerBound; i <= upperBound; i++)
+                {
+                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                    var value = array.GetValue(i);
+                    var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                    initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                }
             }
 
             // TODO: handle recursive array case
@@ -466,7 +481,7 @@ internal class MethodRenderer : CodeRenderer
             {
                 elems[i - lowerBound] = (i, initializer[i - lowerBound]);
             }
-            return RenderPrivateElemArray(obj, elems, elems.Length, preferredName);
+            return RenderPrivateElemArray(array, elems, elems.Length, preferredName);
         }
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)

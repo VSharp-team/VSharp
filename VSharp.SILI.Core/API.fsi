@@ -100,7 +100,7 @@ module API =
         val (|Disjunction|_|) : term -> term list option
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
-        val (|NullPtr|_|) : term -> unit option
+        val (|NullPtr|_|) : term -> Type option
         val (|DetachedPtr|_|) : termNode -> term option
         val (|DetachedPtrTerm|_|) : term -> term option
 

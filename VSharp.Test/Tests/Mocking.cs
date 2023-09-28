@@ -379,7 +379,7 @@ public class Mocking
         return 2;
     }
 
-    [Ignore("Test failed to deserialize due to null value; unsafe mocks are rendered without unsafe modifier")]
+    [TestSvm(100)]
     public unsafe int EnumPtrMock(IEnumPtrMock mock)
     {
         var value = mock.Get();

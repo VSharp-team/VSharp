@@ -694,6 +694,11 @@ internal class CodeRenderer
             );
     }
 
+    public static ExpressionSyntax RenderEmptyArrayInitializer()
+    {
+        return InitializerExpression(SyntaxKind.ArrayInitializerExpression);
+    }
+
     public static ExpressionSyntax RenderArrayCreation(
         ArrayTypeSyntax type,
         List<ExpressionSyntax>? init,

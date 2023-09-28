@@ -304,7 +304,9 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             EnumUtils.getEnumDefaultValue t
         | :? pointerRepr as repr when repr.sightType = intPtrIndex -> IntPtr.Zero
         | :? pointerRepr as repr when repr.sightType = uintPtrIndex -> UIntPtr.Zero
-        | :? pointerRepr -> null // TODO
+        | :? pointerRepr as repr ->
+            let sightType = sourceTypes[repr.sightType]
+            Pointer.Box(IntPtr.Zero.ToPointer(), sightType.MakePointerType())
         | _ -> obj
 
     let nullSourceIndex = -1
@@ -557,6 +559,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
 
     member x.RepresentDetachedPtr (sightType : Type) (shift : int64) =
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = x.RegisterType sightType}
+        repr :> obj
+
+    member x.RepresentNullPtr (sightType : Type) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = 0; sightType = x.RegisterType sightType}
         repr :> obj
 
     member x.RepresentPtr (index : int) (sightType : Type) (shift : int64) =

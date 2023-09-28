@@ -1105,11 +1105,19 @@ module internal Z3 =
                     Memory.DefaultOf t |> ref)
                 term.Value <- x.WriteByPath term.Value value path.parts
 
+        member private x.WriteToPrimitiveModel (subst : IDictionary<ISymbolicConstantSource, term ref>) (m : Model) (path : path) source expr typ constant =
+            let refinedExpr = m.Eval(expr, false)
+            let t = if path.IsEmpty then typ else path.TypeOfLocation
+            let term = x.Decode t refinedExpr
+            assert(not (constant = term) || expr = refinedExpr)
+            if constant <> term then
+                x.WriteDictOfValueTypes subst source path typ term
+
         member x.MkModel (m : Model) =
             try
-                let subst = Dictionary<ISymbolicConstantSource, term>()
                 let stackEntries = Dictionary<stackKey, term ref>()
                 let state = {Memory.EmptyState() with complete = true}
+                let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
                 for KeyValue(key, value) in encodingCache.t2e do
                     match key with
@@ -1126,20 +1134,14 @@ module internal Z3 =
                             let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
                             let value = HeapRef address t
                             x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation value
-                        | HeapAddressSource(Path.Path(_, (:? functionResultConstantSource as frs)))
-                        | Path.Path(_, (:? functionResultConstantSource as frs)) ->
-                            let refinedExpr = m.Eval(value.expr, false)
+                        | HeapAddressSource(Path.Path(path, (:? functionResultConstantSource as frs)))
+                        | Path.Path(path, (:? functionResultConstantSource as frs)) ->
                             let t = (frs :> ISymbolicConstantSource).TypeOfLocation
-                            let term = x.Decode t refinedExpr
-                            assert(not (constant = term) || value.expr = refinedExpr)
-                            if constant <> term then subst.Add(ms, term)
+                            x.WriteToPrimitiveModel primitiveModel m path frs value.expr t constant
                         | _ -> ()
                     | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                     | {term = Constant(_, source, t)} as constant ->
-                        let refinedExpr = m.Eval(value.expr, false)
-                        let term = x.Decode t refinedExpr
-                        assert(not (constant = term) || value.expr = refinedExpr)
-                        if constant <> term then subst.Add(source, term)
+                        x.WriteToPrimitiveModel primitiveModel m path.Empty source value.expr t constant
                     | _ -> ()
 
                 let frame = stackEntries |> Seq.map (fun kvp ->
@@ -1216,6 +1218,11 @@ module internal Z3 =
                 state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
                 encodingCache.heapAddresses.Clear()
+
+                let subst = Dictionary<ISymbolicConstantSource, term>()
+                for KeyValue(k, v) in primitiveModel do
+                    subst.Add(k, v.Value)
+
                 state.model <- PrimitiveModel subst
                 StateModel state
             with e -> internalfail $"MkModel: caught exception {e}"

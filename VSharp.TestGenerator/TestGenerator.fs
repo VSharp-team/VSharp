@@ -205,8 +205,8 @@ module TestGenerator =
             let field2obj (field, _) = model.Complete fields[field] |> term2obj
             let fieldReprs = Reflection.fieldsOf false t |> Array.map field2obj
             test.MemoryGraph.RepresentStruct t fieldReprs
-        | NullRef _
-        | NullPtr -> null
+        | NullRef _ -> null
+        | NullPtr sightType -> test.MemoryGraph.RepresentNullPtr sightType
         | DetachedPtrTerm offset ->
             let offset = TypeUtils.convert (term2obj offset) typeof<int64> :?> int64
             test.MemoryGraph.RepresentDetachedPtr typeof<Void> offset

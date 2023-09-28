@@ -2032,7 +2032,7 @@ module internal Memory =
             match state.model with
             | PrimitiveModel subst when state.complete ->
                 let value = ref (Nop())
-                if subst.TryGetValue(source, value) then value.Value
+                if subst.TryGetValue(baseSource, value) then value.Value
                 else makeDefaultValue src.TypeOfLocation
             | _ ->
                 makeSymbolicValue src (src.ToString()) src.TypeOfLocation

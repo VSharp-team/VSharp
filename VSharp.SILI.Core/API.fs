@@ -182,7 +182,8 @@ module API =
             | {term = HeapRef(addr, _)} when addr = zeroAddress() -> None
             | _ -> Some()
         let (|NullPtr|_|) = function
-            | {term = Ptr(HeapLocation(addr, _), _, offset)} when addr = zeroAddress() && offset = makeNumber 0 -> Some()
+            | {term = Ptr(HeapLocation(addr, _), sightType, offset)} when addr = zeroAddress() && offset = makeNumber 0 ->
+                Some(sightType)
             | _ -> None
 
         let (|DetachedPtr|_|) term = (|DetachedPtr|_|) term

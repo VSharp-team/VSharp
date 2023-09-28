@@ -88,8 +88,8 @@ module internal Pointers =
             let i = convert number typeof<int>
             match other with
             | DetachedPtr shift -> simplifyEqual shift (makeNumber i) k
-            | Ptr(HeapLocation(address, _), _, shift) when i = 0 ->
-                simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber 0) id |> k
+            | Ptr(HeapLocation(address, _), _, shift) ->
+                simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber i) id |> k
             | HeapRef(address, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
             | _ -> False() |> k
         | Ref _, Ptr _
@@ -98,8 +98,9 @@ module internal Pointers =
         | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
         | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
             simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
-        | _, DetachedPtr shift
-        | DetachedPtr shift, _ when typeOf x |> isNative || typeOf y |> isNative ->
+        | _, DetachedPtr shift when typeOf x |> isNative ->
+            simplifyEqual x shift k
+        | DetachedPtr shift, _ when typeOf y |> isNative ->
             simplifyEqual shift y k
         | _ -> False() |> k
 
