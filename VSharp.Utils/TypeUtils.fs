@@ -60,7 +60,7 @@ module TypeUtils =
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral x = integralTypes.Contains x || x.IsEnum
-    let isLongTypes x = longTypes.Contains x
+    let isLongType x = longTypes.Contains x
     let isReal x = realTypes.Contains x
     let isUnsigned x = unsignedTypes.Contains x
     let isSigned x = unsignedTypes.Contains x |> not

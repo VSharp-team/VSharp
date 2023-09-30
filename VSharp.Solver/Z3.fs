@@ -390,7 +390,7 @@ module internal Z3 =
             x.ChangeSizeIfNeed operands typ |> ctx.MkBVAdd
 
         member private x.MkBVAdd operands : BitVecExpr =
-             x.ExtendIfNeed operands true |> ctx.MkBVAdd
+            x.ExtendIfNeed operands true |> ctx.MkBVAdd
 
         member private x.MkBVAddNoUnderflow operands : BoolExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVAddNoUnderflow

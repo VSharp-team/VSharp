@@ -22,10 +22,10 @@ module internal Environment =
     val WriteLine : state -> term list -> term
 
     [<Implements("System.Boolean System.Console.get_IsOutputRedirected()")>]
-    val get_IsOutputRedirected : state -> term list -> term
+    val Get_IsOutputRedirected : state -> term list -> term
 
     [<Implements("System.Void System.Console.Clear()")>]
-    val consoleClear : state -> term list -> term
+    val ConsoleClear : state -> term list -> term
 
     [<Implements("System.IO.DirectoryInfo System.IO.Directory.CreateDirectory(System.String)")>]
     val CreateDirectory : state -> term list -> term

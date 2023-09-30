@@ -34,7 +34,7 @@ module TypeUtils =
     let uintPtr = typedefof<UIntPtr>
 
     let isIntegralTerm term = Terms.TypeOf term |> TypeUtils.isIntegral
-    let isLong term = TypeOf term |> TypeUtils.isLongTypes
+    let isLong term = TypeOf term |> TypeUtils.isLongType
     let isBool term = Terms.TypeOf term |> IsBool
 
     module Char =

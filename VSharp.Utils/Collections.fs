@@ -94,17 +94,6 @@ module public List =
         let list = List.foldBack folder list List.empty
         removed, list
 
-    let rec sequenceOption f list =
-        match list with
-        | [] -> Some List.empty
-        | h :: t ->
-            match f h with
-            | Some h ->
-                match sequenceOption f t with
-                | Some t -> Some (h :: t)
-                | None -> None
-            | None -> None
-
 module public Map =
     let public add2 (map : Map<'a, 'b>) key value = map.Add(key, value)
 

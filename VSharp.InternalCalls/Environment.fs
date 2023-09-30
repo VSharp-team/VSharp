@@ -21,11 +21,11 @@ module internal Environment =
         assert(List.length args = 1)
         Nop()
 
-    let get_IsOutputRedirected (_ : state) (args : term list) =
+    let Get_IsOutputRedirected (_ : state) (args : term list) =
         assert(List.length args = 0)
         MakeBool false
 
-    let consoleClear (_ : state) (args : term list) =
+    let ConsoleClear (_ : state) (args : term list) =
         assert(List.length args = 0)
         Nop()
 

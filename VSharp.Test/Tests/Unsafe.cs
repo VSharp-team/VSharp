@@ -23,7 +23,7 @@ namespace IntegrationTests
             return sizeof(char); // sizeof() = 2; Marshal.SizeOf() = 1; we should be 2
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int PointerComparison(int* ptr)
         {
             if (ptr == (int*)0)
