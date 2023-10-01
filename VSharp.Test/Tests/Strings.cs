@@ -118,6 +118,40 @@ namespace IntegrationTests
             return 0;
         }
 
+        [TestSvm(100)]
+        public static int StartsWith(string str)
+        {
+            if (str.StartsWith("d8"))
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int StartsWith1(string str1, string str2)
+        {
+            if (str1.StartsWith(str2))
+            {
+                if (str2.Length > 0)
+                {
+                    if (str1 != str2)
+                        return 3;
+                    return 2;
+                }
+
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int WriteLineObject(string s)
+        {
+            var nre = new NullReferenceException(s);
+            Console.WriteLine(nre);
+            return 1;
+        }
+
         [Ignore("takes too much time")]
         public static bool SymbolicStringToUpper(char c)
         {

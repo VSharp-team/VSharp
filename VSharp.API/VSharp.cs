@@ -148,7 +148,7 @@ namespace VSharp
 
                 if (exception is UnknownMethodException unknownMethodException)
                 {
-                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}");
+                    Logger.printLogString(Logger.Error, $"Unknown method: {unknownMethodException.Method.FullName}, {unknownMethodException.Message}");
                     Logger.printLogString(Logger.Error, $"StackTrace: {unknownMethodException.InterpreterStackTrace}");
                     return;
                 }

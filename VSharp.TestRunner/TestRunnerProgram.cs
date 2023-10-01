@@ -48,13 +48,13 @@ namespace VSharp.TestRunner
             var testPathArgument =
                 new Argument<string>("test-path", description: "Path to the tests (.vst)");
             var disableCheckOption =
-                new Option("--disable-check", description: "Disables test result check");
+                new System.CommandLine.Option("--disable-check", description: "Disables test result check");
             var suiteOption =
                 new Option<SuiteType>(aliases: new[] { "--suite", "-s" },
                     () => SuiteType.TestsAndErrors,
                     "Chooses which suites will be reproduced: test suites, error suites or both");
             var recursiveOption =
-                new Option("--recursive", description: "Search for .vst files in subdirectories as well");
+                new System.CommandLine.Option("--recursive", description: "Search for .vst files in subdirectories as well");
 
             var rootCommand = new RootCommand();
 

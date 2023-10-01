@@ -228,6 +228,8 @@ internal class CodeRenderer
 
     public static bool NeedExplicitType(object? obj, Type? containerType)
     {
+        var isBoxed =
+            obj is ValueType && containerType is { IsValueType: false };
         var needExplicitNumericType =
             // For this types there is no data type suffix, so if parameter type is upcast, explicit cast is needed
             obj is byte or sbyte or short or ushort
@@ -235,7 +237,7 @@ internal class CodeRenderer
         var needExplicitDelegateType =
             // Member group can not be upcasted to object, so explicit delegate type is needed
             obj is Delegate && containerType == typeof(object);
-        return needExplicitNumericType || needExplicitDelegateType;
+        return isBoxed || needExplicitNumericType || needExplicitDelegateType;
     }
 
     internal static readonly Dictionary<Type, string> PredefinedTypes = new()
@@ -690,6 +692,11 @@ internal class CodeRenderer
                 type,
                 null
             );
+    }
+
+    public static ExpressionSyntax RenderEmptyArrayInitializer()
+    {
+        return InitializerExpression(SyntaxKind.ArrayInitializerExpression);
     }
 
     public static ExpressionSyntax RenderArrayCreation(

@@ -290,6 +290,28 @@ module internal Z3 =
                 if difference > 0 then x, extend(uint32 difference, y)
                 else extend(uint32 -difference, x), y
 
+        member private this.ChangeSize (x : BitVecExpr) size isSigned =
+            let xSize = int x.SortSize
+            let xDiff = size - xSize
+            if xDiff = 0 then x
+            elif xDiff > 0 then
+                let extend = if isSigned then ctx.MkSignExt else ctx.MkZeroExt
+                extend(uint32 xDiff, x)
+            else
+                let from = size - 1
+                ctx.MkExtract(uint32 from, 0u, x)
+
+        member private this.ChangeSizeIfNeed (x : BitVecExpr, y : BitVecExpr as args) typ =
+            let size = numericBitSizeOf typ |> int
+            let xSize = int x.SortSize
+            let ySize = int y.SortSize
+            if xSize = ySize && xSize = size then args
+            else
+                let isSigned = isSigned typ
+                let x = this.ChangeSize x size isSigned
+                let y = this.ChangeSize y size isSigned
+                x, y
+
         member private x.MkEq(left : Expr, right : Expr) =
             match left, right with
             | _ when left = right -> TrueExpr
@@ -337,23 +359,35 @@ module internal Z3 =
             | _ when left = right -> TrueExpr
             | _ -> x.ExtendIfNeed operands false |> ctx.MkBVULE
 
-        member private x.MkBVAnd operands : BitVecExpr =
-            x.ExtendIfNeed operands false |> ctx.MkBVAND
+        member private x.MkBVAndT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVAND
+
+        member private x.MkBVOrT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVOR
 
         member private x.MkBVOr operands : BitVecExpr =
             x.ExtendIfNeed operands false |> ctx.MkBVOR
 
-        member private x.MkBVXor operands : BitVecExpr =
-            x.ExtendIfNeed operands false |> ctx.MkBVXOR
+        member private x.MkBVXorT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVXOR
+
+        member private x.MkBVShlT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVSHL
 
         member private x.MkBVShl operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVSHL
 
-        member private x.MkBVAShr operands : BitVecExpr =
-            x.ExtendIfNeed operands true |> ctx.MkBVASHR
+        member private x.MkBVAShrT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVASHR
+
+        member private x.MkBVLShrT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVLSHR
 
         member private x.MkBVLShr operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVLSHR
+
+        member private x.MkBVAddT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVAdd
 
         member private x.MkBVAdd operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVAdd
@@ -365,6 +399,9 @@ module internal Z3 =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVAddNoOverflow(left, right, true)
 
+        member private x.MkBVMulT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVMul
+
         member private x.MkBVMul operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVMul
 
@@ -375,20 +412,27 @@ module internal Z3 =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVMulNoOverflow(left, right, true)
 
+        member private x.MkBVSubT typ operands : BitVecExpr =
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVSub
+
         member private x.MkBVSub operands : BitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVSub
 
-        member private x.MkBVSDiv operands : BitVecExpr =
-            x.ExtendIfNeed operands true |> ctx.MkBVSDiv
+        member private x.MkBVSDivT typ operands : BitVecExpr =
+            assert(isSigned typ)
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVSDiv
 
-        member private x.MkBVUDiv operands : BitVecExpr =
-            x.ExtendIfNeed operands false |> ctx.MkBVUDiv
+        member private x.MkBVUDivT typ operands : BitVecExpr =
+            assert(isUnsigned typ)
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVUDiv
 
-        member private x.MkBVSRem operands : BitVecExpr =
-            x.ExtendIfNeed operands true |> ctx.MkBVSRem
+        member private x.MkBVSRemT typ operands : BitVecExpr =
+            assert(isSigned typ)
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVSRem
 
-        member private x.MkBVURem operands : BitVecExpr =
-            x.ExtendIfNeed operands false |> ctx.MkBVURem
+        member private x.MkBVURemT typ operands : BitVecExpr =
+            assert(isUnsigned typ)
+            x.ChangeSizeIfNeed operands typ |> ctx.MkBVURem
 
         member private x.Max (left : BitVecExpr) (right : BitVecExpr) =
             assert(left.SortSize = right.SortSize)
@@ -449,17 +493,17 @@ module internal Z3 =
 
 // ------------------------------- Encoding: expression -------------------------------
 
-        member private x.EncodeOperation encCtx operation args =
+        member private x.EncodeOperation encCtx operation args typ =
             match operation with
             | OperationType.BitwiseNot -> x.MakeUnary encCtx ctx.MkBVNot args
-            | OperationType.BitwiseAnd -> x.MakeBinary encCtx x.MkBVAnd args
-            | OperationType.BitwiseOr -> x.MakeBinary encCtx x.MkBVOr args
-            | OperationType.BitwiseXor -> x.MakeBinary encCtx x.MkBVXor args
+            | OperationType.BitwiseAnd -> x.MakeBinary encCtx (x.MkBVAndT typ) args
+            | OperationType.BitwiseOr -> x.MakeBinary encCtx (x.MkBVOrT typ) args
+            | OperationType.BitwiseXor -> x.MakeBinary encCtx (x.MkBVXorT typ) args
             // [NOTE] IL specifies: arguments of SHL, SHR, SHR.UN are (int32 and int32), (int64 and int32)
             // So it's needed to extend one of them for Z3
-            | OperationType.ShiftLeft -> x.MakeBinary encCtx x.MkBVShl args
-            | OperationType.ShiftRight -> x.MakeBinary encCtx x.MkBVAShr args
-            | OperationType.ShiftRight_Un -> x.MakeBinary encCtx x.MkBVLShr args
+            | OperationType.ShiftLeft -> x.MakeBinary encCtx (x.MkBVShlT typ) args
+            | OperationType.ShiftRight -> x.MakeBinary encCtx (x.MkBVAShrT typ) args
+            | OperationType.ShiftRight_Un -> x.MakeBinary encCtx (x.MkBVLShrT typ) args
             | OperationType.LogicalNot -> x.MakeUnary encCtx x.MkNot args
             | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
             | OperationType.LogicalOr -> x.MakeOperation encCtx x.MkOr args
@@ -474,21 +518,21 @@ module internal Z3 =
             | OperationType.Less_Un -> x.MakeBinary encCtx x.MkBVULT args
             | OperationType.LessOrEqual -> x.MakeBinary encCtx x.MkBVSLE args
             | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx x.MkBVULE args
-            | OperationType.Add -> x.MakeBinary encCtx x.MkBVAdd args
+            | OperationType.Add -> x.MakeBinary encCtx (x.MkBVAddT typ) args
             | OperationType.AddNoOvf ->
                 let operation (l, r) =
                     x.MkAnd(x.MkBVAddNoUnderflow(l, r), x.MkBVAddNoOverflow(l, r))
                 x.MakeBinary encCtx operation args
-            | OperationType.Multiply -> x.MakeBinary encCtx x.MkBVMul args
+            | OperationType.Multiply -> x.MakeBinary encCtx (x.MkBVMulT typ) args
             | OperationType.MultiplyNoOvf ->
                 let operation (l, r) =
                     x.MkAnd(x.MkBVMulNoUnderflow(l, r), x.MkBVMulNoOverflow(l, r))
                 x.MakeBinary encCtx operation args
-            | OperationType.Subtract -> x.MakeBinary encCtx x.MkBVSub args
-            | OperationType.Divide -> x.MakeBinary encCtx x.MkBVSDiv args
-            | OperationType.Divide_Un -> x.MakeBinary encCtx x.MkBVUDiv args
-            | OperationType.Remainder -> x.MakeBinary encCtx x.MkBVSRem args
-            | OperationType.Remainder_Un -> x.MakeBinary encCtx x.MkBVURem args
+            | OperationType.Subtract -> x.MakeBinary encCtx (x.MkBVSubT typ) args
+            | OperationType.Divide -> x.MakeBinary encCtx (x.MkBVSDivT typ) args
+            | OperationType.Divide_Un -> x.MakeBinary encCtx (x.MkBVUDivT typ) args
+            | OperationType.Remainder -> x.MakeBinary encCtx (x.MkBVSRemT typ) args
+            | OperationType.Remainder_Un -> x.MakeBinary encCtx (x.MkBVURemT typ) args
             | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
             | _ -> __unreachable__()
 
@@ -573,7 +617,7 @@ module internal Z3 =
             encodingCache.Get(term, fun () ->
                 match op with
                 | Operator operation ->
-                    x.EncodeOperation encCtx operation args
+                    x.EncodeOperation encCtx operation args typ
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation encCtx (fun x -> ctx.MkApp(decl, x)) args
@@ -701,7 +745,7 @@ module internal Z3 =
             let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regSort, path)
 
-        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst (path : path) left mo typ =
+        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst (path : path) left mo =
             let updates = MemoryRegion.flatten mo
             let assumptions, leftExpr = encodeKey left
             let leftRegion = (left :> IMemoryKey<'a, 'b>).Region
@@ -748,7 +792,7 @@ module internal Z3 =
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInVectorTimeIntervals encCtx rightExpr eq rightRegion
             let specialize v _ _ = v
-            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo typ
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
@@ -795,7 +839,7 @@ module internal Z3 =
                     let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort path
                     let expr = ctx.MkSelect(array, k)
                     expr, x.GenerateInstAssumptions expr typ
-            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo typ
+            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
             let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
@@ -872,7 +916,7 @@ module internal Z3 =
                 let eq = x.MkEq(leftExpr, rightExpr)
                 assumptions, x.KeyInIntPoints rightExpr eq rightRegion
             let specialize v _ _ = v
-            x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo typ
+            x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
@@ -1061,11 +1105,19 @@ module internal Z3 =
                     Memory.DefaultOf t |> ref)
                 term.Value <- x.WriteByPath term.Value value path.parts
 
+        member private x.WriteToPrimitiveModel (subst : IDictionary<ISymbolicConstantSource, term ref>) (m : Model) (path : path) source expr typ constant =
+            let refinedExpr = m.Eval(expr, false)
+            let t = if path.IsEmpty then typ else path.TypeOfLocation
+            let term = x.Decode t refinedExpr
+            assert(not (constant = term) || expr = refinedExpr)
+            if constant <> term then
+                x.WriteDictOfValueTypes subst source path typ term
+
         member x.MkModel (m : Model) =
             try
-                let subst = Dictionary<ISymbolicConstantSource, term>()
                 let stackEntries = Dictionary<stackKey, term ref>()
                 let state = {Memory.EmptyState() with complete = true}
+                let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
                 for KeyValue(key, value) in encodingCache.t2e do
                     match key with
@@ -1082,20 +1134,14 @@ module internal Z3 =
                             let address = x.DecodeConcreteHeapAddress refinedExpr |> ConcreteHeapAddress
                             let value = HeapRef address t
                             x.WriteDictOfValueTypes stackEntries key path key.TypeOfLocation value
-                        | HeapAddressSource(Path.Path(_, (:? functionResultConstantSource as frs)))
-                        | Path.Path(_, (:? functionResultConstantSource as frs)) ->
-                            let refinedExpr = m.Eval(value.expr, false)
+                        | HeapAddressSource(Path.Path(path, (:? functionResultConstantSource as frs)))
+                        | Path.Path(path, (:? functionResultConstantSource as frs)) ->
                             let t = (frs :> ISymbolicConstantSource).TypeOfLocation
-                            let term = x.Decode t refinedExpr
-                            assert(not (constant = term) || value.expr = refinedExpr)
-                            if constant <> term then subst.Add(ms, term)
+                            x.WriteToPrimitiveModel primitiveModel m path frs value.expr t constant
                         | _ -> ()
                     | {term = Constant(_, :? IStatedSymbolicConstantSource, _)} -> ()
                     | {term = Constant(_, source, t)} as constant ->
-                        let refinedExpr = m.Eval(value.expr, false)
-                        let term = x.Decode t refinedExpr
-                        assert(not (constant = term) || value.expr = refinedExpr)
-                        if constant <> term then subst.Add(source, term)
+                        x.WriteToPrimitiveModel primitiveModel m path.Empty source value.expr t constant
                     | _ -> ()
 
                 let frame = stackEntries |> Seq.map (fun kvp ->
@@ -1172,6 +1218,11 @@ module internal Z3 =
                 state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 
                 encodingCache.heapAddresses.Clear()
+
+                let subst = Dictionary<ISymbolicConstantSource, term>()
+                for KeyValue(k, v) in primitiveModel do
+                    subst.Add(k, v.Value)
+
                 state.model <- PrimitiveModel subst
                 StateModel state
             with e -> internalfail $"MkModel: caught exception {e}"

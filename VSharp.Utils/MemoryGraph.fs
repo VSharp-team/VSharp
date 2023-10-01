@@ -304,7 +304,9 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             EnumUtils.getEnumDefaultValue t
         | :? pointerRepr as repr when repr.sightType = intPtrIndex -> IntPtr.Zero
         | :? pointerRepr as repr when repr.sightType = uintPtrIndex -> UIntPtr.Zero
-        | :? pointerRepr -> null // TODO
+        | :? pointerRepr as repr ->
+            let sightType = sourceTypes[repr.sightType]
+            Pointer.Box(IntPtr.Zero.ToPointer(), sightType.MakePointerType())
         | _ -> obj
 
     let nullSourceIndex = -1
@@ -355,11 +357,18 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? stringRepr as str -> str.Decode()
         | _ -> obj
 
+    and decodeAndCast repr (typ : Type) =
+        match decodeValue repr with
+        | :? Pointer as ptr ->
+            assert typ.IsPointer
+            Pointer.Box(Pointer.Unbox ptr, typ)
+        | value -> value
+
     and decodeFields (fieldsRepr : obj array) obj t : unit =
         let fields = Reflection.fieldsOf false t
         assert(Array.length fields = Array.length fieldsRepr)
         let decodeField (_, field : FieldInfo) repr =
-            let value = decodeValue repr
+            let value = decodeAndCast repr field.FieldType
             field.SetValue(obj, value)
         Array.iter2 decodeField fields fieldsRepr
 
@@ -376,19 +385,23 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
     and decodeArray (repr : arrayRepr) (obj : obj) : unit =
         assert(repr.lowerBounds = null || repr.lengths.Length = repr.lowerBounds.Length)
         let arr = obj :?> Array
+        let elemType = lazy arr.GetType().GetElementType()
+        let inline decodeValue repr =
+            decodeAndCast repr elemType.Value
         match repr with
         | _ when repr.indices = null ->
             assert(arr.Length = repr.values.Length)
             match repr.lengths, repr.lowerBounds with
             | [|len|], null ->
-                let arr = obj :?> Array
                 assert(arr.Length = len)
-                repr.values |> Array.iteri (fun i r -> arr.SetValue(decodeValue r, i))
+                let setValue (i : int) r = arr.SetValue(decodeValue r, i)
+                Array.iteri setValue repr.values
             | lens, lbs ->
-                repr.values |> Array.iteri (fun i r ->
+                let setValue i r =
                     let value = decodeValue r
                     let indices = Array.delinearizeArrayIndex i lens lbs
-                    arr.SetValue(value, indices))
+                    arr.SetValue(value, indices)
+                Array.iteri setValue repr.values
         | _ ->
             let defaultValue = decodeValue repr.defaultValue
             let values = Array.map decodeValue repr.values
@@ -546,6 +559,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
 
     member x.RepresentDetachedPtr (sightType : Type) (shift : int64) =
         let repr : pointerRepr = {index = nullSourceIndex; shift = shift; sightType = x.RegisterType sightType}
+        repr :> obj
+
+    member x.RepresentNullPtr (sightType : Type) =
+        let repr : pointerRepr = {index = nullSourceIndex; shift = 0; sightType = x.RegisterType sightType}
         repr :> obj
 
     member x.RepresentPtr (index : int) (sightType : Type) (shift : int64) =

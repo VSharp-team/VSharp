@@ -431,28 +431,43 @@ internal class MethodRenderer : CodeRenderer
             return objId;
         }
 
-        private ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array obj, string? preferredName)
+        private unsafe ExpressionSyntax RenderArray(ArrayTypeSyntax type, System.Array array, string? preferredName)
         {
-            var rank = obj.Rank;
-            var elemType = obj.GetType().GetElementType();
+            var rank = array.Rank;
+            var elemType = array.GetType().GetElementType();
             Debug.Assert(elemType != null);
             var initializer = new List<ExpressionSyntax>();
             if (rank > 1)
                 throw new NotImplementedException("implement rendering for non-vector arrays");
 
-            var lowerBound = obj.GetLowerBound(0);
-            var upperBound = obj.GetUpperBound(0);
+            var lowerBound = array.GetLowerBound(0);
+            var upperBound = array.GetUpperBound(0);
 
             if (lowerBound != 0)
                 // TODO: if lower bound != 0, use Array.CreateInstance
                 throw new NotImplementedException("implement rendering for non zero lower bound arrays");
 
-            for (int i = lowerBound; i <= upperBound; i++)
+            if (elemType.IsPointer)
             {
-                var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
-                var value = obj.GetValue(i);
-                var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
-                initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                var unsafeArray = array as void*[];
+                Debug.Assert(unsafeArray != null);
+                for (int i = lowerBound; i <= upperBound; i++)
+                {
+                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                    var value = Pointer.Box(unsafeArray[i], typeof(void).MakePointerType());
+                    var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                    initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                }
+            }
+            else
+            {
+                for (int i = lowerBound; i <= upperBound; i++)
+                {
+                    var elementPreferredName = (preferredName ?? "array") + "_Elem" + i;
+                    var value = array.GetValue(i);
+                    var explicitType = NeedExplicitType(value, elemType) ? elemType : null;
+                    initializer.Add(RenderObject(value, elementPreferredName, explicitType));
+                }
             }
 
             // TODO: handle recursive array case
@@ -466,7 +481,7 @@ internal class MethodRenderer : CodeRenderer
             {
                 elems[i - lowerBound] = (i, initializer[i - lowerBound]);
             }
-            return RenderPrivateElemArray(obj, elems, elems.Length, preferredName);
+            return RenderPrivateElemArray(array, elems, elems.Length, preferredName);
         }
 
         private ExpressionSyntax RenderArray(System.Array obj, string? preferredName)
@@ -623,7 +638,8 @@ internal class MethodRenderer : CodeRenderer
             bool isPublicType,
             bool isBoxed,
             TypeSyntax typeExpr,
-            string? preferredName)
+            string? preferredName,
+            Type? explicitType = null)
         {
             var physAddress = new physicalAddress(obj);
 
@@ -670,17 +686,26 @@ internal class MethodRenderer : CodeRenderer
                 return renderedId;
             }
 
-            var declType = isBoxed ? ObjectType : typeExpr;
+            var declType =
+                isBoxed
+                    ? explicitType is not null
+                        ? RenderType(explicitType)
+                        : ObjectType
+                    : typeExpr;
             return AddDecl(preferredName ?? "obj", declType, resultObject);
         }
 
-        private ExpressionSyntax RenderFields(object obj, bool isBoxed, string? preferredName)
+        private ExpressionSyntax RenderFields(
+            object obj,
+            bool isBoxed,
+            string? preferredName,
+            Type? explicitType = null)
         {
             var type = obj.GetType();
             var isPublicType = TypeUtils.isPublic(type);
             var typeExpr = RenderType(isPublicType ? type : typeof(object));
 
-            return RenderFields(obj, type, isPublicType, isBoxed, typeExpr, preferredName);
+            return RenderFields(obj, type, isPublicType, isBoxed, typeExpr, preferredName, explicitType);
         }
 
         private ExpressionSyntax RenderNull(Type? explicitType, string? preferredName)
@@ -868,12 +893,13 @@ internal class MethodRenderer : CodeRenderer
                 nint n => RenderIntPtr(n, preferredName),
                 Enum e => RenderEnum(e),
                 _ when HasMockInfo(obj.GetType().Name) => RenderMock(obj, obj.GetType(), isBoxed, preferredName),
-                _ => RenderFields(obj, isBoxed, preferredName),
+                _ => RenderFields(obj, isBoxed, preferredName, explicitType),
             };
 
             if (isBoxed && result is not IdentifierNameSyntax)
             {
-                result = AddDecl(preferredName ?? "boxed", ObjectType, result);
+                var type = explicitType is not null ? RenderType(explicitType) : ObjectType;
+                result = AddDecl(preferredName ?? "boxed", type, result);
             }
 
             // Adding rendered expression to '_renderedObjects'

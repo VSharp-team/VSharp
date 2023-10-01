@@ -25,9 +25,6 @@ module internal ReadOnlySpan =
     let readOnlySpanType() =
         typeof<int>.Assembly.GetType("System.ReadOnlySpan`1")
 
-    let private CreateArrayRef address indices arrayType =
-        ArrayIndex(address, indices, arrayType) |> Ref
-
     let GetLength (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
@@ -95,40 +92,18 @@ module internal ReadOnlySpan =
                 k
         i.NpeOrInvoke cilState ref checkIndex id
 
-    let private PrepareRefField state ref len : term =
-        match ref.term with
-        // Case for char span made from string
-        | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
-            let address, arrayType = Memory.StringArrayInfo state address None
-            CreateArrayRef address [MakeNumber 0] arrayType
-        | Ref(ArrayIndex(addr, indices, arrayType)) ->
-            CreateArrayRef addr indices arrayType
-        | HeapRef(address, _) ->
-            let t = MostConcreteTypeOfRef state ref
-            if TypeUtils.isArrayType t then ref
-            elif t = typeof<string> then
-                let address, arrayType = Memory.StringArrayInfo state address None
-                CreateArrayRef address [MakeNumber 0] arrayType
-            elif TypeUtils.isValueType t && len = MakeNumber 1 then
-                HeapReferenceToBoxReference ref
-            else internalfail $"PrepareRefField: unexpected pointer {ref}"
-        | DetachedPtr _ -> ref
-        | Ptr(HeapLocation(_, t) as pointerBase, sightType, offset) ->
-            match TryPtrToRef state pointerBase sightType offset with
-            | Some(ArrayIndex(address, indices, arrayType)) -> CreateArrayRef address indices arrayType
-            | Some address -> Ref address
-            | None when t.IsSZArray || t = typeof<string> -> ref
-            | None -> internalfail $"PrepareRefField: unexpected pointer to contents {ref}"
-        | Ptr(pointerBase, sightType, offset) when len = MakeNumber 1 ->
-            match TryPtrToRef state pointerBase sightType offset with
-            | Some address -> Ref address
-            | _ -> ref
-        | _ -> internalfail $"PrepareRefField: unexpected reference to contents {ref}"
+    let private PrepareRefField state ref : term =
+        let cases = Memory.TryAddressFromRef state ref
+        assert(List.length cases = 1)
+        let address, _ = List.head cases
+        match address with
+        | Some address -> Ref address
+        | None -> ref
 
     let private InitSpanStruct cilState spanStruct refToFirst length =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
-        let refToFirst = PrepareRefField cilState.state refToFirst length
+        let refToFirst = PrepareRefField cilState.state refToFirst
         let ptrField, ptrFieldInfo = spanFields |> Array.find (fst >> isContentReferenceField)
         let ptrFieldType = ptrFieldInfo.FieldType
         let spanWithPtrField =

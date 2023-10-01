@@ -48,7 +48,13 @@ module internal Copying =
         | _ ->
             copyArraySymbolic state srcAddress srcIndex srcType srcLens srcLBs dstAddress dstIndex dstType dstLens dstLBs length
 
+    let isSafeContextCopy srcArrayType dstArrayType =
+        let srcElemType = fst3 srcArrayType
+        let dstElemType = fst3 dstArrayType
+        isSafeContextWrite srcElemType dstElemType
+
     let copyArray state srcAddress srcIndex srcType dstAddress dstIndex dstType length =
+        assert(isSafeContextCopy srcType dstType)
         let cm = state.concreteMemory
         let concreteSrcIndex = tryTermToObj state srcIndex
         let concreteDstIndex = tryTermToObj state dstIndex

@@ -60,10 +60,11 @@ module TypeUtils =
 
     let isNumeric x = numericTypes.Contains x || x.IsEnum
     let isIntegral x = integralTypes.Contains x || x.IsEnum
-    let isLongTypes = longTypes.Contains
-    let isReal = realTypes.Contains
-    let isUnsigned = unsignedTypes.Contains
-    let isPrimitive = primitiveTypes.Contains
+    let isLongType x = longTypes.Contains x
+    let isReal x = realTypes.Contains x
+    let isUnsigned x = unsignedTypes.Contains x
+    let isSigned x = unsignedTypes.Contains x |> not
+    let isPrimitive x = primitiveTypes.Contains x
     let isNative x = x = typeof<IntPtr> || x = typeof<UIntPtr>
 
     // returns true, if at least one constraint on type parameter "t" implies that "t" is reference type (for example, "t : class" case)
@@ -213,6 +214,19 @@ module TypeUtils =
             else __insufficientInformation__ "Can't determine if %O is a nullable type or not!" t
         | t -> Nullable.GetUnderlyingType(t) <> null
 
+    let isBoxedType t =
+        t = typeof<obj> || t.IsInterface || isValueType t || t = typeof<Enum>
+
+    let getGenericArgs (t: Type) =
+        if t.IsGenericType then t.GetGenericArguments() else [||]
+
+    let rec getSupertypes (t: Type) =
+        if t = null then []
+        else t :: getSupertypes t.BaseType
+
+    let getTypeDef (t: Type) =
+        if t.IsGenericType then t.GetGenericTypeDefinition() else t
+
     let (|Numeric|_|) = function
         | t when isNumeric t -> Some(t)
         | _ -> None
@@ -304,6 +318,12 @@ module TypeUtils =
         | ReferenceType
         | TypeVariable _ -> Some(ComplexType)
         | _ -> None
+
+    let (|Covariant|Invariant|Contravariant|) (parameter : Type) =
+        assert parameter.IsGenericParameter
+        if parameter.GenericParameterAttributes &&& GenericParameterAttributes.Contravariant = GenericParameterAttributes.Contravariant then Contravariant
+        elif parameter.GenericParameterAttributes &&& GenericParameterAttributes.Covariant = GenericParameterAttributes.Covariant then Covariant
+        else Invariant
 
 
     let elementType = function

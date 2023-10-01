@@ -76,29 +76,39 @@ module internal Pointers =
         | StaticLocation _, StaticLocation _ -> __unreachable__()
         | _ -> False()
 
+    let simplifyReferenceEqualityExt x y k =
+        match x.term, y.term with
+        | _ when x = y -> k (True())
+        | Ref address1, Ref address2 -> compareAddress (address1, address2) |> k
+        | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
+            let addressEq = comparePointerBase address1 address2
+            addressEq &&& simplifyEqual shift1 shift2 id |> k
+        | Concrete(number, _), other
+        | other, Concrete(number, _) ->
+            let i = convert number typeof<int>
+            match other with
+            | DetachedPtr shift -> simplifyEqual shift (makeNumber i) k
+            | Ptr(HeapLocation(address, _), _, shift) ->
+                simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber i) id |> k
+            | HeapRef(address, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
+            | _ -> False() |> k
+        | Ref _, Ptr _
+        | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
+        | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
+        | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
+        | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
+            simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
+        | _, DetachedPtr shift when typeOf x |> isNative ->
+            simplifyEqual x shift k
+        | DetachedPtr shift, _ when typeOf y |> isNative ->
+            simplifyEqual shift y k
+        | _ -> False() |> k
+
     let rec simplifyReferenceEqualityk x y k =
         simplifyGenericBinary "reference comparison" x y k
             (fun _ _ _ -> __unreachable__())
-            (fun x y k ->
-                match x.term, y.term with
-                | _ when x = y -> k (True())
-                | Ref address1, Ref address2 -> compareAddress (address1, address2) |> k
-                | Ptr(address1, _, shift1), Ptr(address2, _, shift2) ->
-                    let addressEq = comparePointerBase address1 address2
-                    addressEq &&& simplifyEqual shift1 shift2 id |> k
-                | Concrete(:? int as i, _), Ptr(HeapLocation(address, _), _, shift)
-                | Ptr(HeapLocation(address, _), _, shift), Concrete(:? int as i, _) when i = 0 ->
-                    simplifyEqual address (zeroAddress()) id &&& simplifyEqual shift (makeNumber 0) id |> k
-                | Concrete(:? int as i, _), HeapRef(address, _)
-                | HeapRef(address, _), Concrete(:? int as i, _) when i = 0 -> simplifyEqual address (zeroAddress()) k
-                | Ref _, Ptr _
-                | Ptr _, Ref _ -> internalfail "comparison between ref and ptr is not implemented"
-                | HeapRef(address1, _), HeapRef(address2, _) -> simplifyEqual address1 address2 k
-                | Ptr(HeapLocation(addr, _), _, shift), HeapRef(term, _)
-                | HeapRef(term, _), Ptr(HeapLocation(addr, _), _, shift) ->
-                    simplifyEqual addr term id &&& simplifyEqual shift (makeNumber 0) id |> k
-                | _ -> False() |> k)
-            (fun x y k -> simplifyReferenceEqualityk x y k)
+            simplifyReferenceEqualityExt
+            simplifyReferenceEqualityk
 
     let isNull heapReference =
         simplifyReferenceEqualityk heapReference (nullRef (typeOf heapReference)) id
@@ -193,23 +203,24 @@ module internal Pointers =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
+    let private pointerId ptr =
+        match ptr.term with
+        | DetachedPtr offset -> offset
+        | _ when typeOf ptr |> isNative ->
+            primitiveCast ptr typeof<int>
+        | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, o) ->
+            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
+            add pointerBase o
+        | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of symbolic pointer {ptr}"
+
     let private simplifyPointerComparison op x y k =
         match x.term, y.term with
         | Ptr(pointerBase1, _, offset1), Ptr(pointerBase2, _, offset2) when pointerBase1 = pointerBase2 ->
             simplifyBinaryOperation op offset1 offset2 k
-        | Ptr(HeapLocation({term = ConcreteHeapAddress a1}, _), _, o1), Ptr(HeapLocation({term = ConcreteHeapAddress a2}, _), _, o2) ->
-            let base1 = convert (List.sum a1) typeof<int> |> makeNumber
-            let base2 = convert (List.sum a2) typeof<int> |> makeNumber
-            let number1 = add base1 o1
-            let number2 = add base2 o2
+        | _ ->
+            let number1 = pointerId x
+            let number2 = pointerId y
             simplifyBinaryOperation op number1 number2 k
-        | DetachedPtr offset, _ when typeOf y |> isNative ->
-            simplifyBinaryOperation op offset y k
-        | _, DetachedPtr offset when typeOf x |> isNative ->
-            simplifyBinaryOperation op x offset k
-        | Ptr(HeapLocation _, _, _), Ptr(HeapLocation _, _, _) ->
-            __insufficientInformation__ "simplifyPointerComparison: unable to compare symbolic pointers"
-        | _ -> __notImplemented__()
 
     let simplifyBinaryOperation op x y k =
         match op with

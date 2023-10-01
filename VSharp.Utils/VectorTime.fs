@@ -17,12 +17,18 @@ module VectorTime =
     let rec compare (t1 : vectorTime) (t2 : vectorTime) =
         List.compareWith (fun (v1 : int32) (v2 : int32) -> v1.CompareTo(v2)) t1 t2
 
-    let lessOrEqual (t1 : vectorTime) (t2 : vectorTime) =
-        let res = compare t1 t2
-        res = -1 || res = 0
+    let equals (t1 : vectorTime) (t2 : vectorTime) =
+        0 = compare t1 t2
 
     let less (t1 : vectorTime) (t2 : vectorTime) =
         -1 = compare t1 t2
+
+    let greater (t1 : vectorTime) (t2 : vectorTime) =
+        1 = compare t1 t2
+
+    let lessOrEqual (t1 : vectorTime) (t2 : vectorTime) =
+        let res = compare t1 t2
+        res = -1 || res = 0
 
     let isDescending (t : vectorTime) =
         true

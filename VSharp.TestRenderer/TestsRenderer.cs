@@ -279,7 +279,10 @@ public static class TestsRenderer
     private static ExpressionSyntax RenderArgument(IBlock block, object? obj, ParameterInfo parameter, bool hasOverloads)
     {
         var needExplicitType = NeedExplicitType(obj, parameter.ParameterType) || hasOverloads;
-        var correctName = parameter.Name is null? null: CorrectNameGenerator.GetVariableName(parameter.Name);
+        var correctName =
+            parameter.Name is null
+                ? null
+                : CorrectNameGenerator.GetVariableName(parameter.Name);
         var explicitType = needExplicitType ? parameter.ParameterType : null;
         return block.RenderObject(obj, correctName, explicitType);
     }
@@ -419,7 +422,9 @@ public static class TestsRenderer
         var methodName = CorrectNameGenerator.GetVariableName(m);
         var valuesFieldName = $"_clauses{methodName}";
         var emptyArray =
-            RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
+            m.ReturnType.IsPointer
+                ? RenderEmptyArrayInitializer()
+                : RenderCall(mock.SystemArray, "Empty", new [] { mock.RenderType(m.ReturnType) });
         var valuesField =
             mock.AddField(renderedReturnType, valuesFieldName, new[] { Private }, emptyArray);
         var currentName = $"_currentClause{methodName}";
@@ -551,13 +556,15 @@ public static class TestsRenderer
             isDelegate
                 ? NameForType(typeMock.BaseClass)
                 : structPrefix + string.Join("", superTypes.Select(NameForType));
+        var isUnsafe = typeMock.MethodMocks.Any(m => m.BaseMethod.ReturnType.IsPointer);
+        var modifiers = isUnsafe ? new[] { Internal, Unsafe } : new[] { Internal };
         var mock =
             mocksProgram.AddType(
                 $"{name}Mock",
                 isStruct,
                 superTypes.Count > 0 ? superTypes : null,
                 null,
-                new []{Internal}
+                modifiers
             );
         if (isStruct)
         {

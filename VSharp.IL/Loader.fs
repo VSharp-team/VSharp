@@ -94,7 +94,13 @@ module Loader =
         let intPtr = Reflection.getAllMethods typeof<IntPtr> |> Array.map Reflection.getFullMethodName
         let volatile = Reflection.getAllMethods typeof<System.Threading.Volatile> |> Array.map Reflection.getFullMethodName
         let defaultComparer = [|"System.Collections.Generic.Comparer`1[T] System.Collections.Generic.Comparer`1[T].get_Default()"|]
-        Array.concat [intPtr; volatile; defaultComparer]
+        let string = [|"System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)"|]
+        let span = [|
+            "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
+            "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
+        |]
+        let vector = [|"System.Int32 System.Numerics.Vector`1[T].get_Count()"|]
+        Array.concat [intPtr; volatile; defaultComparer; string; span; vector]
 
     let private concreteInvocations =
         set [
@@ -135,6 +141,10 @@ module Loader =
             "System.Type System.RuntimeType.get_DeclaringType(this)"
             "System.String System.RuntimeType.get_Namespace(this)"
             "System.Boolean System.Type.get_IsAbstract(this)"
+            "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
+
+            // Assembly
+            "System.String System.Reflection.RuntimeAssembly.get_Location(this)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -162,6 +172,23 @@ module Loader =
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
+            "System.String System.Environment.GetEnvironmentVariable(System.String)"
+
+            // Guid
+            "System.Guid System.Guid.NewGuid()"
+
+            // CultureInfo
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_CurrentCulture()"
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_InvariantCulture()"
+            "System.Globalization.CompareInfo System.Globalization.CultureInfo.get_CompareInfo(this)"
+            "System.Boolean System.Globalization.GlobalizationMode.get_Invariant()"
+            "System.String System.Globalization.CultureInfo.get_Name(this)"
+            "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
+            "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
+
+            // ResourceManager
+            "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
+            "System.String System.Resources.ResourceManager.GetString(this, System.String, System.Globalization.CultureInfo)"
 
             // Buffers
             "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"

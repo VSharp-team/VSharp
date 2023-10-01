@@ -92,3 +92,9 @@ module internal SR =
 
     [<Implements("System.String System.SR.get_Argument_InvalidTypeWithPointersNotSupported()")>]
     val get_Argument_InvalidTypeWithPointersNotSupported : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_InvalidOperation_HandleIsNotInitialized()")>]
+    val get_InvalidOperation_HandleIsNotInitialized : state -> term list -> term
+
+    [<Implements("System.String System.SR.get_Argument_InvalidPathChars()")>]
+    val get_Argument_InvalidPathChars : state -> term list -> term

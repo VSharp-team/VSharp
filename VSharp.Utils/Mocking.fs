@@ -41,7 +41,11 @@ module Mocking =
                 if field = null then
                     internalfail $"Could not detect field %s{storageFieldName} of mock!"
                 let storage = Array.CreateInstance(returnType, clausesCount)
-                Array.Copy(returnValues, storage, clausesCount)
+                if returnType.IsPointer then
+                    let returnValues = Array.map Pointer.Unbox returnValues
+                    Array.Copy(returnValues, storage, clausesCount)
+                else
+                    Array.Copy(returnValues, storage, clausesCount)
                 field.SetValue(null, storage)
 
         member x.Build (typeBuilder : TypeBuilder) =
@@ -81,7 +85,8 @@ module Mocking =
             else
                 methodBuilder.SetReturnType baseMethod.ReturnType
                 methodBuilder.SetParameters(baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
-            returnType <- methodBuilder.ReturnType
+            let t = methodBuilder.ReturnType
+            returnType <- if t.IsPointer then typeof<Void>.MakePointerType() else t
 
             if not typeIsDelegate then
                 typeBuilder.DefineMethodOverride(methodBuilder, baseMethod)

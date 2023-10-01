@@ -100,7 +100,7 @@ module API =
         val (|Disjunction|_|) : term -> term list option
         val (|NullRef|_|) : term -> Type option
         val (|NonNullRef|_|) : term -> unit option
-        val (|NullPtr|_|) : term -> unit option
+        val (|NullPtr|_|) : term -> Type option
         val (|DetachedPtr|_|) : termNode -> term option
         val (|DetachedPtrTerm|_|) : term -> term option
 
@@ -167,6 +167,7 @@ module API =
 
         val ElementType : Type -> Type
         val ArrayTypeToSymbolicType : arrayType -> Type
+        val SymbolicTypeToArrayType : Type -> arrayType
 
         val TypeIsType : Type -> Type -> term
         val IsNullable : Type -> bool
@@ -208,6 +209,7 @@ module API =
         val Add : term -> term -> term
         val Rem : term -> term -> term
         val RemUn : term -> term -> term
+        val Div : term -> term -> term
         val IsZero : term -> term
 
         val Acos : term -> term
@@ -258,6 +260,9 @@ module API =
 
         val ReferenceArrayIndex : state -> term -> term list -> Type option -> term
         val ReferenceField : state -> term -> fieldId -> term
+
+        val TryAddressFromRef : state -> term -> list<address option * state>
+        val TryAddressFromRefFork : state -> term -> list<address option * state>
 
         val ExtractAddress : term -> term
         val ExtractPointerOffset : term -> term
@@ -321,6 +326,8 @@ module API =
         val AllocateConcreteObject : state -> obj -> Type -> term
 
         val LinearizeArrayIndex : state -> term -> term list -> arrayType -> term
+
+        val IsSafeContextCopy : arrayType -> arrayType -> bool
 
         val CopyArray : state -> term -> term -> Type -> term -> term -> Type -> term -> unit
         val CopyStringArray : state -> term -> term -> term -> term -> term -> unit

@@ -773,19 +773,40 @@ module internal Terms =
         | _ when t = typeof<double> -> BitConverter.ToDouble span :> obj
         | _ when t = typeof<bool> -> BitConverter.ToBoolean span :> obj
         | _ when t = typeof<char> -> BitConverter.ToChar span :> obj
+        | _ when t = typeof<IntPtr> ->
+            if sizeof<IntPtr> = sizeof<int> then
+                BitConverter.ToInt32 span |> IntPtr :> obj
+            elif sizeof<IntPtr> = sizeof<int64> then
+                BitConverter.ToInt64 span |> IntPtr :> obj
+            else internalfail "bytesToObj: unexpected IntPtr size"
+        | _ when t = typeof<UIntPtr> ->
+            if sizeof<UIntPtr> = sizeof<uint> then
+                BitConverter.ToUInt32 span |> UIntPtr :> obj
+            elif sizeof<UIntPtr> = sizeof<uint64> then
+                BitConverter.ToUInt64 span |> UIntPtr :> obj
+            else internalfail "bytesToObj: unexpected UIntPtr size"
+        | _ when t = typeof<Reflection.Pointer> ->
+            let intPtr =
+                if sizeof<IntPtr> = sizeof<int> then
+                    BitConverter.ToInt32 span |> IntPtr
+                elif sizeof<IntPtr> = sizeof<int64> then
+                    BitConverter.ToInt64 span |> IntPtr
+                else internalfail "bytesToObj: unexpected IntPtr size"
+            Reflection.Pointer.Box(intPtr.ToPointer(), typeof<Void>.MakePointerType())
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
         | StructType _ ->
-            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let size = internalSizeOf t
-            let mutable ptr = IntPtr.Zero
-            try
-                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
-                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
-            finally
-                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+            let fields = Reflection.fieldsOf false t
+            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let obj = Reflection.defaultOf t
+            for _, fi in fields do
+                let offset = LayoutUtils.GetFieldOffset fi
+                let fieldType = fi.FieldType
+                let size = internalSizeOf fieldType
+                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                fi.SetValue(obj, value)
+            obj
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
@@ -906,8 +927,10 @@ module internal Terms =
                     primitiveCast p t
                 else defaultCase()
             else defaultCase()
-        assert(List.isEmpty terms |> not)
         match terms with
+        // 'ReportError' case
+        | _ when List.isEmpty terms ->
+            makeDefaultValue t
         | _ when allSlicesAreConcrete terms -> Concrete (reinterpretConcretes terms t) t
         | [{term = Slice(p, cuts)}] ->
             match cuts with
@@ -921,7 +944,7 @@ module internal Terms =
             simplify nonSliceTerm 0 (sizeOf nonSliceTerm) 0
         | _ -> defaultCase()
 
-    let rec timeOf (address : heapAddress) =
+    and timeOf (address : heapAddress) =
         match address.term with
         | ConcreteHeapAddress addr -> addr
         | Constant(_, source, _) -> source.Time
@@ -929,14 +952,14 @@ module internal Terms =
         | Union gvs -> List.fold (fun m (_, v) -> VectorTime.max m (timeOf v)) VectorTime.zero gvs
         | _ -> internalfailf "timeOf : expected heap address, but got %O" address
 
-    let compareTerms t1 t2 =
+    and compareTerms t1 t2 =
         match t1.term, t2.term with
         | Concrete(:? IComparable as x, _), Concrete(:? IComparable as y, _) -> x.CompareTo y
         | Concrete(:? IComparable, _), _ -> -1
         | _, Concrete(:? IComparable, _) -> 1
         | _ -> compare (toString t1) (toString t2)
 
-    let rec private foldChildren folder state term k =
+    and private foldChildren folder state term k =
         match term.term with
         | Constant(_, source, _) ->
             foldSeq folder source.SubTerms state k
@@ -990,16 +1013,16 @@ module internal Terms =
     and private foldSeq folder terms state k =
         Cps.Seq.foldlk (doFold folder) state terms k
 
-    let fold folder state terms =
+    and fold folder state terms =
         foldSeq folder terms state id
 
-    let iter action term =
+    and iter action term =
         doFold action () term id
 
-    let iterSeq action terms =
+    and iterSeq action terms =
         Cps.Seq.foldlk (doFold action) () terms id
 
-    let discoverConstants terms =
+    and discoverConstants terms =
         let result = HashSet<term>()
         let addConstant _ t _ into =
             match t.term with
@@ -1008,23 +1031,23 @@ module internal Terms =
         Seq.iter (iter addConstant) terms
         result :> ISet<term>
 
-    let private foldFields isStatic folder acc typ =
+    and private foldFields isStatic folder acc typ =
         let fields = Reflection.fieldsOf isStatic typ
         let addField heap (fieldId, fieldInfo : Reflection.FieldInfo) =
             folder heap fieldInfo fieldId fieldInfo.FieldType
         FSharp.Collections.Array.fold addField acc fields
 
-    let private makeFields isStatic makeField typ =
+    and private makeFields isStatic makeField typ =
         let folder fields fieldInfo field termType =
             let value = makeField fieldInfo field termType
             PersistentDict.add field value fields
         foldFields isStatic folder PersistentDict.empty typ
 
-    let makeStruct isStatic makeField typ =
+    and makeStruct isStatic makeField typ =
         let fields = makeFields isStatic makeField typ
         Struct fields typ
 
-    let rec makeDefaultValue typ =
+    and makeDefaultValue typ =
         match typ with
         | Bool -> False()
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t

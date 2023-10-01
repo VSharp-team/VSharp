@@ -34,7 +34,7 @@ namespace VSharp.Runner
         public static int Main(string[] args)
         {
             var defaultOptions = new VSharpOptions();
-            
+
             var assemblyPathArgument =
                 new Argument<FileInfo>("assembly-path", description: "Path to the target assembly");
             var timeoutOption = new Option<int>(
@@ -188,7 +188,7 @@ namespace VSharp.Runner
                         Console.Error.WriteLine($"Cannot find type with name {className} in assembly {assembly.Location}");
                         return;
                     }
-                    
+
                     var options = new VSharpOptions
                     {
                         Timeout = timeout,

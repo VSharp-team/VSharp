@@ -343,12 +343,14 @@ module CilStateOperations =
                     let cilState = changeState cilState state
                     cilState.errorReported <- true
                     reportError cilState msg |> k
+                let mutable isAlive = false
                 StatedConditionalExecution cilState.state
                     (fun state k -> k (!!failCondition, state))
-                    (fun _ k -> k ())
+                    (fun _ k -> k (isAlive <- true))
                     report
                     (fun _ _ -> [])
                     ignore
+                isAlive
 
             override x.ReportFatalError msg failCondition =
                 assert stateConfigured
@@ -356,12 +358,14 @@ module CilStateOperations =
                     let cilState = changeState cilState state
                     cilState.errorReported <- true
                     reportFatalError cilState msg |> k
+                let mutable isAlive = false
                 StatedConditionalExecution cilState.state
                     (fun state k -> k (!!failCondition, state))
-                    (fun _ k -> k ())
+                    (fun _ k -> k (isAlive <- true))
                     report
                     (fun _ _ -> [])
                     ignore
+                isAlive
 
             override x.ConfigureState state =
                 cilState <- changeState cilState state

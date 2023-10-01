@@ -34,7 +34,7 @@ module TypeUtils =
     let uintPtr = typedefof<UIntPtr>
 
     let isIntegralTerm term = Terms.TypeOf term |> TypeUtils.isIntegral
-    let isLong term = TypeOf term |> TypeUtils.isLongTypes
+    let isLong term = TypeOf term |> TypeUtils.isLongType
     let isBool term = Terms.TypeOf term |> IsBool
 
     module Char =
@@ -392,10 +392,6 @@ module internal InstructionsSet =
             | [] -> Instruction(dst, m)
             | e :: ehcs -> leave (Instruction(e.handlerOffset, m)) ehcs dst m
         setCurrentIp currentIp cilState
-    let rethrow (cilState : cilState) =
-        let state = cilState.state
-        assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
-        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
     let endfilter (cilState : cilState) =
         let value, restStack = EvaluationStack.Pop cilState.state.evaluationStack
         if restStack = EvaluationStack.EmptyStack then
@@ -466,8 +462,11 @@ module internal InstructionsSet =
         let size = pop cilState
         let ref = Memory.AllocateVectorArray cilState.state size typeof<byte>
         match ref.term with
-        | HeapRef({term = ConcreteHeapAddress address}, _) ->
-            addStackArray cilState address
+        | HeapRef({term = ConcreteHeapAddress concreteAddress} as address, t) ->
+            assert(TypeUtils.isArrayType t)
+            addStackArray cilState concreteAddress
+            let arrayType = Types.SymbolicTypeToArrayType t
+            let ref = Ref (ArrayIndex(address, [MakeNumber 0], arrayType))
             push ref cilState
         | _ -> internalfail $"localloc: unexpected array reference {ref}"
 
@@ -834,16 +833,16 @@ type ILInterpreter() as this =
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported extern method: {fullMethodName}"
+            let message = "Not supported extern method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsInternalCall then
             assert(not <| method.IsImplementedInternalCall)
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported internal call: {fullMethodName}"
+            let message = "Not supported internal call"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.IsNotImplementedIntrinsic then
             let stackTrace = Memory.StackTraceString cilState.state.stack
-            let message = $"Not supported intrinsic method: {fullMethodName}"
+            let message = "Not supported intrinsic method"
             UnknownMethodException(message, method, stackTrace) |> raise
         elif method.HasBody then
             ILInterpreter.InitFunctionFrameCIL cilState method thisOption (Some args)
@@ -1297,14 +1296,16 @@ type ILInterpreter() as this =
             push length cilState
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState arrayRef ldlen id
+
     member private x.LdVirtFtn (m : Method) offset (cilState : cilState) =
         let ancestorMethodBase = resolveMethodFromMetadata m (offset + Offset.from OpCodes.Ldvirtftn.Size)
         let this = pop cilState
         let ldvirtftn (cilState : cilState) k =
             assert(IsReference this)
             let thisType = MostConcreteTypeOfRef cilState.state this
-            let signature = ancestorMethodBase.GetParameters() |> Array.map (fun p -> p.ParameterType)
-            let methodInfo = thisType.GetMethod(ancestorMethodBase.Name, ancestorMethodBase.GetGenericArguments().Length, signature)
+            let ancestorMethod = Application.getMethod ancestorMethodBase
+            let overriden = ancestorMethod.ResolveOverrideInType thisType
+            let methodInfo = (overriden :> IMethod).MethodBase
             let methodInfoType = methodInfo.GetType()
             let methodPtr = Terms.Concrete methodInfo methodInfoType
             push methodPtr cilState
@@ -1418,6 +1419,10 @@ type ILInterpreter() as this =
             nonNullCase
             k
 
+    member private x.SetExceptionIP cilState =
+        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+
     member private x.CommonThrow cilState error isRuntime =
         let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
         let stackTrace = List.map toString codeLocations |> join ","
@@ -1434,6 +1439,14 @@ type ILInterpreter() as this =
                 clearEvaluationStackLastFrame cilState
                 k [cilState])
             id
+
+    member private x.Rethrow (cilState : cilState) =
+        let state = cilState.state
+        assert(Option.isSome state.exceptionsRegister.ExceptionTerm)
+        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
+        x.SetExceptionIP cilState
+        List.singleton cilState
+
     member private x.Unbox (m : Method) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Unbox.Size)
         let obj = pop cilState
@@ -1671,23 +1684,27 @@ type ILInterpreter() as this =
         this.UnsignedCheckOverflow checkOverflowForUnsigned cilState
     member private this.Mul_ovf_un (cilState : cilState) =
         let checkOverflowForUnsigned zero max x y cilState =
-            let (>>=) = API.Arithmetics.(>>=)
             let isZero state k = k ((x === zero) ||| (y === zero), state)
-            StatedConditionalExecutionCIL cilState isZero
-                (fun cilState k ->
-                    push zero cilState
-                    k [cilState])
-                (fun cilState k ->
-                    StatedConditionalExecutionCIL cilState
-                        (fun state k ->
-                            PerformBinaryOperation OperationType.Divide max x (fun quotient ->
-                            k (quotient >>= y, state)))
-                        (fun cilState k ->
-                            PerformBinaryOperation OperationType.Multiply x y (fun res ->
-                                push res cilState
-                                k [cilState]))
-                        (this.Raise this.OverflowException)
-                        k)
+            let zeroCase cilState k =
+                push zero cilState
+                List.singleton cilState |> k
+            let checkOverflow cilState k =
+                let evalCondition state k =
+                    PerformBinaryOperation OperationType.Divide max x (fun quotient ->
+                    k (Arithmetics.GreaterOrEqualUn quotient y, state))
+                let mul cilState k =
+                    PerformBinaryOperation OperationType.Multiply x y (fun res ->
+                    push res cilState
+                    List.singleton cilState |> k)
+                StatedConditionalExecutionCIL cilState
+                    evalCondition
+                    mul
+                    (this.Raise this.OverflowException)
+                    k
+            StatedConditionalExecutionCIL cilState
+                isZero
+                zeroCase
+                checkOverflow
                 id
         this.UnsignedCheckOverflow checkOverflowForUnsigned cilState
     member private this.Sub_ovf_un (cilState : cilState) =
@@ -2137,7 +2154,7 @@ type ILInterpreter() as this =
             | OpCodeValues.Leave
             | OpCodeValues.Leave_S -> leave m offset cilState; [cilState]
             | OpCodeValues.Endfinally -> (fun _ _ -> endfinally) |> fallThrough m offset cilState
-            | OpCodeValues.Rethrow -> (fun _ _ -> rethrow) |> fallThrough m offset cilState
+            | OpCodeValues.Rethrow -> x.Rethrow cilState
             | OpCodeValues.Endfilter -> (fun _ _ -> endfilter) |> fallThrough m offset cilState
             | OpCodeValues.Localloc -> (fun _ _ -> localloc) |> fallThrough m offset cilState
             // TODO: notImplemented instructions
