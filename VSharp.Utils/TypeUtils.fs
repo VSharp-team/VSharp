@@ -22,24 +22,24 @@ module TypeUtils =
     let private integralTypes =
         HashSet<Type>(
             [
-                typedefof<byte>; typedefof<sbyte>; typedefof<int16>; typedefof<uint16>
-                typedefof<int32>; typedefof<uint32>; typedefof<int64>; typedefof<uint64>;
-                typedefof<char>; typeof<IntPtr>; typeof<UIntPtr>
+                typeof<byte>; typeof<sbyte>; typeof<int16>; typeof<uint16>
+                typeof<int32>; typeof<uint32>; typeof<int64>; typeof<uint64>;
+                typeof<char>; typeof<IntPtr>; typeof<UIntPtr>
             ]
         )
 
-    let private longTypes = HashSet<Type>([typedefof<int64>; typedefof<uint64>])
+    let private longTypes = HashSet<Type>([typeof<int64>; typeof<uint64>])
 
     let private unsignedTypes =
         HashSet<Type>(
-            [typedefof<byte>; typedefof<uint16>; typedefof<uint32>; typedefof<uint64>; typeof<UIntPtr>]
+            [typeof<byte>; typeof<uint16>; typeof<char>; typeof<uint32>; typeof<uint64>; typeof<UIntPtr>]
         )
 
-    let private realTypes = HashSet<Type>([typedefof<single>; typedefof<double>])
+    let private realTypes = HashSet<Type>([typeof<single>; typeof<double>])
 
     let private numericTypes = HashSet<Type>(Seq.append integralTypes realTypes)
 
-    let private primitiveTypes = HashSet<Type>(Seq.append numericTypes [typedefof<bool>])
+    let private primitiveTypes = HashSet<Type>(Seq.append numericTypes [typeof<bool>])
 
     type AddressTypeAgent = struct end
 
@@ -469,7 +469,7 @@ module TypeUtils =
     let rec private commonConcreteCanCast canCast leftType rightType certainK uncertainK =
         match leftType, rightType with
         | _ when leftType = rightType -> certainK true
-        | ArrayType _, ClassType(obj, _) -> obj = typedefof<obj> |> certainK
+        | ArrayType _, ClassType(obj, _) -> obj = typeof<obj> |> certainK
         | Numeric t1, Numeric t2 -> canCast t1 t2 |> certainK
         // NOTE: Managed pointers (refs), unmanaged pointers (ptr) are specific kinds of numbers
         // NOTE: Numeric zero may may be treated as ref or ptr
