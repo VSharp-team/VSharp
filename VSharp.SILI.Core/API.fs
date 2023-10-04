@@ -695,7 +695,7 @@ module API =
             | HeapRef(address, sightType) ->
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
                 let elemType = fst3 arrayType
-                let value = if Types.IsValueType elemType then makeNumber 0 else NullRef elemType
+                let value = makeDefaultValue elemType
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 

@@ -211,7 +211,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
         override x.FillArray address index length value =
             match x.ReadObject address with
             | :? Array as array when array.Rank = 1 ->
-                for i = index to index + length do
+                for i = index to index + length - 1 do
                     array.SetValue(value, i)
             | :? Array -> internalfail "filling array in concrete memory: multidimensional arrays are not supported yet"
             | obj -> internalfailf "filling array in concrete memory: expected to read array, but got %O" obj

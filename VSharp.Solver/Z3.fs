@@ -275,6 +275,7 @@ module internal Z3 =
             match cond, thenExpr, elseExpr with
             | True, _, _ -> thenExpr
             | False, _, _ -> elseExpr
+            | _ when thenExpr = elseExpr -> thenExpr
             | _, (:? BitVecExpr as thenExpr), (:? BitVecExpr as elseExpr) ->
                 let thenExpr, elseExpr = x.ExtendIfNeed (thenExpr, elseExpr) true
                 ctx.MkITE(cond, thenExpr, elseExpr)
