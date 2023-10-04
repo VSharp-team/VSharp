@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using NUnit.Framework;
 using VSharp.Test;
 
@@ -1049,6 +1050,22 @@ namespace IntegrationTests
             return Math.Atan2(1, Double.PositiveInfinity);
         }
 
+        [TestSvm(83)]
+        public static int CharTest(char c)
+        {
+            if (c < 128)
+            {
+                if (c < 256u)
+                {
+                    return 1;
+                }
+
+                return -1;
+            }
+
+            return 0;
+        }
+
         [Ignore("Forward exploration does not handle recursion now")]
         public static void Mult(int x, int y)
         {
@@ -1096,6 +1113,26 @@ namespace IntegrationTests
                 <= 10_000_000 => 8,
                 _ => throw new ArgumentOutOfRangeException()
             };
+        }
+
+        [TestSvm(100)]
+        public static int NumericsVectorTest(byte a, byte b)
+        {
+            Vector<byte> vector1 = new Vector<byte>(a);
+            Vector<byte> vector2 = new Vector<byte>(b);
+            if (vector1 == vector2)
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(100)]
+        public static int NumericsVectorTest1(byte[] a, byte[] b)
+        {
+            Vector<byte> vector1 = new Vector<byte>(a);
+            Vector<byte> vector2 = new Vector<byte>(b);
+            if (vector1 == vector2)
+                return 1;
+            return 0;
         }
     }
 }

@@ -237,6 +237,40 @@ namespace IntegrationTests
             return a;
         }
 
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy(int[] a, int i, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[i] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[i] = 3;
+                if (a[0] != b[0] && i > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy1(int[] a, int k, int i, int j, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[k] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[j] = 3;
+                if (a[0] != b[0] && i > 0 && j > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int[] CopySymbolicIndicesToConcreteArray(int srcI, int dstI, int len)
         {
@@ -294,11 +328,12 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int TestSolvingCopy1(int[] a, int[] b)
+        public static int TestSolvingCopy1(int[] a, int i, int[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
             {
                 a[0] = 42;
+                b[i] = 4;
                 Array.Copy(a, 0, b, 0, b.Length);
                 b[0] = 31;
                 var x = b.Length == 3;
@@ -413,6 +448,31 @@ namespace IntegrationTests
 
                 if (b[i] == b[i + 1])
                     return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(98)]
+        public static int TestSolvingCopy7(int[] a, int i, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = 42;
+                b[i] = 4;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                b[0] = 31;
+
+                a[0] = 12;
+                a[3] = 31;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+
+                if (i == b.Length - 1 && b[i] != 4 && i > 0)
+                    return -1;
+
+                if (b.Length == 4 && a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3])
+                    return 12;
+
                 return 10;
             }
             return 3;

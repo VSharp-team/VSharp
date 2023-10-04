@@ -29,6 +29,14 @@ namespace IntegrationTests
             return s.Length;
         }
 
+        [TestSvm]
+        public static int CheckLength(string s)
+        {
+            if (s.Length < 5)
+                return s[s.Length + 2];
+            return 1;
+        }
+
         [TestSvm(100)]
         public static string HopHeyCharArray(char[] a)
         {
