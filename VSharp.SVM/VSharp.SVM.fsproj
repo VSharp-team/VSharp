@@ -2,7 +2,19 @@
 
     <PropertyGroup>
         <TargetFramework>net7.0</TargetFramework>
+        <Configurations>Debug;Release;DebugTailRec</Configurations>
+        <Platforms>AnyCPU</Platforms>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+        <Tailcalls>false</Tailcalls>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugTailRec' ">
+        <Tailcalls>true</Tailcalls>
+        <DebugSymbols>true</DebugSymbols>
+        <DefineConstants>TRACE;DEBUG</DefineConstants>
     </PropertyGroup>
 
     <ItemGroup>
