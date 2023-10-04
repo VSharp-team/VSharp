@@ -341,6 +341,7 @@ module API =
         val Dump : state -> string
         val StackTrace : callStack -> IMethod list
         val StackTraceString : callStack -> string
+        val StackToString : callStack -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term

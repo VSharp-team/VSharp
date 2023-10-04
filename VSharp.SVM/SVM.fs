@@ -138,7 +138,7 @@ type public SVM(options : SVMOptions) =
 
     let wrapOnTest (action : Action<UnitTest>) (state : cilState) =
         let result = Memory.StateResult state.state
-        Logger.info "Result of method %s is %O" (entryMethodOf state).FullName result
+        Logger.info $"Result of method %s{(entryMethodOf state).FullName} is {result}"
         Application.terminateState state
         reportState action.Invoke Test state
 

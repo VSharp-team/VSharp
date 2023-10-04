@@ -315,6 +315,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
 
     let rec decodeValue (obj : obj) =
         match obj with
+        | _ when obj = null -> null
         | :? referenceRepr as repr ->
             sourceObjects[repr.index]
         | :? pointerRepr as repr when repr.sightType = intPtrIndex ->

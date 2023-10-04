@@ -734,6 +734,7 @@ module API =
         let Dump state = Memory.dump state
         let StackTrace stack = CallStack.stackTrace stack
         let StackTraceString stack = CallStack.stackTraceString stack
+        let StackToString stack = CallStack.toString stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with

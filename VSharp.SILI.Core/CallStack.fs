@@ -131,11 +131,13 @@ module internal CallStack =
     let size stack = Stack.size stack.frames
 
     let toString (stack : callStack) =
-        let printEntry (k, v) =
-            Option.map (fun v -> sprintf "key = %s, value = %O" k v) v
-        let keysAndValues = fold (fun acc k v _ -> (toString k, v) :: acc) List.empty stack
-        let sorted = List.sortBy fst keysAndValues
-        List.choose printEntry sorted
+        let printEntry acc (k : stackKey) v _ =
+            let value =
+                match v with
+                | Some v -> toString v
+                | None -> "Symbolic"
+            $"{k} -> {value}" :: acc
+        fold printEntry List.empty stack
         |> join "\n"
 
     let stackTrace (stack : callStack) =
