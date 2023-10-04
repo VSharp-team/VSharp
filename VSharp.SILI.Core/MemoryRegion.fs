@@ -356,12 +356,12 @@ module MemoryRegion =
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
 
-    let read mr key isDefault instantiate =
-        let makeSymbolic tree = instantiate mr.typ {typ=mr.typ; updates=tree; defaultValue = mr.defaultValue}
+    let read mr key isDefault isAllocated instantiate =
+        let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue }
         let makeDefault () =
             match mr.defaultValue with
-            | Some d -> d
-            | None -> makeDefaultValue mr.typ
+            | Some d when isAllocated key |> not -> d
+            | _ -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
     let validateWrite value cellType =

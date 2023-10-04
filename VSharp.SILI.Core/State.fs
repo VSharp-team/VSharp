@@ -166,6 +166,7 @@ and
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
         concreteMemory : IConcreteMemory                                   // Fully concrete objects
         mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+        mutable initializedAddresses : pset<term>                          // Addresses, which invariants were initialized
         mutable typeVariables : typeVariables                              // Type variables assignment in the current state
         mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
