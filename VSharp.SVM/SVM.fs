@@ -32,6 +32,7 @@ type public SVM(options : SVMOptions) =
 
     do API.ConfigureSolver(SolverPool.mkSolver(solverTimeout))
     do VSharp.System.SetUp.ConfigureInternalCalls()
+    do API.ConfigureChars(options.prettyChars)
 
     let mutable branchesReleased = false
     let mutable isStopped = false

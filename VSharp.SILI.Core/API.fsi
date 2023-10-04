@@ -8,6 +8,9 @@ open System.Reflection
 module API =
     val ConfigureSolver : SolverInteraction.ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
+    val CharsArePretty : bool
+    val ConfigureChars : bool -> unit
+
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit

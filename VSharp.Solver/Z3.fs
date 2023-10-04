@@ -821,12 +821,13 @@ module internal Z3 =
         // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
         // TODO: use another serializer
         member private x.GenerateCharAssumptions encodingResult =
-            // TODO: use stringRepr for serialization of strings
-            let expr = encodingResult.expr :?> BitVecExpr
-            let assumptions = encodingResult.assumptions
-            let left = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
-            let right = ctx.MkBVSLT(expr, ctx.MkBV(127, expr.SortSize))
-            {expr = expr; assumptions = left :: right :: assumptions}
+            if API.CharsArePretty then
+                let expr = encodingResult.expr :?> BitVecExpr
+                let assumptions = encodingResult.assumptions
+                let left = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
+                let right = ctx.MkBVSLT(expr, ctx.MkBV(127, expr.SortSize))
+                {expr = expr; assumptions = left :: right :: assumptions}
+            else encodingResult
 
         member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name =
             assert mo.defaultValue.IsNone

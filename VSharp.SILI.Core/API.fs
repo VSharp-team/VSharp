@@ -6,10 +6,16 @@ open VSharp
 open VSharp.Core
 
 module API =
+
     let ConfigureSolver solver =
         SolverInteraction.configureSolver solver
+
     let ConfigureSimplifier simplifier =
         configureSimplifier simplifier
+
+    let CharsArePretty = charsArePretty
+    let ConfigureChars arePretty =
+        configureChars arePretty
 
     let Reset() =
         IdGenerator.reset()

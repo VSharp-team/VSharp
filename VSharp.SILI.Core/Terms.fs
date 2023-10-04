@@ -301,6 +301,11 @@ module HashMap =
 [<AutoOpen>]
 module internal Terms =
 
+    let mutable charsArePretty = true
+
+    let configureChars arePretty =
+        charsArePretty <- arePretty
+
     let term (term : term) = term.term
 
 // --------------------------------------- Primitives ---------------------------------------
@@ -1053,7 +1058,9 @@ module internal Terms =
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
-        | Numeric t when t = typeof<char> -> makeNumber (char 33)
+        | Numeric t when t = typeof<char> ->
+            if charsArePretty then makeNumber (char 33)
+            else makeNumber '\000'
         | Numeric t -> castConcrete 0 t
         | _ when typ = typeof<IntPtr> -> makeIntPtr (makeNumber 0)
         | _ when typ = typeof<UIntPtr> -> makeUIntPtr (makeNumber 0)
