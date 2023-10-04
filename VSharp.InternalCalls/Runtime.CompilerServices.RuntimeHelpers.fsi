@@ -28,3 +28,6 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
     [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers._RunClassConstructor(System.RuntimeType)")>]
     [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(System.Runtime.CompilerServices.QCallTypeHandle)")>]
     val RunStaticCtor : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()")>]
+    val TryEnsureSufficientExecutionStack : state -> term list -> term

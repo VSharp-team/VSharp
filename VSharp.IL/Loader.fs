@@ -57,10 +57,12 @@ module Loader =
     let mutable internal FSharpImplementations : Map<string, MethodInfo> = Map.empty
 
     let public SetInternalCallsAssembly (asm : Assembly) =
+        assert asm.FullName.Contains("VSharp.InternalCalls")
         let implementations =
             asm.GetTypes()
             |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
             |> collectImplementations
+        assert(Map.isEmpty implementations |> not)
         FSharpImplementations <- implementations
 
     let internal runtimeExceptionsConstructors =
@@ -99,8 +101,22 @@ module Loader =
             "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
             "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
         |]
-        let vector = [|"System.Int32 System.Numerics.Vector`1[T].get_Count()"|]
-        Array.concat [intPtr; volatile; defaultComparer; string; span; vector]
+        let vector = [|
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T)"
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[])"
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[], System.Int32)"
+            "System.Int32 System.Numerics.Vector`1[T].get_Count()"
+            "System.Boolean System.Numerics.Vector`1[T].op_Inequality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+        |]
+        let runtimeHelpers = [|
+             "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
+             "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
+        |]
+        let interlocked = [|
+            "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
+        |]
+        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked]
 
     let private concreteInvocations =
         set [
@@ -192,6 +208,9 @@ module Loader =
 
             // Buffers
             "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"
+
+            // Random
+            "System.Void System.Random..ctor(this)"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"

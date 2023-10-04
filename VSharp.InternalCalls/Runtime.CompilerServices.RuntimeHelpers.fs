@@ -45,3 +45,8 @@ module Runtime_CompilerServices_RuntimeHelpers =
         assert(List.length args = 1)
         // TODO: initialize statics of argument
         List.singleton cilState
+
+    let TryEnsureSufficientExecutionStack (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        // 'True' value leads to more runtime optimizations code exploration
+        MakeBool true

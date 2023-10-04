@@ -160,4 +160,5 @@ module internal String =
             let char = Memory.ReadStringChar cilState.state this index
             push char cilState
             List.singleton cilState |> k
-        interpreter.AccessArray getChar cilState length index id
+        let arrayLength = Add length (MakeNumber 1)
+        interpreter.AccessArray getChar cilState arrayLength index id

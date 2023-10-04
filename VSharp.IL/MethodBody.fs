@@ -115,7 +115,9 @@ type MethodWithBody internal (m : MethodBase) =
     member x.FullGenericMethodName with get() = fullGenericMethodName.Force()
     member x.Id = desc.GetHashCode()
     member x.ReturnType = returnType
-    member x.Module = m.Module
+    member x.Module =
+        if isCSharpInternalCall.Value then Loader.CSharpImplementations[fullGenericMethodName.Value].Module
+        else m.Module
     member x.DeclaringType = declaringType
     member x.ReflectedType = m.ReflectedType
     member x.Parameters = parameters

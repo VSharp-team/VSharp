@@ -1,3 +1,5 @@
+using System;
+
 namespace VSharp.CSharpUtils
 {
     public class StringUtils
@@ -41,18 +43,39 @@ namespace VSharp.CSharpUtils
         }
 
         [Implements("System.Boolean System.String.StartsWith(this, System.String, System.StringComparison)")]
-        public static bool StartsWith(string str1, string str2, System.StringComparison comparison)
+        public static bool StartsWith(string str1, string str2)
         {
+            // TODO: works only for InvariantCulture, implement fully
+
+            if (str1 == null)
+                throw new NullReferenceException();
+            if (str2 == null)
+                throw new ArgumentNullException();
+
+            var i = 0;
+            var j = 0;
+
             var len1 = str1.Length;
             var len2 = str2.Length;
 
-            if (len2 > len1)
-                return false;
-
-            for (var i = 0; i < len2; i++)
+            while (j < len2)
             {
-                if (str1[i] != str2[i])
+                if (str2[j] == '\0')
+                {
+                    j++;
+                    continue;
+                }
+
+                if (i < len1 && str1[i] == '\0')
+                {
+                    i++;
+                    continue;
+                }
+
+                if (i >= len1 || str1[i] != str2[j])
                     return false;
+                i++;
+                j++;
             }
 
             return true;
