@@ -730,6 +730,28 @@ module internal Terms =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
+    and private structToBytes (s : ValueType) =
+        let t = s.GetType()
+        let size = internalSizeOf t
+        let array : byte array = Array.zeroCreate size
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            for _, fi in fields do
+                let fieldValue = fi.GetValue s
+                let fieldBytes = concreteToBytes fieldValue
+                let fieldOffset = LayoutUtils.GetFieldOffset fi
+                Array.Copy(fieldBytes, 0, array, fieldOffset, Array.length fieldBytes)
+        else
+            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let mutable ptr = IntPtr.Zero
+            try
+                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
+                System.Runtime.InteropServices.Marshal.StructureToPtr(s, ptr, true)
+                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+            finally
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+        array
+
     and private concreteToBytes (obj : obj) =
         match obj with
         | _ when obj = null -> internalSizeOf typeof<obj> |> Array.zeroCreate
@@ -748,20 +770,31 @@ module internal Terms =
         | _ when obj.GetType().IsEnum ->
             let i = Convert.ChangeType(obj, getEnumUnderlyingTypeChecked (obj.GetType()))
             concreteToBytes i
-        | :? ValueType as o ->
-            let t = o.GetType()
+        | :? ValueType as o -> structToBytes o
+        | _ -> internalfail $"getting bytes from concrete: unexpected obj {obj}"
+
+    and private bytesToStruct (bytes : byte[]) (t : Type) =
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let obj = Reflection.defaultOf t
+            for _, fi in fields do
+                let offset = LayoutUtils.GetFieldOffset fi
+                let fieldType = fi.FieldType
+                let size = internalSizeOf fieldType
+                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                fi.SetValue(obj, value)
+            obj
+        else
             assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
             let size = internalSizeOf t
-            let array : byte array = Array.zeroCreate size
             let mutable ptr = IntPtr.Zero
             try
                 ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.StructureToPtr(o, ptr, true)
-                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
+                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
             finally
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
-            array
-        | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
     and private bytesToObj (bytes : byte[]) t =
         let span = ReadOnlySpan<byte>(bytes)
@@ -801,17 +834,7 @@ module internal Terms =
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
-        | StructType _ ->
-            let fields = Reflection.fieldsOf false t
-            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let obj = Reflection.defaultOf t
-            for _, fi in fields do
-                let offset = LayoutUtils.GetFieldOffset fi
-                let fieldType = fi.FieldType
-                let size = internalSizeOf fieldType
-                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
-                fi.SetValue(obj, value)
-            obj
+        | StructType _ -> bytesToStruct bytes t
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
