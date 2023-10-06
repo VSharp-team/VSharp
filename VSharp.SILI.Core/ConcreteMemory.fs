@@ -95,7 +95,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let cm = x :> IConcreteMemory
             match cm.TryPhysToVirt physAddress with
             | Some address -> address
-            | None -> internalfailf "PhysToVirt: unable to get virtual address for object %O" physAddress
+            | None -> internalfail $"PhysToVirt: unable to get virtual address for object {physAddress}"
 
         override x.TryPhysToVirt (physAddress : obj) =
             assert(physAddress :? ValueType |> not)
@@ -152,25 +152,25 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 // In safe context this case will be filtered out in 'Interpreter', which checks indices before memory access
                 if index = string.Length then Char.MinValue :> obj
                 else string[index] :> obj
-            | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array index from concrete memory: expected to read array, but got {obj}"
 
         override x.GetAllArrayData address =
             match x.ReadObject address with
             | :? Array as array -> Array.getArrayIndicesWithValues array
             | :? String as string -> string.ToCharArray() |> Array.getArrayIndicesWithValues
-            | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array data concrete memory: expected to read array, but got {obj}"
 
         override x.ReadArrayLowerBound address dimension =
             match x.ReadObject address with
             | :? Array as array -> array.GetLowerBound(dimension)
             | :? String when dimension = 0 -> 0
-            | obj -> internalfailf "reading array lower bound from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array lower bound from concrete memory: expected to read array, but got {obj}"
 
         override x.ReadArrayLength address dimension =
             match x.ReadObject address with
             | :? Array as array -> array.GetLength(dimension)
             | :? String as string when dimension = 0 -> (1 + string.Length) :> obj
-            | obj -> internalfailf "reading array length from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array length from concrete memory: expected to read array, but got {obj}"
 
 // ------------------------------- Writing -------------------------------
 
@@ -201,12 +201,12 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 charArray.SetValue(castedValue, List.head indices)
                 let newString = String(charArray)
                 x.WriteObject address newString
-            | obj -> internalfailf "writing array index to concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"writing array index to concrete memory: expected to read array, but got {obj}"
 
         override x.InitializeArray address (rfh : RuntimeFieldHandle) =
             match x.ReadObject address with
             | :? Array as array -> RuntimeHelpers.InitializeArray(array, rfh)
-            | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"initializing array in concrete memory: expected to read array, but got {obj}"
 
         override x.FillArray address index length value =
             match x.ReadObject address with
@@ -214,7 +214,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 for i = index to index + length - 1 do
                     array.SetValue(value, i)
             | :? Array -> internalfail "filling array in concrete memory: multidimensional arrays are not supported yet"
-            | obj -> internalfailf "filling array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"filling array in concrete memory: expected to read array, but got {obj}"
 
         override x.CopyArray srcAddress dstAddress srcIndex dstIndex length =
             match x.ReadObject srcAddress, x.ReadObject dstAddress with
@@ -234,7 +234,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
                 let newString = String(dstArray)
                 x.WriteObject dstAddress newString
-            | obj -> internalfailf "copying array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"copying array in concrete memory: expected to read array, but got {obj}"
 
         override x.CopyCharArrayToString arrayAddress stringAddress =
             let array = x.ReadObject arrayAddress :?> char array
