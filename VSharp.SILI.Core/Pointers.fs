@@ -245,16 +245,13 @@ module internal Pointers =
             simplifyPointerComparison op x y k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
-    let isPointerOperation op t1 t2 =
-        let isRefOrPtr = function
-            | ReferenceType _ -> true
-            | t -> t.IsByRef || isPointer t
+    let isPointerOperation op left right =
         match op with
         | OperationType.Equal
-        | OperationType.NotEqual -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Subtract -> isRefOrPtr t1 && (isRefOrPtr t2 || isNumeric t2)
-        | OperationType.Add -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Multiply -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.NotEqual -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
+        | OperationType.Add -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Multiply -> isRefOrPtr left || isRefOrPtr right
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual
@@ -262,5 +259,5 @@ module internal Pointers =
         | OperationType.Greater
         | OperationType.Greater_Un
         | OperationType.GreaterOrEqual
-        | OperationType.GreaterOrEqual_Un -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.GreaterOrEqual_Un -> isRefOrPtr left || isRefOrPtr right
         | _ -> false
