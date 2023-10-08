@@ -17,6 +17,7 @@ module internal PlatformHelper =
     [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.ArmBase.get_IsSupported()")>]
     [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd+Arm64.get_IsSupported()")>]
     [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.ArmBase+Arm64.get_IsSupported()")>]
+    [<Implements("System.Boolean System.Runtime.Intrinsics.Arm.AdvSimd.get_IsSupported()")>]
     val armBaseIsSupported : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Avx2.get_IsSupported()")>]

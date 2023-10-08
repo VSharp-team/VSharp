@@ -37,6 +37,7 @@ namespace VSharp.CSharpUtils
         }
 
         [Implements("System.Boolean System.String.Equals(System.String, System.String, System.StringComparison)")]
+        [Implements("System.Boolean System.String.Equals(this, System.String, System.StringComparison)")]
         public static bool EqualsWithComparison(string str1, string str2, System.StringComparison comparison)
         {
             return Equals(str1, str2);

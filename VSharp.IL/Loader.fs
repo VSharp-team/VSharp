@@ -211,6 +211,7 @@ module Loader =
 
             // Random
             "System.Void System.Random..ctor(this)"
+            "System.UInt64 System.Marvin.GenerateSeed()"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
