@@ -5,38 +5,12 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 open VSharp
 
-[<CustomEquality; NoComparison>]
-type private concreteMemoryKey =
-    | RefKey of physicalAddress
-    | ValueKey of concreteMemorySource * physicalAddress
-    with
-    override x.GetHashCode() =
-        match x with
-        | RefKey phys -> phys.GetHashCode()
-        | ValueKey(source, _) -> source.GetHashCode()
-
-    override x.Equals(other) =
-        match other, x with
-        | :? concreteMemoryKey as RefKey otherPhys, RefKey phys -> otherPhys.Equals phys
-        | :? concreteMemoryKey as ValueKey(otherSource, _), ValueKey(source, _) -> otherSource.Equals source
-        | _ -> false
-
-    member x.ToPhysicalAddress() =
-        match x with
-        | RefKey phys -> phys
-        | ValueKey(_, phys) -> phys
-
-    member x.FromPhysicalAddress (phys : physicalAddress) =
-        match x with
-        | RefKey _ -> RefKey phys
-        | ValueKey(source, _) -> ValueKey(source, phys)
-
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
 // ----------------------------- Constructor -----------------------------
 
     new () =
-        let physToVirt = Dictionary<concreteMemoryKey, concreteHeapAddress>()
+        let physToVirt = Dictionary<physicalAddress, concreteHeapAddress>()
         let virtToPhys = Dictionary<concreteHeapAddress, physicalAddress>()
         ConcreteMemory(physToVirt, virtToPhys)
 
@@ -56,7 +30,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     interface IConcreteMemory with
 
         override x.Copy() =
-            let physToVirt' = Dictionary<concreteMemoryKey, concreteHeapAddress>()
+            let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
             let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
             // Need to copy all addresses from physToVirt, because:
             // 1. let complex object (A) contains another object (B),
@@ -66,16 +40,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             // So, reading from object (A) object (B) will result in HeapRef (addr),
             // which will be read from symbolic memory
             let copier = Utils.Copier()
-            for KeyValue(key, virt) in physToVirt do
-                let phys = key.ToPhysicalAddress()
+            for KeyValue(phys, virt) in physToVirt do
                 let phys' = copier.DeepCopy phys
                 let exists, oldPhys = virtToPhys.TryGetValue(virt)
                 if exists && oldPhys = phys then
                     virtToPhys'.Add(virt, phys')
-                let key' = key.FromPhysicalAddress phys'
                 // Empty string is interned
-                if key' = RefKey {object = String.Empty} then physToVirt'[key'] <- virt
-                else physToVirt'.Add(key', virt)
+                if phys' = {object = String.Empty} then physToVirt'[phys'] <- virt
+                else physToVirt'.Add(phys', virt)
             ConcreteMemory(physToVirt', virtToPhys')
 
 // ----------------------------- Primitives -----------------------------
@@ -98,42 +70,22 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             | None -> internalfail $"PhysToVirt: unable to get virtual address for object {physAddress}"
 
         override x.TryPhysToVirt (physAddress : obj) =
-            assert(physAddress :? ValueType |> not)
             let result = ref List.empty
-            if physToVirt.TryGetValue(RefKey {object = physAddress}, result) then
-                Some result.Value
-            else None
-
-        override x.TryPhysToVirt (source : concreteMemorySource) =
-            let result = ref List.empty
-            let key = ValueKey(source, physicalAddress.Empty)
-            if physToVirt.TryGetValue(key, result) then
+            if physToVirt.TryGetValue({object = physAddress}, result) then
                 Some result.Value
             else None
 
 // ----------------------------- Allocation -----------------------------
 
-        override x.AllocateRefType address (obj : obj) =
+        override x.Allocate address (obj : obj) =
             assert(obj <> null)
-            assert(obj :? ValueType |> not)
             assert(virtToPhys.ContainsKey address |> not)
             // Suppressing finalize, because 'obj' may implement 'Dispose()' method, which should not be invoked,
             // because object may be in incorrect state (statics, for example)
             GC.SuppressFinalize(obj)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
-            if obj = String.Empty then
-                physToVirt[RefKey physicalAddress] <- address
-            else physToVirt.Add(RefKey physicalAddress, address)
-
-        override x.AllocateValueType address source (obj : obj) =
-            assert(obj <> null)
-            assert(obj :? ValueType)
-            GC.SuppressFinalize(obj)
-            let physicalAddress = {object = obj}
-            virtToPhys.Add(address, physicalAddress)
-            // Rewriting old unmarshalled values
-            physToVirt[ValueKey(source, physicalAddress)] <- address
+            physToVirt[physicalAddress] <- address
 
 // ------------------------------- Reading -------------------------------
 
@@ -241,14 +193,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let string = new string(array) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[RefKey physAddress] <- stringAddress
+            physToVirt[physAddress] <- stringAddress
 
         override x.CopyCharArrayToStringLen arrayAddress stringAddress length =
             let array = x.ReadObject arrayAddress :?> char array
             let string = new string(array[0..(length - 1)]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[RefKey physAddress] <- stringAddress
+            physToVirt[physAddress] <- stringAddress
 
     // ------------------------------- Remove -------------------------------
 

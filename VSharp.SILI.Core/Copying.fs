@@ -80,19 +80,19 @@ module internal Copying =
         | ConcreteHeapAddress concreteAddress, _ when concreteAddress = VectorTime.zero ->
             if cm.Contains stringConcreteAddress then
                 cm.Remove stringConcreteAddress
-            cm.AllocateRefType stringConcreteAddress ""
+            cm.Allocate stringConcreteAddress ""
         | ConcreteHeapAddress concreteAddress, Some {term = Concrete(len, _)} when cm.Contains concreteAddress ->
             if cm.Contains stringConcreteAddress |> not then
                 // Allocating not empty string, because it should not be interned
                 // Copying array will mutate whole string
-                cm.AllocateRefType stringConcreteAddress "\000"
+                cm.Allocate stringConcreteAddress "\000"
             let len = TypeUtils.convert len typeof<int> :?> int
             cm.CopyCharArrayToStringLen concreteAddress stringConcreteAddress len
         | ConcreteHeapAddress concreteAddress, None when cm.Contains concreteAddress ->
             if cm.Contains stringConcreteAddress |> not then
                 // Allocating not empty string, because it should not be interned
                 // Copying array will mutate whole string
-                cm.AllocateRefType stringConcreteAddress "\000"
+                cm.Allocate stringConcreteAddress "\000"
             cm.CopyCharArrayToString concreteAddress stringConcreteAddress
         | _, Some length ->
             if cm.Contains stringConcreteAddress then

@@ -360,7 +360,7 @@ module MemoryRegion =
         let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue }
         let makeDefault () =
             match mr.defaultValue with
-            | Some d when isAllocated key |> not -> d
+            | Some d when not isAllocated -> d
             | _ -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 

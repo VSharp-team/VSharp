@@ -797,9 +797,8 @@ type ILInterpreter() as this =
                 true
         else false
 
-    member private x.InlineOrCall (method : Method) args thisOption (cilState : cilState) k =
-        let fullyGenericMethod, genericArgs, _ = method.Generalize()
-        let fullMethodName = fullyGenericMethod.FullName
+    member private x.InlineOrCall (method : Method) (args : term list) thisOption (cilState : cilState) k =
+        let _, genericArgs, _ = method.Generalize()
         let wrapType arg = Concrete arg typeof<Type>
         // TODO: do not wrap types, pass them through state.typeVariables!
         let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq

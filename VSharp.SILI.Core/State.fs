@@ -11,21 +11,6 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
-type concreteMemorySource =
-    | HeapSource
-    | StructFieldSource of concreteMemorySource * fieldId
-    | BoxedLocationSource of concreteHeapAddress
-    | ClassFieldSource of concreteHeapAddress * fieldId
-    | ArrayIndexSource of concreteHeapAddress * int list
-    | ArrayLowerBoundSource of concreteHeapAddress * int
-    | ArrayLengthSource of concreteHeapAddress * int
-    | StaticFieldSource of Type * fieldId
-    with
-    member x.StructField fieldId =
-        match x with
-        | HeapSource -> HeapSource
-        | _ -> StructFieldSource(x, fieldId)
-
 type IConcreteMemory =
     abstract Copy : unit -> IConcreteMemory
     abstract Contains : concreteHeapAddress -> bool
@@ -33,12 +18,9 @@ type IConcreteMemory =
     abstract TryVirtToPhys : concreteHeapAddress -> obj option
     abstract PhysToVirt : obj -> concreteHeapAddress
     abstract TryPhysToVirt : obj -> concreteHeapAddress option
-    abstract TryPhysToVirt : concreteMemorySource -> concreteHeapAddress option
-    abstract AllocateRefType : concreteHeapAddress -> obj -> unit
-    abstract AllocateValueType : concreteHeapAddress -> concreteMemorySource -> obj -> unit
+    abstract Allocate : concreteHeapAddress -> obj -> unit
     abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
-    // TODO: too expensive! use Seq.iter2 instead with lazy indices sequence
     abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
     abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
     abstract ReadArrayLength : concreteHeapAddress -> int -> obj
