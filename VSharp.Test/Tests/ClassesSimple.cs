@@ -213,9 +213,25 @@ namespace IntegrationTests
             return n == a.GetN();
         }
 
-        struct MyStruct
+        interface IStruct
+        {
+            public void Mutate(int a);
+            public int Value();
+        }
+
+        struct MyStruct : IStruct
         {
             public int MyValue;
+
+            public void Mutate(int a)
+            {
+                MyValue = a;
+            }
+
+            public int Value()
+            {
+                return MyValue;
+            }
         }
 
         [TestSvm]
@@ -224,6 +240,31 @@ namespace IntegrationTests
             var x = new MyStruct();
             x.MyValue = newMyValue;
             return x.MyValue;
+        }
+
+        class MyClass
+        {
+            private IStruct _myStruct = new MyStruct();
+
+            public void Mutate(int a)
+            {
+                _myStruct.Mutate(a);
+            }
+            public int GetValue()
+            {
+                return _myStruct.Value();
+            }
+        }
+
+        [TestSvm(85)]
+        public static int StructureAccess(int newMyValue)
+        {
+            var x = new MyClass();
+            x.Mutate(newMyValue);
+            x.Mutate(3);
+            if (x.GetValue() != 3)
+                return -1;
+            return 0;
         }
 
         [TestSvm]

@@ -83,14 +83,48 @@ namespace IntegrationTests
         }
 
         [TestSvm]
-        public static bool ConcatStrings(string s)
+        public static int StringEquals(string str1, string str2)
         {
-            string str = "Some string";
-            string newStr = s + str;
-            return s == newStr[.. s.Length];
+            if (str1.Equals(str2))
+                return 1;
+            return -1;
         }
 
         [TestSvm]
+        public static int StringEquals1(string str1, string str2, StringComparison c)
+        {
+            if (str1.Equals(str2, c))
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(83)]
+        public static int Substring(string s)
+        {
+            if (s == s[.. s.Length])
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(100)]
+        public static int Substring2(string s1, string s2)
+        {
+            if (s2 == s1[.. s1.Length])
+                return 1;
+            return 0;
+        }
+
+        [TestSvm(88)]
+        public static int ConcatStrings(string s)
+        {
+            string str = "Some string";
+            string newStr = s + str;
+            if (s == newStr[.. s.Length])
+                return 1;
+            return -1;
+        }
+
+        [TestSvm(90)]
         public static int ConcatStrings1(string s)
         {
             string str = "Some string";
@@ -100,7 +134,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(85)]
         public static int ConcatStrings2(char c)
         {
             string str = "Some string";
@@ -231,6 +265,46 @@ namespace IntegrationTests
             if (c.Kind == Kind.First)
                 return $"Kind: {c.Kind}, X: {c.X}, Y: {c.Y}";
             return $"{"Kind"}: {c.Kind}, {"X"}: {c.X + 20}, {"Y"}: {c.Y + 10}";
+        }
+
+        [Ignore("takes too much time")]
+        public static string StringRegex(string str1, string str2)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str1, str2);
+            return result.Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex1(string str)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str, ".*");
+            return result.Value;
+        }
+
+        [Ignore("takes too much time")]
+        public static string StringRegex2(string str)
+        {
+            var result = System.Text.RegularExpressions.Regex.Match(str, ".*");
+            if (result.Value != str)
+                return "";
+            return result.Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex3(string str)
+        {
+            if (string.IsNullOrEmpty(str))
+                return string.Empty;
+            var result = System.Text.RegularExpressions.Regex.Match(str, @"^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?$");
+            return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
+        }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static string StringRegex4()
+        {
+            var input = "7.3.7";
+            var result = System.Text.RegularExpressions.Regex.Match(input, @"^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?$");
+            return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
         }
     }
 }

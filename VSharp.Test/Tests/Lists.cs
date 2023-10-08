@@ -762,25 +762,6 @@ namespace IntegrationTests
             return -12;
         }
 
-        [Ignore("Fix core")]
-        public static int HashtableTest(int a)
-        {
-            Hashtable dataHashtable = new Hashtable();
-            dataHashtable[0] = 0;
-            dataHashtable[1] = 1;
-            dataHashtable[2] = a;
-            dataHashtable[a] = 0;
-            int data = (int) dataHashtable[2];
-            int[] array = null;
-            if (data > 0)
-            {
-                array = new int[data];
-            }
-
-            array[0] = 5;
-            return array[0];
-        }
-
         [Ignore("Support rendering recursive arrays")]
         public static object[] ConcreteRecursiveArray()
         {
@@ -923,6 +904,80 @@ namespace IntegrationTests
             }
 
             return arr;
+        }
+
+        public struct Bucket
+        {
+            object _key;
+            object _value;
+
+            public Bucket(object key, object value)
+            {
+                _key = key;
+                _value = value;
+            }
+        }
+
+        [TestSvm(91)]
+        public static object ConcreteArrayChange()
+        {
+            var a = new Bucket[3];
+            var b = new Bucket("major", 0);
+            a[0] = b;
+            var c = a[0];
+            if (!Equals(c, b))
+                return -1;
+            a[1] = new Bucket("minor", 1);
+            a[2] = new Bucket("patch", 2);
+            b = new Bucket("major", 3);
+            a[0] = b;
+            a[1] = new Bucket("minor", 4);
+            a[2] = new Bucket("patch", 5);
+            if (!Equals(a[0], b))
+                return -1;
+            return 0;
+        }
+
+        [Ignore("implement splitting")]
+        public static int HashtableTest(int a)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            dataHashtable[2] = a;
+            dataHashtable[a] = 0;
+            int data = (int) dataHashtable[2];
+            int[] array = null;
+            if (data > 0)
+            {
+                array = new int[data];
+            }
+
+            array[0] = 5;
+            return array[0];
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteHashtableTest()
+        {
+            var dataHashtable = new Hashtable(3)
+            {
+                ["major"] = 0,
+                ["minor"] = 1,
+                ["patch"] = 2
+            };
+
+            dataHashtable["major"] = 3;
+            dataHashtable["minor"] = 4;
+            dataHashtable["patch"] = 5;
+            dataHashtable[3] = "string4";
+            dataHashtable[4] = "string1";
+            dataHashtable[5] = "string2";
+
+
+            if ((int)dataHashtable["major"] != 3)
+                return -1;
+            return 0;
         }
     }
 

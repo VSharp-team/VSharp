@@ -81,12 +81,15 @@ namespace IntegrationTests
     [TestSvmFixture]
     public class Blockchain
     {
-        [TestSvm(100, strat: SearchStrategy.BFS)]
+        [TestSvm(100, strat: SearchStrategy.DFS)]
         public static long test(long time)
         {
             var miner = new BlockMiner();
             miner.Mine(time, 1);
-            return miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
+            var a = miner.Blockchain.OrderBy(block => block.Hash).First().Hash;
+            if (a > 1000)
+                return a;
+            return a - 1;
         }
 
         [TestSvm(100, strat: SearchStrategy.BFS)]
@@ -108,8 +111,10 @@ namespace IntegrationTests
             {
                 a.Mine(time * 5, 1);
             }
-            // a.Blockchain.First();
-            return 0;
+
+            if (a.Blockchain.First().Hash > 100)
+                return 0;
+            return 1;
         }
 
         [TestSvm(100, strat: SearchStrategy.BFS)]
