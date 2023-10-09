@@ -306,5 +306,16 @@ namespace IntegrationTests
             var result = System.Text.RegularExpressions.Regex.Match(input, @"^(?<major>\d+)(\.(?<minor>\d+))?(\.(?<patch>\d+))?$");
             return result.Groups["major"].Value + result.Groups["minor"].Value + result.Groups["patch"].Value;
         }
+
+        [TestSvm(100, strat: SearchStrategy.ExecutionTreeContributedCoverage)]
+        public static int FromUtf16(char[] a)
+        {
+            var src = new ReadOnlySpan<char>(a);
+            var dst = new Span<byte>(new byte[16]);
+            System.Text.Unicode.Utf8.FromUtf16(src, dst, out var charsRead, out var bytesWritten);
+            if (charsRead > 5 && bytesWritten > 5)
+                return 1;
+            return bytesWritten;
+        }
     }
 }
