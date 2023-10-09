@@ -183,11 +183,23 @@ module internal Pointers =
             multiplyPtrByNumber
             simplifyPointerMultiply
 
+    let private toPointerIfNeeded x =
+        match x.term with
+        | HeapRef(address, t) -> Ptr (HeapLocation(address, t)) t (makeNumber 0)
+        | Ref address ->
+            let pointerBase, offset = addressToBaseAndOffset address
+            Ptr pointerBase address.TypeOfLocation offset
+        | Ptr _ -> x
+        | _ when typeOf x |> isNative ->
+            let offset = primitiveCast x typeof<int>
+            makeDetachedPtr offset typeof<byte>
+        | _ -> internalfail $"toPointerIfNeeded: unexpected reference {x}"
+
     let private pointerDifference x y k =
+        let x = toPointerIfNeeded x
+        let y = toPointerIfNeeded y
         match x.term, y.term with
         | Ptr(base1, _, offset1), Ptr(base2, _, offset2) when base1 = base2 ->
-            sub offset1 offset2 |> k
-        | DetachedPtr offset1, DetachedPtr offset2 ->
             sub offset1 offset2 |> k
         | Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _), Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _) ->
             undefinedBehaviour "trying to get pointer difference between different pointer bases"
