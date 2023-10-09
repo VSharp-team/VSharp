@@ -1,13 +1,31 @@
 namespace VSharp.Core
 
 open System
+open System.Text
 open VSharp
 open VSharp.Core
 
 // TODO: need type here? we have key.TypeOfLocation
 type private entry = internal { value : term option; typ : Type }
 type private frame = internal { func : IMethod option; entries : pdict<stackKey, entry> }
-type callStack = private { frames : frame stack }
+type callStack =
+    private { frames : frame stack }
+    with
+    override x.ToString() =
+        let mutable sb = StringBuilder()
+        for frame : frame in x.frames do
+            let frameName =
+                match frame.func with
+                | Some m -> $"Frame {m.FullName}"
+                | None -> "Model frame"
+            sb <- sb.AppendLine frameName
+            for stackKey, entry in PersistentDict.toSeq frame.entries do
+                let entryString =
+                    match entry.value with
+                    | Some v -> v.ToString()
+                    | None -> $"Symbolic value of {entry.typ}"
+                sb <- sb.AppendLine $"{stackKey} -> {entryString}"
+        sb.ToString()
 
 module internal CallStack =
 
