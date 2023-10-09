@@ -114,6 +114,8 @@ module internal Unsafe =
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
         | Ref(BoxedLocation(address, t)) ->
             Ptr (HeapLocation(address, t)) typeof<byte> (MakeNumber 0)
+        | Ptr(pointerBase, _, offset) ->
+            Ptr pointerBase typeof<byte> offset
         | _ -> internalfail $"GetRawData: unexpected ref {ref}"
 
     let SkipInit (_ : state) (_ : term list) : term =

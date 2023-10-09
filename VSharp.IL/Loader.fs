@@ -173,6 +173,7 @@ module Loader =
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
 
             // Interop
+            "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
@@ -189,6 +190,11 @@ module Loader =
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
             "System.String System.Environment.GetEnvironmentVariable(System.String)"
+            "System.OperatingSystem System.Environment.GetOSVersion()"
+
+            // Reflection
+            "System.Reflection.AssemblyName System.Reflection.Assembly.GetName(this)"
+            "System.Reflection.AssemblyName System.Reflection.RuntimeAssembly.GetName(this, System.Boolean)"
 
             // Guid
             "System.Guid System.Guid.NewGuid()"

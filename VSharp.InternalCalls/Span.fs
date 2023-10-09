@@ -149,9 +149,19 @@ module internal ReadOnlySpan =
         assert(List.length args = 3)
         let this, arrayRef = args[0], args[2]
         let state = cilState.state
-        let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
-        let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
-        CommonCtor cilState this refToFirstElement lengthOfArray
+        let nullCase cilState k =
+            let t = MostConcreteTypeOfRef cilState.state arrayRef
+            let ref = NullRef t
+            CommonCtor cilState this ref (MakeNumber 0) |> k
+        let nonNullCase cilState k =
+            let refToFirstElement = Memory.ReferenceArrayIndex state arrayRef [MakeNumber 0] None
+            let lengthOfArray = Memory.ArrayLengthByDimension state arrayRef (MakeNumber 0)
+            CommonCtor cilState this refToFirstElement lengthOfArray |> k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference arrayRef, state))
+            nullCase
+            nonNullCase
+            id
 
     let CreateFromString (_ : IInterpreter) (cilState : cilState) (args : term list) : cilState list =
         assert(List.length args = 1)
@@ -161,6 +171,17 @@ module internal ReadOnlySpan =
         let state = cilState.state
         let refToFirst = Memory.ReferenceField state string Reflection.stringFirstCharField
         let length = Memory.StringLength state string
-        let spanStruct = InitSpanStruct cilState span refToFirst length
-        push spanStruct cilState
-        List.singleton cilState
+        let nullCase cilState k =
+            let ref = NullRef typeof<char[]>
+            let span = InitSpanStruct cilState span ref (MakeNumber 0)
+            push span cilState
+            List.singleton cilState |> k
+        let nonNullCase cilState k =
+            let span = InitSpanStruct cilState span refToFirst length
+            push span cilState
+            List.singleton cilState |> k
+        StatedConditionalExecutionCIL cilState
+            (fun state k -> k (IsNullReference refToFirst, state))
+            nullCase
+            nonNullCase
+            id
