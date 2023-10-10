@@ -8,7 +8,6 @@ open VSharp.Interpreter.IL
 module internal ReadOnlySpan =
 
     val GetContentsRef : cilState -> term -> term
-    val GetContentsHeapRef : cilState -> term -> term
     val GetLength : cilState -> term -> term
 
     [<Implements("T& System.ReadOnlySpan`1[T].get_Item(this, System.Int32)")>]
@@ -17,6 +16,8 @@ module internal ReadOnlySpan =
 
     [<Implements("System.Void System.ReadOnlySpan`1[T]..ctor(this, System.Void*, System.Int32)")>]
     [<Implements("System.Void System.Span`1[T]..ctor(this, System.Void*, System.Int32)")>]
+    [<Implements("System.Void System.ReadOnlySpan`1[T]..ctor(this, T&, System.Int32)")>]
+    [<Implements("System.Void System.Span`1[T]..ctor(this, T&, System.Int32)")>]
     val CtorFromPtr : IInterpreter -> cilState -> term list -> cilState list
 
     [<Implements("System.Void System.ReadOnlySpan`1[T]..ctor(this, T[])")>]

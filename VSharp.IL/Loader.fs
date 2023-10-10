@@ -195,6 +195,11 @@ module Loader =
             // Reflection
             "System.Reflection.AssemblyName System.Reflection.Assembly.GetName(this)"
             "System.Reflection.AssemblyName System.Reflection.RuntimeAssembly.GetName(this, System.Boolean)"
+            "System.Byte[] System.Reflection.AssemblyName.GetPublicKeyToken(this)"
+            "System.Reflection.Assembly System.Reflection.Assembly.Load(System.Reflection.AssemblyName)"
+
+            // Activator
+            "T System.Activator.CreateInstance()"
 
             // Guid
             "System.Guid System.Guid.NewGuid()"

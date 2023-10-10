@@ -31,15 +31,6 @@ module internal ReadOnlySpan =
         let lenField = spanFields |> Array.find (fst >> isLengthField) |> fst
         readField cilState spanStruct lenField
 
-    let private TryRefToHeapRef ref =
-        let createZeroIndices dim =
-            List.init dim (fun _ -> MakeNumber 0)
-        match ref.term with
-        | Ref(ArrayIndex(address, indices, arrayType)) when indices = createZeroIndices indices.Length ->
-            let t = Types.ArrayTypeToSymbolicType arrayType
-            HeapRef address t
-        | _ -> ref
-
     let GetContentsRef (cilState : cilState) (spanStruct : term) =
         let spanFields = Terms.TypeOf spanStruct |> Reflection.fieldsOf false
         assert(Array.length spanFields = 2)
@@ -55,9 +46,6 @@ module internal ReadOnlySpan =
         else
             // Case for .NET 7, where Span contains 'Byte&' field
             ptrFieldValue
-
-    let GetContentsHeapRef (cilState : cilState) (spanStruct : term) =
-        GetContentsRef cilState spanStruct |> TryRefToHeapRef
 
     let private IsArrayContents ref =
         match ref.term with
