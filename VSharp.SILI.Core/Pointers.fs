@@ -102,6 +102,9 @@ module internal Pointers =
             simplifyEqual x shift k
         | DetachedPtr shift, _ when typeOf y |> isNative ->
             simplifyEqual shift y k
+        | Ref(ArrayIndex(addr2, _, _)), HeapRef(addr1, _)
+        | HeapRef(addr1, _), Ref(ArrayIndex(addr2, _, _)) when addr1 = zeroAddress() && addr2 = zeroAddress() ->
+            True() |> k
         | _ -> False() |> k
 
     let rec simplifyReferenceEqualityk x y k =

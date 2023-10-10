@@ -776,8 +776,13 @@ module API =
                 let copy arrayRef state k =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
-                        assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
-                        Copying.copyCharArrayToString state arrayAddr dstAddr length
+                        assert(let t = Memory.mostConcreteTypeOfHeapRef state arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
+                        Copying.copyCharArrayToString state arrayAddr dstAddr (makeNumber 0) length
+                        k (Nop(), state)
+                    | Ref(ArrayIndex(arrayAddr, indices, (elemType, dim, isVector))) ->
+                        assert(isVector && dim = 1 && elemType = typeof<char> && List.length indices = 1)
+                        let index = indices[0]
+                        Copying.copyCharArrayToString state arrayAddr dstAddr index length
                         k (Nop(), state)
                     | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
                 let nullCase state k =

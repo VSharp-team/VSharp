@@ -1264,7 +1264,7 @@ module internal Memory =
                 if checkOffset() then
                     let index = div offset elemSize
                     let address, arrayType =
-                        if t = typeof<string> then stringArrayInfo state address None
+                        if typ = typeof<string> then stringArrayInfo state address None
                         else address, (sightType, 1, true)
                     ArrayIndex(address, [index], arrayType) |> Some
                 else None

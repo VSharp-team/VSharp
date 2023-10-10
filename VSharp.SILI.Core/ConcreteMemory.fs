@@ -188,16 +188,24 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 x.WriteObject dstAddress newString
             | obj -> internalfail $"copying array in concrete memory: expected to read array, but got {obj}"
 
-        override x.CopyCharArrayToString arrayAddress stringAddress =
-            let array = x.ReadObject arrayAddress :?> char array
-            let string = new string(array) :> obj
+        override x.CopyCharArrayToString arrayAddress stringAddress startIndex =
+            let array =
+                match x.ReadObject arrayAddress with
+                | :? array<char> as array -> array
+                | :? string as str -> str.ToCharArray()
+                | obj -> internalfail $"CopyCharArrayToString: unexpected array {obj}"
+            let string = new string(array[startIndex..]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
             physToVirt[physAddress] <- stringAddress
 
-        override x.CopyCharArrayToStringLen arrayAddress stringAddress length =
-            let array = x.ReadObject arrayAddress :?> char array
-            let string = new string(array[0..(length - 1)]) :> obj
+        override x.CopyCharArrayToStringLen arrayAddress stringAddress startIndex length =
+            let array =
+                match x.ReadObject arrayAddress with
+                | :? array<char> as array -> array
+                | :? string as str -> str.ToCharArray()
+                | obj -> internalfail $"CopyCharArrayToStringLen: unexpected array {obj}"
+            let string = new string(array[startIndex..(length - 1)]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
             physToVirt[physAddress] <- stringAddress

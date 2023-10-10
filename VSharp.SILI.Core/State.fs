@@ -29,8 +29,8 @@ type IConcreteMemory =
     abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
     abstract FillArray : concreteHeapAddress -> int -> int -> obj -> unit
     abstract CopyArray : concreteHeapAddress -> concreteHeapAddress -> int64 -> int64 -> int64 -> unit
-    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
-    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> int -> unit
     abstract Remove : concreteHeapAddress -> unit
 
 type MockingType =
