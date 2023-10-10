@@ -979,6 +979,36 @@ namespace IntegrationTests
                 return -1;
             return 0;
         }
+
+        [TestSvm(86)]
+        public static int LazyDict()
+        {
+            var d = new Lazy<Dictionary<int, int>>();
+            d.Value.Add(1, 42);
+            if (d.Value[1] != 42)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(85)]
+        public static int ConcurrentDict(int a, int b)
+        {
+            var d = new System.Collections.Concurrent.ConcurrentDictionary<int, int>();
+            d.TryAdd(a, b);
+            if (d[a] != b)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(83)]
+        public static int VolatileWrite()
+        {
+            var x = 1;
+            System.Threading.Volatile.Write(ref x, 42);
+            if (x != 42)
+                return -1;
+            return 0;
+        }
     }
 
     [TestSvmFixture]
