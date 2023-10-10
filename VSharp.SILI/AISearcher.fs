@@ -2,11 +2,10 @@ namespace VSharp.Interpreter.IL
 
 open System.Collections.Generic
 open VSharp.IL.Serializer
-open VSharp.Interpreter.IL.TypeUtils
 open VSharp.ML.GameServer.Messages
 open VSharp.Prelude
 
-type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
+type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle, serialize:bool) =
     let mutable lastCollectedStatistics = Statistics()
     let mutable gameState = None
     let mutable useDefaultSearcher = coverageToSwitchToAI > 0u
@@ -44,14 +43,14 @@ type internal AISearcher(coverageToSwitchToAI: uint, oracle:Oracle) =
         then
             if Seq.length availableStates > 0
             then
-                let _,statistics = collectGameState (Seq.head availableStates).currentLoc
+                let _,statistics,_ = collectGameState (Seq.head availableStates).currentLoc serialize
                 lastCollectedStatistics <- statistics
                 useDefaultSearcher <- (statistics.CoveredVerticesInZone * 100u) / statistics.TotalVisibleVerticesInZone  < coverageToSwitchToAI
             defaultSearcher.Pick()
         elif Seq.length availableStates = 0
         then None
         else            
-            let gameState,statistics = collectGameState (Seq.head availableStates).currentLoc
+            let gameState,statistics,_ = collectGameState (Seq.head availableStates).currentLoc serialize
             lastCollectedStatistics <- statistics
             let stateId, predictedUsefulness =
                 let x,y = oracle.Predict gameState

@@ -76,7 +76,7 @@ type public SILI(options : SiliOptions) =
     let rec mkForwardSearcher mode =
         let getRandomSeedOption() = if options.randomSeed < 0 then None else Some options.randomSeed
         match mode with
-        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value) :> IForwardSearcher
+        | AIMode -> AISearcher(options.coverageToSwitchToAI, options.oracle.Value, options.serialize) :> IForwardSearcher
         | BFSMode -> BFSSearcher() :> IForwardSearcher
         | DFSMode -> DFSSearcher() :> IForwardSearcher
         | ShortestDistanceBasedMode -> ShortestDistanceBasedSearcher statistics :> IForwardSearcher
@@ -372,14 +372,14 @@ type public SILI(options : SiliOptions) =
                             | _ -> None                        
                         let statistics1 =
                             if options.serialize
-                            then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)))
+                            then Some(dumpGameState s.currentLoc (System.IO.Path.Combine(folderToStoreSerializationResult , string firstFreeEpisodeNumber)) options.serialize)
                             else None
                         x.Forward(s)                                        
                         match searcher with                        
                         | :? BidirectionalSearcher as searcher ->
                             match searcher.ForwardSearcher with
                             | :? AISearcher as searcher ->
-                                let gameState, statisticsAfterStep = collectGameState s.currentLoc
+                                let gameState, statisticsAfterStep,_ = collectGameState s.currentLoc options.serialize
                                 searcher.LastGameState <- gameState
                                 searcher.LastCollectedStatistics <- statisticsAfterStep
                                 let reward = computeReward statisticsBeforeStep.Value statisticsAfterStep
@@ -389,8 +389,8 @@ type public SILI(options : SiliOptions) =
                         | _ -> ()
                         if options.serialize
                         then 
-                            let _,statistics2 = collectGameState s.currentLoc
-                            saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2
+                            let _,statistics2,_ = collectGameState s.currentLoc options.serialize
+                            saveExpectedResult fileForExpectedResults s.id statistics1.Value statistics2 
                     with
                     | e ->
                         match searcher with
