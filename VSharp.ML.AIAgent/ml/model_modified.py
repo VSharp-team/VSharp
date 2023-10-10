@@ -17,9 +17,29 @@ class StateGNNEncoderConvEdgeAttrExport(StateGNNEncoderConvEdgeAttr):
         super().__init__(hidden_channels, out_channels)
         self.lin_last = Linear(out_channels, 1)
 
-    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+    def forward(
+        self,
+        game_x,
+        state_x,
+        edge_index_v_v,
+        edge_index_history_v_s,
+        edge_attr_history_v_s,
+        edge_index_in_v_s,
+        edge_index_s_s,
+    ):
         return softmax(
-            self.lin_last(super().forward(x_dict, edge_index_dict, edge_attr)), dim=0
+            self.lin_last(
+                super().forward(
+                    game_x,
+                    state_x,
+                    edge_index_v_v,
+                    edge_index_history_v_s,
+                    edge_attr_history_v_s,
+                    edge_index_in_v_s,
+                    edge_index_s_s,
+                )
+            ),
+            dim=0,
         )
 
 
@@ -31,10 +51,27 @@ class StateModelEncoderExport(torch.nn.Module):
         )
 
     @timeit
-    def forward(self, x_dict, edge_index_dict, edge_attr=None):
+    def forward(
+        self,
+        game_x,
+        state_x,
+        edge_index_v_v,
+        edge_index_history_v_s,
+        edge_attr_history_v_s,
+        edge_index_in_v_s,
+        edge_index_s_s,
+    ):
         z_dict = {}
-        z_dict["state_vertex"] = self.state_encoder(x_dict, edge_index_dict, edge_attr)
-        z_dict["game_vertex"] = x_dict["game_vertex"]
+        z_dict["state_vertex"] = self.state_encoder(
+            game_x,
+            state_x,
+            edge_index_v_v,
+            edge_index_history_v_s,
+            edge_attr_history_v_s,
+            edge_index_in_v_s,
+            edge_index_s_s,
+        )
+        z_dict["game_vertex"] = game_x
         return z_dict
 
 

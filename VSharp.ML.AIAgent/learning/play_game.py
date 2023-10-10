@@ -47,8 +47,8 @@ def play_map(
 
     def add_single_step(input, output):
         hetero_input, _ = ServerDataloaderHeteroVector.convert_input_to_tensor(input)
-        hetero_input.to(GeneralConfig.DEVICE)
         hetero_input["y_true"] = output
+        hetero_input.to(GeneralConfig.DEVICE)
         map_steps.append(hetero_input)
 
     try:
