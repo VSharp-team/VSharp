@@ -19,6 +19,7 @@
     <ItemGroup>
         <Compile Include="Operations.fs" />
         <Compile Include="Terms.fs" />
+        <Compile Include="TermsBranching.fs" />
         <Compile Include="Propositional.fs" />
         <Compile Include="PathCondition.fs" />
         <Compile Include="Merging.fs" />

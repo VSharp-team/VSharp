@@ -123,9 +123,7 @@ module internal Pointers =
         | Ptr _ -> False()
         | _ when isReference ref -> isNull ref
         | _ when typeOf ref |> isNative -> True()
-        | Union gvs ->
-            let gvs = List.map (fun (g, v) -> (g, isBadRef v)) gvs
-            Merging.merge gvs
+        | Union _ -> TermsBranching.mapUnion ref isBadRef Merging.merge
         | _ -> False()
 
 // -------------------------- Address arithmetic --------------------------
