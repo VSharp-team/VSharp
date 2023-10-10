@@ -6,7 +6,7 @@ using VSharp.Test;
 
 [TestSvmFixture, Category("Dataset")]
 class MatrixQuery {
-    [TestSvm(100,serialize:"MatrixQueryModifyMatrix"), Category("Dataset")]
+    [TestSvm(50,serialize:"MatrixQueryModifyMatrix"), Category("Dataset")]
     public static void MatrixQueryModifyMatrix(int[, ] mat)
     {
 

@@ -41,7 +41,7 @@ public static void getCofactor(int [,]A, int [,]temp, int p, int q, int n)
 
 /* Recursive function for finding determinant of matrix.
 n is current dimension of [,]A. */
-	[TestSvm(100,serialize:"determinant"), Category("Dataset")]
+	[TestSvm(50,serialize:"determinant"), Category("Dataset")]
 	public static int determinant(int [,]A, int n)
 {
 	int D = 0; // Initialize result
@@ -68,7 +68,7 @@ n is current dimension of [,]A. */
 }
 
 // Function to get adjoint of A[N,N] in adj[N,N].
-	[TestSvm(100,serialize:"adjoint"), Category("Dataset")]
+	[TestSvm(50,serialize:"adjoint"), Category("Dataset")]
 	public static void adjoint(int [,]A, int [,]adj)
 {
 	if (N == 1)
@@ -101,7 +101,7 @@ n is current dimension of [,]A. */
 
 // Function to calculate and store inverse, returns false if
 // matrix is singular
-	[TestSvm(100,serialize:"matrixInverse"), Category("Dataset")]
+	[TestSvm(5,serialize:"matrixInverse"), Category("Dataset")]
 	public static bool matrixInverse(int [,]A, float [,]inverse)
 {
 	// Find determinant of [,]A

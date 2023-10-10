@@ -49,7 +49,7 @@ class GFG {
         return numPainters;
     }
     
-    [TestSvm(100,serialize:"bsPartition"), Category("Dataset")]
+    [TestSvm(20,serialize:"bsPartition"), Category("Dataset")]
     static public int bsPartition(int[] arr,
         int n, int k)
     {

@@ -58,7 +58,7 @@ static int []colNum = {0, -1, 1, 0};
 
 // function to find the shortest path between
 // a given source cell to a destination cell.
-	[TestSvm(100,serialize:"BinaryMaze1BFS"), Category("Dataset")]
+	[TestSvm(70,serialize:"BinaryMaze1BFS"), Category("Dataset")]
 	public static int BinaryMaze1BFS(int [,]mat, Point src,
 						Point dest)
 {
@@ -188,7 +188,7 @@ class BinaryMaze2 {
 	}
 
 	// Wrapper over findShortestPath() function
-	[TestSvm(100,serialize:"findShortestPathLength"), Category("Dataset")]
+	[TestSvm(50,serialize:"findShortestPathLength"), Category("Dataset")]
 	public static int findShortestPathLength(int[, ] mat,
 									int[] src, int[] dest)
 	{

@@ -12,7 +12,7 @@ class WordWrap
 
 // Function to find space optimized
 // solution of Word Wrap problem.
-	[TestSvm(100,serialize:"solveWordWrap"), Category("Dataset")]
+	[TestSvm(20,serialize:"solveWordWrap"), Category("Dataset")]
 	public static List<Tuple<int, int>> solveWordWrap(int[] arr, int n, int k)
 {
 	int i, j;

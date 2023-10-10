@@ -145,6 +145,7 @@ Boolean isEulerianCycle()
 }
 
 // Driver code
+[TestSvm(expectedCoverage:50, serialize:"EulerMain"), Category("Dataset")]
 public static bool EulerMain(EulerGraph g)
 {
 	return g.isEulerianCycle();

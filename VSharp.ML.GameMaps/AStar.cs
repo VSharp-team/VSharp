@@ -1,7 +1,7 @@
 using NUnit.Framework;
 using VSharp.Test;
 
-[TestSvmFixture, Category("Dataset")]
+[TestSvmFixture,Category("Dataset")]
 class A_star
     {
         // Coordinates of a cell - implements the method Equals
@@ -229,6 +229,7 @@ class A_star
         }
 
         // The main method
+        [TestSvm(expectedCoverage:50, serialize:"AStar"), Category("Dataset")]
         public static void AStarMain(Cell[,] field, int[,] walls)
         {
             Astar astar = new Astar(field, walls);

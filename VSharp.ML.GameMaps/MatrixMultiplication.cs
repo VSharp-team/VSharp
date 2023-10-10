@@ -111,6 +111,7 @@ public static int[, ] multiply_matrix(int[, ] matrix_A,int[, ] matrix_B)
 	return result_matrix;
 }
 
+[TestSvm(50,serialize:"MatrixMultiplicationMain"), Category("Dataset")]
 public static int[,] MatrixMultiplicationMain (int[,] matrix_A, int[,] matrix_B) {
 	
 	int[, ] result_matrix = multiply_matrix(matrix_A, matrix_B);

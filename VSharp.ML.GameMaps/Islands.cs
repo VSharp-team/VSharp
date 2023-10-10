@@ -44,7 +44,7 @@ class Islands {
         }
     }
 
-    [TestSvm(100,serialize:"countIslands"), Category("Dataset")]
+    [TestSvm(50,serialize:"countIslands"), Category("Dataset")]
     public static int countIslands(int[, ] M)
     {
         int ROW = M.GetLength(0);

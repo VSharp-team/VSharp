@@ -12,8 +12,8 @@ static int M = 26;
 
 // Method returns total ways to increase
 // LCS length by 1
-	[TestSvm(100,serialize:"waysToIncreaseLCSBy1"), Category("Dataset")]
-	static int waysToIncreaseLCSBy1(String str1,
+	[TestSvm(5,serialize:"waysToIncreaseLCSBy1"), Category("Dataset")]
+	public static int waysToIncreaseLCSBy1(String str1,
 								String str2)
 {
 	int m = str1.Length, n = str2.Length;

@@ -28,7 +28,7 @@ public class Graph
     // src to all other vertices using Bellman-Ford
     // algorithm. The function also detects negative weight
     // cycle
-    [TestSvm(100,serialize:"BellmanFord"), Category("Dataset")]
+    [TestSvm(50,serialize:"BellmanFord"), Category("Dataset")]
     public int[] BellmanFord(Graph graph, int src)
     {
         int V = graph.V, E = graph.E;

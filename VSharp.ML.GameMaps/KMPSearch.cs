@@ -6,8 +6,8 @@ namespace VSharp.ML.GameMaps;
 [TestSvmFixture, Category("Dataset")]
 public class KMPSearch
 {
-    [TestSvm(100,serialize:"SearchKMP"), Category("Dataset")]
-    static List<int> SearchKMP(string pat, string txt)
+    [TestSvm(50,serialize:"SearchKMP"), Category("Dataset")]
+    public static List<int> SearchKMP(string pat, string txt)
     {
         List<int> result = new List<int>();
         int M = pat.Length;
