@@ -171,6 +171,7 @@ module Loader =
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
+            "System.Void System.Threading.AutoResetEvent..ctor(this, System.Boolean)"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
