@@ -553,7 +553,7 @@ module TypeSolver =
             typeStorage.AddConstraint thisAddress thisConstraints
             let checkOverrides t =
                 match t with
-                | Candidate t as c when ancestorMethod.CanBeOverriddenInType t -> Some c
+                | Candidate t as c when ancestorMethod.IsImplementedInType t -> Some c
                 | Candidate _ -> None
                 // TODO: check generic candidate #types
                 | GenericCandidate _ -> None
@@ -564,7 +564,7 @@ module TypeSolver =
                 let candidates = typeStorage[thisAddress].Value
                 let resolveOverride candidate =
                     match candidate with
-                    | Candidate t as c ->
+                    | Candidate t ->
                         let overridden = ancestorMethod.ResolveOverrideInType t
                         overridden.DeclaringType
                     | GenericCandidate gc ->
