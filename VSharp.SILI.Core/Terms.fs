@@ -773,18 +773,38 @@ module internal Terms =
         | :? ValueType as o -> structToBytes o
         | _ -> internalfail $"getting bytes from concrete: unexpected obj {obj}"
 
+    and private bytesToNullable (bytes : byte[]) (t : Type) =
+        let fields = Reflection.fieldsOf false t
+        assert(Array.length fields = 2)
+        let hasValueField = fields |> Array.find (fun (f, _) -> f.name = "hasValue") |> snd
+        assert(hasValueField.FieldType = typeof<bool>)
+        let hasValueOffset = LayoutUtils.GetFieldOffset hasValueField
+        let hasValueSize = internalSizeOf typeof<bool>
+        let hasValueBytes = bytes[hasValueOffset .. hasValueOffset + hasValueSize - 1]
+        let hasValue = bytesToObj hasValueBytes typeof<bool> :?> bool
+        if hasValue then
+            let valueField = fields |> Array.find (fun (f, _) -> f.name = "value") |> snd
+            let underlyingType = Nullable.GetUnderlyingType t
+            assert(valueField.FieldType = underlyingType)
+            let valueOffset = LayoutUtils.GetFieldOffset valueField
+            let valueSize = internalSizeOf underlyingType
+            bytesToObj bytes[valueOffset .. valueOffset + valueSize - 1] underlyingType
+        else null
+
     and private bytesToStruct (bytes : byte[]) (t : Type) =
         if t.IsGenericType then
             let fields = Reflection.fieldsOf false t
             assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let obj = Reflection.defaultOf t
-            for _, fi in fields do
-                let offset = LayoutUtils.GetFieldOffset fi
-                let fieldType = fi.FieldType
-                let size = internalSizeOf fieldType
-                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
-                fi.SetValue(obj, value)
-            obj
+            if isNullable t then bytesToNullable bytes t
+            else
+                let obj = Reflection.defaultOf t
+                for _, fi in fields do
+                    let offset = LayoutUtils.GetFieldOffset fi
+                    let fieldType = fi.FieldType
+                    let size = internalSizeOf fieldType
+                    let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                    fi.SetValue(obj, value)
+                obj
         else
             assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
             let size = internalSizeOf t
@@ -796,7 +816,7 @@ module internal Terms =
             finally
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
 
-    and private bytesToObj (bytes : byte[]) t =
+    and private bytesToObj (bytes : byte[]) t : obj =
         let span = ReadOnlySpan<byte>(bytes)
         match t with
         | _ when t = typeof<byte> -> Array.head bytes :> obj
@@ -835,6 +855,7 @@ module internal Terms =
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
         | StructType _ -> bytesToStruct bytes t
+        | _ when not t.IsValueType && Array.forall (fun b -> b = 0uy) bytes -> null
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
