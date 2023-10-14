@@ -149,19 +149,23 @@ type typesConstraints private (newAddresses, constraints) =
         let mutable isValid = true
         let unequal = HashSet<term * term>()
         for entry1 in constraints do
-            let address1 = entry1.Key
-            let typeConstraints1 = entry1.Value
-            for entry2 in constraints do
-                let address2 = entry2.Key
-                let typeConstraints2 = entry2.Value
-                let typeConstraints = typeConstraints1.Copy()
-                let different = address1 <> address2
-                if different then
-                    typeConstraints.Merge typeConstraints2 |> ignore
-                if typeConstraints.IsContradicting() then
-                    if different then unequal.Add(address1, address2) |> ignore
-                    else isValid <- false
-        isValid, unequal
+            if isValid then
+                let address1 = entry1.Key
+                let typeConstraints1 = entry1.Value
+                for entry2 in constraints do
+                    let address2 = entry2.Key
+                    let typeConstraints2 = entry2.Value
+                    let typeConstraints = typeConstraints1.Copy()
+                    let different = address1 <> address2
+                    if different then
+                        typeConstraints.Merge typeConstraints2 |> ignore
+                    if typeConstraints.IsContradicting() then
+                        if different then
+                            if unequal.Contains(address2, address1) |> not then
+                                unequal.Add(address1, address2) |> ignore
+                        else isValid <- false
+        if isValid then Some unequal
+        else None
 
     interface System.Collections.IEnumerable with
         member this.GetEnumerator() =

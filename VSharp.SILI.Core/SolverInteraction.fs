@@ -65,10 +65,9 @@ module public SolverInteraction =
         Seq.map createCondition unequal
 
     let checkSatWithSubtyping (state : state) =
-        let typeStorage = state.typeStorage
-        let isValid, unequal = typeStorage.Constraints.CheckInequality()
-        let context = createContext unequal
-        if isValid then
+        match TypeSolver.checkInequality state with
+        | Some unequal ->
+            let context = createContext unequal
             match checkSatWithCtx state context with
             | SmtSat {mdl = model} as satWithModel ->
                 try
@@ -78,4 +77,4 @@ module public SolverInteraction =
                 with :? InsufficientInformationException as e ->
                     SmtUnknown e.Message
             | result -> result
-        else SmtUnsat {core = Array.empty}
+        | None -> SmtUnsat {core = Array.empty}

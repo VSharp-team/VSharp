@@ -41,6 +41,9 @@ module public Reflection =
     let instanceBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
+    let instanceNonPublicBindingFlags =
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        BindingFlags.Instance ||| BindingFlags.NonPublic
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
@@ -632,3 +635,6 @@ module public Reflection =
     let rec isUnmanaged (t : Type) =
         t.IsPrimitive || t = typeof<decimal> || t.IsEnum || t.IsPointer
         || t.IsValueType && fieldsOf false t |> Array.forall (fun (f, _) -> isUnmanaged f.typ)
+
+    let hasNonPublicAbstractMethods (t : Type) =
+        t.GetMethods(instanceNonPublicBindingFlags) |> Seq.exists (fun m -> m.IsAbstract)
