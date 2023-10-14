@@ -2,6 +2,7 @@ namespace VSharp.Core
 
 open System
 open System.Collections.Generic
+open System.Reflection
 open System.Text
 open FSharpx.Collections
 open VSharp
@@ -584,6 +585,14 @@ module internal Memory =
             tryPointerToObj state a offset
         | _ -> None
 
+    and private castAndSet (fieldInfo : FieldInfo) structObj v =
+        let v =
+            if v <> null && v.GetType() <> fieldInfo.FieldType && fieldInfo.FieldType = typeof<IntPtr> then
+                let gcHandle = System.Runtime.InteropServices.GCHandle.Alloc(v)
+                System.Runtime.InteropServices.GCHandle.ToIntPtr(gcHandle) :> obj
+            else v
+        fieldInfo.SetValue(structObj, v)
+
     and tryStructTermToObj (state : state) fields typ =
         let structObj = Reflection.createObject typ
         let addField _ (fieldId, value) k =
@@ -593,7 +602,7 @@ module internal Memory =
             else
                 match tryTermToObj state value with
                 // field can be converted to obj, so continue
-                | Some v -> fieldInfo.SetValue(structObj, v) |> k
+                | Some v -> castAndSet fieldInfo structObj v |> k
                 // field can not be converted to obj, so break and return None
                 | None -> None
         Cps.Seq.foldlk addField () (PersistentDict.toSeq fields) (fun _ -> Some structObj)
