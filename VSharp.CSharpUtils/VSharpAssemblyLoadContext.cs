@@ -116,6 +116,23 @@ namespace VSharp.CSharpUtils
         // We have to rebuild them using the twin types from VSharpAssemblyLoadContext.
         public Type NormalizeType(Type t)
         {
+            if (t.IsArray)
+            {
+                var elementType = t.GetElementType();
+                Debug.Assert(elementType != null);
+                var normalized = NormalizeType(elementType);
+                var rank = t.GetArrayRank();
+                return t.IsSZArray ? normalized.MakeArrayType() : normalized.MakeArrayType(rank);
+            }
+
+            if (t.IsPointer)
+            {
+                var elementType = t.GetElementType();
+                Debug.Assert(elementType != null);
+                var normalized = NormalizeType(elementType);
+                return normalized.MakePointerType();
+            }
+
             if (t is { IsGenericType: true, IsGenericTypeDefinition: false })
             {
                 var normalized = NormalizeType(t.GetGenericTypeDefinition());
@@ -123,7 +140,14 @@ namespace VSharp.CSharpUtils
                 return normalized.MakeGenericType(fixedGenericTypes);
             }
 
-            return _types.GetValueOrDefault(t.FullName ?? t.Name, t);
+            var name = t.FullName ?? t.Name;
+            if (_types.TryGetValue(name, out var normalizedType))
+            {
+                return normalizedType;
+            }
+
+            _types.Add(name, t);
+            return t;
         }
 
         public MethodBase NormalizeMethod(MethodBase originMethod)
