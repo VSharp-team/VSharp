@@ -67,7 +67,7 @@ type Copier () =
             let target' = deepCopyObject {object = obj.Target}
             let targetField = typ.GetField("_target", Reflection.instanceBindingFlags)
             assert(targetField <> null)
-            targetField.SetValue(obj', target')
+            targetField.SetValue(obj', target'.object)
             phys'
         | _ when typ.IsClass || typ.IsValueType ->
             let obj' = FormatterServices.GetUninitializedObject typ
