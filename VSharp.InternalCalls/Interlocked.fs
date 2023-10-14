@@ -55,6 +55,11 @@ module internal Interlocked =
         let location, value = args[1], args[2]
         exchange interpreter cilState location value
 
+    let intPtrExchange (interpreter : IInterpreter) cilState (args : term list) =
+        assert(List.length args = 2)
+        let location, value = args[0], args[1]
+        exchange interpreter cilState location value
+
     let intExchange (interpreter : IInterpreter) cilState (args : term list) =
         assert(List.length args = 2)
         let location, value = args[0], args[1]

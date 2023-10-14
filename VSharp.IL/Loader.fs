@@ -158,9 +158,15 @@ module Loader =
             "System.String System.RuntimeType.get_Namespace(this)"
             "System.Boolean System.Type.get_IsAbstract(this)"
             "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
+            "System.Type System.RuntimeType.GetGenericTypeDefinition(this)"
+
+            // Object
+            "System.Object System.Object.MemberwiseClone(this)"
 
             // Assembly
             "System.String System.Reflection.RuntimeAssembly.get_Location(this)"
+            "System.Void System.Runtime.Loader.AssemblyLoadContext..ctor(this, System.Boolean, System.Boolean, System.String)"
+            "System.Void System.Runtime.Loader.DefaultAssemblyLoadContext..ctor(this)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -172,9 +178,16 @@ module Loader =
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
             "System.Void System.Threading.AutoResetEvent..ctor(this, System.Boolean)"
+            "System.Void System.Threading.EventWaitHandle.CreateEventCore(this, System.Boolean, System.Threading.EventResetMode, System.String, System.Boolean&)"
+            "System.Void System.Threading.EventWaitHandle..ctor(this, System.Boolean, System.Threading.EventResetMode, System.String, System.Boolean&)"
+            "System.Void System.Threading.EventWaitHandle..ctor(this, System.Boolean, System.Threading.EventResetMode)"
+            "System.Void System.Threading.ManualResetEvent..ctor(this, System.Boolean)"
+            "System.Void System.Threading.Thread.Initialize(this)"
 
             // Interop
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
+            "System.String Interop+Sys.GetHostName()"
+            "System.String Interop+Sys.GetDomainName()"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
@@ -187,11 +200,24 @@ module Loader =
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
 
+            // Delegates
+            "System.IntPtr System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(System.Delegate)"
+
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
             "System.String System.Environment.GetEnvironmentVariable(System.String)"
             "System.OperatingSystem System.Environment.GetOSVersion()"
+            "System.Int32 System.Environment.GetProcessId()"
+            "System.String System.Environment.get_UserName()"
+            "System.String System.Net.NetworkInformation.HostInformationPal.GetHostName()"
+            "System.String System.Environment.get_SystemDirectory()"
+            "System.Void System.Diagnostics.StackTrace..ctor(this)"
+            "System.String System.BadImageFormatException.get_Message(this)"
+
+            // Exceptions
+            "System.String System.Exception.get_Source(this)"
+            "System.String System.BadImageFormatException.ToString(this)"
 
             // Reflection
             "System.Reflection.AssemblyName System.Reflection.Assembly.GetName(this)"
@@ -224,6 +250,15 @@ module Loader =
             // Random
             "System.Void System.Random..ctor(this)"
             "System.UInt64 System.Marvin.GenerateSeed()"
+
+            // Time
+            // TODO: this should be extern mocks
+            "System.DateTime System.DateTime.get_Now()"
+            "System.DateTime System.DateTime.get_UtcNow()"
+            "System.DateTime System.Diagnostics.Process.get_StartTime(this)"
+
+            // FileSystem
+            "System.String System.IO.FileSystemInfo.get_LinkTarget(this)"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"

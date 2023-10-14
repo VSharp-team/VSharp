@@ -20,5 +20,8 @@ module internal InteropServices =
     [<Implements("System.Runtime.InteropServices.GCHandle System.Runtime.InteropServices.GCHandle.Alloc(System.Object)")>]
     val Alloc : state -> term list -> term
 
+    [<Implements("System.Void System.Runtime.InteropServices.GCHandle.Free(this)")>]
+    val GCHandleFree : state -> term list -> term
+
     [<Implements("System.IntPtr System.Runtime.InteropServices.GCHandle.AddrOfPinnedObject(this)")>]
     val AddrOfPinnedObject : state -> term list -> term

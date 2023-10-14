@@ -10,6 +10,12 @@ namespace VSharp.CSharpUtils
             return str.GetDeterministicHashCode();
         }
 
+        [Implements("System.Int32 System.CultureAwareComparer.GetHashCode(this, System.String)")]
+        public static int CultureAwareComparerGetHashCode(object _, string str)
+        {
+            return str.GetDeterministicHashCode();
+        }
+
         [Implements("System.Boolean System.String.EqualsHelper(System.String, System.String)")]
         [Implements("System.Boolean System.String.Equals(System.String, System.String)")]
         [Implements("System.Boolean System.String.Equals(this, System.String)")]

@@ -53,6 +53,10 @@ module internal InteropServices =
         let obj = args[0]
         CommonAlloc obj
 
+    let GCHandleFree (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        Nop()
+
     let AddrOfPinnedObject (state : state) (args : term list) =
         assert(List.length args = 1)
         let this = args[0]

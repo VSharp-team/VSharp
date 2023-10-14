@@ -31,3 +31,15 @@ module internal Runtime_CompilerServices_RuntimeHelpers =
 
     [<Implements("System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.TryEnsureSufficientExecutionStack()")>]
     val TryEnsureSufficientExecutionStack : state -> term list -> term
+
+    [<Implements("System.Void System.Runtime.CompilerServices.RuntimeHelpers.EnsureSufficientExecutionStack()")>]
+    val EnsureSufficientExecutionStack : state -> term list -> term
+
+    [<Implements("System.String System.Exception.get_Source(this)")>]
+    val ExceptionGetSource : state -> term list -> term
+
+    [<Implements("System.String System.BadImageFormatException.ToString(this)")>]
+    val BadImageFormatExceptionToString : state -> term list -> term
+
+    [<Implements("System.String System.BadImageFormatException.get_Message(this)")>]
+    val BadImageFormatExceptionGetMessage : state -> term list -> term

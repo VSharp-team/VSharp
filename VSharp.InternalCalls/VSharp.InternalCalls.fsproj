@@ -70,6 +70,8 @@
         <Compile Include="ValueType.fs" />
         <Compile Include="Activator.fsi" />
         <Compile Include="Activator.fs" />
+        <Compile Include="Object.fsi" />
+        <Compile Include="Object.fs" />
     </ItemGroup>
 
     <ItemGroup>
