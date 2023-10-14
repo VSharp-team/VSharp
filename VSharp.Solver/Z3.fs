@@ -569,7 +569,12 @@ module internal Z3 =
                 assumptions, newLeft, newRight, newPos
             List.foldBack addBounds cuts (assumptions, zero, sizeExpr, zero)
 
-        // TODO: make code better
+        member private x.EncodeBoolBitVec (b : BoolExpr) =
+            assert(sizeof<bool> = sizeof<byte>)
+            let trueBitVec = ctx.MkNumeral(1, x.Type2Sort typeof<byte>)
+            let falseBitVec = ctx.MkNumeral(0, x.Type2Sort typeof<byte>)
+            x.MkITE(b, trueBitVec, falseBitVec) :?> BitVecExpr
+
         member private x.EncodeCombine encCtx slices typ =
             let res = ctx.MkNumeral(0, x.Type2Sort typ) :?> BitVecExpr
             let window = res.SortSize
@@ -581,7 +586,11 @@ module internal Z3 =
                         let slices = List.map (fun (s, e, pos) -> x.EncodeTerm encCtx s, x.EncodeTerm encCtx e, x.EncodeTerm encCtx pos) cuts
                         x.EncodeTerm encCtx term, slices
                     | _ -> x.EncodeTerm encCtx slice, List.empty
-                let t = term.expr :?> BitVecExpr
+                let t =
+                    match term.expr with
+                    | :? BitVecExpr as bv -> bv
+                    | :? BoolExpr as b -> x.EncodeBoolBitVec b
+                    | _ -> internalfail $"EncodeCombine: unexpected slice term {term}"
                 let assumptions = assumptions @ term.assumptions
                 let termSize = t.SortSize
                 let sizeExpr = ctx.MkBV(termSize, termSize)
