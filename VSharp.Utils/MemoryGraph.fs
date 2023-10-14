@@ -275,8 +275,11 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         let mockType, t = mockStorage[index]
         mockType.EnsureInitialized decode t
         let baseClass = mockType.BaseClass
-        if TypeUtils.isDelegate baseClass then Mocking.Mocker.CreateDelegate baseClass t
-        else Reflection.createObject t
+        let obj =
+            if TypeUtils.isDelegate baseClass then Mocking.Mocker.CreateDelegate baseClass t
+            else Reflection.createObject t
+        GC.SuppressFinalize(obj)
+        obj
 
     let rec allocateDefault (obj : obj) =
         match obj with
@@ -289,7 +292,10 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
                 internalfailf "Generating test: unable to create byref-like object (type = %O)" t
             if t.ContainsGenericParameters then
                 internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
-            else System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+            else
+                let obj = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
+                GC.SuppressFinalize(obj)
+                obj
         | :? structureRepr as repr ->
             // Case for mocked structs or classes
             createMockObject allocateDefault repr.typ
