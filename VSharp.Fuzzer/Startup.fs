@@ -101,11 +101,16 @@ let internal startFuzzer options developerOptions =
 
     let proc = System.Diagnostics.Process.Start info
 
+    let stderrTag = "Fuzzer STDERR"
+    let stdoutTag = "Fuzzer STDOUT"
+
     if developerOptions.redirectStderr then
-        proc.ErrorDataReceived.Add (fun x -> Logger.error $"[Fuzzer STDERR] {x.Data}")
+        Logger.enableTag stderrTag Logger.Info
+        proc.ErrorDataReceived.Add (fun x -> Logger.infoWithTag stderrTag $"{x.Data}")
         proc.BeginErrorReadLine ()
     if developerOptions.redirectStdout then
-        proc.OutputDataReceived.Add (fun x -> Logger.error $"[Fuzzer STDOUT] {x.Data}")
+        Logger.enableTag stdoutTag Logger.Info
+        proc.OutputDataReceived.Add (fun x -> Logger.infoWithTag stdoutTag $"{x.Data}")
         proc.BeginOutputReadLine ()
 
     if

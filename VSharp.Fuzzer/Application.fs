@@ -6,6 +6,7 @@ open System.Threading
 open VSharp.Fuzzer.Communication.Contracts
 open VSharp.Fuzzer.Utils
 open VSharp
+open VSharp.CSharpUtils
 open VSharp.Fuzzer.Communication
 open Logger
 open VSharp.Fuzzer.Communication.Services
@@ -14,7 +15,7 @@ open VSharp.Fuzzer.Communication.Services
 type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
     let fuzzerCancellationToken = new CancellationTokenSource()
     let coverageTool = CoverageTool()
-    let masterProcessService = connectSymbolicExecutionService ()
+    let masterProcessService = connectMasterProcessService ()
     let fuzzer = Fuzzer.Fuzzer(fuzzerOptions, masterProcessService, coverageTool)
 
     let mutable assembly = Unchecked.defaultof<Assembly>
@@ -23,32 +24,38 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
 
         let onSetupAssembly pathToTargetAssembly =
             task {
-                traceCommunication $"Received: Setup {pathToTargetAssembly}"
                 assembly <- AssemblyManager.LoadFromAssemblyPath pathToTargetAssembly
                 traceFuzzing $"Target assembly was set to {assembly.FullName}"
             } |> withExceptionLogging
 
         let onFuzz moduleName methodToken =
-            task {
-                failIfNull fuzzer "onFuzz called before assembly initialization"
 
-                let methodBase = Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
-                traceFuzzing $"Resolved MethodBase {methodToken}"
+            System.Threading.Tasks.Task.Run(fun () ->
+                try
+                    failIfNull assembly "onFuzz called before assembly initialization"
 
-                let method = Application.getMethod methodBase
-                traceFuzzing $"Resolved Method {methodToken}"
+                    let methodBase = Reflection.resolveMethodBaseFromAssembly assembly moduleName methodToken
+                    traceFuzzing $"Resolved MethodBase {methodToken}"
 
-                coverageTool.SetEntryMain assembly moduleName methodToken
-                traceFuzzing $"Was set entry main {moduleName} {methodToken}"
+                    let method = Application.getMethod methodBase
+                    traceFuzzing $"Resolved Method {methodToken}"
 
-                do! fuzzer.AsyncFuzz method
-                traceFuzzing $"Successfully fuzzed {moduleName} {methodToken}"
+                    coverageTool.SetEntryMain assembly moduleName methodToken
+                    traceFuzzing $"Was set entry main {moduleName} {methodToken}"
 
-                do! masterProcessService.NotifyFinished (UnitData())
-            } |> withExceptionLogging
+                    (fuzzer.AsyncFuzz method).Wait()
+                    traceFuzzing $"Successfully fuzzed {moduleName} {methodToken}"
+                    
+                    (masterProcessService.NotifyFinished (UnitData())).Wait()
+                    traceFuzzing $"Notified master process: finished {moduleName} {methodToken}"
+                with e -> errorFuzzing $"{e}"
+            ).Forget()
+
+            System.Threading.Tasks.Task.FromResult() :> System.Threading.Tasks.Task
 
         let onFinish () =
             task {
+                traceCommunication "Fuzzer cancelled"
                 fuzzerCancellationToken.Cancel()
             } |> withExceptionLogging
 

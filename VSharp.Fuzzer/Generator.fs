@@ -3,9 +3,9 @@ namespace VSharp.Fuzzer
 open System
 open System.Collections.Generic
 open System.Reflection
+open System.Runtime.InteropServices
 open VSharp
 open VSharp.Core
-
 
 type internal GenerationData = {
     seed: int
@@ -32,6 +32,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
     let setAllFields (t: Type) (setter: Type -> obj) =
         traceGeneration t "Set all fields"
         let isStatic = t.IsAbstract && t.IsSealed
+        assert (not isStatic)
         let fields = Reflection.fieldsOf isStatic t
         let instance = Reflection.createObject t
         for _, fieldInfo in fields do
@@ -47,7 +48,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
             None
         else
             traceGeneration t "Constructor found"
-            let constructor = constructors[rnd.NextInt64(0,  int64 constructors.Length) |> int32]
+            let constructor = constructors[rnd.Next(0, constructors.Length)]
             let constructorArgsTypes = constructor.GetParameters() |> Array.map (fun p -> p.ParameterType)
             let constructorArgs = constructorArgsTypes |> Array.map (commonGenerator rnd)
             constructor.Invoke(constructorArgs) |> Some
@@ -72,7 +73,7 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
                 traceGeneration t "Installable type not found"
                 instancesCache.Add(t, None)
             else
-                let installableType = instances[rnd.NextInt64(0, instances.Length) |> int]
+                let installableType = instances[rnd.Next(0, instances.Length)]
                 traceGeneration t $"Installable type found: {installableType}"
                 instancesCache.Add(t, Some installableType)
             instancesCache[t]
@@ -94,22 +95,25 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
     // Generators
     let generateBuiltinNumeric _ (rnd: Random) (t: Type) =
         traceGeneration t "Generate builtin numeric"
-        let numericCreators: (Type * int * (byte array -> obj)) list = [
-            typeof<int8>, sizeof<int8>, (fun x -> sbyte x[0]) >> box
-            typeof<int16>, sizeof<int16>, BitConverter.ToInt16 >> box
-            typeof<int32>, sizeof<int32>, BitConverter.ToInt32 >> box
-            typeof<int64>, sizeof<int64>, BitConverter.ToInt64 >> box
-            typeof<uint8>, sizeof<uint8>, (fun x -> x[0]) >> box
-            typeof<uint16>, sizeof<uint16>, BitConverter.ToUInt16 >> box
-            typeof<uint32>, sizeof<uint32>, BitConverter.ToUInt32 >> box
-            typeof<uint64>, sizeof<uint64>, BitConverter.ToUInt64 >> box
-            typeof<float32>, sizeof<float32>, BitConverter.ToSingle >> box
-            typeof<double>, sizeof<double>, BitConverter.ToDouble >> box
-        ]
-        let _, size, create = List.find ( fun (x, _, _) -> x = t) numericCreators
+
+        let size = Marshal.SizeOf t
+        let (convert: byte array -> obj) = 
+            match t with
+            | _ when t = typeof<int8> -> (fun x -> sbyte x[0]) >> box
+            | _ when t = typeof<int16> -> BitConverter.ToInt16 >> box
+            | _ when t = typeof<int32> -> BitConverter.ToInt32 >> box
+            | _ when t = typeof<int64> -> BitConverter.ToInt64 >> box
+            | _ when t = typeof<uint8> -> (fun x -> x[0]) >> box
+            | _ when t = typeof<uint16> -> BitConverter.ToUInt16 >> box
+            | _ when t = typeof<uint32> -> BitConverter.ToUInt32 >> box
+            | _ when t = typeof<uint64> -> BitConverter.ToUInt64 >> box
+            | _ when t = typeof<float32> -> BitConverter.ToSingle >> box
+            | _ when t = typeof<double> -> BitConverter.ToDouble >> box
+            | _ -> failwith $"Unexpected type in generateBuiltinNumeric {t}"
+            
         let buffer = Array.create<byte> size 0uy
         rnd.NextBytes(buffer)
-        create buffer
+        convert buffer
 
     let generateBool _ (rnd: Random) t =
         traceGeneration t "Generate bool"
@@ -127,19 +131,19 @@ type internal Generator(options: Startup.FuzzerOptions, typeSolver: TypeSolver) 
 
     let generateString _ (rnd: Random) t =
         traceGeneration t "Generate string"
-        let size = rnd.Next (0, options.stringMaxSize)
+        let size = rnd.Next (0, options.stringMaxSize + 1)
         String(Array.init size (fun _ -> generateUnboxedChar rnd)) :> obj
 
     let generateEnum _ (rnd: Random) (t: Type) =
         traceGeneration t "Generate enum"
         let values = Enum.GetValues(t)
-        let index = rnd.NextInt64(0, int64 values.Length) |> int
+        let index = rnd.Next(0, values.Length)
         values.GetValue(index)
 
     let generateArray commonGenerator (rnd: Random) (t: Type) =
         traceGeneration t "Generate array"
         if t.IsSZArray then
-            let arraySize = rnd.NextInt64(0L, int64 options.arrayMaxSize) |> int
+            let arraySize = rnd.Next(0, options.arrayMaxSize + 1) |> int
             let elementType = t.GetElementType()
             let array = Array.CreateInstance(elementType, arraySize)
             for i in 0 .. arraySize - 1 do

@@ -5,6 +5,7 @@
         <Configurations>Debug;Release;DebugTailRec</Configurations>
         <Platforms>AnyCPU</Platforms>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <RootNamespace>VSharp.SVM</RootNamespace>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -31,7 +32,7 @@
         <Compile Include="GuidedSearcher.fs" />
         <Compile Include="FairSearcher.fs" />
         <Compile Include="BidirectionalSearcher.fs" />
-        <Compile Include="SVM.fs" />
+        <Compile Include="Explorer.fs" />
     </ItemGroup>
 
     <ItemGroup>

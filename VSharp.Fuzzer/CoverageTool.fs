@@ -1,6 +1,5 @@
 namespace VSharp.Fuzzer
 
-open System.IO
 open System.Reflection
 open System.Runtime.InteropServices
 open Microsoft.FSharp.NativeInterop
@@ -58,5 +57,3 @@ type internal CoverageTool() =
 
     member this.SetCurrentThreadId id =
         ExternalCalls.SetCurrentThreadId(id)
-
-

@@ -60,7 +60,10 @@ module internal TestGeneration =
         Logger.traceTestGeneration "Creating first frame and filling stack"
         let this =
             if m.HasThis then
-                Some (Memory.ObjectToTerm state generationData.this generationData.thisType)
+                match generationData.this with
+                | Obj -> Some (Memory.ObjectToTerm state generationData.this generationData.thisType)
+                | Mock mock -> Some (Memory.AllocateMock state mock generationData.thisType)
+                | _ -> failwith "Unexpected this type kind: Pointer or Ref"
             else None
 
         let createTerm (arg, pi: ParameterInfo) =
@@ -81,9 +84,8 @@ module internal TestGeneration =
                     Memory.ObjectToTerm state arg argType
             Some result
 
-        let hasByRefParameters = generationData.method.Parameters |> Array.exists (fun pi -> pi.ParameterType.IsByRef)
-        if hasByRefParameters then
-            Logger.traceTestGeneration "Method has byref parameters, create new stack frame"
+        if generationData.method.HasParameterOnStack then
+            Logger.traceTestGeneration "Method has parameter on stack, create new stack frame"
             Memory.NewStackFrame state None []
 
         let parameters =
@@ -93,20 +95,24 @@ module internal TestGeneration =
         Memory.InitFunctionFrame state m this (Some parameters)
         Memory.InitFunctionFrame model m this (Some parameters)
 
-        // Filling invocation result
-        match invocationResult with
-        | Thrown ex ->
-            Logger.traceTestGeneration "Filling exception register"
-            let exType = ex.GetType()
-            let exRef = Memory.AllocateConcreteObject state ex exType
-            // TODO: check if exception was thrown by user or by runtime
-            state.exceptionsRegister <- Unhandled(exRef, false, "")
-        | Returned obj ->
-            Logger.traceTestGeneration "Pushing result onto evaluation stack"
-            let returnedTerm = Memory.ObjectToTerm state obj m.ReturnType
-            state.evaluationStack <- EvaluationStack.Push returnedTerm state.evaluationStack
+        // Filling invocation result and create testSuite
+        let testSuite =
+            match invocationResult with
+            | Thrown ex ->
+                Logger.traceTestGeneration "Filling exception register"
+                let exType = ex.GetType()
+                let exRef = Memory.AllocateConcreteObject state ex exType
+                // TODO: check if exception was thrown by user or by runtime
+                state.exceptionsRegister <- exceptionRegisterStack.singleton <| Unhandled(exRef, false, "")
+                Error ("", false)
+            | Returned obj ->
+                Logger.traceTestGeneration "Pushing result onto evaluation stack"
+                let returnedTerm = Memory.ObjectToTerm state obj m.ReturnType
+                state.evaluationStack <- EvaluationStack.Push returnedTerm state.evaluationStack
+                Test
 
-        Logger.traceTestGeneration "Test generation finished"
+        Logger.traceTestGeneration "State to test started"
         // Create test from filled state
-        TestGenerator.state2testWithMockingCache false m state generationData.mocks ""
-
+        let result = TestGenerator.state2testWithMockingCache testSuite m state generationData.mocks
+        Logger.traceTestGeneration "State to test finished"
+        result

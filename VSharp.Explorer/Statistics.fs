@@ -1,4 +1,4 @@
-namespace VSharp.SVM
+namespace VSharp.Explorer
 
 open System
 open System.Diagnostics
@@ -196,18 +196,25 @@ type public SVMStatistics(entryMethods : Method seq) =
         if visitedBlocksNotCoveredByTests.TryGetValue(s, blocks) then blocks.Value
         else Set.empty
 
+    // TODO: Generalize methods before tracking coverage
     member x.SetBasicBlocksAsCoveredByTest (blocks : codeLocation seq) =
         let mutable coveredBlocks = ref null
+        let mutable hasNewCoverage = false
         let blocks = Seq.distinct blocks
         for block in blocks do
-            if blocksCoveredByTests.TryGetValue(block.method, coveredBlocks) then
-                coveredBlocks.Value.TryAdd(block.offset, ()) |> ignore
+            let method = block.method
+            let mutable isNewBlock = false
+            if blocksCoveredByTests.TryGetValue(method, coveredBlocks) then
+                isNewBlock <- coveredBlocks.Value.TryAdd(block.offset, ())
             else
                 let coveredBlocks = ConcurrentDictionary()
+                isNewBlock <- true
                 coveredBlocks.TryAdd(block.offset, ()) |> ignore
-                blocksCoveredByTests[block.method] <- coveredBlocks
-            if block.method.InCoverageZone then
+                blocksCoveredByTests[method] <- coveredBlocks
+            if method.InCoverageZone then
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
+            hasNewCoverage <- hasNewCoverage || isNewBlock && method.InCoverageZone 
+        hasNewCoverage
 
     member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
         let mutable coveredBlocks = ref null
@@ -261,9 +268,8 @@ type public SVMStatistics(entryMethods : Method seq) =
         ()
 
     member x.TrackFork (parent : cilState) (children : cilState seq) =
-        if Logger.isTagEnabled Logger.stateTraceTag then
-            for child in children do
-                Logger.traceWithTag Logger.stateTraceTag $"BRANCH: {parent.id} -> {child.id}"
+        for child in children do
+            Logger.traceWithTag Logger.stateTraceTag $"BRANCH: {parent.id} -> {child.id}"
 
         let blocks = ref Set.empty
         // TODO: check why 'parent' may not be in 'visitedBlocksNotCoveredByTests'

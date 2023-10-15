@@ -1,4 +1,4 @@
-namespace VSharp.SVM
+namespace VSharp.Explorer
 
 open System.Collections.Generic
 open FSharpx.Collections

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using VSharp.Interpreter.IL;
-using VSharp.SVM;
+using VSharp.Explorer;
 
 namespace VSharp.Test.Benchmarks;
 

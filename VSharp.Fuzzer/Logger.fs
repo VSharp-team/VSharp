@@ -22,19 +22,19 @@ let traceTypeSolving msg = VSharp.Logger.traceWithTag typeSolverTag msg
 let traceFuzzingInteraction msg = VSharp.Logger.traceWithTag VSharp.Logger.fuzzingInteractionTraceTag msg
 
 let setupLogger outputDir =
-    #if DEBUG || DEBUGFUZZER
+    #if DEBUG
     let writer = new System.IO.StreamWriter (
         System.IO.File.OpenWrite $"{outputDir}{System.IO.Path.DirectorySeparatorChar}fuzzer.log"
     )
-    System.Console.SetError writer
+
     VSharp.Logger.configureWriter writer
 
-    // VSharp.Logger.enableTag VSharp.Logger.deserializationTraceTag VSharp.Logger.Trace
-    // VSharp.Logger.enableTag communicationTraceTag VSharp.Logger.Trace
+    VSharp.Logger.enableTag communicationTraceTag VSharp.Logger.Trace
     VSharp.Logger.enableTag fuzzingTag VSharp.Logger.Trace
-    // VSharp.Logger.enableTag generationTag VSharp.Logger.Trace
-    // VSharp.Logger.enableTag typeSolverTag VSharp.Logger.Trace
+    VSharp.Logger.enableTag testGenerationTraceTag VSharp.Logger.Trace
+    VSharp.Logger.enableTag generationTag VSharp.Logger.Trace
+    VSharp.Logger.enableTag typeSolverTag VSharp.Logger.Trace
 
-    VSharp.Logger.changeVerbosity VSharp.Logger.defaultTag VSharp.Logger.Error
+    VSharp.Logger.changeVerbosity VSharp.Logger.defaultTag VSharp.Logger.Warning
     #endif
     ()

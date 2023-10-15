@@ -1,6 +1,5 @@
 namespace VSharp.Fuzzer
 
-
 open VSharp
 open VSharp.Core
 
@@ -67,6 +66,7 @@ type internal TypeSolver() =
     member this.GetMocks () = mockTypeCache
 
     member this.SolveGenericMethodParameters (method: Method) (generate: System.Type -> obj) =
+        // TODO: Receive type parameters substitution from master process
         Logger.traceTypeSolving $"Solve generics for {method.Name}"
         let substituteGenerics classParams methodParams =
             let getConcreteType =

@@ -71,6 +71,11 @@ namespace VSharp.Runner
                 aliases: new[] { "--rec-threshold", "-rt" },
                 () => defaultOptions.RecursionThreshold,
                 "Terminate exploration of states which have visited the same loop entry or method more times than this value");
+            var explorationModeOption = new Option<ExplorationMode>(
+                aliases: new[] { "--exploration-mode", "-em" },
+                () => ExplorationMode.Sili,
+                "Determines which mode is used for exploration"
+            );
 
             var rootCommand = new RootCommand();
 
@@ -88,6 +93,7 @@ namespace VSharp.Runner
             entryPointCommand.AddGlobalOption(searchStrategyOption);
             entryPointCommand.AddGlobalOption(verbosityOption);
             entryPointCommand.AddGlobalOption(recursionThresholdOption);
+            entryPointCommand.AddGlobalOption(explorationModeOption);
             var allPublicMethodsCommand =
                 new Command("--all-public-methods", "Generate unit tests for all public methods of all public classes of assembly");
             rootCommand.AddCommand(allPublicMethodsCommand);
@@ -101,6 +107,7 @@ namespace VSharp.Runner
             allPublicMethodsCommand.AddGlobalOption(searchStrategyOption);
             allPublicMethodsCommand.AddGlobalOption(verbosityOption);
             allPublicMethodsCommand.AddGlobalOption(recursionThresholdOption);
+            allPublicMethodsCommand.AddGlobalOption(explorationModeOption);
             var publicMethodsOfClassCommand =
                 new Command("--type", "Generate unit tests for all public methods of specified class");
             rootCommand.AddCommand(publicMethodsOfClassCommand);
@@ -115,6 +122,7 @@ namespace VSharp.Runner
             publicMethodsOfClassCommand.AddGlobalOption(searchStrategyOption);
             publicMethodsOfClassCommand.AddGlobalOption(verbosityOption);
             publicMethodsOfClassCommand.AddGlobalOption(recursionThresholdOption);
+            publicMethodsOfClassCommand.AddGlobalOption(explorationModeOption);
             var specificMethodCommand =
                 new Command("--method", "Try to resolve and generate unit test coverage for the specified method");
             rootCommand.AddCommand(specificMethodCommand);
@@ -129,6 +137,7 @@ namespace VSharp.Runner
             specificMethodCommand.AddGlobalOption(searchStrategyOption);
             specificMethodCommand.AddGlobalOption(verbosityOption);
             specificMethodCommand.AddGlobalOption(recursionThresholdOption);
+            specificMethodCommand.AddGlobalOption(explorationModeOption);
             var namespaceCommand =
                 new Command("--namespace", "Try to resolve and generate unit test coverage for all public methods of specified namespace");
             rootCommand.AddCommand(namespaceCommand);
@@ -143,11 +152,12 @@ namespace VSharp.Runner
             namespaceCommand.AddGlobalOption(searchStrategyOption);
             namespaceCommand.AddGlobalOption(verbosityOption);
             namespaceCommand.AddGlobalOption(recursionThresholdOption);
+            namespaceCommand.AddGlobalOption(explorationModeOption);
 
             rootCommand.Description = "Symbolic execution engine for .NET";
 
-            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint>(
-                (assemblyPath, args, timeout, solverTimeout, output, unknownArgs, renderTests, runTests, strat, verbosity, recursionThreshold) =>
+            entryPointCommand.Handler = CommandHandler.Create<FileInfo, string[], int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (assemblyPath, args, timeout, solverTimeout, output, unknownArgs, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     var inputArgs = unknownArgs ? null : args;
@@ -159,7 +169,8 @@ namespace VSharp.Runner
                         RenderTests = renderTests,
                         SearchStrategy = strat,
                         Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold
+                        RecursionThreshold = recursionThreshold,
+                        ExplorationMode = explorationMode
                     };
 
                     if (assembly == null) return;
@@ -172,8 +183,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(assembly, inputArgs, options));
                 });
 
-            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint>(
-                (assemblyPath, timeout, solverTimeout, output, renderTests, runTests, singleFile, strat, verbosity, recursionThreshold) =>
+            allPublicMethodsCommand.Handler = CommandHandler.Create<FileInfo, int, int, DirectoryInfo, bool, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (assemblyPath, timeout, solverTimeout, output, renderTests, runTests, singleFile, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     var options = new VSharpOptions
@@ -184,7 +195,8 @@ namespace VSharp.Runner
                         RenderTests = renderTests,
                         SearchStrategy = strat,
                         Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold
+                        RecursionThreshold = recursionThreshold,
+                        ExplorationMode = explorationMode
                     };
 
                     if (assembly == null) return;
@@ -197,8 +209,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(assembly, options));
                 });
 
-            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint>(
-                (className, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold) =>
+            publicMethodsOfClassCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (className, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -218,7 +230,8 @@ namespace VSharp.Runner
                         RenderTests = renderTests,
                         SearchStrategy = strat,
                         Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold
+                        RecursionThreshold = recursionThreshold,
+                        ExplorationMode = explorationMode
                     };
 
                     if (runTests)
@@ -229,8 +242,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(type, options));
                 });
 
-            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint>(
-                (methodName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold) =>
+            specificMethodCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (methodName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -266,7 +279,8 @@ namespace VSharp.Runner
                         RenderTests = renderTests,
                         SearchStrategy = strat,
                         Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold
+                        RecursionThreshold = recursionThreshold,
+                        ExplorationMode = explorationMode
                     };
 
                     if (runTests)
@@ -277,8 +291,8 @@ namespace VSharp.Runner
                     else PostProcess(TestGenerator.Cover(method, options));
                 });
 
-            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint>(
-                (namespaceName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold) =>
+            namespaceCommand.Handler = CommandHandler.Create<string, FileInfo, int, int, DirectoryInfo, bool, bool, SearchStrategy, Verbosity, uint, ExplorationMode>(
+                (namespaceName, assemblyPath, timeout, solverTimeout, output, renderTests, runTests, strat, verbosity, recursionThreshold, explorationMode) =>
                 {
                     var assembly = TryLoadAssembly(assemblyPath);
                     if (assembly == null) return;
@@ -298,7 +312,8 @@ namespace VSharp.Runner
                         RenderTests = renderTests,
                         SearchStrategy = strat,
                         Verbosity = verbosity,
-                        RecursionThreshold = recursionThreshold
+                        RecursionThreshold = recursionThreshold,
+                        ExplorationMode = explorationMode
                     };
                     if (runTests)
                     {

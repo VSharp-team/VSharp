@@ -73,6 +73,16 @@ public enum Verbosity
 }
 
 /// <summary>
+/// Determines which mode is used for exploration.
+/// </summary>
+public enum ExplorationMode
+{
+    Fuzzing,
+    Sili,
+    Interleaving
+}
+
+/// <summary>
 /// Symbolic virtual machine options.
 /// </summary>
 /// <param name="Timeout">Timeout for code exploration in seconds. Negative value means infinite timeout (up to exhaustive coverage or user interruption).</param>
@@ -95,6 +105,7 @@ public readonly record struct VSharpOptions(
     SearchStrategy SearchStrategy = SearchStrategy.BFS,
     Verbosity Verbosity = Verbosity.Quiet,
     uint RecursionThreshold = 0u,
+    ExplorationMode ExplorationMode = ExplorationMode.Sili,
     bool ReleaseBranches = true,
     int RandomSeed = -1,
     uint StepsLimit = 0)
