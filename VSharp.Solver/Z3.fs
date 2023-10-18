@@ -792,7 +792,8 @@ module internal Z3 =
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
             let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let regionSort = GetHeapReadingRegionSort source
-            let array = x.GetRegionConstant name sort path regionSort
+            let arrayConstName = $"{name} of {regionSort}"
+            let array = x.GetRegionConstant arrayConstName sort path regionSort
             let inst (k : Expr) =
                 let expr = ctx.MkSelect(array, k)
                 expr, x.GenerateInstAssumptions expr typ

@@ -7,7 +7,6 @@ open VSharp.CSharpUtils
 open TypeUtils
 open VSharp.Core
 
-
 type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract Region : 'reg
     abstract Map : (term -> term) -> (Type -> Type) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
@@ -22,6 +21,7 @@ type regionSort =
     | ArrayLowerBoundSort of arrayType
     | StackBufferSort of stackKey
     | BoxedSort of Type
+
     member x.TypeOfLocation =
         match x with
         | HeapFieldSort field
@@ -31,6 +31,25 @@ type regionSort =
         | ArrayLowerBoundSort _ -> typeof<int32>
         | StackBufferSort _ -> typeof<int8>
         | BoxedSort t -> t
+
+    override x.ToString() =
+        match x with
+        | HeapFieldSort field -> $"HeapField {field}"
+        | StaticFieldSort field -> $"StaticField {field}"
+        | ArrayIndexSort(elementType, dim, isVector) ->
+            if isVector then
+                $"VectorIndex to {elementType}[{dim}]"
+            else $"ArrayIndex to {elementType}[{dim}]"
+        | ArrayLengthSort(elementType, dim, isVector) ->
+            if isVector then
+                $"VectorLength to {elementType}[{dim}]"
+            else $"ArrayLength to {elementType}[{dim}]"
+        | ArrayLowerBoundSort(elementType, dim, isVector) ->
+            if isVector then
+                $"VectorLowerBound to {elementType}[{dim}]"
+            else $"ArrayLowerBound to {elementType}[{dim}]"
+        | StackBufferSort stackKey -> $"StackBuffer of {stackKey}"
+        | BoxedSort t -> $"Boxed of {t}"
 
 module private MemoryKeyUtils =
 

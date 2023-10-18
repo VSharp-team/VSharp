@@ -88,7 +88,7 @@ type 'a transparent =
 type fieldId =
     { declaringType : Type; name : string; typ : Type } with
     override x.GetHashCode() =
-        31 * x.declaringType.MetadataToken ^^^ x.name.GetDeterministicHashCode()
+        HashCode.Combine(x.declaringType, x.name, x.typ)
     override x.Equals y =
         match y with
         | :? fieldId as y -> x.declaringType = y.declaringType && x.name = y.name && x.typ = y.typ
@@ -101,4 +101,5 @@ type fieldId =
                     (x.declaringType.AssemblyQualifiedName, x.name, x.typ.AssemblyQualifiedName)
                     (y.declaringType.AssemblyQualifiedName, y.name, y.typ.AssemblyQualifiedName)
             | _ -> -1
-    override x.ToString() = x.name
+    override x.ToString() =
+        $"({x.typ}){x.declaringType}.{x.name}"
