@@ -122,7 +122,6 @@ module Loader =
         set [
             // Types
             "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
-            "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
             "System.Reflection.RuntimeAssembly System.RuntimeTypeHandle.GetAssembly(System.RuntimeType)"
             "System.Type System.RuntimeType.GetElementType(this)"
             "System.Boolean System.Type.op_Inequality(System.Type, System.Type)"
@@ -159,6 +158,9 @@ module Loader =
             "System.Boolean System.Type.get_IsAbstract(this)"
             "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
             "System.Type System.RuntimeType.GetGenericTypeDefinition(this)"
+            "System.String System.RuntimeType.get_FullName(this)"
+            "System.Boolean System.RuntimeTypeHandle.ContainsGenericVariables(System.RuntimeType)"
+            "System.Boolean System.RuntimeType.get_ContainsGenericParameters(this)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -188,6 +190,8 @@ module Loader =
             "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
             "System.String Interop+Sys.GetHostName()"
             "System.String Interop+Sys.GetDomainName()"
+            "System.IntPtr System.RuntimeTypeHandle.GetGCHandle(System.Runtime.CompilerServices.QCallTypeHandle, System.Runtime.InteropServices.GCHandleType)"
+            "System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
