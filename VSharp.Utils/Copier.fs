@@ -9,10 +9,13 @@ open VSharp
 type Copier () =
     static let nonCopyableTypes = [
         typeof<Type>
+        TypeUtils.systemRuntimeType
         typeof<Thread>
+        typeof<System.Diagnostics.Tracing.EventSource>
     ]
 
-    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
+    let cannotBeCopied (typ : Type) =
+        List.exists typ.IsAssignableTo nonCopyableTypes
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
