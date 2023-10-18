@@ -199,19 +199,38 @@ public class Allocator<T>
         Allocator.Fill(_toAllocate as Array, defaultValue);
     }
 
+    private FieldInfo? GetField(string fieldName)
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+        var t = _objectType;
+        var index = fieldName.IndexOf('.');
+        if (index != -1)
+        {
+            var typeName = fieldName[.. index];
+            fieldName = fieldName[(index + 1) ..];
+            while (t != null && t.Name != typeName)
+            {
+                t = t.BaseType;
+            }
+        }
+
+        // Basic field case
+        var field = t?.GetField(fieldName, flags);
+        // Property case
+        field ??= t?.GetField($"<{fieldName}>k__BackingField", flags);
+        // Mock field case
+        field ??= t?.BaseType?.GetField(fieldName, flags);
+        // Mock property case
+        field ??= t?.BaseType?.GetField($"<{fieldName}>k__BackingField", flags);
+
+        return field;
+    }
+
     public object this[string fieldName]
     {
         set
         {
-            var allBindingFlags = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
-            // Basic field case
-            var field = _objectType.GetField(fieldName, allBindingFlags);
-            // Property case
-            field ??= _objectType.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
-            // Mock field case
-            field ??= _objectType.BaseType?.GetField(fieldName, allBindingFlags);
-            // Mock property case
-            field ??= _objectType.BaseType?.GetField($"<{fieldName}>k__BackingField", allBindingFlags);
+            var field = GetField(fieldName);
             Debug.Assert(field != null);
             field.SetValue(_toAllocate, value);
         }

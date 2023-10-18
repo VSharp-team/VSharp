@@ -527,9 +527,16 @@ module public Reflection =
         if result <> null then result
         else field.declaringType.GetRuntimeField(field.name)
 
-    let rec private retrieveFields isStatic (t : Type) =
+    let private retrieveFields isStatic (t : Type) : FieldInfo[] =
         let flags = if isStatic then staticBindingFlags else instanceBindingFlags
-        t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
+        let fields = Dictionary<Type * Type * string, FieldInfo>()
+        let mutable current = t
+        while current <> null do
+            for f in current.GetFields(flags) do
+                fields[(f.DeclaringType, f.FieldType, f.Name)] <- f
+            current <- current.BaseType
+        Seq.toArray fields.Values
+        |> Array.sortBy (fun field -> $"{field.Name}{field.DeclaringType}")
 
     let retrieveNonStaticFields t = retrieveFields false t
 
