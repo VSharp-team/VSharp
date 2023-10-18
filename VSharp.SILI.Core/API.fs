@@ -431,7 +431,7 @@ module API =
             | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
                 let address, arrayType = StringArrayInfo state address None
                 ArrayIndex(address, [zero], arrayType) |> Some |> singleton
-            | Ref(ArrayIndex _ as address) -> Some address |> singleton
+            | Ref(address) -> Some address |> singleton
             | HeapRef(address, typ) ->
                 let t = MostConcreteTypeOfRef state ref
                 if TypeUtils.isArrayType t then

@@ -35,7 +35,8 @@ namespace VSharp.TestRunner
 
                 var method = test.Method;
 
-                Console.Out.WriteLine("Starting reproducing {0} for method {1}", fileInfo.Name, method);
+                var methodName = Reflection.getFullMethodName(method);
+                Console.Out.WriteLine($"Starting reproducing {fileInfo.Name} for method {methodName}");
                 if (!checkResult)
                     Console.Out.WriteLine("Result check is disabled");
                 if (suiteType == SuiteType.TestsOnly)
