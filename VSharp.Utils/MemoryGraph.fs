@@ -293,6 +293,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             if t.ContainsGenericParameters then
                 internalfailf "Generating test: unable to create object with generic type parameters (type = %O)" t
             else
+                assert(Reflection.isInstanceOfType t |> not)
                 let obj = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(t)
                 GC.SuppressFinalize(obj)
                 obj
@@ -313,6 +314,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? pointerRepr as repr ->
             let sightType = sourceTypes[repr.sightType]
             Pointer.Box(IntPtr.Zero.ToPointer(), sightType.MakePointerType())
+        | :? typeRepr as t -> t.Decode()
         | _ -> obj
 
     let nullSourceIndex = -1
@@ -347,6 +349,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? structureRepr as repr when repr.typ >= 0 ->
             // Case for structs or classes of .NET type
             let t = sourceTypes[repr.typ]
+            assert(Reflection.isInstanceOfType t |> not)
             if not t.IsValueType then
                 internalfailf "Expected value type inside object, but got representation of %s!" t.FullName
             let obj = allocateDefault repr
@@ -362,6 +365,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
             let t = sourceTypes[repr.typ]
             Enum.ToObject(t, repr.underlyingValue)
         | :? stringRepr as str -> str.Decode()
+        | :? typeRepr as t -> t.Decode()
         | _ -> obj
 
     and decodeAndCast repr (typ : Type) =
@@ -438,6 +442,7 @@ type MemoryGraph(repr : memoryRepr, mockStorage : MockStorage, createCompactRepr
         | :? arrayRepr as repr ->
             decodeArray repr obj
         | :? stringRepr
+        | :? typeRepr
         | :? ValueType
         | :? enumRepr -> ()
         | _ -> internalfail $"decodeObject: unexpected object {obj}"

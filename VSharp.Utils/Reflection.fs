@@ -645,3 +645,6 @@ module public Reflection =
 
     let hasNonPublicAbstractMethods (t : Type) =
         t.GetMethods(instanceNonPublicBindingFlags) |> Seq.exists (fun m -> m.IsAbstract)
+
+    let isInstanceOfType (typeOfObj : Type) =
+        typeOfObj = typeof<Type> || typeOfObj = TypeUtils.systemRuntimeType
