@@ -145,7 +145,7 @@ public static class Renderer
         }
 
         // TODO: parse testing project '.csproj' and get target version from there
-        targetFramework ??= "net6.0";
+        targetFramework ??= "net7.0";
 
         // Creating nunit project
         RunDotnet(new ProcessStartInfo
