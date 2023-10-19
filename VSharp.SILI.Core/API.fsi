@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Collections.Generic
 open VSharp
 open System
 open System.Reflection
@@ -363,7 +364,13 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillRegion : state -> term -> regionSort -> unit
+        val FillClassFields : state -> fieldId -> term -> ISet<IHeapAddressKey> -> unit
+        val FillStaticsRegion : state -> fieldId -> term -> ISet<ISymbolicTypeKey> -> unit
+        val FillArrayRegion : state -> arrayType -> term -> ISet<IHeapArrayKey> -> unit
+        val FillLengthRegion : state -> arrayType -> term -> ISet<IHeapVectorIndexKey> -> unit
+        val FillLowerBoundRegion : state -> arrayType -> term -> ISet<IHeapVectorIndexKey> -> unit
+        val FillStackBufferRegion : state -> stackKey -> term -> ISet<IStackBufferIndexKey> -> unit
+        val FillBoxedRegion : state -> Type -> term -> ISet<IHeapAddressKey> -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
 

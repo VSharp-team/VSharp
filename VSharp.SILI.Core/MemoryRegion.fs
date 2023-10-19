@@ -1,6 +1,7 @@
 namespace VSharp.Core
 
 open System
+open System.Collections.Generic
 open System.Text
 open VSharp
 open VSharp.CSharpUtils
@@ -34,8 +35,8 @@ type regionSort =
 
     override x.ToString() =
         match x with
-        | HeapFieldSort field -> $"HeapField {field}"
-        | StaticFieldSort field -> $"StaticField {field}"
+        | HeapFieldSort field -> $"HeapField {field.FullName}"
+        | StaticFieldSort field -> $"StaticField {field.FullName}"
         | ArrayIndexSort(elementType, dim, isVector) ->
             if isVector then
                 $"VectorIndex to {elementType}[{dim}]"
@@ -78,7 +79,7 @@ module private MemoryKeyUtils =
 [<StructuralEquality;CustomComparison>]
 type heapAddressKey =
     {address : heapAddress}
-    interface IMemoryKey<heapAddressKey, vectorTime intervals> with
+    interface IHeapAddressKey with
         override x.Region = MemoryKeyUtils.regionOfHeapAddress x.address
         override x.Map mapTerm _ mapTime reg =
             let symbolicReg = intervals<vectorTime>.Closed VectorTime.minfty VectorTime.zero
@@ -100,6 +101,8 @@ type heapAddressKey =
             | :? heapAddressKey as y -> compareTerms x.address y.address
             | _ -> -1
     override x.ToString() = x.address.ToString()
+
+and IHeapAddressKey = IMemoryKey<heapAddressKey, vectorTime intervals>
 
 [<StructuralEquality;CustomComparison>]
 type heapArrayKey =
@@ -165,7 +168,7 @@ type heapArrayKey =
         | OneArrayIndexKey _, OneArrayIndexKey _ -> x = key
         | _ -> false
 
-    interface IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>> with
+    interface IHeapArrayKey with
         override x.Region =
             let address, indicesRegion =
                 match x with
@@ -217,10 +220,12 @@ type heapArrayKey =
         | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
             sprintf "%O[%O]" address (List.map2 (sprintf "%O..%O") lowerBounds upperBounds |> join ", ")
 
+and IHeapArrayKey = IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+
 [<StructuralEquality;CustomComparison>]
 type heapVectorIndexKey =
     {address : heapAddress; index : term}
-    interface IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>> with
+    interface IHeapVectorIndexKey with
         override x.Region =
             productRegion<vectorTime intervals, int points>.ProductOf (MemoryKeyUtils.regionOfHeapAddress x.address) (MemoryKeyUtils.regionOfIntegerTerm x.index)
         override x.Map mapTerm _ mapTime reg =
@@ -239,10 +244,12 @@ type heapVectorIndexKey =
             | _ -> -1
     override x.ToString() = sprintf "%O[%O]" x.address x.index
 
+and IHeapVectorIndexKey = IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
+
 [<StructuralEquality;CustomComparison>]
 type stackBufferIndexKey =
     {index : term}
-    interface IMemoryKey<stackBufferIndexKey, int points> with
+    interface IStackBufferIndexKey with
 //        override x.IsAllocated = true
         override x.Region = MemoryKeyUtils.regionOfIntegerTerm x.index
         override x.Map mapTerm _ _ reg =
@@ -261,6 +268,8 @@ type stackBufferIndexKey =
             | :? stackBufferIndexKey as y -> compareTerms x.index y.index
             | _ -> -1
     override x.ToString() = x.index.ToString()
+
+and IStackBufferIndexKey = IMemoryKey<stackBufferIndexKey, int points>
 
 [<CustomEquality;CustomComparison>]
 type typeWrapper = {t : Type}
@@ -281,7 +290,7 @@ with
 [<CustomEquality;CustomComparison>]
 type symbolicTypeKey =
     {typ : Type}
-    interface IMemoryKey<symbolicTypeKey, freeRegion<typeWrapper>> with
+    interface ISymbolicTypeKey with
     // TODO: when statics are allocated? always or never? depends on our exploration strategy
 //        override x.IsAllocated = false
         override x.Region = freeRegion<typeWrapper>.Singleton {t = x.typ}
@@ -300,6 +309,8 @@ type symbolicTypeKey =
             match other with
             | :? symbolicTypeKey as y -> compare x.typ.TypeHandle.Value y.typ.TypeHandle.Value
             | _ -> -1
+
+and ISymbolicTypeKey = IMemoryKey<symbolicTypeKey, freeRegion<typeWrapper>>
 
 type updateTreeKey<'key, 'value when 'key : equality> =
     {key : 'key; value : 'value}
@@ -335,7 +346,10 @@ module private UpdateTree =
         RegionTree.write key.Region {key=key; value=value} tree
 
     let map (mapKey : 'reg -> 'key -> 'reg * 'key) mapValue (tree : updateTree<'key, 'value, 'reg>) =
-        RegionTree.map (fun reg {key=k; value=v} -> let reg', k' = mapKey reg k in (reg', k'.Region, {key=k'; value=mapValue v})) tree
+        let mapper reg {key=k; value=v} =
+            let reg', k' = mapKey reg k
+            reg', k'.Region, {key=k'; value=mapValue v}
+        RegionTree.map mapper tree
 
     let compose (earlier : updateTree<'key, 'value, 'reg>) (later : updateTree<'key, 'value, 'reg>) =
         later |> RegionTree.foldr (fun reg key trees ->
@@ -351,7 +365,7 @@ module private UpdateTree =
     let print indent valuePrint tree =
         let window = 50
         let incIndent = indent + "    "
-        let lines = tree |> RegionTree.flatten |> List.map (fun (_, {key=k; value=v}) -> sprintf "%O <- %O" k (valuePrint v))
+        let lines = tree |> RegionTree.flatten |> List.map (fun (_, {key=k; value=v}) -> $"{k} <- {valuePrint v}")
         if lines |> List.sumBy (fun s -> s.Length) > window then
             sprintf "{\n%s\n%s}" (lines |> List.map (fun s -> incIndent + s) |> join "\n") indent
         else sprintf "{%s}" (join "; " lines)
@@ -362,24 +376,24 @@ module private UpdateTree =
 
 [<StructuralEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : term option}
+    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : option<term * ISet<IMemoryKey<'key, 'reg>>>}
 
 module MemoryRegion =
 
     let empty typ =
         {typ = typ; updates = UpdateTree.empty; defaultValue = None}
 
-    let fillRegion defaultValue (region : memoryRegion<_,_>) =
-        { region with defaultValue = Some defaultValue }
+    let fillRegion defaultValue (suitableKeys : ISet<IMemoryKey<_,_>>) (region : memoryRegion<_,_>) =
+        { region with defaultValue = Some(defaultValue, suitableKeys) }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
 
-    let read mr key isDefault isAllocated instantiate =
+    let read mr key isDefault instantiate =
         let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue }
         let makeDefault () =
             match mr.defaultValue with
-            | Some d when not isAllocated -> d
+            | Some (d, suitableKeys) when suitableKeys.Contains key -> d
             | _ -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 
@@ -395,7 +409,10 @@ module MemoryRegion =
         {typ = mr.typ; updates = UpdateTree.write key value mr.updates; defaultValue = mr.defaultValue}
 
     let map (mapTerm : term -> term) (mapType : Type -> Type) (mapTime : vectorTime -> vectorTime) mr =
-        {typ = mapType mr.typ; updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates; defaultValue = Option.map mapTerm mr.defaultValue}
+        let typ = mapType mr.typ
+        let updates = UpdateTree.map (fun reg k -> k.Map mapTerm mapType mapTime reg) mapTerm mr.updates
+        let defaultValue = Option.map (fun (v, keys) -> mapTerm v, keys) mr.defaultValue
+        {typ = typ; updates = updates; defaultValue = defaultValue}
 
     let mapKeys<'reg, 'key when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> (mapKey : 'reg -> 'key -> 'reg * 'key) mr =
         {mr with updates = UpdateTree.map mapKey id mr.updates }

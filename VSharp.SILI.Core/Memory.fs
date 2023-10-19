@@ -256,7 +256,6 @@ module internal Memory =
             extract : state -> memoryRegion<'key, 'reg>
             mkName : 'key -> string
             isDefaultKey : state -> 'key -> bool
-            isAllocatedKey : bool
             isDefaultRegion : bool
         }
         override x.Equals y =
@@ -461,7 +460,7 @@ module internal Memory =
         | Some {key = key'; value = {term = Constant(_, ArrayRangeReading(mo, srcA, srcF, srcT, p, _), _)}} when key'.Includes key ->
             let key = key.Specialize key' srcA srcF srcT
             let inst = makeArraySymbolicHeapRead state p key state.startingTime
-            MemoryRegion.read mo key (p.isDefaultKey state) p.isAllocatedKey inst
+            MemoryRegion.read mo key (p.isDefaultKey state) inst
         | Some { key = key'; value = value } when key'.Includes key -> value
         | _ ->
             let source : arrayReading = {picker = picker; key = key; memoryObject = memoryObject; time = time}
@@ -683,13 +682,6 @@ module internal Memory =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
-    // TODO: split regions of allocated addresses and symbolic addresses
-    let private isHeapAddressAllocated address =
-        match address.term with
-        // TODO: delete this hack after splitting
-        | ConcreteHeapAddress address -> VectorTime.less VectorTime.zero address
-        | _ -> false
-
     let private isHeapAddressDefault state address =
         state.complete ||
         match address.term with
@@ -706,17 +698,16 @@ module internal Memory =
         let extractor (state : state) = accessRegion state.lowerBounds (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkName (key : heapVectorIndexKey) = $"LowerBound({key.address}, {key.index})"
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address || thd3 arrayType
-        let isAllocated = isHeapAddressAllocated address || thd3 arrayType
         let key = {address = address; index = dimension}
         let inst typ memoryRegion =
             let sort = ArrayLowerBoundSort arrayType
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) isAllocated inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readLowerBound state address dimension arrayType =
         let cm = state.concreteMemory
@@ -729,17 +720,16 @@ module internal Memory =
         let extractor (state : state) = accessRegion state.lengths (substituteTypeVariablesIntoArrayType state arrayType) lengthType
         let mkName = fun (key : heapVectorIndexKey) -> $"Length({key.address}, {key.index})"
         let isDefault state (key : heapVectorIndexKey) = isHeapAddressDefault state key.address
-        let isAllocated = isHeapAddressAllocated address
         let key = {address = address; index = dimension}
         let inst typ memoryRegion =
             let sort = ArrayLengthSort arrayType
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) isAllocated inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readLength state address dimension arrayType =
         let cm = state.concreteMemory
@@ -750,19 +740,18 @@ module internal Memory =
 
     let private readArrayRegion state arrayType extractor region (isDefaultRegion : bool) (key : heapArrayKey) =
         let isDefault state (key : heapArrayKey) = isHeapAddressDefault state key.Address
-        let isAllocated = isHeapAddressAllocated key.Address
         let instantiate typ memory singleValue =
             let sort = ArrayIndexSort arrayType
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = toString
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = isDefaultRegion
+                    isDefaultKey = isDefault; isDefaultRegion = isDefaultRegion
                 }
             let time =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
             makeArraySymbolicHeapRead state picker key time typ memory singleValue
-        MemoryRegion.read region key (isDefault state) isAllocated instantiate
+        MemoryRegion.read region key (isDefault state) instantiate
 
     let private readArrayKeySymbolic state key arrayType =
         let extractor state =
@@ -870,20 +859,19 @@ module internal Memory =
         let region = extractor state
         let mkName = fun (key : heapAddressKey) -> $"{key.address}.{field}"
         let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
-        let isAllocated = isHeapAddressAllocated address
         let key = {address = address}
         let instantiate typ memory =
             let sort = HeapFieldSort field
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             let time =
                 if isValueType typ then state.startingTime
                 else MemoryRegion.maxTime region.updates state.startingTime
             makeSymbolicHeapRead state picker key time typ memory
-        MemoryRegion.read region key (isDefault state) isAllocated instantiate
+        MemoryRegion.read region key (isDefault state) instantiate
 
     let stringArrayInfo state stringAddress length =
         let arrayType = typeof<char>, 1, true
@@ -925,51 +913,48 @@ module internal Memory =
         let extractor state = accessRegion state.staticFields (substituteTypeVariablesIntoField state field) (substituteTypeVariables state field.typ)
         let mkName = fun (key : symbolicTypeKey) -> $"{key.typ}.{field}"
         let isDefault _ _ = state.complete // TODO: when statics are allocated? always or never? depends on our exploration strategy
-        let isAllocated = state.complete
         let key = {typ = typ}
         let inst typ memoryRegion =
             let sort = StaticFieldSort field
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) isAllocated inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let readStackBuffer state (stackKey : stackKey) index =
         let extractor state = accessRegion state.stackBuffers (stackKey.Map (typeVariableSubst state)) typeof<int8>
         let mkName (key : stackBufferIndexKey) = $"{stackKey}[{key.index}]"
         let isDefault _ _ = true
-        let isAllocated = true
         let key : stackBufferIndexKey = {index = index}
         let inst typ memoryRegion =
             let sort = StackBufferSort stackKey
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             makeSymbolicHeapRead state picker key state.startingTime typ memoryRegion
-        MemoryRegion.read (extractor state) key (isDefault state) isAllocated inst
+        MemoryRegion.read (extractor state) key (isDefault state) inst
 
     let private readBoxedSymbolic state address typ =
         let extractor state = accessRegion state.boxedLocations typ typ
         let region = extractor state
         let mkName (key : heapAddressKey) = $"boxed {key.address} of {typ}"
         let isDefault state (key : heapAddressKey) = isHeapAddressDefault state key.address
-        let isAllocated = isHeapAddressAllocated address
         let key = {address = address}
         let instantiate typ memory =
             let sort = BoxedSort typ
             let picker =
                 {
                     sort = sort; extract = extractor; mkName = mkName
-                    isDefaultKey = isDefault; isAllocatedKey = isAllocated; isDefaultRegion = false
+                    isDefaultKey = isDefault; isDefaultRegion = false
                 }
             let time = state.startingTime
             makeSymbolicHeapRead state picker key time typ memory
-        MemoryRegion.read region key (isDefault state) isAllocated instantiate
+        MemoryRegion.read region key (isDefault state) instantiate
 
     let readBoxedLocation state (address : term) sightType =
         assert(isBoxedType sightType)
@@ -1992,7 +1977,7 @@ module internal Memory =
                 let afters = MemoryRegion.compose before effect
                 let read region =
                     let inst = makeSymbolicHeapRead state x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) x.picker.isAllocatedKey inst
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
 
     type arrayReading with
@@ -2002,7 +1987,7 @@ module internal Memory =
                 let substTerm = fillHoles state
                 let substType = substituteTypeVariables state
                 let substTime = composeTime state
-                let key = x.key :> IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
+                let key = x.key :> IHeapArrayKey
                 let key = key.Map substTerm substType substTime key.Region |> snd
                 let afters =
                     if not x.picker.isDefaultRegion then
@@ -2012,7 +1997,7 @@ module internal Memory =
                     else List.singleton (True(), x.memoryObject)
                 let read region =
                     let inst = makeArraySymbolicHeapRead state x.picker key state.startingTime
-                    MemoryRegion.read region key (x.picker.isDefaultKey state) x.picker.isAllocatedKey inst
+                    MemoryRegion.read region key (x.picker.isDefaultKey state) inst
                 afters |> List.map (mapsnd read) |> Merging.merge
 
     type stackReading with

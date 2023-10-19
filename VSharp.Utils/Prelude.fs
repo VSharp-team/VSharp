@@ -101,5 +101,6 @@ type fieldId =
                     (x.declaringType.AssemblyQualifiedName, x.name, x.typ.AssemblyQualifiedName)
                     (y.declaringType.AssemblyQualifiedName, y.name, y.typ.AssemblyQualifiedName)
             | _ -> -1
-    override x.ToString() =
+    override x.ToString() = x.name
+    member x.FullName with get() =
         $"({x.typ}){x.declaringType}.{x.name}"

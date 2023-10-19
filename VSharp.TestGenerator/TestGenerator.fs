@@ -150,7 +150,7 @@ module TestGenerator =
                 | Some region ->
                     let defaultValue =
                         match region.defaultValue with
-                        | Some defaultValue -> encode defaultValue
+                        | Some(defaultValue, _) -> encode defaultValue
                         | None -> null
                     let updates = region.updates
                     let indicesWithValues = SortedDictionary<int list, obj>()
