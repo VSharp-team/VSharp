@@ -24,6 +24,7 @@ module internal PlatformHelper =
     val avx2IsSupported : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()")>]
+    [<Implements("System.Boolean System.Runtime.Intrinsics.X86.Sse2+X64.get_IsSupported()")>]
     val sse2IsSupported : state -> term list -> term
 
     [<Implements("System.Boolean System.Runtime.Intrinsics.X86.X86Base.get_IsSupported()")>]

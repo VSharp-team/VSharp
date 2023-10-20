@@ -195,7 +195,6 @@ module Loader =
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
-//            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
 
             // Diagnostics
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
@@ -243,6 +242,7 @@ module Loader =
             "System.String System.Globalization.CultureInfo.get_Name(this)"
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
             "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
+            "System.String System.Globalization.CultureInfo.GetUserDefaultLocaleName()"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
