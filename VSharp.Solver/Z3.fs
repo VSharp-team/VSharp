@@ -177,9 +177,10 @@ module internal Z3 =
             Dict.getValueOrUpdate encodingCache.sorts typ (fun () ->
                 match typ with
                 | Bool -> ctx.MkBoolSort() :> Sort
-                | typ when typ.IsEnum -> ctx.MkBitVecSort(numericBitSizeOf typ) :> Sort
-                | typ when Types.isIntegral typ -> ctx.MkBitVecSort(numericBitSizeOf typ) :> Sort
-                | typ when Types.IsReal typ -> failToEncode "encoding real numbers is not implemented"
+                | typ when typ.IsEnum -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
+                | typ when isIntegral typ -> ctx.MkBitVecSort(numericSizeOf typ) :> Sort
+                | typ when typ = typeof<single> -> ctx.MkFPSort32() :> Sort
+                | typ when typ = typeof<double> -> ctx.MkFPSort64() :> Sort
                 | AddressType -> x.AddressSort
                 | StructType _ -> internalfailf "struct should not appear while encoding! type: %O" typ
                 | Numeric _ -> __notImplemented__()
@@ -442,6 +443,56 @@ module internal Z3 =
             assert(left.SortSize = right.SortSize)
             x.MkITE(x.MkBVSGT(left, right), right, left) :?> BitVecExpr
 
+// ------------------------------- Floating point arithmetic simplifications -------------------------------
+
+        member private x.MkFPGt(left : FPExpr, right : FPExpr as operands) : BoolExpr =
+            assert (left.Sort = right.Sort)
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> operands |> ctx.MkFPGt
+
+        member private x.MkFPGEq(left : FPExpr, right : FPExpr as operands) : BoolExpr =
+            assert (left.Sort = right.Sort)
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> operands |> ctx.MkFPGEq
+
+        member private x.MkFPLt(left : FPExpr, right : FPExpr as operands) : BoolExpr =
+            assert (left.Sort = right.Sort)
+            match left, right with
+            | _ when left = right -> FalseExpr
+            | _ -> operands |> ctx.MkFPLt
+
+        member private x.MkFPLEq(left : FPExpr, right : FPExpr as operands) : BoolExpr =
+            assert (left.Sort = right.Sort)
+            match left, right with
+            | _ when left = right -> TrueExpr
+            | _ -> operands |> ctx.MkFPLEq
+
+        member private x.MkFPAdd(left : FPExpr, right : FPExpr as operands) : FPExpr =
+            assert (left.Sort = right.Sort)
+            let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+            ctx.MkFPAdd(roundNearest, left, right)
+
+        member private x.MkFPMul(left : FPExpr, right : FPExpr as operands) : FPExpr =
+            assert (left.Sort = right.Sort)
+            let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+            ctx.MkFPMul(roundNearest, left, right)
+
+        member private x.MkFPSub(left : FPExpr, right : FPExpr as operands) : FPExpr =
+            assert (left.Sort = right.Sort)
+            let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+            ctx.MkFPSub(roundNearest, left, right)
+
+        member private x.MkFPDiv(left : FPExpr, right : FPExpr as operands) : FPExpr =
+            assert (left.Sort = right.Sort)
+            let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+            ctx.MkFPDiv(roundNearest, left, right)
+
+        member private x.MkFPRem(left : FPExpr, right : FPExpr as operands) : FPExpr =
+            assert (left.Sort = right.Sort)
+            ctx.MkFPRem operands
+
 // ------------------------------- Encoding: common -------------------------------
 
         member public x.EncodeTerm encCtx (t : term) : encodingResult =
@@ -475,6 +526,8 @@ module internal Z3 =
                 | Bool -> ctx.MkBool(obj :?> bool) :> Expr
                 | t when t = typeof<char> -> ctx.MkNumeral(Convert.ToInt32(obj :?> char) |> toString, x.Type2Sort typ)
                 | t when t.IsEnum -> ctx.MkNumeral(Convert.ChangeType(obj, EnumUtils.getEnumUnderlyingTypeChecked t) |> toString, x.Type2Sort typ)
+                | Numeric t when t = typeof<float32> -> ctx.MkFPNumeral(obj :?> float32, (x.Type2Sort typ) :?> FPSort)
+                | Numeric t when t = typeof<float> -> ctx.MkFPNumeral(obj :?> float, (x.Type2Sort typ) :?> FPSort)
                 | Numeric _ -> ctx.MkNumeral(toString obj, x.Type2Sort typ)
                 | AddressType ->
                     match obj with
@@ -494,7 +547,24 @@ module internal Z3 =
 // ------------------------------- Encoding: expression -------------------------------
 
         member private x.EncodeOperation encCtx operation args typ =
+            match args with
+            | [] -> failToEncode "Operation without arguments"
+            | [a]  when TypeOf a |> isReal ->
+                x.EncodeOperationFP encCtx operation args
+            | [a]  when TypeOf a |> isIntegral ->
+                x.EncodeOperationBV encCtx operation args typ
+            | [a; b] when TypeOf a |> isReal ->
+                assert(TypeOf b |> isReal)
+                x.EncodeOperationFP encCtx operation args
+            | [a; b] when TypeOf a |> isIntegral ->
+                assert(TypeOf b |> isIntegral)
+                x.EncodeOperationBV encCtx operation args typ
+            | _ -> failToEncode "Not expected operation"
+
+        member private x.EncodeOperationBV encCtx operation args typ =
             match operation with
+            | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
+            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << x.MkEq) args
             | OperationType.BitwiseNot -> x.MakeUnary encCtx ctx.MkBVNot args
             | OperationType.BitwiseAnd -> x.MakeBinary encCtx (x.MkBVAndT typ) args
             | OperationType.BitwiseOr -> x.MakeBinary encCtx (x.MkBVOrT typ) args
@@ -508,8 +578,6 @@ module internal Z3 =
             | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
             | OperationType.LogicalOr -> x.MakeOperation encCtx x.MkOr args
             | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
-            | OperationType.Equal -> x.MakeBinary encCtx x.MkEq args
-            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << x.MkEq) args
             | OperationType.Greater -> x.MakeBinary encCtx x.MkBVSGT args
             | OperationType.Greater_Un -> x.MakeBinary encCtx x.MkBVUGT args
             | OperationType.GreaterOrEqual -> x.MakeBinary encCtx x.MkBVSGE args
@@ -534,6 +602,30 @@ module internal Z3 =
             | OperationType.Remainder -> x.MakeBinary encCtx (x.MkBVSRemT typ) args
             | OperationType.Remainder_Un -> x.MakeBinary encCtx (x.MkBVURemT typ) args
             | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkBVNeg args
+            | _ -> __unreachable__()
+
+        member private x.EncodeOperationFP encCtx operation args =
+            match operation with
+            | OperationType.LogicalNot -> x.MakeUnary encCtx x.MkNot args
+            | OperationType.LogicalAnd -> x.MakeOperation encCtx x.MkAnd args
+            | OperationType.LogicalOr -> x.MakeOperation encCtx x.MkOr args
+            | OperationType.LogicalXor -> x.MakeOperation encCtx ctx.MkXor args
+            | OperationType.Equal -> x.MakeBinary encCtx ctx.MkFPEq args
+            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << ctx.MkFPEq) args
+            | OperationType.Greater -> x.MakeBinary encCtx x.MkFPGt args
+            | OperationType.Greater_Un -> x.MakeBinary encCtx x.MkFPGt args
+            | OperationType.GreaterOrEqual -> x.MakeBinary encCtx x.MkFPGEq args
+            | OperationType.GreaterOrEqual_Un -> x.MakeBinary encCtx x.MkFPGEq args
+            | OperationType.Less -> x.MakeBinary encCtx x.MkFPLt args
+            | OperationType.Less_Un -> x.MakeBinary encCtx x.MkFPLt args
+            | OperationType.LessOrEqual -> x.MakeBinary encCtx x.MkFPLEq args
+            | OperationType.LessOrEqual_Un -> x.MakeBinary encCtx x.MkFPLEq args
+            | OperationType.Add -> x.MakeBinary encCtx x.MkFPAdd args
+            | OperationType.Multiply -> x.MakeBinary encCtx x.MkFPMul args
+            | OperationType.Subtract -> x.MakeBinary encCtx x.MkFPSub args
+            | OperationType.Divide -> x.MakeBinary encCtx x.MkFPDiv args
+            | OperationType.Remainder -> x.MakeBinary encCtx x.MkFPRem args
+            | OperationType.UnaryMinus -> x.MakeUnary encCtx ctx.MkFPNeg args
             | _ -> __unreachable__()
 
         member private x.ExtractOrExtend (expr : BitVecExpr) size =
@@ -580,7 +672,9 @@ module internal Z3 =
                         let slices = List.map (fun (s, e, pos) -> x.EncodeTerm encCtx s, x.EncodeTerm encCtx e, x.EncodeTerm encCtx pos) cuts
                         x.EncodeTerm encCtx term, slices
                     | _ -> x.EncodeTerm encCtx slice, List.empty
-                let t = term.expr :?> BitVecExpr
+                let t =
+                    if term.expr :? FPExpr then ctx.MkFPToIEEEBV (term.expr :?> FPExpr) :?> BitVecExpr
+                    else term.expr :?> BitVecExpr
                 let assumptions = assumptions @ term.assumptions
                 let termSize = t.SortSize
                 let sizeExpr = ctx.MkBV(termSize, termSize)
@@ -621,8 +715,23 @@ module internal Z3 =
                 | Application sf ->
                     let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
                     x.MakeOperation encCtx (fun x -> ctx.MkApp(decl, x)) args
-                | Cast(Numeric t1, Numeric t2) when isReal t1 || isReal t2 ->
-                    failToEncode "encoding real numbers is not implemented"
+                | Cast(Numeric t1, Numeric t2) when isReal t1 && isReal t2 ->
+                    let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+                    let expr = x.EncodeTerm encCtx (List.head args)
+                    let sort = x.Type2Sort t2
+                    {expr = ctx.MkFPToFP(roundNearest, expr.expr :?> FPExpr, sort :?> FPSort); assumptions = expr.assumptions}
+                | Cast(Numeric t1, Numeric t2) when isReal t1 ->
+                    let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+                    let expr = x.EncodeTerm encCtx (List.head args)
+                    let size = numericSizeOf t2
+                    let sign = isUnsigned t2
+                    {expr = ctx.MkFPToBV(roundNearest, expr.expr :?> FPExpr, size, sign); assumptions = expr.assumptions}
+                | Cast(Numeric t1, Numeric t2) when isReal t2 ->
+                    let roundNearest = ctx.MkFPRoundNearestTiesToEven()
+                    let expr = x.EncodeTerm encCtx (List.head args)
+                    let sort = x.Type2Sort t2
+                    let sign = isUnsigned t1
+                    {expr = ctx.MkFPToFP(roundNearest, expr.expr :?> BitVecExpr, sort :?> FPSort, sign); assumptions = expr.assumptions}
                 | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t1 t2 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
                     let difference = numericBitSizeOf t2 - numericBitSizeOf t1
@@ -1048,6 +1157,42 @@ module internal Z3 =
             | 8u  -> Concrete (convert bv.Int t) t
             | _ -> __notImplemented__()
 
+        member private x.DecodeFp t (fp : FPNum) =
+            let sizeExp = (int) fp.EBits
+            if fp.IsNaN then
+                match sizeExp with
+                | 8 -> Concrete Single.NaN t
+                | 11 -> Concrete Double.NaN t
+                | _ -> __notImplemented__()
+            elif fp.IsInf then
+                match sizeExp with
+                | 8 when fp.IsFPPlusInfinity-> Concrete Single.PositiveInfinity t
+                | 8 when fp.IsFPMinusInfinity-> Concrete Single.NegativeInfinity t
+                | 11 when fp.IsFPPlusInfinity-> Concrete Double.PositiveInfinity t
+                | 11 when fp.IsFPMinusInfinity-> Concrete Double.NegativeInfinity t
+                | _ -> __notImplemented__()
+            else
+                let sizeVal =
+                    match sizeExp with
+                    | 8 -> 23
+                    | 11 -> 52
+                    | _ -> __notImplemented__()
+                let sign = if fp.Sign then "1" else "0"
+                let exp = fp.ExponentInt64()
+                let value = (int64) fp.SignificandUInt64
+                let expBinary = Convert.ToString(exp, 2).PadLeft(sizeExp, '0')
+                let valueBinary = Convert.ToString(value, 2).PadLeft(sizeVal, '0')
+                let numStringBE = sign + expBinary + valueBinary
+                match sizeExp with
+                | 8 ->
+                    assert(t = typeof<single>)
+                    Concrete (BitConverter.Int32BitsToSingle(Convert.ToInt32(numStringBE, 2))) t
+                | 11 ->
+                    assert(t = typeof<double>)
+                    Concrete (BitConverter.Int64BitsToDouble(Convert.ToInt64(numStringBE, 2))) t
+                | _ -> __notImplemented__()
+
+
         member public x.Decode t (expr : Expr) =
             match expr with
             | :? BitVecNum as bv when Types.IsNumeric t -> x.DecodeBv t bv
@@ -1056,6 +1201,7 @@ module internal Z3 =
             | _ when not (Types.IsValueType t) ->
                 let address = x.DecodeConcreteHeapAddress expr |> ConcreteHeapAddress
                 HeapRef address t
+            | :? FPNum as fp when Types.IsNumeric t -> x.DecodeFp t fp
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String
@@ -1077,6 +1223,10 @@ module internal Z3 =
                 elif expr.IsBVULT then x.DecodeBoolExpr OperationType.Less_Un expr
                 elif expr.IsBVSLE then x.DecodeBoolExpr OperationType.LessOrEqual expr
                 elif expr.IsBVULE then x.DecodeBoolExpr OperationType.LessOrEqual_Un expr
+                elif expr.IsFPGt then x.DecodeBoolExpr OperationType.Greater expr
+                elif expr.IsFPGe then x.DecodeBoolExpr OperationType.GreaterOrEqual expr
+                elif expr.IsFPLt then x.DecodeBoolExpr OperationType.Less expr
+                elif expr.IsFPLe then x.DecodeBoolExpr OperationType.LessOrEqual expr
                 else __notImplemented__()
 
         member private x.WriteByPath term value (path : pathPart list) =

@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System
 open System.Reflection.Emit
 open VSharp
 open VSharp.Core

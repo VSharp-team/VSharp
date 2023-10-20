@@ -833,6 +833,65 @@ namespace IntegrationTests
             }
         }
 
+        [TestSvm]
+        public static int EncodeLongToIntReinterpretation(long x)
+        {
+            int a = 10;
+            if (*(int*) &x > a ) return *(int*) &x;
+            return a;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation1(double x)
+        {
+            int a = 10;
+            if (*(int*) &x > a ) return *(int*) &x;
+            return a;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation2(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a; //-219902326
+            if (x == 198.1234 && y != -219902326) return -1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation3(double x)
+        {
+            if (*(long*)((byte*)&x + 1) == 175767216) return 0;
+            return -1;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation4(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 256 && y != 0) return -1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation5(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 3483.34347 && y != -1344582462) return -1;
+            return 0;
+        }
+
+        [TestSvm]
+        public static int EncodeDoubleReinterpretation6(double x)
+        {
+            byte* a = (byte*)&x + 1;
+            int y = *(int*) a;
+            if (x == 7831.455 && y != 1954210119) return -1;
+            return 0;
+        }
+
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {
