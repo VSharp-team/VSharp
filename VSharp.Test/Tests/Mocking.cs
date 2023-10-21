@@ -133,6 +133,16 @@ public class Derived : IInterface
     }
 }
 
+public interface IOutMock
+{
+    void Get(out int i);
+}
+
+public interface IOutReturnMock
+{
+    int Get(out int i);
+}
+
 [TestSvmFixture]
 public class Mocking
 {
@@ -430,5 +440,25 @@ public class Mocking
         }
 
         return 0;
+    }
+
+    [TestSvm]
+    public int OutMock(IOutMock mock)
+    {
+        var i = 322;
+        mock.Get(out i);
+
+        return i;
+    }
+
+    [TestSvm]
+    public int OutMockWithReturn(IOutReturnMock mock)
+    {
+        var i = 16;
+        var j = mock.Get(out i);
+
+        if (j != 0)
+            return 0;
+        return i;
     }
 }

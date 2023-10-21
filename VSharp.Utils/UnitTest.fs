@@ -88,6 +88,7 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
             p.SetValue(info, memoryGraph.Encode this)
 
     member x.HasExternMocks with get() = ResizeArray.isEmpty externMocks |> not
+    member x.HasOutMocks with get() = info.typeMocks |> Array.exists (fun (m : typeMockRepr) -> m.outImplementations.Length <> 0)
     member x.Args with get() = args
     member x.IsError
         with get() = isError

@@ -120,7 +120,8 @@ namespace IntegrationTests
         [DllImport("msvcrt", EntryPoint = "rand", CallingConvention = CallingConvention.Cdecl)]
         public static extern int msvcrt_rand();
 
-        [Ignore("Writing to out arguments is not implemented")]
+        // [Ignore("Writing to out arguments is not implemented")]
+        [TestSvm(hasExternMocking: true, supportedOs: OsType.Unix)]
         public static int DotnetRand()
         {
             // Extern method with out parameters:

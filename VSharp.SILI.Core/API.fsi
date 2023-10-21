@@ -39,8 +39,8 @@ module API =
     val ResolveCallVirt : state -> term -> Type -> IMethod -> symbolicType seq
     val KeepOnlyMock : state -> term -> unit
 
-    val MethodMockAndCall : state -> IMethod -> term option -> term list -> term option
-    val ExternMockAndCall : state -> IMethod -> term option -> term list -> term option
+    val MethodMockAndCall : state -> IMethod -> term option -> term list -> state option * term option
+    val ExternMockAndCall : state -> IMethod -> term option -> term list -> state option * term option
 
     [<AutoOpen>]
     module Terms =

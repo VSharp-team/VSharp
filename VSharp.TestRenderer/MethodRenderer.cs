@@ -749,7 +749,7 @@ internal class MethodRenderer : CodeRenderer
 
             foreach (var (method, valuesType, setupMethod) in clauses)
             {
-                var name = Mocking.storageFieldName(method);
+                var name = Mocking.storageFieldName(method, "");
                 var storageField = typeOfMock.GetField(name, BindingFlags.Static | BindingFlags.NonPublic);
                 Debug.Assert(storageField != null);
                 var storage = storageField.GetValue(null) as global::System.Array;

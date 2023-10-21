@@ -15,7 +15,7 @@ public static class ExternMocker
         || RuntimeInformation.OSArchitecture == Architecture.X86
         || RuntimeInformation.OSArchitecture == Architecture.X64;
 
-    public static readonly bool ShimSupported = Environment.Version.Major <= 6;
+    public static readonly bool ShimSupported = true;
 
     private static List<NativeDetour> _detours = new();
 

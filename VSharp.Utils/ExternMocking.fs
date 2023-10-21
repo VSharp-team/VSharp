@@ -112,6 +112,7 @@ module ExtMocking =
         let mutable patchType = null
         let mutable mockedMethod = null
         let mutable mockImplementations = null
+        let mutable outImplementations = null
         let mutable patchMethod = None
 
         static member Deserialize name (baseMethod : MethodInfo) (methodImplementations : obj[]) =
