@@ -1162,7 +1162,8 @@ module internal Z3 =
                     let refinedAddress = m.Eval(expressions[0], false)
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
                     suitableKeys.Add({address = address}) |> ignore
-                Memory.FillClassFieldsRegion state field constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillClassFieldsRegion state field constantValue isSuitable
             | StaticFieldSort typ ->
                 let suitableKeys = HashSet<ISymbolicTypeKey>()
                 for expressions in getDefaultValues regionSort do
@@ -1170,15 +1171,19 @@ module internal Z3 =
                     let refinedAddress = m.Eval(expressions[0], false)
                     let typ = x.DecodeSymbolicTypeAddress refinedAddress
                     suitableKeys.Add({typ = typ}) |> ignore
-                Memory.FillStaticsRegion state typ constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillStaticsRegion state typ constantValue isSuitable
             | ArrayIndexSort arrayType ->
-                let suitableKeys = HashSet<IHeapArrayKey>()
+                let suitableAddresses = HashSet<term>()
                 for expressions in getDefaultValues regionSort do
                     let refinedAddress = m.Eval(expressions[0], false)
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
-                    let indices = Array.map (fun i -> m.Eval(i, false) |> x.Decode typeof<int>) expressions[1..] |> List.ofArray
-                    suitableKeys.Add(OneArrayIndexKey(address, indices)) |> ignore
-                Memory.FillArrayRegion state arrayType constantValue suitableKeys
+                    suitableAddresses.Add(address) |> ignore
+                let isSuitable (key : IHeapArrayKey) =
+                    match key with
+                    | :? heapArrayKey as OneArrayIndexKey(address, _) -> suitableAddresses.Contains address
+                    | _ -> false
+                Memory.FillArrayRegion state arrayType constantValue isSuitable
             | ArrayLengthSort arrayType ->
                 let suitableKeys = HashSet<IHeapVectorIndexKey>()
                 for expressions in getDefaultValues regionSort do
@@ -1187,7 +1192,8 @@ module internal Z3 =
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
                     let index = m.Eval(expressions[1], false) |> x.Decode typeof<int>
                     suitableKeys.Add({address = address; index = index}) |> ignore
-                Memory.FillLengthRegion state arrayType constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillLengthRegion state arrayType constantValue isSuitable
             | ArrayLowerBoundSort arrayType ->
                 let suitableKeys = HashSet<IHeapVectorIndexKey>()
                 for expressions in getDefaultValues regionSort do
@@ -1196,14 +1202,16 @@ module internal Z3 =
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
                     let index = m.Eval(expressions[1], false) |> x.Decode typeof<int>
                     suitableKeys.Add({address = address; index = index}) |> ignore
-                Memory.FillLowerBoundRegion state arrayType constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillLowerBoundRegion state arrayType constantValue isSuitable
             | StackBufferSort key ->
                 let suitableKeys = HashSet<IStackBufferIndexKey>()
                 for expressions in getDefaultValues regionSort do
                     assert(Array.length expressions = 1)
                     let index = m.Eval(expressions[0], false) |> x.Decode typeof<int8>
                     suitableKeys.Add({index = index}) |> ignore
-                Memory.FillStackBufferRegion state key constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillStackBufferRegion state key constantValue isSuitable
             | BoxedSort typ ->
                 let suitableKeys = HashSet<IHeapAddressKey>()
                 for expressions in getDefaultValues regionSort do
@@ -1211,7 +1219,8 @@ module internal Z3 =
                     let refinedAddress = m.Eval(expressions[0], false)
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
                     suitableKeys.Add({address = address}) |> ignore
-                Memory.FillBoxedRegion state typ constantValue suitableKeys
+                let isSuitable = suitableKeys.Contains
+                Memory.FillBoxedRegion state typ constantValue isSuitable
 
         member x.MkModel (m : Model) =
             try

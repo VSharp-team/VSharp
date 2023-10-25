@@ -806,39 +806,39 @@ module API =
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
 
-        let FillClassFieldsRegion state (field : fieldId) value suitableKeys =
+        let FillClassFieldsRegion state (field : fieldId) value isSuitableKey =
             let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.classFields <- PersistentDict.update state.classFields field defaultValue fill
 
-        let FillStaticsRegion state (field : fieldId) value suitableKeys =
+        let FillStaticsRegion state (field : fieldId) value isSuitableKey =
             let defaultValue = MemoryRegion.empty field.typ
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
 
-        let FillArrayRegion state typ value suitableKeys =
+        let FillArrayRegion state typ value isSuitableKey =
             let defaultValue = fst3 typ |> MemoryRegion.empty
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.arrays <- PersistentDict.update state.arrays typ defaultValue fill
 
-        let FillLengthRegion state typ value suitableKeys =
+        let FillLengthRegion state typ value isSuitableKey =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.lengths <- PersistentDict.update state.lengths typ defaultValue fill
 
-        let FillLowerBoundRegion state typ value suitableKeys =
+        let FillLowerBoundRegion state typ value isSuitableKey =
             let defaultValue = MemoryRegion.empty TypeUtils.lengthType
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.lowerBounds <- PersistentDict.update state.lowerBounds typ defaultValue fill
 
-        let FillStackBufferRegion state key value suitableKeys =
+        let FillStackBufferRegion state key value isSuitableKey =
             let defaultValue = MemoryRegion.empty typeof<int8>
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.stackBuffers <- PersistentDict.update state.stackBuffers key defaultValue fill
 
-        let FillBoxedRegion state typ value suitableKeys =
+        let FillBoxedRegion state typ value isSuitableKey =
             let defaultValue = MemoryRegion.empty typ
-            let fill region = MemoryRegion.fillRegion value suitableKeys region
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
             state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
 
         let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o

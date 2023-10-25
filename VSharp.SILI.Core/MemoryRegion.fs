@@ -76,7 +76,7 @@ module private MemoryKeyUtils =
 
     let regionsOfIntegerRanges lowerBounds upperBounds = List.map2 regionOfIntegerRange lowerBounds upperBounds |> listProductRegion<points<int>>.OfSeq
 
-[<StructuralEquality;CustomComparison>]
+[<CustomEquality;CustomComparison>]
 type heapAddressKey =
     {address : heapAddress}
     interface IHeapAddressKey with
@@ -101,10 +101,16 @@ type heapAddressKey =
             | :? heapAddressKey as y -> compareTerms x.address y.address
             | _ -> -1
     override x.ToString() = x.address.ToString()
+    override x.Equals(other : obj) =
+        match other with
+        | :? heapAddressKey as other ->
+            x.address = other.address
+        | _ -> false
+    override x.GetHashCode() = x.address.GetHashCode()
 
 and IHeapAddressKey = IMemoryKey<heapAddressKey, vectorTime intervals>
 
-[<StructuralEquality;CustomComparison>]
+[<CustomEquality;CustomComparison>]
 type heapArrayKey =
     | OneArrayIndexKey of heapAddress * term list
     | RangeArrayIndexKey of heapAddress * term list * term list
@@ -219,10 +225,24 @@ type heapArrayKey =
             sprintf "%O[%O]" address (indices |> List.map toString |> join ", ")
         | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
             sprintf "%O[%O]" address (List.map2 (sprintf "%O..%O") lowerBounds upperBounds |> join ", ")
+    override x.Equals(other : obj) =
+        match other with
+        | :? heapArrayKey as other ->
+            match x, other with
+            | OneArrayIndexKey(address1, indices1), OneArrayIndexKey(address2, indices2) ->
+                address1 = address2 && indices1 = indices2
+            | RangeArrayIndexKey(address1, lbs1, ubs1), RangeArrayIndexKey(address2, lbs2, ubs2) ->
+                address1 = address2 && lbs1 = lbs2 && ubs1 = ubs2
+            | _ -> false
+        | _ -> false
+    override x.GetHashCode() =
+        match x with
+        | OneArrayIndexKey(address, indices) -> HashCode.Combine(1, address, indices)
+        | RangeArrayIndexKey(address, lbs, ubs) -> HashCode.Combine(2, address, lbs, ubs)
 
 and IHeapArrayKey = IMemoryKey<heapArrayKey, productRegion<vectorTime intervals, int points listProductRegion>>
 
-[<StructuralEquality;CustomComparison>]
+[<CustomEquality;CustomComparison>]
 type heapVectorIndexKey =
     {address : heapAddress; index : term}
     interface IHeapVectorIndexKey with
@@ -242,11 +262,17 @@ type heapVectorIndexKey =
                 if cmp = 0 then compareTerms x.index y.index
                 else cmp
             | _ -> -1
-    override x.ToString() = sprintf "%O[%O]" x.address x.index
+    override x.ToString() = $"{x.address}[{x.index}]"
+    override x.Equals(other : obj) =
+        match other with
+        | :? heapVectorIndexKey as other ->
+            x.address = other.address && x.index = other.index
+        | _ -> false
+    override x.GetHashCode() = HashCode.Combine(x.address, x.index)
 
 and IHeapVectorIndexKey = IMemoryKey<heapVectorIndexKey, productRegion<vectorTime intervals, int points>>
 
-[<StructuralEquality;CustomComparison>]
+[<CustomEquality;CustomComparison>]
 type stackBufferIndexKey =
     {index : term}
     interface IStackBufferIndexKey with
@@ -268,6 +294,12 @@ type stackBufferIndexKey =
             | :? stackBufferIndexKey as y -> compareTerms x.index y.index
             | _ -> -1
     override x.ToString() = x.index.ToString()
+    override x.Equals(other : obj) =
+        match other with
+        | :? stackBufferIndexKey as other ->
+            x.index = other.index
+        | _ -> false
+    override x.GetHashCode() = x.index.GetHashCode()
 
 and IStackBufferIndexKey = IMemoryKey<stackBufferIndexKey, int points>
 
@@ -374,17 +406,36 @@ module private UpdateTree =
 
     let forall predicate tree = RegionTree.foldl (fun acc _ k -> acc && predicate k) true tree
 
-[<StructuralEquality; NoComparison>]
+[<CustomEquality; NoComparison>]
 type memoryRegion<'key, 'reg when 'key : equality and 'key :> IMemoryKey<'key, 'reg> and 'reg : equality and 'reg :> IRegion<'reg>> =
-    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : option<term * ISet<IMemoryKey<'key, 'reg>>>}
+    {typ : Type; updates : updateTree<'key, term, 'reg>; defaultValue : option<term * (IMemoryKey<'key, 'reg> -> bool)>}
+    with
+    override x.Equals(other : obj) =
+        match other with
+        | :? memoryRegion<'key, 'reg> as other ->
+            let compareDefault =
+                lazy(
+                    match x.defaultValue, other.defaultValue with
+                    | Some(v1, _), Some(v2, _) -> v1 = v2
+                    | None, None -> true
+                    | _ -> false
+                )
+            x.typ = other.typ && x.updates = other.updates && compareDefault.Value
+        | _ -> false
+    override x.GetHashCode() =
+        let defaultValue =
+            match x.defaultValue with
+            | Some(v, _) -> Some v
+            | None -> None
+        HashCode.Combine(x.typ, x.updates, defaultValue)
 
 module MemoryRegion =
 
     let empty typ =
         {typ = typ; updates = UpdateTree.empty; defaultValue = None}
 
-    let fillRegion defaultValue (suitableKeys : ISet<IMemoryKey<_,_>>) (region : memoryRegion<_,_>) =
-        { region with defaultValue = Some(defaultValue, suitableKeys) }
+    let fillRegion defaultValue (isSuitableKey : IMemoryKey<_,_> -> bool) (region : memoryRegion<_,_>) =
+        { region with defaultValue = Some(defaultValue, isSuitableKey) }
 
     let maxTime (tree : updateTree<'a, heapAddress, 'b>) startingTime =
         RegionTree.foldl (fun m _ {key=_; value=v} -> VectorTime.max m (timeOf v)) startingTime tree
@@ -393,7 +444,7 @@ module MemoryRegion =
         let makeSymbolic tree = instantiate mr.typ { typ = mr.typ; updates = tree; defaultValue = mr.defaultValue }
         let makeDefault () =
             match mr.defaultValue with
-            | Some (d, suitableKeys) when suitableKeys.Contains key -> d
+            | Some (d, isSuitableKey) when isSuitableKey key -> d
             | _ -> makeDefaultValue mr.typ
         UpdateTree.read key isDefault makeSymbolic makeDefault mr.updates
 

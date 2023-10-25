@@ -364,13 +364,13 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillClassFieldsRegion : state -> fieldId -> term -> ISet<IHeapAddressKey> -> unit
-        val FillStaticsRegion : state -> fieldId -> term -> ISet<ISymbolicTypeKey> -> unit
-        val FillArrayRegion : state -> arrayType -> term -> ISet<IHeapArrayKey> -> unit
-        val FillLengthRegion : state -> arrayType -> term -> ISet<IHeapVectorIndexKey> -> unit
-        val FillLowerBoundRegion : state -> arrayType -> term -> ISet<IHeapVectorIndexKey> -> unit
-        val FillStackBufferRegion : state -> stackKey -> term -> ISet<IStackBufferIndexKey> -> unit
-        val FillBoxedRegion : state -> Type -> term -> ISet<IHeapAddressKey> -> unit
+        val FillClassFieldsRegion : state -> fieldId -> term -> (IHeapAddressKey -> bool) -> unit
+        val FillStaticsRegion : state -> fieldId -> term -> (ISymbolicTypeKey -> bool) -> unit
+        val FillArrayRegion : state -> arrayType -> term -> (IHeapArrayKey -> bool) -> unit
+        val FillLengthRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
+        val FillLowerBoundRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
+        val FillStackBufferRegion : state -> stackKey -> term -> (IStackBufferIndexKey -> bool) -> unit
+        val FillBoxedRegion : state -> Type -> term -> (IHeapAddressKey -> bool) -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
 
