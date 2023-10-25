@@ -364,7 +364,7 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillClassFields : state -> fieldId -> term -> ISet<IHeapAddressKey> -> unit
+        val FillClassFieldsRegion : state -> fieldId -> term -> ISet<IHeapAddressKey> -> unit
         val FillStaticsRegion : state -> fieldId -> term -> ISet<ISymbolicTypeKey> -> unit
         val FillArrayRegion : state -> arrayType -> term -> ISet<IHeapArrayKey> -> unit
         val FillLengthRegion : state -> arrayType -> term -> ISet<IHeapVectorIndexKey> -> unit

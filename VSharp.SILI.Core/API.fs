@@ -806,7 +806,7 @@ module API =
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
 
-        let FillClassFields state (field : fieldId) value suitableKeys =
+        let FillClassFieldsRegion state (field : fieldId) value suitableKeys =
             let defaultValue = MemoryRegion.empty field.typ
             let fill region = MemoryRegion.fillRegion value suitableKeys region
             state.classFields <- PersistentDict.update state.classFields field defaultValue fill

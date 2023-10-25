@@ -1162,7 +1162,7 @@ module internal Z3 =
                     let refinedAddress = m.Eval(expressions[0], false)
                     let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
                     suitableKeys.Add({address = address}) |> ignore
-                Memory.FillClassFields state field constantValue suitableKeys
+                Memory.FillClassFieldsRegion state field constantValue suitableKeys
             | StaticFieldSort typ ->
                 let suitableKeys = HashSet<ISymbolicTypeKey>()
                 for expressions in getDefaultValues regionSort do

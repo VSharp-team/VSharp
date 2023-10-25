@@ -15,7 +15,8 @@ module internal Object =
         let state = cilState.state
         let t = MostConcreteTypeOfRef state object
         if TypeUtils.isArrayType t then
-            assert t.IsSZArray
+            if not t.IsSZArray then
+                internalfail $"MemberwiseClone: non-vector arrays are not supported {t}"
             let newObject = Memory.AllocateDefaultClass state t
             let zero = MakeNumber 0
             let len = Memory.ArrayLengthByDimension state object zero
