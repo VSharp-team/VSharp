@@ -56,6 +56,7 @@ module API =
         match thisRef.term with
         | HeapRef(address, t) ->
             let constraints = List.singleton t |> typeConstraints.FromSuperTypes
+            // TODO: add 'isPublic' constraint, because 'this' may be rendered only with public type
             state.typeStorage.AddConstraint address constraints
             match TypeSolver.solveTypes state.model state with
             | TypeSat -> ()

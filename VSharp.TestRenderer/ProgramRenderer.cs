@@ -49,6 +49,11 @@ internal class ProgramRenderer
         _referenceManager.AddNUnit();
     }
 
+    public void AddExtensionsToUsings()
+    {
+        _referenceManager.AddTestExtensions();
+    }
+
     public Assembly[] UsedAssemblies()
     {
         return _referenceManager.UsedAssemblies();

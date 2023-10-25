@@ -7,6 +7,7 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.CSharpUtils
+open VSharp.TestExtensions
 
 // ------------------------------------------------- Type mocks -------------------------------------------------
 
@@ -159,6 +160,11 @@ module TypeSolver =
         (hasSubtypes t && TypeUtils.isPublic t && not (Reflection.hasNonPublicAbstractMethods t))
         || TypeUtils.isDelegate t
 
+    let private isGeneratedMock (t : Type) =
+        let generatedAttribute = AssemblyManager.NormalizeType(typeof<GeneratedAttribute>)
+        t.GetCustomAttribute(generatedAttribute) <> null
+        || t.GetCustomAttribute<GeneratedAttribute>() <> null
+
     let private enumerateTypes supertypes mock (validate: Type -> candidate option) (assemblies : Assembly seq) =
         assert userAssembly.IsSome
         let userAssembly = userAssembly.Value
@@ -179,12 +185,13 @@ module TypeSolver =
                         // Dynamic mock assemblies may appear here
                         let assemblies = assemblies |> Seq.filter (fun a -> not a.IsDynamic)
                         Seq.append [userAssembly; Reflection.mscorlibAssembly] assemblies |> Seq.distinct
-                let makeCandidate (t: Type) =
+                let makeCandidate (t : Type) =
                     // Byref-like can not be casted to any reference type or interface, so filtering them
                     let isInvalid =
                         t.IsByRefLike
                         || t = typeof<Void>
                         || t.GetCustomAttribute<System.Runtime.CompilerServices.CompilerGeneratedAttribute>() <> null
+                        || isGeneratedMock t
                     if isInvalid then None
                     else validate t
                 for assembly in assemblies do

@@ -558,12 +558,14 @@ public static class TestsRenderer
                 : structPrefix + string.Join("", superTypes.Select(NameForType));
         var isUnsafe = typeMock.MethodMocks.Any(m => m.BaseMethod.ReturnType.IsPointer);
         var modifiers = isUnsafe ? new[] { Internal, Unsafe } : new[] { Internal };
+        mocksProgram.AddExtensionsToUsings();
+        var attributes = RenderAttributeList("Generated");
         var mock =
             mocksProgram.AddType(
                 $"{name}Mock",
                 isStruct,
                 superTypes.Count > 0 ? superTypes : null,
-                null,
+                attributes,
                 modifiers
             );
         if (isStruct)
