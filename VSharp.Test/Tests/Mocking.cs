@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using NUnit.Framework;
 using VSharp.Test;
@@ -115,6 +116,21 @@ public interface IIntPtrMock
 public interface IEnumPtrMock
 {
     unsafe MockEnum* Get();
+}
+
+public interface IInterface
+{
+    int GetInt() => 42;
+
+    object GetObj() => GetInt();
+}
+
+public class Derived : IInterface
+{
+    public object GetObj()
+    {
+        return "string";
+    }
 }
 
 [TestSvmFixture]
@@ -390,5 +406,29 @@ public class Mocking
         }
 
         return 2;
+    }
+
+    [TestSvm(100)]
+    public int DefaultImplTest(IInterface i)
+    {
+        var value = i.GetObj();
+
+        if (i is Derived)
+        {
+            if ((string)value == "string")
+                return 2;
+            return -1;
+        }
+        if (value is int n)
+        {
+            return n;
+        }
+
+        if ((string)value == "string")
+        {
+            return 1;
+        }
+
+        return 0;
     }
 }
