@@ -65,12 +65,22 @@ module internal ReadOnlySpan =
         let checkIndex cilState k =
             let readIndex cilState k =
                 let ref =
-                    if IsArrayContents ref then
+                    match ref.term with
+                    | _ when IsArrayContents ref ->
                         Memory.ReferenceArrayIndex cilState.state ref [index] (Some t)
-                    elif index = MakeNumber 0 then
+                    | _ when index = MakeNumber 0 ->
                         assert(TypeOfLocation ref = t)
                         ref
-                    else internalfail $"GetItemFromReadOnlySpan: unexpected contents ref {ref}"
+                    | Ref address ->
+                        let pointerBase, offset = AddressToBaseAndOffset address
+                        let size = TypeUtils.internalSizeOf t |> MakeNumber
+                        let offset = Arithmetics.Add offset (Arithmetics.Mul index size)
+                        Ptr pointerBase t offset
+                    | Ptr(pointerBase, _, offset) ->
+                        let size = TypeUtils.internalSizeOf t |> MakeNumber
+                        let offset = Arithmetics.Add offset (Arithmetics.Mul index size)
+                        Ptr pointerBase t offset
+                    | _ -> internalfail $"GetItemFromReadOnlySpan: unexpected contents ref {ref}"
                 push ref cilState
                 List.singleton cilState |> k
             StatedConditionalExecutionCIL cilState
