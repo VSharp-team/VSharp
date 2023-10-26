@@ -35,3 +35,6 @@ module internal Thread =
 
     [<Implements("System.Void System.Threading.Monitor.PulseAll(System.Object)")>]
     val MonitorPulseAll : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Void System.Threading.Thread.Initialize(this)")>]
+    val Initialize : IInterpreter -> cilState -> term list -> cilState list

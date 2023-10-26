@@ -50,3 +50,7 @@ module Thread =
     let MonitorPulseAll (_ : IInterpreter) (cilState : cilState) (args : term list) =
         assert(List.length args = 1)
         List.singleton cilState
+
+    let Initialize (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        List.singleton cilState
