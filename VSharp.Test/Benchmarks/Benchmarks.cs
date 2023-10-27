@@ -70,6 +70,7 @@ internal static class Benchmarks
             visualize: false,
             releaseBranches: releaseBranches,
             maxBufferSize: 128,
+            prettyChars: true,
             checkAttributes: false,
             stopOnCoverageAchieved: -1,
             randomSeed: randomSeed,

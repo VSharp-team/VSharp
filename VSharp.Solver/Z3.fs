@@ -1,6 +1,7 @@
 namespace VSharp.Solver
 
 open System
+open System.Text
 open Microsoft.Z3
 open System.Collections.Generic
 open VSharp
@@ -81,6 +82,12 @@ module internal Z3 =
         static member Empty with get() =
             { parts = List.empty }
 
+        override x.ToString() =
+            let mutable sb = StringBuilder()
+            for p in x.parts do
+                sb <- sb.Append(p.ToString())
+            sb.ToString()
+
     module private Path =
 
         let rec (|Path|_|) (src : ISymbolicConstantSource) =
@@ -108,6 +115,7 @@ module internal Z3 =
         heapAddresses : IDictionary<Expr, vectorTime>
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * path, ArrayExpr>
+        defaultValues : IDictionary<regionSort, HashSet<Expr[]>>
         mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
@@ -130,6 +138,7 @@ module internal Z3 =
         heapAddresses = Dictionary<Expr, vectorTime>()
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * path, ArrayExpr>()
+        defaultValues = Dictionary<regionSort, HashSet<Expr[]>>()
         lastSymbolicAddress = 0
     }
 
@@ -147,6 +156,14 @@ module internal Z3 =
                 let regConst = mkConst()
                 encodingCache.regionConstants.Add(typ, regConst)
                 regConst
+
+        let getDefaultValues (regionSort : regionSort) =
+            let result : HashSet<Expr[]> ref = ref null
+            if encodingCache.defaultValues.TryGetValue(regionSort, result) then result.Value
+            else
+                let suitableKeys = HashSet<Expr[]>()
+                encodingCache.defaultValues.Add(regionSort, suitableKeys)
+                suitableKeys
 
         let TrueExpr = ctx.MkTrue()
         let FalseExpr = ctx.MkFalse()
@@ -275,6 +292,7 @@ module internal Z3 =
             match cond, thenExpr, elseExpr with
             | True, _, _ -> thenExpr
             | False, _, _ -> elseExpr
+            | _ when thenExpr = elseExpr -> thenExpr
             | _, (:? BitVecExpr as thenExpr), (:? BitVecExpr as elseExpr) ->
                 let thenExpr, elseExpr = x.ExtendIfNeed (thenExpr, elseExpr) true
                 ctx.MkITE(cond, thenExpr, elseExpr)
@@ -568,7 +586,12 @@ module internal Z3 =
                 assumptions, newLeft, newRight, newPos
             List.foldBack addBounds cuts (assumptions, zero, sizeExpr, zero)
 
-        // TODO: make code better
+        member private x.EncodeBoolBitVec (b : BoolExpr) =
+            assert(sizeof<bool> = sizeof<byte>)
+            let trueBitVec = ctx.MkNumeral(1, x.Type2Sort typeof<byte>)
+            let falseBitVec = ctx.MkNumeral(0, x.Type2Sort typeof<byte>)
+            x.MkITE(b, trueBitVec, falseBitVec) :?> BitVecExpr
+
         member private x.EncodeCombine encCtx slices typ =
             let res = ctx.MkNumeral(0, x.Type2Sort typ) :?> BitVecExpr
             let window = res.SortSize
@@ -580,7 +603,11 @@ module internal Z3 =
                         let slices = List.map (fun (s, e, pos) -> x.EncodeTerm encCtx s, x.EncodeTerm encCtx e, x.EncodeTerm encCtx pos) cuts
                         x.EncodeTerm encCtx term, slices
                     | _ -> x.EncodeTerm encCtx slice, List.empty
-                let t = term.expr :?> BitVecExpr
+                let t =
+                    match term.expr with
+                    | :? BitVecExpr as bv -> bv
+                    | :? BoolExpr as b -> x.EncodeBoolBitVec b
+                    | _ -> internalfail $"EncodeCombine: unexpected slice term {term}"
                 let assumptions = assumptions @ term.assumptions
                 let termSize = t.SortSize
                 let sizeExpr = ctx.MkBV(termSize, termSize)
@@ -626,7 +653,7 @@ module internal Z3 =
                 | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t1 t2 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
                     let difference = numericBitSizeOf t2 - numericBitSizeOf t1
-                    let extend = if isUnsigned t1 then ctx.MkZeroExt else ctx.MkSignExt
+                    let extend = if isUnsigned t2 then ctx.MkZeroExt else ctx.MkSignExt
                     {expr = extend(difference, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
                 | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t2 t1 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
@@ -741,9 +768,10 @@ module internal Z3 =
         member private x.stackBufferIndexKeyInRegion acc keyExpr region =
             x.KeyInIntPoints keyExpr acc region
 
-        member private x.GetRegionConstant (name : string) sort (path : path) (regSort : regionSort) =
-            let mkConst () = ctx.MkConst(name, sort) :?> ArrayExpr
-            getMemoryConstant mkConst (regSort, path)
+        member private x.GetRegionConstant (name : string) sort (path : path) (regionSort : regionSort) =
+            let constName = $"{name} of {regionSort}, {path}"
+            let mkConst () = ctx.MkConst(constName, sort) :?> ArrayExpr
+            getMemoryConstant mkConst (regionSort, path)
 
         member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst (path : path) left mo =
             let updates = MemoryRegion.flatten mo
@@ -780,10 +808,12 @@ module internal Z3 =
         member private x.HeapReading encCtx key mo typ source path name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : heapAddressKey) = x.EncodeTerm encCtx k.address |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
             let regionSort = GetHeapReadingRegionSort source
-            let array = x.GetRegionConstant name sort path regionSort
             let inst (k : Expr) =
+                let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
+                let array = x.GetRegionConstant name sort path regionSort
+                let defaultValues = getDefaultValues regionSort
+                defaultValues.Add(Array.singleton k) |> ignore
                 let expr = ctx.MkSelect(array, k)
                 expr, x.GenerateInstAssumptions expr typ
             let keyInRegion = x.HeapAddressKeyInRegion encCtx
@@ -821,22 +851,26 @@ module internal Z3 =
         // NOTE: XML serializer can not generate special char symbols (char <= 32) #XMLChar
         // TODO: use another serializer
         member private x.GenerateCharAssumptions encodingResult =
-            // TODO: use stringRepr for serialization of strings
-            let expr = encodingResult.expr :?> BitVecExpr
-            let assumptions = encodingResult.assumptions
-            let left = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
-            let right = ctx.MkBVSLT(expr, ctx.MkBV(127, expr.SortSize))
-            {expr = expr; assumptions = left :: right :: assumptions}
+            if API.CharsArePretty then
+                let expr = encodingResult.expr :?> BitVecExpr
+                let assumptions = encodingResult.assumptions
+                let left = ctx.MkBVSGT(expr, ctx.MkBV(32, expr.SortSize))
+                let right = ctx.MkBVSLT(expr, ctx.MkBV(127, expr.SortSize))
+                {expr = expr; assumptions = left :: right :: assumptions}
+            else encodingResult
 
         member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name =
             assert mo.defaultValue.IsNone
-            let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
-            let valueSort = x.Type2Sort typ
             let inst (k : Expr[]) =
+                let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
+                let valueSort = x.Type2Sort typ
                 if hasDefaultValue then x.DefaultValue valueSort, List.empty
                 else
+                    let regionSort = GetHeapReadingRegionSort source
+                    let defaultValues = getDefaultValues regionSort
+                    defaultValues.Add(k) |> ignore
                     let sort = ctx.MkArraySort(domainSort, valueSort)
-                    let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort path
+                    let array = x.GetRegionConstant name sort path regionSort
                     let expr = ctx.MkSelect(array, k)
                     expr, x.GenerateInstAssumptions expr typ
             let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
@@ -905,10 +939,13 @@ module internal Z3 =
         member private x.StackBufferReading encCtx key mo typ source path name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
-            let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
-            let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort path
             let keyInRegion = x.stackBufferIndexKeyInRegion
             let inst (k : Expr) =
+                let regionSort = GetHeapReadingRegionSort source
+                let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
+                let array = x.GetRegionConstant name sort path regionSort
+                let defaultValues = getDefaultValues regionSort
+                defaultValues.Add(Array.singleton k) |> ignore
                 let expr = ctx.MkSelect(array, k)
                 expr, x.GenerateInstAssumptions expr typ
             let keysAreMatch leftExpr right rightRegion =
@@ -920,16 +957,19 @@ module internal Z3 =
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
-            let keyType = x.Type2Sort Types.IndexType
-            let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
-            let array = GetHeapReadingRegionSort source |> x.GetRegionConstant name sort path
             let updates = MemoryRegion.flatten mo
             let value = Seq.tryFind (fun (k, _, _) -> k = key) updates
             match value with
             | Some (_, _, v) -> x.EncodeTerm encCtx v
             | None ->
+                let keyType = x.Type2Sort Types.IndexType
+                let sort = ctx.MkArraySort(keyType, x.Type2Sort typ)
+                let regionSort = GetHeapReadingRegionSort source
+                let array = x.GetRegionConstant name sort path regionSort
                 let encodedKey = ctx.MkConst(key.ToString(), keyType)
                 encodingCache.staticKeys.Add(encodedKey, key.typ)
+                let defaultValues = getDefaultValues regionSort
+                defaultValues.Add(Array.singleton encodedKey) |> ignore
                 {expr = ctx.MkSelect(array, encodedKey); assumptions = List.empty}
 
         member private x.StructReading encCtx (structSource : ISymbolicConstantSource) (field : fieldId) typ (path : path) name =
@@ -1113,6 +1153,75 @@ module internal Z3 =
             if constant <> term then
                 x.WriteDictOfValueTypes subst source path typ term
 
+        member private x.FillRegion state (m : Model) (regionSort : regionSort) constantValue =
+            match regionSort with
+            | HeapFieldSort field ->
+                let suitableKeys = HashSet<IHeapAddressKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 1)
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
+                    suitableKeys.Add({address = address}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillClassFieldsRegion state field constantValue isSuitable
+            | StaticFieldSort typ ->
+                let suitableKeys = HashSet<ISymbolicTypeKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 1)
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let typ = x.DecodeSymbolicTypeAddress refinedAddress
+                    suitableKeys.Add({typ = typ}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillStaticsRegion state typ constantValue isSuitable
+            | ArrayIndexSort arrayType ->
+                let suitableAddresses = HashSet<term>()
+                for expressions in getDefaultValues regionSort do
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
+                    suitableAddresses.Add(address) |> ignore
+                let isSuitable (key : IHeapArrayKey) =
+                    match key with
+                    | :? heapArrayKey as OneArrayIndexKey(address, _) -> suitableAddresses.Contains address
+                    | _ -> false
+                Memory.FillArrayRegion state arrayType constantValue isSuitable
+            | ArrayLengthSort arrayType ->
+                let suitableKeys = HashSet<IHeapVectorIndexKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 2)
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
+                    let index = m.Eval(expressions[1], false) |> x.Decode typeof<int>
+                    suitableKeys.Add({address = address; index = index}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillLengthRegion state arrayType constantValue isSuitable
+            | ArrayLowerBoundSort arrayType ->
+                let suitableKeys = HashSet<IHeapVectorIndexKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 2)
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
+                    let index = m.Eval(expressions[1], false) |> x.Decode typeof<int>
+                    suitableKeys.Add({address = address; index = index}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillLowerBoundRegion state arrayType constantValue isSuitable
+            | StackBufferSort key ->
+                let suitableKeys = HashSet<IStackBufferIndexKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 1)
+                    let index = m.Eval(expressions[0], false) |> x.Decode typeof<int8>
+                    suitableKeys.Add({index = index}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillStackBufferRegion state key constantValue isSuitable
+            | BoxedSort typ ->
+                let suitableKeys = HashSet<IHeapAddressKey>()
+                for expressions in getDefaultValues regionSort do
+                    assert(Array.length expressions = 1)
+                    let refinedAddress = m.Eval(expressions[0], false)
+                    let address = x.DecodeConcreteHeapAddress refinedAddress |> ConcreteHeapAddress
+                    suitableKeys.Add({address = address}) |> ignore
+                let isSuitable = suitableKeys.Contains
+                Memory.FillBoxedRegion state typ constantValue isSuitable
+
         member x.MkModel (m : Model) =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
@@ -1153,9 +1262,8 @@ module internal Z3 =
 
                 let pointers = Dictionary<address, term>()
                 let defaultValues = Dictionary<regionSort, term ref>()
-                for kvp in encodingCache.regionConstants do
-                    let region, path = kvp.Key
-                    let constant = kvp.Value
+                for KeyValue(typ, constant) in encodingCache.regionConstants do
+                    let region, path = typ
                     let arr = m.Eval(constant, false)
                     let typeOfLocation =
                         if path.IsEmpty then region.TypeOfLocation
@@ -1210,10 +1318,9 @@ module internal Z3 =
                     let states = Memory.Write state (Ref address) ptr
                     assert(states.Length = 1 && states[0] = state)
 
-                for kvp in defaultValues do
-                    let region = kvp.Key
-                    let constantValue = kvp.Value.Value
-                    Memory.FillRegion state constantValue region
+                for KeyValue(regionSort, value) in defaultValues do
+                    let constantValue = value.Value
+                    x.FillRegion state m regionSort constantValue
 
                 state.startingTime <- [encodingCache.lastSymbolicAddress - 1]
 

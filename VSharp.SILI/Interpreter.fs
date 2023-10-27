@@ -578,14 +578,14 @@ type ILInterpreter() as this =
         k [cilState]
 
     member private x.AccessMultidimensionalArray accessor (cilState : cilState) lengths indices (k : cilState list -> 'a) =
-        let checkArrayBounds upperBounds indices =
-            let checkOneBound acc (upperBound, index) =
+        let checkArrayBounds lengths indices =
+            let checkOneBound acc (length, index) =
                 let lowerBound = Concrete 0 Types.TLength
                 let notTooSmall = Arithmetics.(>>=) index lowerBound
-                let notTooLarge = Arithmetics.(<<) index upperBound
+                let notTooLarge = Arithmetics.(<<) index length
                 acc &&& notTooSmall &&& notTooLarge
-            assert(List.length upperBounds = List.length indices)
-            let upperBoundsAndIndices = List.zip upperBounds indices
+            assert(List.length lengths = List.length indices)
+            let upperBoundsAndIndices = List.zip lengths indices
             List.fold checkOneBound (True()) upperBoundsAndIndices
         StatedConditionalExecutionCIL cilState
             (fun state k -> k (checkArrayBounds lengths indices, state))
@@ -797,9 +797,8 @@ type ILInterpreter() as this =
                 true
         else false
 
-    member private x.InlineOrCall (method : Method) args thisOption (cilState : cilState) k =
-        let fullyGenericMethod, genericArgs, _ = method.Generalize()
-        let fullMethodName = fullyGenericMethod.FullName
+    member private x.InlineOrCall (method : Method) (args : term list) thisOption (cilState : cilState) k =
+        let _, genericArgs, _ = method.Generalize()
         let wrapType arg = Concrete arg typeof<Type>
         // TODO: do not wrap types, pass them through state.typeVariables!
         let typeArgs = genericArgs |> Seq.map wrapType |> List.ofSeq
@@ -1362,11 +1361,8 @@ type ILInterpreter() as this =
         if Types.IsValueType t then
             let v = pop cilState
             if Types.IsNullable t then x.BoxNullable t v cilState
-            elif t.IsEnum then
-                let enum = Types.Cast v t
-                allocateValueTypeInHeap enum cilState
-                [cilState]
             else
+                let v = Types.Cast v t
                 allocateValueTypeInHeap v cilState
                 [cilState]
         else [cilState]
@@ -1769,7 +1765,8 @@ type ILInterpreter() as this =
 
     member x.CreateException (exceptionType : Type) arguments cilState =
         assert (not <| exceptionType.IsValueType)
-        Logger.printLog Logger.Info $"{exceptionType}!\nStack trace:\n{Memory.StackTrace cilState.state.stack}"
+        let stackTrace = lazy(Memory.StackTrace cilState.state.stack |> List.map toString |> join "\n")
+        Logger.printLog Logger.Info $"{exceptionType}!\nStack trace:\n{stackTrace.Value}"
         clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments

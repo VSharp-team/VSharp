@@ -31,6 +31,7 @@ type SVMOptions = {
     visualize : bool
     releaseBranches : bool
     maxBufferSize : int
+    prettyChars : bool // If true, 33 <= char <= 126, otherwise any char
     checkAttributes : bool
     stopOnCoverageAchieved : int
     randomSeed : int

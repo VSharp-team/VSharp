@@ -21,29 +21,14 @@
         <Compile Include="SolverPool.fs" />
     </ItemGroup>
 
-    <PropertyGroup>
-        <IsM1>false</IsM1>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" $([MSBuild]::IsOSPlatform('OSX')) AND '$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)' == 'Arm64' ">
-        <IsM1>true</IsM1>
-    </PropertyGroup>
-
     <ItemGroup>
         <ProjectReference Include="..\VSharp.SILI.Core\VSharp.SILI.Core.fsproj" />
         <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 
-    <ItemGroup Condition=" !$(IsM1) ">
-        <PackageReference Include="Microsoft.Z3.x64" Version="4.8.6" />
-    </ItemGroup>
-
-    <ItemGroup Condition=" $(IsM1) ">
-        <PackageReference Include="vsteam.Z3.M1" Version="4.8.11-alpha.2" />
-    </ItemGroup>
-
     <ItemGroup>
         <PackageReference Update="FSharp.Core" Version="7.0.300" />
+        <PackageReference Include="VSTeam.Z3" Version="4.11.2-alpha" />
     </ItemGroup>
 
 </Project>

@@ -1,15 +1,22 @@
 namespace VSharp.Core
 
 open System
+open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
 
 module API =
+
     let ConfigureSolver solver =
         SolverInteraction.configureSolver solver
+
     let ConfigureSimplifier simplifier =
         configureSimplifier simplifier
+
+    let CharsArePretty = charsArePretty
+    let ConfigureChars arePretty =
+        configureChars arePretty
 
     let Reset() =
         IdGenerator.reset()
@@ -49,6 +56,7 @@ module API =
         match thisRef.term with
         | HeapRef(address, t) ->
             let constraints = List.singleton t |> typeConstraints.FromSuperTypes
+            // TODO: add 'isPublic' constraint, because 'this' may be rendered only with public type
             state.typeStorage.AddConstraint address constraints
             match TypeSolver.solveTypes state.model state with
             | TypeSat -> ()
@@ -425,7 +433,7 @@ module API =
             | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
                 let address, arrayType = StringArrayInfo state address None
                 ArrayIndex(address, [zero], arrayType) |> Some |> singleton
-            | Ref(ArrayIndex _ as address) -> Some address |> singleton
+            | Ref(address) -> Some address |> singleton
             | HeapRef(address, typ) ->
                 let t = MostConcreteTypeOfRef state ref
                 if TypeUtils.isArrayType t then
@@ -689,7 +697,7 @@ module API =
             | HeapRef(address, sightType) ->
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
                 let elemType = fst3 arrayType
-                let value = if Types.IsValueType elemType then makeNumber 0 else NullRef elemType
+                let value = makeDefaultValue elemType
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
@@ -718,7 +726,7 @@ module API =
                     assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
                     let string = String(c, len)
                     cm.Remove a
-                    cm.AllocateRefType a string
+                    cm.Allocate a string
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
                 when cm.Contains a ->
@@ -734,6 +742,7 @@ module API =
         let Dump state = Memory.dump state
         let StackTrace stack = CallStack.stackTrace stack
         let StackTraceString stack = CallStack.stackTraceString stack
+        let StackToString stack = CallStack.toString stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
@@ -769,8 +778,13 @@ module API =
                 let copy arrayRef state k =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
-                        assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
-                        Copying.copyCharArrayToString state arrayAddr dstAddr length
+                        assert(let t = Memory.mostConcreteTypeOfHeapRef state arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
+                        Copying.copyCharArrayToString state arrayAddr dstAddr (makeNumber 0) length
+                        k (Nop(), state)
+                    | Ref(ArrayIndex(arrayAddr, indices, (elemType, dim, isVector))) ->
+                        assert(isVector && dim = 1 && elemType = typeof<char> && List.length indices = 1)
+                        let index = indices[0]
+                        Copying.copyCharArrayToString state arrayAddr dstAddr index length
                         k (Nop(), state)
                     | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
                 let nullCase state k =
@@ -792,23 +806,42 @@ module API =
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
 
-        let FillRegion state value = function
-            | HeapFieldSort field ->
-                state.classFields <- PersistentDict.update state.classFields field (field.typ |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | StaticFieldSort field ->
-                state.staticFields <- PersistentDict.update state.staticFields field (field.typ |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | ArrayIndexSort typ ->
-                state.arrays <- PersistentDict.update state.arrays typ (typ |> fst3 |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | ArrayLengthSort typ ->
-                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
-            | ArrayLowerBoundSort typ ->
-                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
-            | StackBufferSort key ->
-                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
-            | BoxedSort typ ->
-                state.boxedLocations <- PersistentDict.update state.boxedLocations typ (MemoryRegion.empty typ) (MemoryRegion.fillRegion value)
+        let FillClassFieldsRegion state (field : fieldId) value isSuitableKey =
+            let defaultValue = MemoryRegion.empty field.typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.classFields <- PersistentDict.update state.classFields field defaultValue fill
 
-        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state HeapSource typ o
+        let FillStaticsRegion state (field : fieldId) value isSuitableKey =
+            let defaultValue = MemoryRegion.empty field.typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
+
+        let FillArrayRegion state typ value isSuitableKey =
+            let defaultValue = fst3 typ |> MemoryRegion.empty
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.arrays <- PersistentDict.update state.arrays typ defaultValue fill
+
+        let FillLengthRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.lengths <- PersistentDict.update state.lengths typ defaultValue fill
+
+        let FillLowerBoundRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.lowerBounds <- PersistentDict.update state.lowerBounds typ defaultValue fill
+
+        let FillStackBufferRegion state key value isSuitableKey =
+            let defaultValue = MemoryRegion.empty typeof<int8>
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.stackBuffers <- PersistentDict.update state.stackBuffers key defaultValue fill
+
+        let FillBoxedRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
+
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
 
         let StateResult (state : state) =
             let callStackSize = CallStackSize state

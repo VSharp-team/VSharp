@@ -615,13 +615,19 @@ internal class MethodRenderer : CodeRenderer
             var i = 0;
             foreach (var (_, fieldInfo) in fields)
             {
+                var value = fieldInfo.GetValue(obj);
+                var isDefault = Reflection.defaultOf(fieldInfo.FieldType) == value;
+                if (isDefault && !RenderDefaultValues) continue;
+
                 var name = fieldInfo.Name;
                 var index = name.IndexOf(">k__BackingField", StringComparison.Ordinal);
                 if (index > 0)
                     name = name[1 .. index];
+                var declaringType = fieldInfo.DeclaringType;
+                if (declaringType != type && declaringType != null)
+                    name = $"{declaringType.Name}.{name}";
                 var fieldName = RenderObject(name);
                 // TODO: do not render default values?
-                var value = fieldInfo.GetValue(obj);
                 var explicitType = NeedExplicitType(value, typeof(object)) ? typeof(object) : null;
                 var validName = CorrectNameGenerator.GetVariableName(name);
                 var fieldValue = RenderObject(value, validName, explicitType);

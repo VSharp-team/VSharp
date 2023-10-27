@@ -2,6 +2,7 @@ namespace VSharp.System
 
 open VSharp
 open VSharp.Core
+open VSharp.Interpreter.IL
 
 module internal InteropServices =
 
@@ -15,10 +16,25 @@ module internal InteropServices =
     val AlignedAlloc : state -> term list -> term
 
     [<Implements("System.Runtime.InteropServices.GCHandle System.Runtime.InteropServices.GCHandle.Alloc(System.Object, System.Runtime.InteropServices.GCHandleType)")>]
-    val AllocWithType : state -> term list -> term
+    val GCHandleAllocWithType : state -> term list -> term
+
+    [<Implements("System.Boolean System.Runtime.InteropServices.GCHandle.IsPinned(System.IntPtr)")>]
+    val GCHandleIsPinned : state -> term list -> term
+
+    [<Implements("System.IntPtr System.Runtime.InteropServices.GCHandle.GetHandleValue(System.IntPtr)")>]
+    val GCHandleGetHandleValue : state -> term list -> term
 
     [<Implements("System.Runtime.InteropServices.GCHandle System.Runtime.InteropServices.GCHandle.Alloc(System.Object)")>]
-    val Alloc : state -> term list -> term
+    val GCHandleAlloc : state -> term list -> term
+
+    [<Implements("System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)")>]
+    val GCHandleInternalGet : IInterpreter -> cilState -> term list -> cilState list
+
+    [<Implements("System.Void System.Runtime.InteropServices.GCHandle.Free(this)")>]
+    val GCHandleFree : state -> term list -> term
 
     [<Implements("System.IntPtr System.Runtime.InteropServices.GCHandle.AddrOfPinnedObject(this)")>]
     val AddrOfPinnedObject : state -> term list -> term
+
+    [<Implements("System.IntPtr System.RuntimeTypeHandle.GetGCHandle(this, System.Runtime.InteropServices.GCHandleType)")>]
+    val TypeHandleGetGCHandle : state -> term list -> term

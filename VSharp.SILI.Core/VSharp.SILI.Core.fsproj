@@ -47,6 +47,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\VSharp.CSharpUtils\VSharp.CSharpUtils.csproj" />
+      <ProjectReference Include="..\VSharp.TestExtensions\VSharp.TestExtensions.csproj" />
       <ProjectReference Include="..\VSharp.Utils\VSharp.Utils.fsproj" />
     </ItemGroup>
 

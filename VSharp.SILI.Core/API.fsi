@@ -1,5 +1,6 @@
 namespace VSharp.Core
 
+open System.Collections.Generic
 open VSharp
 open System
 open System.Reflection
@@ -8,6 +9,9 @@ open System.Reflection
 module API =
     val ConfigureSolver : SolverInteraction.ISolver -> unit
     val ConfigureSimplifier : IPropositionalSimplifier -> unit
+    val CharsArePretty : bool
+    val ConfigureChars : bool -> unit
+
     val Reset : unit -> unit
     val SaveConfiguration : unit -> unit
     val Restore : unit -> unit
@@ -341,6 +345,7 @@ module API =
         val Dump : state -> string
         val StackTrace : callStack -> IMethod list
         val StackTraceString : callStack -> string
+        val StackToString : callStack -> string
 
         val ArrayRank : state -> term -> term
         val ArrayLengthByDimension : state -> term -> term -> term
@@ -359,7 +364,13 @@ module API =
         val Merge2States : state -> state -> state list
         val Merge2Results : term * state -> term * state -> (term * state) list
 
-        val FillRegion : state -> term -> regionSort -> unit
+        val FillClassFieldsRegion : state -> fieldId -> term -> (IHeapAddressKey -> bool) -> unit
+        val FillStaticsRegion : state -> fieldId -> term -> (ISymbolicTypeKey -> bool) -> unit
+        val FillArrayRegion : state -> arrayType -> term -> (IHeapArrayKey -> bool) -> unit
+        val FillLengthRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
+        val FillLowerBoundRegion : state -> arrayType -> term -> (IHeapVectorIndexKey -> bool) -> unit
+        val FillStackBufferRegion : state -> stackKey -> term -> (IStackBufferIndexKey -> bool) -> unit
+        val FillBoxedRegion : state -> Type -> term -> (IHeapAddressKey -> bool) -> unit
 
         val ObjectToTerm : state -> obj -> Type -> term
 

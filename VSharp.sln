@@ -133,7 +133,7 @@ Global
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.Release|Any CPU.Build.0 = Release|Any CPU
-		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
-		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
+		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.ActiveCfg = DebugTailRec|Any CPU
+		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.Build.0 = DebugTailRec|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -57,10 +57,12 @@ module Loader =
     let mutable internal FSharpImplementations : Map<string, MethodInfo> = Map.empty
 
     let public SetInternalCallsAssembly (asm : Assembly) =
+        assert asm.FullName.Contains("VSharp.InternalCalls")
         let implementations =
             asm.GetTypes()
             |> Array.filter Microsoft.FSharp.Reflection.FSharpType.IsModule
             |> collectImplementations
+        assert(Map.isEmpty implementations |> not)
         FSharpImplementations <- implementations
 
     let internal runtimeExceptionsConstructors =
@@ -99,13 +101,26 @@ module Loader =
             "System.Boolean System.MemoryExtensions.StartsWith(System.ReadOnlySpan`1[T], System.ReadOnlySpan`1[T])"
             "System.Boolean System.SpanHelpers.SequenceEqual(System.Byte&, System.Byte&, System.UIntPtr)"
         |]
-        let vector = [|"System.Int32 System.Numerics.Vector`1[T].get_Count()"|]
-        Array.concat [intPtr; volatile; defaultComparer; string; span; vector]
+        let vector = [|
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T)"
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[])"
+            "System.Void System.Numerics.Vector`1[T]..ctor(this, T[], System.Int32)"
+            "System.Int32 System.Numerics.Vector`1[T].get_Count()"
+            "System.Boolean System.Numerics.Vector`1[T].op_Inequality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+            "System.Boolean System.Numerics.Vector`1[T].op_Equality(System.Numerics.Vector`1[T], System.Numerics.Vector`1[T])"
+        |]
+        let runtimeHelpers = [|
+             "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.Char)"
+             "System.Boolean System.Runtime.CompilerServices.RuntimeHelpers.IsKnownConstant(System.String)"
+        |]
+        let interlocked = [|
+            "System.Int32 System.Threading.Interlocked.Or(System.Int32&, System.Int32)"
+        |]
+        Array.concat [intPtr; volatile; defaultComparer; string; span; vector; runtimeHelpers; interlocked]
 
     let private concreteInvocations =
         set [
             // Types
-            "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
             "System.Type System.Type.GetTypeFromHandle(System.RuntimeTypeHandle)"
             "System.Reflection.RuntimeAssembly System.RuntimeTypeHandle.GetAssembly(System.RuntimeType)"
             "System.Type System.RuntimeType.GetElementType(this)"
@@ -142,9 +157,18 @@ module Loader =
             "System.String System.RuntimeType.get_Namespace(this)"
             "System.Boolean System.Type.get_IsAbstract(this)"
             "System.Object[] System.Reflection.RuntimeAssembly.GetCustomAttributes(this, System.Type, System.Boolean)"
+            "System.Type System.RuntimeType.GetGenericTypeDefinition(this)"
+            "System.String System.RuntimeType.get_FullName(this)"
+            "System.Boolean System.RuntimeTypeHandle.ContainsGenericVariables(System.RuntimeType)"
+            "System.Boolean System.RuntimeType.get_ContainsGenericParameters(this)"
+
+            // Object
+            "System.Object System.Object.MemberwiseClone(this)"
 
             // Assembly
             "System.String System.Reflection.RuntimeAssembly.get_Location(this)"
+            "System.Void System.Runtime.Loader.AssemblyLoadContext..ctor(this, System.Boolean, System.Boolean, System.String)"
+            "System.Void System.Runtime.Loader.DefaultAssemblyLoadContext..ctor(this)"
 
             // EqualityComparer
             "System.Object System.Collections.Generic.ComparerHelpers.CreateDefaultEqualityComparer(System.Type)"
@@ -155,12 +179,22 @@ module Loader =
             "System.Threading.Thread System.Threading.Thread.get_CurrentThread()"
             "System.Int32 System.Threading.Thread.get_OptimalMaxSpinWaitsPerSpinIteration()"
             "System.Int32 System.Threading.Thread.GetCurrentProcessorId()"
+            "System.Void System.Threading.AutoResetEvent..ctor(this, System.Boolean)"
+            "System.Void System.Threading.EventWaitHandle.CreateEventCore(this, System.Boolean, System.Threading.EventResetMode, System.String, System.Boolean&)"
+            "System.Void System.Threading.EventWaitHandle..ctor(this, System.Boolean, System.Threading.EventResetMode, System.String, System.Boolean&)"
+            "System.Void System.Threading.EventWaitHandle..ctor(this, System.Boolean, System.Threading.EventResetMode)"
+            "System.Void System.Threading.ManualResetEvent..ctor(this, System.Boolean)"
+            "System.Void System.Threading.Thread.Initialize(this)"
 
             // Interop
+            "System.String System.Runtime.InteropServices.RuntimeInformation.get_OSDescription()"
+            "System.String Interop+Sys.GetHostName()"
+            "System.String Interop+Sys.GetDomainName()"
+            "System.IntPtr System.RuntimeTypeHandle.GetGCHandle(System.Runtime.CompilerServices.QCallTypeHandle, System.Runtime.InteropServices.GCHandleType)"
+            "System.Object System.Runtime.InteropServices.GCHandle.InternalGet(System.IntPtr)"
 //            "System.Int32 Interop+Sys.LChflagsCanSetHiddenFlag()"
 //            "System.Byte* Interop+Sys.GetCwd(System.Byte*, System.Int32)"
 //            "System.Object System.Runtime.InteropServices.GCHandle.InternalCompareExchange(System.IntPtr, System.Object, System.Object)"
-//            "System.Boolean System.Runtime.Intrinsics.X86.Sse2.get_IsSupported()"
 
             // Diagnostics
 //            "System.IntPtr System.Diagnostics.Tracing.EventPipeInternal.CreateProvider(System.String, Interop+Advapi32+EtwEnableCallback)"
@@ -169,10 +203,33 @@ module Loader =
             // LINQ
             "System.Void System.Linq.Expressions.Expression.Validate(System.Type, System.Boolean)"
 
+            // Delegates
+            "System.IntPtr System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(System.Delegate)"
+
             // Environment
             "System.Int32 System.Environment.get_TickCount()"
             "System.Boolean System.Numerics.Vector.get_IsHardwareAccelerated()"
             "System.String System.Environment.GetEnvironmentVariable(System.String)"
+            "System.OperatingSystem System.Environment.GetOSVersion()"
+            "System.Int32 System.Environment.GetProcessId()"
+            "System.String System.Environment.get_UserName()"
+            "System.String System.Net.NetworkInformation.HostInformationPal.GetHostName()"
+            "System.String System.Environment.get_SystemDirectory()"
+            "System.Void System.Diagnostics.StackTrace..ctor(this)"
+            "System.String System.BadImageFormatException.get_Message(this)"
+
+            // Exceptions
+            "System.String System.Exception.get_Source(this)"
+            "System.String System.BadImageFormatException.ToString(this)"
+
+            // Reflection
+            "System.Reflection.AssemblyName System.Reflection.Assembly.GetName(this)"
+            "System.Reflection.AssemblyName System.Reflection.RuntimeAssembly.GetName(this, System.Boolean)"
+            "System.Byte[] System.Reflection.AssemblyName.GetPublicKeyToken(this)"
+            "System.Reflection.Assembly System.Reflection.Assembly.Load(System.Reflection.AssemblyName)"
+
+            // Activator
+            "T System.Activator.CreateInstance()"
 
             // Guid
             "System.Guid System.Guid.NewGuid()"
@@ -185,6 +242,7 @@ module Loader =
             "System.String System.Globalization.CultureInfo.get_Name(this)"
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
             "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
+            "System.String System.Globalization.CultureInfo.GetUserDefaultLocaleName()"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
@@ -192,6 +250,19 @@ module Loader =
 
             // Buffers
             "System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1+ThreadLocalArray[T][] System.Buffers.TlsOverPerCoreLockedStacksArrayPool`1[T].InitializeTlsBucketsAndTrimming(this)"
+
+            // Random
+            "System.Void System.Random..ctor(this)"
+            "System.UInt64 System.Marvin.GenerateSeed()"
+
+            // Time
+            // TODO: this should be extern mocks
+            "System.DateTime System.DateTime.get_Now()"
+            "System.DateTime System.DateTime.get_UtcNow()"
+            "System.DateTime System.Diagnostics.Process.get_StartTime(this)"
+
+            // FileSystem
+            "System.String System.IO.FileSystemInfo.get_LinkTarget(this)"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"

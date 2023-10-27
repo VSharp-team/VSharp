@@ -236,7 +236,7 @@ module internal TypeCasting =
             match typeOf term with
             | t when t = targetType -> term
             // Case for method pointer
-            | t when t.IsAssignableTo typeof<System.Reflection.MethodInfo> ->
+            | t when t.IsAssignableTo typeof<System.Reflection.MethodInfo> && not (isRefOrPtr term) ->
                 primitiveCast term targetType
             | Bool
             | Numeric _ when isRefOrPtr term |> not -> primitiveCast term targetType

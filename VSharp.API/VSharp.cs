@@ -130,6 +130,7 @@ namespace VSharp
                     visualize: false,
                     releaseBranches: options.ReleaseBranches,
                     maxBufferSize: 128,
+                    prettyChars: true,
                     checkAttributes: true,
                     stopOnCoverageAchieved: 100,
                     randomSeed: options.RandomSeed,

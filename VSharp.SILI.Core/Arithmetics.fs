@@ -913,7 +913,6 @@ module internal Arithmetics =
                     simplifyShift OperationType.ShiftRight_Un t x n k
                 // (a >> b) / 2^n = a >> (b + n) if unchecked, b is concrete, b + n < (size of a) * 8
                 // (a >> b) / 2^n = 0 if unchecked, b is concrete, b + n >= (size of a) * 8
-//                | CastExpr(ShiftRight(a, b, Numeric(Id t2)), (Numeric(Id t1) as t)) when not <| typeIsLessType t1 t2 -> Some(ShiftRight(primitiveCast x t, y, t)) ->
                 | ShiftRightThroughCast(a, ConcreteT(b, bt), _), ConcreteT(powOf2, _)
                 | ShiftRight(a, ConcreteT(b, bt), _, _), ConcreteT(powOf2, _)
                     when ILCalculator.isPowOfTwo(powOf2) && a |> typeOf |> isUnsigned ->

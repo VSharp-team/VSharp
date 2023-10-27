@@ -90,6 +90,7 @@ module internal Merging =
 
     let commonGuardedMapk mapper gvs merge k =
         Cps.List.mapk (fun (g, v) k -> mapper v (fun t -> k (g, t))) gvs (merge >> k)
+
     let guardedMap mapper gvs = commonGuardedMapk (Cps.ret mapper) gvs merge id
 
 // ---------------------- Applying functions to terms and mapping term sequences ----------------------

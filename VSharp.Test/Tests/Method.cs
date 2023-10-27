@@ -337,6 +337,53 @@ namespace IntegrationTests
             return -2;
         }
 
+        public abstract class AbstractClass
+        {
+            public virtual int F()
+            {
+                return 5555;
+            }
+
+            public int G()
+            {
+                return 42;
+            }
+
+            public virtual int G1()
+            {
+                return -123;
+            }
+        }
+
+        public sealed class ConcreteClass : AbstractClass
+        {
+            public int G<T>()
+            {
+                return 1;
+            }
+
+            public override int G1()
+            {
+                return 133;
+            }
+        }
+
+        [TestSvm(100)]
+        public static int VirtualCall11(AbstractClass a, int x)
+        {
+            if (a == null) return -1;
+
+            if (a is not ConcreteClass)
+                return 0;
+
+            if (a.F() + x == 5555)
+            {
+                return a.G();
+            }
+
+            return a.G1();
+        }
+
         [TestSvm(100)]
         public static int CheckSightTypeWorksCorrect(C c)
         {

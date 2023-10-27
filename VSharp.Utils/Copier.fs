@@ -9,10 +9,13 @@ open VSharp
 type Copier () =
     static let nonCopyableTypes = [
         typeof<Type>
+        TypeUtils.systemRuntimeType
         typeof<Thread>
+        typeof<System.Diagnostics.Tracing.EventSource>
     ]
 
-    let cannotBeCopied (typ : Type) = List.exists typ.IsAssignableTo nonCopyableTypes
+    let cannotBeCopied (typ : Type) =
+        List.exists typ.IsAssignableTo nonCopyableTypes
 
     let copiedObjects = Dictionary<physicalAddress, physicalAddress>()
 
@@ -67,7 +70,7 @@ type Copier () =
             let target' = deepCopyObject {object = obj.Target}
             let targetField = typ.GetField("_target", Reflection.instanceBindingFlags)
             assert(targetField <> null)
-            targetField.SetValue(obj', target')
+            targetField.SetValue(obj', target'.object)
             phys'
         | _ when typ.IsClass || typ.IsValueType ->
             let obj' = FormatterServices.GetUninitializedObject typ

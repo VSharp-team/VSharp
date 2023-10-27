@@ -301,6 +301,11 @@ module HashMap =
 [<AutoOpen>]
 module internal Terms =
 
+    let mutable charsArePretty = true
+
+    let configureChars arePretty =
+        charsArePretty <- arePretty
+
     let term (term : term) = term.term
 
 // --------------------------------------- Primitives ---------------------------------------
@@ -534,11 +539,12 @@ module internal Terms =
     let rec private makeCast term fromType toType =
         match term, toType with
         | _ when fromType = toType -> term
-        | CastExpr(x, xType, Numeric t), Numeric toType when not <| isLessForNumericTypes t toType ->
-            makeCast x xType toType
+        | CastExpr(x, xType, Numeric t), Numeric toType
+            when not (isLessForNumericTypes t toType) && numericSameSign t toType ->
+                makeCast x xType toType
         | CastExpr(x, Numeric xType, Numeric t), Numeric toType
-            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t ->
-            makeCast x xType toType
+            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t && numericSameSign t toType ->
+                makeCast x xType toType
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
@@ -679,8 +685,8 @@ module internal Terms =
         | _ -> None
 
     and (|ShiftRightThroughCast|_|) = function
-        | CastExpr(ShiftRight(a, b, Numeric t, _), _, (Numeric castType as t')) when not <| isLessForNumericTypes castType t ->
-            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
+        | CastExpr(ShiftRight(a, b, Numeric t, _), _, Numeric castType) when not <| isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a castType, b, castType))
         | _ -> None
 
     and (|CombinedTerm|_|) = term >> (|Combined|_|)
@@ -725,6 +731,28 @@ module internal Terms =
         | ConcreteHeapAddress _ -> true
         | _ -> false
 
+    and private structToBytes (s : ValueType) =
+        let t = s.GetType()
+        let size = internalSizeOf t
+        let array : byte array = Array.zeroCreate size
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            for _, fi in fields do
+                let fieldValue = fi.GetValue s
+                let fieldBytes = concreteToBytes fieldValue
+                let fieldOffset = LayoutUtils.GetFieldOffset fi
+                Array.Copy(fieldBytes, 0, array, fieldOffset, Array.length fieldBytes)
+        else
+            assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            let mutable ptr = IntPtr.Zero
+            try
+                ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
+                System.Runtime.InteropServices.Marshal.StructureToPtr(s, ptr, true)
+                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+            finally
+                System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
+        array
+
     and private concreteToBytes (obj : obj) =
         match obj with
         | _ when obj = null -> internalSizeOf typeof<obj> |> Array.zeroCreate
@@ -743,22 +771,53 @@ module internal Terms =
         | _ when obj.GetType().IsEnum ->
             let i = Convert.ChangeType(obj, getEnumUnderlyingTypeChecked (obj.GetType()))
             concreteToBytes i
-        | :? ValueType as o ->
-            let t = o.GetType()
+        | :? ValueType as o -> structToBytes o
+        | _ -> internalfail $"getting bytes from concrete: unexpected obj {obj}"
+
+    and private bytesToNullable (bytes : byte[]) (t : Type) =
+        let fields = Reflection.fieldsOf false t
+        assert(Array.length fields = 2)
+        let hasValueField = fields |> Array.find (fun (f, _) -> f.name = "hasValue") |> snd
+        assert(hasValueField.FieldType = typeof<bool>)
+        let hasValueOffset = LayoutUtils.GetFieldOffset hasValueField
+        let hasValueSize = internalSizeOf typeof<bool>
+        let hasValueBytes = bytes[hasValueOffset .. hasValueOffset + hasValueSize - 1]
+        let hasValue = bytesToObj hasValueBytes typeof<bool> :?> bool
+        if hasValue then
+            let valueField = fields |> Array.find (fun (f, _) -> f.name = "value") |> snd
+            let underlyingType = Nullable.GetUnderlyingType t
+            assert(valueField.FieldType = underlyingType)
+            let valueOffset = LayoutUtils.GetFieldOffset valueField
+            let valueSize = internalSizeOf underlyingType
+            bytesToObj bytes[valueOffset .. valueOffset + valueSize - 1] underlyingType
+        else null
+
+    and private bytesToStruct (bytes : byte[]) (t : Type) =
+        if t.IsGenericType then
+            let fields = Reflection.fieldsOf false t
+            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
+            if isNullable t then bytesToNullable bytes t
+            else
+                let obj = Reflection.defaultOf t
+                for _, fi in fields do
+                    let offset = LayoutUtils.GetFieldOffset fi
+                    let fieldType = fi.FieldType
+                    let size = internalSizeOf fieldType
+                    let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
+                    fi.SetValue(obj, value)
+                obj
+        else
             assert(Reflection.fieldsOf false t |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
             let size = internalSizeOf t
-            let array : byte array = Array.zeroCreate size
             let mutable ptr = IntPtr.Zero
             try
                 ptr <- System.Runtime.InteropServices.Marshal.AllocHGlobal(size)
-                System.Runtime.InteropServices.Marshal.StructureToPtr(o, ptr, true)
-                System.Runtime.InteropServices.Marshal.Copy(ptr, array, 0, size)
+                System.Runtime.InteropServices.Marshal.Copy(bytes, 0, ptr, size)
+                System.Runtime.InteropServices.Marshal.PtrToStructure(ptr, t)
             finally
                 System.Runtime.InteropServices.Marshal.FreeHGlobal(ptr)
-            array
-        | _ -> internalfailf "getting bytes from concrete: unexpected obj %O" obj
 
-    and private bytesToObj (bytes : byte[]) t =
+    and private bytesToObj (bytes : byte[]) t : obj =
         let span = ReadOnlySpan<byte>(bytes)
         match t with
         | _ when t = typeof<byte> -> Array.head bytes :> obj
@@ -796,17 +855,8 @@ module internal Terms =
         | _ when t.IsEnum ->
             let i = getEnumUnderlyingTypeChecked t |> bytesToObj bytes
             Enum.ToObject(t, i)
-        | StructType _ ->
-            let fields = Reflection.fieldsOf false t
-            assert(fields |> Array.forall (fun (_, f) -> f.FieldType.IsValueType))
-            let obj = Reflection.defaultOf t
-            for _, fi in fields do
-                let offset = LayoutUtils.GetFieldOffset fi
-                let fieldType = fi.FieldType
-                let size = internalSizeOf fieldType
-                let value = bytesToObj bytes[offset .. offset + size - 1] fieldType
-                fi.SetValue(obj, value)
-            obj
+        | StructType _ -> bytesToStruct bytes t
+        | _ when not t.IsValueType && Array.forall (fun b -> b = 0uy) bytes -> null
         | _ -> internalfailf $"Creating object from bytes: unexpected object type {t}"
 
     and reinterpretConcretes (sliceTerms : term list) t =
@@ -1053,7 +1103,9 @@ module internal Terms =
         | Numeric t when t.IsEnum -> castConcrete (getEnumDefaultValue t) t
         // NOTE: XML serializer does not support special char symbols, so creating test with char > 32 #XMLChar
         // TODO: change serializer
-        | Numeric t when t = typeof<char> -> makeNumber (char 33)
+        | Numeric t when t = typeof<char> ->
+            if charsArePretty then makeNumber (char 33)
+            else makeNumber '\000'
         | Numeric t -> castConcrete 0 t
         | _ when typ = typeof<IntPtr> -> makeIntPtr (makeNumber 0)
         | _ when typ = typeof<UIntPtr> -> makeUIntPtr (makeNumber 0)

@@ -43,7 +43,15 @@ module TestGenerator =
             | _ -> Array.empty
         test.MemoryGraph.AddMockedClass mock fields index :> obj
 
-    let private obj2test eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) encodeMock (test : UnitTest) addr typ =
+    let private encodeType (state : state) cha =
+        match state.concreteMemory.TryVirtToPhys cha with
+        | Some obj ->
+            assert(obj :? Type)
+            let t = obj :?> Type
+            typeRepr.Encode t
+        | None -> internalfail "encodeType: unable to encode symbolic instance of 'System.Type'"
+
+    let private obj2test state eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) encodeMock (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
             let referenceRepr : referenceRepr = {index = index.Value}
@@ -97,10 +105,13 @@ module TestGenerator =
                             let contents : char array = Array.init length readChar
                             String(contents)
                     memoryGraph.AddString index string
+                | _ when Reflection.isInstanceOfType typ ->
+                    // For instance of 'System.Type' or 'System.RuntimeType'
+                    encodeType state addr
                 | _ ->
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
-                    let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
+                    let fields = Reflection.fieldsOf false typ |> Array.map (fun (field, _) ->
                         ClassField(cha, field) |> eval)
                     let repr = memoryGraph.AddClass typ fields index
                     repr :> obj
@@ -139,7 +150,7 @@ module TestGenerator =
                 | Some region ->
                     let defaultValue =
                         match region.defaultValue with
-                        | Some defaultValue -> encode defaultValue
+                        | Some(defaultValue, _) -> encode defaultValue
                         | None -> null
                     let updates = region.updates
                     let indicesWithValues = SortedDictionary<int list, obj>()
@@ -236,7 +247,7 @@ module TestGenerator =
                         address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj
                     let arr2Obj = encodeArrayCompactly state model term2obj
                     let encodeMock = encodeTypeMock model state indices mockCache implementations test
-                    obj2test eval arr2Obj indices encodeMock test address typ
+                    obj2test state eval arr2Obj indices encodeMock test address typ
                 // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
                 | None -> null
             | PrimitiveModel _ -> __unreachable__()
@@ -246,7 +257,7 @@ module TestGenerator =
             let arr2Obj = encodeArrayCompactly state model term2Obj
             let typ = state.allocatedTypes[address]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
-            obj2test eval arr2Obj indices encodeMock test address typ
+            obj2test state eval arr2Obj indices encodeMock test address typ
 
     and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock : Mocking.Type =
         let mockedType = ref Mocking.Type.Empty

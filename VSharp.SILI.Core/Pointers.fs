@@ -102,6 +102,9 @@ module internal Pointers =
             simplifyEqual x shift k
         | DetachedPtr shift, _ when typeOf y |> isNative ->
             simplifyEqual shift y k
+        | Ref(ArrayIndex(addr2, _, _)), HeapRef(addr1, _)
+        | HeapRef(addr1, _), Ref(ArrayIndex(addr2, _, _)) when addr1 = zeroAddress() && addr2 = zeroAddress() ->
+            True() |> k
         | _ -> False() |> k
 
     let rec simplifyReferenceEqualityk x y k =
@@ -183,11 +186,23 @@ module internal Pointers =
             multiplyPtrByNumber
             simplifyPointerMultiply
 
+    let private toPointerIfNeeded x =
+        match x.term with
+        | HeapRef(address, t) -> Ptr (HeapLocation(address, t)) t (makeNumber 0)
+        | Ref address ->
+            let pointerBase, offset = addressToBaseAndOffset address
+            Ptr pointerBase address.TypeOfLocation offset
+        | Ptr _ -> x
+        | _ when typeOf x |> isNative ->
+            let offset = primitiveCast x typeof<int>
+            makeDetachedPtr offset typeof<byte>
+        | _ -> internalfail $"toPointerIfNeeded: unexpected reference {x}"
+
     let private pointerDifference x y k =
+        let x = toPointerIfNeeded x
+        let y = toPointerIfNeeded y
         match x.term, y.term with
         | Ptr(base1, _, offset1), Ptr(base2, _, offset2) when base1 = base2 ->
-            sub offset1 offset2 |> k
-        | DetachedPtr offset1, DetachedPtr offset2 ->
             sub offset1 offset2 |> k
         | Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _), Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _) ->
             undefinedBehaviour "trying to get pointer difference between different pointer bases"
@@ -245,16 +260,13 @@ module internal Pointers =
             simplifyPointerComparison op x y k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
-    let isPointerOperation op t1 t2 =
-        let isRefOrPtr = function
-            | ReferenceType _ -> true
-            | t -> t.IsByRef || isPointer t
+    let isPointerOperation op left right =
         match op with
         | OperationType.Equal
-        | OperationType.NotEqual -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Subtract -> isRefOrPtr t1 && (isRefOrPtr t2 || isNumeric t2)
-        | OperationType.Add -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Multiply -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.NotEqual -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
+        | OperationType.Add -> isRefOrPtr left || isRefOrPtr right
+        | OperationType.Multiply -> isRefOrPtr left || isRefOrPtr right
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual
@@ -262,5 +274,5 @@ module internal Pointers =
         | OperationType.Greater
         | OperationType.Greater_Un
         | OperationType.GreaterOrEqual
-        | OperationType.GreaterOrEqual_Un -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.GreaterOrEqual_Un -> isRefOrPtr left || isRefOrPtr right
         | _ -> false

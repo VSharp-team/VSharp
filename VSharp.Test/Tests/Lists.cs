@@ -237,6 +237,40 @@ namespace IntegrationTests
             return a;
         }
 
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy(int[] a, int i, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[i] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[i] = 3;
+                if (a[0] != b[0] && i > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
+        [TestSvm(95)]
+        public static int DoubleWriteAfterCopy1(int[] a, int k, int i, int j, int[] b)
+        {
+            if (a.Length == b.Length)
+            {
+                a[k] = 1;
+                Array.Copy(b, a, a.Length - 1);
+                a[i] = 3;
+                a[j] = 3;
+                if (a[0] != b[0] && i > 0 && j > 0)
+                    return -1;
+                return 1;
+            }
+
+            return 0;
+        }
+
         [TestSvm(100)]
         public static int[] CopySymbolicIndicesToConcreteArray(int srcI, int dstI, int len)
         {
@@ -294,11 +328,12 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        public static int TestSolvingCopy1(int[] a, int[] b)
+        public static int TestSolvingCopy1(int[] a, int i, int[] b)
         {
             if (a != null && b != null && a.Length > b.Length)
             {
                 a[0] = 42;
+                b[i] = 4;
                 Array.Copy(a, 0, b, 0, b.Length);
                 b[0] = 31;
                 var x = b.Length == 3;
@@ -413,6 +448,31 @@ namespace IntegrationTests
 
                 if (b[i] == b[i + 1])
                     return 42;
+                return 10;
+            }
+            return 3;
+        }
+
+        [TestSvm(98)]
+        public static int TestSolvingCopy7(int[] a, int i, int[] b)
+        {
+            if (a != null && b != null && a.Length > b.Length)
+            {
+                a[0] = 42;
+                b[i] = 4;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+                b[0] = 31;
+
+                a[0] = 12;
+                a[3] = 31;
+                Array.Copy(a, 0, b, 0, b.Length - 1);
+
+                if (i == b.Length - 1 && b[i] != 4 && i > 0)
+                    return -1;
+
+                if (b.Length == 4 && a[0] == b[0] && a[1] == b[1] && a[2] == b[2] && a[3] == b[3])
+                    return 12;
+
                 return 10;
             }
             return 3;
@@ -702,25 +762,6 @@ namespace IntegrationTests
             return -12;
         }
 
-        [Ignore("Fix core")]
-        public static int HashtableTest(int a)
-        {
-            Hashtable dataHashtable = new Hashtable();
-            dataHashtable[0] = 0;
-            dataHashtable[1] = 1;
-            dataHashtable[2] = a;
-            dataHashtable[a] = 0;
-            int data = (int) dataHashtable[2];
-            int[] array = null;
-            if (data > 0)
-            {
-                array = new int[data];
-            }
-
-            array[0] = 5;
-            return array[0];
-        }
-
         [Ignore("Support rendering recursive arrays")]
         public static object[] ConcreteRecursiveArray()
         {
@@ -863,6 +904,110 @@ namespace IntegrationTests
             }
 
             return arr;
+        }
+
+        public struct Bucket
+        {
+            object _key;
+            object _value;
+
+            public Bucket(object key, object value)
+            {
+                _key = key;
+                _value = value;
+            }
+        }
+
+        [TestSvm(91)]
+        public static object ConcreteArrayChange()
+        {
+            var a = new Bucket[3];
+            var b = new Bucket("major", 0);
+            a[0] = b;
+            var c = a[0];
+            if (!Equals(c, b))
+                return -1;
+            a[1] = new Bucket("minor", 1);
+            a[2] = new Bucket("patch", 2);
+            b = new Bucket("major", 3);
+            a[0] = b;
+            a[1] = new Bucket("minor", 4);
+            a[2] = new Bucket("patch", 5);
+            if (!Equals(a[0], b))
+                return -1;
+            return 0;
+        }
+
+        [Ignore("implement splitting")]
+        public static int HashtableTest(int a)
+        {
+            Hashtable dataHashtable = new Hashtable();
+            dataHashtable[0] = 0;
+            dataHashtable[1] = 1;
+            dataHashtable[2] = a;
+            dataHashtable[a] = 0;
+            int data = (int) dataHashtable[2];
+            int[] array = null;
+            if (data > 0)
+            {
+                array = new int[data];
+            }
+
+            array[0] = 5;
+            return array[0];
+        }
+
+        [TestSvm(96)]
+        public static int ConcreteHashtableTest()
+        {
+            var dataHashtable = new Hashtable(3)
+            {
+                ["major"] = 0,
+                ["minor"] = 1,
+                ["patch"] = 2
+            };
+
+            dataHashtable["major"] = 3;
+            dataHashtable["minor"] = 4;
+            dataHashtable["patch"] = 5;
+            dataHashtable[3] = "string4";
+            dataHashtable[4] = "string1";
+            dataHashtable[5] = "string2";
+
+
+            if ((int)dataHashtable["major"] != 3)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(86)]
+        public static int LazyDict()
+        {
+            var d = new Lazy<Dictionary<int, int>>();
+            d.Value.Add(1, 42);
+            if (d.Value[1] != 42)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(85)]
+        public static int ConcurrentDict(int a, int b)
+        {
+            var d = new System.Collections.Concurrent.ConcurrentDictionary<int, int>();
+            d.TryAdd(a, b);
+            if (d[a] != b)
+                return -1;
+            return 0;
+        }
+
+        [TestSvm(83)]
+        public static int VolatileWrite()
+        {
+            var x = 1;
+            System.Threading.Volatile.Write(ref x, 42);
+            if (x != 42)
+                return -1;
+            return 0;
         }
     }
 

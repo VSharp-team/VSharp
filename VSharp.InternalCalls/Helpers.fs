@@ -4,6 +4,8 @@ open global.System
 open VSharp
 open VSharp.Core
 
+type private Dummy = { x : int }
+
 module internal Helpers =
 
     let unwrapType term =
@@ -14,4 +16,4 @@ module internal Helpers =
 module SetUp =
 
     let ConfigureInternalCalls() =
-        Loader.SetInternalCallsAssembly (System.Reflection.Assembly.GetExecutingAssembly())
+        Loader.SetInternalCallsAssembly typeof<Dummy>.Assembly

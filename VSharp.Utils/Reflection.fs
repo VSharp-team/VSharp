@@ -41,6 +41,9 @@ module public Reflection =
     let instanceBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         BindingFlags.Instance ||| BindingFlags.NonPublic ||| BindingFlags.Public
+    let instanceNonPublicBindingFlags =
+        let (|||) = Microsoft.FSharp.Core.Operators.(|||)
+        BindingFlags.Instance ||| BindingFlags.NonPublic
     let allBindingFlags =
         let (|||) = Microsoft.FSharp.Core.Operators.(|||)
         staticBindingFlags ||| instanceBindingFlags
@@ -524,9 +527,16 @@ module public Reflection =
         if result <> null then result
         else field.declaringType.GetRuntimeField(field.name)
 
-    let rec private retrieveFields isStatic (t : Type) =
+    let private retrieveFields isStatic (t : Type) : FieldInfo[] =
         let flags = if isStatic then staticBindingFlags else instanceBindingFlags
-        t.GetFields(flags) |> Array.sortBy (fun field -> field.Name)
+        let fields = Dictionary<Type * Type * string, FieldInfo>()
+        let mutable current = t
+        while current <> null do
+            for f in current.GetFields(flags) do
+                fields[(f.DeclaringType, f.FieldType, f.Name)] <- f
+            current <- current.BaseType
+        Seq.toArray fields.Values
+        |> Array.sortBy (fun field -> $"{field.Name}{field.DeclaringType}")
 
     let retrieveNonStaticFields t = retrieveFields false t
 
@@ -632,3 +642,9 @@ module public Reflection =
     let rec isUnmanaged (t : Type) =
         t.IsPrimitive || t = typeof<decimal> || t.IsEnum || t.IsPointer
         || t.IsValueType && fieldsOf false t |> Array.forall (fun (f, _) -> isUnmanaged f.typ)
+
+    let hasNonPublicAbstractMethods (t : Type) =
+        t.GetMethods(instanceNonPublicBindingFlags) |> Seq.exists (fun m -> m.IsAbstract)
+
+    let isInstanceOfType (typeOfObj : Type) =
+        typeOfObj = typeof<Type> || typeOfObj = TypeUtils.systemRuntimeType

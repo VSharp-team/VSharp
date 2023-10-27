@@ -5,38 +5,12 @@ open System.Collections.Generic
 open System.Runtime.CompilerServices
 open VSharp
 
-[<CustomEquality; NoComparison>]
-type private concreteMemoryKey =
-    | RefKey of physicalAddress
-    | ValueKey of concreteMemorySource * physicalAddress
-    with
-    override x.GetHashCode() =
-        match x with
-        | RefKey phys -> phys.GetHashCode()
-        | ValueKey(source, _) -> source.GetHashCode()
-
-    override x.Equals(other) =
-        match other, x with
-        | :? concreteMemoryKey as RefKey otherPhys, RefKey phys -> otherPhys.Equals phys
-        | :? concreteMemoryKey as ValueKey(otherSource, _), ValueKey(source, _) -> otherSource.Equals source
-        | _ -> false
-
-    member x.ToPhysicalAddress() =
-        match x with
-        | RefKey phys -> phys
-        | ValueKey(_, phys) -> phys
-
-    member x.FromPhysicalAddress (phys : physicalAddress) =
-        match x with
-        | RefKey _ -> RefKey phys
-        | ValueKey(source, _) -> ValueKey(source, phys)
-
 type public ConcreteMemory private (physToVirt, virtToPhys) =
 
 // ----------------------------- Constructor -----------------------------
 
     new () =
-        let physToVirt = Dictionary<concreteMemoryKey, concreteHeapAddress>()
+        let physToVirt = Dictionary<physicalAddress, concreteHeapAddress>()
         let virtToPhys = Dictionary<concreteHeapAddress, physicalAddress>()
         ConcreteMemory(physToVirt, virtToPhys)
 
@@ -56,7 +30,7 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
     interface IConcreteMemory with
 
         override x.Copy() =
-            let physToVirt' = Dictionary<concreteMemoryKey, concreteHeapAddress>()
+            let physToVirt' = Dictionary<physicalAddress, concreteHeapAddress>()
             let virtToPhys' = Dictionary<concreteHeapAddress, physicalAddress>()
             // Need to copy all addresses from physToVirt, because:
             // 1. let complex object (A) contains another object (B),
@@ -66,16 +40,14 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             // So, reading from object (A) object (B) will result in HeapRef (addr),
             // which will be read from symbolic memory
             let copier = Utils.Copier()
-            for KeyValue(key, virt) in physToVirt do
-                let phys = key.ToPhysicalAddress()
+            for KeyValue(phys, virt) in physToVirt do
                 let phys' = copier.DeepCopy phys
                 let exists, oldPhys = virtToPhys.TryGetValue(virt)
                 if exists && oldPhys = phys then
                     virtToPhys'.Add(virt, phys')
-                let key' = key.FromPhysicalAddress phys'
                 // Empty string is interned
-                if key' = RefKey {object = String.Empty} then physToVirt'[key'] <- virt
-                else physToVirt'.Add(key', virt)
+                if phys' = {object = String.Empty} then physToVirt'[phys'] <- virt
+                else physToVirt'.Add(phys', virt)
             ConcreteMemory(physToVirt', virtToPhys')
 
 // ----------------------------- Primitives -----------------------------
@@ -95,45 +67,25 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
             let cm = x :> IConcreteMemory
             match cm.TryPhysToVirt physAddress with
             | Some address -> address
-            | None -> internalfailf "PhysToVirt: unable to get virtual address for object %O" physAddress
+            | None -> internalfail $"PhysToVirt: unable to get virtual address for object {physAddress}"
 
         override x.TryPhysToVirt (physAddress : obj) =
-            assert(physAddress :? ValueType |> not)
             let result = ref List.empty
-            if physToVirt.TryGetValue(RefKey {object = physAddress}, result) then
-                Some result.Value
-            else None
-
-        override x.TryPhysToVirt (source : concreteMemorySource) =
-            let result = ref List.empty
-            let key = ValueKey(source, physicalAddress.Empty)
-            if physToVirt.TryGetValue(key, result) then
+            if physToVirt.TryGetValue({object = physAddress}, result) then
                 Some result.Value
             else None
 
 // ----------------------------- Allocation -----------------------------
 
-        override x.AllocateRefType address (obj : obj) =
+        override x.Allocate address (obj : obj) =
             assert(obj <> null)
-            assert(obj :? ValueType |> not)
             assert(virtToPhys.ContainsKey address |> not)
             // Suppressing finalize, because 'obj' may implement 'Dispose()' method, which should not be invoked,
             // because object may be in incorrect state (statics, for example)
             GC.SuppressFinalize(obj)
             let physicalAddress = {object = obj}
             virtToPhys.Add(address, physicalAddress)
-            if obj = String.Empty then
-                physToVirt[RefKey physicalAddress] <- address
-            else physToVirt.Add(RefKey physicalAddress, address)
-
-        override x.AllocateValueType address source (obj : obj) =
-            assert(obj <> null)
-            assert(obj :? ValueType)
-            GC.SuppressFinalize(obj)
-            let physicalAddress = {object = obj}
-            virtToPhys.Add(address, physicalAddress)
-            // Rewriting old unmarshalled values
-            physToVirt[ValueKey(source, physicalAddress)] <- address
+            physToVirt[physicalAddress] <- address
 
 // ------------------------------- Reading -------------------------------
 
@@ -152,25 +104,25 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 // In safe context this case will be filtered out in 'Interpreter', which checks indices before memory access
                 if index = string.Length then Char.MinValue :> obj
                 else string[index] :> obj
-            | obj -> internalfailf "reading array index from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array index from concrete memory: expected to read array, but got {obj}"
 
         override x.GetAllArrayData address =
             match x.ReadObject address with
             | :? Array as array -> Array.getArrayIndicesWithValues array
             | :? String as string -> string.ToCharArray() |> Array.getArrayIndicesWithValues
-            | obj -> internalfailf "reading array data concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array data concrete memory: expected to read array, but got {obj}"
 
         override x.ReadArrayLowerBound address dimension =
             match x.ReadObject address with
             | :? Array as array -> array.GetLowerBound(dimension)
             | :? String when dimension = 0 -> 0
-            | obj -> internalfailf "reading array lower bound from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array lower bound from concrete memory: expected to read array, but got {obj}"
 
         override x.ReadArrayLength address dimension =
             match x.ReadObject address with
             | :? Array as array -> array.GetLength(dimension)
             | :? String as string when dimension = 0 -> (1 + string.Length) :> obj
-            | obj -> internalfailf "reading array length from concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"reading array length from concrete memory: expected to read array, but got {obj}"
 
 // ------------------------------- Writing -------------------------------
 
@@ -201,20 +153,20 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 charArray.SetValue(castedValue, List.head indices)
                 let newString = String(charArray)
                 x.WriteObject address newString
-            | obj -> internalfailf "writing array index to concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"writing array index to concrete memory: expected to read array, but got {obj}"
 
         override x.InitializeArray address (rfh : RuntimeFieldHandle) =
             match x.ReadObject address with
             | :? Array as array -> RuntimeHelpers.InitializeArray(array, rfh)
-            | obj -> internalfailf "initializing array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"initializing array in concrete memory: expected to read array, but got {obj}"
 
         override x.FillArray address index length value =
             match x.ReadObject address with
             | :? Array as array when array.Rank = 1 ->
-                for i = index to index + length do
+                for i = index to index + length - 1 do
                     array.SetValue(value, i)
             | :? Array -> internalfail "filling array in concrete memory: multidimensional arrays are not supported yet"
-            | obj -> internalfailf "filling array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"filling array in concrete memory: expected to read array, but got {obj}"
 
         override x.CopyArray srcAddress dstAddress srcIndex dstIndex length =
             match x.ReadObject srcAddress, x.ReadObject dstAddress with
@@ -234,21 +186,29 @@ type public ConcreteMemory private (physToVirt, virtToPhys) =
                 Array.Copy(srcArray, srcIndex, dstArray, dstIndex, length)
                 let newString = String(dstArray)
                 x.WriteObject dstAddress newString
-            | obj -> internalfailf "copying array in concrete memory: expected to read array, but got %O" obj
+            | obj -> internalfail $"copying array in concrete memory: expected to read array, but got {obj}"
 
-        override x.CopyCharArrayToString arrayAddress stringAddress =
-            let array = x.ReadObject arrayAddress :?> char array
-            let string = new string(array) :> obj
+        override x.CopyCharArrayToString arrayAddress stringAddress startIndex =
+            let array =
+                match x.ReadObject arrayAddress with
+                | :? array<char> as array -> array
+                | :? string as str -> str.ToCharArray()
+                | obj -> internalfail $"CopyCharArrayToString: unexpected array {obj}"
+            let string = new string(array[startIndex..]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[RefKey physAddress] <- stringAddress
+            physToVirt[physAddress] <- stringAddress
 
-        override x.CopyCharArrayToStringLen arrayAddress stringAddress length =
-            let array = x.ReadObject arrayAddress :?> char array
-            let string = new string(array[0..(length - 1)]) :> obj
+        override x.CopyCharArrayToStringLen arrayAddress stringAddress startIndex length =
+            let array =
+                match x.ReadObject arrayAddress with
+                | :? array<char> as array -> array
+                | :? string as str -> str.ToCharArray()
+                | obj -> internalfail $"CopyCharArrayToStringLen: unexpected array {obj}"
+            let string = new string(array[startIndex..(length - 1)]) :> obj
             x.WriteObject stringAddress string
             let physAddress = {object = string}
-            physToVirt[RefKey physAddress] <- stringAddress
+            physToVirt[physAddress] <- stringAddress
 
     // ------------------------------- Remove -------------------------------
 

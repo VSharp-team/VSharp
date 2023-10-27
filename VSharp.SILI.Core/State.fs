@@ -11,21 +11,6 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
-type concreteMemorySource =
-    | HeapSource
-    | StructFieldSource of concreteMemorySource * fieldId
-    | BoxedLocationSource of concreteHeapAddress
-    | ClassFieldSource of concreteHeapAddress * fieldId
-    | ArrayIndexSource of concreteHeapAddress * int list
-    | ArrayLowerBoundSource of concreteHeapAddress * int
-    | ArrayLengthSource of concreteHeapAddress * int
-    | StaticFieldSource of Type * fieldId
-    with
-    member x.StructField fieldId =
-        match x with
-        | HeapSource -> HeapSource
-        | _ -> StructFieldSource(x, fieldId)
-
 type IConcreteMemory =
     abstract Copy : unit -> IConcreteMemory
     abstract Contains : concreteHeapAddress -> bool
@@ -33,12 +18,9 @@ type IConcreteMemory =
     abstract TryVirtToPhys : concreteHeapAddress -> obj option
     abstract PhysToVirt : obj -> concreteHeapAddress
     abstract TryPhysToVirt : obj -> concreteHeapAddress option
-    abstract TryPhysToVirt : concreteMemorySource -> concreteHeapAddress option
-    abstract AllocateRefType : concreteHeapAddress -> obj -> unit
-    abstract AllocateValueType : concreteHeapAddress -> concreteMemorySource -> obj -> unit
+    abstract Allocate : concreteHeapAddress -> obj -> unit
     abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
-    // TODO: too expensive! use Seq.iter2 instead with lazy indices sequence
     abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
     abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
     abstract ReadArrayLength : concreteHeapAddress -> int -> obj
@@ -47,8 +29,8 @@ type IConcreteMemory =
     abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
     abstract FillArray : concreteHeapAddress -> int -> int -> obj -> unit
     abstract CopyArray : concreteHeapAddress -> concreteHeapAddress -> int64 -> int64 -> int64 -> unit
-    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
-    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> int -> unit
     abstract Remove : concreteHeapAddress -> unit
 
 type MockingType =
@@ -166,6 +148,7 @@ and
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
         concreteMemory : IConcreteMemory                                   // Fully concrete objects
         mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+        mutable initializedAddresses : pset<term>                          // Addresses, which invariants were initialized
         mutable typeVariables : typeVariables                              // Type variables assignment in the current state
         mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state

@@ -302,6 +302,7 @@ namespace VSharp.Test
                         visualize: false,
                         releaseBranches: _releaseBranches,
                         maxBufferSize: 128,
+                        prettyChars: true,
                         checkAttributes: _checkAttributes,
                         stopOnCoverageAchieved: _expectedCoverage ?? -1,
                         randomSeed: _randomSeed,

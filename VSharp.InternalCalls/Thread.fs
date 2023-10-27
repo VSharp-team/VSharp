@@ -46,3 +46,11 @@ module Thread =
             (interpreter.Raise interpreter.ArgumentNullException)
             (fun cilState k -> List.singleton cilState |> k)
             id
+
+    let MonitorPulseAll (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        List.singleton cilState
+
+    let Initialize (_ : IInterpreter) (cilState : cilState) (args : term list) =
+        assert(List.length args = 1)
+        List.singleton cilState

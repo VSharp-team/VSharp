@@ -23,6 +23,9 @@ module internal Interlocked =
     [<Implements("T System.Threading.Interlocked.Exchange(T&, T)")>]
     val genericExchange : IInterpreter -> cilState -> term list -> cilState list
 
+    [<Implements("System.IntPtr System.Threading.Interlocked.Exchange(System.IntPtr&, System.IntPtr)")>]
+    val intPtrExchange : IInterpreter -> cilState -> term list -> cilState list
+
     [<Implements("System.Int32 System.Threading.Interlocked.Exchange(System.Int32&, System.Int32)")>]
     val intExchange : IInterpreter -> cilState -> term list -> cilState list
 

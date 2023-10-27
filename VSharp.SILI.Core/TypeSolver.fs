@@ -7,6 +7,7 @@ open FSharpx.Collections
 open VSharp
 open VSharp.Core
 open VSharp.CSharpUtils
+open VSharp.TestExtensions
 
 // ------------------------------------------------- Type mocks -------------------------------------------------
 
@@ -156,7 +157,13 @@ module TypeSolver =
         not t.IsSealed && not t.IsArray
 
     let private canBeMocked (t : Type) =
-        (hasSubtypes t && TypeUtils.isPublic t) || TypeUtils.isDelegate t
+        (hasSubtypes t && TypeUtils.isPublic t && not (Reflection.hasNonPublicAbstractMethods t))
+        || TypeUtils.isDelegate t
+
+    let private isGeneratedMock (t : Type) =
+        let generatedAttribute = AssemblyManager.NormalizeType(typeof<GeneratedAttribute>)
+        t.GetCustomAttribute(generatedAttribute) <> null
+        || t.GetCustomAttribute<GeneratedAttribute>() <> null
 
     let private enumerateTypes supertypes mock (validate: Type -> candidate option) (assemblies : Assembly seq) =
         assert userAssembly.IsSome
@@ -178,12 +185,19 @@ module TypeSolver =
                         // Dynamic mock assemblies may appear here
                         let assemblies = assemblies |> Seq.filter (fun a -> not a.IsDynamic)
                         Seq.append [userAssembly; Reflection.mscorlibAssembly] assemblies |> Seq.distinct
-                let makeCandidate (t: Type) =
+                let makeCandidate (t : Type) =
                     // Byref-like can not be casted to any reference type or interface, so filtering them
-                    if t.IsByRefLike || t = typeof<Void> then None
+                    let isInvalid =
+                        t.IsByRefLike
+                        || t = typeof<Void>
+                        || t.GetCustomAttribute<System.Runtime.CompilerServices.CompilerGeneratedAttribute>() <> null
+                        || isGeneratedMock t
+                    if isInvalid then None
                     else validate t
                 for assembly in assemblies do
-                    let types = assembly.GetExportedTypesChecked()
+                    let types =
+                        if assembly = userAssembly then assembly.GetTypesChecked()
+                        else assembly.GetExportedTypesChecked()
                     // TODO: in any assembly, there is no array types, so need to generate it manually
                     yield! Seq.choose makeCandidate types
         }
@@ -505,6 +519,41 @@ module TypeSolver =
             evaledTypes.Add(entry.Key, evaledType)
         evaledTypes
 
+    let private solveTypesWithoutModel (state : state) =
+        let m = CallStack.stackTrace state.stack |> List.last
+        userAssembly <- Some m.DeclaringType.Assembly
+        let typeParams, methodParams = getGenericParameters m
+        let typeStorage = state.typeStorage
+        let getMock = getMock typeStorage.TypeMocks
+        refineStorage getMock typeStorage typeParams methodParams
+
+    let private checkInequalityViaCandidates (typeStorage : typeStorage) =
+        let unequal = HashSet<term * term>()
+        let addressesTypes = typeStorage.AddressesTypes
+        for KeyValue(address1, candidates1) in addressesTypes do
+            for KeyValue(address2, _) in addressesTypes do
+                if address1 <> address2 then
+                    let address1Constraints = typeStorage.Constraints[address1].Copy()
+                    let address2Constraints = typeStorage.Constraints[address2]
+                    address1Constraints.Merge address2Constraints |> ignore
+                    let getMock = getMock typeStorage.TypeMocks
+                    let refined = refineCandidates getMock address1Constraints candidates1
+                    if refined.IsEmpty && unequal.Contains(address2, address1) |> not then
+                        unequal.Add(address1, address2) |> ignore
+        Some unequal
+
+    let checkInequality (state : state) =
+        let typeStorage = state.typeStorage
+        let constraints = typeStorage.Constraints
+        let mutable hasInterface = false
+        for KeyValue(_, addressConstraints) in constraints do
+            hasInterface <- hasInterface || addressConstraints.supertypes |> List.exists (fun t -> t.IsInterface)
+        if not hasInterface then constraints.CheckInequality()
+        else
+            match solveTypesWithoutModel state with
+            | TypeSat -> checkInequalityViaCandidates typeStorage
+            | TypeUnsat -> None
+
     let private refineTypesInModel model (typeStorage : typeStorage) =
         match model with
         | StateModel modelState ->
@@ -515,14 +564,9 @@ module TypeSolver =
         | PrimitiveModel _ -> internalfail "Refining types in model: got primitive model"
 
     let solveTypes (model : model) (state : state) =
-        let m = CallStack.stackTrace state.stack |> List.last
-        userAssembly <- Some m.DeclaringType.Assembly
-        let typeParams, methodParams = getGenericParameters m
-        let typeStorage = state.typeStorage
-        let getMock = getMock typeStorage.TypeMocks
-        let result = refineStorage getMock typeStorage typeParams methodParams
+        let result = solveTypesWithoutModel state
         match result with
-        | TypeSat -> refineTypesInModel model typeStorage
+        | TypeSat -> refineTypesInModel model state.typeStorage
         | _ -> ()
         result
 
@@ -553,7 +597,7 @@ module TypeSolver =
             typeStorage.AddConstraint thisAddress thisConstraints
             let checkOverrides t =
                 match t with
-                | Candidate t as c when ancestorMethod.CanBeOverriddenInType t -> Some c
+                | Candidate t as c when ancestorMethod.IsImplementedInType t -> Some c
                 | Candidate _ -> None
                 // TODO: check generic candidate #types
                 | GenericCandidate _ -> None
@@ -564,17 +608,21 @@ module TypeSolver =
                 let candidates = typeStorage[thisAddress].Value
                 let resolveOverride candidate =
                     match candidate with
-                    | Candidate t as c ->
+                    | Candidate t ->
                         let overridden = ancestorMethod.ResolveOverrideInType t
                         overridden.DeclaringType
                     | GenericCandidate gc ->
                         let overridden = ancestorMethod.ResolveOverrideInType gc.Typedef
                         overridden.DeclaringType
-                let filtered = candidates.Filter checkOverrides Some
+                let checkMockOverrides (m : ITypeMock) =
+                    if ancestorMethod.MethodBase.IsPublic then Some m
+                    else None
+                let filtered = candidates.Filter checkOverrides checkMockOverrides
                 let distinct = filtered.DistinctBy(resolveOverride)
                 let truncated = distinct.Take(5).Eval()
                 typeStorage[thisAddress] <- truncated
-                filtered.Types
+                refineTypesInModel state.model typeStorage
+                truncated.Types
             | TypeUnsat -> Seq.empty
         | Ref address when ancestorMethod.IsImplementedInType thisType ->
             assert(thisType = address.TypeOfLocation)
