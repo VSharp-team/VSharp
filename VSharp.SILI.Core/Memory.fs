@@ -2011,35 +2011,24 @@ module internal Memory =
         | :? stackReading as sr -> Some(sr.key)
         | _ -> None
 
-    type private structField with
-        interface IMemoryAccessConstantSource with
-            override x.Compose state =
-                match x.baseSource with
-                | :? IStatedSymbolicConstantSource as baseSource ->
-                    let structTerm = baseSource.Compose state
-                    readStruct emptyReporter state structTerm x.field
-                | _ ->
-                    let x = x :> ISymbolicConstantSource
-                    match state.model with
-                    | PrimitiveModel subst when state.complete ->
-                        let value = ref (Nop())
-                        if subst.TryGetValue(x, value) then value.Value
-                        else makeDefaultValue x.TypeOfLocation
-                    | _ ->
-                        makeSymbolicValue x (x.ToString()) x.TypeOfLocation
-
     let composeBaseSource state (baseSource : ISymbolicConstantSource) =
         match baseSource with
         | :? IStatedSymbolicConstantSource as baseSource ->
             baseSource.Compose state
-        | src ->
+        | _ ->
             match state.model with
             | PrimitiveModel subst when state.complete ->
                 let value = ref (Nop())
                 if subst.TryGetValue(baseSource, value) then value.Value
-                else makeDefaultValue src.TypeOfLocation
+                else makeDefaultValue baseSource.TypeOfLocation
             | _ ->
-                makeSymbolicValue src (src.ToString()) src.TypeOfLocation
+                makeSymbolicValue baseSource (baseSource.ToString()) baseSource.TypeOfLocation
+
+    type private structField with
+        interface IMemoryAccessConstantSource with
+            override x.Compose state =
+                let structTerm = composeBaseSource state x.baseSource
+                readStruct emptyReporter state structTerm x.field
 
     type private heapAddressSource with
         interface IMemoryAccessConstantSource with
