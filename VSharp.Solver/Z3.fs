@@ -653,7 +653,7 @@ module internal Z3 =
                 | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t1 t2 ->
                     let expr = x.EncodeTerm encCtx (List.head args)
                     let difference = numericBitSizeOf t2 - numericBitSizeOf t1
-                    let extend = if isUnsigned t1 then ctx.MkZeroExt else ctx.MkSignExt
+                    let extend = if isUnsigned t2 then ctx.MkZeroExt else ctx.MkSignExt
                     {expr = extend(difference, expr.expr :?> BitVecExpr); assumptions = expr.assumptions}
                 | Cast(Numeric t1, Numeric t2) when isLessForNumericTypes t2 t1 ->
                     let expr = x.EncodeTerm encCtx (List.head args)

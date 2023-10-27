@@ -539,11 +539,12 @@ module internal Terms =
     let rec private makeCast term fromType toType =
         match term, toType with
         | _ when fromType = toType -> term
-        | CastExpr(x, xType, Numeric t), Numeric toType when not <| isLessForNumericTypes t toType ->
-            makeCast x xType toType
+        | CastExpr(x, xType, Numeric t), Numeric toType
+            when not (isLessForNumericTypes t toType) && numericSameSign t toType ->
+                makeCast x xType toType
         | CastExpr(x, Numeric xType, Numeric t), Numeric toType
-            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t ->
-            makeCast x xType toType
+            when not <| isLessForNumericTypes t xType && not <| isLessForNumericTypes toType t && numericSameSign t toType ->
+                makeCast x xType toType
         | _ -> Expression (Cast(fromType, toType)) [term] toType
 
     let rec primitiveCast term targetType =
@@ -684,8 +685,8 @@ module internal Terms =
         | _ -> None
 
     and (|ShiftRightThroughCast|_|) = function
-        | CastExpr(ShiftRight(a, b, Numeric t, _), _, (Numeric castType as t')) when not <| isLessForNumericTypes castType t ->
-            Some(ShiftRightThroughCast(primitiveCast a t', b, t'))
+        | CastExpr(ShiftRight(a, b, Numeric t, _), _, Numeric castType) when not <| isLessForNumericTypes castType t ->
+            Some(ShiftRightThroughCast(primitiveCast a castType, b, castType))
         | _ -> None
 
     and (|CombinedTerm|_|) = term >> (|Combined|_|)
