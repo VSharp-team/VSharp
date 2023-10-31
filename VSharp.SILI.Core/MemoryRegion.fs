@@ -286,9 +286,7 @@ type stackBufferIndexKey =
             | _ -> false
         override x.Unguard =
             match x.index.term with
-            | Union gvs when List.forall (fst >> isConcrete) gvs ->
-                let mapper idx = {index = idx}
-                TermsBranching.mapUnion x.index mapper id
+            | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
             | _ -> [(True(), x)]
     interface IComparable with
         override x.CompareTo y =

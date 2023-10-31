@@ -123,7 +123,7 @@ module internal Pointers =
         | Ptr _ -> False()
         | _ when isReference ref -> isNull ref
         | _ when typeOf ref |> isNative -> True()
-        | Union _ -> TermsBranching.mapUnion ref isBadRef Merging.merge
+        | Union _ -> Merging.guardedApply isBadRef ref
         | _ -> False()
 
 // -------------------------- Address arithmetic --------------------------

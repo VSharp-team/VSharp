@@ -42,9 +42,9 @@ module Substitution =
                 | Combine -> combine args' t')
             |> Merging.merge
         | Union gvs ->
-            let gvs' = TermsBranching.chooseUnion term (fun (g, v) ->
+            let gvs' = gvs |> List.choose (fun (g, v) ->
                 let ggs = recur g |> Merging.unguardMerge
-                if isFalse ggs then None else Some (ggs, recur v)) id
+                if isFalse ggs then None else Some (ggs, recur v))
             if gvs' = gvs then term else Merging.merge gvs'
         | HeapRef(address, typ) ->
             let addr' = recur address

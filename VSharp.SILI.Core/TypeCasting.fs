@@ -113,7 +113,7 @@ module internal TypeCasting =
         | Ref address ->
             let rightType = address.TypeOfLocation
             typeIsType typ rightType
-        | Union _ -> TermsBranching.mapUnion ref (typeIsRef state typ) Merging.merge
+        | Union _ -> Merging.guardedApply (typeIsRef state typ) ref
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
     let rec commonRefIsType state ref typ =
@@ -126,7 +126,7 @@ module internal TypeCasting =
             typeIsType leftType typ
         | Union _ ->
             let commonRefIsType = function term -> commonRefIsType state term typ
-            TermsBranching.mapUnion ref commonRefIsType Merging.merge
+            Merging.guardedApply commonRefIsType ref
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
     let refIsType = commonRefIsType
@@ -148,8 +148,8 @@ module internal TypeCasting =
             addressIsType leftAddr leftType rightType
         | Union _, _ ->
             let refIsRef = function term -> refIsRef state term rightRef
-            TermsBranching.mapUnion leftRef refIsRef Merging.merge
-        | _, Union _ -> TermsBranching.mapUnion rightRef (refIsRef state leftRef) Merging.merge
+            Merging.guardedApply refIsRef leftRef 
+        | _, Union _ -> Merging.guardedApply (refIsRef state leftRef) rightRef
         | _ -> internalfailf "Checking subtyping: expected heap reference, but got %O" ref
 
     type symbolicSubtypeSource with

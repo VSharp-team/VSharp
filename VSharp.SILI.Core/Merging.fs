@@ -49,6 +49,13 @@ module internal Merging =
                     | False -> loop rest out
                     | _ -> loop rest ((joined, v)::out)
             loop gvs []
+            
+    and linearizeGvs gvs =
+        let rec collect guardsAcc (g,v) =
+            match v.term with
+            | Union gvs' -> gvs' |> List.map (collect (g::guardsAcc)) |> List.concat
+            | _ -> [(conjunction (g::guardsAcc), v)]
+        gvs |> List.map (collect []) |> List.concat
 
     and private typedMerge = function
         | Bool -> boolMerge

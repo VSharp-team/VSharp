@@ -667,7 +667,7 @@ module internal Memory =
         match reference.term with
         | HeapRef(address, _) -> address
         | Ptr(HeapLocation(address, _), _, _) -> address
-        | Union _ -> TermsBranching.mapUnion reference extractAddress Merging.merge
+        | Union _ -> Merging.guardedApply extractAddress reference
         | _ -> internalfail $"Extracting heap address: expected heap reference or pointer, but got {reference}"
 
     let rec extractPointerOffset ptr =
@@ -675,7 +675,7 @@ module internal Memory =
         | Ptr(_, _, offset) -> offset
         | Ref address -> Pointers.addressToBaseAndOffset address |> snd
         | HeapRef _ -> makeNumber 0
-        | Union _ -> TermsBranching.mapUnion ptr extractPointerOffset Merging.merge
+        | Union _ -> Merging.guardedApply extractPointerOffset ptr
         | _ -> internalfail $"Extracting pointer offset: expected reference or pointer, but got {ptr}"
 
     let isConcreteHeapAddress = term >> function
@@ -1274,7 +1274,7 @@ module internal Memory =
         | HeapRef(address, typ) ->
             assert(isBoxedType typ)
             Ref (BoxedLocation(address, typ))
-        | Union _ -> TermsBranching.mapUnion reference heapReferenceToBoxReference Merging.merge
+        | Union _ -> Merging.guardedApply heapReferenceToBoxReference reference
         | _ -> internalfailf $"Unboxing: expected heap reference, but got {reference}"
 
     and referenceField state reference fieldId =
@@ -1313,7 +1313,7 @@ module internal Memory =
             Ptr baseAddress fieldId.typ (add offset fieldOffset)
         | Union _ ->
             let referenceField = function term -> referenceField state term fieldId
-            TermsBranching.mapUnion reference referenceField Merging.merge
+            Merging.guardedApply referenceField reference
         | _ -> internalfailf $"Referencing field: expected reference, but got {reference}"
 
 // --------------------------- General reading ---------------------------
@@ -1327,7 +1327,7 @@ module internal Memory =
             Nop()
         | Ptr(baseAddress, sightType, offset) ->
             readUnsafe reporter state baseAddress offset sightType
-        | Union _ -> TermsBranching.mapUnion reference (read reporter state) Merging.merge
+        | Union _ -> Merging.guardedApply (read reporter state) reference
         | _ when typeOf reference |> isNative ->
             reporter.ReportFatalError "reading by detached pointer" (True()) |> ignore
             Nop()
@@ -1790,7 +1790,7 @@ module internal Memory =
         | HeapRef(address, typ) ->
             assert(typ = typeof<string>)
             readClassField state address Reflection.stringLengthField
-        | Union gvs -> TermsBranching.mapUnion heapRef (lengthOfString state) Merging.merge
+        | Union gvs -> Merging.guardedApply (lengthOfString state) heapRef
         | _ -> internalfail "Getting length of string: expected heap reference, but got %O" heapRef
 
     let initializeStaticMembers state typ =
@@ -1831,8 +1831,8 @@ module internal Memory =
         | HeapRef({term = ConcreteHeapAddress address}, _) -> state.delegates[address] |> Some
         | HeapRef _ -> None
         | Union gvs ->
-            let chooseDelegates (g,v) = Option.bind (fun d -> Some(g, d)) (readDelegate state v)
-            let delegates = TermsBranching.chooseUnion reference chooseDelegates id
+            let delegates = gvs |> List.choose (fun (g, v) ->
+                Option.bind (fun d -> Some(g, d)) (readDelegate state v))
             if delegates.Length = gvs.Length then delegates |> Merging.merge |> Some else None
         | _ -> internalfailf $"Reading delegate: expected heap reference, but got {reference}"
 

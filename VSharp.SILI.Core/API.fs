@@ -4,6 +4,7 @@ open System
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
+
 module API =
 
     let ConfigureSolver solver =
@@ -419,7 +420,7 @@ module API =
                 Ptr baseAddress sightType (add offset indexOffset)
             | Union _ ->
                 let referenceArrayIndex = function term -> ReferenceArrayIndex state term indices valueType
-                TermsBranching.mapUnion arrayRef referenceArrayIndex Merging.merge
+                Merging.guardedApply referenceArrayIndex arrayRef
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
 
         let ReferenceField state reference fieldId =
@@ -515,7 +516,7 @@ module API =
                 Memory.readArrayIndex state addr [index] arrayType
             | Union _ ->
                 let readStringChar = function term -> ReadStringChar state term index
-                TermsBranching.mapUnion reference readStringChar Merging.merge
+                Merging.guardedApply readStringChar reference
             | _ -> internalfailf "Reading string char: expected reference, but got %O" reference
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
@@ -749,21 +750,21 @@ module API =
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> TypeUtils.rankOf |> makeNumber
-            | Union _ -> TermsBranching.mapUnion arrayRef (ArrayRank state) Merging.merge
+            | Union _ -> Merging.guardedApply (ArrayRank state) arrayRef
             | _ -> internalfailf "Getting rank of array: expected ref, but got %O" arrayRef
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
             | Union _ ->
                 let arrayLengthByDimension = function term -> ArrayLengthByDimension state term index
-                TermsBranching.mapUnion arrayRef arrayLengthByDimension Merging.merge
+                Merging.guardedApply arrayLengthByDimension arrayRef
             | _ -> internalfailf "reading array length: expected heap reference, but got %O" arrayRef
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
             | Union _ ->
                 let arrayLowerBoundByDimension = function term -> ArrayLowerBoundByDimension state term index
-                TermsBranching.mapUnion arrayRef arrayLowerBoundByDimension Merging.merge
+                Merging.guardedApply arrayLowerBoundByDimension arrayRef
             | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
 
         let rec CountOfArrayElements state arrayRef =
@@ -772,7 +773,7 @@ module API =
                 let _, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
                 let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
-            | Union _ -> TermsBranching.mapUnion arrayRef (CountOfArrayElements state) Merging.merge
+            | Union _ -> Merging.guardedApply (CountOfArrayElements state) arrayRef
             | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
