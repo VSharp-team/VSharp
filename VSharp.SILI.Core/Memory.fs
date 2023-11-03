@@ -1790,7 +1790,7 @@ module internal Memory =
         | HeapRef(address, typ) ->
             assert(typ = typeof<string>)
             readClassField state address Reflection.stringLengthField
-        | Union gvs -> Merging.guardedApply (lengthOfString state) heapRef
+        | Union _ -> Merging.guardedApply (lengthOfString state) heapRef
         | _ -> internalfail "Getting length of string: expected heap reference, but got %O" heapRef
 
     let initializeStaticMembers state typ =

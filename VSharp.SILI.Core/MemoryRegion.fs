@@ -13,6 +13,7 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract Map : (term -> term) -> (Type -> Type) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
+    abstract MatchCondition : IMemoryKey<'a,'reg> -> 'reg -> term
 
 type regionSort =
     | HeapFieldSort of fieldId
@@ -75,6 +76,32 @@ module private MemoryKeyUtils =
         | _ -> points<int>.Universe
 
     let regionsOfIntegerRanges lowerBounds upperBounds = List.map2 regionOfIntegerRange lowerBounds upperBounds |> listProductRegion<points<int>>.OfSeq
+    
+    let heapAddressInVectorTimeIntervals (key : heapAddress) (region : vectorTime intervals) =
+        let isLeft ep =
+            match ep.sort with
+            | endpointSort.OpenLeft
+            | endpointSort.ClosedLeft -> true
+            | _ -> false
+        let leftPoints, rightPoints = List.partition isLeft region.points
+        let vt2Term time = Concrete time addressType
+        let inInterval left right =
+            match left.sort, right.sort with
+            | endpointSort.ClosedLeft, endpointSort.ClosedRight ->
+                simplifyAnd (simplifyGreaterOrEqual key (vt2Term left.elem) id)
+                            (simplifyLessOrEqual key (vt2Term right.elem) id) id
+            | endpointSort.ClosedLeft, endpointSort.OpenRight ->
+                simplifyAnd (simplifyGreaterOrEqual key (vt2Term left.elem) id)
+                            (simplifyLess key (vt2Term right.elem) id) id
+            | endpointSort.OpenLeft, endpointSort.ClosedRight ->
+                simplifyAnd (simplifyGreater key (vt2Term left.elem) id)
+                            (simplifyLessOrEqual key (vt2Term right.elem) id) id
+            | endpointSort.OpenLeft, endpointSort.OpenRight ->
+                simplifyAnd (simplifyGreater key (vt2Term left.elem) id)
+                            (simplifyLess key (vt2Term right.elem) id) id
+            | _ -> internalfail $"heapAddressInVectorTimeIntervals: intervals invariant l -> r violated: {region}"
+        (False(), leftPoints, rightPoints) |||> List.fold2 (fun acc l r -> simplifyOr acc (inInterval l r) id)
+
 
 [<CustomEquality;CustomComparison>]
 type heapAddressKey =
@@ -95,6 +122,13 @@ type heapAddressKey =
             newReg, {address = mapTerm x.address}
         override x.IsUnion = isUnion x.address
         override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr}))
+        override x.MatchCondition key keyIndexingRegion =
+            let keyAddress = (key :?> heapAddressKey).address
+            let keyRegion = key.Region
+            let addressesAreEqual = simplifyEqualityHeuristic x.address keyAddress
+            let keyInIndexingRegion = MemoryKeyUtils.heapAddressInVectorTimeIntervals keyAddress keyIndexingRegion
+            simplifyAnd addressesAreEqual keyInIndexingRegion id
+            
     interface IComparable with
         override x.CompareTo y =
             match y with

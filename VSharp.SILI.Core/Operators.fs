@@ -23,6 +23,11 @@ module internal Operators =
 
     let simplifyEquality x y =
         ksimplifyEquality x y id
+    let simplifyEqualityHeuristic x y =
+        match term x, term y with
+        | Concrete _, Constant _ -> False()
+        | Constant _, Concrete _ -> False()
+        | _ -> simplifyEquality x y
 
     let (===) x y = ksimplifyEquality x y id
     let (!==) x y = ksimplifyEquality x y (!!)
