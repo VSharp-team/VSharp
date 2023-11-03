@@ -1,0 +1,56 @@
+======================================================================
+Layer (type:depth-idx)                        Param #
+======================================================================
+StateModelEncoder                             --
+├─StateGNNEncoderConvEdgeAttrCompact: 1-1     --
+│    └─TAGConv: 2-1                           32
+│    │    └─SumAggregation: 3-1               --
+│    │    └─ModuleList: 3-2                   480
+│    └─TAGConv: 2-2                           32
+│    │    └─SumAggregation: 3-3               --
+│    │    └─ModuleList: 3-4                   4,096
+│    └─GraphConv: 2-3                         --
+│    │    └─SumAggregation: 3-5               --
+│    │    └─Linear: 3-6                       1,056
+│    │    └─Linear: 3-7                       192
+│    └─GraphConv: 2-4                         --
+│    │    └─SumAggregation: 3-8               --
+│    │    └─Linear: 3-9                       1,056
+│    │    └─Linear: 3-10                      1,024
+│    └─SAGEConv: 2-5                          --
+│    │    └─MeanAggregation: 3-11             --
+│    │    └─Linear: 3-12                      1,056
+│    │    └─Linear: 3-13                      1,024
+│    └─SAGEConv: 2-6                          --
+│    │    └─MeanAggregation: 3-14             --
+│    │    └─Linear: 3-15                      1,056
+│    │    └─Linear: 3-16                      1,024
+│    └─Linear: 2-7                            264
+======================================================================
+Total params: 12,392
+Trainable params: 12,392
+Non-trainable params: 0
+======================================================================
+======================================================================
+Number of training graphs: 170186
+Number of test graphs: 30033
+Epoch: 001, Train Loss: 0.021861, Test Loss: 0.022231
+Epoch: 002, Train Loss: 0.014109, Test Loss: 0.014366
+Epoch: 003, Train Loss: 0.011815, Test Loss: 0.012014
+Epoch: 004, Train Loss: 0.010312, Test Loss: 0.010486
+Epoch: 005, Train Loss: 0.009593, Test Loss: 0.009773
+Epoch: 006, Train Loss: 0.008825, Test Loss: 0.009011
+Epoch: 007, Train Loss: 0.008382, Test Loss: 0.008577
+Epoch: 008, Train Loss: 0.007947, Test Loss: 0.008135
+Epoch: 009, Train Loss: 0.007616, Test Loss: 0.007813
+Epoch: 010, Train Loss: 0.007486, Test Loss: 0.007663
+Epoch: 011, Train Loss: 0.006984, Test Loss: 0.007157
+Epoch: 012, Train Loss: 0.007056, Test Loss: 0.007225
+Epoch: 013, Train Loss: 0.006797, Test Loss: 0.006961
+Epoch: 014, Train Loss: 0.006716, Test Loss: 0.006890
+Epoch: 015, Train Loss: 0.006661, Test Loss: 0.006827
+Epoch: 016, Train Loss: 0.006409, Test Loss: 0.006581
+Epoch: 017, Train Loss: 0.006299, Test Loss: 0.006457
+Epoch: 018, Train Loss: 0.006248, Test Loss: 0.006396
+Epoch: 019, Train Loss: 0.006113, Test Loss: 0.006263
+Epoch: 020, Train Loss: 0.006074, Test Loss: 0.006214

@@ -46,6 +46,7 @@ class ServerDataloaderHeteroVector:
         edges_index_s_v_history = []
         edges_index_v_s_history = []
         edges_attr_v_v = []
+        edges_types_v_v = []
 
         edges_attr_s_v = []
         edges_attr_v_s = []
@@ -79,7 +80,8 @@ class ServerDataloaderHeteroVector:
             )
             edges_attr_v_v.append(
                 np.array([e.Label.Token])
-            )  # TODO: consider token in a model
+            )
+            edges_types_v_v.append(e.Label.Token)
 
         state_doubles = 0
 
@@ -101,7 +103,7 @@ class ServerDataloaderHeteroVector:
                     )
                 )
                 # history edges: state -> vertex and back
-                for h in s.History:  # TODO: process NumOfVisits as edge label
+                for h in s.History:  
                     v_to = vertex_map[h.GraphVertexId]
                     edges_index_s_v_history.append(np.array([state_index, v_to]))
                     edges_index_v_s_history.append(np.array([v_to, state_index]))
@@ -127,6 +129,8 @@ class ServerDataloaderHeteroVector:
         data["game_vertex", "to", "game_vertex"].edge_index = (
             torch.tensor(np.array(edges_index_v_v), dtype=torch.long).t().contiguous()
         )
+        data['game_vertex', 'to', 'game_vertex'].edge_attr = torch.tensor(np.array(edges_attr_v_v), dtype=torch.long)
+        data['game_vertex', 'to', 'game_vertex'].edge_type = torch.tensor(np.array(edges_types_v_v), dtype=torch.long)
         data["state_vertex", "in", "game_vertex"].edge_index = (
             torch.tensor(np.array(edges_index_s_v_in), dtype=torch.long)
             .t()
