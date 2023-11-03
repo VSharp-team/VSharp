@@ -1,4 +1,5 @@
 import torch
+<<<<<<< HEAD
 import torch.nn.functional as F
 from torch import nn
 from torch.nn import Linear
@@ -187,23 +188,30 @@ class HeteroGNN(torch.nn.Module):
             x_dict = conv(x_dict, edge_index_dict)
             x_dict = {key: F.leaky_relu(x) for key, x in x_dict.items()}
         return self.lin(x_dict["author"])
+=======
+
+from torch_geometric.nn import GATConv, Linear
+
+from .data_loader import NUM_NODE_FEATURES
+from torch.nn import Linear
+import torch.nn.functional as F
+from torch_geometric.nn import GCNConv, SAGEConv
+from torch_geometric.nn import global_mean_pool
+
+NUM_PREDICTED_VALUES = 4
+>>>>>>> 45ee79dea533f9bff47007608c2d6e33aa9a78ff
 
 
-class GCN_SimpleNoEdgeLabels(torch.nn.Module):
-    def __init__(self):
+class GNN_Het(torch.nn.Module):
+    def __init__(self, hidden_channels, out_channels):
         super().__init__()
-        self.conv1 = GCNConv(NUM_NODE_FEATURES, 16)
-        self.conv2 = GCNConv(16, 1)
+        self.conv1 = SAGEConv((-1, -1), hidden_channels)
+        self.conv2 = SAGEConv((-1, -1), out_channels)
 
-    def forward(self, data):
-        x, edge_index = data.x, data.edge_index
-
-        x = self.conv1(x, edge_index)
-        x = F.relu(x)
-        x = F.dropout(x, training=self.training)
+    def forward(self, x, edge_index):
+        x = self.conv1(x, edge_index).relu()
         x = self.conv2(x, edge_index)
-
-        return F.log_softmax(x, dim=1)
+        return x
 
 
 class GNN_MultipleOutput(torch.nn.Module):
@@ -339,6 +347,7 @@ class GAT(torch.nn.Module):
         x = x.relu()
         x = self.conv2(x, edge_index) + self.lin2(x)
         return x
+<<<<<<< HEAD
 
 
 class VertexGNNEncoder(torch.nn.Module):
@@ -763,3 +772,5 @@ class SAGEConvModel(torch.nn.Module):
             ).relu()
         x = self.mlp(in_x)
         return x
+=======
+>>>>>>> 45ee79dea533f9bff47007608c2d6e33aa9a78ff
