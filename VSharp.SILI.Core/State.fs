@@ -64,7 +64,7 @@ type exceptionRegister =
         | Caught(e, s) -> Unhandled(e, false, s)
         | Unhandled _ -> x
         | NoException -> internalfail "unable TransformToUnhandled"
-    member x.UnhandledError =
+    member x.IsUnhandledError =
         match x with
         | Unhandled _ -> true
         | _ -> false
@@ -83,6 +83,50 @@ type exceptionRegister =
         | Unhandled(e, isRuntime, s) -> Unhandled(f e, isRuntime, s)
         | Caught(e, s) -> Caught(f e, s)
         | NoException -> NoException
+
+type exceptionRegisterStack =
+    private { stack : exceptionRegister stack }
+    member x.GetError() =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.GetError()
+    member x.TransformToCaught() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            { stack = head.TransformToCaught() :: tail }
+        | _ -> internalfail "TransformToCaught: exceptionRegisterStack is empty!"
+    member x.TransformToUnhandled() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            { stack = head.TransformToUnhandled() :: tail }
+        | _ -> internalfail "TransformToUnhandled: exceptionRegisterStack is empty!"
+    member x.IsUnhandledError =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.IsUnhandledError
+    member x.ExceptionTerm =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.ExceptionTerm
+    member x.Tail =
+        assert(List.isEmpty x.stack |> not)
+        let tail = List.tail x.stack
+        { stack = tail }
+    member x.Size = Stack.size x.stack
+    member x.Peek =
+        assert(List.isEmpty x.stack |> not)
+        List.head x.stack
+    member x.Pop() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            head, { stack = tail }
+        | _ -> internalfail "Pop: exceptionRegisterStack is empty!"
+    member x.Push elem = { stack = Stack.push x.stack elem }
+    static member singleton x = { stack = Stack.singleton x }
+    static member map f stack = { stack = Stack.map (exceptionRegister.map f) stack.stack }
 
 type arrayCopyInfo =
     {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
@@ -153,7 +197,7 @@ and
         mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
         mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-        mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+        mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
         methodMocks : IDictionary<IMethod, IMethodMock>

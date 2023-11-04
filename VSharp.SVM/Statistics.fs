@@ -16,7 +16,7 @@ open VSharp.Interpreter.IL
 open VSharp.Utils
 
 open CilStateOperations
-open ipOperations
+open IpOperations
 open CodeLocation
 
 type pob = {loc : codeLocation; lvl : uint; pc : pathCondition}
@@ -252,7 +252,7 @@ type public SVMStatistics(entryMethods : Method seq) =
         Logger.traceWithTag Logger.stateTraceTag $"FINISH: {s.id}"
 
     member x.IsNewError (s : cilState) (errorMessage : string) isFatal =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Peek with
         | Unhandled(_, _, stackTrace) -> emittedExceptions.Add(stackTrace, errorMessage, isFatal)
         | _ -> emittedErrors.Add(s.ipStack, errorMessage, isFatal)
 

@@ -84,12 +84,26 @@ type MethodWithBody internal (m : MethodBase) =
             let assemblyName = methodModule.Assembly.FullName
             let ehcs = System.Collections.Generic.Dictionary<int, System.Reflection.ExceptionHandlingClause>()
             let props : rawMethodProperties =
-                {token = uint actualMethod.MetadataToken; ilCodeSize = uint ilBytes.Length; assemblyNameLength = 0u; moduleNameLength = 0u; maxStackSize = uint methodBodyBytes.MaxStackSize; signatureTokensLength = 0u}
+                {
+                    token = uint actualMethod.MetadataToken
+                    ilCodeSize = uint ilBytes.Length
+                    assemblyNameLength = 0u
+                    moduleNameLength = 0u
+                    maxStackSize = uint methodBodyBytes.MaxStackSize
+                    signatureTokensLength = 0u
+                }
             let tokens = System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof<signatureTokens>) :?> signatureTokens
             let createEH (eh : System.Reflection.ExceptionHandlingClause) : rawExceptionHandler =
                 let matcher = if eh.Flags = ExceptionHandlingClauseOptions.Filter then eh.FilterOffset else eh.HandlerOffset // TODO: need catch type token?
                 ehcs.Add(matcher, eh)
-                {flags = int eh.Flags; tryOffset = uint eh.TryOffset; tryLength = uint eh.TryLength; handlerOffset = uint eh.HandlerOffset; handlerLength = uint eh.HandlerLength; matcher = uint matcher}
+                {
+                    flags = int eh.Flags
+                    tryOffset = uint eh.TryOffset
+                    tryLength = uint eh.TryLength
+                    handlerOffset = uint eh.HandlerOffset
+                    handlerLength = uint eh.HandlerLength
+                    matcher = uint matcher
+                }
             let ehs = methodBodyBytes.ExceptionHandlingClauses |> Seq.map createEH |> Array.ofSeq
             let body : rawMethodBody =
                 {properties = props; assembly = assemblyName; moduleName = moduleName; tokens = tokens; il = ilBytes; ehs = ehs}
@@ -103,11 +117,13 @@ type MethodWithBody internal (m : MethodBase) =
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Finally then Finally
                     elif oldEH.Flags = ExceptionHandlingClauseOptions.Fault then Fault
                     else Catch oldEH.CatchType
-                {tryOffset = eh.tryOffset |> int |> Offset.from
-                 tryLength = eh.tryLength |> int |> Offset.from
-                 handlerOffset = eh.handlerOffset |> int |> Offset.from
-                 handlerLength = eh.handlerLength |> int |> Offset.from
-                 ehcType = ehcType }
+                {
+                    tryOffset = eh.tryOffset |> int |> Offset.from
+                    tryLength = eh.tryLength |> int |> Offset.from
+                    handlerOffset = eh.handlerOffset |> int |> Offset.from
+                    handlerLength = eh.handlerLength |> int |> Offset.from
+                    ehcType = ehcType
+                }
             Some result.il, Some (Array.map parseEH result.ehs), Some rewriter, Some rewriter.Instructions)
 
     member x.Name = name
@@ -390,11 +406,6 @@ module MethodBody =
         match ehc.ehcType with ehcType.Filter _ -> true | _ -> false
     let isCatchClause (ehc : ExceptionHandlingClause) =
         match ehc.ehcType with Catch _ -> true | _ -> false
-
-    let shouldExecuteFinallyClause (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
-//        let srcOffset, dstOffset = src.Offset(), dst.Offset()
-        let isInside offset = ehc.tryOffset <= offset && offset < ehc.tryOffset + ehc.tryLength
-        isInside src && not <| isInside dst
 
     let internal (|Ret|_|) (opCode : OpCode) = if opCode = OpCodes.Ret then Some () else None
     let (|Call|_|) (opCode : OpCode) = if opCode = OpCodes.Call then Some () else None
