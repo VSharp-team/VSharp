@@ -225,22 +225,22 @@ type UnitTest private (m : MethodBase, info : testInfo, mockStorage : MockStorag
                     res
             let mp = Array.map2 decodeTypeParameter ti.methodTypeParameters ti.mockMethodTypeParameters
             let method = mdle.ResolveMethod(ti.token) |> AssemblyManager.NormalizeMethod
-            let declaringType = method.DeclaringType
+            let reflectedType = method.ReflectedType
             let tp = Array.map2 decodeTypeParameter ti.classTypeParameters ti.mockClassTypeParameters
-            let concreteDeclaringType = Reflection.concretizeTypeParameters method.DeclaringType tp
-            let method = Reflection.concretizeMethodParameters concreteDeclaringType method mp
+            let concreteReflectedType = Reflection.concretizeTypeParameters method.ReflectedType tp
+            let method = Reflection.concretizeMethodParameters concreteReflectedType method mp
 
             // Ensure that parameters are substituted in memoryRepr
-            if not method.IsStatic && declaringType.IsGenericType && ti.memory.types.Length > 0 then
+            if not method.IsStatic && reflectedType.IsGenericType && ti.memory.types.Length > 0 then
                 let getGenericTypeDefinition (typ : typeRepr) =
                     let decoded = typ.Decode()
                     if decoded <> null && decoded.IsGenericType then
                         decoded.GetGenericTypeDefinition()
                     else decoded
                 let typeDefinitions = ti.memory.types |> Array.map getGenericTypeDefinition
-                let declaringTypeIndex = Array.IndexOf(typeDefinitions, declaringType)
-                Debug.Assert(declaringTypeIndex >= 0)
-                ti.memory.types[declaringTypeIndex] <- typeRepr.Encode concreteDeclaringType
+                let reflectedTypeIndex = Array.IndexOf(typeDefinitions, reflectedType)
+                assert(reflectedTypeIndex >= 0)
+                ti.memory.types[reflectedTypeIndex] <- typeRepr.Encode concreteReflectedType
 
             UnitTest(method, ti, mockStorage, createCompactRepr)
         with child ->

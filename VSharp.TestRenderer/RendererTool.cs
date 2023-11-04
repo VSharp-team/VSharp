@@ -91,6 +91,10 @@ public static class Renderer
         var extensionsFolder = testProject.CreateSubdirectory("Extensions");
 
         File.WriteAllText(
+            Path.Combine(extensionsFolder.FullName, "GeneratedAttribute.cs"),
+            ReadFromResource("VSharp.TestExtensions.GeneratedAttribute.cs"));
+
+        File.WriteAllText(
             Path.Combine(extensionsFolder.FullName, "Allocator.cs"),
             ReadFromResource("VSharp.TestExtensions.Allocator.cs"));
 
