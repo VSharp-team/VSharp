@@ -421,6 +421,7 @@ module internal Terms =
     let sizeOf = typeOf >> internalSizeOf
 
     let bitSizeOf term resultingType = bitSizeOfType (typeOf term) resultingType
+
     let isBool t = typeOf t = typeof<bool>
     let isNumeric t = typeOf t |> isNumeric
 
@@ -612,12 +613,14 @@ module internal Terms =
 
     and concreteDelegate methodInfo target delegateType =
         Concrete (delegateInfo.Create(methodInfo, target, delegateType)) delegateType
+
     and (|True|_|) term = if isTrue term then Some True else None
     and (|False|_|) term = if isFalse term then Some False else None
 
     and (|ConcreteT|_|) = term >> function
         | Concrete(name, typ) -> Some(ConcreteT(name, typ))
         | _ -> None
+
     and (|UnionT|_|) = term >> function
         | Union gvs -> Some(UnionT gvs)
         | _ -> None
