@@ -1,7 +1,6 @@
 namespace VSharp.Core
 
 open System
-open System.Collections.Generic
 open System.Text
 open VSharp
 open VSharp.CSharpUtils
@@ -13,7 +12,8 @@ type IMemoryKey<'a, 'reg when 'reg :> IRegion<'reg>> =
     abstract Map : (term -> term) -> (Type -> Type) -> (vectorTime -> vectorTime) -> 'reg -> 'reg * 'a
     abstract IsUnion : bool
     abstract Unguard : (term * 'a) list
-    abstract MatchCondition : IMemoryKey<'a,'reg> -> 'reg -> term
+    abstract InRegionCondition : 'reg -> term
+    abstract MatchCondition : 'a -> 'reg -> term
 
 type regionSort =
     | HeapFieldSort of fieldId
@@ -88,21 +88,42 @@ module private MemoryKeyUtils =
         let inInterval left right =
             match left.sort, right.sort with
             | endpointSort.ClosedLeft, endpointSort.ClosedRight ->
-                simplifyAnd (simplifyGreaterOrEqual key (vt2Term left.elem) id)
-                            (simplifyLessOrEqual key (vt2Term right.elem) id) id
+                 (simplifyGreaterOrEqual key (vt2Term left.elem) id) &&&  (simplifyLessOrEqual key (vt2Term right.elem) id)
             | endpointSort.ClosedLeft, endpointSort.OpenRight ->
-                simplifyAnd (simplifyGreaterOrEqual key (vt2Term left.elem) id)
-                            (simplifyLess key (vt2Term right.elem) id) id
+                 (simplifyGreaterOrEqual key (vt2Term left.elem) id) &&& (simplifyLess key (vt2Term right.elem) id)
             | endpointSort.OpenLeft, endpointSort.ClosedRight ->
-                simplifyAnd (simplifyGreater key (vt2Term left.elem) id)
-                            (simplifyLessOrEqual key (vt2Term right.elem) id) id
+                (simplifyGreater key (vt2Term left.elem) id) &&& (simplifyLessOrEqual key (vt2Term right.elem) id)
             | endpointSort.OpenLeft, endpointSort.OpenRight ->
-                simplifyAnd (simplifyGreater key (vt2Term left.elem) id)
-                            (simplifyLess key (vt2Term right.elem) id) id
+                (simplifyGreater key (vt2Term left.elem) id) &&& (simplifyLess key (vt2Term right.elem) id)
             | _ -> internalfail $"heapAddressInVectorTimeIntervals: intervals invariant l -> r violated: {region}"
-        (False(), leftPoints, rightPoints) |||> List.fold2 (fun acc l r -> simplifyOr acc (inInterval l r) id)
-
-
+        (False(), leftPoints, rightPoints) |||> List.fold2 (fun acc l r -> acc ||| (inInterval l r))
+        
+    let keyInIntPoints key (region : int points) =
+        let points, negateIfNeed =
+            match region with
+            | {points = points; thrown = true} -> points, (function term -> !!term)
+            | {points = points; thrown = false} -> points, id
+        let point2Term point = Concrete point typeof<int>
+        let inPoints point = simplifyEquality key (point2Term point)
+        PersistentSet.fold (fun acc p -> simplifyOr acc (inPoints key) id) (True()) region.points |> negateIfNeed
+        
+    let keyInProductRegion keyInFst keyInSnd (region : productRegion<'a,'b>) =
+        let checkInOne acc (first, second) = (keyInFst first) &&& (keyInSnd second)
+        List.fold checkInOne (True()) region.products
+        
+    
+    // там в Z3.fs стояла TODO избавиться от аккумуляторов, мне показалось, как будто лист productRegion заканчивает разматываться так,
+    // что в acc всегда значение, с которым делали первый вызов функции. удобно его делать True(), может, я не прав, но я вроде избавился
+    // от аккумулуяторов
+    let rec keysInListProductRegion keys (region : int points listProductRegion) =
+        match region, keys with
+        | NilRegion, Seq.Empty -> True()
+        | ConsRegion products, Seq.Cons(curr, rest) ->
+            let keyInPoints = keyInIntPoints curr
+            let keyInProduct = keysInListProductRegion rest
+            keyInProductRegion keyInPoints keyInProduct  products
+        | _ -> __unreachable__()
+         
 [<CustomEquality;CustomComparison>]
 type heapAddressKey =
     {address : heapAddress}
@@ -122,12 +143,12 @@ type heapAddressKey =
             newReg, {address = mapTerm x.address}
         override x.IsUnion = isUnion x.address
         override x.Unguard = Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr}))
+        override x.InRegionCondition region =
+            MemoryKeyUtils.heapAddressInVectorTimeIntervals x.address region
         override x.MatchCondition key keyIndexingRegion =
-            let keyAddress = (key :?> heapAddressKey).address
-            let keyRegion = key.Region
-            let addressesAreEqual = simplifyEqualityHeuristic x.address keyAddress
-            let keyInIndexingRegion = MemoryKeyUtils.heapAddressInVectorTimeIntervals keyAddress keyIndexingRegion
-            simplifyAnd addressesAreEqual keyInIndexingRegion id
+            let addressesAreEqual = simplifyEqualityHeuristic x.address key.address
+            let keyInIndexingRegion = (key :> IHeapAddressKey).InRegionCondition keyIndexingRegion
+            addressesAreEqual &&& keyInIndexingRegion
             
     interface IComparable with
         override x.CompareTo y =
@@ -234,6 +255,36 @@ type heapArrayKey =
                 Merging.unguard address |> List.map (fun (g, addr) -> (g, OneArrayIndexKey(addr, indices)))  // TODO: if indices are unions of concrete values, then unguard them as well
             | RangeArrayIndexKey(address, lowerBounds, upperBounds) ->
                 Merging.unguard address |> List.map (fun (g, addr) -> (g, RangeArrayIndexKey(addr, lowerBounds, upperBounds)))  // TODO: if lbs and ubs are unions of concrete values, then unguard them as well
+
+        override x.InRegionCondition region =
+            match x with
+            | OneArrayIndexKey(address, indices) ->
+                let interval, listProd = List.head region.products
+                let addressInVtIntervals = MemoryKeyUtils.heapAddressInVectorTimeIntervals address interval
+                let indicesInListProd = MemoryKeyUtils.keysInListProductRegion indices listProd
+                addressInVtIntervals &&& indicesInListProd
+            | RangeArrayIndexKey _ -> internalfailf "InRegionCondition is not implemented for RangeArrayIndexKey"
+
+        override x.MatchCondition key keyIndexingRegion =
+            match x, key with
+            | OneArrayIndexKey(address, indices), OneArrayIndexKey(keyAddress, keyIndices)->
+                let addressesAreEqual = address === keyAddress
+                let keysAreEqual = List.fold2 (fun acc i j -> acc &&& (i === j)) addressesAreEqual indices keyIndices
+                // там же всегда один элемент в списке вроде
+                let interval, listProd = List.head keyIndexingRegion.products
+                let keyInVtIntervals = MemoryKeyUtils.heapAddressInVectorTimeIntervals keyAddress interval
+                let keyInListProd = MemoryKeyUtils.keysInListProductRegion keyIndices listProd
+                keyInVtIntervals &&& keyInListProd
+            | OneArrayIndexKey(address, indices), RangeArrayIndexKey(keyAddress, keyLbs, keyUbs) ->
+                let addressesAreEqual = address === keyAddress
+                let inBounds acc i (l,u) = acc &&& (simplifyGreaterOrEqual l i id &&& simplifyLessOrEqual i u id)
+                let xInKeyBounds = (indices, List.zip keyLbs keyUbs) ||> List.fold2 inBounds addressesAreEqual
+                // key address and x indices are in key's region
+                // NOTE: checking x indices, because key is range of indices and we can not encode it as Expr[]
+                let xInKeyRegion = (x :> IHeapArrayKey).InRegionCondition keyIndexingRegion
+                xInKeyBounds &&& xInKeyRegion
+            | RangeArrayIndexKey _, _ -> internalfail $"MatchCondition: unexpected heap array key {key}"
+                
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -288,6 +339,16 @@ type heapVectorIndexKey =
         override x.Unguard =
             // TODO: if x.index is the union of concrete values, then unguard index as well
             Merging.unguard x.address |> List.map (fun (g, addr) -> (g, {address = addr; index = x.index}))
+        override x.InRegionCondition region =
+            let interval, points = List.head region.products
+            let addressInVtIntervals = MemoryKeyUtils.heapAddressInVectorTimeIntervals x.address interval
+            let indexInPoints = MemoryKeyUtils.keyInIntPoints x.index points
+            addressInVtIntervals &&& indexInPoints
+        override x.MatchCondition key keyIndexingRegion =
+            let keysAreEqual = x.address === key.address &&& x.index === key.index
+            let keyInIndexingRegion = (key :> IHeapVectorIndexKey).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& keyInIndexingRegion
+            
     interface IComparable with
         override x.CompareTo y =
             match y with
@@ -322,6 +383,12 @@ type stackBufferIndexKey =
             match x.index.term with
             | Union gvs when List.forall (fst >> isConcrete) gvs -> gvs |> List.map (fun (g, idx) -> (g, {index = idx}))
             | _ -> [(True(), x)]
+        override x.InRegionCondition region =
+            MemoryKeyUtils.keyInIntPoints x.index region
+        override x.MatchCondition key keyIndexingRegion =
+            let keysAreEqual = x.index === key.index
+            let keyInIndexingRegion = (key :> IStackBufferIndexKey).InRegionCondition keyIndexingRegion
+            keysAreEqual &&& keyInIndexingRegion
     interface IComparable with
         override x.CompareTo y =
             match y with
