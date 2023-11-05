@@ -372,7 +372,7 @@ module TypeUtils =
                 else None
 
     let typeImplementsInterface (t : Type) (targetInterface : Type) =
-        assert(targetInterface.IsInterface)
+        assert targetInterface.IsInterface
         let matches (i : Type) =
             i = targetInterface ||
             i.IsGenericType && targetInterface.IsGenericType &&

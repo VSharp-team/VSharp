@@ -95,6 +95,10 @@ public static class Renderer
             ReadFromResource("VSharp.TestExtensions.Allocator.cs"));
 
         File.WriteAllText(
+            Path.Combine(extensionsFolder.FullName, "GeneratedAttribute.cs"),
+            ReadFromResource("VSharp.TestExtensions.GeneratedAttribute.cs"));
+
+        File.WriteAllText(
             Path.Combine(extensionsFolder.FullName, "ObjectsComparer.cs"),
             ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs"));
     }
@@ -106,11 +110,16 @@ public static class Renderer
         var allocatorComp = CSharpSyntaxTree.ParseText(allocatorProgram).GetCompilationUnitRoot();
         var comparerProgram = ReadFromResource("VSharp.TestExtensions.ObjectsComparer.cs");
         var comparerComp = CSharpSyntaxTree.ParseText(comparerProgram).GetCompilationUnitRoot();
+        var generatedAttrProgram = ReadFromResource("VSharp.TestExtensions.GeneratedAttribute.cs");
+        var generatedAttrComp = CSharpSyntaxTree.ParseText(generatedAttrProgram).GetCompilationUnitRoot();
 
         return
             MergeCompilations(
                 testsComp,
-                MergeCompilations(allocatorComp, comparerComp)
+                MergeCompilations(
+                    allocatorComp,
+                    MergeCompilations(comparerComp, generatedAttrComp)
+                )
             );
     }
 
