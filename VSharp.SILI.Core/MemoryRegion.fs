@@ -83,7 +83,9 @@ module private MemoryKeyUtils =
             | endpointSort.OpenLeft
             | endpointSort.ClosedLeft -> true
             | _ -> false
-        let leftPoints, rightPoints = List.partition isLeft region.points
+        let intervalWithoutLeftZeroBound =
+            region.points |> List.filter (fun ep -> VectorTime.less VectorTime.zero ep.elem)
+        let leftPoints, rightPoints = List.partition isLeft intervalWithoutLeftZeroBound
         let vt2Term time = Concrete time addressType
         let inInterval left right =
             match left.sort, right.sort with
