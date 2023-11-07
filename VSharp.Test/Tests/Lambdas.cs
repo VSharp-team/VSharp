@@ -28,7 +28,6 @@ namespace IntegrationTests
         }
 
         // Expecting 18
-        // [Ignore("ThisKey for lambda function is not in stack")]
         [TestSvm]
         public static int Always18()
         {
@@ -36,7 +35,6 @@ namespace IntegrationTests
         }
 
         // Expecting always true
-        // [Ignore("ThisKey for lambda function is not in stack")]
         [TestSvm(100)]
         public static bool DoubleValue(int n, bool flag)
         {

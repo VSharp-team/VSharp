@@ -9,7 +9,6 @@ namespace IntegrationTests
     [Ignore("Need exceptions for all tests")]
     public sealed class Arithmetics_CIL
     {
-        // [Ignore("unknown result")]
         [TestSvm]
         public static bool MultiplicationOfFloatsIsNotAssociative()
         {
@@ -21,7 +20,6 @@ namespace IntegrationTests
             return d != e;
         }
 
-        // [Ignore("unknown result")]
         [TestSvm]
         public static bool MultiplicationOfDoublesIsNotAssociative()
         {
@@ -33,18 +31,16 @@ namespace IntegrationTests
             return d != e;
         }
 
-        // [Ignore("unknown result")]
         [TestSvm]
-        public static bool MultiplicationOfFloatsIsCommutativity()
+        public static bool MultiplicationOfFloatsIsCommutative()
         {
             float a = 0.825402526103613f;
             float b = 0.909231618470155f;
             return Math.Abs(a * b - b * a) <= Single.Epsilon;
         }
 
-        // [Ignore("unknown result")]
         [TestSvm]
-        public static bool MultiplicationOfDoublesIsCommutativity()
+        public static bool MultiplicationOfDoublesIsCommutative()
         {
             double a = 0.825402526103613;
             double b = 0.909231618470155;
@@ -52,7 +48,6 @@ namespace IntegrationTests
         }
 
         // Overflow exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int DivideWithOverflow()
         {
@@ -85,7 +80,6 @@ namespace IntegrationTests
         }
 
         // divide by zero exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static float DivideOnZero1()
         {
@@ -95,7 +89,6 @@ namespace IntegrationTests
         }
 
         // divide by zero exception
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static float DivideOnZero2()
         {
@@ -194,7 +187,6 @@ namespace IntegrationTests
             return Mul_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static uint Mul_OverFlow1()
         {
@@ -225,7 +217,6 @@ namespace IntegrationTests
             return checked(a - b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow1()
         {
@@ -234,7 +225,6 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow2()
         {
@@ -243,7 +233,6 @@ namespace IntegrationTests
             return Sub_Ovf(a, b);
         }
 
-        // [Ignore("Exceptions handling")]
         [TestSvm]
         public static int Sub_Overflow3()
         {

@@ -1273,7 +1273,7 @@ module internal Z3 =
                 elif expr.IsFPLe then x.DecodeBoolExpr OperationType.LessOrEqual expr
                 else __notImplemented__()
 
-        member private x.WriteByPath term value (path : pathPart list) =
+        member private x.WriteByPath term (value : term) (path : pathPart list) =
             match path, term.term with
             | [PointerAddress], Ptr(HeapLocation(_, t), sightType, offset) ->
                 Ptr (HeapLocation(value, t)) sightType offset
@@ -1295,8 +1295,13 @@ module internal Z3 =
                 assert(not <| dict.ContainsKey key)
                 dict.Add(key, ref value)
             else
-                let term = Dict.getValueOrUpdate dict key (fun () ->
-                    Memory.DefaultOf t |> ref)
+                let exists, res = dict.TryGetValue key
+                let term =
+                    if exists then res
+                    else
+                        let res = Memory.DefaultOf t |> ref
+                        dict.Add(key, res)
+                        res
                 term.Value <- x.WriteByPath term.Value value path.parts
 
         member private x.WriteToPrimitiveModel (subst : IDictionary<ISymbolicConstantSource, term ref>) (m : Model) (path : path) source expr typ constant =
@@ -1465,8 +1470,8 @@ module internal Z3 =
                                 // Secondly, setting 'true' value for concrete address from predicate
                                 let states = Memory.Write state (Ref address) (MakeBool true)
                                 assert(states.Length = 1 && states[0] = state)
-                            else internalfailf "Unexpected quantifier expression in model: %O" arr
-                        else internalfailf "Unexpected array expression in model: %O" arr
+                            else internalfail $"Unexpected quantifier expression in model: {arr}"
+                        else internalfail $"Unexpected array expression in model: {arr}"
                     parseArray arr
 
                 for KeyValue(address, ptr) in pointers do
@@ -1542,7 +1547,7 @@ module internal Z3 =
                     builder.Reset()
 
             member x.Assert encCtx (fml : term) =
-                Logger.printLogLazy Logger.Trace "SOLVER: Asserting: %s" (lazy(fml.ToString()))
+                Logger.printLogLazy Logger.Trace "SOLVER: Asserting: %s" (lazy fml.ToString())
                 let encoded = builder.EncodeTerm encCtx fml
                 let encoded = List.fold (fun acc x -> builder.MkAnd(acc, x)) (encoded.expr :?> BoolExpr) encoded.assumptions
                 solver.Assert(encoded)

@@ -1179,7 +1179,6 @@ namespace IntegrationTests
         }
 
         // Test on tracking current heap address during access to heap for filtering possible locations
-        // [Ignore("Exceptions handling")]
         [TestSvm(100)]
         public static int MemoryTest(LinkedList<int> l)
         {

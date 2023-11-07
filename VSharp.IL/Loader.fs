@@ -277,6 +277,9 @@ module Loader =
             "System.Void VSharp.CSharpUtils.Exceptions.CreateArrayTypeMismatchException()"
             "System.Void VSharp.CSharpUtils.Exceptions.CreateArgumentNullException()"
             "System.Void VSharp.CSharpUtils.Exceptions.CreateOutOfMemoryException()"
+
+            // Arithmetics
+            "System.Double System.Math.Pow(System.Double, System.Double)"
         ]
 
     let internal isInvokeInternalCall (fullMethodName : string) =

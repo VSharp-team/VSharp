@@ -117,11 +117,11 @@ module public Map =
 
 module public Dict =
     let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
-        if dict.ContainsKey(key) then dict.[key]
+        if dict.ContainsKey(key) then dict[key]
         else
             let newVal = fallback()
             // NOTE: 'fallback' action may add 'key' to 'dict'
-            if dict.ContainsKey(key) then dict.[key]
+            if dict.ContainsKey(key) then dict[key]
                 else
                     dict.Add(key, newVal)
                     newVal

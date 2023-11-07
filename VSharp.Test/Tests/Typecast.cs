@@ -48,10 +48,8 @@ namespace IntegrationTests.Typecast
             Y = y;
         }
 
-        [TestSvm]
         public double Norm()
         {
-            //TODO: Incorrect printed string of elements in the array
             return Math.Sqrt(X * X + Y * Y);
         }
     }

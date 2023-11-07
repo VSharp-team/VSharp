@@ -204,9 +204,10 @@ and
         mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
-        memoryMode : memoryMode
+        memoryMode : memoryMode                                            // If 'ConcreteMode', allocating concrete .NET objects inside 'ConcreteMemory'
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
+    with override x.ToString() = String.Empty
 
 and IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource
