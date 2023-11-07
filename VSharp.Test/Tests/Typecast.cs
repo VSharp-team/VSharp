@@ -50,6 +50,11 @@ namespace IntegrationTests.Typecast
 
         public double Norm()
         {
+            return Math.Sqrt(X + Y);
+        }
+
+        public double Norm2()
+        {
             return Math.Sqrt(X * X + Y * Y);
         }
     }
@@ -190,6 +195,20 @@ namespace IntegrationTests.Typecast
             }
 
             return 0;
+        }
+
+        [Ignore("Solver do not terminate")]
+        public static int DownCastObjectWithFP(object o1, object o2)
+        {
+            switch (o1, o2)
+            {
+                case (Coord s1, Coord s2) when s1.Norm2() != s2.Norm2() && ReferenceEquals(o1, o2):
+                {
+                    throw new ArgumentException();
+                }
+                default:
+                    return 1;
+            }
         }
 
         [TestSvm(100)]

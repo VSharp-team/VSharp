@@ -868,6 +868,28 @@ namespace IntegrationTests
             return Math.Sqrt(-1);
         }
 
+        [TestSvm(90)]
+        public static object SqrtMethod5(object x, object y)
+        {
+            switch (x, y)
+            {
+                case (double d1, double d2) when Math.Sqrt(d1) != Math.Sqrt(d2) && d1 == d2:
+                    throw new ArgumentException();
+                case (double d1, double d2) when Math.Sqrt(d1) != Math.Sqrt(d2) && ReferenceEquals(x, y):
+                    throw new ArgumentException();
+                default:
+                    return null;
+            }
+        }
+
+        [TestSvm(76)]
+        public static object SqrtMethod6(double d1, double d2)
+        {
+            if (Math.Sqrt(d1) != Math.Sqrt(d2) && d1 == d2)
+                return -1;
+            return null;
+        }
+
         // 1
         [TestSvm]
         public static double ExpMethod1()
