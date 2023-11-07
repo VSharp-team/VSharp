@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <EmbeddedResource Include="Allocator.cs" />
+        <EmbeddedResource Include="GeneratedAttribute.cs" />
         <EmbeddedResource Include="ObjectsComparer.cs" />
     </ItemGroup>
 </Project>

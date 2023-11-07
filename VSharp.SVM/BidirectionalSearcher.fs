@@ -129,7 +129,7 @@ type BackwardSearcher() =
         doAddPob child
 
     let updateQBack s : pob list =
-        match ipOperations.ip2codeLocation (CilStateOperations.currentIp s) with
+        match IpOperations.ip2codeLocation (CilStateOperations.currentIp s) with
         | None -> []
         | Some loc ->
             let pobsList = ref null

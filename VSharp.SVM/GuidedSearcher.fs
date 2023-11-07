@@ -62,7 +62,7 @@ type RecursionBasedTargetManager(statistics : SVMStatistics, threshold : uint) =
             | _ -> false
 
         override x.CalculateTarget state =
-            let locStack = state.ipStack |> Seq.choose ipOperations.ip2codeLocation
+            let locStack = state.ipStack |> Seq.choose IpOperations.ip2codeLocation
             let inCoverageZone loc = loc.method.InCoverageZone
             Cps.Seq.foldlk (fun reachingLoc loc k ->
             match reachingLoc with

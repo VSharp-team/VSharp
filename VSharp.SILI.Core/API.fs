@@ -1,7 +1,6 @@
 namespace VSharp.Core
 
 open System
-open System.Collections.Generic
 open FSharpx.Collections
 open VSharp
 open VSharp.Core
@@ -856,7 +855,7 @@ module API =
                 let additionalFrameIsNeeded = hasByRefParameters || thisIsValueType
                 match method with
                 | _ when callStackSize = 1 || callStackSize = 2 && additionalFrameIsNeeded -> Types.Cast result method.ReturnType
-                | _ when state.exceptionsRegister.UnhandledError -> Nop()
+                | _ when state.exceptionsRegister.IsUnhandledError -> Nop()
                 | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
             | _ -> internalfail "EvaluationStack size was bigger than 1"
 

@@ -449,7 +449,7 @@ with
 
 type ehClauseMatcher =
     | ClassToken of uint32
-    | Filter of ilInstr
+    | FilterEH of ilInstr
 
 type ehClause = {
     flags : int
@@ -913,9 +913,16 @@ module EvaluationStackTyper =
 
     let createEHStackState (m : MethodBase) (flags : int) (startInstr : ilInstr) =
         let catchFlags = LanguagePrimitives.EnumToValue ExceptionHandlingClauseOptions.Clause
-        if flags = catchFlags then // NOTE: is catch
-            startInstr.stackState <- Some [evaluationStackCellType.Ref] // TODO: finially and filter! #do
-        else startInstr.stackState <- Some Stack.empty
+        let filterFlags = LanguagePrimitives.EnumToValue ExceptionHandlingClauseOptions.Filter
+        // TODO: finially! #do
+        match flags with
+        | _ when flags = catchFlags ->
+            // Pushing exception ref for catch clause
+            startInstr.stackState <- Some [evaluationStackCellType.Ref]
+        | _ when flags = filterFlags ->
+            // Pushing exception ref for filter clause
+            startInstr.stackState <- Some [evaluationStackCellType.Ref]
+        | _ -> startInstr.stackState <- Some Stack.empty
         createStackState m startInstr
 
 [<AllowNullLiteral>]
@@ -1227,7 +1234,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
                 // EvaluationStackTyper.createEHStackState m raw.flags start
                 start
             handlerEnd = (x.InstrFromOffset <| int (raw.handlerOffset + raw.handlerLength)).prev
-            matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else Filter (x.InstrFromOffset <| int raw.matcher)
+            matcher = if raw.flags &&& 0x0001 = 0 then ClassToken raw.matcher else FilterEH (x.InstrFromOffset <| int raw.matcher)
         }
         ehs <- Array.map parseEH body.ehs
 
@@ -1333,7 +1340,7 @@ type ILRewriter(body : rawMethodBody, m : MethodBase) =
             matcher =
                 match eh.matcher with
                 | ClassToken tok -> tok
-                | Filter instr -> instr.offset
+                | FilterEH instr -> instr.offset
         }
         let ehs = Array.map encodeEH ehs
         {properties = methodProps; il = Array.truncate (int methodProps.ilCodeSize) outputIL; ehs = ehs}

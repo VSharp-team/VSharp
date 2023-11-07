@@ -11,7 +11,7 @@ open VSharp
 open VSharp.CSharpUtils
 open VSharp.Core
 open VSharp.Interpreter.IL
-open ipOperations
+open IpOperations
 open MethodBody
 
 type cfg = CfgInfo
@@ -75,16 +75,6 @@ module internal InstructionsSet =
     let resolveTypeFromMetadata (m : Method) offset = m.ResolveTypeFromMetadata offset
     let resolveMethodFromMetadata (m : Method) offset = m.ResolveMethodFromMetadata offset
     let resolveTokenFromMetadata (m : Method) offset = m.ResolveTokenFromMetadata offset
-
-    let (|EndFinally|_|) = function
-        | Instruction(offset, m) when parseInstruction m offset = OpCodes.Endfinally -> Some()
-        | _ -> None
-
-    let rec (|InstructionEndingIp|_|) = function
-        | Instruction(offset, m)
-        | InFilterHandler(offset, m, _, _) -> Some (offset, m)
-        | Leave(ip, _, _, _) -> (|InstructionEndingIp|_|) ip
-        | _ -> None
 
     // ------------------------------- CIL instructions -------------------------------
 
@@ -223,9 +213,10 @@ module internal InstructionsSet =
         states |> List.map (changeState cilState)
     let brcommon condTransform (m : Method) (offset : offset) (cilState : cilState) =
         let cond = pop cilState
+        let oldIp = currentIp cilState
         let ipThen, ipElse =
            match conditionalBranchTarget m offset with
-           | offsetThen, [offsetElse] -> instruction m offsetThen, instruction m offsetElse
+           | offsetThen, [offsetElse] -> moveInstruction offsetThen oldIp, moveInstruction offsetElse oldIp
            | _ -> __unreachable__()
         StatedConditionalExecutionCIL cilState
            (fun state k -> k (condTransform <| transform2BooleanTerm state.pc cond, state))
@@ -321,9 +312,10 @@ module internal InstructionsSet =
                 (fun otherState k ->
                     otherState.state.pc <- origPc // ignore pc because we always know that cases do not overlap
                     kRestCases otherState k)
+        let oldIp = currentIp cilState
         let fallThroughIp, restIps =
             match conditionalBranchTarget m offset with
-            | fall, rests -> instruction m fall, List.map (instruction m) rests
+            | fall, rests -> moveInstruction fall oldIp, List.map (fun x -> moveInstruction x oldIp) rests
         let casesAndOffsets = List.mapi (fun i offset -> value === MakeNumber i, offset) restIps
         let bound = makeUnsignedInteger (List.length restIps |> MakeNumber) id
         let fallThroughGuard = Arithmetics.GreaterOrEqualUn value bound
@@ -379,29 +371,17 @@ module internal InstructionsSet =
         let typ = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Sizeof.Size)
         let size = Types.SizeOf typ
         push (MakeNumber size) cilState
-    let leave (m : Method) offset (cilState : cilState) =
-        let dst = unconditionalBranchTarget m offset
-        let ehcs =
-            m.ExceptionHandlers
-            |> Seq.filter isFinallyClause
-            |> Seq.filter (shouldExecuteFinallyClause offset dst)
-            |> Seq.sortWith (fun ehc1 ehc2 -> ehc1.handlerOffset - ehc2.handlerOffset |> int)
-            |> List.ofSeq
-        let currentIp =
-            match ehcs with
-            | [] -> Instruction(dst, m)
-            | e :: ehcs -> leave (Instruction(e.handlerOffset, m)) ehcs dst m
-        setCurrentIp currentIp cilState
     let endfilter (cilState : cilState) =
-        let value, restStack = EvaluationStack.Pop cilState.state.evaluationStack
-        if restStack = EvaluationStack.EmptyStack then
-            cilState.filterResult <- Some value
-        else __notImplemented__()
+        let value, newStack = EvaluationStack.Pop cilState.state.evaluationStack
+        setEvaluationStack newStack cilState
+        popExceptionRegister cilState
+        cilState.filterResult <- Some value
     let endfinally _ =
         // Should be handled in makeStep function
         __unreachable__()
     let br (m : Method) offset (cilState : cilState) =
-        let newIp = instruction m (unconditionalBranchTarget m offset)
+        let oldIp = currentIp cilState
+        let newIp = moveInstruction (unconditionalBranchTarget m offset) oldIp
         setCurrentIp newIp cilState
 
     let rec private constrainedImpl this method args cilState =
@@ -478,7 +458,8 @@ module internal InstructionsSet =
     let fallThrough (m : Method) offset cilState op =
         assert(not <| isUnhandledExceptionOrError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
-        let newIp = instruction m (fallThroughTarget m offset)
+        let oldIp = currentIp cilState
+        let newIp = moveInstruction (fallThroughTarget m offset) oldIp
         op m offset cilState
         fallThroughImpl stackSizeBefore newIp cilState
         [cilState]
@@ -486,7 +467,8 @@ module internal InstructionsSet =
     let forkThrough (m : Method) offset cilState op =
         assert(not <| isUnhandledExceptionOrError cilState)
         let stackSizeBefore = Memory.CallStackSize cilState.state
-        let newIp = instruction m (fallThroughTarget m offset)
+        let oldIp = currentIp cilState
+        let newIp = moveInstruction (fallThroughTarget m offset) oldIp
         let cilStates = op m offset cilState
         List.iter (fallThroughImpl stackSizeBefore newIp) cilStates
         cilStates
@@ -1417,12 +1399,14 @@ type ILInterpreter() as this =
 
     member private x.SetExceptionIP cilState =
         let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
-        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setCurrentIp (SearchingForHandler(None, List.empty, codeLocations, List.empty)) cilState
 
     member private x.CommonThrow cilState error isRuntime =
-        let codeLocations = List.map (Option.get << ip2codeLocation) cilState.ipStack
+        let codeLocations =
+            List.takeUntil isFilter cilState.ipStack
+            |> List.map (Option.get << ip2codeLocation)
         let stackTrace = List.map toString codeLocations |> join ","
-        setCurrentIp (SearchingForHandler(codeLocations, List.empty)) cilState
+        setCurrentIpSafe (SearchingForHandler(None, List.empty, codeLocations, List.empty)) cilState
         setException (Unhandled(error, isRuntime, stackTrace)) cilState
 
     member private x.Throw (cilState : cilState) =
@@ -1442,6 +1426,95 @@ type ILInterpreter() as this =
         state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
         x.SetExceptionIP cilState
         List.singleton cilState
+
+    member private x.MoveToFinally cilState ehcs (tryBlocks : HashSet<offset * offset>) (location : codeLocation) isSecondBypass =
+        let mutable ehcs = ehcs
+        let mutable finallyHandlerIp = None
+        let offset = location.offset
+        while not (Option.isSome finallyHandlerIp || List.isEmpty ehcs) do
+            let ehc = List.head ehcs
+            ehcs <- List.tail ehcs
+            match ehc.ehcType with
+            | _ when x.InHandlerBlock offset ehc ->
+                if isSecondBypass then moveDownExceptionRegister cilState
+                else popExceptionRegister cilState
+            | Finally ->
+                finallyHandlerIp <- Some (Instruction(ehc.handlerOffset, location.method))
+            | Fault when isSecondBypass ->
+                finallyHandlerIp <- Some (Instruction(ehc.handlerOffset, location.method))
+            | _ when tryBlocks.Add(ehc.tryOffset, ehc.tryLength) ->
+                if isSecondBypass then moveDownExceptionRegister cilState
+                else popExceptionRegister cilState
+            | _ -> ()
+        finallyHandlerIp, ehcs
+
+    member private x.LeaveToFinally cilState ehcs (location : codeLocation) =
+        let tryBlocks = HashSet<offset * offset>()
+        x.MoveToFinally cilState ehcs tryBlocks location false
+
+    member private x.BypassToFinally cilState ehcs (currentLocation : codeLocation) handlerLoc =
+        let tryBlocks = HashSet<offset * offset>()
+        let currentMethod = currentLocation.method
+        match handlerLoc with
+        | Some handlerLoc when currentMethod = handlerLoc.method ->
+            let handlers = currentMethod.ExceptionHandlers
+            let catchHandler = handlers |> Array.find (fun ehc -> ehc.handlerOffset = handlerLoc.offset)
+            tryBlocks.Add(catchHandler.tryOffset, catchHandler.tryLength) |> ignore
+        | _ -> ()
+        x.MoveToFinally cilState ehcs tryBlocks currentLocation true
+
+    // Searching for handler, found list of 'try/catch' blocks and sorted them and now choose one acceptable
+    // Look through blocks, if it is suitable catch, continue execution with 'SecondBypass'
+    // If it is filter, push exception register and continue execution with 'InFilterHandler'
+    // If suitable block was not found, try again with 'sortedBlocks = tail' sortedBlocks
+    member private x.FindCatch ehcs (observed : ExceptionHandlingClause list) (location : codeLocation) locations framesToPop cilState =
+        let state = cilState.state
+        let errorRef = state.exceptionsRegister.GetError()
+        let exceptionType = lazy(MostConcreteTypeOfRef state errorRef)
+        let mutable ehcs = ehcs
+        let observed = List<ExceptionHandlingClause>(observed)
+        let mutable nextIp = None
+        let offset = location.offset
+        while not (Option.isSome nextIp || List.isEmpty ehcs) do
+            let ehc = List.head ehcs
+            ehcs <- List.tail ehcs
+            match ehc.ehcType with
+            | _ when x.InHandlerBlock offset ehc ->
+                observed.Add ehc
+            | Catch t when TypeUtils.isSubtypeOrEqual exceptionType.Value t ->
+                // Check type and go
+                let handlerLocation = Some {method = location.method; offset = ehc.handlerOffset}
+                let observed = List.ofSeq observed
+                nextIp <- Some (SecondBypass(None, None, observed, Some location, framesToPop, handlerLocation))
+            | Filter o ->
+                // Start executing filter
+                let method = location.method
+                push errorRef cilState
+                newExceptionRegister cilState
+                let handlerOffset = ehc.handlerOffset
+                let filterHandler = instruction method o
+                let observed = List.ofSeq observed
+                nextIp <- Some (InFilterHandler(filterHandler, handlerOffset, ehcs, observed, locations, framesToPop))
+            | _ ->
+                // Handler is non-suitable catch or finally
+                observed.Add ehc
+        nextIp
+
+    member private x.EHCBetween (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
+        x.InEHCBlock src ehc && not (x.InEHCBlock dst ehc)
+
+    member private x.Leave (m : Method) offset (cilState : cilState) =
+        let dst = unconditionalBranchTarget m offset
+        let loc = { offset = offset; method = m }
+        let ehcs = x.SortEHCBlocks loc |> List.filter (x.EHCBetween offset dst)
+        let finallyHandlerIp, otherEchs = x.LeaveToFinally cilState ehcs loc
+        let currentIp =
+            match finallyHandlerIp with
+            | None ->
+                assert(List.isEmpty otherEchs)
+                Instruction(dst, m)
+            | Some ip -> leave ip otherEchs dst m
+        setCurrentIpSafe currentIp cilState
 
     member private x.Unbox (m : Method) offset (cilState : cilState) =
         let t = resolveTypeFromMetadata m (offset + Offset.from OpCodes.Unbox.Size)
@@ -1764,24 +1837,22 @@ type ILInterpreter() as this =
             id
 
     member x.CreateException (exceptionType : Type) arguments cilState =
-        assert (not <| exceptionType.IsValueType)
-        let stackTrace = lazy(Memory.StackTrace cilState.state.stack |> List.map toString |> join "\n")
-        Logger.printLog Logger.Info $"{exceptionType}!\nStack trace:\n{stackTrace.Value}"
+        assert(not exceptionType.IsValueType)
+        let stackTrace = Memory.StackTrace cilState.state.stack |> List.map toString |> join "\n"
+        Logger.info $"{exceptionType}!\nStack trace:\n{stackTrace}"
         clearEvaluationStackLastFrame cilState
         let constructors = exceptionType.GetConstructors()
         let argumentsLength = List.length arguments
-        let argumentsTypes =
-            List.map TypeOf arguments
+        let argumentsTypes = List.map TypeOf arguments
         let suitable (ci : ConstructorInfo) =
             let parameters = ci.GetParameters()
             parameters.Length = argumentsLength
             && parameters |> Seq.forall2 (fun p1 p2 -> p2.ParameterType.IsAssignableFrom p1) argumentsTypes
-        let ctors = constructors |> Array.filter suitable
+        let ctors = Array.filter suitable constructors
         assert(Array.length ctors = 1)
         let ctor = Application.getMethod ctors[0]
         assert ctor.HasRuntimeExceptionImpl
-        let proxyCtor = ctor.RuntimeExceptionImpl |> Application.getMethod
-        ILInterpreter.InitFunctionFrameCIL cilState proxyCtor None (Some arguments)
+        let proxyCtor = Application.getMethod ctor.RuntimeExceptionImpl
         let success = x.TryConcreteInvoke proxyCtor arguments None cilState
         assert success
 
@@ -1819,29 +1890,6 @@ type ILInterpreter() as this =
 
     // -------------------------------- ExplorerBase operations -------------------------------------
 
-    member x.ExecuteAllInstructionsForCFGEdges (m : Method) (cilState : cilState) : cilState list * cilState list * cilState list =
-        let ip = currentIp cilState
-        assert ip.CanBeExpanded()
-        let startingOffset = ip.Offset()
-        let cfg = m.CFG
-        let endOffset =
-            let lastOffset = Seq.last cfg.SortedBasicBlocks
-            let rec binarySearch l r =
-                if l + 1 = r then l
-                else
-                    let mid = (l + r) / 2
-                    if cfg.SortedBasicBlocks[mid].StartOffset <= startingOffset then binarySearch mid r
-                    else binarySearch l mid
-            let index = binarySearch 0 (Seq.length cfg.SortedBasicBlocks)
-            if cfg.SortedBasicBlocks[index] = lastOffset then Offset.from cfg.IlBytes.Length
-            else cfg.SortedBasicBlocks[index + 1].StartOffset
-
-        let isIpOfCurrentBasicBlock (ip : ip) =
-            match ip with
-            | Instruction(i, m') when m' = m -> startingOffset <= i && i < endOffset
-            | _ -> false
-        x.ExecuteAllInstructionsWhile isIpOfCurrentBasicBlock cilState
-
     member x.ExecuteOneInstruction (cilState : cilState) : cilState list * cilState list * cilState list =
         x.ExecuteAllInstructionsWhile (always false) cilState
 
@@ -1874,16 +1922,20 @@ type ILInterpreter() as this =
         let key = {offset = 0<offsets>; method = method}
         decrementLevel cilState key
 
-    member private x.FindNeededEHCBlock offset moreSuitable (ehcs : ExceptionHandlingClause seq) =
-        let findBlock acc (x : ExceptionHandlingClause) =
-            // NOTE: need to execute the most wide finally block
-            match acc with
-            | Some block when moreSuitable x block -> Some x
-            | Some _ -> acc
-            | None ->
-                // NOTE: check that this block protects current ip
-                if x.tryOffset <= offset && x.tryOffset + x.tryLength > offset then Some x else None
-        Seq.fold findBlock None ehcs
+    member private x.InTryBlock offset (clause : ExceptionHandlingClause) =
+        clause.tryOffset <= offset && offset < clause.tryOffset + clause.tryLength
+
+    member private x.InHandlerBlock offset (clause : ExceptionHandlingClause) =
+        clause.handlerOffset <= offset && offset < clause.handlerOffset + clause.handlerLength
+
+    member private x.InEHCBlock offset (clause : ExceptionHandlingClause) =
+        x.InTryBlock offset clause || x.InHandlerBlock offset clause
+
+    member private x.SortEHCBlocks (location : codeLocation) =
+        let method = location.method
+        let offset = location.offset
+        let filteredBlocks = method.ExceptionHandlers |> Array.filter (x.InEHCBlock offset)
+        filteredBlocks |> Array.sortBy (fun x -> x.handlerOffset + x.handlerLength) |> Array.toList
 
     static member private FallThroughCall (cilState : cilState) =
         match cilState.ipStack with
@@ -1896,122 +1948,178 @@ type ILInterpreter() as this =
                 pushNewObjForValueTypes cilState
         | _ -> __unreachable__()
 
+    member private x.PushExceptionRegisterIfNeeded (cilState : cilState) (method : Method) (offset : offset) =
+        let tryBlocks = HashSet<offset * offset>()
+        for handler in method.ExceptionHandlers do
+            let tryStart = handler.tryOffset
+            if tryStart = offset && tryBlocks.Add(tryStart, handler.tryLength) then
+                newExceptionRegister cilState
+
     member x.MakeStep (cilState : cilState) =
         cilState.stepsNumber <- cilState.stepsNumber + 1u
         let exit m =
             x.DecrementMethodLevel cilState m
             Logger.info $"Done with method {m}"
             match cilState.ipStack with
-            // NOTE: the whole method is executed
-//            | [ Exit _ ] when startsFromMethodBeginning cilState ->
-//                setCurrentTime [] cilState
-//                popFrameOf cilState
-            // NOTE: some part of method is executed
             | [ Exit _ ] -> ()
-            | Exit m :: ips' when m.IsStaticConstructor ->
+            | Exit m :: _ when m.IsStaticConstructor ->
                 popFrameOf cilState
-                setIpStack ips' cilState
             | Exit _ :: _ ->
                 popFrameOf cilState
                 ILInterpreter.FallThroughCall cilState
             | _ -> __unreachable__()
         let rec makeStep' ip k =
             match ip with
+            // Normal execution
+            // Also on entering try block we push new exception register
             | Instruction(offset, m) ->
                 if offset = 0<offsets> then Logger.info $"Starting to explore method {m}"
+                x.PushExceptionRegisterIfNeeded cilState m offset
                 x.ExecuteInstruction m offset cilState |> k
+            // Exiting method
             | Exit m ->
                 exit m
                 k [cilState]
-            | Leave(EndFinally, [],  dst, m) ->
-                setCurrentIp (instruction m dst) cilState
+            // Finished executing finally block, some more blocks to explore left
+            // Replace last ip with instruction and pop last exception register
+            | Leave(EndFinally as Instruction(offset, _), ehcs, dst, m) ->
+                let loc = { offset = offset; method = m }
+                let finallyHandlerIp, otherEhcs = x.LeaveToFinally cilState ehcs loc
+                let currentIp =
+                    match finallyHandlerIp with
+                    | None ->
+                        assert(List.isEmpty otherEhcs)
+                        Instruction(dst, m)
+                    | Some ip -> leave ip otherEhcs dst m
+                replaceLastIp currentIp cilState
                 clearEvaluationStackLastFrame cilState
+                popExceptionRegister cilState
                 k [cilState]
-            | Leave(EndFinally, ehc :: ehcs,  dst, m) ->
-                assert(isFinallyClause ehc || isFaultClause ehc)
-                let ip' = ipOperations.leave (instruction m ehc.handlerOffset) ehcs dst m
-                setCurrentIp ip' cilState
-                clearEvaluationStackLastFrame cilState
+            // Continue executing finally block
+            | Leave(ip, _, _, _) ->
+                makeStep' ip k
+            // Searching for handler, no locations left where blocks can be
+            | SearchingForHandler(_, _, [], framesToPop) ->
+                let ip = SecondBypass(None, None, List.empty, None, framesToPop, None)
+                setCurrentIpSafe ip cilState
                 k [cilState]
-            | Leave(ip, ehcs, dst, m) ->
-                let oldLength = List.length cilState.ipStack
-                let makeLeaveIfNeeded (result : cilState) =
-                    if List.length result.ipStack = oldLength then
-                        let ip = ipOperations.leave (currentIp result) ehcs dst m
-                        setCurrentIp ip result
-                makeStep' ip (fun states ->
-                List.iter makeLeaveIfNeeded states
-                k states)
-            | SearchingForHandler([], framesToPop) ->
-                let popFrameWithContents _ =
-                    clearEvaluationStackLastFrame cilState
-                    popFrameOf cilState
-                if List.length framesToPop > 1 then List.iter popFrameWithContents (List.tail framesToPop)
-                clearEvaluationStackLastFrame cilState
-                // TODO: need SecondBypass if handler was not found
-                setCurrentIp (SearchingForHandler([], [])) cilState
-                k [cilState]
-            | SearchingForHandler(location :: otherLocations, framesToPop) ->
-                let method = location.method
-                let ehcs = method.ExceptionHandlers
-                let filter = ehcs |> Seq.filter isFilterClause // TODO: use
-                let exceptionType = MostConcreteTypeOfRef cilState.state (cilState.state.exceptionsRegister.GetError())
-                let isSuitable ehc =
-                    match ehc.ehcType with
-                    | Catch t -> TypeUtils.isSubtypeOrEqual exceptionType t
-                    | _ -> false
-                let suitableCatchBlocks = ehcs |> Seq.filter isSuitable
-                let isNarrower (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
-                    y.handlerOffset < x.handlerOffset && y.handlerOffset + y.handlerLength > x.handlerOffset + x.handlerLength
-                let neededBlock = x.FindNeededEHCBlock location.offset isNarrower suitableCatchBlocks
-                match neededBlock with
-                | Some ehc ->
-                    let ip = SecondBypass(None, framesToPop, {method = method; offset = ehc.handlerOffset})
-                    cilState.state.exceptionsRegister <- cilState.state.exceptionsRegister.TransformToCaught()
-                    setCurrentIp ip cilState
+            // Searching for handler
+            | SearchingForHandler(sortedBlocks, observed, (location :: otherLocations as locations), framesToPop) ->
+                let ehcs =
+                    match sortedBlocks with
+                    | Some blocks -> blocks
+                    | None -> x.SortEHCBlocks location
+                let nextIp = x.FindCatch ehcs observed location locations framesToPop cilState
+                match nextIp with
+                | Some ip -> setCurrentIpSafe ip cilState
                 | None ->
-                    let ip = SearchingForHandler(otherLocations, framesToPop @ [location])
-                    setCurrentIp ip cilState
+                    // Going to next method
+                    let ip = SearchingForHandler(None, List.empty, otherLocations, framesToPop @ [location])
+                    setCurrentIpSafe ip cilState
                 k [cilState]
-            | SecondBypass(Some EndFinally, locations, codeLocation) ->
-                popFrameOf cilState
-                let ip = SecondBypass(None, locations, codeLocation)
-                setCurrentIp ip cilState
+            // Exception occured while executing filter and no handlers were found
+            // Exception means we return to searching for handler after filter block
+            | InFilterHandler(EmptySecondBypass, _, ehcs, observed, locations, framesToPop) ->
+                let newIp = SearchingForHandler(Some ehcs, observed, locations, framesToPop)
+                cilState.filterResult <- None
+                replaceLastIp newIp cilState
+                popExceptionRegister cilState
+                toUnhandledException cilState
                 k [cilState]
-            | SecondBypass(_, [], codeLocation) ->
-                // NOTE: starting to explore catch clause
+            // Executing instructions inside filter block
+            // Check filter result, if it is 'None' then continue execution
+            // If result is 'Some', start conditional execution on filter result
+            | InFilterHandler(ip, offset, ehcs, observed, (location :: _ as locations), framesToPop) ->
+                match cilState.filterResult with
+                | None -> makeStep' ip k
+                | Some t ->
+                    StatedConditionalExecutionCIL
+                        cilState
+                        (fun state k -> k (transform2BooleanTerm state.pc t, state))
+                        (fun cilState k ->
+                            cilState.filterResult <- None
+                            let handlerLoc = Some { method = location.method; offset = offset }
+                            let ipTrue = SecondBypass(None, None, observed, Some location, framesToPop, handlerLoc)
+                            replaceLastIp ipTrue cilState
+                            k [cilState])
+                        (fun cilState k ->
+                            cilState.filterResult <- None
+                            let ipFalse = SearchingForHandler(Some ehcs, observed, locations, framesToPop)
+                            replaceLastIp ipFalse cilState
+                            k [cilState])
+                        k
+            // Finished executing all finally blocks, and no handler was found
+            // We have to check if exception occured in a filter handler ('InFilterHandler' is on some location below in IP stack)
+            // If we were in filter, continue searching for handler after filter block
+            // Else we set terminating state for program (setting ip 'SearchingForHandler(Some [], [], [])')
+            | EmptySecondBypass ->
+                let isInFilter = List.tryFind ipIsInFilter cilState.ipStack
+                match isInFilter with
+                | Some (InFilterHandler(_, _, ehcs, observed, locations, framesToPop)) ->
+                    let ip = SearchingForHandler(Some ehcs, observed, locations, framesToPop)
+                    popFrameOf cilState
+                    replaceLastIp ip cilState
+                    popExceptionRegister cilState
+                    toUnhandledException cilState
+                | _ ->
+                    setCurrentIp emptySearchingForHandler cilState
+                    toUnhandledException cilState
+                k [cilState]
+            // Starting to explore catch clause
+            // Set exception to caught and push exception object on stack
+            | EmptySecondBypassWithCatch(codeLocation) ->
                 let ip = Instruction(codeLocation.offset, codeLocation.method)
-                setCurrentIp ip cilState
+                setCurrentIpSafe ip cilState
                 clearEvaluationStackLastFrame cilState
+                toCaughtException cilState
                 push (cilState.state.exceptionsRegister.GetError()) cilState
                 k [cilState]
-            | SecondBypass(Some ip, locations, codeLocation) ->
-                makeStep' ip (fun states ->
-                let makeIp (cilState : cilState) =
-                    let ip = SecondBypass(Some (currentIp cilState), locations, codeLocation)
-                    setCurrentIp ip cilState
-                List.iter makeIp states
-                k states)
-            | SecondBypass(None, location :: otherLocations, codeLocation) ->
-                let ehcs = location.method.ExceptionHandlers
-                let finallyBlocks = ehcs |> Seq.filter (fun ehc -> isFinallyClause ehc || isFaultClause ehc)
-                let isWider (x : ExceptionHandlingClause) (y : ExceptionHandlingClause) =
-                    x.handlerOffset < y.handlerOffset && x.handlerOffset + x.handlerLength > y.handlerOffset + y.handlerLength
-                let neededBlock = x.FindNeededEHCBlock location.offset isWider finallyBlocks
-                let finallyHandlerIp = neededBlock |> Option.map (fun b -> Instruction(b.handlerOffset, location.method))
-                let ip = SecondBypass(finallyHandlerIp, otherLocations, codeLocation)
-                clearEvaluationStackLastFrame cilState
-                popFrameOf cilState
-                clearEvaluationStackLastFrame cilState
+            // Finished executing finally block in second bypass
+            // We move down exception as it is end of try block
+            // Then we go and look for another block
+            | SecondBypass(Some EndFinally, ehcs, lastEhcs, lastLocation, locations, codeLocation) ->
+                let ip = SecondBypass(None, ehcs, lastEhcs, lastLocation, locations, codeLocation)
+                moveDownExceptionRegister cilState
+                toUnhandledException cilState
                 setCurrentIp ip cilState
+                k [cilState]
+            // Executing finally block in second bypass
+            | SecondBypass(Some ip, _, _, _, _, _) ->
+                makeStep' ip k
+            // Searching for finally block to execute
+            | SecondBypass(None, sortedBlocks, lastBlocks, lastLocation, locations, codeLocation) ->
+                let ehcs, lastBlocks, currentLocation =
+                    match sortedBlocks, locations, lastLocation with
+                    | Some sortedBlocks, location :: _, _ -> sortedBlocks, lastBlocks, location
+                    | Some sortedBlocks, _, Some lastLocation -> sortedBlocks, lastBlocks, lastLocation
+                    | None, location :: _, _ -> x.SortEHCBlocks location, lastBlocks, location
+                    | _, _, Some lastLocation -> lastBlocks, List.empty, lastLocation
+                    | _ -> internalfail $"SecondBypass: unexpected ip {ip}"
+                let finallyHandlerIp, otherEhcs = x.BypassToFinally cilState ehcs currentLocation codeLocation
+                let otherEhcs, locations =
+                    match finallyHandlerIp with
+                    | None ->
+                        assert(List.isEmpty otherEhcs)
+                        let locations =
+                            match locations with
+                            | _ :: otherLocations ->
+                                if List.isEmpty otherLocations |> not || Option.isSome codeLocation then
+                                    popFrameOf cilState
+                                    clearEvaluationStackLastFrame cilState
+                                otherLocations
+                            | _ -> locations
+                        None, locations
+                    | Some _ ->
+                        toCaughtException cilState
+                        Some otherEhcs, locations
+                let ip = SecondBypass(finallyHandlerIp, otherEhcs, lastBlocks, lastLocation, locations, codeLocation)
+                setCurrentIpSafe ip cilState
                 k [cilState]
             | _ -> __notImplemented__()
         makeStep' (currentIp cilState) id
 
     member private x.ExecuteInstruction m offset (cilState : cilState) =
-//        Logger.trace "ExecuteInstruction:\n%s" (dump cilState)
         let opCode = parseInstruction m offset
-//        let newIps = moveIp cilState |> List.map (fun cilState -> cilState.ipStack)
 
         let opcodeValue = LanguagePrimitives.EnumOfValue opCode.Value
         let newSts =
@@ -2149,10 +2257,10 @@ type ILInterpreter() as this =
             | OpCodeValues.Stind_I -> (fun _ _ -> x.Stind MakeIntPtr) |> forkThrough m offset cilState
             | OpCodeValues.Sizeof -> sizeofInstruction |> fallThrough m offset cilState
             | OpCodeValues.Leave
-            | OpCodeValues.Leave_S -> leave m offset cilState; [cilState]
+            | OpCodeValues.Leave_S -> x.Leave m offset cilState; [cilState]
             | OpCodeValues.Endfinally -> (fun _ _ -> endfinally) |> fallThrough m offset cilState
             | OpCodeValues.Rethrow -> x.Rethrow cilState
-            | OpCodeValues.Endfilter -> (fun _ _ -> endfilter) |> fallThrough m offset cilState
+            | OpCodeValues.Endfilter -> endfilter cilState; [cilState]
             | OpCodeValues.Localloc -> (fun _ _ -> localloc) |> fallThrough m offset cilState
             // TODO: notImplemented instructions
             | OpCodeValues.Stelem_I -> (fun _ _ _ -> __notImplemented__()) |> fallThrough m offset cilState

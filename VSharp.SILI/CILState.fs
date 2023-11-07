@@ -5,7 +5,7 @@ open System.Text
 open System.Collections.Generic
 open VSharp.Core
 open VSharp.Interpreter.IL
-open ipOperations
+open IpOperations
 
 type prefix =
     | Constrained of System.Type
@@ -104,29 +104,52 @@ module CilStateOperations =
         | _ -> true
 
     let isUnhandledException (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Peek with
         | Unhandled _ -> true
         | _ -> false
 
     let isUnhandledExceptionOrError (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Peek with
         | Unhandled _ -> true
         | _ -> s.errorReported
 
-    let levelToUnsignedInt (lvl : level) = PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl //TODO: remove it when ``level'' subtraction would be generalized
+    let newExceptionRegister (cilState : cilState) =
+        let state = cilState.state
+        state.exceptionsRegister <- state.exceptionsRegister.Push NoException
+
+    let popExceptionRegister (cilState : cilState) =
+        let state = cilState.state
+        state.exceptionsRegister <- state.exceptionsRegister.Tail
+
+    let toUnhandledException cilState =
+        let state = cilState.state
+        state.exceptionsRegister <- state.exceptionsRegister.TransformToUnhandled()
+
+    let toCaughtException cilState =
+        let state = cilState.state
+        state.exceptionsRegister <- state.exceptionsRegister.TransformToCaught()
+
+    let moveDownExceptionRegister (cilState : cilState) =
+        let state = cilState.state
+        let elem, rest = state.exceptionsRegister.Pop()
+        state.exceptionsRegister <- rest.Tail.Push elem
+
+    let levelToUnsignedInt (lvl : level) =
+        // TODO: remove it when ``level'' subtraction would be generalized
+        PersistentDict.fold (fun acc _ v -> max acc v) 0u lvl
+
     let currentIp (s : cilState) =
         match s.ipStack with
-        | [] -> __unreachable__()
-        | h::_ -> h
-//        List.head s.ipStack
+        | [] -> internalfail "currentIp: 'IP' stack is empty"
+        | h :: _ -> h
 
     let stoppedByException (s : cilState) =
         match currentIp s with
-        | SearchingForHandler([], []) -> true
+        | EmptySearchingForHandler -> true
         | _ -> false
 
     let hasRuntimeExceptionOrError (s : cilState) =
-        match s.state.exceptionsRegister with
+        match s.state.exceptionsRegister.Peek with
         | _ when s.errorReported -> true
         | Unhandled(_, isRuntime, _) -> isRuntime
         | _ -> false
@@ -174,8 +197,44 @@ module CilStateOperations =
         assert(List.isEmpty cilState.ipStack |> not)
         cilState.ipStack <- ip :: List.tail cilState.ipStack
 
-    let setIpStack (ipStack : ipStack) (cilState : cilState) = cilState.ipStack <- ipStack
-    let startingIpOf (cilState : cilState) = cilState.startingIP
+    let rec private changeInnerIp oldIp newIp =
+        match oldIp with
+        | Leave(ip, e, i, m) ->
+            Leave(changeInnerIp ip newIp, e, i, m)
+        | InFilterHandler(ip, offset, e, f, lc, l) ->
+            InFilterHandler(changeInnerIp ip newIp, offset, e, f, lc, l)
+        | SecondBypass(Some ip, ehcs, lastBlocks, loc, cl, ftp) ->
+            SecondBypass(Some (changeInnerIp ip newIp), ehcs, lastBlocks, loc, cl, ftp)
+        | _ -> newIp
+
+    let setCurrentIpSafe (ip : ip) (cilState : cilState) =
+        let oldIp = currentIp cilState
+        let ip = changeInnerIp oldIp ip
+        setCurrentIp ip cilState
+
+    let private (|NonRecIp|_|) = function
+        | Instruction _ -> Some ()
+        | Exit _ -> Some ()
+        | SearchingForHandler _ -> Some ()
+        | SecondBypass(None, _, _, _, _, _) -> Some()
+        | _ -> None
+
+    let rec private createNewIp oldIp newIp =
+        match oldIp with
+        | InFilterHandler(NonRecIp _, _, _, _, _, _) -> newIp
+        | Leave(NonRecIp _, _, _, _) -> newIp
+        | SecondBypass(Some NonRecIp, _, _, _, _, _) -> newIp
+        | InFilterHandler(ip, offset, e, f, lc, l) ->
+            InFilterHandler(createNewIp ip newIp, offset, e, f, lc, l)
+        | Leave(ip, e, i, m) -> Leave(createNewIp ip newIp, e, i, m)
+        | SecondBypass(Some ip, ehcs, lastBlocks, lastLocation, locations, handlerLoc) ->
+            SecondBypass(Some (createNewIp ip newIp), ehcs, lastBlocks, lastLocation, locations, handlerLoc)
+        | _ -> newIp
+
+    let replaceLastIp (ip : ip) (cilState : cilState) =
+        let oldIp = currentIp cilState
+        let newIp = createNewIp oldIp ip
+        setCurrentIp newIp cilState
 
     let pushPrefixContext (cilState : cilState) (prefix : prefix) =
         cilState.prefixContext <- prefix :: cilState.prefixContext
@@ -263,7 +322,9 @@ module CilStateOperations =
         if LanguagePrimitives.PhysicalEquality state cilState.state then cilState
         else {cilState with state = state; id = getNextStateId()}
 
-    let setException exc (cilState : cilState) = cilState.state.exceptionsRegister <- exc
+    let setException exc (cilState : cilState) =
+        let state = cilState.state
+        state.exceptionsRegister <- state.exceptionsRegister.Tail.Push exc
 
     let push v (cilState : cilState) =
         match v.term with
@@ -405,24 +466,6 @@ module CilStateOperations =
         List.map (changeState cilState) states
 
     // ------------------------------- Helper functions for cilState -------------------------------
-
-    // TODO: not used
-    let moveIp offset (m : Method) cilState =
-        assert m.HasBody
-        let opCode = MethodBody.parseInstruction m offset
-        let newIps =
-            let nextTargets = MethodBody.findNextInstructionOffsetAndEdges opCode m.ILBytes offset
-            match nextTargets with
-            | UnconditionalBranch nextInstruction
-            | FallThrough nextInstruction -> instruction m nextInstruction |> List.singleton
-            | Return -> exit m |> List.singleton
-            | ExceptionMechanism ->
-                // TODO: use ExceptionMechanism? #do
-//                let toObserve = __notImplemented__()
-//                searchingForHandler toObserve 0 :: []
-                __notImplemented__()
-            | ConditionalBranch (fall, targets) -> fall :: targets |> List.map (instruction m)
-        List.map (fun ip -> setCurrentIp ip cilState) newIps
 
     let GuardedApplyCIL (cilState : cilState) term (f : cilState -> term -> ('a list -> 'b) -> 'b) (k : 'a list -> 'b) =
         let mkCilState state =
