@@ -133,6 +133,10 @@ type arrayCopyInfo =
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
 
+type memoryMode =
+    | ConcreteMode
+    | SymbolicMode
+
 type model =
     | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
     | StateModel of state
@@ -200,6 +204,7 @@ and
         mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
+        memoryMode : memoryMode
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
 

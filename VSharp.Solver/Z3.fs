@@ -1362,7 +1362,8 @@ module internal Z3 =
         member x.MkModel (m : Model) =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
-                let state = {Memory.EmptyState() with complete = true}
+                // TODO: compose memory region with concrete memory
+                let state = {Memory.EmptyState() with complete = true; memoryMode = SymbolicMode}
                 let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
                 for KeyValue(key, value) in encodingCache.t2e do
