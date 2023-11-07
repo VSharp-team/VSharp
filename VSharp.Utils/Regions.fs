@@ -205,7 +205,7 @@ module private CartesianRegions =
         else Intersects
 
 [<StructuralEquality;NoComparison>]
-type productRegion<'a, 'b when 'a :> IRegion<'a> and 'b :> IRegion<'b>> =
+type    productRegion<'a, 'b when 'a :> IRegion<'a> and 'b :> IRegion<'b>> =
     {products : ('a * 'b) list}
     static member ProductOf x y = {products = List.singleton (x, y)}
     member this.Map (mapper1 : 'a -> 'a) (mapper2 : 'b -> 'b) = {products = List.map (fun (a, b) -> mapper1 a, mapper2 b) this.products}
