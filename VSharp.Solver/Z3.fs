@@ -116,6 +116,7 @@ module internal Z3 =
         staticKeys : IDictionary<Expr, Type>
         regionConstants : Dictionary<regionSort * path, ArrayExpr>
         defaultValues : IDictionary<regionSort, HashSet<Expr[]>>
+        funcDecls : IDictionary<string * Sort[] * Sort, FuncDecl>
         mutable lastSymbolicAddress : int32
     } with
         member x.Get(term, encoder : unit -> Expr) =
@@ -139,6 +140,7 @@ module internal Z3 =
         staticKeys = Dictionary<Expr, Type>()
         regionConstants = Dictionary<regionSort * path, ArrayExpr>()
         defaultValues = Dictionary<regionSort, HashSet<Expr[]>>()
+        funcDecls = Dictionary<string * Sort[] * Sort, FuncDecl>()
         lastSymbolicAddress = 0
     }
 
@@ -164,6 +166,15 @@ module internal Z3 =
                 let suitableKeys = HashSet<Expr[]>()
                 encodingCache.defaultValues.Add(regionSort, suitableKeys)
                 suitableKeys
+
+        let getFuncDecl (name : string) (argsSort : Sort[]) (resultSort : Sort) =
+            let result : FuncDecl ref = ref null
+            let key = name, argsSort, resultSort
+            if encodingCache.funcDecls.TryGetValue(key, result) then result.Value
+            else
+                let funcDecl = ctx.MkFuncDecl(name, argsSort, resultSort)
+                encodingCache.funcDecls.Add(key, funcDecl)
+                funcDecl
 
         let RoundNearest = ctx.MkFPRoundNearestTiesToEven()
         let TrueExpr = ctx.MkTrue()
@@ -623,8 +634,8 @@ module internal Z3 =
 
         member private x.EncodeOperationFP encCtx operation args =
             match operation with
-            | OperationType.Equal -> x.MakeBinary encCtx ctx.MkFPEq args
-            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << ctx.MkFPEq) args
+            | OperationType.Equal -> x.MakeBinary encCtx ctx.MkEq args
+            | OperationType.NotEqual -> x.MakeBinary encCtx (x.MkNot << ctx.MkEq) args
             | OperationType.Greater
             | OperationType.Greater_Un -> x.MakeBinary encCtx x.MkFPGt args
             | OperationType.GreaterOrEqual
@@ -728,14 +739,20 @@ module internal Z3 =
             let result, assumptions = List.fold addOneSlice (res, List.empty) slices
             {expr = x.ReverseBytes result; assumptions = assumptions}
 
+        member private x.EncodeApplication sf typ (args : Expr array) =
+            let argsSort = args |> Array.map (fun arg -> arg.Sort)
+            let name = sf.ToString()
+            let resultSort = x.Type2Sort typ
+            let decl = getFuncDecl name argsSort resultSort
+            ctx.MkApp(decl, args)
+
         member private x.EncodeExpression encCtx term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
                 | Operator operation ->
                     x.EncodeOperation encCtx operation args typ
                 | Application sf ->
-                    let decl = ctx.MkConstDecl(sf |> toString |> IdGenerator.startingWith, x.Type2Sort typ)
-                    x.MakeOperation encCtx (fun x -> ctx.MkApp(decl, x)) args
+                    x.MakeOperation encCtx (x.EncodeApplication sf typ) args
                 | Cast(Numeric t1, Numeric t2) when isReal t1 && isReal t2 ->
                     let arg = x.EncodeTerm encCtx (List.head args)
                     let sort = x.Type2Sort t2 :?> FPSort
