@@ -74,7 +74,6 @@ namespace IntegrationTests
             return result;
         }
 
-        // [Ignore("need more external method implementations")]
         [TestSvm(100)]
         public static bool OwnImplementationTest2(char c1, char c2, char c3, char c4, char c5, char c6)
         {
@@ -102,7 +101,6 @@ namespace IntegrationTests
         }
 
         [TestSvm(100)]
-        // [Ignore("Incorrect result")]
         public static bool OwnImplementationTest4(string pattern)
         {
             return RegExImplementation.Match(pattern, "Hello");

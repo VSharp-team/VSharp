@@ -78,10 +78,12 @@ module internal CallStack =
         | Some entry -> k entry
         | None -> findFrameAndRead frames key k
 
+    let isModelStack (stack : callStack) =
+        stack.frames.Length = 1 && stack.frames.Head.func = None
+
     let readStackLocation (stack : callStack) key makeSymbolic =
-        let isModel = stack.frames.Length = 1 && stack.frames.Head.func = None
         let notContains = lazy (stack.frames.Head.entries |> PersistentDict.forall (fun (key', _) -> key <> key'))
-        if isModel && notContains.Value then
+        if isModelStack stack && notContains.Value then
             // This state is formed by SMT solver model, just return the default value
             match key with
             | ParameterKey pi -> pi.ParameterType |> makeDefaultValue

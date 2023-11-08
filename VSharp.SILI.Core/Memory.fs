@@ -42,14 +42,9 @@ module internal Memory =
         startingTime = VectorTime.zero
         model = PrimitiveModel (Dictionary())
         complete = complete
+        memoryMode = ConcreteMode
         methodMocks = Dictionary()
     }
-
-    type memoryMode =
-        | ConcreteMemory
-        | SymbolicMemory
-
-    let mutable memoryMode = ConcreteMemory
 
     let copy (state : state) newPc =
         let cm = state.concreteMemory.Copy()
@@ -514,7 +509,7 @@ module internal Memory =
     // ------------------ Object to term ------------------
 
     let private allocateObjectIfNeed state (obj : obj) t =
-        assert(memoryMode = ConcreteMemory)
+        assert(state.memoryMode = ConcreteMode)
         let cm = state.concreteMemory
         let address =
             match cm.TryPhysToVirt obj with
@@ -544,7 +539,7 @@ module internal Memory =
         | _ -> referenceTypeToTerm state obj t
 
     and private structToTerm state (obj : obj) t =
-        let makeField (fieldInfo : Reflection.FieldInfo) _ _ =
+        let makeField (fieldInfo : FieldInfo) _ _ =
            fieldInfo.GetValue(obj) |> objToTerm state fieldInfo.FieldType
         makeStruct false makeField t
 
@@ -961,8 +956,8 @@ module internal Memory =
         let cm = state.concreteMemory
         let typeFromMemory = typeOfHeapLocation state address
         let typ = mostConcreteType typeFromMemory sightType
-        match memoryMode, address.term with
-        | ConcreteMemory, ConcreteHeapAddress address when cm.Contains address ->
+        match state.memoryMode, address.term with
+        | ConcreteMode, ConcreteHeapAddress address when cm.Contains address ->
             let value = cm.VirtToPhys address
             objToTerm state typ value
         | _ -> readBoxedSymbolic state address typ
@@ -1068,7 +1063,7 @@ module internal Memory =
             || checkBlockBounds reporter (makeNumber blockSize) startByte endByte
         if inBlock then
             let fields = Reflection.fieldsOf isStatic blockType
-            let getOffsetAndSize (fieldId, fieldInfo : Reflection.FieldInfo) =
+            let getOffsetAndSize (fieldId, fieldInfo : FieldInfo) =
                 fieldId, Reflection.getFieldOffset fieldInfo, internalSizeOf fieldInfo.FieldType
             let fieldIntervals = Array.map getOffsetAndSize fields |> Array.sortBy snd3
             let betweenField = {name = ""; declaringType = blockType; typ = typeof<byte>}
@@ -1416,13 +1411,13 @@ module internal Memory =
 
     let writeBoxedLocation state (address : term) value =
         let cm = state.concreteMemory
-        match memoryMode, address.term, tryTermToObj state value with
-        | ConcreteMemory, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
+        match state.memoryMode, address.term, tryTermToObj state value with
+        | ConcreteMode, ConcreteHeapAddress a, Some value when cm.Contains(a) ->
             cm.Remove a
             cm.Allocate a value
-        | ConcreteMemory, ConcreteHeapAddress a, Some value ->
+        | ConcreteMode, ConcreteHeapAddress a, Some value ->
             cm.Allocate a value
-        | ConcreteMemory, ConcreteHeapAddress a, None when cm.Contains(a) ->
+        | ConcreteMode, ConcreteHeapAddress a, None when cm.Contains(a) ->
             cm.Remove a
             typeOf value |> writeBoxedLocationSymbolic state address value
         | _ -> typeOf value |> writeBoxedLocationSymbolic state address value
@@ -1431,7 +1426,7 @@ module internal Memory =
 
     let private unmarshallClass (state : state) concreteAddress obj =
         let address = ConcreteHeapAddress concreteAddress
-        let writeField state (fieldId, fieldInfo : Reflection.FieldInfo) =
+        let writeField state (fieldId, fieldInfo : FieldInfo) =
             let value = fieldInfo.GetValue obj |> objToTerm state fieldInfo.FieldType
             writeClassFieldSymbolic state address fieldId value
         let fields = obj.GetType() |> Reflection.fieldsOf false
@@ -1675,13 +1670,13 @@ module internal Memory =
         assert (not <| isSubtypeOrEqual typ typeof<String>)
         assert (not <| isSubtypeOrEqual typ typeof<Delegate>)
         let concreteAddress = allocateConcreteType state typ
-        match memoryMode with
+        match state.memoryMode with
         // TODO: it's hack for reflection, remove it after concolic will be implemented
         | _ when isSubtypeOrEqual typ typeof<Type> -> ()
-        | ConcreteMemory ->
+        | ConcreteMode ->
             let object = Reflection.createObject typ
             state.concreteMemory.Allocate concreteAddress object
-        | SymbolicMemory -> ()
+        | SymbolicMode -> ()
         HeapRef (ConcreteHeapAddress concreteAddress) typ
 
     // TODO: unify allocation with unmarshalling
@@ -1692,8 +1687,8 @@ module internal Memory =
         let address = ConcreteHeapAddress concreteAddress
         let concreteLengths = tryIntListFromTermList lengths
         let concreteLowerBounds = tryIntListFromTermList lowerBounds
-        match memoryMode, concreteLengths, concreteLowerBounds with
-        | ConcreteMemory, Some concreteLengths, Some concreteLBs ->
+        match state.memoryMode, concreteLengths, concreteLowerBounds with
+        | ConcreteMode, Some concreteLengths, Some concreteLBs ->
             let elementDotNetType = elementType typ
             let array = Array.CreateInstance(elementDotNetType, Array.ofList concreteLengths, Array.ofList concreteLBs) :> obj
             state.concreteMemory.Allocate concreteAddress array
@@ -1705,8 +1700,8 @@ module internal Memory =
         allocateArray state typ [makeNumber 0] [length]
 
     let allocateConcreteVector state (elementType : Type) length contents =
-        match memoryMode, length.term with
-        | ConcreteMemory, Concrete(:? int as intLength, _) ->
+        match state.memoryMode, length.term with
+        | ConcreteMode, Concrete(:? int as intLength, _) ->
             let concreteAddress = allocateConcreteType state (elementType.MakeArrayType())
             let array = Array.CreateInstance(elementType, intLength)
             Seq.iteri (fun i value -> array.SetValue(value, i)) contents
@@ -1723,8 +1718,8 @@ module internal Memory =
 
     // TODO: unify allocation with unmarshalling
     let private commonAllocateString state length contents =
-        match memoryMode, length.term with
-        | ConcreteMemory, Concrete(:? int as intLength, _) ->
+        match state.memoryMode, length.term with
+        | ConcreteMode, Concrete(:? int as intLength, _) ->
             // TODO: implement interning (for String.Empty)
             let charArray : char array = Array.create intLength '\000'
             Seq.iteri (fun i char -> charArray.SetValue(char, i)) contents
@@ -1762,9 +1757,9 @@ module internal Memory =
         let typ = typeOf value
         let concreteAddress = allocateConcreteType state typ
         let address = ConcreteHeapAddress concreteAddress
-        match memoryMode, tryTermToObj state value with
+        match state.memoryMode, tryTermToObj state value with
         // 'value' may be null, if it's nullable value type
-        | ConcreteMemory, Some value when value <> null ->
+        | ConcreteMode, Some value when value <> null ->
             assert(value :? ValueType)
             state.concreteMemory.Allocate concreteAddress value
         | _ -> writeBoxedLocationSymbolic state address value typ
@@ -1772,11 +1767,11 @@ module internal Memory =
 
     let allocateConcreteObject state obj (typ : Type) =
         assert(not typ.IsAbstract)
-        match memoryMode with
-        | ConcreteMemory ->
+        match state.memoryMode with
+        | ConcreteMode ->
             let address = allocateObjectIfNeed state obj typ
             HeapRef address typ
-        | SymbolicMemory -> internalfailf $"allocateConcreteObject: allocating concrete object {obj} in symbolic memory is not implemented"
+        | SymbolicMode -> internalfailf $"allocateConcreteObject: allocating concrete object {obj} in symbolic memory is not implemented"
 
     let allocateTemporaryLocalVariableOfType state name index typ =
         let tmpKey = TemporaryLocalVariableKey(typ, index)
@@ -1862,11 +1857,11 @@ module internal Memory =
         | Some d -> simplifyDelegate state d
         | None -> List.empty
 
-    let allocateDelegate state (methodInfo : System.Reflection.MethodInfo) target delegateType =
+    let allocateDelegate state (methodInfo : MethodInfo) target delegateType =
         let concreteAddress = allocateConcreteType state delegateType
         let address = ConcreteHeapAddress concreteAddress
-        match memoryMode, tryTermToObj state target with
-        | ConcreteMemory, Some target ->
+        match state.memoryMode, tryTermToObj state target with
+        | ConcreteMode, Some target ->
             let d = methodInfo.CreateDelegate(delegateType, target)
             state.concreteMemory.Allocate concreteAddress d
             HeapRef address delegateType
@@ -1882,8 +1877,8 @@ module internal Memory =
 
     let allocateCombinedDelegate state concreteAddress (delegateRefs : term list) t =
         let concreteDelegates = tryTermListToObjects state delegateRefs
-        match memoryMode, concreteDelegates with
-        | ConcreteMemory, Some list ->
+        match state.memoryMode, concreteDelegates with
+        | ConcreteMode, Some list ->
             assert(List.isEmpty list |> not)
             if List.length list = 1 then
                 state.concreteMemory.Allocate concreteAddress (List.head list)
@@ -1908,8 +1903,8 @@ module internal Memory =
     let removeDelegate state (sourceRef : term) (toRemoveRef : term) typ =
         let cm = state.concreteMemory
         let toRemove = tryTermToObj state toRemoveRef
-        match memoryMode, sourceRef.term, toRemove with
-        | ConcreteMemory, HeapRef({term = ConcreteHeapAddress a}, _), Some toRemove when cm.Contains a ->
+        match state.memoryMode, sourceRef.term, toRemove with
+        | ConcreteMode, HeapRef({term = ConcreteHeapAddress a}, _), Some toRemove when cm.Contains a ->
             let source = cm.VirtToPhys a
             assert(source :? Delegate && toRemove :? Delegate)
             let source = source :?> Delegate
@@ -2193,6 +2188,7 @@ module internal Memory =
                     startingTime = state.startingTime
                     model = state.model // TODO: compose models (for example, mocks)
                     complete = state.complete
+                    memoryMode = state.memoryMode // TODO: compose memory mode
                     methodMocks = methodMocks
                 }
         }
