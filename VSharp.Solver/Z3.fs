@@ -1385,7 +1385,7 @@ module internal Z3 =
             try
                 let stackEntries = Dictionary<stackKey, term ref>()
                 // TODO: compose memory region with concrete memory
-                let state = {Memory.EmptyState() with complete = true; memoryMode = SymbolicMode}
+                let state = { Memory.EmptyState() with complete = true; memoryMode = SymbolicMode }
                 let primitiveModel = Dictionary<ISymbolicConstantSource, term ref>()
 
                 for KeyValue(key, value) in encodingCache.t2e do
@@ -1420,19 +1420,20 @@ module internal Z3 =
                     (key, Some term, typ))
                 Memory.NewStackFrame state None (List.ofSeq frame)
 
-                let pointers = Dictionary<address, term>()
+                let stores = Dictionary<address * path, term * regionSort>()
                 let defaultValues = Dictionary<regionSort, term ref>()
                 for KeyValue(typ, constant) in encodingCache.regionConstants do
                     let region, path = typ
                     let arr = m.Eval(constant, false)
+                    let typeOfRegion = region.TypeOfLocation
                     let typeOfLocation =
-                        if path.IsEmpty then region.TypeOfLocation
+                        if path.IsEmpty then typeOfRegion
                         else path.TypeOfLocation
                     let rec parseArray (arr : Expr) =
                         if arr.IsConstantArray then
                             assert(arr.Args.Length = 1)
                             let constantValue = x.Decode typeOfLocation arr.Args[0]
-                            x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation constantValue
+                            x.WriteDictOfValueTypes defaultValues region path typeOfRegion constantValue
                         elif arr.IsDefaultArray then
                             assert(arr.Args.Length = 1)
                         elif arr.IsStore then
@@ -1440,22 +1441,10 @@ module internal Z3 =
                             parseArray arr.Args[0]
                             let address = x.DecodeMemoryKey region arr.Args[1..arr.Args.Length - 2]
                             let value = Array.last arr.Args |> x.Decode typeOfLocation
-                            let address, ptrPart = path.ToAddress address
-                            match ptrPart with
-                            | Some kind ->
-                                let exists, ptr = pointers.TryGetValue(address)
-                                let ptr =
-                                    if exists then ptr
-                                    else Memory.DefaultOf address.TypeOfLocation
-                                match kind, ptr.term with
-                                | PointerAddress, Ptr(HeapLocation(_, t), s, o) ->
-                                    pointers[address] <- Ptr (HeapLocation(value, t)) s o
-                                | PointerOffset, Ptr(HeapLocation(a, t), s, _) ->
-                                    pointers[address] <- Ptr (HeapLocation(a, t)) s value
-                                | _ -> internalfail $"MkModel: unexpected path {kind}"
-                            | None ->
+                            if path.IsEmpty then
                                 let states = Memory.Write state (Ref address) value
                                 assert(states.Length = 1 && states[0] = state)
+                            else stores[(address, path)] <- value, region
                         elif arr.IsConst then ()
                         elif arr.IsQuantifier then
                             let quantifier = arr :?> Quantifier
@@ -1463,7 +1452,7 @@ module internal Z3 =
                             // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
                             if body.IsApp && body.IsEq && body.Args.Length = 2 then
                                 // Firstly, setting all values to 'false'
-                                x.WriteDictOfValueTypes defaultValues region path region.TypeOfLocation (MakeBool false)
+                                x.WriteDictOfValueTypes defaultValues region path typeOfRegion (MakeBool false)
                                 let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
                                 let address, ptrPart = path.ToAddress address
                                 assert(Option.isNone ptrPart)
@@ -1474,8 +1463,21 @@ module internal Z3 =
                         else internalfail $"Unexpected array expression in model: {arr}"
                     parseArray arr
 
-                for KeyValue(address, ptr) in pointers do
-                    let states = Memory.Write state (Ref address) ptr
+                let complexStores = Dictionary<address, term ref>()
+
+                for KeyValue((address, path), (value, regionSort)) in stores do
+                    assert(not path.IsEmpty)
+                    let exists, term = complexStores.TryGetValue address
+                    let term =
+                        if exists then term
+                        else
+                            let term = defaultValues[regionSort].Value |> ref
+                            complexStores.Add(address, term)
+                            term
+                    term.Value <- x.WriteByPath term.Value value path.parts
+
+                for KeyValue(address, value) in complexStores do
+                    let states = Memory.Write state (Ref address) value.Value
                     assert(states.Length = 1 && states[0] = state)
 
                 for KeyValue(regionSort, value) in defaultValues do
