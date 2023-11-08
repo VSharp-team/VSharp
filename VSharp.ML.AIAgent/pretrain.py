@@ -4,9 +4,7 @@ from ml.predict_state_vector_hetero import PredictStateVectorHetGNN
 
 
 def get_data_hetero_vector():
-    dl = ServerDataloaderHeteroVector(
-        "/home/cyfra/PycharmProjects/symbolic_exec_GNN-main/SerializedEpisodes_10.10.2023"
-    )
+    dl = ServerDataloaderHeteroVector("../serialized")
     return dl.dataset
 
 
