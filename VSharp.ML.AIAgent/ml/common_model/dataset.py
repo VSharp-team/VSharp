@@ -1,28 +1,30 @@
 from collections.abc import Sequence
 import torch
-from torch_geometric.data import Dataset
-from pathlib import Path
 
 import os
+import numpy as np
 
 import tqdm
-from ml.data_loader_compact import ServerDataloaderHeteroVector
-from config import GeneralConfig
 import logging
-import copy
-from ml.common_model.utils import csv2best_models, load_dataset_state_dict
+from ml.common_model.utils import load_dataset_state_dict
 import csv
+from torch_geometric.data import HeteroData
+from typing import TypeAlias
 
-# from ray.experimental.tqdm_ray import tqdm
+
+MapName: TypeAlias = str
+GameStatistics: TypeAlias = tuple[int, int, int, int]
+GameStepHeteroData: TypeAlias = HeteroData
+GameStepsOnMapInfo: TypeAlias = tuple[GameStatistics, Sequence[GameStepHeteroData]]
 
 
 class FullDataset:
     def __init__(self, dataset_root_path, dataset_map_results_file_name):
         self.dataset_map_results_file_name = dataset_map_results_file_name
         self.dataset_root_path = dataset_root_path
-        self.maps_data = dict()
+        self.maps_data: dict[str, GameStepsOnMapInfo] = dict()
 
-    def load(self):
+    def load(self, similar_steps_save_prob=0):
         maps_results = load_dataset_state_dict(self.dataset_map_results_file_name)
         for file_with_map_steps in tqdm.tqdm(
             os.listdir(self.dataset_root_path), desc="data loading"
@@ -32,20 +34,55 @@ class FullDataset:
                 map_location="cpu",
             )
             map_name = file_with_map_steps[:-3]
-            filtered_map_steps = self.filter_map_steps(map_steps)
+            filtered_map_steps = self.filter_map_steps(
+                map_steps, similar_steps_save_prob
+            )
             self.maps_data[map_name] = (maps_results[map_name], filtered_map_steps)
 
-    def filter_map_steps(self, map_steps):
+    def filter_map_steps(self, map_steps, similar_steps_save_prob):
         filtered_map_steps = []
-        for i in map_steps:
-            if i["y_true"]["state_vertex"].size()[0] != 1:
-                if not i["y_true"]["state_vertex"].isnan().any():
-                    max_ind = torch.argmax(i["y_true"]["state_vertex"])
-                    i["y_true"]["state_vertex"] = torch.zeros_like(
-                        i["y_true"]["state_vertex"]
+        for step in map_steps:
+            if step["y_true"]["state_vertex"].size()[0] != 1:
+                if not step["y_true"]["state_vertex"].isnan().any():
+                    max_ind = torch.argmax(step["y_true"]["state_vertex"])
+                    step["y_true"]["state_vertex"] = torch.zeros_like(
+                        step["y_true"]["state_vertex"]
                     )
-                    i["y_true"]["state_vertex"][max_ind] = 1.0
-                    filtered_map_steps.append(i)
+                    step["y_true"]["state_vertex"][max_ind] = 1.0
+
+                    if len(filtered_map_steps) != 0:
+                        cos_d = 1 - torch.sum(
+                            (
+                                step["y_true"]["state_vertex"]
+                                / torch.linalg.vector_norm(
+                                    step["y_true"]["state_vertex"]
+                                )
+                            )
+                            * (
+                                filtered_map_steps[-1]["y_true"]["state_vertex"]
+                                / torch.linalg.vector_norm(
+                                    filtered_map_steps[-1]["y_true"]["state_vertex"]
+                                )
+                            )
+                        )
+                        if (
+                            cos_d < 1e-7
+                            or step["game_vertex"]["x"].size()[0]
+                            == filtered_map_steps[-1]["game_vertex"]["x"].size()[0]
+                        ):
+                            if np.random.choice(
+                                [True, False],
+                                p=[
+                                    similar_steps_save_prob,
+                                    1 - similar_steps_save_prob,
+                                ],
+                            ):
+                                filtered_map_steps.append(step)
+                        else:
+                            filtered_map_steps.append(step)
+                    else:
+                        filtered_map_steps.append(step)
+
         return filtered_map_steps
 
     def get_plain_data(self):
