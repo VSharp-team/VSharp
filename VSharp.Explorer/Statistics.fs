@@ -51,7 +51,11 @@ type generatedTestInfo =
     }
 
 // TODO: move statistics into (unique) instances of code location!
-type public SVMStatistics(entryMethods : Method seq) =
+(*
+    If generalizeGenericsCoverage is true, generic methods with the same definition are considered equivalent
+    when tracking covered blocks.
+*)
+type public SVMStatistics(entryMethods : Method seq, generalizeGenericsCoverage : bool) =
 
     let entryMethods = List<Method>(entryMethods)
 
@@ -64,7 +68,7 @@ type public SVMStatistics(entryMethods : Method seq) =
 
     let mutable isVisitedBlocksNotCoveredByTestsRelevant = 1
     let visitedBlocksNotCoveredByTests = Dictionary<cilState, Set<codeLocation>>()
-    let blocksCoveredByTests = ConcurrentDictionary<Method, ConcurrentDictionary<offset, unit>>()
+    let blocksCoveredByTests = ConcurrentDictionary<MethodWithBody, ConcurrentDictionary<offset, unit>>()
 
     let unansweredPobs = List<pob>()
     let stopwatch = Stopwatch()
@@ -86,6 +90,18 @@ type public SVMStatistics(entryMethods : Method seq) =
 
     let mutable testsCount = 0u
     let mutable branchesReleased = false
+
+    let generalizeIfNeeded =
+        if not generalizeGenericsCoverage then
+            (fun (m : Method) -> m :> MethodWithBody)
+        else
+            (fun (m : Method) ->
+                let isGeneric = m.IsGenericMethod || m.DeclaringType <> null && m.DeclaringType.IsGenericType
+                if not isGeneric then
+                    m :> MethodWithBody
+                else
+                    m.Generalize() |> fst3
+            )
 
     let formatTimeSpan (span : TimeSpan) =
         String.Format("{0:00}:{1:00}:{2:00}.{3}", span.Hours, span.Minutes, span.Seconds, span.Milliseconds)
@@ -146,7 +162,7 @@ type public SVMStatistics(entryMethods : Method seq) =
         stepsCount <- stepsCount + 1u
         Logger.traceWithTag Logger.stateTraceTag $"{stepsCount} FORWARD: {s.id}"
 
-        let setCoveredIfNeed (loc : codeLocation) =
+        let setCoveredIfNeeded (loc : codeLocation) =
             if loc.offset = loc.BasicBlock.FinalOffset then
                 addLocationToHistory s loc
 
@@ -154,7 +170,7 @@ type public SVMStatistics(entryMethods : Method seq) =
             // Successfully exiting method, now its call can be considered covered
             | Exit _ :: callerIp :: _ ->
                 match ip2codeLocation callerIp with
-                | Some callerLoc -> setCoveredIfNeed callerLoc
+                | Some callerLoc -> setCoveredIfNeeded callerLoc
                 | None -> __unreachable__()
             | _ -> ()
 
@@ -179,8 +195,8 @@ type public SVMStatistics(entryMethods : Method seq) =
             if not <| visitedWithHistory.TryGetValue(currentLoc, historyRef) then
                 historyRef <- ref <| HashSet<_>()
                 visitedWithHistory.Add(currentLoc, historyRef.Value)
-            for visitedState in s.history do
-                if hasSiblings visitedState then historyRef.Value.Add visitedState |> ignore
+            for visitedLocation in s.history do
+                if hasSiblings visitedLocation then historyRef.Value.Add visitedLocation |> ignore
 
             let isCovered = x.IsBasicBlockCoveredByTest currentLoc
             if currentMethod.InCoverageZone && not isCovered then
@@ -190,9 +206,9 @@ type public SVMStatistics(entryMethods : Method seq) =
                 Call instructions are considered covered only after return
                 (because call can throw exception)
             *)
-            if not <| isCallIp ip then setCoveredIfNeed currentLoc
+            if not <| isCallIp ip then setCoveredIfNeeded currentLoc
         | Some currentLoc ->
-            if not <| isCallIp ip then setCoveredIfNeed currentLoc
+            if not <| isCallIp ip then setCoveredIfNeeded currentLoc
         | None -> ()
 
     member x.IsCovered (loc : codeLocation) =
@@ -217,15 +233,16 @@ type public SVMStatistics(entryMethods : Method seq) =
         let mutable hasNewCoverage = false
         let blocks = Seq.distinct blocks
         for block in blocks do
+            let generalizedMethod = generalizeIfNeeded block.method
             let method = block.method
             let mutable isNewBlock = false
-            if blocksCoveredByTests.TryGetValue(method, coveredBlocks) then
+            if blocksCoveredByTests.TryGetValue(generalizedMethod, coveredBlocks) then
                 isNewBlock <- coveredBlocks.Value.TryAdd(block.offset, ())
             else
                 let coveredBlocks = ConcurrentDictionary()
                 isNewBlock <- true
                 coveredBlocks.TryAdd(block.offset, ()) |> ignore
-                blocksCoveredByTests[method] <- coveredBlocks
+                blocksCoveredByTests[generalizedMethod] <- coveredBlocks
             if method.InCoverageZone then
                 Interlocked.Exchange(ref isVisitedBlocksNotCoveredByTestsRelevant, 0) |> ignore
             hasNewCoverage <- hasNewCoverage || isNewBlock && method.InCoverageZone
@@ -233,19 +250,19 @@ type public SVMStatistics(entryMethods : Method seq) =
 
     member x.IsBasicBlockCoveredByTest (blockStart : codeLocation) =
         let mutable coveredBlocks = ref null
-        if blocksCoveredByTests.TryGetValue(blockStart.method, coveredBlocks) then
+        if blocksCoveredByTests.TryGetValue(generalizeIfNeeded blockStart.method, coveredBlocks) then
             coveredBlocks.Value.ContainsKey blockStart.offset
         else false
 
     member x.GetCurrentCoverage (methods : Method seq) =
-        let methods = List.ofSeq methods
         let getCoveredInstructionsCount (m : Method) =
+            let generalizedMethod = generalizeIfNeeded m
             let mutable coveredBlocksOffsets = ref null
-            if blocksCoveredByTests.TryGetValue(m, coveredBlocksOffsets) then
+            if blocksCoveredByTests.TryGetValue(generalizedMethod, coveredBlocksOffsets) then
                 let cfg = m.CFG
                 coveredBlocksOffsets.Value |> Seq.sumBy (fun o -> (cfg.ResolveBasicBlock o.Key).BlockSize)
             else 0
-        let methodsInZone = methods |> List.filter (fun m -> m.InCoverageZone)
+        let methodsInZone = List.ofSeq methods |> List.filter (fun m -> m.InCoverageZone)
         let totalInstructionsCount = methodsInZone |> List.sumBy (fun m -> m.CFG.MethodSize)
         let coveredInstructionsCount = methodsInZone |> List.sumBy getCoveredInstructionsCount
         if totalInstructionsCount <> 0 then

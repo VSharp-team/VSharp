@@ -440,7 +440,7 @@ type private FuzzerExplorer(explorationOptions: ExplorationOptions, statistics: 
 
 type public Explorer(options : ExplorationOptions, reporter: IReporter) =
 
-    let statistics = new SVMStatistics(Seq.empty)
+    let statistics = new SVMStatistics(Seq.empty, true)
 
     let explorers =
         let createFuzzer () =

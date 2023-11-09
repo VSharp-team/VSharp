@@ -40,6 +40,7 @@ type MethodWithBody internal (m : MethodBase) =
     let isStaticConstructor = lazy(Reflection.isStaticConstructor m)
     let isConstructor = m.IsConstructor
     let isGenericMethod = m.IsGenericMethod
+    let isGenericMethodDefinition = m.IsGenericMethodDefinition
     let genericArguments = lazy(if m.IsGenericMethod && not m.IsConstructor then m.GetGenericArguments() else Array.empty)
     let attributes = m.Attributes
     let customAttributes = if isDynamic then Seq.empty else m.CustomAttributes
@@ -152,6 +153,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.ContainsGenericParameters =
         declaringType.ContainsGenericParameters || m.ContainsGenericParameters
     member x.IsGenericMethod = isGenericMethod
+    member x.IsGenericMethodDefinition = isGenericMethodDefinition
     member x.GenericArguments with get() = genericArguments.Force()
     member x.GetGenericMethodDefinition() =
         match m with
