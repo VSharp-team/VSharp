@@ -1478,9 +1478,9 @@ type ILInterpreter() as this =
         while not (Option.isSome nextIp || List.isEmpty ehcs) do
             let ehc = List.head ehcs
             ehcs <- List.tail ehcs
+            observed.Add ehc
             match ehc.ehcType with
-            | _ when x.InHandlerBlock offset ehc ->
-                observed.Add ehc
+            | _ when x.InHandlerBlock offset ehc -> ()
             | Catch t when TypeUtils.isSubtypeOrEqual exceptionType.Value t ->
                 // Check type and go
                 let handlerLocation = Some {method = location.method; offset = ehc.handlerOffset}
@@ -1495,9 +1495,7 @@ type ILInterpreter() as this =
                 let filterHandler = instruction method o
                 let observed = List.ofSeq observed
                 nextIp <- Some (InFilterHandler(filterHandler, handlerOffset, ehcs, observed, locations, framesToPop))
-            | _ ->
-                // Handler is non-suitable catch or finally
-                observed.Add ehc
+            | _ -> () // Handler is non-suitable catch or finally
         nextIp
 
     member private x.EHCBetween (src : offset) (dst : offset) (ehc : ExceptionHandlingClause) =
