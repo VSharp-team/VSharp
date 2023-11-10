@@ -18,7 +18,10 @@ module Mocking =
     // TODO: properties!
     type Method(baseMethod : MethodInfo, clausesCount : int, callsCount : int) =
         let returnValues : obj[] = Array.zeroCreate clausesCount
-        let outValuesCount = baseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut) |> Array.length
+        let baseParameters = baseMethod.GetParameters()
+        let baseOutParams = baseParameters |> Array.filter (fun p -> p.IsOut)
+        let outValuesCount = Array.length baseOutParams
+        let hasOutParameter = outValuesCount > 0
         let outValues : obj[][] = Array.create outValuesCount (Array.zeroCreate callsCount)
         let name = baseMethod.Name
         let outStorageFieldName n = storageFieldName baseMethod n
@@ -26,18 +29,26 @@ module Mocking =
         let storageFieldName = storageFieldName baseMethod ""
         let counterFieldName = counterFieldName baseMethod ""
         let mutable returnType = baseMethod.ReturnType
-        let hasOutParameter = baseMethod.GetParameters() |> Array.exists (fun x -> x.IsOut)
 
         member x.BaseMethod = baseMethod
         member x.ReturnValues = returnValues
         member x.OutValues = outValues
 
         member x.SetClauses (clauses : obj[]) =
-            clauses |> Array.iteri (fun i o -> returnValues[i] <- o)
+            let mutable i = 0
+            for value in clauses do
+                returnValues[i] <- value
+                i <- i + 1
 
         member x.SetOuts (clauses : obj[][]) =
-            clauses |> Array.iteri (fun i a -> Array.iteri (fun j o -> outValues[j][i] <- o) a)
-        
+            let mutable i = 0
+            for values in clauses do
+                let mutable j = 0;
+                for value in values do
+                    outValues[j][i] <- value
+                    j <- j + 1
+                i <- i + 1
+
         member x.InitializeType (typ : Type) =
             if returnType <> typeof<Void> then
                 let field = typ.GetField(storageFieldName, BindingFlags.NonPublic ||| BindingFlags.Static)
@@ -51,18 +62,20 @@ module Mocking =
                     Array.Copy(returnValues, storage, clausesCount)
                 field.SetValue(null, storage)
 
-            if outValuesCount > 0 then
-                let ov = outValues
-                let setParamfields i (p : ParameterInfo) =
-                    let outType = p.ParameterType.GetElementType()
-                    let storageName = outStorageFieldName p.Name
+            if hasOutParameter then
+                let mutable i = 0
+                for baseOutParam in baseOutParams do
+                    assert baseOutParam.IsOut
+                    let paramType = baseOutParam.ParameterType
+                    let outType = paramType.GetElementType()
+                    let storageName = outStorageFieldName baseOutParam.Name
                     let field = typ.GetField(storageName, BindingFlags.NonPublic ||| BindingFlags.Static)
                     if field = null then
                         internalfail $"Could not detect field %s{storageName} of mock!"
                     let storage = Array.CreateInstance(outType, callsCount)
                     Array.Copy(outValues[i], storage, callsCount)
                     field.SetValue(null, storage)
-                baseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut) |> Array.iteri setParamfields
+                    i <- i + 1
 
         member x.Build (typeBuilder : TypeBuilder) =
             let typeIsDelegate = TypeUtils.isDelegate baseMethod.DeclaringType
@@ -76,15 +89,18 @@ module Mocking =
 
             let methodBuilder =
                 typeBuilder.DefineMethod(baseMethod.Name, methodAttributes, CallingConventions.HasThis)
+
             if baseMethod.IsGenericMethod then
                 let baseGenericArgs = baseMethod.GetGenericArguments()
                 let genericsBuilder = methodBuilder.DefineGenericParameters(baseGenericArgs |> Array.map (fun p -> p.Name))
-                baseGenericArgs |> Array.iteri (fun i p ->
+                let mutable i = 0
+                for p in baseGenericArgs do
                     let constraints = p.GetGenericParameterConstraints()
                     let builder = genericsBuilder[i]
                     let interfaceConstraints = constraints |> Array.filter (fun c -> if c.IsInterface then true else builder.SetBaseTypeConstraint c; false)
                     if interfaceConstraints.Length > 0 then
-                        builder.SetInterfaceConstraints interfaceConstraints)
+                        builder.SetInterfaceConstraints interfaceConstraints
+                    i <- i + 1
                 let rec convertType (typ : Type) =
                     if typ.IsGenericMethodParameter then
                         genericsBuilder[Array.IndexOf(baseGenericArgs, typ)] :> Type
@@ -96,11 +112,11 @@ module Mocking =
                             typ.GetGenericTypeDefinition().MakeGenericType(args')
                     else typ
                 methodBuilder.SetReturnType (convertType baseMethod.ReturnType)
-                let parameters = baseMethod.GetParameters() |> Array.map (fun p -> convertType p.ParameterType)
-                methodBuilder.SetParameters(parameters)
+                let parameterTypes = baseParameters |> Array.map (fun p -> convertType p.ParameterType)
+                methodBuilder.SetParameters(parameterTypes)
             else
                 methodBuilder.SetReturnType baseMethod.ReturnType
-                methodBuilder.SetParameters(baseMethod.GetParameters() |> Array.map (fun p -> p.ParameterType))
+                methodBuilder.SetParameters(baseParameters |> Array.map (fun p -> p.ParameterType))
             let t = methodBuilder.ReturnType
             returnType <- if t.IsPointer then typeof<Void>.MakePointerType() else t
 
@@ -110,12 +126,14 @@ module Mocking =
             let ilGenerator = methodBuilder.GetILGenerator()
 
             if hasOutParameter then
-                let outParams = baseMethod.GetParameters() |> Array.filter (fun p -> p.IsOut)
-                let genOutParamIL i (p : ParameterInfo) =
-                    let outType = p.ParameterType.GetElementType()
-                    let storageName = outStorageFieldName p.Name
+                let mutable i = 0
+                for baseOutParam in baseOutParams do
+                    assert baseOutParam.IsOut
+                    let paramType = baseOutParam.ParameterType
+                    let outType = paramType.GetElementType()
+                    let storageName = outStorageFieldName baseOutParam.Name
                     let storageField = typeBuilder.DefineField(storageName, outType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
-                    let counterName = outCounterFieldName p.Name
+                    let counterName = outCounterFieldName baseOutParam.Name
                     let counterField = typeBuilder.DefineField(counterName, typeof<int>, FieldAttributes.Private ||| FieldAttributes.Static)
 
                     let normalCase = ilGenerator.DefineLabel()
@@ -130,7 +148,9 @@ module Mocking =
                     ilGenerator.Emit(OpCodes.Throw)
 
                     ilGenerator.MarkLabel(normalCase)
-                    ilGenerator.Emit(OpCodes.Ldarg, p.Position)
+                    // 'Position' does not consider 'this' argument
+                    let realPosition = baseOutParam.Position + 1
+                    ilGenerator.Emit(OpCodes.Ldarg, realPosition)
                     ilGenerator.Emit(OpCodes.Ldsfld, storageField)
                     ilGenerator.Emit(OpCodes.Ldsfld, counterField)
                     ilGenerator.Emit(OpCodes.Ldelem, outType)
@@ -140,7 +160,7 @@ module Mocking =
                     ilGenerator.Emit(OpCodes.Ldc_I4_1)
                     ilGenerator.Emit(OpCodes.Add)
                     ilGenerator.Emit(OpCodes.Stsfld, counterField)
-                outParams |> Array.iteri genOutParamIL
+                    i <- i + 1
 
             if returnType <> typeof<Void> then
                 let storageField = typeBuilder.DefineField(storageFieldName, returnType.MakeArrayType(), FieldAttributes.Private ||| FieldAttributes.Static)
@@ -156,11 +176,6 @@ module Mocking =
                 ilGenerator.Emit(OpCodes.Ldstr, name)
                 ilGenerator.Emit(OpCodes.Newobj, typeof<UnexpectedMockCallException>.GetConstructor([|typeof<string>|]))
                 ilGenerator.Emit(OpCodes.Throw)
-                // Or we can return the defaultField:
-                // let defaultFieldName = baseMethod.Name + "_<Default>"
-                // let defaultField = typeBuilder.DefineField(defaultFieldName, returnType, FieldAttributes.Private ||| FieldAttributes.Static)
-                // ilGenerator.Emit(OpCodes.Ldsfld, defaultField)
-                // ilGenerator.Emit(OpCodes.Ret)
 
                 ilGenerator.MarkLabel(normalCase)
                 ilGenerator.Emit(OpCodes.Ldsfld, storageField)
@@ -206,7 +221,6 @@ module Mocking =
                 |> Seq.distinct
                 |> Seq.collect (fun i -> i.GetMethods())
             for m in interfaceMethods do
-                // let outsCount = m.GetParameters() |> Array.filter (fun p -> p.IsOut) |> Array.length 
                 methodMocksCache.TryAdd(m, Method(m, 0, 0)) |> ignore
 
         member private x.AddClassMethods (t : System.Type) =
