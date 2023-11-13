@@ -614,7 +614,7 @@ namespace IntegrationTests
             throw new DivideByZeroException("Exception was thrown explicitly");
         }
 
-        [Ignore("Fix coverage tool: second catch is not covered")]
+        [TestSvm(60)]
         public static int ExceptionThrownInFilter(int x, string s)
         {
             Console.WriteLine("Method: ExceptionThrownInFilter");
@@ -635,6 +635,40 @@ namespace IntegrationTests
             return x;
         }
 
+        public static bool FilterWithException1(string s)
+        {
+            var x = 0;
+            try
+            {
+                x += s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithException(nre))
+            {
+                return true;
+            }
+
+            return x > 0;
+        }
+
+        [TestSvm(57)]
+        public static int ExceptionThrownInFilter1(int x, string s)
+        {
+            try
+            {
+                x = s.Length;
+            }
+            catch (NullReferenceException nre) when (FilterWithException1(s))
+            {
+                x += nre.HResult;
+            }
+            catch (NullReferenceException nre)
+            {
+                x += nre.HResult;
+                return x + 1;
+            }
+
+            return x;
+        }
 
         public static bool FilterWithTryCatch(NullReferenceException nre)
         {
