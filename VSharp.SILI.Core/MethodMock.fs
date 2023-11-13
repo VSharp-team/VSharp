@@ -10,7 +10,7 @@ open VSharp.Core
 type functionResultConstantSource =
     {
         mock : MethodMock
-        callIndex : int
+        constIndex : int
         this : term option
         args : term list
         t : Type
@@ -22,16 +22,18 @@ with
         override x.Time = VectorTime.zero
     override x.ToString() =
         let args = x.args |> List.map toString |> join ", "
-        $"{x.mock.Method.Name}({args}):{x.callIndex}"
+        $"{x.mock.Method.Name}({args}):{x.constIndex}"
 
 and MethodMock(method : IMethod, mockingType : MockingType) =
-    let mutable callIndex = 0
+    let mutable constIndex = 0
     let callResults = ResizeArray<term>()
     let outResults = ResizeArray<term list>()
+    let methodParams = method.Parameters |> Array.toList
+    let hasOutParams = List.exists (fun (p : ParameterInfo) -> p.IsOut) methodParams
 
     member x.Method : IMethod = method
 
-    member private x.SetIndex idx = callIndex <- idx
+    member private x.SetIndex idx = constIndex <- idx
 
     member private x.SetClauses clauses =
         callResults.Clear()
@@ -53,53 +55,36 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
             let genSymbolycVal retType args =
                 let src : functionResultConstantSource = {
                     mock = x
-                    callIndex = callIndex
+                    constIndex = constIndex
                     this = this
                     args = args
                     t = retType
                 }
                 Memory.makeSymbolicValue src (toString src) retType
 
-            let mParams = method.Parameters |> Array.toList
+            let genOutParam (s : state * term list) (p : ParameterInfo) (arg : term) =
+                if not <| p.IsOut then s
+                else
+                    let tVal = typeOfRef arg
+                    let newVal = genSymbolycVal tVal []
+                    constIndex <- constIndex + 1
+                    Memory.write Memory.emptyReporter (fst s) arg newVal, newVal :: (snd s)
+
             let resState =
-                // if List.exists (fun (p : ParameterInfo) -> p.ParameterType.IsPointer) mParams then
-                if List.exists (fun (p : ParameterInfo) -> p.IsOut) mParams then
+                if not <| hasOutParams then None
+                else
                     let resState, outParams =
-                        let genOutParam (s : state * term list) (p : ParameterInfo) (arg : term) =
-                            if p.IsOut then
-                            // if p.ParameterType.IsPointer then
-                                let tVal = typeOfRef arg
-                                // let arr = Array.CreateInstance tVal 1
-                                let newVal = genSymbolycVal tVal []
-                                callIndex <- callIndex + 1
-                                Memory.write Memory.emptyReporter (fst s) arg newVal, newVal :: (snd s)
-                            else
-                                s
-                        List.fold2 genOutParam (state, List.empty) mParams args
+                        List.fold2 genOutParam (state, List.empty) methodParams args
                     outResults.Add(outParams)
                     Some resState
-                else
-                    None
-
-            let reads =
-                match resState with
-                | Some s ->
-                    let mapper (p : ParameterInfo) (a : term) =
-                        if p.ParameterType.IsPointer then
-                            Memory.read Memory.emptyReporter s a
-                        else
-                            a
-                    List.map2 mapper mParams args
-                | None -> []
 
             let resTerm =
-                if method.ReturnType <> typeof<Void> then
+                if method.ReturnType = typeof<Void> then None
+                else
                     let result = genSymbolycVal method.ReturnType args
-                    callIndex <- callIndex + 1
+                    constIndex <- constIndex + 1
                     callResults.Add result
                     Some result
-                else
-                    None
 
             resState, resTerm
 
@@ -110,7 +95,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
 
         override x.Copy() =
             let result = MethodMock(method, mockingType)
-            result.SetIndex callIndex
+            result.SetIndex constIndex
             result.SetClauses callResults
             result.SetOuts outResults
             result
@@ -138,5 +123,4 @@ module internal MethodMocking =
 
     let mockAndCall state method this args mockingType =
         let mock = mockMethod state method mockingType
-        // mocked procedures' calls are ignored
         mock.Call state this args
