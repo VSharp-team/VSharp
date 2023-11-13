@@ -13,10 +13,11 @@ type functionResultConstantSource =
         callIndex : int
         this : term option
         args : term list
+        t : Type
     }
 with
     interface INonComposableSymbolicConstantSource with
-        override x.TypeOfLocation = x.mock.Method.ReturnType
+        override x.TypeOfLocation = x.t
         override x.SubTerms = []
         override x.Time = VectorTime.zero
     override x.ToString() =
@@ -49,12 +50,13 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
         override x.MockingType = mockingType
 
         override x.Call state this args =
-            let genSymbolycVal retType =
+            let genSymbolycVal retType args =
                 let src : functionResultConstantSource = {
                     mock = x
                     callIndex = callIndex
                     this = this
                     args = args
+                    t = retType
                 }
                 Memory.makeSymbolicValue src (toString src) retType
 
@@ -68,7 +70,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
                             // if p.ParameterType.IsPointer then
                                 let tVal = typeOfRef arg
                                 // let arr = Array.CreateInstance tVal 1
-                                let newVal = genSymbolycVal tVal
+                                let newVal = genSymbolycVal tVal []
                                 callIndex <- callIndex + 1
                                 Memory.write Memory.emptyReporter (fst s) arg newVal, newVal :: (snd s)
                             else
@@ -92,7 +94,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
 
             let resTerm =
                 if method.ReturnType <> typeof<Void> then
-                    let result = genSymbolycVal method.ReturnType
+                    let result = genSymbolycVal method.ReturnType args
                     callIndex <- callIndex + 1
                     callResults.Add result
                     Some result
