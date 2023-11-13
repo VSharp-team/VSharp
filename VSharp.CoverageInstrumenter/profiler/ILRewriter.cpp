@@ -1127,6 +1127,18 @@ void PrintILInstructions(ILRewriter *pilr) {
     pilr->PrintEhs();
 }
 
+void CorrectHandlers(ILRewriter* pilr, ILInstr* pInstr, ILInstr* pNewInstr)
+{
+    // changing exception handlers bounds if we were on the end of handler block
+    if (pilr->m_pEH != nullptr) {
+        for (int i = 0; i < pilr->m_nEH; i++) {
+            if (pilr->m_pEH[i].m_pHandlerEnd == pInstr) {
+                pilr->m_pEH[i].m_pHandlerEnd = pNewInstr;
+            }
+        }
+    }
+}
+
 // advances the instruction pointer to the instruction after the probe
 HRESULT AddCoverageProbeAfter(
     ILRewriter* pilr,
@@ -1146,14 +1158,7 @@ HRESULT AddCoverageProbeAfter(
     // adding the probe
     IfFailRet(AddProbe(pilr, probe->addr, probe->getSig(), pNewInstr));
 
-    // changing exception handlers bounds if we were on the end of handler block
-    if (pilr->m_pEH != nullptr) {
-        for (int i = 0; i < pilr->m_nEH; i++) {
-            if (pilr->m_pEH[i].m_pHandlerEnd == pInstr) {
-                pilr->m_pEH[i].m_pHandlerEnd = pNewInstr;
-            }
-        }
-    }
+    CorrectHandlers(pilr, pInstr, pNewInstr);
 
     pInstr = pNewInstr;
     return S_OK;
@@ -1181,14 +1186,7 @@ HRESULT AddCoverageProbeBefore(
     // adding the probe
     IfFailRet(AddProbe(pilr, probe->addr, probe->getSig(), pNewInstr));
 
-    // changing exception handlers bounds if we were on the end of handler block
-    if (pilr->m_pEH != nullptr) {
-        for (int i = 0; i < pilr->m_nEH; i++) {
-            if (pilr->m_pEH[i].m_pHandlerEnd == pInstr) {
-                pilr->m_pEH[i].m_pHandlerEnd = pNewInstr;
-            }
-        }
-    }
+    CorrectHandlers(pilr, pInstr, pNewInstr);
 
     pInstr = pNewInstr;
     return S_OK;
@@ -1198,33 +1196,34 @@ HRESULT AddExitProbe(
     ILRewriter* pilr,
     int methodId)
 {
-    HRESULT hr;
     BOOL isTailCall = FALSE;
     auto covProb = vsharp::getProbes();
 
+    // TODO: create iterator over instructions
     // Find all RETs, and insert a call to the exit probe before each one.
     for (ILInstr* pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext)
     {
+        // TODO: unify with 'tailcall' handling in 'RewriteIL'
         switch (pInstr->m_opcode)
         {
-        case CEE_TAILCALL:
-        {
-            isTailCall = TRUE;
-            AddCoverageProbeBefore(pilr, pInstr, covProb->Tailcall, methodId);
-            break;
-        }
-        case CEE_RET:
-        {
-            if (isTailCall) {
-                isTailCall = FALSE;
+            case CEE_TAILCALL:
+            {
+                isTailCall = TRUE;
+                AddCoverageProbeBefore(pilr, pInstr, covProb->Tailcall, methodId);
                 break;
             }
-            AddCoverageProbeBefore(pilr, pInstr, covProb->Leave, methodId);
-            break;
-        }
+            case CEE_RET:
+            {
+                if (isTailCall) {
+                    isTailCall = FALSE;
+                    break;
+                }
+                AddCoverageProbeBefore(pilr, pInstr, covProb->Leave, methodId);
+                break;
+            }
 
-        default:
-            break;
+            default:
+                break;
         }
     }
 
@@ -1239,6 +1238,12 @@ HRESULT MakeProbeInsertion(ILRewriter *pilr, ProbeInsertion toInsert, int method
         IfFailRet(AddCoverageProbeAfter(pilr, toInsert.target, toInsert.probe, methodId));
     }
     return S_OK;
+}
+
+bool OpcodeIsBranch(unsigned opcode) {
+    return
+        (CEE_BR_S <= opcode && opcode <= CEE_SWITCH)
+        || opcode == CEE_LEAVE || opcode == CEE_LEAVE_S;
 }
 
 // Uses the general-purpose ILRewriter class to import original
@@ -1296,13 +1301,13 @@ HRESULT RewriteIL(
     // adding probes for coverage tracking, looking for the last instructions of basic blocks
     for (ILInstr * pInstr = pilr->GetILList()->m_pNext; pInstr != pilr->GetILList(); pInstr = pInstr->m_pNext)
     {
+        unsigned opcode = pInstr->m_opcode;
         // branch coverage
-        if ((CEE_BR_S <= pInstr->m_opcode && pInstr->m_opcode <= CEE_SWITCH)
-            || pInstr->m_opcode == CEE_LEAVE || pInstr->m_opcode == CEE_LEAVE_S) {
+        if (OpcodeIsBranch(opcode)) {
             addPriorityProbe.push_back({ pInstr, nullptr, covProb->Branch, PIBeforeInstr });
 
             // inserting all switch cases as possible target points
-            if (pInstr->m_opcode == CEE_SWITCH) {
+            if (opcode == CEE_SWITCH) {
                 ILInstr *curSwitchArg = pInstr->m_pNext;
                 for (int i = 0; i < pInstr->m_Arg32; i++) {
                     assert(curSwitchArg->m_opcode == 295); // checking switch arg constant
@@ -1398,6 +1403,12 @@ HRESULT RewriteIL(
 
             default:
                 break;
+        }
+    }
+
+    if (pilr->m_pEH != nullptr) {
+        for (int i = 0; i < pilr->m_nEH; i++) {
+            addPriorityProbe.push_back({ pilr->m_pEH[i].m_pHandlerBegin, nullptr, covProb->Throw, PIBeforeInstr });
         }
     }
 

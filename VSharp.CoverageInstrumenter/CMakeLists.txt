@@ -13,6 +13,9 @@ endif()
 
 if (APPLE)
     set(CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS "${CMAKE_SHARED_LIBRARY_CREATE_CXX_FLAGS} -undefined dynamic_lookup")
+#    add_link_options(--unresolved-symbols=ignore-in-object-files)
+#    TODO: use this only for ARM
+    add_compile_definitions(HOST_ARM64) # https://github.com/dotnet/runtime/issues/78286
 endif()
 
 set(CORECLR_PATH coreclr)
@@ -20,7 +23,7 @@ set(PROFILER_PATH profiler)
 
 message("Build type: ${CMAKE_BUILD_TYPE}")
 
-if( (CMAKE_BUILD_TYPE MATCHES Debug) OR (CMAKE_BUILD_TYPE MATCHES DebugMemory))
+if((CMAKE_BUILD_TYPE MATCHES Debug) OR (CMAKE_BUILD_TYPE MATCHES DebugMemory))
     add_definitions(-D_LOGGING)
     add_definitions(-D_PROFILER_DEBUG) # Don't use -D_DEBUG https://github.com/dotnet/runtime/issues/11419
     message("Logging enabled")
@@ -43,11 +46,11 @@ if(UNIX)
     add_definitions(-DSOS_INCLUDE)
 
     include_directories(.
-            ${CORECLR_PATH}/pal/inc/rt
-            ${CORECLR_PATH}/pal/src/include
-            ${CORECLR_PATH}/pal/prebuilt/inc
-            ${CORECLR_PATH}/pal/inc
-            ${CORECLR_PATH}/inc
+        ${CORECLR_PATH}/pal/inc/rt
+        ${CORECLR_PATH}/pal/src/include
+        ${CORECLR_PATH}/pal/prebuilt/inc
+        ${CORECLR_PATH}/pal/inc
+        ${CORECLR_PATH}/inc
     )
     set(sources
         ${PROFILER_PATH}/classFactory.cpp
@@ -59,8 +62,10 @@ if(UNIX)
         ${PROFILER_PATH}/memory.cpp
         ${PROFILER_PATH}/probes.cpp
         ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp
-        ./unix/os.cpp
+        unix/os.cpp
     )
+
+    add_library(vsharpCoverage SHARED ${sources})
 else()
     add_definitions(-DWIN)
     add_definitions(-DWIN32)
@@ -71,8 +76,8 @@ else()
     add_definitions(-DSOS_INCLUDE)
     add_definitions(-DSOURCE_FORMATTING)
     include_directories(.
-            ${CORECLR_PATH}/pal/prebuilt/inc
-            ${CORECLR_PATH}/inc
+        ${CORECLR_PATH}/pal/prebuilt/inc
+        ${CORECLR_PATH}/inc
     )
     set(sources
         ${PROFILER_PATH}/classFactory.cpp
@@ -83,18 +88,10 @@ else()
         ${PROFILER_PATH}/logging.cpp
         ${PROFILER_PATH}/memory.cpp
         ${PROFILER_PATH}/probes.cpp
-#        ${CORECLR_PATH}/pal/prebuilt/idl/corprof_i.cpp
         ./win/os.cpp
         ./win/vsharpCoverage.def
     )
     set(DEPENDENCIES Advapi32.lib oleaut32.lib Ole32.lib)
-endif()
 
-if(UNIX)
-    add_library(vsharpCoverage SHARED ${sources})
-else()
     add_library(libvsharpCoverage SHARED ${sources})
 endif()
-
-
-# add_link_options(--unresolved-symbols=ignore-in-object-files)

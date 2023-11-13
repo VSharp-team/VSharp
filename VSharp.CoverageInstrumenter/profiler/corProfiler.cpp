@@ -501,6 +501,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFunctionLeave()
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID functionId)
 {
     LOG(tout << "EXCEPTION Search filter enter");
+    threadTracker->filterEnter();
     UNUSED(functionId);
     return S_OK;
 }
@@ -508,6 +509,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterEnter(FunctionID fun
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionSearchFilterLeave()
 {
     LOG(tout << "EXCEPTION Search filter leave");
+    threadTracker->filterLeave();
     return S_OK;
 }
 
@@ -535,7 +537,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionOSHandlerLeave(UINT_PTR ptr)
 HRESULT STDMETHODCALLTYPE CorProfiler::ExceptionUnwindFunctionEnter(FunctionID functionId)
 {
     LOG(tout << "EXCEPTION UNWIND FUNCTION ENTER: " << functionId);
-    if(threadTracker->isCurrentThreadTracked())
+    if (threadTracker->isCurrentThreadTracked())
         threadTracker->unwindFunctionEnter(functionId);
     return S_OK;
 }
@@ -779,4 +781,3 @@ std::string CorProfiler::GetObjectTypeName(ObjectID objectId) {
 
     return OS::unicodeToAnsi(name);
 }
-

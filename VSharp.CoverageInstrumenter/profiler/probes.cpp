@@ -193,7 +193,6 @@ size_t CoverageTracker::collectMethod(MethodInfo info) {
     collectedMethodsMutex.lock();
     size_t result = collectedMethods.size();
     collectedMethods.push_back(info);
-    //LOG(tout << "Collect method: " << result);
     collectedMethodsMutex.unlock();
     return result;
 }
@@ -220,31 +219,31 @@ void CoverageTracker::invocationAborted() {
 //region Probes declarations
 void vsharp::Track_Coverage(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Coverage: " << methodId);
+    LOG(tout << "Track_Coverage: method = " << methodId << ", offset = " << HEX(offset));
     coverageTracker->addCoverage(offset, TrackCoverage, methodId);
 }
 
 void vsharp::Track_Stsfld(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Stsfld: " << methodId);
+    LOG(tout << "Track_Stsfld: method = " << methodId << ", offset = " << HEX(offset));
     coverageTracker->addCoverage(offset, StsfldHit, methodId);
 }
 
 void vsharp::Branch(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Branch: " << methodId);
+    LOG(tout << "Branch: method = " << methodId << ", offset = " << HEX(offset));
     coverageTracker->addCoverage(offset, BranchHit, methodId);
 }
 
 void vsharp::Track_Call(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Call: " << methodId);
+    LOG(tout << "Track_Call: method = " << methodId << ", offset = " << HEX(offset));
     coverageTracker->addCoverage(offset, Call, methodId);
 }
 
 void vsharp::Track_Tailcall(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Tailcall: " << methodId);
+    LOG(tout << "Track_Tailcall: method = " << methodId << ", offset = " << HEX(offset));
     // popping frame before tailcall execution
     threadTracker->stackBalanceDown();
     coverageTracker->addCoverage(offset, Tailcall, methodId);
@@ -295,7 +294,7 @@ void vsharp::Track_LeaveMain(OFFSET offset, int methodId) {
 
 void vsharp::Track_Throw(OFFSET offset, int methodId) {
     if (!threadTracker->isCurrentThreadTracked()) return;
-    LOG(tout << "Track_Throw: " << methodId);
+    LOG(tout << "Track_Throw: method = " << methodId << ", offset = " << HEX(offset));
     coverageTracker->addCoverage(offset, Leave, methodId);
 }
 

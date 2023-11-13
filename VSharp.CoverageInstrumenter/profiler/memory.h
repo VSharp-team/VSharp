@@ -141,6 +141,7 @@ private:
     ThreadStorage<int> threadIdMapping;
     ThreadStorage<int> stackBalances;
     ThreadStorage<FunctionID> unwindFunctionIds;
+    ThreadStorage<int> inFilterMapping;
 public:
     void mapCurrentThread(int mapId);
     int getCurrentThreadMappedId();
@@ -148,13 +149,18 @@ public:
     bool isCurrentThreadTracked();
     void trackCurrentThread();
     void loseCurrentThread();
-    // returns true if the stack is not empty
+    // returns 'true' if the stack is not empty
     bool stackBalanceDown();
     void stackBalanceUp();
+    // returns current stack size
+    int stackBalance();
     void clear();
 
     void unwindFunctionEnter(FunctionID functionId);
     void unwindFunctionLeave();
+    void filterEnter();
+    void filterLeave();
+    bool isInFilter();
 };
 
 #define OFFSET UINT32

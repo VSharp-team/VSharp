@@ -154,7 +154,6 @@ namespace VSharp.CoverageRunner
 
         public static int RunAndGetCoverage(string args, DirectoryInfo workingDirectory, MethodBase methodInfo)
         {
-            // TODO: fix startup on fuzzing mode (ExceptionThrownInFilter)
             // TODO: delete non-main methods from serialization
             var success = StartCoverageTool(args, workingDirectory, methodInfo);
             if (!success)

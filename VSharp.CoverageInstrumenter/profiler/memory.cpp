@@ -17,6 +17,7 @@ ThreadInfo* vsharp::threadInfo;
 void ThreadTracker::trackCurrentThread() {
     LOG(tout << "<<Thread tracked>>");
     stackBalances.store(0);
+    inFilterMapping.store(0);
 }
 
 void ThreadTracker::stackBalanceUp() {
@@ -27,12 +28,20 @@ void ThreadTracker::stackBalanceUp() {
     });
 }
 
+int ThreadTracker::stackBalance() {
+    profiler_assert(isCurrentThreadTracked());
+    int balance = stackBalances.load();
+    profiler_assert(balance >= 0);
+    return balance;
+}
+
 bool ThreadTracker::stackBalanceDown() {
     profiler_assert(isCurrentThreadTracked());
     LOG(tout << "Stack down");
     int newBalance = stackBalances.update([] (int value) {
         return value - 1;
     });
+    profiler_assert(newBalance >= 0);
     return newBalance != 0;
 }
 
@@ -44,6 +53,7 @@ void ThreadTracker::loseCurrentThread() {
     profiler_assert(isCurrentThreadTracked());
     LOG(tout << "<<Thread lost>>" << std::endl);
     stackBalances.remove();
+    inFilterMapping.remove();
 }
 
 void ThreadTracker::unwindFunctionEnter(FunctionID functionId) {
@@ -59,10 +69,31 @@ void ThreadTracker::unwindFunctionLeave() {
     auto functionId = unwindFunctionIds.load();
     unwindFunctionIds.remove();
     if (rewriteMainOnly && !vsharp::isMainFunction(functionId)) return;
-    if (!threadTracker->stackBalanceDown()) {
+    if ((!isInFilter() || stackBalance() > 1) && !stackBalanceDown()) {
         // stack is empty; function left
-        threadTracker->loseCurrentThread();
+        loseCurrentThread();
     }
+}
+
+void ThreadTracker::filterEnter() {
+    profiler_assert(isCurrentThreadTracked());
+    LOG(tout << "Filter enter" << std::endl);
+    inFilterMapping.update( [] (int value) {
+        return value + 1;
+    });
+}
+
+void ThreadTracker::filterLeave() {
+    profiler_assert(isCurrentThreadTracked());
+    LOG(tout << "Filter leave" << std::endl);
+    inFilterMapping.update( [] (int value) {
+        return value - 1;
+    });
+}
+
+bool ThreadTracker::isInFilter() {
+    profiler_assert(isCurrentThreadTracked());
+    return inFilterMapping.load() > 0;
 }
 
 void ThreadTracker::mapCurrentThread(int mapId) {
@@ -85,10 +116,6 @@ void ThreadTracker::clear() {
 
 bool vsharp::isPossibleStackOverflow() {
     int topOfStackMarker;
-    LOG(tout << "ABCD: " << (size_t) &topOfStackMarker);
-    LOG(tout << "ABCD: " << stackBottom);
-    LOG(tout << "ABCD: " << (size_t) &topOfStackMarker - stackBottom );
-    LOG(tout << "ABCD: " << stackBottom - (size_t) &topOfStackMarker );
     return ( stackBottom - (size_t) &topOfStackMarker) > (size_t) (defaultStackLimitByteSize * 0.8);
 }
 
