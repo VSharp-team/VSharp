@@ -161,6 +161,9 @@ module Loader =
             "System.String System.RuntimeType.get_FullName(this)"
             "System.Boolean System.RuntimeTypeHandle.ContainsGenericVariables(System.RuntimeType)"
             "System.Boolean System.RuntimeType.get_ContainsGenericParameters(this)"
+            "System.Boolean System.RuntimeType.IsSubclassOf(this, System.Type)"
+            "System.Boolean System.RuntimeType.get_IsActualEnum(this)"
+            "System.Boolean System.Enum.IsDefined(System.Type, System.Object)"
 
             // Object
             "System.Object System.Object.MemberwiseClone(this)"
@@ -235,6 +238,8 @@ module Loader =
 
             // Guid
             "System.Guid System.Guid.NewGuid()"
+            // ! Can result if failure if run with symbolic value
+            "System.Void System.Guid..ctor(this, System.String)"
 
             // CultureInfo
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.get_CurrentCulture()"
