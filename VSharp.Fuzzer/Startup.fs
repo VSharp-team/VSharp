@@ -116,7 +116,7 @@ let internal startFuzzer options developerOptions =
     if
         developerOptions.waitDebuggerAttachedFuzzer
         || developerOptions.waitDebuggerAttachedCoverageTool
-        || developerOptions.waitDebuggerAttachedOnAssertCoverageTool then 
+        || developerOptions.waitDebuggerAttachedOnAssertCoverageTool then
         Logger.warning $"One of \"Wait debugger\" options is enabled, you may attach to process by pid {proc.Id}"
 
     Logger.traceCommunication "Fuzzer process started"

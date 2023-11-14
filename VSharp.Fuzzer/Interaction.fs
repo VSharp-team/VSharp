@@ -15,7 +15,7 @@ open VSharp.Fuzzer.Communication.Services
 open VSharp.Fuzzer.Startup
 
 type private SiliStatisticConverter() =
-    
+
     let methods = System.Collections.Generic.Dictionary<uint32, Method>()
 
     member this.GetMethod token = methods[token]
@@ -60,7 +60,7 @@ type Interactor (
     onCancelled: unit -> unit
     ) =
 
-    // TODO: make options configurable (CLI & Tests) 
+    // TODO: make options configurable (CLI & Tests)
     let fuzzerOptions =
         {
             initialSeed = 42
@@ -154,7 +154,7 @@ type Interactor (
         MasterProcessService(onTrackCoverage, onTrackExecutionSeed, onFinished)
 
     let startFuzzer () =
-        fuzzerProcess <- startFuzzer fuzzerOptions fuzzerDeveloperOptions 
+        fuzzerProcess <- startFuzzer fuzzerOptions fuzzerDeveloperOptions
         fuzzerService <- connectFuzzerService ()
         waitFuzzerForReady fuzzerService
 
@@ -230,7 +230,7 @@ type Interactor (
                     logLoop "Cancelled"
                     onCancelled ()
                 | :? System.Net.Http.HttpRequestException
-                | :? Grpc.Core.RpcException as ex -> 
+                | :? Grpc.Core.RpcException as ex ->
                     logLoop "GRPC Exception, restarting"
                     logLoop $"{ex.ToString()}"
                     do! restartFuzzing ()

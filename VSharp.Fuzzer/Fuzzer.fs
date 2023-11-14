@@ -102,15 +102,15 @@ type internal Fuzzer(
         )
         traceFuzzing "Execution seeds sent"
 
-        
+
         let availableTime = getAvailableTime ()
-        
+
         if availableTime <= 0 then
             traceFuzzing "Method invocation not started, no time available"
             None
         else
             traceFuzzing $"Start method invocation, available time: {availableTime}"
-            let threads = 
+            let threads =
                 indices
                 |> Array.map (fun i  ->
                     CancellableThreads.startCancellableThread
@@ -133,7 +133,7 @@ type internal Fuzzer(
         abortedCount <- 0
 
     let handleResults (method: Method) result =
-        
+
         let onCollected (methods: Dictionary<int, RawMethodInfo>) coverageReport generationData invocationResult =
             task {
 
@@ -145,7 +145,7 @@ type internal Fuzzer(
                 let filteredLocations =
                     coverageReport.rawCoverageLocations
                     |> Array.filter (fun x -> x.methodId = mainMethod.Key)
-                    
+
                 let coverageReport = {
                     coverageReport with rawCoverageLocations = filteredLocations
                 }

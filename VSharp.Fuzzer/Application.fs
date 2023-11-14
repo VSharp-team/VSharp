@@ -45,7 +45,7 @@ type internal Application (fuzzerOptions: Startup.FuzzerOptions) =
 
                     (fuzzer.AsyncFuzz method).Wait()
                     traceFuzzing $"Successfully fuzzed {moduleName} {methodToken}"
-                    
+
                     (masterProcessService.NotifyFinished (UnitData())).Wait()
                     traceFuzzing $"Notified master process: finished {moduleName} {methodToken}"
                 with e -> errorFuzzing $"{e}"
