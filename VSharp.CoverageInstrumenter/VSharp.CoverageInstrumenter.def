@@ -1,5 +1,0 @@
-LIBRARY "libvsharpCoverage.Dll"
-
-EXPORTS
-    DllCanUnloadNow PRIVATE
-    DllGetClassObject PRIVATE

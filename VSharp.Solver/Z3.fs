@@ -1471,7 +1471,10 @@ module internal Z3 =
                     let term =
                         if exists then term
                         else
-                            let term = defaultValues[regionSort].Value |> ref
+                            let term =
+                                let exists, term = defaultValues.TryGetValue regionSort
+                                if exists then term.Value |> ref
+                                else Memory.DefaultOf regionSort.TypeOfLocation |> ref
                             complexStores.Add(address, term)
                             term
                     term.Value <- x.WriteByPath term.Value value path.parts

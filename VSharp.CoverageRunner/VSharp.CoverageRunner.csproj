@@ -32,7 +32,7 @@
     </Target>
 
     <Target Name="WinBuildCoverage" AfterTargets="BeforeBuild" Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Exec Command="&#xA;        cd ../VSharp.CoverageInstrumenter&#xA;        mkdir build&#xA;        msbuild VSharp.CoverageInstrumenter.vcxproj /p:Configuration=$(CoverageBuildType) /p:BuildOS=Windows_NT /p:BuildType=$(CoverageBuildType) /p:BuildArch=x64 /p:Platform=x64" />
+        <Exec Command="&#xA;            cd ..\VSharp.CoverageInstrumenter&#xA;            mkdir cmake-build-$(CoverageBuildType)&#xA;            cd cmake-build-$(CoverageBuildType)&#xA;            cmake -G %22Visual Studio 17 2022%22 -DCMAKE_BUILD_TYPE=$(CoverageBuildType) ../&#xA;            cmake --build . --config $(CoverageBuildType) --target ALL_BUILD -j 6" />
     </Target>
 
     <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Linux')) ">
@@ -50,7 +50,7 @@
     </ItemGroup>
 
     <ItemGroup Condition=" $([MSBuild]::IsOSPlatform('Windows')) ">
-        <Content Include="..\VSharp.CoverageInstrumenter\build\libvsharpCoverage.dll">
+        <Content Include="..\VSharp.CoverageInstrumenter\cmake-build-$(CoverageBuildType)\$(CoverageBuildType)\libvsharpCoverage.dll">
             <Link>libvsharpCoverage.dll</Link>
             <CopyToOutputDirectory>Always</CopyToOutputDirectory>
         </Content>

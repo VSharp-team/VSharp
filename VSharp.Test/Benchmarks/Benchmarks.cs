@@ -7,7 +7,8 @@ using System.Linq;
 using System.Reflection;
 using ConsoleTables;
 using NUnit.Framework;
-using VSharp.SVM;
+using VSharp.CSharpUtils;
+using VSharp.Explorer;
 using VSharp.TestRenderer;
 
 namespace VSharp.Test.Benchmarks;
@@ -32,7 +33,23 @@ internal static class Benchmarks
         process.WaitForExit();
         return process.ExitCode == 0;
     }
+    private class Reporter: IReporter
+    {
+        private readonly UnitTests _unitTests;
 
+        public Reporter(UnitTests unitTests)
+        {
+            _unitTests = unitTests;
+        }
+
+        public void ReportFinished(UnitTest unitTest) => _unitTests.GenerateTest(unitTest);
+        public void ReportException(UnitTest unitTest) => _unitTests.GenerateError(unitTest);
+        public void ReportIIE(InsufficientInformationException iie) => TestContext.Progress.WriteLine($"[IIE] {iie.Message}");
+        public void ReportInternalFail(Method method, Exception exn) => TestContext.Progress.WriteLine($"[ERROR] {method.Name}: {exn}");
+        public void ReportCrash(Exception exn) => TestContext.Progress.WriteLine($"[CRASH] {exn}");
+    }
+
+    // TODO: Add support for fuzzing
     public static BenchmarkResult Run(
         BenchmarkTarget target,
         searchMode searchStrategy,
@@ -58,14 +75,13 @@ internal static class Benchmarks
         var exploredMethodInfo = AssemblyManager.NormalizeMethod(target.Method);
 
         Logger.configureWriter(TestContext.Progress);
-        Logger.currentLogLevel = Logger.Warning;
+
 
         var unitTests = new UnitTests(Directory.GetCurrentDirectory());
-        var options = new SVMOptions(
+
+        var svmOptions = new SVMOptions(
             explorationMode: explorationMode.NewTestCoverageMode(coverageZone.MethodZone, searchStrategy),
-            outputDirectory: unitTests.TestDirectory,
             recThreshold: 1,
-            timeout: timeoutS,
             solverTimeout: -1,
             visualize: false,
             releaseBranches: releaseBranches,
@@ -76,17 +92,23 @@ internal static class Benchmarks
             randomSeed: randomSeed,
             stepsLimit: stepsLimit
         );
-        using var explorer = new SVM.SVM(options);
 
-        explorer.Interpret(
-            new[] { exploredMethodInfo },
-            new Tuple<MethodBase, string[]>[] { },
-            unitTests.GenerateTest,
-            unitTests.GenerateError,
-            (e) => TestContext.Progress.WriteLine($"[II] {e.Message}"),
-            (m, e) => TestContext.Progress.WriteLine($"[ERROR] {m.Name}: {e}"),
-            (e) => TestContext.Progress.WriteLine($"[CRASH] {e}")
+        var fuzzerOptions = new FuzzerOptions(
+            isolation: fuzzerIsolation.Process, 
+            coverageZone: coverageZone.MethodZone
         );
+
+        var explorationModeOptions = Explorer.explorationModeOptions.NewSVM(svmOptions);
+
+        var explorationOptions = new ExplorationOptions(
+            timeout: timeoutS == -1 ? TimeSpanBuilders.Infinite : TimeSpanBuilders.FromSeconds(timeoutS),
+            outputDirectory: unitTests.TestDirectory,
+            explorationModeOptions: explorationModeOptions
+        );
+
+        using var explorer = new Explorer.Explorer(explorationOptions, new Reporter(unitTests));
+
+        explorer.StartExploration(new[] {exploredMethodInfo}, new Tuple<MethodBase, string[]>[] { });
 
         var result = new BenchmarkResult(false, explorer.Statistics, unitTests, target);
 

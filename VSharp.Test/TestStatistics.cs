@@ -1,7 +1,7 @@
 #nullable enable
 using System;
 using System.Reflection;
-using VSharp.SVM;
+using VSharp.Explorer;
 
 namespace VSharp.Test;
 

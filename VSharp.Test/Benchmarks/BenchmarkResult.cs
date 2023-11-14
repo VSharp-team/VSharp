@@ -1,5 +1,5 @@
 ﻿#nullable enable
-using VSharp.SVM;
+using VSharp.Explorer;
 
 namespace VSharp.Test.Benchmarks;
 

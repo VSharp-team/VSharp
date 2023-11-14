@@ -1,7 +1,6 @@
 //
 // Licensed to the .NET Foundation under one or more agreements.
 // The .NET Foundation licenses this file to you under the MIT license.
-// See the LICENSE file in the project root for more information.
 //
 
 #ifndef __CRST_TYPES_INCLUDED
@@ -11,133 +10,131 @@
 
 // This file describes the range of Crst types available and their mapping to a numeric level (used by the
 // runtime in debug mode to validate we're deadlock free). To modify these settings edit the
-// file:CrstTypes.def file and run the clr\bin\CrstTypeTool utility to generate a new version of this file.
+// file:CrstTypes.def file and run the clr\artifacts\CrstTypeTool utility to generate a new version of this file.
 
 // Each Crst type is declared as a value in the following CrstType enum.
 enum CrstType
 {
     CrstAppDomainCache = 0,
-    CrstAppDomainHandleTable = 1,
-    CrstArgBasedStubCache = 2,
-    CrstAssemblyList = 3,
-    CrstAssemblyLoader = 4,
-    CrstAvailableClass = 5,
-    CrstAvailableParamTypes = 6,
-    CrstBaseDomain = 7,
-    CrstCCompRC = 8,
-    CrstClassFactInfoHash = 9,
-    CrstClassInit = 10,
-    CrstClrNotification = 11,
-    CrstCodeFragmentHeap = 12,
-    CrstCodeVersioning = 13,
-    CrstCOMCallWrapper = 14,
-    CrstCOMWrapperCache = 15,
-    CrstDataTest1 = 16,
-    CrstDataTest2 = 17,
-    CrstDbgTransport = 18,
-    CrstDeadlockDetection = 19,
-    CrstDebuggerController = 20,
-    CrstDebuggerFavorLock = 21,
-    CrstDebuggerHeapExecMemLock = 22,
-    CrstDebuggerHeapLock = 23,
-    CrstDebuggerJitInfo = 24,
-    CrstDebuggerMutex = 25,
-    CrstDelegateToFPtrHash = 26,
-    CrstDomainLocalBlock = 27,
-    CrstDynamicIL = 28,
-    CrstDynamicMT = 29,
-    CrstEtwTypeLogHash = 30,
-    CrstEventPipe = 31,
-    CrstEventStore = 32,
-    CrstException = 33,
-    CrstExecutableAllocatorLock = 34,
-    CrstExecuteManRangeLock = 35,
-    CrstExternalObjectContextCache = 36,
-    CrstFCall = 37,
-    CrstFuncPtrStubs = 38,
-    CrstFusionAppCtx = 39,
-    CrstGCCover = 40,
-    CrstGlobalStrLiteralMap = 41,
-    CrstHandleTable = 42,
-    CrstHostAssemblyMap = 43,
-    CrstHostAssemblyMapAdd = 44,
-    CrstIbcProfile = 45,
-    CrstIJWFixupData = 46,
-    CrstIJWHash = 47,
-    CrstILStubGen = 48,
-    CrstInlineTrackingMap = 49,
-    CrstInstMethodHashTable = 50,
-    CrstInterop = 51,
-    CrstInteropData = 52,
-    CrstIsJMCMethod = 53,
-    CrstISymUnmanagedReader = 54,
-    CrstJit = 55,
-    CrstJitGenericHandleCache = 56,
-    CrstJitInlineTrackingMap = 57,
-    CrstJitPatchpoint = 58,
-    CrstJitPerf = 59,
-    CrstJumpStubCache = 60,
-    CrstLeafLock = 61,
-    CrstListLock = 62,
-    CrstLoaderAllocator = 63,
-    CrstLoaderAllocatorReferences = 64,
-    CrstLoaderHeap = 65,
-    CrstManagedObjectWrapperMap = 66,
-    CrstMethodDescBackpatchInfoTracker = 67,
-    CrstModule = 68,
-    CrstModuleFixup = 69,
-    CrstModuleLookupTable = 70,
-    CrstMulticoreJitHash = 71,
-    CrstMulticoreJitManager = 72,
-    CrstNativeImageEagerFixups = 73,
-    CrstNativeImageLoad = 74,
-    CrstNls = 75,
-    CrstNotifyGdb = 76,
-    CrstObjectList = 77,
-    CrstPEImage = 78,
-    CrstPendingTypeLoadEntry = 79,
-    CrstPgoData = 80,
-    CrstPinnedByrefValidation = 81,
-    CrstProfilerGCRefDataFreeList = 82,
-    CrstProfilingAPIStatus = 83,
-    CrstRCWCache = 84,
-    CrstRCWCleanupList = 85,
-    CrstReadyToRunEntryPointToMethodDescMap = 86,
-    CrstReflection = 87,
-    CrstReJITGlobalRequest = 88,
-    CrstRetThunkCache = 89,
-    CrstSavedExceptionInfo = 90,
-    CrstSaveModuleProfileData = 91,
-    CrstSecurityStackwalkCache = 92,
-    CrstSigConvert = 93,
-    CrstSingleUseLock = 94,
-    CrstSpecialStatics = 95,
-    CrstStackSampler = 96,
-    CrstStressLog = 97,
-    CrstStubCache = 98,
-    CrstStubDispatchCache = 99,
-    CrstStubUnwindInfoHeapSegments = 100,
-    CrstSyncBlockCache = 101,
-    CrstSyncHashLock = 102,
-    CrstSystemBaseDomain = 103,
-    CrstSystemDomain = 104,
-    CrstSystemDomainDelayedUnloadList = 105,
-    CrstThreadIdDispenser = 106,
-    CrstThreadpoolTimerQueue = 107,
-    CrstThreadpoolWaitThreads = 108,
-    CrstThreadpoolWorker = 109,
-    CrstThreadStore = 110,
-    CrstTieredCompilation = 111,
-    CrstTypeEquivalenceMap = 112,
-    CrstTypeIDMap = 113,
-    CrstUMEntryThunkCache = 114,
-    CrstUMEntryThunkFreeListLock = 115,
-    CrstUniqueStack = 116,
-    CrstUnresolvedClassLock = 117,
-    CrstUnwindInfoTableLock = 118,
-    CrstVSDIndirectionCellLock = 119,
-    CrstWrapperTemplate = 120,
-    kNumberOfCrstTypes = 121
+    CrstArgBasedStubCache = 1,
+    CrstAssemblyList = 2,
+    CrstAssemblyLoader = 3,
+    CrstAvailableClass = 4,
+    CrstAvailableParamTypes = 5,
+    CrstBaseDomain = 6,
+    CrstCCompRC = 7,
+    CrstClassFactInfoHash = 8,
+    CrstClassInit = 9,
+    CrstClrNotification = 10,
+    CrstCodeFragmentHeap = 11,
+    CrstCodeVersioning = 12,
+    CrstCOMCallWrapper = 13,
+    CrstCOMWrapperCache = 14,
+    CrstDataTest1 = 15,
+    CrstDataTest2 = 16,
+    CrstDbgTransport = 17,
+    CrstDeadlockDetection = 18,
+    CrstDebuggerController = 19,
+    CrstDebuggerFavorLock = 20,
+    CrstDebuggerHeapExecMemLock = 21,
+    CrstDebuggerHeapLock = 22,
+    CrstDebuggerJitInfo = 23,
+    CrstDebuggerMutex = 24,
+    CrstDelegateToFPtrHash = 25,
+    CrstDomainLocalBlock = 26,
+    CrstDynamicIL = 27,
+    CrstDynamicMT = 28,
+    CrstEtwTypeLogHash = 29,
+    CrstEventPipe = 30,
+    CrstEventStore = 31,
+    CrstException = 32,
+    CrstExecutableAllocatorLock = 33,
+    CrstExecuteManRangeLock = 34,
+    CrstExternalObjectContextCache = 35,
+    CrstFCall = 36,
+    CrstFuncPtrStubs = 37,
+    CrstFusionAppCtx = 38,
+    CrstGCCover = 39,
+    CrstGlobalStrLiteralMap = 40,
+    CrstHandleTable = 41,
+    CrstIbcProfile = 42,
+    CrstIJWFixupData = 43,
+    CrstIJWHash = 44,
+    CrstILStubGen = 45,
+    CrstInlineTrackingMap = 46,
+    CrstInstMethodHashTable = 47,
+    CrstInterop = 48,
+    CrstInteropData = 49,
+    CrstIsJMCMethod = 50,
+    CrstISymUnmanagedReader = 51,
+    CrstJit = 52,
+    CrstJitGenericHandleCache = 53,
+    CrstJitInlineTrackingMap = 54,
+    CrstJitPatchpoint = 55,
+    CrstJitPerf = 56,
+    CrstJumpStubCache = 57,
+    CrstLeafLock = 58,
+    CrstListLock = 59,
+    CrstLoaderAllocator = 60,
+    CrstLoaderAllocatorReferences = 61,
+    CrstLoaderHeap = 62,
+    CrstManagedObjectWrapperMap = 63,
+    CrstMethodDescBackpatchInfoTracker = 64,
+    CrstModule = 65,
+    CrstModuleFixup = 66,
+    CrstModuleLookupTable = 67,
+    CrstMulticoreJitHash = 68,
+    CrstMulticoreJitManager = 69,
+    CrstNativeImageEagerFixups = 70,
+    CrstNativeImageLoad = 71,
+    CrstNls = 72,
+    CrstNotifyGdb = 73,
+    CrstObjectList = 74,
+    CrstPEImage = 75,
+    CrstPendingTypeLoadEntry = 76,
+    CrstPgoData = 77,
+    CrstPinnedByrefValidation = 78,
+    CrstPinnedHeapHandleTable = 79,
+    CrstProfilerGCRefDataFreeList = 80,
+    CrstProfilingAPIStatus = 81,
+    CrstRCWCache = 82,
+    CrstRCWCleanupList = 83,
+    CrstReadyToRunEntryPointToMethodDescMap = 84,
+    CrstReflection = 85,
+    CrstReJITGlobalRequest = 86,
+    CrstRetThunkCache = 87,
+    CrstSavedExceptionInfo = 88,
+    CrstSaveModuleProfileData = 89,
+    CrstSecurityStackwalkCache = 90,
+    CrstSigConvert = 91,
+    CrstSingleUseLock = 92,
+    CrstSpecialStatics = 93,
+    CrstStackSampler = 94,
+    CrstStressLog = 95,
+    CrstStubCache = 96,
+    CrstStubDispatchCache = 97,
+    CrstStubUnwindInfoHeapSegments = 98,
+    CrstSyncBlockCache = 99,
+    CrstSyncHashLock = 100,
+    CrstSystemBaseDomain = 101,
+    CrstSystemDomain = 102,
+    CrstSystemDomainDelayedUnloadList = 103,
+    CrstThreadIdDispenser = 104,
+    CrstThreadpoolTimerQueue = 105,
+    CrstThreadpoolWaitThreads = 106,
+    CrstThreadpoolWorker = 107,
+    CrstThreadStore = 108,
+    CrstTieredCompilation = 109,
+    CrstTypeEquivalenceMap = 110,
+    CrstTypeIDMap = 111,
+    CrstUMEntryThunkCache = 112,
+    CrstUMEntryThunkFreeListLock = 113,
+    CrstUniqueStack = 114,
+    CrstUnresolvedClassLock = 115,
+    CrstUnwindInfoTableLock = 116,
+    CrstVSDIndirectionCellLock = 117,
+    CrstWrapperTemplate = 118,
+    kNumberOfCrstTypes = 119
 };
 
 #endif // __CRST_TYPES_INCLUDED
@@ -149,7 +146,6 @@ enum CrstType
 int g_rgCrstLevelMap[] =
 {
     10,         // CrstAppDomainCache
-    14,         // CrstAppDomainHandleTable
     3,          // CrstArgBasedStubCache
     0,          // CrstAssemblyList
     12,         // CrstAssemblyLoader
@@ -189,10 +185,8 @@ int g_rgCrstLevelMap[] =
     7,          // CrstFuncPtrStubs
     10,         // CrstFusionAppCtx
     10,         // CrstGCCover
-    13,         // CrstGlobalStrLiteralMap
+    15,         // CrstGlobalStrLiteralMap
     1,          // CrstHandleTable
-    0,          // CrstHostAssemblyMap
-    3,          // CrstHostAssemblyMapAdd
     0,          // CrstIbcProfile
     8,          // CrstIJWFixupData
     0,          // CrstIJWHash
@@ -205,7 +199,7 @@ int g_rgCrstLevelMap[] =
     7,          // CrstISymUnmanagedReader
     11,         // CrstJit
     0,          // CrstJitGenericHandleCache
-    16,         // CrstJitInlineTrackingMap
+    13,         // CrstJitInlineTrackingMap
     4,          // CrstJitPatchpoint
     -1,         // CrstJitPerf
     6,          // CrstJumpStubCache
@@ -215,13 +209,13 @@ int g_rgCrstLevelMap[] =
     16,         // CrstLoaderAllocatorReferences
     3,          // CrstLoaderHeap
     3,          // CrstManagedObjectWrapperMap
-    14,         // CrstMethodDescBackpatchInfoTracker
+    10,         // CrstMethodDescBackpatchInfoTracker
     5,          // CrstModule
-    15,         // CrstModuleFixup
+    16,         // CrstModuleFixup
     4,          // CrstModuleLookupTable
     0,          // CrstMulticoreJitHash
     13,         // CrstMulticoreJitManager
-    0,          // CrstNativeImageEagerFixups
+    3,          // CrstNativeImageEagerFixups
     0,          // CrstNativeImageLoad
     0,          // CrstNls
     0,          // CrstNotifyGdb
@@ -230,13 +224,14 @@ int g_rgCrstLevelMap[] =
     19,         // CrstPendingTypeLoadEntry
     4,          // CrstPgoData
     0,          // CrstPinnedByrefValidation
+    14,         // CrstPinnedHeapHandleTable
     0,          // CrstProfilerGCRefDataFreeList
     13,         // CrstProfilingAPIStatus
     4,          // CrstRCWCache
     0,          // CrstRCWCleanupList
     10,         // CrstReadyToRunEntryPointToMethodDescMap
     8,          // CrstReflection
-    17,         // CrstReJITGlobalRequest
+    14,         // CrstReJITGlobalRequest
     4,          // CrstRetThunkCache
     3,          // CrstSavedExceptionInfo
     0,          // CrstSaveModuleProfileData
@@ -275,7 +270,6 @@ int g_rgCrstLevelMap[] =
 LPCSTR g_rgCrstNameMap[] =
 {
     "CrstAppDomainCache",
-    "CrstAppDomainHandleTable",
     "CrstArgBasedStubCache",
     "CrstAssemblyList",
     "CrstAssemblyLoader",
@@ -317,8 +311,6 @@ LPCSTR g_rgCrstNameMap[] =
     "CrstGCCover",
     "CrstGlobalStrLiteralMap",
     "CrstHandleTable",
-    "CrstHostAssemblyMap",
-    "CrstHostAssemblyMapAdd",
     "CrstIbcProfile",
     "CrstIJWFixupData",
     "CrstIJWHash",
@@ -356,6 +348,7 @@ LPCSTR g_rgCrstNameMap[] =
     "CrstPendingTypeLoadEntry",
     "CrstPgoData",
     "CrstPinnedByrefValidation",
+    "CrstPinnedHeapHandleTable",
     "CrstProfilerGCRefDataFreeList",
     "CrstProfilingAPIStatus",
     "CrstRCWCache",

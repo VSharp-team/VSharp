@@ -470,6 +470,68 @@ namespace IntegrationTests
             return res;
         }
 
+
+        [TestSvm(30)]
+        public static int NestedTryBlocks2()
+        {
+            var res = 1;
+            try
+            {
+                try
+                {
+                    try
+                    {
+                        try
+                        {
+                            try
+                            {
+                                try
+                                {
+                                    try
+                                    {
+                                        using (var a = new Disposable())
+                                        {
+                                            throw null;
+                                        }
+                                    }
+                                    catch (DivideByZeroException)
+                                    {
+                                        res += 1;
+                                    }
+                                }
+                                catch (DivideByZeroException)
+                                {
+                                    res += 2;
+                                }
+                            }
+                            catch (NullReferenceException) when (ThrowNullReference())
+                            {
+                                res += 2;
+                            }
+                        }
+                        catch (DivideByZeroException)
+                        {
+                            res += 3;
+                        }
+                    }
+                    catch (DivideByZeroException)
+                    {
+                        res += 3;
+                    }
+                }
+                catch (DivideByZeroException)
+                {
+                    res += 4;
+                }
+            }
+            catch (NullReferenceException)
+            {
+                res *= 100;
+            }
+
+            return res;
+        }
+
         [TestSvm(91)]
         public static int NestedFinally()
         {

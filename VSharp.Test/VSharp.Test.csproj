@@ -20,6 +20,7 @@
     <ItemGroup>
       <ProjectReference Include="..\VSharp.API\VSharp.API.csproj" />
       <ProjectReference Include="..\VSharp.CoverageRunner\VSharp.CoverageRunner.csproj" />
+      <ProjectReference Include="..\VSharp.Explorer\VSharp.Explorer.fsproj" />
       <ProjectReference Include="..\VSharp.TestRunner\VSharp.TestRunner.csproj" />
       <ProjectReference Include="..\VSharp.TestRenderer\VSharp.TestRenderer.csproj" />
       <ProjectReference Include="..\VSharp.SILI\VSharp.SILI.fsproj" />
