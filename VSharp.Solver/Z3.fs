@@ -225,8 +225,8 @@ module internal Z3 =
             if sort = ctx.BoolSort then ctx.MkFalse() :> Expr
             else ctx.MkNumeral(0, sort)
 
-        member private x.EncodeConcreteAddress encCtx (address : concreteHeapAddress) =
-            let encoded = ctx.MkNumeral(encCtx.addressOrder[address], x.Type2Sort addressType)
+        member private x.EncodeConcreteAddress (address : concreteHeapAddress) =
+            let encoded = ctx.MkNumeral(VectorTime.extractFromSingleton address, x.Type2Sort addressType)
             encodingCache.heapAddresses[encoded] <- address
             encoded
 
@@ -569,7 +569,7 @@ module internal Z3 =
                     match obj with
                     | :? concreteHeapAddress as address ->
                         assert(List.isEmpty address |> not)
-                        x.EncodeConcreteAddress encCtx address
+                        x.EncodeConcreteAddress address
                     | _ -> __unreachable__()
                 | _ -> __notImplemented__()
             encodingResult.Create expr
@@ -833,79 +833,24 @@ module internal Z3 =
             x.EncodeMemoryAccessConstant encCtx name heapRefSource path addressType
 
         // TODO: [style] get rid of accumulators
-        member private x.KeyInVectorTimeIntervals encCtx (key : Expr) acc (region : vectorTime intervals) =
-            let onePointCondition acc (y : vectorTime endpoint) =
-                let bound = ctx.MkNumeral(encCtx.addressOrder[y.elem], x.Type2Sort addressType) :?> BitVecExpr
-                let condition =
-                    match y.sort with
-                    | endpointSort.OpenRight -> x.MkBVSLT(key :?> BitVecExpr, bound)
-                    | endpointSort.ClosedRight -> x.MkBVSLE(key :?> BitVecExpr, bound)
-                    | endpointSort.OpenLeft -> x.MkBVSGT(key :?> BitVecExpr, bound)
-                    | endpointSort.ClosedLeft -> x.MkBVSGE(key :?> BitVecExpr, bound)
-                    | _ -> __unreachable__()
-                x.MkAnd(acc, condition)
-            let intervalWithoutLeftZeroBound =
-                region.points |> List.filter (fun ep -> VectorTime.less VectorTime.zero ep.elem)
-            List.fold onePointCondition acc intervalWithoutLeftZeroBound
-
-        member private x.HeapAddressKeyInRegion encCtx acc (keyExpr : Expr) region =
-            x.KeyInVectorTimeIntervals encCtx keyExpr acc region
-
-        member private x.KeyInIntPoints key acc (region : int points) =
-            let points, operation =
-                match region with
-                | {points = points; thrown = true} -> points, x.MkNot
-                | {points = points; thrown = false} -> points, id
-            let handleOne acc (point : int) =
-                let pointExpr = ctx.MkNumeral(point, x.Type2Sort Types.IndexType)
-                x.MkOr(acc, x.MkEq(key, pointExpr))
-            let condition = PersistentSet.fold handleOne FalseExpr points |> operation
-            x.MkAnd(acc, condition)
-
-        member private x.KeyInProductRegion keyInFst keyInSnd acc (region : productRegion<'a, 'b>) =
-            let checkKeyInOne acc (fst, snd) = x.MkAnd(acc, keyInFst TrueExpr fst, keyInSnd TrueExpr snd)
-            List.fold checkKeyInOne acc region.products
-
-        member private x.KeysInIntPointsListProductRegion keys acc (region : int points listProductRegion) =
-            match region, keys with
-            | NilRegion, Seq.Empty -> acc
-            | ConsRegion products, Seq.Cons(key, others) ->
-                let keyInPoints = x.KeyInIntPoints key
-                let keysInProductList = x.KeysInIntPointsListProductRegion others
-                x.KeyInProductRegion keyInPoints keysInProductList acc products
-            | _ -> __unreachable__()
-
-        member private x.ArrayOneIndexKeyInRegion encCtx acc (keyExpr : Expr[]) region =
-            let addressInRegion = x.KeyInVectorTimeIntervals encCtx (Array.head keyExpr)
-            let indicesInRegion acc region = x.KeysInIntPointsListProductRegion (Array.tail keyExpr) acc region
-            x.KeyInProductRegion addressInRegion indicesInRegion acc region
-
-        member private x.VectorIndexKeyInRegion encCtx acc (keyExpr : Expr[]) region =
-            assert(Array.length keyExpr = 2)
-            let addressInRegion = x.KeyInVectorTimeIntervals encCtx keyExpr[0]
-            let indicesInRegion = x.KeyInIntPoints keyExpr[1]
-            x.KeyInProductRegion addressInRegion indicesInRegion acc region
-
-        member private x.stackBufferIndexKeyInRegion acc keyExpr region =
-            x.KeyInIntPoints keyExpr acc region
-
         member private x.GetRegionConstant (name : string) sort (path : path) (regionSort : regionSort) =
             let constName = $"{name} of {regionSort}, {path}"
             let mkConst () = ctx.MkConst(constName, sort) :?> ArrayExpr
             getMemoryConstant mkConst (regionSort, path)
 
-        member private x.MemoryReading encCtx specializeWithKey keyInRegion keysAreMatch encodeKey inst (path : path) left mo =
+        member private x.MemoryReading encCtx specializeWithKey keysAreMatch encodeKey inst (path : path) readKey mo =
             let updates = MemoryRegion.flatten mo
-            let assumptions, leftExpr = encodeKey left
-            let leftRegion = (left :> IMemoryKey<'a, 'b>).Region
-            let leftInRegion = keyInRegion TrueExpr leftExpr leftRegion
-            let assumptions = leftInRegion :: assumptions
-            let inst, instAssumptions = inst leftExpr
+            let assumptions, readExpr = encodeKey readKey
+            let readRegion = (readKey :> IMemoryKey<'a, 'b>).Region
+            let readKeyInRegionGuard = (readKey :> IMemoryKey<'a,'b>).InRegionCondition readRegion
+            let {assumptions = inRegionAssumptions} = x.EncodeTerm encCtx readKeyInRegionGuard
+            let assumptions = inRegionAssumptions @ assumptions
+            let inst, instAssumptions = inst readExpr
             let assumptions = instAssumptions @ assumptions
-            let checkOneKey (right, reg, value) (acc, assumptions) =
+            let checkOneKey (updateKey, reg, value) (acc, assumptions) =
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
-                let matchAssumptions, keysAreMatch = keysAreMatch leftExpr right reg
+                let matchAssumptions, keysAreMatch = keysAreMatch readKey updateKey reg
                 // TODO: [style] auto append assumptions
                 let assumptions = List.append assumptions matchAssumptions
                 let readFieldIfNeed term path =
@@ -920,7 +865,7 @@ module internal Z3 =
                         assert(IsPtr term)
                         Memory.ExtractPointerOffset term
                 let value = path.Fold readFieldIfNeed value
-                let valueExpr = specializeWithKey value left right |> x.EncodeTerm encCtx
+                let valueExpr = specializeWithKey value readKey updateKey |> x.EncodeTerm encCtx
                 let assumptions = List.append assumptions valueExpr.assumptions
                 x.MkITE(keysAreMatch, valueExpr.expr, acc), assumptions
             let expr, assumptions = List.foldBack checkOneKey updates (inst, assumptions)
@@ -937,13 +882,12 @@ module internal Z3 =
                 defaultValues.Add(Array.singleton k) |> ignore
                 let expr = ctx.MkSelect(array, k)
                 expr, x.GenerateInstAssumptions expr typ
-            let keyInRegion = x.HeapAddressKeyInRegion encCtx
-            let keysAreMatch leftExpr right rightRegion =
-                let assumptions, rightExpr = encodeKey right
-                let eq = x.MkEq(leftExpr, rightExpr)
-                assumptions, x.KeyInVectorTimeIntervals encCtx rightExpr eq rightRegion
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = encodeAssumptions } = x.EncodeTerm encCtx matchCondition
+                encodeAssumptions, matchConditionEncoded :?> BoolExpr
             let specialize v _ _ = v
-            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
+            let res = x.MemoryReading encCtx specialize keysAreMatch encodeKey inst path key mo
             match regionSort with
             | HeapFieldSort field when field = Reflection.stringLengthField -> x.GenerateLengthAssumptions res
             | _ -> res
@@ -980,7 +924,7 @@ module internal Z3 =
                 {expr = expr; assumptions = left :: right :: assumptions}
             else encodingResult
 
-        member private x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name =
+        member private x.ArrayReading encCtx specialize keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name =
             assert mo.defaultValue.IsNone
             let inst (k : Expr[]) =
                 let domainSort = x.Type2Sort addressType :: List.map (x.Type2Sort Types.IndexType |> always) indices |> Array.ofList
@@ -994,73 +938,39 @@ module internal Z3 =
                     let array = x.GetRegionConstant name sort path regionSort
                     let expr = ctx.MkSelect(array, k)
                     expr, x.GenerateInstAssumptions expr typ
-            let res = x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
+            let res = x.MemoryReading encCtx specialize keysAreMatch encodeKey inst path key mo
             let res = if typ = typeof<char> then x.GenerateCharAssumptions res else res
             match GetHeapReadingRegionSort source with
             | ArrayLengthSort _ -> x.GenerateLengthAssumptions res
             | _ -> res
 
-        member private x.ArrayRangeKeyMatches encCtx leftExpr address fromIndices toIndices rightRegion =
-            // Encoding of range key
-            let addressAssumptions, addressExpr = x.EncodeTerm encCtx address |> toTuple
-            let fromAssumptions, fromIndices = x.EncodeTerms encCtx fromIndices
-            let toAssumptions, toIndices = x.EncodeTerms encCtx toIndices
-            // Accumulating assumptions
-            let assumptions = addressAssumptions @ fromAssumptions @ toAssumptions
-            let leftAddress = Array.head leftExpr
-            let leftIndices = Array.tail leftExpr
-            // Calculating match conditions:
-            // (1) left address equals right address
-            let addressesEq = x.MkEq(addressExpr, leftAddress)
-            // (2) right address and left indices are in right's region
-            // NOTE: checking left indices, because right key is range of indices and we can not encode it as Expr[]
-            let key = Array.append [|addressExpr|] leftIndices
-            let keyInRegion = x.ArrayOneIndexKeyInRegion encCtx addressesEq key rightRegion
-            // (3) every index of left key is in bounds of right key
-            let keyInBounds (i : Expr) (l : Expr) (r : Expr) =
-                let i = i :?> BitVecExpr
-                x.MkAnd(x.MkBVSLE(l :?> BitVecExpr, i), x.MkBVSLE(i, r :?> BitVecExpr))
-            let indicesConditions = Array.map3 keyInBounds leftIndices fromIndices toIndices
-            assumptions, x.MkAnd(x.MkAnd indicesConditions, keyInRegion)
-
         member private x.ArrayIndexReading encCtx key hasDefaultValue mo typ source path name =
             let encodeKey = function
                 | OneArrayIndexKey(address, indices) -> address :: indices |> x.EncodeTerms encCtx
                 | RangeArrayIndexKey _ as key -> internalfail $"EncodeMemoryAccessConstant: unexpected array key {key}"
-            let keyInRegion = x.ArrayOneIndexKeyInRegion encCtx
-            let arraysEquality (left, right) =
-                Seq.map2 (fun l r -> x.MkEq(l, r)) left right |> x.MkAnd
-            let keysAreMatch leftExpr (right : heapArrayKey) rightRegion =
-                match right with
-                | OneArrayIndexKey _ ->
-                    let assumptions, rightExpr = encodeKey right
-                    let eq = arraysEquality(leftExpr, rightExpr)
-                    assumptions, keyInRegion eq rightExpr rightRegion
-                | RangeArrayIndexKey(address, fromIndices, toIndices) ->
-                    x.ArrayRangeKeyMatches encCtx leftExpr address fromIndices toIndices rightRegion
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm encCtx matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
             let indices =
                 match key with
                 | OneArrayIndexKey(_, indices) -> indices
                 | _ -> internalfail $"EncodeMemoryAccessConstant: unexpected array key {key}"
-            x.ArrayReading encCtx SpecializeWithKey keyInRegion keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name
+            x.ArrayReading encCtx SpecializeWithKey keysAreMatch encodeKey hasDefaultValue indices key mo typ source path name
 
         member private x.VectorIndexReading encCtx (key : heapVectorIndexKey) hasDefaultValue mo typ source path name =
             let encodeKey (k : heapVectorIndexKey) =
                 [|k.address; k.index|] |> x.EncodeTerms encCtx
-            let keyInRegion = x.VectorIndexKeyInRegion encCtx
-            let keysAreEqual (left : Expr[], right : Expr[]) =
-                x.MkAnd(x.MkEq(left[0], right[0]), x.MkEq(left[1], right[1]))
-            let keysAreMatch leftExpr right rightRegion =
-                let assumptions, rightExpr = encodeKey right
-                let eq = keysAreEqual(leftExpr, rightExpr)
-                assumptions, keyInRegion eq rightExpr rightRegion
+            let keysAreMatch read update updateRegion =
+                let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+                let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm encCtx matchCondition
+                assumptions, matchConditionEncoded :?> BoolExpr
             let specialize v _ _ = v
-            x.ArrayReading encCtx specialize keyInRegion keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source path name
+            x.ArrayReading encCtx specialize keysAreMatch encodeKey hasDefaultValue [key.index] key mo typ source path name
 
         member private x.StackBufferReading encCtx key mo typ source path name =
             assert mo.defaultValue.IsNone
             let encodeKey (k : stackBufferIndexKey) = x.EncodeTerm encCtx k.index |> toTuple
-            let keyInRegion = x.stackBufferIndexKeyInRegion
             let inst (k : Expr) =
                 let regionSort = GetHeapReadingRegionSort source
                 let sort = ctx.MkArraySort(x.Type2Sort addressType, x.Type2Sort typ)
@@ -1069,12 +979,12 @@ module internal Z3 =
                 defaultValues.Add(Array.singleton k) |> ignore
                 let expr = ctx.MkSelect(array, k)
                 expr, x.GenerateInstAssumptions expr typ
-            let keysAreMatch leftExpr right rightRegion =
-                let assumptions, rightExpr = encodeKey right
-                let eq = x.MkEq(leftExpr, rightExpr)
-                assumptions, x.KeyInIntPoints rightExpr eq rightRegion
+            let keysAreMatch read update updateRegion =
+               let matchCondition = (read :> IMemoryKey<'a,'b>).MatchCondition update updateRegion
+               let {expr = matchConditionEncoded; assumptions = assumptions} = x.EncodeTerm encCtx matchCondition
+               assumptions, matchConditionEncoded :?> BoolExpr
             let specialize v _ _ = v
-            x.MemoryReading encCtx specialize keyInRegion keysAreMatch encodeKey inst path key mo
+            x.MemoryReading encCtx specialize keysAreMatch encodeKey inst path key mo
 
         member private x.StaticsReading encCtx (key : symbolicTypeKey) mo typ source path (name : string) =
             assert mo.defaultValue.IsNone
