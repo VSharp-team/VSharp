@@ -1084,6 +1084,8 @@ module internal Arithmetics =
             | OperationType.Equal -> VectorTime.equals x y
             | OperationType.Less -> VectorTime.less x y
             | OperationType.Greater -> VectorTime.greater x y
+            | OperationType.GreaterOrEqual -> VectorTime.greaterOrEqual x y
+            | OperationType.LessOrEqual -> VectorTime.lessOrEqual x y
             | _ -> internalfail $"concreteAddressComparison: unexpected operation {op}"
         Concrete result typeof<bool>
 
