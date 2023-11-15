@@ -35,13 +35,21 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
 
     member private x.SetIndex idx = constIndex <- idx
 
-    member private x.SetClauses clauses =
+    member private x.SetCallResults rets (outs : ResizeArray<term list>) =
         callResults.Clear()
-        callResults.AddRange clauses
-
-    member private x.SetOuts (clauses : ResizeArray<term list>) =
         outResults.Clear()
-        outResults.AddRange clauses
+        callResults.AddRange rets
+        outResults.AddRange outs
+
+    member private x.GenSymbolicVal this retType args =
+        let src : functionResultConstantSource = {
+            mock = x
+            constIndex = constIndex
+            this = this
+            args = args
+            t = retType
+        }
+        Memory.makeSymbolicValue src (toString src) retType
 
     interface IMethodMock with
         override x.BaseMethod =
@@ -52,41 +60,26 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
         override x.MockingType = mockingType
 
         override x.Call state this args =
-            let genSymbolycVal retType args =
-                let src : functionResultConstantSource = {
-                    mock = x
-                    constIndex = constIndex
-                    this = this
-                    args = args
-                    t = retType
-                }
-                Memory.makeSymbolicValue src (toString src) retType
-
-            let genOutParam (s : state * term list) (p : ParameterInfo) (arg : term) =
-                if not <| p.IsOut then s
+            let genOutParam (values : term list) (p : ParameterInfo) (arg : term) =
+                if not <| p.IsOut then values
                 else
-                    let tVal = typeOfRef arg
-                    let newVal = genSymbolycVal tVal []
+                    let newVal = x.GenSymbolicVal this (typeOfRef arg) []
                     constIndex <- constIndex + 1
-                    Memory.write Memory.emptyReporter (fst s) arg newVal, newVal :: (snd s)
+                    Memory.write Memory.emptyReporter state arg newVal |> ignore
+                    newVal :: values
 
-            let resState =
-                if not <| hasOutParams then None
-                else
-                    let resState, outParams =
-                        List.fold2 genOutParam (state, List.empty) methodParams args
-                    outResults.Add(outParams)
-                    Some resState
+            if hasOutParams then
+                let outParams = List.fold2 genOutParam List.empty methodParams args
+                outResults.Add(outParams)
 
             let resTerm =
                 if method.ReturnType = typeof<Void> then None
                 else
-                    let result = genSymbolycVal method.ReturnType args
+                    let result = x.GenSymbolicVal this method.ReturnType args
                     constIndex <- constIndex + 1
                     callResults.Add result
                     Some result
-
-            resState, resTerm
+            resTerm
 
         override x.GetImplementationClauses() = callResults.ToArray()
 
@@ -96,8 +89,7 @@ and MethodMock(method : IMethod, mockingType : MockingType) =
         override x.Copy() =
             let result = MethodMock(method, mockingType)
             result.SetIndex constIndex
-            result.SetClauses callResults
-            result.SetOuts outResults
+            result.SetCallResults callResults outResults
             result
 
 module internal MethodMocking =

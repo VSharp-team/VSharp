@@ -12,11 +12,15 @@ module Mocking =
 
     exception UnexpectedMockCallException of string
 
-    let storageFieldName (method : MethodInfo) (paramName : string) = $"{method.Name}{method.MethodHandle.Value}{paramName}_<Storage>"
-    let counterFieldName (method : MethodInfo) (paramName : string) = $"{method.Name}{method.MethodHandle.Value}{paramName}_<Counter>"
+    let storageFieldName (method : MethodInfo) = $"{method.Name}{method.MethodHandle.Value}_<Storage>"
+    let counterFieldName (method : MethodInfo) = $"{method.Name}{method.MethodHandle.Value}_<Counter>"
+
+    let outStorageFieldName (method : MethodInfo) (paramName : string) = $"{method.Name}{method.MethodHandle.Value}{paramName}_<Storage>"
+    let outCounterFieldName (method : MethodInfo) (paramName : string) = $"{method.Name}{method.MethodHandle.Value}{paramName}_<Counter>"
 
     // TODO: properties!
-    type Method(baseMethod : MethodInfo, clausesCount : int, callsCount : int) =
+    type Method(baseMethod : MethodInfo, callsCount : int) =
+        let clausesCount = if baseMethod.ReturnType = typeof<Void> then 0 else callsCount
         let returnValues : obj[] = Array.zeroCreate clausesCount
         let baseParameters = baseMethod.GetParameters()
         let baseOutParams = baseParameters |> Array.filter (fun p -> p.IsOut)
@@ -24,25 +28,24 @@ module Mocking =
         let hasOutParameter = outValuesCount > 0
         let outValues : obj[][] = Array.create outValuesCount (Array.zeroCreate callsCount)
         let name = baseMethod.Name
-        let outStorageFieldName n = storageFieldName baseMethod n
-        let outCounterFieldName n = counterFieldName baseMethod n
-        let storageFieldName = storageFieldName baseMethod ""
-        let counterFieldName = counterFieldName baseMethod ""
+        let outStorageFieldName n = outStorageFieldName baseMethod n
+        let outCounterFieldName n = outCounterFieldName baseMethod n
+        let storageFieldName = storageFieldName baseMethod
+        let counterFieldName = counterFieldName baseMethod
         let mutable returnType = baseMethod.ReturnType
 
         member x.BaseMethod = baseMethod
         member x.ReturnValues = returnValues
         member x.OutValues = outValues
 
-        member x.SetClauses (clauses : obj[]) =
+        member x.SetCallResults (rets : obj[]) (outs : obj[][]) =
             let mutable i = 0
-            for value in clauses do
+            for value in rets do
                 returnValues[i] <- value
                 i <- i + 1
 
-        member x.SetOuts (clauses : obj[][]) =
-            let mutable i = 0
-            for values in clauses do
+            i <- 0
+            for values in outs do
                 let mutable j = 0;
                 for value in values do
                     outValues[j][i] <- value
@@ -207,7 +210,10 @@ module Mocking =
             let mockedType = Type(name)
             mockedType.BaseClass <- baseClass
             mockedType.Interfaces <- interfaces
-            let deserializeMethod (m : MethodInfo) (c : obj[]) (o : obj[][]) = Method(m, c.Length, o.Length)
+
+            let deserializeMethod (m : MethodInfo) (c : obj[]) (o : obj[][]) =
+                let callsCount = List.max [c.Length; o.Length]
+                Method(m, callsCount)
             mockedType.MethodMocks <- Array.map3 deserializeMethod baseMethods methodImplementations outImplementations
             mockedType.MethodMocksClauses <- methodImplementations
             mockedType.OutMocksClauses <- outImplementations
@@ -221,7 +227,7 @@ module Mocking =
                 |> Seq.distinct
                 |> Seq.collect (fun i -> i.GetMethods())
             for m in interfaceMethods do
-                methodMocksCache.TryAdd(m, Method(m, 0, 0)) |> ignore
+                methodMocksCache.TryAdd(m, Method(m, 0)) |> ignore
 
         member private x.AddClassMethods (t : System.Type) =
             assert(not (t.IsInterface || t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef))
@@ -235,7 +241,7 @@ module Mocking =
                 m.IsAbstract || isDelegate && m.Name = "Invoke"
             let methodsToImplement = superClassMethods |> Array.filter needToMock
             for m in methodsToImplement do
-                methodMocksCache.TryAdd(m, Method(m, 0, 0)) |> ignore
+                methodMocksCache.TryAdd(m, Method(m, 0)) |> ignore
 
         member x.AddSuperType(t : System.Type) =
             if t.IsValueType || t.IsArray || t.IsPointer || t.IsByRef then
@@ -260,9 +266,9 @@ module Mocking =
 
         member x.AddMethod(m : MethodInfo, returnValues : obj[], outResults : obj[][]) =
             if calledMethods.Contains m |> not then
-                let methodMock = Method(m, returnValues.Length, outResults.Length)
-                methodMock.SetClauses returnValues
-                methodMock.SetOuts outResults
+                let callsCount = List.max [returnValues.Length; outResults.Length]
+                let methodMock = Method(m, callsCount)
+                methodMock.SetCallResults returnValues outResults
                 calledMethods.Add m
                 let methodType = m.ReflectedType
                 if methodType.IsInterface && not (interfaces.Contains methodType) then
@@ -330,11 +336,9 @@ module Mocking =
                 let decodedClauses = Array.map decode clauses
                 let decodedOuts = Array.map (Array.map decode) outs
                 let m = kvp.Value
-                m.SetClauses decodedClauses
-                m.SetOuts decodedOuts
+                m.SetCallResults decodedClauses decodedOuts
                 m.InitializeType t
             Seq.zip3 methodMocksCache x.MethodMocksClauses x.OutMocksClauses |> Seq.iter updateOne
-            // Seq.iter3 updateOne methodMocksCache x.MethodMocksClauses x.OutMocksClauses
 
     type Mocker() =
         let builtMocksCache = Dictionary<Type, System.Type>()

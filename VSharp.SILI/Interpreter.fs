@@ -806,15 +806,11 @@ type ILInterpreter() as this =
         elif x.IsArrayGetOrSet method then
             x.InvokeArrayGetOrSet cilState method thisOption typeAndMethodArgs |> List.map fallThroughCall |> k
         elif ExternMocker.ExtMocksSupported && x.ShouldMock method then
-            let newState, mockMethod = ExternMockAndCall cilState.state method None typeAndMethodArgs
+            let mockMethod = ExternMockAndCall cilState.state method None args
             match mockMethod with
             | Some symVal ->
                 push symVal cilState
             | None -> ()
-            let cilState =
-                match newState with
-                | Some s -> changeState cilState s
-                | None -> cilState
             fallThroughCall cilState |> List.singleton |> k
         elif method.IsExternalMethod then
             let stackTrace = Memory.StackTraceString cilState.state.stack
@@ -849,7 +845,7 @@ type ILInterpreter() as this =
                     ancestorMethod
                 else
                     ancestorMethod.ResolveOverrideInType targetType
-            let _, returnValue = MethodMockAndCall cilState.state mockMethod (Some this) arguments
+            let returnValue = MethodMockAndCall cilState.state mockMethod (Some this) arguments
             match returnValue with
             | Some symVal ->
                 push symVal cilState

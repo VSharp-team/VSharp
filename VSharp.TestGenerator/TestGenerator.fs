@@ -276,7 +276,9 @@ module TestGenerator =
                     let mockedBaseInterface() =
                         methodType.IsInterface && Array.contains methodType (TypeUtils.getAllInterfaces t)
                     if methodType = t || mockedBaseInterface() then
-                        freshMock.AddMethod(method, Array.map eval values, Array.map (Array.map eval) outParams)
+                        let retImplementations = Array.map eval values
+                        let outImplementations = Array.map (Array.map eval) outParams
+                        freshMock.AddMethod(method, retImplementations, outImplementations)
             freshMock
 
     let encodeExternMock (model : model) state indices mockCache implementations test (methodMock : IMethodMock) =
@@ -295,7 +297,8 @@ module TestGenerator =
                 match mock.MockingType with
                 | Default ->
                     let values = mock.GetImplementationClauses()
-                    implementations.Add(mock.BaseMethod, (values, mock.GetOutClauses()))
+                    let outValues = mock.GetOutClauses()
+                    implementations.Add(mock.BaseMethod, (values, outValues))
                 | Extern ->
                     encodeExternMock model state indices mockCache implementations test mock
 
