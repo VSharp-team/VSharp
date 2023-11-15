@@ -217,6 +217,7 @@ module Loader =
             "System.String System.Environment.get_SystemDirectory()"
             "System.Void System.Diagnostics.StackTrace..ctor(this)"
             "System.String System.BadImageFormatException.get_Message(this)"
+            "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
 
             // Exceptions
             "System.String System.Exception.get_Source(this)"
@@ -227,6 +228,7 @@ module Loader =
             "System.Reflection.AssemblyName System.Reflection.RuntimeAssembly.GetName(this, System.Boolean)"
             "System.Byte[] System.Reflection.AssemblyName.GetPublicKeyToken(this)"
             "System.Reflection.Assembly System.Reflection.Assembly.Load(System.Reflection.AssemblyName)"
+            "System.Reflection.Assembly System.Reflection.Assembly.GetEntryAssembly()"
 
             // Activator
             "T System.Activator.CreateInstance()"
@@ -243,6 +245,7 @@ module Loader =
             "System.Globalization.CultureInfo System.Globalization.CultureInfo.GetCultureInfo(System.String)"
             "System.Globalization.CultureData System.Globalization.CultureData.GetCultureData(System.String, System.Boolean)"
             "System.String System.Globalization.CultureInfo.GetUserDefaultLocaleName()"
+            "System.String System.Globalization.CultureData.GetLocaleInfoEx(System.String, System.UInt32)"
 
             // ResourceManager
             "System.Void System.Resources.ResourceManager..ctor(this, System.String, System.Reflection.Assembly)"
@@ -254,6 +257,7 @@ module Loader =
             // Random
             "System.Void System.Random..ctor(this)"
             "System.UInt64 System.Marvin.GenerateSeed()"
+            "System.UInt32 System.HashCode.GenerateGlobalSeed()"
 
             // Time
             // TODO: this should be extern mocks
@@ -263,6 +267,7 @@ module Loader =
 
             // FileSystem
             "System.String System.IO.FileSystemInfo.get_LinkTarget(this)"
+            "System.String System.Environment.get_CurrentDirectory()"
 
             // VSharp
             "System.Int32 IntegrationTests.ExceptionsControlFlow.ConcreteThrow()"
@@ -284,13 +289,6 @@ module Loader =
             // ASP.NET Core
             // Configuration builder
             "System.Void Microsoft.Extensions.Configuration.ConfigurationManager+ConfigurationSources.Add(this, Microsoft.Extensions.Configuration.IConfigurationSource)"
-
-            // Directory management
-            "System.String System.Environment.get_CurrentDirectory()"
-
-            // OS management
-            "System.Boolean System.OperatingSystem.IsOSPlatform(System.String)"
-            "System.String System.Globalization.CultureData.GetLocaleInfoEx(System.String, System.UInt32)"
         ]
 
     let internal isInvokeInternalCall (fullMethodName : string) =

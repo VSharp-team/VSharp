@@ -149,6 +149,7 @@ type MethodWithBody internal (m : MethodBase) =
     member x.IsVirtual = isVirtual
     member x.IsFinal = isFinal
     member x.IsStaticConstructor with get() = isStaticConstructor.Force()
+    member x.IsConstructor with get() = isConstructor
 
     member x.ContainsGenericParameters =
         declaringType.ContainsGenericParameters || m.ContainsGenericParameters

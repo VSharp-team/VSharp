@@ -745,7 +745,15 @@ type ILInterpreter() as this =
             let termArgs = List.skip (List.length args - method.Parameters.Length) args
             let objArgs = List.choose (TryTermToObj state) termArgs
             let hasThis = Option.isSome thisOption
-            let thisObj = Option.bind (TryTermToObj state) thisOption
+            let declaringType = method.DeclaringType
+            let thisIsStruct = declaringType.IsValueType
+            let thisObj =
+                match thisOption with
+                | Some thisRef when thisIsStruct ->
+                    let structTerm = Memory.Read state thisRef
+                    TryTermToObj state structTerm
+                | Some thisRef -> TryTermToObj state thisRef
+                | None -> None
             match thisObj with
             | _ when List.length objArgs <> List.length termArgs -> false
             | None when hasThis -> false
@@ -755,16 +763,23 @@ type ILInterpreter() as this =
                     let resultType = TypeUtils.getTypeOfConcrete result
                     let returnType = method.ReturnType
                     match resultType with
-                    | _ when resultType <> null && resultType.IsValueType && returnType.IsInterface ->
-                        // When return type is interface, but real type is struct,
+                    | _ when resultType <> null && resultType.IsValueType && (returnType = typeof<obj> || returnType.IsInterface) ->
+                        // When return type is interface or 'object', but real type is struct,
                         // it should be boxed, so allocating it in heap
-                        let resultTerm = Memory.AllocateConcreteObject cilState.state result resultType
+                        let resultTerm = Memory.AllocateConcreteObject state result resultType
                         push resultTerm cilState
                     | _ when returnType <> typeof<Void> ->
                         // Case when method returns something
                         let typ = TypeUtils.mostConcreteType resultType method.ReturnType
-                        let resultTerm = Memory.ObjectToTerm cilState.state result typ
+                        let resultTerm = Memory.ObjectToTerm state result typ
                         push resultTerm cilState
+                    | _ when thisIsStruct && method.IsConstructor ->
+                        match thisOption, thisObj with
+                        | Some thisRef, Some thisObj ->
+                            let structTerm = Memory.ObjectToTerm state thisObj declaringType
+                            let states = Memory.Write state thisRef structTerm
+                            assert(List.length states = 1 && List.head states = state)
+                        | _ -> __unreachable__()
                     | _ -> ()
                 with :? TargetInvocationException as e ->
                     let isRuntime = method.IsRuntimeException
