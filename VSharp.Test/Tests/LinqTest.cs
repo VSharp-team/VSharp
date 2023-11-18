@@ -63,6 +63,16 @@ namespace IntegrationTests
             return result;
         }
 
+        [TestSvm]
+        public static int ConcreteLinqTest1()
+        {
+            object[] scores = { 97, 92, 81, 60 };
+
+            var intList = scores.Cast<int>().ToList();
+
+            return intList.Max();
+        }
+
         [TestSvm(89)]
         public static int SimpleSymbolicLinqTest(int x, int y, int z)
         {
