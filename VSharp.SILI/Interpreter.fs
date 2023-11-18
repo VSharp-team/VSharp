@@ -1301,11 +1301,17 @@ type ILInterpreter() as this =
             k [cilState]
         x.NpeOrInvokeStatementCIL cilState this ldvirtftn id
 
+    member private x.CanReadSafe refType locationType =
+        refType = locationType
+        || refType = typeof<char> && locationType = typeof<uint16>
+        || refType = typeof<uint16> && locationType = typeof<char>
+
     member private x.Ldind t (cilState : cilState) =
         let address = pop cilState
         let load cilState k =
             let castedAddress =
-                if TypeOfLocation address = t then address
+                let locationType = TypeOfLocation address
+                if x.CanReadSafe t locationType then address
                 else Types.Cast address (t.MakePointerType())
             let value = read cilState castedAddress
             push value cilState
